@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Project SYSTEM "Project-5.1.dtd">
+<!-- eric project file for project supervisors -->
+<!-- Saved: 2016-06-02, 18:59:55 -->
+<!-- Copyright (C) 2016 Julien Le Cléach, julien.6387@gmail.com -->
+<Project version="5.1">
+  <Language></Language>
+  <Hash>38e6507837a21dff61376827d4335863a7742033</Hash>
+  <ProgLanguage mixed="0">Python2</ProgLanguage>
+  <ProjectType>Console</ProjectType>
+  <Description>Supervisor control on multiple boards</Description>
+  <Version>0.1</Version>
+  <Author>Julien Le Cléach</Author>
+  <Email>julien.6387@gmail.com</Email>
+  <Eol index="1"/>
+  <Sources>
+    <Source>supervisors/__init__.py</Source>
+    <Source>supervisors/addressmapper.py</Source>
+    <Source>supervisors/application.py</Source>
+    <Source>supervisors/authorizer.py</Source>
+    <Source>supervisors/context.py</Source>
+    <Source>supervisors/datahandlers.py</Source>
+    <Source>supervisors/deployer.py</Source>
+    <Source>supervisors/infosource.py</Source>
+    <Source>supervisors/listener.py</Source>
+    <Source>supervisors/mainloop.py</Source>
+    <Source>supervisors/options.py</Source>
+    <Source>supervisors/parser.py</Source>
+    <Source>supervisors/process.py</Source>
+    <Source>supervisors/remote.py</Source>
+    <Source>supervisors/rpcinterface.py</Source>
+    <Source>supervisors/rpcrequests.py</Source>
+    <Source>supervisors/strategy.py</Source>
+    <Source>supervisors/supervisorsctl.py</Source>
+    <Source>supervisors/types.py</Source>
+    <Source>supervisors/utils.py</Source>
+    <Source>supervisors/web.py</Source>
+    <Source>supervisors/xmlrpcclient.py</Source>
+  </Sources>
+  <Forms/>
+  <Translations/>
+  <Resources/>
+  <Interfaces/>
+  <Others>
+    <Other>supervisors/samples</Other>
+    <Other>supervisors/test</Other>
+    <Other>supervisors/ui</Other>
+  </Others>
+  <Vcs>
+    <VcsType>Git</VcsType>
+    <VcsOptions>
+      <dict>
+        <key>
+          <string>add</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>checkout</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>commit</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>diff</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>export</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>global</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>history</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>log</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>remove</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>status</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>tag</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>update</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+      </dict>
+    </VcsOptions>
+    <VcsOtherData>
+      <dict/>
+    </VcsOtherData>
+  </Vcs>
+  <FiletypeAssociations>
+    <FiletypeAssociation pattern="*.idl" type="INTERFACES"/>
+    <FiletypeAssociation pattern="*.ptl" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.py" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.py2" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.pyw" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.pyw2" type="SOURCES"/>
+  </FiletypeAssociations>
+</Project>

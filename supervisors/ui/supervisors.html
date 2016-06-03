@@ -1,0 +1,93 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="http://www.plope.com/software/meld3">
+<head>
+  <title>SUPV</title>
+  <link href="stylesheets/supervisors.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/button.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/menu_horizontal.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/menu_vertical.css" rel="stylesheet" type="text/css" />
+  <!-- TODO: trouver une icone-->
+  <link href="images/icon.png" rel="icon" type="image/png" />
+</head>
+
+<body>
+<div id="wrapper">
+
+  <div meld:id="content">
+    <form meld:id="form" action="index.html" method="post">
+      <div id="header">
+        <img src="images/supervisor.gif" alt="SUPV" />
+        <ul id="buttons" class="clr">
+          <!-- TODO: remplacer bouton refresh par une option de meta-refresh -->
+          <li id="refresh"><a href="index.html?action=refresh">&amp;nbsp;</a></li>
+          <li id="restart_all"><a href="index.html?action=restartall">&amp;nbsp;</a></li>
+          <li id="stop_all"><a href="index.html?action=stopall">&amp;nbsp;</a></li>
+        </ul>
+      </div>
+
+      <div id="nav">
+        <ul id="menu-vertical">
+          <li><a href="#">Hosts</a>
+            <ul>
+              <li><a href="index.html?action=host&amp;name=cliche01">cliche01</a></li>
+              <li><a href="index.html?action=host&amp;name=cliche02">cliche02</a></li>
+              <li><a href="index.html?action=host&amp;name=cliche03">cliche03</a></li>
+            </ul>
+          </li>
+          <li><a href="#">Applications</a>
+            <ul>
+              <li><a href="index.html?action=application&amp;name=sample_test_1">sample_test_1</a></li>
+              <li><a href="index.html?action=application&amp;name=sample_test_2">sample_test_2</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div id="section">
+      <table cellspacing="0" meld:id="statustable">
+        <thead>
+        <tr>
+          <th class="state">State</th>
+          <th class="desc">Description</th>
+          <th class="name">Name</th>
+          <th class="action">Action</th>
+        </tr>
+        </thead>
+
+        <tbody meld:id="tbody">
+          <tr meld:id="tr" class="">
+            <td meld:id="status_td" class="status"><span meld:id="status_text" class="statusnominal">nominal</span></td>
+            <td meld:id="info_td"><span meld:id="info_text">Info</span></td>
+            <td meld:id="name_td"><a href="#" meld:id="name_anchor" target="_blank">Name</a></td>
+            <td meld:id="action_td" class="action">
+              <ul>
+                <li meld:id="actionitem_td">
+                  <a href="#" name="#" meld:id="actionitem_anchor">Action</a>
+                </li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+
+      </table>
+      </div><!-- section -->
+
+    </form>
+  </div>
+
+  <div class="push"/>
+</div><!-- wrapper -->
+
+<div id="footer" class="clr">
+  <div class="left">
+    <!-- lien GitHub-->
+    <a href="http://supervisord.org">SUPV</a> <span meld:id="supv_version">#</span>
+  </div>
+  <div class="right">
+    &amp;copy; 2016-<span meld:id="copyright_date">#</span> <strong>Julien Le Cleach</strong>
+  </div>
+</div>
+</body>
+</html>

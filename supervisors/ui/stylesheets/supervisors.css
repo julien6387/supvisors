@@ -1,0 +1,49 @@
+.container {
+  position: relative;
+}
+@media screen and (min-width:600px) {
+  nav {
+    float: left;
+    width: 25%;
+  }
+  section {
+    margin-left: 25%;
+  }
+}
+@media screen and (max-width:599px) {
+  nav li {
+    display: inline;
+  }
+}
+
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 70px;
+  background-color: white;
+  width: 100%;
+}
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 70px;
+  background-color: white;
+  width: 100%;
+}
+body {
+  margin-top: 120px;
+  margin-bottom: 120px;
+}
+
+/* clear float */
+.clr:after {
+  content: "."; 
+  display: block; 
+  height: 0; 
+  clear: both; 
+  visibility: hidden;
+}
+.clr {display: inline-block;}
+

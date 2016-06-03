@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+	<!-- Definition of a common model - same contents as program -->
+	<!-- can be referenced by several programs instead of redefining everything each time -->
+	<model name="model_1">
+		<!-- defines the addresses where the process can be started -->
+		<!-- depending on the strategy used, the sequence may be taken into account -->
+		<!-- * means that all addresses in IP_LIST can be used-->
+		<addresses>*</addresses>
+		<!--  defines the starting phase when supervision is ready, MUST be >= 0 -->
+		<sequence>0</sequence>
+		<!-- if (required == true) -->
+		<!--    1) the automatic start will fail if process does not start -->
+		<!--    2) process will be re-deployed on another card (if possible, see alternative_ip_list) if default card is down -->
+                <!-- if (required == false) or not set -->
+		<!--    1) the automatic start won't be blocked if process does not start -->
+		<!--    2) process won't be re-deployed if current card is down -->
+                <required>true</required>
+                <!-- if set to true, will wait for program to be EXITED before starting the next phase -->
+                <wait_exit>false</wait_exit>
+                <!-- resource expected (on all boards) -->
+                <expected_loading>0</expected_loading>
+	</model>
+
+	<!-- supv web application -->
+	<application name="SupvWeb">
+		<autostart>true</autostart>
+
+		<program name="SupvWeb">
+			<addresses>cliche01</addresses>
+			<sequence>0</sequence>
+                        <required>false</required>
+                	<expected_loading>3</expected_loading>
+                </program>
+
+		<program name="firefox">
+			<addresses>cliche01</addresses>
+			<sequence>1</sequence>
+                </program>
+	</application>
+
+	<!-- supv_test application -->
+	<application name="SupvTest">
+		<!-- if set to true, will start application at supervision starting -->
+		<autostart>false</autostart>
+
+		<!-- Definition of a program -->
+		<program name="SupvTest">
+			<reference>model_1</reference>
+                </program>
+	</application>
+
+	<!-- 1st sample_test application -->
+	<application name="sample_test_1">
+		<autostart>false</autostart>
+
+		<program name ="xlogo">
+			<addresses>cliche01</addresses>
+			<sequence>1</sequence>
+                	<expected_loading>35</expected_loading>
+		</program>
+	</application>
+
+	<!-- 2nd sample_test application not defined: only applicative start -->
+	<application name="sample_test_2">
+		<autostart>true</autostart>
+
+                <program name="sleep">
+			<addresses>cliche01</addresses>
+                        <sequence>1</sequence>
+                        <required>true</required>
+                        <wait_exit>true</wait_exit>
+                	<expected_loading>20</expected_loading>
+                </program>
+
+                <pattern name="yeux">
+			<addresses>cliche01</addresses>
+                        <sequence>2</sequence>
+                        <expected_loading>35</expected_loading>
+		</pattern>
+         </application>
+</root>

@@ -1,0 +1,6 @@
+# add a public key to authorized list
+cat ~/.ssh/id_rsa.pub | ssh <HOST> "cat - >> ~/.ssh/authorized_keys"
+
+# use xmlrpc
+xmlrpc http://localhost:65000/RPC2 system.listMethods
+
