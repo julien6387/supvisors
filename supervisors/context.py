@@ -148,12 +148,9 @@ class _Context(object):
             self._enterDeployment = False
             # define ordering iaw Remotes
             applicationsHandler.sequenceDeployment()
-            if self._isSelfMaster:
-                # only Supervisors master deploys applications
-                if deployer.deployAll():
-                    nextState = SupervisorsStates.OPERATION
-            else:
-                    nextState = SupervisorsStates.OPERATION
+            # only Supervisors master deploys applications
+            if not self._isSelfMaster or deployer.deployAll():
+                nextState = SupervisorsStates.OPERATION
         else:
             if deployer.checkDeployment():
                 nextState = SupervisorsStates.OPERATION
@@ -161,12 +158,14 @@ class _Context(object):
 
     def _operationState(self):
         nextState = self.state
-        # TODO: check SILENT Remotes and duplicated processes
+        # TODO: check SILENT Remotes
+        # TODO: check duplicated processes
         return nextState
 
     def _conciliationState(self):
         nextState = self.state
-        # TODO: check SILENT Remotes and conciliation
+        # TODO: check SILENT Remotes
+        # TODO: check conciliation
         return nextState
 
     def __logRemotes(self, remotes):

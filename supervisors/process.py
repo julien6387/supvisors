@@ -119,6 +119,8 @@ class ProcessStatus(object):
     def isStopped(self): return self.state in STOPPED_STATES
     def stateAsString(self): return getProcessStateDescription(self.state)
 
+    def isRunningOn(self, address): return self.isRunning() and address in self.addresses
+
 
 # Process class: behaviour and setters
 class Process(ProcessStatus):
@@ -205,7 +207,11 @@ class Process(ProcessStatus):
             if newState in STOPPED_STATES:
                 if address in self._addresses: self._addresses.remove(address)
             elif newState in RUNNING_STATES:
-                self._addresses.add(address)
+                # replace if current state stopped-like, add otherwise
+                if self.isStopped():
+                    self._addresses = { address }
+                else:
+                    self.addresses.add(address)
             # determine a synthetic state
             processes = self.getProcessInfo()
             # no running process, so consider the last event as the one applicable
@@ -220,9 +226,9 @@ class Process(ProcessStatus):
                 self._runningConflict = False
             else:
                 # several processes are like running so that becomes tricky
-                self._runningConflict = not self._multipleRunningAllowed
+                self._runningConflict = not self.multipleRunningAllowed
                 states = { x['state'] for x in processes.itervalues() }
-                opt.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [getProcessStateDescription(x) for x in states], list(self.addresses)))
+                opt.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
                 # state synthesis done using the sorting of RUNNING_STATES
                 self.setState(self.__getRunningState(states))
 

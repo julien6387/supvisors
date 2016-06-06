@@ -60,7 +60,7 @@ class _ApplicationsHandler(object):
             # remote address has never been loaded
             return 0
         else:
-            loading = sum(process.rules.expected_loading for process in remoteProcesses if process.isRunning())
+            loading = sum(process.rules.expected_loading for process in remoteProcesses if process.isRunningOn(address))
             opt.logger.debug('address={} loading={}'.format(address, loading))
             return loading
 
@@ -88,8 +88,8 @@ class _ApplicationsHandler(object):
                 # not found. add new instance
                 process = Process(address, processInfo)
                 parser.setProcessRules(process)
-                process.multipleRunning = (process.applicationName == self.ListenerName) and (process.processName == self.ListenerName)
-                self.applications[processInfo['group']].addProcess(process)
+                process.setMultipleRunningAllowed((process.applicationName == self.ListenerName) and (process.processName == self.ListenerName))
+                self.applications[process.applicationName].addProcess(process)
             else:
                 process.addInfo(address, processInfo)
             # fill the dictionary address / processes

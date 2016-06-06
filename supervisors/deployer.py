@@ -31,7 +31,7 @@ import time
 
 class _Deployer(object):
     def __init__(self):
-        self._strategy = DeploymentStrategies.DEFAULT
+        self._strategy = DeploymentStrategies.CONFIG_ORDER
         self._inProgress = {} # { applicationName: [ process ] }
         self._jobs = {} # { applicationName: { sequence: [ processName ] } }
 
@@ -174,7 +174,7 @@ class _Deployer(object):
             # clean application job if its sequence is empty
             if len(sequence) == 0:
                 opt.logger.info('all jobs planned for application {}'.format(applicationName))
-                del self._jobs[applicationName]
+                if applicationName in self._jobs.keys(): del self._jobs[applicationName]
         else: opt.logger.warn('application {} not found in jobs'.format(applicationName))
 
     def _processJob(self, process, inProgress):

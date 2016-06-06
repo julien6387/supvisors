@@ -29,7 +29,7 @@ class EventSubscriber(object):
         self._socket = zmqContext.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
         for address in addressMapper.expectedAddresses:
-            url = 'tcp://{0}:{1}'.format(address, listenerOptions.eventport)
+            url = 'tcp://{}:{}'.format(address, listenerOptions.eventport)
             opt.logger.info('connecting EventSubscriber to %s' % url)
             self._socket.connect(url)
             opt.logger.debug('EventSubscriber connected')

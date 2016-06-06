@@ -54,7 +54,7 @@ class _Strategy(object):
         return sortedAddresses
 
 
-class _DefaultStrategy(_Strategy):
+class _ConfigOrderStrategy(_Strategy):
     def getRemote(self, addresses, expectedLoading):
         opt.logger.info('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
         # returns the first remote in list that is capable of handling the loading
@@ -83,8 +83,8 @@ class _MostLoadedStrategy(_Strategy):
 
 class _StrategyHandler(object):
     def getStrategyInstance(self, strategy):
-        if strategy == DeploymentStrategies.DEFAULT:
-            return _DefaultStrategy()
+        if strategy == DeploymentStrategies.CONFIG_ORDER:
+            return _ConfigOrderStrategy()
         if strategy == DeploymentStrategies.LESS_LOADED:
             return _LessLoadedStrategy()
         if strategy == DeploymentStrategies.MOST_LOADED:
