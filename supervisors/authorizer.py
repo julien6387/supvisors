@@ -34,10 +34,17 @@ class _AuthRequester(object):
     def connect(self, zmqContext):
         for address in addressMapper.expectedAddresses:
             self._sockets[address] = socket = zmqContext.socket(zmq.DEALER)
-            socket.setsockopt(zmq.IDENTITY, addressMapper.expectedAddress)
-            url = 'tcp://{0}:{1}'.format(address, opt.authport)
+            socket.setsockopt(zmq.IDENTITY, addressMapper.localAddress)
+            url = 'tcp://{}:{}'.format(address, opt.authport)
             opt.logger.info('connecting Auth DEALER to %s' % url)
             socket.connect(url)
+ 
+    def closeAddresses(self, addresses):
+        for address in addresses:
+            url = 'tcp://{}:{}'.format(address, opt.authport)
+            opt.logger.info('disconnecting Auth DEALER from %s' % url)
+            self._sockets[address].close()
+            del self._sockets[address]
  
     def close(self):
         for socket in self._sockets.values():
@@ -52,13 +59,12 @@ class _AuthRequester(object):
         for (address, socket) in self._sockets.items():
             if socket in polledSocks and polledSocks[socket] == zmq.POLLIN:
                 return address
-        return None
 
     def sendRequest(self, address):
         if address in self._sockets:
             # send empty message
             self._sockets[address].send('')
-            opt.logger.warn('request sent from {} to {}'.format(addressMapper.expectedAddress, address));
+            opt.logger.warn('request sent from {} to {}'.format(addressMapper.localAddress, address));
 
     def recvResponse(self, address):
         if address in self._sockets:
