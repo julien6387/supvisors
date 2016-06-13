@@ -17,26 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisors.addressmapper import addressMapper
 from supervisors.options import mainOptions as opt
 from supervisors.process import Process
 from supervisors.remote import *
-from supervisors.rpcrequests import getAllProcessInfo
-from supervisors.authorizer import authRequester, autoFence
 
 import time
 
 # Applications management
-class _ApplicationsHandler(object):
+class ApplicationsHandler(object):
     # constants
     ListenerName = 'Listener'
-
-    def cleanup(self):
-        # (re-)initialize maps
-        self._applications = {}
-        self._processes = {}
-
-    @property
-    def applications(self): return self._applications
 
     # access methods
     def getProcessFromInfo(self, processInfo):
@@ -53,9 +44,12 @@ class _ApplicationsHandler(object):
     def getProcess(self, applicationName, processName):
         return self.applications[applicationName].processes[processName]
 
+    def getLostProcesses(self):
+        return [ process for process in self._getAllProcesses() if process.isRunningLost() ]
+
     def getRemoteLoading(self, address):
         try:
-            remoteProcesses = self._processes[address]
+            remoteProcesses = self.processes[address]
         except KeyError:
             # remote address has never been loaded
             return 0
@@ -65,11 +59,14 @@ class _ApplicationsHandler(object):
             return loading
 
     # methods
+    def isAddressLoaded(self, address):
+        return address in self.processes
+
     def loadProcesses(self, address, allProcessesInfo):
         from supervisors.application import ApplicationInfo
         from supervisors.parser import parser
         # keep a dictionary address / processes
-        self._processes[address] = [ ]
+        self.processes[address] = [ ]
         # get all processes and sort them by group (application)
         # first store applications
         applicationList = { x['group'] for x  in allProcessesInfo }
@@ -88,12 +85,13 @@ class _ApplicationsHandler(object):
                 # not found. add new instance
                 process = Process(address, processInfo)
                 parser.setProcessRules(process)
-                process.setMultipleRunningAllowed((process.applicationName == self.ListenerName) and (process.processName == self.ListenerName))
+                # Supervisors' Listener is allowed to have multiple instances
+                process.multipleRunningAllowed = (process.applicationName == process.processName == self.ListenerName)
                 self.applications[process.applicationName].addProcess(process)
             else:
                 process.addInfo(address, processInfo)
             # fill the dictionary address / processes
-            self._processes[address].append(process)
+            self.processes[address].append(process)
 
     def sequenceDeployment(self):
         for application in self.applications.values():
@@ -102,84 +100,24 @@ class _ApplicationsHandler(object):
     def updateProcess(self, address, processEvent):
         process = self.getProcessFromEvent(processEvent)
         process.updateInfo(address, processEvent)
-        self.updateApplicationStatus(process.applicationName)
+        # refresh application status
+        self.applications[process.applicationName].updateStatus()
         return process
-
-    def updateApplicationStatus(self, applicationName):
-        self.applications[applicationName].updateStatus()
 
     def updateRemoteTime(self, address, remoteTime, localTime):
         for application in self.applications.values():
             application.updateRemoteTime(address, remoteTime, localTime)
 
-applicationsHandler = _ApplicationsHandler()
+    def invalidateAddresses(self, addresses):
+        # remove address from all process.addresses
+        for process in self._getAllProcesses():
+            process.invalidateAddresses(addresses)
 
+    def hasDuplicates(self):
+        for process in self._getAllProcesses():
+            if process.runningConflict:
+                return True
 
-# Remotes management
-class _RemotesHandler(object):
-    def cleanup(self):
-        # (re-)initialize map
-        from supervisors.addressmapper import addressMapper
-        self._remotes = { address: RemoteInfo(address) for address in addressMapper.expectedAddresses }
+    def _getAllProcesses(self):
+        return [ process for application in self.applications.values() for process in application.processes.values() ]
 
-    @property
-    def remotes(self): return self._remotes
-
-    def getRemoteInfo(self, address):
-        return self.remotes[address]
-
-    def updateRemoteTime(self, address, remoteTime, localTime):
-        status = self.getRemoteInfo(address)
-        if status.state != RemoteStates.ISOLATED:
-            status.updateRemoteTime(remoteTime, localTime)
-            # got event from remote supervisord, should be operating
-            if not status.checked and status.state != RemoteStates.CHECKING and autoFence():
-                # auto fencing activated: get authorization from remote by port-knocking
-                status.setState(RemoteStates.CHECKING)
-                authRequester.sendRequest(address)
-            elif status.state != RemoteStates.RUNNING:
-                # no auto fencing, operational
-                status.setState(RemoteStates.RUNNING)
-                # get list of processes handled by Supervisor on that address
-                applicationsHandler.loadProcesses(address, getAllProcessInfo(address))
-
-    def authorize(self, address, permit):
-        status = self.getRemoteInfo(address)
-        if status.state == RemoteStates.CHECKING:
-            status.setChecked(True)
-            if permit:
-                status.setState(RemoteStates.RUNNING)
-                # get list of processes handled by Supervisor on that address
-                applicationsHandler.loadProcesses(address, getAllProcessInfo(address))
-            else:
-                status.setState(RemoteStates.ISOLATED)
-        else:
-            opt.logger.error('unexpected authorization from {}'.format(address))
-
-    def checkRemotes(self):
-        # consider problem if no tick received in last 10s
-        for status in self.remotes.values():
-            if status.state in [ RemoteStates.CHECKING, RemoteStates.RUNNING ] and (time.time() - status.localTime) > 10:
-                self.invalidRemote(status)
-
-    def sortRemotesByState(self):
-        sortedRemotes = { x: [ ] for x in remoteStatesValues() }
-        for status in self.remotes.values():
-            sortedRemotes[status.state].append(status.address)
-        opt.logger.debug(sortedRemotes)
-        return sortedRemotes
-
-    def endSynchro(self):
-        # consider problem if no tick received at the end of synchro time
-        for status in self.remotes.values():
-            if status.state == RemoteStates.UNKNOWN:
-                self.invalidRemote(status)
-
-    def invalidRemote(self, status):
-        # declare SILENT or isolate according to option
-        if autoFence():
-            status.setState(RemoteStates.ISOLATED)
-            # TODO: disconnect address from remote supervisor and authorizer
-        else: status.setState(RemoteStates.SILENT)
-
-remotesHandler = _RemotesHandler()
