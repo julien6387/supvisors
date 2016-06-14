@@ -20,8 +20,8 @@
 class XmlRpcClient(object):
     def __init__(self, address):
         import xmlrpclib
-        self._transport = self._getRpcTransport(address)
-        self._proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self._transport) if self._transport else None
+        self.transport = self._getRpcTransport(address)
+        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport) if self.transport else None
 
     def _getRpcTransport(self, address):
         from supervisors.infosource import infoSource
@@ -33,10 +33,6 @@ class XmlRpcClient(object):
                 from supervisor.xmlrpc import SupervisorTransport
                 return SupervisorTransport(infoSource.source.getUserName(), infoSource.source.getPassword(), serverUrl)
         return None
-
-    @property
-    def proxy(self):
-        return self._proxy
 
 
 # unit test expecting that a Supervisor Server is running at address below
@@ -67,7 +63,6 @@ if __name__ == "__main__":
     print system.methodHelp('supervisor.getProcessInfo')
     print supervisor.getProcessInfo('crash:segv')
     print supervisor.getProcessInfo('Listener')
-    print supervisor.getProcessInfo('SupvWeb')
     print supervisor.getProcessInfo('sample_test_2:sleep')
     print system.methodHelp('supervisor.startProcess')
     # print supervisor.startProcess('SupervisorsWeb')
@@ -90,31 +85,31 @@ if __name__ == "__main__":
     print system.methodHelp('supervisors.getProcessInfo')
     print supervisors.getProcessInfo('crash:segv')
     print supervisors.getProcessInfo('Listener')
-    print supervisors.getProcessInfo('SupvWeb:*')
+    print supervisors.getProcessInfo('sample_test_1:*')
     print system.methodHelp('supervisors.getProcessRules')
     print supervisors.getProcessRules('sample_test_2:*')
     print system.methodHelp('supervisors.getConflicts')
     print supervisors.getConflicts()
     print system.methodHelp('supervisors.restartApplication')
     from supervisors.types import DeploymentStrategies
-    print supervisors.restartApplication(DeploymentStrategies.DEFAULT, 'sample_test_2')
+    print supervisors.restartApplication(DeploymentStrategies.CONFIG, 'sample_test_2')
     print system.methodHelp('supervisors.stopApplication')
     print supervisors.stopApplication('sample_test_2')
     print system.methodHelp('supervisors.startApplication')
-    print supervisors.startApplication(DeploymentStrategies.DEFAULT, 'sample_test_2')
+    print supervisors.startApplication(DeploymentStrategies.CONFIG, 'sample_test_2')
     print system.methodHelp('supervisors.restartProcess')
-    print supervisors.restartProcess(DeploymentStrategies.DEFAULT, 'sample_test_2:yeux_01')
+    print supervisors.restartProcess(DeploymentStrategies.LESS_LOADED, 'sample_test_2:yeux_01')
     print system.methodHelp('supervisors.stopProcess')
     print supervisors.stopProcess('sample_test_2:yeux_01')
     print system.methodHelp('supervisors.startProcess')
-    print supervisors.startProcess(DeploymentStrategies.DEFAULT, 'sample_test_2:yeux_01')
+    print supervisors.startProcess(DeploymentStrategies.LESS_LOADED, 'sample_test_2:yeux_01')
     # different use of start/stop/restart
     print 'supervisors.restartProcess - alt'
-    print supervisors.restartProcess(DeploymentStrategies.DEFAULT, 'sample_test_2:*')
+    print supervisors.restartProcess(DeploymentStrategies.MOST_LOADED, 'sample_test_2:*')
     print 'supervisors.stoprocess - alt'
     print supervisors.stopProcess('sample_test_2:*')
     print 'supervisors.startProcess - alt'
-    print supervisors.startProcess(DeploymentStrategies.DEFAULT, 'sample_test_2:*')
+    print supervisors.startProcess(DeploymentStrategies.MOST_LOADED, 'sample_test_2:*')
     print system.methodHelp('supervisors.restart')
     #print supervisors.restart()
     print system.methodHelp('supervisors.shutdown')

@@ -17,7 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.datahandlers import *
+from supervisors.addressmapper import *
+from supervisors.context import *
 from supervisors.remote import *
 from supervisors.options import mainOptions as opt
 from supervisors.types import DeploymentStrategies
@@ -28,20 +29,20 @@ class _Strategy(object):
 
     def __isLoadingValid(self, address, expectedLoading):
         if self.__isRemoteValid(address):
-            loading = applicationsHandler.getRemoteLoading(address)
+            loading = context.getRemoteLoading(address)
             opt.logger.debug('address={} loading={} expectedLoading={}'.format(address, loading, expectedLoading))
             return (loading + expectedLoading < 100, loading)
         opt.logger.debug('address {} invalid for handling new process'.format(address))
         return (False, 0)
 
     def __isRemoteValid(self, address):
-        remoteInfo = remotesHandler.getRemoteInfo(address)
-        opt.logger.trace('address {} state={}'.format(address, remoteStateToString(remoteInfo.state)))
-        return remoteInfo.state == RemoteStates.RUNNING if remoteInfo else False
+        if address in context.remotes.keys():
+            remoteInfo = context.remotes[address] 
+            opt.logger.trace('address {} state={}'.format(address, remoteStateToString(remoteInfo.state)))
+            return remoteInfo.state == RemoteStates.RUNNING
 
     def _getRemoteLoadingAndValidity(self, addresses, expectedLoading):
         # returns adresses with validity and loading
-        from supervisors.addressmapper import addressMapper
         if '*' in addresses: addresses = addressMapper.expectedAddresses
         loadingValidities = { address: self.__isLoadingValid(address, expectedLoading) for address in addresses }
         opt.logger.trace('loadingValidities={}'.format(loadingValidities))
@@ -54,9 +55,9 @@ class _Strategy(object):
         return sortedAddresses
 
 
-class _ConfigOrderStrategy(_Strategy):
+class _ConfigStrategy(_Strategy):
     def getRemote(self, addresses, expectedLoading):
-        opt.logger.info('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
+        opt.logger.debug('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
         # returns the first remote in list that is capable of handling the loading
         loadingValidities = self._getRemoteLoadingAndValidity(addresses, expectedLoading)
         for (address, validity) in loadingValidities.items():
@@ -83,8 +84,8 @@ class _MostLoadedStrategy(_Strategy):
 
 class _StrategyHandler(object):
     def getStrategyInstance(self, strategy):
-        if strategy == DeploymentStrategies.CONFIG_ORDER:
-            return _ConfigOrderStrategy()
+        if strategy == DeploymentStrategies.CONFIG:
+            return _ConfigStrategy()
         if strategy == DeploymentStrategies.LESS_LOADED:
             return _LessLoadedStrategy()
         if strategy == DeploymentStrategies.MOST_LOADED:

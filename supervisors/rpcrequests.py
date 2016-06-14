@@ -20,7 +20,7 @@
 # utilities to determine if using XmlRpcClient or internal handler directly
 def _useProxy(address):
     from supervisors.addressmapper import addressMapper
-    return address != addressMapper.expectedAddress
+    return address != addressMapper.localAddress
 
 def _getXmlRpcClient(address):
     from supervisors.xmlrpcclient import XmlRpcClient
@@ -38,11 +38,11 @@ def _getSupervisorsProxy(address):
 
 def _getInternalSupervisor():
     from supervisors.infosource import infoSource
-    return None, infoSource.source.supervisorRpcInterface
+    return None, infoSource.source.getSupervisorRpcInterface()
 
 def _getInternalSupervisors():
     from supervisors.infosource import infoSource
-    return None, infoSource.source.supervisorsRpcInterface
+    return None, infoSource.source.getSupervisorsRpcInterface()
 
 def _getSupervisor(address):
     return _getSupervisorProxy(address) if _useProxy(address) else _getInternalSupervisor()
@@ -59,6 +59,10 @@ def getAllProcessInfo(address):
 def internalStartProcess(address, program, wait):
     client, supervisors = _getSupervisors(address)
     return supervisors.internalStartProcess(program, wait)
+
+def getRemoteInfo(address, remoteAddress):
+    client, supervisors = _getSupervisors(address)
+    return supervisors.getRemoteInfo(remoteAddress)
 
 def startProcess(address, program, wait):
     client, supervisor = _getSupervisor(address)

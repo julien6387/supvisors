@@ -34,11 +34,14 @@ class _AbstractState(object):
 
 class _InitializationState(_AbstractState):
     def enter(self):
+        context.masterAddress = ''
+        context.master = False
         self.startDate = int(time.time())
         # re-init remotes that are not isolated
         for remote in context.remotes.values():
             if not remote.isInIsolation():
-                remote.setState(RemoteStates.UNKNOWN)
+                # do NOT use setState as transition may be rejected
+                remote.state = RemoteStates.UNKNOWN
                 remote.checked = False
 
     def next(self):
@@ -59,7 +62,15 @@ class _InitializationState(_AbstractState):
             opt.logger.debug('local address {} still not RUNNING'.format(addressMapper.localAddress))
         return SupervisorsStates.INITIALIZATION
 
+    def exit(self):
+        # TODO: global checking / endSynchro ?
+        pass
+
 class _ElectionState(_AbstractState):
+    def enter(self):
+        context.masterAddress = ''
+        context.master = False
+
     def next(self):
         runningRemotes = context.runningRemotes()
         opt.logger.info('working with boards {}'.format(runningRemotes))

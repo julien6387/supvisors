@@ -37,18 +37,18 @@ class _EnvironmentSource(ASource):
     Password = 'SUPERVISOR_PASSWORD'
 
     def __init__(self):
-        self._serverUrl = self._getSupervisorEnv(self.ServerUrl)
+        self.serverUrl = self._getSupervisorEnv(self.ServerUrl)
         # MUST be http, not unix
-        if not self._serverUrl.startswith('http'):
-            raise Exception('wrong SUPERVISOR_SERVER_URL (HTTP expected): {}'.format(self._serverUrl))
-        self._serverPort = self._getUrlPort() if self._serverUrl else None
-        self._userName = self._getSupervisorEnv(self.UserName)
-        self._password = self._getSupervisorEnv(self.Password)
+        if not self.serverUrl.startswith('http'):
+            raise Exception('wrong SUPERVISOR_SERVER_URL (HTTP expected): {}'.format(self.serverUrl))
+        self.serverPort = self._getUrlPort() if self.serverUrl else None
+        self.userName = self._getSupervisorEnv(self.UserName)
+        self.password = self._getSupervisorEnv(self.Password)
 
-    def getServerUrl(self): return self._serverUrl
-    def getServerPort(self): return self._serverPort
-    def getUserName(self): return self._userName
-    def getPassword(self): return self._password
+    def getServerUrl(self): return self.serverUrl
+    def getServerPort(self): return self.serverPort
+    def getUserName(self): return self.userName
+    def getPassword(self): return self.password
 
     def _getSupervisorEnv(self,  envname):
         try:
@@ -62,9 +62,9 @@ class _EnvironmentSource(ASource):
 
     def _getUrlPort(self):
         try:
-            return int(self._serverUrl.split(':')[-1]);
+            return int(self.serverUrl.split(':')[-1]);
         except ValueError:
-            opt.logger.error('wrong format for %s' % self._serverUrl)
+            opt.logger.error('wrong format for %s' % self.serverUrl)
         return 0
 
 
@@ -73,33 +73,33 @@ class _EventPublisher(object):
     def __init__(self):
         context = zmq.Context()
         context.setsockopt(zmq.LINGER, 0)
-        self._socket = context.socket(zmq.PUB)
+        self.socket = context.socket(zmq.PUB)
         url = 'tcp://*:{}'.format(opt.eventport)
         opt.logger.info('binding EventPublisher to %s' % url)
-        self._socket.bind(url)
+        self.socket.bind(url)
 
     def sendTickEvent(self, payload):
         # publish ZMQ tick
         opt.logger.debug('send TickEvent {}'.format(payload))
-        self._socket.send_string(TickHeader, zmq.SNDMORE)
-        self._socket.send_pyobj((addressMapper.localAddresses, payload))
+        self.socket.send_string(TickHeader, zmq.SNDMORE)
+        self.socket.send_pyobj((addressMapper.localAddresses, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
         opt.logger.debug('send ProcessEvent {}'.format(payload))
-        self._socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self._socket.send_pyobj((addressMapper.localAddresses, payload))
+        self.socket.send_string(ProcessHeader, zmq.SNDMORE)
+        self.socket.send_pyobj((addressMapper.localAddresses, payload))
 
 
 # class for listening Supervisor events
 class _SupervisorListener(object):
     def __init__(self):
-        self._eventPublisher = _EventPublisher()
-        self._loop = True
+        self.eventPublisher = _EventPublisher()
+        self.loop = True
 
     # main loop: killed by TERM signal
     def run(self):
-        while self._loop:
+        while self.loop:
             # wait event
             event = listener.wait()
             opt.logger.trace(event[0])
@@ -123,7 +123,7 @@ class _SupervisorListener(object):
     def _tickEvent(self, payload):
         # convert strings into real values
         payload['when'] = int(payload['when'])
-        self._eventPublisher.sendTickEvent(payload)
+        self.eventPublisher.sendTickEvent(payload)
 
     def _processEvent(self, eventname, payload):
         # additional information
@@ -134,7 +134,7 @@ class _SupervisorListener(object):
         if 'tries' in payload: payload['tries'] = int(payload['tries'])
         if 'pid' in payload: payload['pid'] = int(payload['pid'])
         if 'expected' in payload: payload['expected'] = boolean(payload['expected'])
-        self._eventPublisher.sendProcessEvent(payload)
+        self.eventPublisher.sendProcessEvent(payload)
 
     def _supervisorEvent(self):
         # Supervisor is RUNNING: start Supervisors
@@ -144,7 +144,7 @@ class _SupervisorListener(object):
             XmlRpcClient('localhost').proxy.supervisors.internalStart()
         except xmlrpclib.Fault, why:
             opt.logger.critical('failed to start Supervisors: {}'.format(why))
-            self._loop = False
+            self.loop = False
 
 
 # Listener main

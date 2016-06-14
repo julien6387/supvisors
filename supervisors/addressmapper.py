@@ -19,28 +19,21 @@
 
 from supervisors.options import mainOptions as opt
 
-class AddressMapper(object):
+class _AddressMapper(object):
     def __init__(self):
         import socket
-        self._localAddresses = [ socket.gethostname() ] + self.__ipv4_addresses()
+        self.localAddresses = [ socket.gethostname() ] + self.__ipv4_addresses()
 
     def setAddresses(self,  addresses):
         opt.logger.info('Expected addresses: {}'.format(addresses))
         # store IP list as found in config file
-        self._expectedAddresses = addresses
-        self._mapping = {}
+        self.expectedAddresses = addresses
+        self.mapping = {}
         # get IP list for local board
-        self._localAddress = self.getExpectedAddress(self._localAddresses,  True)
-        opt.logger.info('Local addresses: {} - Local address: {}'.format(self._localAddresses, self._localAddress))
+        self.localAddress = self.getExpectedAddress(self.localAddresses,  True)
+        opt.logger.info('Local addresses: {} - Local address: {}'.format(self.localAddresses, self.localAddress))
  
-    @property
-    def expectedAddress(self): return self._localAddress
-    @property
-    def expectedAddresses(self): return self._expectedAddresses
-    @property
-    def localAddresses(self): return self._localAddresses
- 
-    # returns the expected address from a list of names or ip addresses identifying the same location
+   # returns the expected address from a list of names or ip addresses identifying the same location
     def getExpectedAddress(self, addressList, insertIfNew=None):
         expectedAddress = None
         if not addressList:
@@ -56,7 +49,7 @@ class AddressMapper(object):
                     opt.logger.error('cannot find any of {} in expected addresses {}'.format(addressList, self.expectedAddresses) )
                 elif insertIfNew:
                     # add list in mapping using the expected address found
-                    self.__updateMapping(expectedAddress,  addressList)
+                    self.__updateMapping(expectedAddress, addressList)
         return expectedAddress
 
     # returns a list of expected addresses from a list of names or ip addresses identifying different locations
@@ -67,7 +60,7 @@ class AddressMapper(object):
 
     def __getMappingAddress(self, address):
         opt.logger.trace('searching %s in mapping' % address)
-        return self._mapping[address] if address in self._mapping else None
+        return self.mapping.get(address, None)
 
     def __getExpectedAddress(self, addressList):
         opt.logger.trace('searching any of {} among expected addresses'.format(addressList))
@@ -75,7 +68,7 @@ class AddressMapper(object):
 
     def __updateMapping(self, expectedAddress, addressList):
         opt.logger.info('inserting {} into mapping with correspondence: {}'.format(addressList, expectedAddress))
-        self._mapping.update( [ (address,  expectedAddress) for address in addressList] )
+        self.mapping.update( [ (address, expectedAddress) for address in addressList ] )
 
     def __ipv4_addresses(self):
         from netifaces import interfaces, ifaddresses, AF_INET
@@ -85,7 +78,7 @@ class AddressMapper(object):
         ipList.remove('127.0.0.1')
         return ipList
 
-addressMapper = AddressMapper()
+addressMapper = _AddressMapper()
 
 
 # for tests

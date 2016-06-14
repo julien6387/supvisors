@@ -17,9 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import ConciliationStrategies, stringToConciliationStrategy, conciliationStrategiesValues
+from supervisors.types import *
 
-from supervisor.datatypes import integer, existing_dirpath, byte_size, logging_level, list_of_strings
+from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
 from supervisor.options import Options
 
 # conversion utils (completion of supervisor.datatypes)
@@ -33,14 +33,21 @@ def _toTimeout(value):
     if value is None: return 10
     value = int(value)
     if 0 < value <= 1000: return value
-    raise ValueError('invalid value for deployment_timeout: %d. expected in [1;1000]' % value)
+    raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000]' % value)
 
 def _toConciliationStrategy(value):
-    if value is None: return ConciliationStrategies.APPLICATIVE
-    conciliation = stringToConciliationStrategy(value)
-    if conciliation is None:
-        raise ValueError('invalid value for conciliation: {}. expected in {}'.format(value,  conciliationStrategiesValues()))
-    return conciliation
+    if value is None: return ConciliationStrategies.USER
+    strategy = stringToConciliationStrategy(value)
+    if strategy is None:
+        raise ValueError('invalid value for conciliation: {}. expected in {}'.format(value, conciliationStrategiesValues()))
+    return strategy
+
+def _toDeploymentStrategy(value):
+    if value is None: return DeploymentStrategies.CONFIG
+    strategy = stringToDeploymentStrategy(value)
+    if strategy is None:
+        raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, deploymentStrategiesValues()))
+    return strategy
 
 
 # inheritance not fully compliant but used to get some useful stuff
@@ -52,34 +59,34 @@ class _OptionsParser(Options):
         # used to initialize search paths
         Options.__init__(self, True)
         # get supervisord.conf file from search paths
-        self._configfile = self.default_configfile()
+        self.configfile = self.default_configfile()
         # parse file
         from supervisor.options import UnhosedConfigParser
-        self._parser = UnhosedConfigParser()
-        self._parser.read(self._configfile)
+        self.parser = UnhosedConfigParser()
+        self.parser.read(self.configfile)
 
     def getOptions(self, section, optionsObject, logging):
-        self._parser.mysection = section
+        self.parser.mysection = section
         # get values
-        if not self._parser.has_section(section):
-            raise ValueError('section [{}] not found in config file {}'.format(section, self._configfile))
+        if not self.parser.has_section(section):
+            raise ValueError('section [{}] not found in config file {}'.format(section, self.configfile))
         # required
         for x in optionsObject.required_options:
-            setattr(optionsObject, x, self._parser.getdefault(x, None))
+            setattr(optionsObject, x, self.parser.getdefault(x, None))
             if not hasattr(optionsObject, x):
-                raise ValueError('required value {} not found in section [{}] of config file {}'.format(x, section, self._configfile))
+                raise ValueError('required value {} not found in section [{}] of config file {}'.format(x, section, self.configfile))
         # optional
         for x in optionsObject.optional_options:
-            setattr(optionsObject, x, self._parser.getdefault(x, None))
+            setattr(optionsObject, x, self.parser.getdefault(x, None))
         # logger
         if logging: 
-            logfile = existing_dirpath(self._parser.getdefault('logfile', '{}.log'.format(section)))
-            logfile_maxbytes = byte_size(self._parser.getdefault('logfile_maxbytes', '50MB'))
-            logfile_backups = integer(self._parser.getdefault('logfile_backups', 10))
-            loglevel = logging_level(self._parser.getdefault('loglevel', 'info'))
+            logfile = existing_dirpath(self.parser.getdefault('logfile', '{}.log'.format(section)))
+            logfile_maxbytes = byte_size(self.parser.getdefault('logfile_maxbytes', '50MB'))
+            logfile_backups = integer(self.parser.getdefault('logfile_backups', 10))
+            loglevel = logging_level(self.parser.getdefault('loglevel', 'info'))
             # configure logger
             from supervisors.infosource import infoSource
-            try: stdout = (section == 'supervisors') and not infoSource.source.daemon
+            try: stdout = (section == 'supervisors') and infoSource.source.supervisord.options.nodaemon
             except AttributeError: stdout = False
             # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
             from supervisor.loggers import getLogger
@@ -102,7 +109,7 @@ class _ListenerOptions(object):
 # Options of main section
 class _MainOptions(object):
     required_options = ('addresslist', 'deployment_file', 'masterport')
-    optional_options = ('authport', 'statsport', 'rpcport', 'synchro_timeout', 'conciliation')
+    optional_options = ('auto_fence', 'statsport', 'rpcport', 'synchro_timeout', 'conciliation_strategy', 'deployment_strategy')
     
     def realize(self, logging=None):
         # get options from file
@@ -112,11 +119,12 @@ class _MainOptions(object):
         from collections import OrderedDict
         self.addresslist = list(OrderedDict.fromkeys(filter(None, list_of_strings(self.addresslist))))
         self.masterport = _toPortNum(self.masterport)
-        self.authport = _toPortNum(self.authport)
+        self.auto_fence = boolean(self.auto_fence)
         self.statsport = _toPortNum(self.statsport)
         self.rpcport = _toPortNum(self.rpcport)
         self.synchro_timeout = _toTimeout(self.synchro_timeout)
-        self.conciliation = _toConciliationStrategy(self.conciliation)
+        self.conciliation_strategy = _toConciliationStrategy(self.conciliation_strategy)
+        self.deployment_strategy = _toDeploymentStrategy(self.deployment_strategy)
 
 
 #################################

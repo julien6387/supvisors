@@ -69,21 +69,21 @@ XSDContents = StringIO('''\
 
 class _Parser(object):
     def setFilename(self, filename):
-        self._tree = self._parse(filename)
-        self._root = self._tree.getroot()
+        self.tree = self._parse(filename)
+        self.root = self.tree.getroot()
         # get models
-        elements = self._root.findall("./model[@name]")
-        self._models = { element.get('name'): element for element in elements }
-        opt.logger.debug(self._models)
+        elements = self.root.findall("./model[@name]")
+        self.models = { element.get('name'): element for element in elements }
+        opt.logger.debug(self.models)
         # get patterns
-        elements = self._root.findall(".//pattern[@name]")
-        self._patterns = { element.get('name'): element for element in elements }
-        opt.logger.debug(self._patterns)
+        elements = self.root.findall(".//pattern[@name]")
+        self.patterns = { element.get('name'): element for element in elements }
+        opt.logger.debug(self.patterns)
 
     def setApplicationRules(self, application):
         # find application element
         opt.logger.trace('searching application element for {}'.format(application.applicationName))
-        applicationElement = self._root.find("./application[@name='{}']".format(application.applicationName))
+        applicationElement = self.root.find("./application[@name='{}']".format(application.applicationName))
         if applicationElement is not None:
             # get rules
             value = applicationElement.findtext('autostart')
@@ -121,26 +121,26 @@ class _Parser(object):
 
     def _getProgramElement(self, process):
         # try to find program name in file
-        programElement = self._root.find("./application[@name='{}']/program[@name='{}']".format(process.applicationName, process.processName))
+        programElement = self.root.find("./application[@name='{}']/program[@name='{}']".format(process.applicationName, process.processName))
         opt.logger.trace('{} - direct search program element {}'.format(process.getNamespec(), programElement))
         if programElement is None:
             # try to find a corresponding pattern
-            patterns = [ name for name, element in self._patterns.items() if name in process.getNamespec() ]
+            patterns = [ name for name, element in self.patterns.items() if name in process.getNamespec() ]
             opt.logger.trace('{} - found patterns {}'.format(process.getNamespec(), patterns))
             if patterns:
                 pattern = max(patterns, key=len)
-                programElement = self._patterns[pattern]
+                programElement = self.patterns[pattern]
             opt.logger.trace('{} - pattern search program element {}'.format(process.getNamespec(), programElement))
         if programElement is not None:
             # find if model referenced in element
             model = programElement.findtext('reference')
-            if model in self._models.keys():
-                programElement = self._models[model]
+            if model in self.models.keys():
+                programElement = self.models[model]
             opt.logger.trace('{} - model search ({}) program element {}'.format(process.getNamespec(), model, programElement))
         return programElement
 
     def _parse(self, filename):
-        self._parser = None
+        self.parser = None
         # find parser
         try:
             from lxml import etree
