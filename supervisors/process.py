@@ -17,9 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.utils import *
-
 from supervisor.states import *
 
 import time
@@ -41,13 +40,13 @@ class ProcessRules(object):
     def checkDependencies(self, logName):
         # required MUST have sequence, so force to optional if no sequence
         if self.required and self.sequence == -1:
-            opt.logger.warn('{} - required forced to False because no sequence defined'.format(logName))
+            options.logger.warn('{} - required forced to False because no sequence defined'.format(logName))
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
             from supervisors.addressmapper import addressMapper
             self.addresses = addressMapper.expectedAddresses 
-            opt.logger.warn('{} - no address defined so all Supervisors addresses are applicable')
+            options.logger.warn('{} - no address defined so all Supervisors addresses are applicable')
 
     def __str__(self):
         return 'addresses={} sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
@@ -65,9 +64,9 @@ class ProcessStatus(object):
         self.state = ProcessStates.UNKNOWN
         self.expectedExit = True
         self.lastEventTime = None
-        self.multipleRunningAllowed = False
+        # FIXME: replace runningConflict with a method len(addresses) > 1
         self.runningConflict = False
-        # expected one single applicable address, but multiple processes like Listener
+        # expected one single applicable address
         self.addresses = set() # addresses
         self.processes = {} # address: processInfo
         # rules part
@@ -88,7 +87,7 @@ class ProcessStatus(object):
     def setState(self, state):
         if self.state != state:
             self.state = state
-            opt.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
+            options.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
 
     # methods
     def addInfo(self, address, processInfo):
@@ -99,7 +98,7 @@ class ProcessStatus(object):
         processInfo['eventTime'] = self.lastEventTime
         self._updateTimes(processInfo, self.lastEventTime, int(time.time()))
         # add info entry to process
-        opt.logger.debug('adding {} for {}'.format(processInfo, address))
+        options.logger.debug('adding {} for {}'.format(processInfo, address))
         self.processes[address] = processInfo
         # update process status
         self._updateStatus(address, processInfo['state'], not processInfo['spawnerr']) 
@@ -108,7 +107,7 @@ class ProcessStatus(object):
         # do not add process in list while not added through tick
         if address in self.processes:
             processInfo = self.processes[address]
-            opt.logger.trace('inserting {} into {} at {}'.format(processEvent, processInfo, address))
+            options.logger.trace('inserting {} into {} at {}'.format(processEvent, processInfo, address))
             newState = processEvent['state']
             processInfo['state'] = newState
             processInfo['statename'] = getProcessStateDescription(newState)
@@ -131,8 +130,8 @@ class ProcessStatus(object):
                     processInfo['spawnerr'] = '' if processEvent['expected'] else 'Bad exit code (unknown)'
             # update / check running addresses
             self._updateStatus(address, newState, processEvent.get('expected', True))
-            opt.logger.debug('new processInfo: {}'.format(processInfo))
-        else: opt.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.processName, address))
+            options.logger.debug('new processInfo: {}'.format(processInfo))
+        else: options.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.processName, address))
 
     def updateRemoteTime(self, address, remoteTime, localTime):
         if address in self.processes:
@@ -140,27 +139,27 @@ class ProcessStatus(object):
             self._updateTimes(processInfo, remoteTime, localTime)
 
     def invalidateAddress(self, address):
-        opt.logger.debug("{} invalidateAddress {} / {}".format(self.getNamespec(), self.addresses, address))
+        options.logger.debug("{} invalidateAddress {} / {}".format(self.getNamespec(), self.addresses, address))
         # reassign the difference between current set and parameter
         if address in self.addresses: self.addresses.remove(address)
         # check if conflict still applicable
         if not self._evaluateConflictingState():
             if len(self.addresses) == 1:
                 # if only one address where process is running, the global state is the state of this process
-                state = next((self.processes[address]['state'] for address in self.addresses), None)
+                state = next(self.processes[address]['state'] for address in self.addresses)
                 self.setState(state)
             elif self.isRunning():
                 # addresses is empty for a running process. action expected to fix the inconsistency
-                opt.logger.warn('no more address for running process {}'.format(self.getNamespec()))
+                options.logger.warn('no more address for running process {}'.format(self.getNamespec()))
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.setState(ProcessStates.STOPPED)
         else:
-            opt.logger.debug('process {} still in conflict after address invalidation'.format(self.getNamespec()))
+            options.logger.debug('process {} still in conflict after address invalidation'.format(self.getNamespec()))
 
     def _updateStatus(self, address, newState, expected):
         if newState == ProcessStates.UNKNOWN:
-            opt.logger.warn('unexpected state {} for {} at {}'.format(getProcessStateDescription(newState), self.getNamespec(), address))
+            options.logger.warn('unexpected state {} for {} at {}'.format(getProcessStateDescription(newState), self.getNamespec(), address))
         else:
             # update addresses list
             if newState in STOPPED_STATES:
@@ -173,20 +172,21 @@ class ProcessStatus(object):
                     self.addresses.add(address)
             # evaluate state iaw running addresses
             if not self._evaluateConflictingState():
-                # if zero or one element, state is the state of the program addressed
-                self.setState(newState)
+                # if zero element, state is the state of the program addressed
+                state = newState if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
+                self.setState(state)
                 self.expectedExit = expected
 
     def _evaluateConflictingState(self):
         if len(self.addresses) > 1:
             # several processes seems to be in a running state so that becomes tricky
-            self.runningConflict = not self.multipleRunningAllowed
+            self.runningConflict = True
             states = { self.processes[address]['state'] for address in self.addresses }
-            opt.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
+            options.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.setState(self.__getRunningState(states))
             return True
-        # no conflict
+        # no conflict anymore (if any before)
         self.runningConflict = False
 
     def _updateTimes(self, processInfo, remoteTime, localTime):

@@ -19,7 +19,7 @@
 
 from supervisors.application import ApplicationStates
 from supervisors.infosource import infoSource
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.rpcrequests import internalStartProcess
 from supervisors.types import deploymentStrategyToString
 
@@ -35,17 +35,17 @@ class _Deployer(object):
 
     # used to overload the default stragey (used in rpcinterface)
     def useStrategy(self, strategy):
-        opt.logger.info('deploy using strategy {}'.format(deploymentStrategyToString(strategy)))
+        options.logger.info('deploy using strategy {}'.format(deploymentStrategyToString(strategy)))
         self.strategy = strategy
 
     def isDeploymentInProgress(self):
-        opt.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))
+        options.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))
         return len(self.jobs) or len(self.inProgress)
 
     def deployApplications(self, applications):
-        opt.logger.info('deploy all applications')
+        options.logger.info('deploy all applications')
         # internal call: default strategy always used
-        self.useStrategy(opt.deployment_strategy)
+        self.useStrategy(options.deployment_strategy)
         # deployment initialization: push program list in todo list
         for application in applications:
             # do not deploy an application that is not properly STOPPED
@@ -56,7 +56,7 @@ class _Deployer(object):
         self._initialJobs()
 
     def deployApplication(self, strategy, application):
-        opt.logger.info('deploy application {}'.format(application.applicationName))
+        options.logger.info('deploy application {}'.format(application.applicationName))
         # called from rpcinterface: strategy is a user choice
         self.useStrategy(strategy)
         # push program list in todo list and start work
@@ -68,7 +68,7 @@ class _Deployer(object):
         return not self.isDeploymentInProgress()
 
     def deployProcess(self, strategy, process):
-        opt.logger.info('deploy process {}'.format(process.getNamespec()))
+        options.logger.info('deploy process {}'.format(process.getNamespec()))
         # called from rpcinterface: strategy is a user choice
         self.useStrategy(strategy)
         # WARN: when deploying a single process (outside the scope of an application deployment), do NOT consider the 'wait_exit' rule
@@ -86,18 +86,18 @@ class _Deployer(object):
         # restart required processes first
         for process in lostProcesses:
             if process.rules.required:
-                self.deployProcess(opt.deployment_strategy, process)
+                self.deployProcess(options.deployment_strategy, process)
         # restart optional processes
         for process in lostProcesses:
             if not process.rules.required:
-                self.deployProcess(opt.deployment_strategy, process)
+                self.deployProcess(options.deployment_strategy, process)
 
     def checkDeployment(self):
-        opt.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))
+        options.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))
         # once the startProcess has been called, a STARTING event is expected in less than 5 seconds
         now = int(time.time())
         processes= [ process for processList in self.inProgress.values() for process in processList ]
-        opt.logger.trace('now={} checking processes={}'.format(now, [ (process.processName, process.state, process.startRequest, process.lastEventTime) for process in processes ]))
+        options.logger.trace('now={} checking processes={}'.format(now, [ (process.processName, process.state, process.startRequest, process.lastEventTime) for process in processes ]))
         for process in processes:
             # depending on ini file, it may take a while before the process enters in RUNNING state
             # so just test that is in not in a STOPPED-like state 5 seconds after startRequest
@@ -113,7 +113,7 @@ class _Deployer(object):
             if process in inProgress:
                 if process.state in [ ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN ]:
                     # unexpected event in a deployment phase
-                    opt.logger.error('unexpected event when deploying {}'.format(process.getNamespec()))
+                    options.logger.error('unexpected event when deploying {}'.format(process.getNamespec()))
                 elif process.state == ProcessStates.STARTING:
                     # on the way
                     pass
@@ -124,13 +124,13 @@ class _Deployer(object):
                         inProgress.remove(process)
                 elif process.state == ProcessStates.BACKOFF:
                     # something wrong happened, just wait
-                    opt.logger.warn('problems detected with {}'.format(process.getNamespec()))
+                    options.logger.warn('problems detected with {}'.format(process.getNamespec()))
                 elif process.state == ProcessStates.EXITED:
                     # anyway, remove from inProgress
                     process.ignoreWaitExit = False
                     inProgress.remove(process)
                     if process.rules.wait_exit and process.expectedExit:
-                        opt.logger.info('expected exit for {}'.format(process.getNamespec()))
+                        options.logger.info('expected exit for {}'.format(process.getNamespec()))
                     else:
                         # missed. decide to continue degraded or to halt
                         self._processFailure(process, 'Unexpected exit')
@@ -147,7 +147,7 @@ class _Deployer(object):
                     # trigger next job for aplication
                     if process.applicationName in self.jobs:
                         self._processApplicationJobs(process.applicationName)
-                    else: opt.logger.info('deployment completed for application {}'.format(process.applicationName))
+                    else: options.logger.info('deployment completed for application {}'.format(process.applicationName))
 
     def _getApplicationDeployment(self, application):
         # copy sequence and remove programs that are not meant to be deployed automatically
@@ -168,19 +168,19 @@ class _Deployer(object):
             while len(sequence) > 0 and applicationName in self.jobs and len(inProgress) == 0:
                 # pop lower group from sequence
                 group = sequence.pop(min(sequence.keys()))
-                opt.logger.debug('application {} - next group: {}'.format(applicationName, self._getPrintProcessList(group)))
+                options.logger.debug('application {} - next group: {}'.format(applicationName, self._getPrintProcessList(group)))
                 for process in group:
                     # check state and start if not already RUNNING
-                    opt.logger.trace('{} - state={}'.format(process.getNamespec(), process.stateAsString()))
+                    options.logger.trace('{} - state={}'.format(process.getNamespec(), process.stateAsString()))
                     self._processJob(process, inProgress)
             # if nothing in progress when exiting the loop, delete application entry in list inProgress
             if len(inProgress) == 0:
                 self.inProgress.pop(applicationName, None)
             # clean application job if its sequence is empty
             if len(sequence) == 0:
-                opt.logger.info('all jobs planned for application {}'.format(applicationName))
+                options.logger.info('all jobs planned for application {}'.format(applicationName))
                 self.jobs.pop(applicationName, None)
-        else: opt.logger.warn('application {} not found in jobs'.format(applicationName))
+        else: options.logger.warn('application {} not found in jobs'.format(applicationName))
 
     def _processJob(self, process, inProgress):
         resetFlag = True
@@ -189,26 +189,26 @@ class _Deployer(object):
             fullProgramName = process.getNamespec()
             address = self._getStartingAddress(process)
             if address:
-                opt.logger.info('try to start {} at address={}'.format(fullProgramName, address))
+                options.logger.info('try to start {} at address={}'.format(fullProgramName, address))
                 # use xml rpc to start program
                 if internalStartProcess(address, fullProgramName, False):
                     # push to inProgress and timestamp process
                     process.startRequest = int(time.time())
-                    opt.logger.debug('{} requested to start at {}'.format(fullProgramName, get_asctime(process.startRequest)))
+                    options.logger.debug('{} requested to start at {}'.format(fullProgramName, get_asctime(process.startRequest)))
                     inProgress.append(process)
                     resetFlag = False
                 else:
                     # when internalStartProcess returns false, this is a huge problem
                     # the process could not be started through supervisord and it is not even referenced in its internal strucutre
-                    opt.logger.critical('[BUG] RPC internalStartProcess failed {}'.format(fullProgramName))
+                    options.logger.critical('[BUG] RPC internalStartProcess failed {}'.format(fullProgramName))
             else:
-                opt.logger.warn('no resource available to start {}'.format(fullProgramName))
+                options.logger.warn('no resource available to start {}'.format(fullProgramName))
                 self._processFailure(process, 'No resource available', True)
         # due to failure, reset ignoreWaitExit flag
         if resetFlag: process.ignoreWaitExit = False
 
     def _initialJobs(self):
-        opt.logger.info('deployment work: jobs={}'.format(self._getPrintJobs()))
+        options.logger.info('deployment work: jobs={}'.format(self._getPrintJobs()))
         # iterate on copy to avoid problems with deletions
         for applicationName in self.jobs.keys()[:]:
             self._processApplicationJobs(applicationName)
@@ -217,15 +217,15 @@ class _Deployer(object):
         applicationName = process.applicationName
         # impact of failure upon application deployment
         if process.rules.required:
-            opt.logger.error('{} for required {}: halt deployment for application {}'.format(reason, process.processName, applicationName))
+            options.logger.error('{} for required {}: halt deployment for application {}'.format(reason, process.processName, applicationName))
             # remove failed application from deployment
             # do not remove application from InProgress as requests have already been sent
             self.jobs.pop(applicationName, None)
         else:
-            opt.logger.info('{} for optional {}: continue deployment for application {}'.format(reason, process.processName, applicationName))
+            options.logger.info('{} for optional {}: continue deployment for application {}'.format(reason, process.processName, applicationName))
         # force process state to FATAL in supervisor so as it is published
         if forceFatal:
-            opt.logger.warn('force {} state to FATAL'.format(process.getNamespec()))
+            options.logger.warn('force {} state to FATAL'.format(process.getNamespec()))
             infoSource.source.forceProcessFatalState(process.getNamespec(), reason)
 
     # log facilities

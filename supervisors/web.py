@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.rpcinterface import _RPCInterface
 
 from supervisor.http import NOT_DONE_YET
@@ -31,12 +31,12 @@ import datetime, urllib
 class SupervisorsView(MeldView):
     def __init__(self, context):
         # supersedes MeldView constructor
-        opt.logger.info(context.template)
+        options.logger.info(context.template)
         if not os.path.isabs(context.template):
             here = os.path.abspath(os.path.dirname(__file__))
-            opt.logger.info(here)
+            options.logger.info(here)
             context.template = os.path.join(here, context.template)
-            opt.logger.info(context.template)
+            options.logger.info(context.template)
         MeldView.__init__(self, context)
 
     def css_class_for_state(self, state):

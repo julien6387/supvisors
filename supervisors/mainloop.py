@@ -20,8 +20,10 @@
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.infosource import infoSource
-from supervisors.options import listenerOptions, mainOptions as opt
+from supervisors.options import options
 from supervisors.statemachine import fsm
+
+from supervisors.listener import SupervisorListener
 
 import zmq, time, threading
 
@@ -31,10 +33,10 @@ class EventSubscriber(object):
         self.socket = zmqContext.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
         for address in addressMapper.expectedAddresses:
-            url = 'tcp://{}:{}'.format(address, listenerOptions.eventport)
-            opt.logger.info('connecting EventSubscriber to %s' % url)
+            url = 'tcp://{}:{}'.format(address, options.eventport)
+            options.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
-        opt.logger.debug('EventSubscriber connected')
+        options.logger.debug('EventSubscriber connected')
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
  
     def receive(self):
@@ -42,8 +44,8 @@ class EventSubscriber(object):
 
     def disconnect(self, addresses):
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address, listenerOptions.eventport)
-            opt.logger.info('disconnecting EventSubscriber from %s' % url)
+            url = 'tcp://{}:{}'.format(address, options.eventport)
+            options.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
 
@@ -57,6 +59,8 @@ class SupervisorsMainLoop(threading.Thread):
         self.zmqContext.setsockopt(zmq.LINGER, 0)
         # create sockets
         self.eventSubscriber = EventSubscriber(self.zmqContext)
+        # create new event subscriber
+        self.listener = SupervisorListener(self.zmqContext)
 
     # main loop
     def run(self):
@@ -72,24 +76,24 @@ class SupervisorsMainLoop(threading.Thread):
             socks = dict(poller.poll(1000))
             # check tick and process events
             if self.eventSubscriber.socket in socks and socks[self.eventSubscriber.socket] == zmq.POLLIN:
-                opt.logger.blather('got message on eventSubscriber')
+                options.logger.blather('got message on eventSubscriber')
                 message = self.eventSubscriber.receive()
                 if message[0] == TickHeader:
-                    opt.logger.blather('got tick message: {}'.format(message[1]))
+                    options.logger.blather('got tick message: {}'.format(message[1]))
                     context.onTickEvent(message[1][0], message[1][1])
                 elif message[0] == ProcessHeader:
-                    opt.logger.blather('got process message: {}'.format(message[1]))
+                    options.logger.blather('got process message: {}'.format(message[1]))
                     context.onProcessEvent(message[1][0], message[1][1])
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()
             # an application that wants process events may use its own EventSubscriber but it's in python
             # TODO: or publish from here using thrift /protobuf / msgpack ?
-        opt.logger.info('exiting main loop because SupervisorState={}'.format(getSupervisorStateDescription(infoSource.source.supervisord.options.mood)))
+        options.logger.info('exiting main loop because SupervisorState={}'.format(getSupervisorStateDescription(infoSource.source.supervisord.options.mood)))
         self._close()
 
     def _doPeriodicTask(self):
-        opt.logger.blather('periodic task')
+        options.logger.blather('periodic task')
         context.onTimerEvent()
         fsm.next()
         # check if new isolating remotes
@@ -101,10 +105,11 @@ class SupervisorsMainLoop(threading.Thread):
 
     def _close(self):
         # close zmq sockets
+        self.listener.eventPublisher.socket.close()
         self.eventSubscriber.socket.close()
          # close zmq context
         self.zmqContext.term()
         # cleanup in case of restarting
         context.restart()
         # finally, close logger
-        opt.logger.close()
+        options.logger.close()

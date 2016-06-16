@@ -25,13 +25,13 @@ class XmlRpcClient(object):
 
     def _getRpcTransport(self, address):
         from supervisors.infosource import infoSource
-        if infoSource.source.getServerUrl():
-            serverUrl = infoSource.source.getServerUrl().split(':')
+        if infoSource.source.serverUrl:
+            serverUrl = infoSource.source.serverUrl.split(':')
             if len(serverUrl) == 3:
                 serverUrl[1] = '//' + address
                 serverUrl = ':'.join(serverUrl)
                 from supervisor.xmlrpc import SupervisorTransport
-                return SupervisorTransport(infoSource.source.getUserName(), infoSource.source.getPassword(), serverUrl)
+                return SupervisorTransport(infoSource.source.userName, infoSource.source.password, serverUrl)
         return None
 
 
@@ -45,9 +45,9 @@ if __name__ == "__main__":
         supervisord.options.server_configs = [{'username': None, 'section': 'inet_http_server', 'password': None, 'port': 60000}]
         return supervisord
     # create logger
-    from supervisors.options import mainOptions as opt
+    from supervisors.options import options
     from supervisor.loggers import getLogger
-    opt.logger = getLogger('/tmp/xmlrpcclient.log', 20, '%(asctime)s %(levelname)s %(message)s\n', False, 0, 0, True)
+    options.logger = getLogger('/tmp/xmlrpcclient.log', 20, '%(asctime)s %(levelname)s %(message)s\n', False, 0, 0, True)
     # assign supervisord info source
     from supervisors.infosource import infoSource, SupervisordSource
     infoSource.source = SupervisordSource(createSupervisordInstance())
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     print supervisor.getState()
     print system.methodHelp('supervisor.getProcessInfo')
     print supervisor.getProcessInfo('crash:segv')
-    print supervisor.getProcessInfo('Listener')
+    print supervisor.getProcessInfo('firefox')
     print supervisor.getProcessInfo('sample_test_2:sleep')
     print system.methodHelp('supervisor.startProcess')
     # print supervisor.startProcess('SupervisorsWeb')
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     print supervisors.getApplicationInfo('sample_test_2')
     print system.methodHelp('supervisors.getProcessInfo')
     print supervisors.getProcessInfo('crash:segv')
-    print supervisors.getProcessInfo('Listener')
+    print supervisors.getProcessInfo('firefox')
     print supervisors.getProcessInfo('sample_test_1:*')
     print system.methodHelp('supervisors.getProcessRules')
     print supervisors.getProcessRules('sample_test_2:*')

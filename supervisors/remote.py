@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.types import InvalidTransition
 from supervisors.utils import *
 
@@ -53,7 +53,7 @@ class RemoteStatus(object):
         if self.state != state:
             if self.__checkTransition(state):
                 self.state = state
-                opt.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self.state)))
+                options.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self.state)))
             else:
                 raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self.state), remoteStateToString(state)))
 

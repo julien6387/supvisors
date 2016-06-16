@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.utils import *
 
 from supervisor.states import *
@@ -68,7 +68,7 @@ class ApplicationInfo(ApplicationStatus):
     def setState(self, state):
         if self.state != state:
             self.state = state
-            opt.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
+            options.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
     
    # methods
     def addProcess(self, process):
@@ -79,11 +79,7 @@ class ApplicationInfo(ApplicationStatus):
         self.sequence.clear()
         for process in self.processes.values():
             self.sequence.setdefault(process.rules.sequence, [ ]).append(process)
-#            if process.rules.sequence in self.sequence:
-#                self.sequence[process.rules.sequence].append(process)
-#            else:
-#                self.sequence.update( { process.rules.sequence: [ process ] } )
-        opt.logger.debug('Application {}: sequence={}'.format(self.applicationName, self.sequence))
+        options.logger.debug('Application {}: sequence={}'.format(self.applicationName, self.sequence))
         # evaluate application
         self.updateStatus()
 
@@ -102,7 +98,7 @@ class ApplicationInfo(ApplicationStatus):
     def updateStatus(self):
         # get sequence keys without -1 (not to be autostarted)
         deployableSequence = [ x for x in self.sequence.keys() if x != -1 ]
-        opt.logger.trace('Application {}: deployable={}'. format(self.applicationName, len(deployableSequence)))
+        options.logger.trace('Application {}: deployable={}'. format(self.applicationName, len(deployableSequence)))
         if len(deployableSequence): self._updateDeployableStatus()
         else: self._updateNonDeployableStatus()
 
@@ -110,7 +106,7 @@ class ApplicationInfo(ApplicationStatus):
         # application has a deployment definition. its state is only based upon the programs that are deployable
         starting = running = stopped = stopping = exited = fatal = degraded = False
         for process in self.processes.values():
-            opt.logger.trace('Process {}: state={} required={} exitExpected={} sequence={}'. 
+            options.logger.trace('Process {}: state={} required={} exitExpected={} sequence={}'. 
                 format(process.getNamespec(), process.stateAsString(), process.rules.required, process.expectedExit, process.rules.sequence))
             if process.rules.sequence != -1:
                 # RUNNING cases are easy
@@ -135,7 +131,7 @@ class ApplicationInfo(ApplicationStatus):
                 # STOPPING is not in STOPPED_STATES
                 elif process.state == ProcessStates.STOPPING:
                     stopping = True
-        opt.logger.trace('Application {}: starting={} running={} stopped={} stopping={} exited={} fatal={}'.
+        options.logger.trace('Application {}: starting={} running={} stopped={} stopping={} exited={} fatal={}'.
             format(self.applicationName, starting, running, stopped, stopping, exited, fatal))
         # apply rules for state
         if fatal: self.setState(ApplicationStates.FATAL)
@@ -150,7 +146,7 @@ class ApplicationInfo(ApplicationStatus):
             # as a conclusion, take the assumption that application is in FATAL state
             self.setState(ApplicationStates.FATAL)
         else:
-            opt.logger.error('Application {}: UNEXPECTED case - starting={} running={} stopped={} stopping={} exited={} fatal={}'.
+            options.logger.error('Application {}: UNEXPECTED case - starting={} running={} stopped={} stopping={} exited={} fatal={}'.
                 format(self.applicationName, starting, running, stopped, stopping, exited, fatal))
             self.setState(ApplicationStates.UNKNOWN)
         # update degraded status (only for starting / running applications)
@@ -162,11 +158,11 @@ class ApplicationInfo(ApplicationStatus):
         # reason is to prevent a meaningless startApplication on this application
         starting = running = unknown = stopping = False
         for process in self.processes.values():
-                if process.state == ProcessStates.RUNNING: running = True
-                elif process.state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]: starting = True
-                elif process.state in STOPPED_STATES: unknown = True
-                elif process.state == ProcessStates.STOPPING: stopping = True
-        opt.logger.trace('Application {}: starting={} running={} unknown={} stopping={}'.
+            if process.state == ProcessStates.RUNNING: running = True
+            elif process.state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]: starting = True
+            elif process.state in STOPPED_STATES: unknown = True
+            elif process.state == ProcessStates.STOPPING: stopping = True
+        options.logger.trace('Application {}: starting={} running={} unknown={} stopping={}'.
             format(self.applicationName, starting, running, unknown, stopping))
         # apply rules for state
         if starting: self.setState(ApplicationStates.STARTING)

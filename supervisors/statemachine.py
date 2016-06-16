@@ -20,8 +20,9 @@
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.deployer import deployer
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.remote import RemoteStates
+from supervisors.strategy import conciliator
 from supervisors.types import SupervisorsStates, supervisorsStateToString
 
 import time
@@ -52,14 +53,14 @@ class _InitializationState(_AbstractState):
                 # synchro done if the state of all remotes is known
                 return SupervisorsStates.ELECTION
             # if synchro timeout reached, stop synchro and work with known remotes
-            if (time.time() - self.startDate) > opt.synchro_timeout:
-                opt.logger.warn('synchro timed out')
+            if (time.time() - self.startDate) > options.synchro_timeout:
+                options.logger.warn('synchro timed out')
                 # force state of missing Remotes
                 context.endSynchro()
                 return SupervisorsStates.ELECTION
-            opt.logger.debug('still waiting for remote supervisors to synchronize')
+            options.logger.debug('still waiting for remote supervisors to synchronize')
         else:
-            opt.logger.debug('local address {} still not RUNNING'.format(addressMapper.localAddress))
+            options.logger.debug('local address {} still not RUNNING'.format(addressMapper.localAddress))
         return SupervisorsStates.INITIALIZATION
 
     def exit(self):
@@ -73,11 +74,11 @@ class _ElectionState(_AbstractState):
 
     def next(self):
         runningRemotes = context.runningRemotes()
-        opt.logger.info('working with boards {}'.format(runningRemotes))
+        options.logger.info('working with boards {}'.format(runningRemotes))
         # arbitrarily choice : master address is the 'greater' address among running remotes
         context.masterAddress = max(runningRemotes)
         context.master = (context.masterAddress == addressMapper.localAddress)
-        opt.logger.info('Supervisors master is {} self={}'.format(context.masterAddress, context.master))
+        options.logger.info('Supervisors master is {} self={}'.format(context.masterAddress, context.master))
         return SupervisorsStates.DEPLOYMENT
 
 class _DeploymentState(_AbstractState):
@@ -107,8 +108,9 @@ class _OperationState(_AbstractState):
 
 class _ConciliationState(_AbstractState):
     def enter(self):
-        # FIXME: trigger auto-conciliation
-        pass
+        # the Supervisors Master auto-conciliate conflicts
+        if context.master:
+            conciliator.conciliate(options.conciliation_strategy, context.getConflicts())
 
     def next(self):
         # check if master and local are still RUNNING
@@ -131,7 +133,7 @@ class _FiniteStateMachine:
         while nextState != self.state and nextState in self.__Transitions[self.state]:
             self.stateInstance.exit()
             self._updateStateInstance(nextState)
-            opt.logger.info('Supervisors in {}'.format(supervisorsStateToString(self.state)))
+            options.logger.info('Supervisors in {}'.format(supervisorsStateToString(self.state)))
             self.stateInstance.enter()
             nextState = self.stateInstance.next()
 

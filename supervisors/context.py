@@ -19,7 +19,7 @@
 
 from supervisors.addressmapper import addressMapper
 from supervisors.deployer import deployer
-from supervisors.options import mainOptions as opt
+from supervisors.options import options
 from supervisors.process import *
 from supervisors.remote import *
 from supervisors.rpcrequests import getAllProcessInfo, getRemoteInfo
@@ -28,9 +28,6 @@ import time
 
 # Context management
 class _Context(object):
-    # constants
-    ListenerName = 'Listener'
-
     def restart(self):
         # replace handlers
         self.remotes = { address: RemoteStatus(address) for address in addressMapper.expectedAddresses }
@@ -49,22 +46,19 @@ class _Context(object):
 
     def getRemoteLoading(self, address):
         if address in self.processes:
-            remoteProcesses = self.processes[address]
-            loading = sum(process.rules.expected_loading for process in remoteProcesses if process.isRunningOn(address))
-            opt.logger.debug('address={} loading={}'.format(address, loading))
+            loading = sum(process.rules.expected_loading for process in self.processes[address] if process.isRunningOn(address))
+            options.logger.debug('address={} loading={}'.format(address, loading))
             return loading
         return 0
 
     def endSynchro(self):
         # consider problem if no tick received at the end of synchro time
-        for status in self.remotes.values():
-            if status.state == RemoteStates.UNKNOWN:
-                self._invalidRemote(status)
+        map(self._invalidRemote, filter(lambda x: x.state == RemoteStates.UNKNOWN, self.remotes.values()))
 
     def _invalidRemote(self, status):
         # declare SILENT or isolate according to option
         # never isolate local address. may be a problem with Listener. give it a chance to restart
-        if opt.auto_fence and status.address != addressMapper.localAddress:
+        if options.auto_fence and status.address != addressMapper.localAddress:
             status.setState(RemoteStates.ISOLATING)
         else:
             status.setState(RemoteStates.SILENT)
@@ -103,7 +97,7 @@ class _Context(object):
         # get all processes and sort them by group (application)
         # first store applications
         applicationList = { x['group'] for x  in allProcessesInfo }
-        opt.logger.debug('applicationList={} from {}'.format(applicationList, address))
+        options.logger.debug('applicationList={} from {}'.format(applicationList, address))
         # add unknown applications
         for applicationName in applicationList:
             if applicationName not in self.applications:
@@ -118,8 +112,6 @@ class _Context(object):
                 # not found. add new instance
                 process = ProcessStatus(address, processInfo)
                 parser.setProcessRules(process)
-                # Supervisors' Listener is allowed to have multiple instances
-                process.multipleRunningAllowed = (process.applicationName == process.processName == self.ListenerName)
                 self.applications[process.applicationName].addProcess(process)
             else:
                 process.addInfo(address, processInfo)
@@ -128,9 +120,10 @@ class _Context(object):
 
     def hasConflict(self):
         # return True if any conflict detected
-        for process in self._getAllProcesses():
-            if process.runningConflict:
-                return True
+        return next((True for process in self._getAllProcesses() if process.runningConflict), False)
+
+    def getConflicts(self):
+        return [ process for process in self._getAllProcesses() if process.runningConflict ]
 
     def _getAllProcesses(self):
         return [ process for application in self.applications.values() for process in application.processes.values() ]
@@ -142,11 +135,11 @@ class _Context(object):
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
-            if opt.auto_fence and not self._isLocalAuthorized(status.address):
-                opt.logger.warn('local is not authorized to deal with {}'.format(status.address))
+            if options.auto_fence and not self._isLocalAuthorized(status.address):
+                options.logger.warn('local is not authorized to deal with {}'.format(status.address))
                 self._invalidRemote(status)
             else:
-                opt.logger.info('local is authorized to deal with {}'.format(status.address))
+                options.logger.info('local is authorized to deal with {}'.format(status.address))
                 status.setState(RemoteStates.RUNNING)
                 # refresh supervisor information
                 info = self._getAllProcessInfo(status.address)
@@ -158,18 +151,17 @@ class _Context(object):
         for application in self.applications.values():
             application.updateRemoteTime(status.address, remoteTime, localTime)
 
-    def onTickEvent(self, addresses, tickEvent):
+    def onTickEvent(self, addresses, when):
         address = addressMapper.getExpectedAddress(addresses, True)
         if address:
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
-                opt.logger.debug('got tick {} from location={}'.format(tickEvent, address))
-                remoteTime = tickEvent['when']
+                options.logger.debug('got tick {} from location={}'.format(when, address))
                 localTime = int(time.time())
-                self._updateRemoteTime(status, remoteTime, localTime)
+                self._updateRemoteTime(status, when, localTime)
         else:
-            opt.logger.warn('got tick from unexpected location={}'.format(addresses))
+            options.logger.warn('got tick from unexpected location={}'.format(addresses))
 
     def onProcessEvent(self, addresses, processEvent):
         address = addressMapper.getExpectedAddress(addresses, True)
@@ -177,7 +169,7 @@ class _Context(object):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
-                opt.logger.debug('got event {} from location={}'.format(processEvent, address))
+                options.logger.debug('got event {} from location={}'.format(processEvent, address))
                 try:
                     # refresh process info from process event
                     process = self.getProcessFromEvent(processEvent)
@@ -186,13 +178,13 @@ class _Context(object):
                     self.applications[process.applicationName].updateStatus()
                 except:
                     # process not found. normal when no tick yet received from this address
-                    opt.logger.debug('reject event {} from location={}'.format(processEvent, address))
+                    options.logger.debug('reject event {} from location={}'.format(processEvent, address))
                 else:
                     # trigger deployment work if needed
                     if deployer.isDeploymentInProgress():
                         deployer.deployOnEvent(process)
         else:
-            opt.logger.error('got process event from unexpected location={}'.format(addresses))
+            options.logger.error('got process event from unexpected location={}'.format(addresses))
 
     def onTimerEvent(self):
         # check that all remotes are still publishing. consider problem if no tick received in last 10s
@@ -214,15 +206,16 @@ class _Context(object):
         # XML-RPC request to remote to check that local is not ISOLATED
         try: status = getRemoteInfo(address, addressMapper.localAddress)
         except:
-            opt.logger.critical('[BUG] could not get remote info from running remote supervisor {}'.format(address))
+            options.logger.critical('[BUG] could not get remote info from running remote supervisor {}'.format(address))
             raise
-        else: return stringToRemoteState(status['state']) not in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
+        return stringToRemoteState(status['state']) not in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
 
     def _getAllProcessInfo(self, address):
         # XML-RPC request to get information about all processes managed by Supervisor on address
         try: info = getAllProcessInfo(address)
         except:
-            opt.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
-        else: return info
+            options.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
+            raise
+        return info
 
 context = _Context()

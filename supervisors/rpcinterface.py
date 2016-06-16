@@ -21,7 +21,7 @@ from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.deployer import deployer
 from supervisors.infosource import infoSource
-from supervisors.options import mainOptions as opt, listenerOptions
+from supervisors.options import options
 from supervisors.remote import RemoteStates, remoteStateToString
 from supervisors.rpcrequests import startProcess, stopProcess
 from supervisors.statemachine import fsm
@@ -63,17 +63,17 @@ class _RPCInterface(object):
         @return boolean result\tAlways true unless error
         """
         try:
-            opt.logger.info('RPC startProcess {}'.format(namespec))
+            options.logger.info('RPC startProcess {}'.format(namespec))
             result = startProcess(addressMapper.localAddress, namespec, wait)
         except RPCError, why:
-            opt.logger.error('startProcess {} failed: {}'.format(namespec, why))
+            options.logger.error('startProcess {} failed: {}'.format(namespec, why))
             if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
-                opt.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
+                options.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
                 try:
                     infoSource.source.forceProcessFatalState(namespec, why.text)
                     result = True
                 except KeyError:
-                    opt.logger.error('could not find {} in supervisord processes'.format(namespec))
+                    options.logger.error('could not find {} in supervisord processes'.format(namespec))
                     result = False
             else:
                 # process is already started. should not happen because Supervisors checks state before sending the request
@@ -191,7 +191,7 @@ class _RPCInterface(object):
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
         done = deployer.deployApplication(strategy, application)
-        opt.logger.debug('startApplication {} done={}'.format(applicationName, done))
+        options.logger.debug('startApplication {} done={}'.format(applicationName, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -220,7 +220,7 @@ class _RPCInterface(object):
         for process in application.processes.values():
             if process.isRunning():
                 for address in process.addresses:
-                    opt.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
+                    options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
                     stopProcess(address, process.getNamespec(), False)
         # wait until all processes in STOPPED_STATES
         if wait:
@@ -278,12 +278,11 @@ class _RPCInterface(object):
         for process in processes:
             if process.isRunning():
                 raise RPCError(Faults.ALREADY_STARTED, process.getNamespec())
-        # TODO: use predictive model
         # start all processes
         done = True
         for process in processes:
             done &= deployer.deployProcess(strategy, process)
-        opt.logger.debug('startProcess {} done={}'.format(process.getNamespec(), done))
+        options.logger.debug('startProcess {} done={}'.format(process.getNamespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -313,10 +312,10 @@ class _RPCInterface(object):
             if process.isRunning():
                 # work on copy as it may change during iteration
                 for address in process.addresses.copy():
-                    opt.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
+                    options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
                     stopProcess(address, process.getNamespec(), False)
             else:
-                opt.logger.info('process {} already stopped'.format(process.getNamespec()))
+                options.logger.info('process {} already stopped'.format(process.getNamespec()))
         # wait until processes are in STOPPED_STATES
         if wait:
             def onwait():
@@ -427,11 +426,11 @@ class _RPCInterface(object):
             if remote.state in [ RemoteStates.RUNNING, RemoteStates.SILENT ] and remote.address != addressMapper.localAddress:
                 try:
                     func(remote.address)
-                    opt.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
+                    options.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
                 except:
-                    opt.logger.error('failed to {} supervisord on {}'.format(func.__name__, remote.address))
+                    options.logger.error('failed to {} supervisord on {}'.format(func.__name__, remote.address))
             else:
-                opt.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
+                options.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
         # send request to self supervisord
         return func(addressMapper.localAddress)
 
@@ -446,19 +445,18 @@ def make_supervisors_rpcinterface(supervisord, **config):
     from supervisors.infosource import SupervisordSource
     infoSource.source = SupervisordSource(supervisord)
     # get options from config file
-    listenerOptions.realize()
-    opt.realize(True)
+    options.realize()
     # set addresses and check local address
-    addressMapper.setAddresses(opt.addresslist)
+    addressMapper.setAddresses(options.addresslist)
     if not addressMapper.localAddress:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(opt.addresslist))
+        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(options.addresslist))
     context.restart()
     fsm.restart()
     # check parsing
     from supervisors.parser import parser
-    try: parser.setFilename(opt.deployment_file)
+    try: parser.setFilename(options.deployment_file)
     except:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(opt.deployment_file))
+        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(options.deployment_file))
     # update http web pages
     from supervisors.web import updateUiHandler
     updateUiHandler()

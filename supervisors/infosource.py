@@ -17,16 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-# Abstract class with getters to implement
-class ASource(object):
-    def getServerUrl(self): raise NotImplementedError('To be implemented in subclass')
-    def getServerPort(self): raise NotImplementedError('To be implemented in subclass')
-    def getUserName(self): raise NotImplementedError('To be implemented in subclass')
-    def getPassword(self): raise NotImplementedError('To be implemented in subclass')
-
-
 # Supervisors is started in Supervisor so information is available in supervisor instance
-class SupervisordSource(ASource):
+class SupervisordSource(object):
     def __init__(self, supervisord):
         self.supervisord = supervisord
         if len(supervisord.options.server_configs) == 0:
@@ -53,10 +45,14 @@ class SupervisordSource(ASource):
             self.supervisorsRpcInterface = self.supervisord.options.httpservers[0][1].handlers[0].rpcinterface.supervisors
         return self.supervisorsRpcInterface
 
-    def getServerUrl(self): return self.supervisord.options.serverurl
-    def getServerPort(self): return self.serverConfig['port']
-    def getUserName(self): return self.serverConfig['username']
-    def getPassword(self): return self.serverConfig['password']
+    @property
+    def serverUrl(self): return self.supervisord.options.serverurl
+    @property
+    def serverPort(self): return self.serverConfig['port']
+    @property
+    def userName(self): return self.serverConfig['username']
+    @property
+    def password(self): return self.serverConfig['password']
 
     # this method is used to force a process state into supervisord and to dispatch process event to event listeners
     def forceProcessFatalState(self, namespec, reason):
@@ -70,7 +66,7 @@ class SupervisordSource(ASource):
         subProcess.spawnerr = reason
         subProcess.give_up()
 
-
+# wrapper class
 class _InfoSource(object):
     def __init__(self):
         self.source = None
