@@ -17,116 +17,72 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import ConciliationStrategies, stringToConciliationStrategy, conciliationStrategiesValues
-
-from supervisor.datatypes import integer, existing_dirpath, byte_size, logging_level, list_of_strings
-from supervisor.options import Options
-
-# conversion utils (completion of supervisor.datatypes)
-def _toPortNum(value):
-    if value is None: return None
-    value = int(value)
-    if 0 < value <= 65535: return value
-    raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
-
-def _toTimeout(value):
-    if value is None: return 10
-    value = int(value)
-    if 0 < value <= 1000: return value
-    raise ValueError('invalid value for deployment_timeout: %d. expected in [1;1000]' % value)
-
-def _toConciliationStrategy(value):
-    if value is None: return ConciliationStrategies.APPLICATIVE
-    conciliation = stringToConciliationStrategy(value)
-    if conciliation is None:
-        raise ValueError('invalid value for conciliation: {}. expected in {}'.format(value,  conciliationStrategiesValues()))
-    return conciliation
-
-
-# inheritance not fully compliant but used to get some useful stuff
-class _OptionsParser(Options):
-    # Logger definition
-    loggerFormat =  '%(asctime)s %(levelname)s %(message)s\n'
-
-    def __init__(self):
-        # used to initialize search paths
-        Options.__init__(self, True)
-        # get supervisord.conf file from search paths
-        self._configfile = self.default_configfile()
-        # parse file
-        from supervisor.options import UnhosedConfigParser
-        self._parser = UnhosedConfigParser()
-        self._parser.read(self._configfile)
-
-    def getOptions(self, section, optionsObject, logging):
-        self._parser.mysection = section
-        # get values
-        if not self._parser.has_section(section):
-            raise ValueError('section [{}] not found in config file {}'.format(section, self._configfile))
-        # required
-        for x in optionsObject.required_options:
-            setattr(optionsObject, x, self._parser.getdefault(x, None))
-            if not hasattr(optionsObject, x):
-                raise ValueError('required value {} not found in section [{}] of config file {}'.format(x, section, self._configfile))
-        # optional
-        for x in optionsObject.optional_options:
-            setattr(optionsObject, x, self._parser.getdefault(x, None))
-        # logger
-        if logging: 
-            logfile = existing_dirpath(self._parser.getdefault('logfile', '{}.log'.format(section)))
-            logfile_maxbytes = byte_size(self._parser.getdefault('logfile_maxbytes', '50MB'))
-            logfile_backups = integer(self._parser.getdefault('logfile_backups', 10))
-            loglevel = logging_level(self._parser.getdefault('loglevel', 'info'))
-            # configure logger
-            from supervisors.infosource import infoSource
-            try: stdout = (section == 'supervisors') and not infoSource.source.daemon
-            except AttributeError: stdout = False
-            # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
-            from supervisor.loggers import getLogger
-            optionsObject.logger = getLogger(logfile, loglevel, self.loggerFormat, True, logfile_maxbytes, logfile_backups, stdout)
-
-
-# Options of listener section
-class _ListenerOptions(object):
-    required_options = ('eventport', )
-    optional_options = ()
-
-    def realize(self, logging=None):
-        # get options from file
-        optionParser = _OptionsParser()
-        optionParser.getOptions('listener', self, logging)
-        # reformat
-        self.eventport = _toPortNum(self.eventport)
-
+from supervisors.types import *
+from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
 
 # Options of main section
-class _MainOptions(object):
-    required_options = ('addresslist', 'deployment_file', 'masterport')
-    optional_options = ('authport', 'statsport', 'rpcport', 'synchro_timeout', 'conciliation')
-    
-    def realize(self, logging=None):
-        # get options from file
-        optionParser = _OptionsParser()
-        optionParser.getOptions('supervisors', self, logging)
-        # reformat
+class _SupervisorsOptions(object):
+    # logger output
+    loggerFormat = '%(asctime)s %(levelname)s %(message)s\n'
+
+    def realize(self):
+        # supervisor Options class used to initialize search paths
+        from supervisor.options import Options, UnhosedConfigParser
+        options = Options(True)
+        # get supervisord.conf file from search paths
+        configfile = options.default_configfile()
+        # parse file
+        parser = UnhosedConfigParser()
+        parser.read(configfile)
+        # set section
+        parser.mysection = 'supervisors'
+        if not parser.has_section(parser.mysection):
+            raise ValueError('section [{}] not found in config file {}'.format(parser.mysection, configfile))
+        # get values
         from collections import OrderedDict
-        self.addresslist = list(OrderedDict.fromkeys(filter(None, list_of_strings(self.addresslist))))
-        self.masterport = _toPortNum(self.masterport)
-        self.authport = _toPortNum(self.authport)
-        self.statsport = _toPortNum(self.statsport)
-        self.rpcport = _toPortNum(self.rpcport)
-        self.synchro_timeout = _toTimeout(self.synchro_timeout)
-        self.conciliation = _toConciliationStrategy(self.conciliation)
+        import socket
+        self.addresslist = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', socket.gethostname())))))
+        self.eventport = self._toPortNum(parser.getdefault('eventport', '65001'))
+        self.masterport = self._toPortNum(parser.getdefault('masterport', '65002'))
+        self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
+        self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
+        self.statsport = self._toPortNum(parser.getdefault('statsport', '65003'))
+        self.synchro_timeout = self._toTimeout(parser.getdefault('synchro_timeout', '15'))
+        self.conciliation_strategy = self._toConciliationStrategy(parser.getdefault('conciliation_strategy', 'USER'))
+        self.deployment_strategy = self._toDeploymentStrategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        # configure logger
+        logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
+        logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
+        logfile_backups = integer(parser.getdefault('logfile_backups', 10))
+        loglevel = logging_level(parser.getdefault('loglevel', 'info'))
+        # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
+        from supervisors.infosource import infoSource
+        from supervisor.loggers import getLogger
+        stdout = infoSource.source.supervisord.options.nodaemon
+        self.logger = getLogger(logfile, loglevel, self.loggerFormat, True, logfile_maxbytes, logfile_backups, stdout)
+
+    # conversion utils (completion of supervisor.datatypes)
+    def _toPortNum(self, value):
+        value = integer(value)
+        if 0 < value <= 65535: return value
+        raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
+
+    def _toTimeout(self, value):
+        value = integer(value)
+        if 0 < value <= 1000: return value
+        raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000]' % value)
+
+    def _toConciliationStrategy(self, value):
+        strategy = stringToConciliationStrategy(value)
+        if strategy is None:
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, conciliationStrategiesValues()))
+        return strategy
+
+    def _toDeploymentStrategy(self, value):
+        strategy = stringToDeploymentStrategy(value)
+        if strategy is None:
+            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, deploymentStrategiesValues()))
+        return strategy
 
 
-#################################
-### exportable part
-mainOptions = _MainOptions()
-listenerOptions = _ListenerOptions()
-#################################
-
-
-# unit test
-if __name__ == "__main__":
-    print 'found main options: {}'.format(mainOptions.__dict__)
-    print 'found listener options: {}'.format(listenerOptions.__dict__)
+options = _SupervisorsOptions()

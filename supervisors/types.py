@@ -21,7 +21,7 @@ from supervisors.utils import *
 
 # Applicable strategies that can be applied during a deployment
 class DeploymentStrategies:
-    DEFAULT, LESS_LOADED, MOST_LOADED = range(3)
+    CONFIG, LESS_LOADED, MOST_LOADED = range(3)
 
 def deploymentStrategyToString(value):
     return enumToString(DeploymentStrategies.__dict__, value)
@@ -38,7 +38,7 @@ def deploymentStrategiesStrings():
 
 # Applicable strategies that can be applied during a conciliation
 class ConciliationStrategies:
-    EUTHANASIA, YOUTHANASIA, APPLICATIVE, REDEPLOYMENT = range(4)
+    SENICIDE, INFANTICIDE, USER, RESTART = range(4)
 
 def conciliationStrategyToString(value):
     return enumToString(ConciliationStrategies.__dict__, value)
@@ -72,6 +72,6 @@ def supervisorsStatesStrings():
 
 # Exceptions
 class InvalidTransition(Exception):
-    def __init__(self, value): self._value = value
-    def __str__(self): return repr(self._value)
+    def __init__(self, value): self.value = value
+    def __str__(self): return repr(self.value)
     

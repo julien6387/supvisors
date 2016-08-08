@@ -18,141 +18,73 @@
 # ======================================================================
 
 from supervisors.addressmapper import addressMapper
-from supervisors.infosource import infoSource, ASource
-from supervisors.options import listenerOptions as opt
+from supervisors.options import options
 from supervisors.process import stringToProcessStates
 from supervisors.utils import TickHeader, ProcessHeader
 
-from supervisor.childutils import listener, get_headers
-from supervisor.datatypes import boolean
-from supervisor.events import SupervisorRunningEvent, TickEvent, ProcessStateEvent, EventTypes
+from supervisor.datatypes import boolean, integer
+from supervisor import events
 
-import os, time, xmlrpclib, zmq
-
-# Listener is spawned by Supervisor so information is available in environment
-class _EnvironmentSource(ASource):
-    # used environment variables set by Supervisor
-    ServerUrl = 'SUPERVISOR_SERVER_URL'
-    UserName = 'SUPERVISOR_USERNAME'
-    Password = 'SUPERVISOR_PASSWORD'
-
-    def __init__(self):
-        self._serverUrl = self._getSupervisorEnv(self.ServerUrl)
-        # MUST be http, not unix
-        if not self._serverUrl.startswith('http'):
-            raise Exception('wrong SUPERVISOR_SERVER_URL (HTTP expected): {}'.format(self._serverUrl))
-        self._serverPort = self._getUrlPort() if self._serverUrl else None
-        self._userName = self._getSupervisorEnv(self.UserName)
-        self._password = self._getSupervisorEnv(self.Password)
-
-    def getServerUrl(self): return self._serverUrl
-    def getServerPort(self): return self._serverPort
-    def getUserName(self): return self._userName
-    def getPassword(self): return self._password
-
-    def _getSupervisorEnv(self,  envname):
-        try:
-            value = os.environ[envname]
-        except KeyError:
-            opt.logger.error('{} not found in environment'.format(envname))
-            return ''
-        else:
-            opt.logger.debug(envname + '=' + value)
-            return value;
-
-    def _getUrlPort(self):
-        try:
-            return int(self._serverUrl.split(':')[-1]);
-        except ValueError:
-            opt.logger.error('wrong format for %s' % self._serverUrl)
-        return 0
-
+import time, xmlrpclib, zmq
 
 # class for ZMQ publication of event
 class _EventPublisher(object):
-    def __init__(self):
-        context = zmq.Context()
-        context.setsockopt(zmq.LINGER, 0)
-        self._socket = context.socket(zmq.PUB)
-        url = 'tcp://*:{}'.format(opt.eventport)
-        opt.logger.info('binding EventPublisher to %s' % url)
-        self._socket.bind(url)
+    def __init__(self, zmqContext):
+        self.socket = zmqContext.socket(zmq.PUB)
+        # FIXME event port in supervisors
+        url = 'tcp://*:{}'.format(options.eventport)
+        options.logger.info('binding EventPublisher to %s' % url)
+        self.socket.bind(url)
 
     def sendTickEvent(self, payload):
         # publish ZMQ tick
-        opt.logger.debug('send TickEvent {}'.format(payload))
-        self._socket.send_string(TickHeader, zmq.SNDMORE)
-        self._socket.send_pyobj((addressMapper.localAddresses, payload))
+        options.logger.debug('send TickEvent {}'.format(payload))
+        self.socket.send_string(TickHeader, zmq.SNDMORE)
+        self.socket.send_pyobj((addressMapper.localAddresses, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
-        opt.logger.debug('send ProcessEvent {}'.format(payload))
-        self._socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self._socket.send_pyobj((addressMapper.localAddresses, payload))
+        options.logger.debug('send ProcessEvent {}'.format(payload))
+        self.socket.send_string(ProcessHeader, zmq.SNDMORE)
+        self.socket.send_pyobj((addressMapper.localAddresses, payload))
 
 
 # class for listening Supervisor events
-class _SupervisorListener(object):
-    def __init__(self):
-        self._eventPublisher = _EventPublisher()
-        self._loop = True
+class SupervisorListener(object):
+    def __init__(self, zmqContext):
+        self.eventPublisher = _EventPublisher(zmqContext)
+        # subscribe to internal events
+        events.subscribe(events.SupervisorRunningEvent, self._runningListener)
+        events.subscribe(events.ProcessStateEvent, self._processListener)
+        events.subscribe(events.Tick5Event, self._tickListener)
 
-    # main loop: killed by TERM signal
-    def run(self):
-        while self._loop:
-            # wait event
-            event = listener.wait()
-            opt.logger.trace(event[0])
-            # get event type
-            eventname = event[0]['eventname']
-            evType = EventTypes.__dict__[eventname]
-            opt.logger.debug(evType)
-            # get payload as dict
-            payload = get_headers(event[1])
-            opt.logger.trace(payload)
-            # process event by type
-            if issubclass(evType, TickEvent):
-                self._tickEvent(payload)
-            elif issubclass(evType, ProcessStateEvent):
-                self._processEvent(eventname, payload)
-            elif issubclass(evType, SupervisorRunningEvent):
-                self._supervisorEvent()
-            # send result
-            listener.ok()
+    def _runningListener(self, event):
+        # Supervisor is RUNNING: start Supervisors in this supervisord
+        from supervisors.infosource import infoSource
+        options.logger.info('send request to local supervisord to start Supervisors')
+        try:
+            infoSource.source.getSupervisorsRpcInterface().internalStart()
+        except xmlrpclib.Fault, why:
+            options.logger.critical('failed to start Supervisors: {}'.format(why))
 
-    def _tickEvent(self, payload):
-        # convert strings into real values
-        payload['when'] = int(payload['when'])
-        self._eventPublisher.sendTickEvent(payload)
-
-    def _processEvent(self, eventname, payload):
+    def _processListener(self, event):
+        eventName = events.getEventNameByType(event.__class__)
+        options.logger.debug('got Process event from supervisord: {}  {}'.format(eventName, event))
+        # create payload
+        # FIXME: check if it can be done otherwise
+        # need state, now, pid, expected
+        from supervisor.childutils import get_headers
+        payload = get_headers(str(event))
         # additional information
-        payload['state'] = stringToProcessStates(eventname.split('_')[-1])
+        payload['state'] = stringToProcessStates(eventName.split('_')[-1])
         payload['now'] = int(time.time())
         # convert strings into real values
         payload['from_state'] = stringToProcessStates(payload['from_state'])
-        if 'tries' in payload: payload['tries'] = int(payload['tries'])
-        if 'pid' in payload: payload['pid'] = int(payload['pid'])
+        if 'tries' in payload: payload['tries'] = integer(payload['tries'])
+        if 'pid' in payload: payload['pid'] = integer(payload['pid'])
         if 'expected' in payload: payload['expected'] = boolean(payload['expected'])
-        self._eventPublisher.sendProcessEvent(payload)
+        self.eventPublisher.sendProcessEvent(payload)
 
-    def _supervisorEvent(self):
-        # Supervisor is RUNNING: start Supervisors
-        from supervisors.xmlrpcclient import XmlRpcClient
-        opt.logger.info('send request to local supervisord to start Supervisors')
-        try:
-            XmlRpcClient('localhost').proxy.supervisors.internalStart()
-        except xmlrpclib.Fault, why:
-            opt.logger.critical('failed to start Supervisors: {}'.format(why))
-            self._loop = False
-
-
-# Listener main
-if __name__ == "__main__":
-    # read options
-    opt.realize(True)
-    # configure supervisor info source
-    infoSource.source = _EnvironmentSource()
-    # start event listener
-    supervisorListener = _SupervisorListener()
-    supervisorListener.run()
+    def _tickListener(self, event):
+        options.logger.debug('got Tick event from supervisord: {}'.format(event))
+        self.eventPublisher.sendTickEvent(event.when)

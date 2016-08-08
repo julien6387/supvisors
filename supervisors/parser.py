@@ -17,8 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import mainOptions as opt
-
+from supervisors.options import options
 from supervisor.datatypes import boolean, list_of_strings
 
 # XSD contents for XML validation
@@ -69,29 +68,29 @@ XSDContents = StringIO('''\
 
 class _Parser(object):
     def setFilename(self, filename):
-        self._tree = self._parse(filename)
-        self._root = self._tree.getroot()
+        self.tree = self._parse(filename)
+        self.root = self.tree.getroot()
         # get models
-        elements = self._root.findall("./model[@name]")
-        self._models = { element.get('name'): element for element in elements }
-        opt.logger.debug(self._models)
+        elements = self.root.findall("./model[@name]")
+        self.models = { element.get('name'): element for element in elements }
+        options.logger.debug(self.models)
         # get patterns
-        elements = self._root.findall(".//pattern[@name]")
-        self._patterns = { element.get('name'): element for element in elements }
-        opt.logger.debug(self._patterns)
+        elements = self.root.findall(".//pattern[@name]")
+        self.patterns = { element.get('name'): element for element in elements }
+        options.logger.debug(self.patterns)
 
     def setApplicationRules(self, application):
         # find application element
-        opt.logger.trace('searching application element for {}'.format(application.applicationName))
-        applicationElement = self._root.find("./application[@name='{}']".format(application.applicationName))
+        options.logger.trace('searching application element for {}'.format(application.applicationName))
+        applicationElement = self.root.find("./application[@name='{}']".format(application.applicationName))
         if applicationElement is not None:
             # get rules
             value = applicationElement.findtext('autostart')
             application.rules.autostart = boolean(value) if value else False
-            opt.logger.info('application {} - rules {}'.format(application.applicationName, application.rules))
+            options.logger.info('application {} - rules {}'.format(application.applicationName, application.rules))
 
     def setProcessRules(self, process):
-        opt.logger.trace('searching program element for {}'.format(process.getNamespec()))
+        options.logger.trace('searching program element for {}'.format(process.getNamespec()))
         programElement = self._getProgramElement(process)
         if programElement is not None:
             # get addresses rule
@@ -108,7 +107,7 @@ class _Parser(object):
             # get expected_loading rule
             value = programElement.findtext('expected_loading')
             process.rules.expected_loading = int(value) if value and 0<=int(value)<=100 else 1
-        opt.logger.debug('process {} - rules {}'.format(process.getNamespec(), process.rules))
+        options.logger.debug('process {} - rules {}'.format(process.getNamespec(), process.rules))
 
     def _getProgramAddresses(self, programElement, rules):
         value = programElement.findtext('addresses')
@@ -121,30 +120,30 @@ class _Parser(object):
 
     def _getProgramElement(self, process):
         # try to find program name in file
-        programElement = self._root.find("./application[@name='{}']/program[@name='{}']".format(process.applicationName, process.processName))
-        opt.logger.trace('{} - direct search program element {}'.format(process.getNamespec(), programElement))
+        programElement = self.root.find("./application[@name='{}']/program[@name='{}']".format(process.applicationName, process.processName))
+        options.logger.trace('{} - direct search program element {}'.format(process.getNamespec(), programElement))
         if programElement is None:
             # try to find a corresponding pattern
-            patterns = [ name for name, element in self._patterns.items() if name in process.getNamespec() ]
-            opt.logger.trace('{} - found patterns {}'.format(process.getNamespec(), patterns))
+            patterns = [ name for name, element in self.patterns.items() if name in process.getNamespec() ]
+            options.logger.trace('{} - found patterns {}'.format(process.getNamespec(), patterns))
             if patterns:
                 pattern = max(patterns, key=len)
-                programElement = self._patterns[pattern]
-            opt.logger.trace('{} - pattern search program element {}'.format(process.getNamespec(), programElement))
+                programElement = self.patterns[pattern]
+            options.logger.trace('{} - pattern search program element {}'.format(process.getNamespec(), programElement))
         if programElement is not None:
             # find if model referenced in element
             model = programElement.findtext('reference')
-            if model in self._models.keys():
-                programElement = self._models[model]
-            opt.logger.trace('{} - model search ({}) program element {}'.format(process.getNamespec(), model, programElement))
+            if model in self.models.keys():
+                programElement = self.models[model]
+            options.logger.trace('{} - model search ({}) program element {}'.format(process.getNamespec(), model, programElement))
         return programElement
 
     def _parse(self, filename):
-        self._parser = None
+        self.parser = None
         # find parser
         try:
             from lxml import etree
-            opt.logger.info('using lxml.etree parser')
+            options.logger.info('using lxml.etree parser')
             # parse XML and validate it
             tree = etree.parse(filename)
             # get XSD
@@ -152,19 +151,19 @@ class _Parser(object):
             schema = etree.XMLSchema(schemaDoc)
             xmlValid = schema.validate(tree)
             if xmlValid:
-                opt.logger.info('XML validated')
+                options.logger.info('XML validated')
             else:
-                opt.logger.error('XML NOT validated: {0}'.format(filename))
+                options.logger.error('XML NOT validated: {0}'.format(filename))
                 import sys
                 print >> sys.stderr,  schema.error_log
             return tree if xmlValid else None
         except ImportError:
             try:
                 from xml.etree import ElementTree
-                opt.logger.info('using xml.etree.ElementTree parser')
+                options.logger.info('using xml.etree.ElementTree parser')
                 return ElementTree.parse(filename)
             except ImportError:
-                opt.logger.critical("Failed to import ElementTree from any known place")
+                options.logger.critical("Failed to import ElementTree from any known place")
                 raise
 
 
