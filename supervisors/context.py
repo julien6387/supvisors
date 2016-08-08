@@ -132,6 +132,7 @@ class _Context(object):
     def _updateRemoteTime(self, status, remoteTime, localTime):
         status.updateRemoteTime(remoteTime, localTime)
         # got event from remote supervisord, should be operating
+        # TODO: checked is useless. just check that state is not running before
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
