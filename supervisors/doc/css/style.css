@@ -1,0 +1,235 @@
+/* General Layout */
+body
+{
+	margin: auto;
+   background: url(../img/scroll6.jpg) no-repeat fixed;
+   background-size: 100%;
+}
+
+#body_block
+{
+   min-width: 1000px;
+	height: 100vh;
+   display: flex;
+}
+
+#left_side
+{
+   border: 1px black solid; /* for tests */
+   display: flex;
+	flex-direction: column;
+}
+
+nav
+{
+	flex: 1;
+}
+
+header, nav, footer, section
+{
+   border: 1px black solid; /* for tests */
+	padding: 10px;
+	margin: 2px;
+}
+
+#right_side
+{
+   border: 1px black solid; /* for tests */
+	flex: 1;
+   display: flex;
+	flex-direction: column;
+}
+
+#doc-contents
+{
+	overflow: auto;
+}
+
+
+/* Additional resources */
+@font-face {
+	font-family: 'kingthings_calligraphica_2Rg';
+	src: url('Kingthings_Calligraphica_2-webfont.eot');
+	src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
+		url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
+		url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
+		url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+
+/* Resource design */
+body
+{
+	background-color: #e3e3e3;
+	color: #181818;
+	font-family: Verdana, Arial, sans-serif;
+	text-align: justify;
+}
+
+footer
+{
+	font-style: italic;
+}
+
+h1, h2, h3, h4
+{
+	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+	text-shadow: 2px 2px 6px #202020;
+}
+
+h1
+{
+	font-size: 1.7em;
+}
+
+h2
+{
+	font-size: 1.5em;
+}
+
+h3
+{
+	font-size: 1.3em;
+}
+
+h4
+{
+	font-size: 1.1em;
+	font-style: italic;
+}
+
+mark
+{
+	background-color: transparent;
+	text-decoration: underline;
+}
+
+table
+{
+	border-collapse: collapse;
+	caption-side: bottom;
+	background: rgba(0,0,0,.2);
+	margin: 0 auto
+}
+
+caption
+{
+	font-style: italic;
+}
+
+th, td
+{
+	border: 1px solid black;
+}
+
+th
+{
+	background-color: grey;
+}
+
+/* decrease spacing between a paragraph and the following list */
+p + ul
+{
+	margin-top: -15px;
+}
+
+/* decrease spacing between a cell text and the following list */
+td ul
+{
+	margin-top: 0px;
+}
+
+code
+{
+	color: blue;
+}
+
+pre code
+{
+	display: block;
+	width: 75%;
+	margin-left: 10%;
+	background: rgba(0,0,0,.2);
+	padding: 2px 5px;
+	border: 1px solid rgba(0,0,0,.2)
+}
+
+pre code[langage]::before
+{
+	content: attr(langage);
+	color: rgba(0,0,0,.5);
+	font-size: 0.8em;
+	float: right;
+	margin-top: -16px
+}
+
+.note
+{
+	padding: 0px 5px;
+	margin: 20px 25px;
+	background: rgba(0,0,0,.2);
+	border: 1px solid rgba(0,0,0,.2)
+}
+
+.note::before
+{
+	content: url(../img/info_16x16.jpg) "\00a0";
+	float: left;
+	margin-top: 16px;
+	margin-left: -4px
+}
+
+.option
+{
+	text-shadow: 2px 2px 2px black;
+}
+
+.className
+{
+	font-weight: bold;
+}
+
+.attributeName
+{
+	font-style: italic;
+}
+
+.optionTable td:nth-child(2), .optionTable td:nth-child(3)
+{
+	text-align:center;
+}
+
+.modelTable th
+{
+	text-align:center;
+}
+
+.tableInfo
+{
+	background-color: grey;
+	font-style: italic;
+}
+
+.added-entry
+{
+	background-color: green;
+	font-style: italic;
+}
+
+.removed-entry
+{
+	background-color: grey;
+	font-style: italic;
+	text-decoration: line-through;
+}
+
+.not-implemented-yet::before
+{
+	content: "Not implemented yet. ";
+	color: red;
+	font-size: 1em;
+}
+
+
