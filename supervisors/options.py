@@ -42,8 +42,8 @@ class _SupervisorsOptions(object):
         from collections import OrderedDict
         import socket
         self.addresslist = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', socket.gethostname())))))
-        self.eventport = self._toPortNum(parser.getdefault('eventport', '65001'))
-        self.masterport = self._toPortNum(parser.getdefault('masterport', '65002'))
+        self.internalport = self._toPortNum(parser.getdefault('internalport', '65001'))
+        self.eventport = self._toPortNum(parser.getdefault('eventport', '65002'))
         self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
         self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
         self.statsport = self._toPortNum(parser.getdefault('statsport', '65003'))

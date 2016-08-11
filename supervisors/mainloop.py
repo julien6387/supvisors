@@ -33,7 +33,7 @@ class EventSubscriber(object):
         self.socket = zmqContext.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
         for address in addressMapper.expectedAddresses:
-            url = 'tcp://{}:{}'.format(address, options.eventport)
+            url = 'tcp://{}:{}'.format(address, options.internalport)
             options.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
         options.logger.debug('EventSubscriber connected')
@@ -44,7 +44,7 @@ class EventSubscriber(object):
 
     def disconnect(self, addresses):
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address, options.eventport)
+            url = 'tcp://{}:{}'.format(address, options.internalport)
             options.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 

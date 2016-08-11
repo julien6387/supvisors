@@ -11,433 +11,65 @@
 
 		<div id="left_side">
 			<header>
-				<p>TODO: add Supervisors logo</p>
-				<p>TODO: add Supervisors version</p>
-				<p>TODO: add link to Supervisors github</p>
+				<h1><a href="#github">Supervisors</a></h1>
+				<p class="version">0.1</p>
 			</header>
 
-			<nav><ul>
-				<li><a href="#intro">Introduction</a><ul>
-					<li><a href="#overview">Overview</a></li>
-					<li><a href="#components">Supervisors Components</a></li>
-					<li><a href="#platform">Platform Requirements</a></li>
-					<li><a href="#install">Installation</a></li>
-					<li><a href="#run">Running Supervisors</a></li>
-				</ul></li>
-				<li><a href="#config">Configuration</a><ul>
-					<li><a href="#supervisor-config">Supervisor Configuration</a></li>
-					<li><a href="#deployment-file">Deployment File</a></li>
-				</ul></li>
-				<li><a href="#xml-rpc-doc">XML-RPC API Documentation</a><ul>
-					<li><a href="#xml-rpc-status">Status and Control</a></li>
-					<li><a href="#xml-rpc-appli">Application Control</a></li>
-					<li><a href="#xml-rpc-process">Process Control</a></li>
-				</ul></li>
-				<li><a href="#design">Software Design</a><ul>
-					<li><a href="#design-supervisord-ext">Extension of supervisord</a><ul>
-						<li><a href="#data-model">Data Model</a></li>
-						<li><a href="#parsing">Parsing Files</a></li>
-						<li><a href="#supervisor-events">Supervisor Events</a></li>
-						<li><a href="#supervisors-events">Supervisors Events</a></li>
-						<li><a href="#state-machine">State Machine</a></li>
-						<li><a href="#deployment">Deployment</a></li>
-						<li><a href="#xml-rpc">XML-RPC</a></li>
-					</ul></li>
-					<li><a href="#design-supervisorctl-ext">Extension of supervisorctl</a></li>
-					<li><a href="#design-web-ext">Extension of web server</a></li>
-				</ul></li>
+			<nav>
+				<ul>
+	 				<li><a href="index.html" class="active">Introduction</a><ul>
+            		<li><a href="#overview">Overview</a></li>
+               	<li><a href="#platform">Platform Requirements</a></li>
+               	<li><a href="#install">Installation</a></li>
+               	<li><a href="#run">Running Supervisors</a></li>
+            	</ul></li>
+               <li><a href="configuration.html">Configuration</a></li>
+               <li><a href="xml-rpc-api.html">XML-RPC API Documentation</a></li>
+               <li><a href="design.html">Software Design</a></li>
+             </ul>
 			</nav>
 
 			<footer>
 				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cléach</a></p>
-				<p>TODO: add copyright</p>
+				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
 			</footer>
 		</div>
 
 		<div id="right_side">
 			<header>
-				<p>TODO: add ???</p>
+				<h1>Supervisors Documentation - Introduction</h1>
 			</header>
 
-			<div id="doc-contents">
+			<section id="doc-contents">
+				<h1 id="overview">Overview</h1>
+				<p>Supervisors is a control system for distributed applications over multiple Supervisor instances.</p>
+				<p>TODO: Why Supervisors ?</p>
+				<dfn>In this documentation, a <em>Supervisors instance</em> refers to a Supervisor instance including a Supervisors extension.<br />
+				<em>Supervisors</em> is used to refer to the defined set of these instances.</dfn>
 
-				<!-- Introduction section -->
-				<section id="section-intro">
-					<h1 id="intro">Introduction</h1>
+				<h1 id="platform">Platform Requirements</h1>
+				<p>Supervisors has been tested and is known to run on Linux (CentOS 7.2)</p>
+				<p>Supervisors will not run at all under any version of Windows.</p>
+				<p>Supervisors works with Python 2.7 or later but will not work under any version of Python 3.</p>
 
-					<h2 id="overview">Overview</h2>
-					<p>TODO: Why Supervisors ? A control system for distributed applications over multiple Supervisor instances.</p>
-					<p>In this documentation, a <em>Supervisors instance</em> refers to a Supervisor instance including a Supervisors extension.<br />
-					<em>Supervisors</em> is used to refer to the defined set of these instances.</p>
+				<h1 id="install">Installation</h1>
+				<p>Packaging <span class="not-implemented-yet"></span></p>
+				<p>Temporary: get a copy of the supervisors directory from <a href="#github" class="extLink">here</a> and export to <code lang="bash">PYTHONPATH</code> before running Supervisor</p>
+				<p>Supervisors has the following dependencies:</p>
+				<ul>
+					<li><a href="http://supervisord.org" class="extLink">Supervisor</a>: base software, extended by Supervisors</li>
+					<li><a href="http://pyzmq.readthedocs.io" class="extLink">PyZMQ</a>: used for TCP publish / subscribe pattern.</li>
+					<li><a href="https://pypi.python.org/pypi/netifaces" class="extLink">netifaces</a>: used to get IPv4 aliases from host name.</li>
+					<li><a href="http://lxml.de" class="extLink">lxml</a>: for XSD validation of the XML deployment file(optional).</li>
+				</ul>
 
-					<h2 id="components">Supervisors Components</h2>
-					<h3>Extension of Supervisor's supervisord</h3>
-					<p>TODO</p>
-					<h3>Extension of Supervisor's supervisorctl</h3>
-					<p>TODO</p>
-					<h3>Redefinition of the Supervisor's web server</h3>
-					<p>TODO</p>
-					<h3>Extension of Supervisor's XML-RPC interface</h3>
-					<p>TODO</p>
+				<h1 id="run">Running Supervisors</h1>
+				<p>Same principle as <a href="http://supervisord.org/running.html" class="extLink">Running Supervisor</a> but using multiple UNIX-like operating systems.</p>
+				<p>Note that a script may be required to start Supervisor on several addresses if not configured to run automatically at startup (ssh loop for example).<br />
+				All Supervisor instances should be started during a given lap of time (configuration is explained later) so that Supervisors works as expected.</p>
+			</section>
 
-					<h2 id="platform">Platform Requirements</h2>
-					<p>Supervisors has been tested and is known to run on Linux (CentOS 7.2)</p>
-					<p>Supervisors will not run at all under any version of Windows.</p>
-					<p>Supervisors works with Python 2.7 or later but will not work under any version of Python 3.</p>
-
-					<h2 id="install">Installation</h2>
-					<p>TODO. copy and export PYTHONPATH for the moment.</p>
-					<p>Third parties: PyZMQ, netifaces, lxml (optional as element tree required by Supervisor but needed for XSD validation)</p>
-
-					<h2 id="run">Running Supervisors</h2>
-					<p>Same principle as <a href="http://supervisord.org/running.html">Running Supervisor</a> but using multiple UNIX-like operating systems.</p>
-					<p>Note that a script may be required to start Supervisor on several addresses if not configured to run automatically at startup (ssh loop for example).<br />
-					All Supervisor instances should be started during a given lap of time (configuration is explained later) so that Supervisors works as expected.</p>
-				</section>
-
-				<!-- Configuration section -->
-				<section id="section-config">
-					<h1 id="config">Configuration</h1>
-
-					<h2 id="supervisor-config">Supervisor Configuration</h2>
-					<p>This section explains how Supervisors uses and complements the <a href="http://supervisord.org/configuration.html">Supervisor configuration</a>.</p>
-
-					<h3>Supervisor extension points</h3>
-					<p id="supervisord-ext">Supervisors extends the <a href="http://supervisord.org/xmlrpc.html">Supervisor’s XML-RPC API</a></p>
-					<pre><code langage="ini">[rpcinterface:supervisors]
-supervisor.rpcinterface_factory = supervisors.rpcinterface:make_supervisors_rpcinterface</code></pre>
-					<p id="supervisorctl-ext">Supervisors extends also <a href="http://supervisord.org/running.html#running-supervisorctl">supervisorctl</a>. This possibility is not documented in Supervisor.</p>
-					<pre><code langage="ini">[ctlplugin:supervisors]
-supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_plugin</code></pre>
-
-					<h3>New section dedicated to Supervisors</h3>
-					<p>Supervisors uses an additional section <span class="config">[supervisors]</span> in the Supervisor configuration file file.</p>
-					<table class="optionTable">
-						<caption>Supervisors options</caption>
-						<thead>
-							<tr><th>option</th><th>required</th><th>default</th><th>description</th></tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td id="address-list"><span class="option">address-list</span></td>
-								<td>yes</td>
-								<td></td>
-								<td>list of host names or IP addresses where supervisors will be running</td>
-							</tr>
-							<tr>
-								<td><span class="option">deployment_file</span></td>
-								<td>no</td>
-								<td></td>
-								<td>absolute or relative path of the XML deployment file</td>
-							</tr>
-							<tr>
-								<td><span class="option">auto_fence</span></td>
-								<td>no</td>
-								<td>false</td>
-								<td>if true, Supervisors won't try to reconnect to an address that is not responsive anymore</td>
-							</tr>
-							<tr>
-								<td id="internal-port"><span class="option">internalport</span></td>
-								<td>no</th>
-								<td>65001</th>
-								<td>port number used to publish local events to remote Supervisors instances</th>
-							</tr>
-							<tr>
-								<td id="event-port"><span class="option">eventport</span></td>
-								<td>no</td>
-								<td>65002</td>
-								<td>port number used to publish all events (PROCESS + APPLICATION + HOST). <span class="not-implemented-yet" /></td>
-							</tr>
-							<tr>
-								<td><span class="option">synchro_timeout</span></td>
-								<td>no</th>
-								<td>TBD</th>
-								<td>time in seconds that Supervisors waits for all expected addresses to publish</th>
-							</tr>
-							<tr>
-								<td><span class="option">deployment_strategy</span></td>
-								<td>no</th>
-								<td>CONFIG</th>
-								<td>strategy used to start applications on addresses. values in { CONFIG, LESS_LOADED, MOST_LOADED } (<a href="#">details</a>)</th>
-							</tr>
-							<tr>
-								<td><span class="option">conciliation_strategy</span></td>
-								<td>no</th>
-								<td>USER</th>
-								<td>strategy used to TBD. values in { SENICIDE, INFANTICIDE, USER, RESTART } (<a href="#">details</a>)</th>
-							</tr>
-							<tr>
-								<td colspan="4" class="tableInfo">Logging options, identical to <a href="http://supervisord.org/configuration.html#supervisord-section-values">Supervisor's</a></td>
-							</tr>
-							<tr>
-								<td><span class="option">logfile</span></td>
-								<td>no</th>
-								<td>supervisors.log</th>
-								<td>absolute or relative path of the Supervisors log file</th>
-							</tr>
-							<tr>
-								<td><span class="option">logfile_maxbytes</span></td>
-								<td>no</th>
-								<td>50MB</th>
-								<td>maximum size of the Supervisors log file</th>
-							</tr>
-							<tr>
-								<td><span class="option">logfile_backups</span></td>
-								<td>no</th>
-								<td>10</th>
-								<td>number of Supervisors backup log files</th>
-							</tr>
-							<tr>
-								<td><span class="option">loglevel</span></td>
-								<td>no</th>
-								<td>info</th>
-								<td>logging level</th>
-							</tr>
-						</tbody>
-					</table>
-
-					<h2 id="deployment-file">Deployment File</h2>
-					<p>Basically, the deployment file contains rules that define how applicative processes should be started. It relies on the Supervisor group and program definitions.<br />
-					TODO</p>
-
-					<p>Definition of a program, pattern or model:</p>
-					<ul>
-						<li><span class="option">addresses</span>: list of host names or IP addresses. must be a subset of addresslist.<br />
-						'*': stands for all values in addresslist.<br />
-						'#': <span class="not-implemented-yet" />only applicable to a pattern. intended to a program that is meant to be started on each address in the address list. In the program configuration file, it is expected that:<ol>
-							<li>the <span class="config">numprocs</span> value corresponds to the number of elements in addresslist.</li>
-							<li>the <span class="config">numprocs_start</span> value is 0 (default value).</li></ol>
-						<li><span class="option">required</span>: importance of the program for the application. if true (resp. false), program is required (resp. optional).<br />
-						if true, direct impact on application state. major failure when stopped or crashed.<br />
-						if false (default value), impact only on application degraded status.</li>
-						<li><span class="option">sequence</span>: order in application starting.<br />
-						if set to -1, process is not automatically started.<br />
-						when >= 0, start process automatically in the order specified.</li>
-						<li><span class="option">wait_exit</span>: if true, Supervisors waits for the process to exit before deploying the next sequence</li>
-						<li><span class="option">loading</span>: expected percent usage of resources</li>
-					</ul>
-
-					<p>Definition of a referenced program or pattern:</p>
-					<ul>
-						<li>reference: name of the applicable model</li>
-					</ul>
-
-					<pre><code langage="xml">&lt;program name="firefox"&gt;
-	&lt;reference&gt;model_1&lt;/reference&gt;
-&lt;/program&gt;</code></pre>
-
-					<p>Definition of an application:</p>
-					<ul>
-						<li><span class="option">sequence</span>: <span class="not-implemented-yet" />defines the automatic start of the application when Supervisors enters in RUNNING state.<br />
-						if set to -1, application is not automatically started.<br />
-						when >= 0, start application automatically in the order specified.</li>
-						<li><span class="option">starting_failure_strategy</span>: <span class="not-implemented-yet" /><ul>
-							<li>ABORT: abort sequence upon major failure.</li>
-							<li>CONTINUE: default value. continue sequence upon major failure.</li></ul>
-						<li><span class="option">running_failure_strategy</span>: <span class="not-implemented-yet" /><ul>
-							<li>CONTINUE: default value. no action.</li>
-							<li>STOP: stop application upon major failure.</li>
-							<li>RESTART: only when application is started. restart application upon major failure.</li></ul>
-					</ul>
-
-					<p>The XSD contents used to validate the XML can be found in the following module: <span class="file">supervisors.parser</span>.</p>
-				</section>
-
-
-				<!-- XML-RPC documentation section -->
-				<section id="section-xml-rpc-doc">
-					<h1 id="xml-rpc-doc">XML-RPC API Documentation</h1>
-					<p>The Supervisors XML-RPC API is an extension of the Supervisor API. Detailed information can be found in the <a href="http://supervisord.org/api.html#xml-rpc-api-documentation">Supervisor XML-RPC API Documentation</a>.</p>
-					<p>The <strong>supervisors</strong> namespace has been added to the supervisord XML-RPC interface.</p>
-					<p>The XML-RPC system.listMethods API now provides the list of methods supported for both Supervisor and Supervisors. An example is provided below.</p>
-					<p class="code">server.supervisors.getState()</p>
-
-					<h2 id="xml-rpc-status">Status and Control</h2>
-					<h2 id="xml-rpc-appli">Application Control</h2>
-					<h2 id="xml-rpc-process">Process Control</h2>
-				</section>
-
-				<!-- Software design section -->
-				<section id="section-design">
-					<h1 id="design">Software Design</h1>
-
-					<h2 id="design-supervisord-ext">Extension of supervisord</h2>
-					<p>Supervisors uses the Supervisor’s XML-RPC API extension facility to add behaviour into Supervisor.<br />
-					More particularly, Supervisors starts a dedicated thread <mark>inside</mark> the supervisord daemon to perform the additional work.</p>
-
-					<h3 id="data-model">Data Model</h3>
-					<p>This part presents the main structures used in the python source code of Supervisors.</p>
-
-					<h4>ProcessStatus</h4>
-					<p>Each program controlled by Supervisor is represented in a class called <code class="className">ProcessStatus</code>.<br />
-					More particularly, it contains the following information:</p>
-					<table class="modelTable">
-						<tr><th colspan="2"><code class="className">ProcessStatus</code></th></tr>
-						<tr><td><code class="attributeName">applicationName</code></td><td>name of the application that the process belongs to, in other words the Supervisor group</td></tr>
-						<tr><td><code class="attributeName">processName</code></td><td>name of the process, in other words the Supervisor program name</td></tr>
-						<tr><td><code class="attributeName">state</code></td><td>state of the process, as defined in <a href="http://supervisord.org/subprocess.html#process-states">Supervisor</a></td></tr>
-						<tr><td><code class="attributeName">expectedExit</code></td><td>status telling if the process has exited as expected, only makes sense when state is <code>EXITED</code></td></tr>
-						<tr><td><code class="attributeName">lastEventTime</code></td><td>date of the last process event received from Supervisor, in remote reference time</td></tr>
-						<tr><td><code class="attributeName">addresses</code></td><td>set of addresses where the process is in a <code>RUNNING</code> state<br />
-							0 or 1 value is expected<br />
-							if more that one value, a split-brain syndrome is happening</td></tr>
-						<tr><td><code class="attributeName">processes</code></td><td>map of process information, key is <code class="attributeName">address</code></td></tr>
-						<tr><td><code class="attributeName">rules</code></td><td>a <code class="className">ProcessRules</code> instance containing the deployment model of the process, as defined in the <a href="#deployment-file">deployment file</a></td></tr>
-					</table>
-
-					<p>Supervisor defines the following lists of states:</p>
-					<ul>
-						<li><code>STOPPED_STATES = (ProcessStates.STOPPED, ProcessStates.EXITED, ProcessStates.FATAL, ProcessStates.UNKNOWN)</code></li>
-						<li><code>RUNNING_STATES = (ProcessStates.RUNNING, ProcessStates.BACKOFF, ProcessStates.STARTING)</code></li>
-					</ul>
-
-					<div class="note">
-						<p><mark>Note about the decision not to use the <code class="className">Subprocess</code> class, available in Supervisor source code</mark><p>
-						<p>First, it may be impossible to point to the <code class="className">Subprocess</code> reference in supervisord config, as it may not exist. Although it is recommended for the usage of Supervisors, nothing forces the user to configure all the Supervisor instances with exactly the same list of programs. So when receiving a process event in the Supervisors instance B (i.e. located on address B), coming from the Supervisors instance A, it may happen that the involved process is unknown to the Supervisor instance hosting B.<br />
-						So, considering that a new instance of a <code class="className">Subprocess</code> could be handled in Supervisors, that raises other problems. For the same reason given above, it may be impossible to assign a config to this instance. In addition to that, as a different instance of the same program may be managed by every Supervisors instances, there is no guarantee that the process state transitions will be fully respected. Supervisors has to juggle with that.<br />
-						Finally, <code class="className">Subprocess</code> methods and most of the information held are irrelevant to Supervisors.</p>
-					</div>
-
-					<div class="note">
-						<p><mark>Note about the process information:</mark><p>
-						<p>The process information held in Supervisors looks more or less like the dictionary got from the <a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getProcessInfo"><code>supervisor.getProcessInfo</code></a> XML-RPC.</p>
-						<p>A few entries are removed from this dictionary, because they are useless in Supervisors and in order to improve performance: <code>description</code>, <code>stderr_logfile</code>, <code>stdout_logfile</code>, <code>logfile</code>, <code>exitstatus</code>.</p>
-						<p>A few entries are added to this dictionary: <code>localTime</code>, <code>eventTime</code>, <code>uptime</code>, <code>expected</code>.</p>
-						<table>
-							<caption>Process Information Dictionary</caption>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'name'</code></td><td>name of the process</td></tr>
-							<tr><td><code>'group'</code></td><td>name of the group, i.e. name of the application for Supervisors</td></tr>
-							<tr class="removed-entry"><td><code>'description'</code></td><td>description of the process activity</td></tr>
-							<tr><td><code>'start'</code></td><td>start time of the process, in remote reference time</td></tr>
-							<tr><td><code>'stop'</code></td><td>stop time of the process, in remote reference time</td></tr>
-							<tr><td><code>'now'</code></td><td>current time of the process, in remote reference time</td></tr>
-							<tr class="added-entry"><td><code>'localTime'</code></td><td>current time of the process, in local reference time</td></tr>
-							<tr class="added-entry"><td><code>'eventTime'</code></td><td>date of the last event received, in local reference time</td></tr>
-							<tr class="added-entry"><td><code>'uptime'</code></td><td>age of the process</td></tr>
-							<tr><td><code>'state'</code></td><td>state of the process</td></tr>
-							<tr><td><code>'statename'</code></td><td>state of the process (string version)</td></tr>
-							<tr><td><code>'spawnerr'</code></td><td>error description when process cannot be spawned</td></tr>
-							<tr class="removed-entry"><td><code>'exitstatus'</code></td><td>exit code of the process</td></tr>
-							<tr class="added-entry"><td><code>'expected'</code></td><td>expected exit of the process (true, false)</td></tr>
-							<tr class="removed-entry"><td><code>'logfile'</code></td><td>standard ouput of the process, deprecated</td></tr>
-							<tr class="removed-entry"><td><code>'stdout_logfile'</code></td><td>standard ouput of the process</td></tr>
-							<tr class="removed-entry"><td><code>'stderr_logfile'</code></td><td>error ouput of the process</td></tr>
-							<tr><td><code>'pid'</code></td><td>process identifier</td></tr>
-						</table>
-						<p>The dictionary contents are still subject to modifications.</p>
-					</div>
-
-					<h4>ApplicationStatus</h4>
-					<p>A <code class="className">ProcessStatus</code> belongs to an <code class="className">ApplicationStatus</code>.<br />
-					More particularly, it contains the following information:</p>
-					<table class="modelTable">
-						<tr><th colspan="2"><code class="className">ApplicationStatus</code></th></tr>
-						<tr><td><code class="attributeName">applicationName</code></td><td>name of the application, in other words the Supervisor group</td></tr>
-						<tr><td><code class="attributeName">state</code></td><td>state of the application, among:<ul>
-								<li><code>UNKNOWN</code>: application state cannot be determined</li>
-								<li><code>STOPPED</code>: all processes are in <code>STOPPED_STATES</code></li>
-								<li><code>STARTING</code>: at least one process is <code>STARTING</code> or <code>BACKOFF</code></li>
-								<li><code>STOPPING</code>: at least one process is <code>STOPPING</code> and none is <code>STARTING</code> or <code>BACKOFF</code></li>
-								<li><code>RUNNING</code>: at least one process is <code>RUNNING</code> and none is <code>STARTING</code>, <code>BACKOFF</code> or <code>STOPPING</code></li>
-								<li><code>FATAL</code>: TO BE REMOVED</li>
-							</ul></td></tr>
-						<tr><td><code class="attributeName">fatal</code></td><td><span class="not-implemented-yet" />indicates a major failure, i.e. a required process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
-						In this case, the application is not operational.</td></tr>
-						<tr><td><code class="attributeName">degraded</code></td><td>indicates a minor failure, i.e. an optional process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
-						this status does not affect the operational status of the application.</td></tr>
-						<tr><td><code class="attributeName">processes</code></td><td>map of <code class="className">ProcessStatus</code> instances.<br />
-						key is <code class="attributeName">processName</code>.</td></tr>
-						<tr><td><code class="attributeName">rules</code></td><td>an <code class="className">ApplicationRules</code> instance containing the deployment model of the application, as defined in the <a href="#deployment-file">deployment file</a></td></tr>
-					</table>
-
-					<div class="note">
-						<p><mark>Note about the application state: TO BE REMOVED when the rules above are implemented</mark><br />
-						The determination of the application state does not follow the same rules, according to the application deployment being defined or not. In Supervisors, <em>an application is deployable when its deployment rules contains at least one program with a positive sequence</em>.<br />
-						<ol>
-							<li>The application is deployable:<br />
-							Only the programs with a positive sequence are considered.
-							So a STOPPED application may have RUNNING processes
-							</li>
-							<li>The application is <strong>not</strong> deployable:<br />
-							No details are given about the integrity rules of the application, so it can never be <code>FATAL</code> or <code>degraded</code>.<br />
-							One single process in <code>RUNNING</code> state is sufficient to declare the application <code>RUNNING</code>.
-							When all processes are <code>STOPPED</code>, the application state remains in <code>UNKNOWN</code> state, so as to prevent a <code>supervisors.startApplication</code> XML-RPC on that application, which would make no sense.</li>
-						</ol>
-
-					as there are processes in STOPPED state and in RUNNING state. Most of the time, this state should be transient and happens when the application is starting or stopping.</p>
-					</div>
-
-					<h4>RemoteStatus</h4>
-					<p>Each local Supervisors instance has its own perception of other remote Supervisors instance. This perception is stored in a class called <code class="className">RemoteStatus</code>.<br />
-					More particularly, it contains the following information:</p>
-					<table class="modelTable">
-						<tr><th colspan="2"><code class="className">RemoteStatus</code></th></tr>
-						<tr><td><code class="attributeName">address</code></td><td>address of the Supervisors instance</td></tr>
-						<tr><td><code class="attributeName">state</code></td><td>state of the Supervisors instance, among:<ul>
-								<li><code>UNKNOWN</code>: no heartbeat received yet (only in <code>INITIALIZATION</code> state)</li>
-								<li><code>RUNNING</code>: heartbeat received in the last 10 seconds</li>
-								<li><code>SILENT</code>: <strong>no</strong> heartbeat received in the last 10 seconds and auto-fencing <strong>is not</strong> activated</li>
-								<li><code>ISOLATING</code>: <strong>no</strong> heartbeat received in the last 10 seconds and auto-fencing <strong>is</strong> activated<br />
-								temporary state before complete 	isolation</li>
-								<li><code>ISOLATED</code>: no more events expected anymore</li>
-							</ul></td></tr>
-						<tr><td><code class="attributeName">remoteTime</code></td><td>date of the last heartbeart received in remote reference time</td></tr>
-						<tr><td><code class="attributeName">localTime</code></td><td>date of the last heartbeart received in local reference time</td></tr>
-					</table>
-
-					<p>TODO: add statechart</p>
-
-					<p>Every time that a Supervisors instance becomes <code>RUNNING</code>, the local Supervisors instance gets and stores all process information from the Supervisor daemon using the <a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getAllProcessInfo"><code>supervisor.getAllProcessInfo</code></a> XML-RPC.</p>
-
-					<h3 id="parsing">Parsing Files</h3>
-					<p>TODO: option file</p>
-					<p>TODO: XML file</p>
-
-					<h3 id="supervisor-events">Supervisor events</h3>
-					<p>As Supervisors runs inside Supervisor, it makes it possible to collect events directly by subscribing to <code>supervisor.events</code> instead of using an event listener program.</p>
-					<p>The <a href="http://supervisord.org/events.html#tick-5-event-type">TICK_5</a> and <a href="http://supervisord.org/events.html#process-state-event-type">PROCESS_STATE</a> events are published using a ZMQ publish pattern over a TCP socket bound on the <a href="#internal-port" class="internal-link">internalport</a> defined in the Supervisor configuration file.</p>
-					<p>TODO: event contents</p>
-					<p>TODO: serialization pyobj</p>
-					<p>The <a href="http://supervisord.org/events.html#supervisor-state-change-running-event-type">SUPERVISOR_STATE_CHANGE_RUNNING</a> event starts the main loop thread of the Supervisors instance. The thread could not be started before (when extending Supervisor XML-RPC) because it would stop if supervisord daemonizes.</p>
-
-					<h3 id="supervisors-events">Supervisors events</h3>
-					<p>A ZMQ socket is built with a subscribe pattern over a TCP socket connected to all addresses found in <a href="#address-list" class="internal-link">addresslist</a> on the <a href="#internal-port" class="internal-link">internalport</a> defined in the Supervisor configuration file.<br />
-					The main loop polls the Supervisors events through this socket.<br />
-					TICK_5 events are used to update Local instances.<br />
-					PROCESS_STATE events are used to update Process instances and consequently Application instances.</p>
-
-					<p>WARN: this is a local publish/subscribe (bind on localhost). a process can only subscribe to its co-located Supervisors instance.<br />
-					Rejected alternative 1: use a sendRemoteCommEvent (XML-RPC) and set the applicative program as an event listener with REMOTE_COMMUNICATION. problem is that applicative program MUST be an eventlistener and therefore, cannot be part of a group (=application), which is not compliant with the current design.<br />
-					Rejected alternative 2: use a sendProcessStdin (XML-RPC) to applicative program. add option in deployment file for such programs ? weird...</p>
-					<p>TODO: event contents</p>
-					<p>TODO: serialization json</p>
-
-					<h3 id="state-machine">State Machine</h3>
-					<p>INITIALIZATION, ELECTION, DEPLOYMENT, OPERATION, CONCILIATION</p>
-					<p>TODO: add statechart</p>
-
-					<h3 id="deployment">Deployment</h3>
-					<p>TODO</p>
-
-					<h3 id="xml-rpc">XML-RPC</h3>
-					<p>The extension point provided in <a href="#supervisord-ext">Supervisor configuration file</a> adds a plugin to the existing supervisord XML-RPC API.<br />
-					The plugin supervisors.rpcinterface:XXX uses the same principles as the supervisor.rpcinterface:make_main_rpcinterface class.<br />
-					The additional commands provided by Supervisors are available by typing "help" at the prompt.</p>
-					<p></p>
-
-					<h2 id="design-supervisorctl-ext">Extension of supervisorctl</h2>
-					<p>The extension point provided in <a href="#supervisorctl-ext">Supervisor configuration file</a> adds a plugin to the existing supervisorctl.<br />
-					The plugin supervisors.supervisorsctl:XXX uses the same principles as the supervisor.supervisorctl:SupervisorNamespaceRPCInterface class.<br />
-					The additional XML-RPC provided by Supervisors are described <a href="#xml-rpc-doc">here</a>.</p>
-
-					<h2 id="design-web-ext">Extension of web server</h2>
-					<p><span class="not-implemented-yet" /></p>
-				</section>
-
-			</div>
 		</div>
-
 	</div>
 </body>
 </html>

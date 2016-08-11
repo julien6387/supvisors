@@ -32,7 +32,7 @@ class _EventPublisher(object):
     def __init__(self, zmqContext):
         self.socket = zmqContext.socket(zmq.PUB)
         # FIXME event port in supervisors
-        url = 'tcp://*:{}'.format(options.eventport)
+        url = 'tcp://*:{}'.format(options.internalport)
         options.logger.info('binding EventPublisher to %s' % url)
         self.socket.bind(url)
 
@@ -70,9 +70,7 @@ class SupervisorListener(object):
     def _processListener(self, event):
         eventName = events.getEventNameByType(event.__class__)
         options.logger.debug('got Process event from supervisord: {}  {}'.format(eventName, event))
-        # create payload
-        # FIXME: check if it can be done otherwise
-        # need state, now, pid, expected
+        # create payload to get data
         from supervisor.childutils import get_headers
         payload = get_headers(str(event))
         # additional information
