@@ -107,9 +107,10 @@ class _ControllerPlugin(ControllerPluginBase):
                         self._outputApplicationInfo(info)
 
     def _outputApplicationInfo(self, info):
-        template = '%(name)-20s%(state)-12s%(degraded)-12s'
-        degraded = info['degraded']
-        line = template % {'name': info['applicationName'], 'state': info['state'], 'degraded': 'degraded' if degraded else '' }
+        template = '%(name)-20s%(state)-12s%(majorFailure)-15s%(minorFailure)-15s'
+        majorFailure = info['majorFailure']
+        minorFailure = info['minorFailure']
+        line = template % {'name': info['applicationName'], 'state': info['state'], 'majorFailure': 'majorFailure' if majorFailure else '', 'minorFailure': 'minorFailure' if minorFailure else '' }
         self.ctl.output(line)
 
     def help_application_info(self):
