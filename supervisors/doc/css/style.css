@@ -1,47 +1,41 @@
 /* General Layout */
-body
-{
+body {
 	margin: auto;
    background: url(../img/scroll6.jpg) no-repeat fixed;
    background-size: 100%;
 }
 
-#body_block
-{
+#body_block {
    min-width: 1000px;
-	height: 100vh;
+   min-height: 780px;
+   height: 100vh;
    display: flex;
 }
 
-#left_side
-{
+#left_side {
    border: 1px black solid; /* for tests */
    display: flex;
 	flex-direction: column;
 }
 
-nav
-{
+nav {
 	flex: 1;
 }
 
-header, nav, footer, section
-{
+header, nav, footer, section {
    border: 1px black solid; /* for tests */
 	padding: 10px;
 	margin: 2px;
 }
 
-#right_side
-{
+#right_side {
    border: 1px black solid; /* for tests */
 	flex: 1;
    display: flex;
 	flex-direction: column;
 }
 
-#doc-contents
-{
+section {
 	overflow: auto;
 }
 
@@ -60,173 +54,274 @@ header, nav, footer, section
 
 
 /* Resource design */
-body
-{
+body {
 	background-color: #e3e3e3;
 	color: #181818;
 	font-family: Verdana, Arial, sans-serif;
 	text-align: justify;
 }
 
-footer
-{
+footer {
 	font-style: italic;
 }
 
-h1, h2, h3, h4
-{
+h1, h2, h3 {
 	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 	text-shadow: 2px 2px 6px #202020;
 }
 
-h1
-{
-	font-size: 1.7em;
+h1 {
+	font-size: 1.6em;
 }
 
-h2
-{
-	font-size: 1.5em;
+h2 {
+	font-size: 1.4em;
 }
 
-h3
-{
-	font-size: 1.3em;
-}
-
-h4
-{
-	font-size: 1.1em;
+h3 {
+	font-size: 1.2em;
 	font-style: italic;
 }
 
-mark
-{
+mark {
 	background-color: transparent;
 	text-decoration: underline;
 }
 
-table
-{
+/* decrease spacing between a paragraph and the following list */
+p + ul {
+	margin-top: -15px;
+}
+
+/* decrease spacing between a cell text and the following list */
+td ul {
+	margin-top: 0px;
+}
+
+
+/*
+ * Nav style
+ */
+nav ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+nav li {
+	background-color: #729EBF; 
+   background-image: -webkit-linear-gradient(top, #729EBF 0%, #333A40 100%);
+   background-image: linear-gradient(to bottom, #729EBF 0%, #333A40 100%);
+   margin-bottom: 2px;
+   border: 1px #333A40 solid;
+   border-radius: 0px 6px 0 6px;
+}
+
+nav li li {
+   border-radius: 0;
+   background: #444;
+   border: none;
+   margin: 0;
+	padding: 0 0 0 5px;
+}
+
+nav li li li {
+   background: #222;
+}
+
+nav li a {
+	display: block;
+	text-decoration: none;
+	color: white;
+	padding: 7px 0;
+}
+
+nav li li:last-child {
+   border-radius: 0 0 0 6px;
+}
+
+nav .active {
+	font-weight: bold;
+}
+
+nav li:hover {
+	background: #729EBF
+}
+
+nav li li:hover {
+   background: #999;
+}
+nav li li li:hover {
+   background: red;
+}
+
+
+/*
+ * Link style
+ */
+a.intLink {
+	background: url(../img/arrows-green_16.png) no-repeat right;
+	background-color: forestgreen;
+	color: #EEE;
+	text-decoration: none;
+	text-shadow: 2px 2px 2px black;
+	font-size: .8em;
+	padding-left: 2px;
+	padding-right: 18px;
+   border: 1px green outset;
+   border-radius: 0px 10px 10px 0px;
+}
+
+a.extLink {
+	background: url(../img/arrows-blue_16.png) no-repeat right;
+	background-color: dodgerblue;
+	color: #EEE;
+	text-decoration: none;
+	text-shadow: 2px 2px 2px black;
+	font-size: .8em;
+	padding-left: 2px;
+	padding-right: 18px;
+   border: 1px blue outset;
+   border-radius: 0px 10px 10px 0px;
+}
+
+
+/*
+ * Source code style
+ */
+
+/* style for source code, including option, className, attributeName */
+code {
+	color: blue;
+}
+
+.option {
+	text-shadow: 2px 2px 2px black;
+}
+
+.className {
+	font-weight: bold;
+}
+
+.attributeName {
+	font-style: italic;
+}
+
+/* source code in a pre block is displayed within a box with language set at the top right corner */
+pre code {
+	display: block;
+	width: 75%;
+	margin-left: 10%;
+	background: rgba(0,0,0,.2);
+	padding: 5px;
+	border: 1px solid rgba(0,0,0,.2) inset;
+}
+
+pre code[lang]::before {
+	content: attr(lang);
+	color: rgba(0,0,0,.5);
+	font-size: 0.8em;
+	float: right;
+	margin-top: -16px;
+}
+
+
+/*
+ * Note style
+ */
+
+/* notes are displayed within a box with an information icon before text */
+.note {
+	padding: 2px 5px;
+	margin: 20px 25px;
+	background: rgba(0,0,0,.2);
+	border: 1px solid black inset;
+}
+
+.note::before {
+	content: url(../img/info_16.png) '\00a0';
+	float: left;
+	margin-top: 16px;
+}
+
+
+/*
+ * Table style
+ */
+table {
 	border-collapse: collapse;
 	caption-side: bottom;
 	background: rgba(0,0,0,.2);
 	margin: 0 auto
 }
 
-caption
-{
+/* caption style */
+caption {
 	font-style: italic;
 }
 
-th, td
-{
+/* add border for all cells */
+th, td {
 	border: 1px solid black;
 }
 
-th
-{
+/* style for a title in a table */
+th {
 	background-color: grey;
 }
 
-/* decrease spacing between a paragraph and the following list */
-p + ul
-{
-	margin-top: -15px;
-}
-
-/* decrease spacing between a cell text and the following list */
-td ul
-{
-	margin-top: 0px;
-}
-
-code
-{
-	color: blue;
-}
-
-pre code
-{
-	display: block;
-	width: 75%;
-	margin-left: 10%;
-	background: rgba(0,0,0,.2);
-	padding: 2px 5px;
-	border: 1px solid rgba(0,0,0,.2)
-}
-
-pre code[langage]::before
-{
-	content: attr(langage);
-	color: rgba(0,0,0,.5);
-	font-size: 0.8em;
-	float: right;
-	margin-top: -16px
-}
-
-.note
-{
-	padding: 0px 5px;
-	margin: 20px 25px;
-	background: rgba(0,0,0,.2);
-	border: 1px solid rgba(0,0,0,.2)
-}
-
-.note::before
-{
-	content: url(../img/info_16x16.jpg) "\00a0";
-	float: left;
-	margin-top: 16px;
-	margin-left: -4px
-}
-
-.option
-{
-	text-shadow: 2px 2px 2px black;
-}
-
-.className
-{
-	font-weight: bold;
-}
-
-.attributeName
-{
-	font-style: italic;
-}
-
-.optionTable td:nth-child(2), .optionTable td:nth-child(3)
-{
+/* second (required) and third (default value) columns of an option table are centered */
+.optionTable td:nth-child(2), .optionTable td:nth-child(3) {
 	text-align:center;
 }
 
-.modelTable th
-{
+/* titles of a model table are centered */
+.modelTable th {
 	text-align:center;
 }
 
-.tableInfo
-{
+/* title of a state table is centered, second axis has a different color */
+.stateTable th {
+	text-align:center;
+}
+
+.stateTable tr+tr th {
+	background-color: #A0A0A0;
+}
+
+/* style for a information line in a table */
+.tableInfo {
 	background-color: grey;
 	font-style: italic;
 }
 
-.added-entry
-{
+/* style for added, modified, removed entries in a table */
+.added-entry {
 	background-color: green;
 	font-style: italic;
 }
 
-.removed-entry
-{
+.modified-entry {
+	background-color: darkcyan;
+}
+
+.removed-entry {
 	background-color: grey;
 	font-style: italic;
 	text-decoration: line-through;
 }
 
-.not-implemented-yet::before
-{
+
+/*
+ * Misc style
+ */
+
+#copyright {
+	font-size: .8em;
+}
+
+/* mark for functions that are not implemented yet */
+.not-implemented-yet::before {
 	content: "Not implemented yet. ";
 	color: red;
 	font-size: 1em;

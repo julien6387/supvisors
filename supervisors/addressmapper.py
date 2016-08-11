@@ -30,7 +30,7 @@ class _AddressMapper(object):
         self.expectedAddresses = addresses
         self.mapping = {}
         # get IP list for local board
-        self.localAddress = self.getExpectedAddress(self.localAddresses,  True)
+        self.localAddress = self.getExpectedAddress(self.localAddresses, True)
         options.logger.info('Local addresses: {} - Local address: {}'.format(self.localAddresses, self.localAddress))
  
    # returns the expected address from a list of names or ip addresses identifying the same location

@@ -31,7 +31,7 @@ class _Context(object):
     def restart(self):
         # replace handlers
         self.remotes = { address: RemoteStatus(address) for address in addressMapper.expectedAddresses }
-        self.applications = {} # { applicationName: ApplicationInfo }
+        self.applications = {} # { applicationName: ApplicationStatus }
         self.processes = {} # { address: [ ProcessStatus ] }
         self.master = False
         self.masterAddress = ''
@@ -89,7 +89,7 @@ class _Context(object):
 
     # load internal maps from processes info got from Supervisor on address
     def _loadProcesses(self, address, allProcessesInfo):
-        from supervisors.application import ApplicationInfo
+        from supervisors.application import ApplicationStatus
         from supervisors.parser import parser
         # keep a dictionary address / processes
         processList = self.processes.setdefault(address, [ ])
@@ -101,7 +101,7 @@ class _Context(object):
         # add unknown applications
         for applicationName in applicationList:
             if applicationName not in self.applications:
-                application = ApplicationInfo(applicationName)
+                application = ApplicationStatus(applicationName)
                 parser.setApplicationRules(application)
                 self.applications[applicationName] = application
         # store processes into their application entry
@@ -120,10 +120,10 @@ class _Context(object):
 
     def hasConflict(self):
         # return True if any conflict detected
-        return next((True for process in self._getAllProcesses() if process.runningConflict), False)
+        return next((True for process in self._getAllProcesses() if process.runningConflict()), False)
 
     def getConflicts(self):
-        return [ process for process in self._getAllProcesses() if process.runningConflict ]
+        return [ process for process in self._getAllProcesses() if process.runningConflict() ]
 
     def _getAllProcesses(self):
         return [ process for application in self.applications.values() for process in application.processes.values() ]
@@ -132,7 +132,6 @@ class _Context(object):
     def _updateRemoteTime(self, status, remoteTime, localTime):
         status.updateRemoteTime(remoteTime, localTime)
         # got event from remote supervisord, should be operating
-        # TODO: checked is useless. just check that state is not running before
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
