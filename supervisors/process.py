@@ -29,7 +29,6 @@ def stringToProcessStates(strEnum):
 # Rules for starting a process, iaw deployment file
 class ProcessRules(object):
     def __init__(self):
-        # TODO: see if restart_strategy (process, application) is to be implemented
         # TODO: see if dependency (process, application) is to be implemented
         self.addresses = [ '*' ] # all addresses are applicable by default
         self.sequence = -1
@@ -58,14 +57,11 @@ class ProcessStatus(object):
     def __init__(self, address, processInfo):
         # TODO: do I really need to keep all process info ? requests to Supervisor give the same...
         # wait for web development to decide
-        # TODO: consider using supervisor.process Subprocess and adding missing information ?
         self.applicationName = processInfo['group']
         self.processName = processInfo['name']
         self.state = ProcessStates.UNKNOWN
         self.expectedExit = True
         self.lastEventTime = None
-        # FIXME: replace runningConflict with a method len(addresses) > 1
-        self.runningConflict = False
         # expected one single applicable address
         self.addresses = set() # addresses
         self.processes = {} # address: processInfo
@@ -88,6 +84,9 @@ class ProcessStatus(object):
         if self.state != state:
             self.state = state
             options.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
+
+    def runningConflict(self):
+        return len(self.addresses) > 1
 
     # methods
     def addInfo(self, address, processInfo):
@@ -178,16 +177,13 @@ class ProcessStatus(object):
                 self.expectedExit = expected
 
     def _evaluateConflictingState(self):
-        if len(self.addresses) > 1:
+        if self.runningConflict():
             # several processes seems to be in a running state so that becomes tricky
-            self.runningConflict = True
             states = { self.processes[address]['state'] for address in self.addresses }
             options.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.setState(self.__getRunningState(states))
             return True
-        # no conflict anymore (if any before)
-        self.runningConflict = False
 
     def _updateTimes(self, processInfo, remoteTime, localTime):
         processInfo['now'] = remoteTime
