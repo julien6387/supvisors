@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="css/style.css" />
+    <title>Supervisors: A Control System for Distributed Applications</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+				<h1><a href="index.html">Supervisors</a></h1>
+				<p class="version">0.1</p>
+			</header>
+
+			<nav>
+				<ul>
+	 				<li><a href="index.html">Introduction</a></li>
+               <li><a href="configuration.html">Configuration</a></li>
+               <li><a href="xml-rpc-api.html" class="active">XML-RPC API Documentation</a><ul>
+               	<li><a href="#xml-rpc-status">Status and Control</a></li>
+                  <li><a href="#xml-rpc-appli">Application Control</a></li>
+                  <li><a href="#xml-rpc-process">Process Control</a></li>
+               </ul></li>
+               <li><a href="design.html">Software Design</a></li>
+             </ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cléach</a></p>
+				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+				<h1>Supervisors Documentation - XML-RPC API Documentation</h1>
+			</header>
+
+			<section>
+				<p>The Supervisors XML-RPC API is an extension of the Supervisor API.<br />
+				Detailed information can be found in the <a href="http://supervisord.org/api.html#xml-rpc-api-documentation" class="extLink">Supervisor XML-RPC API Documentation</a>.</p>
+				<p>The <strong>supervisors</strong> namespace has been added to the supervisord XML-RPC interface.</p>
+				<p>The XML-RPC <code lang="python">system.listMethods</code> API now provides the list of methods supported for both Supervisor and Supervisors. An example is provided below.</p>
+				<pre><code lang="python">server.supervisors.getState()</code></pre>
+
+				<h2 id="xml-rpc-status">Status and Control</h2>
+				<p>TODO</p>
+
+				<h2 id="xml-rpc-appli">Application Control</h2>
+				<p>TODO</p>
+
+				<h2 id="xml-rpc-process">Process Control</h2>
+				<p>TODO</p>
+
+			</section>
+
+		</div>
+	</div>
+</body>
+</html>
+
