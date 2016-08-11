@@ -136,7 +136,8 @@ class _RPCInterface(object):
         self._checkOperatingOrConciliation()
         application = self._getApplication(applicationName)
         from supervisors.application import applicationStateToString
-        return { 'applicationName': application.applicationName, 'state': applicationStateToString(application.state), 'degraded': application.degraded }
+        return { 'applicationName': application.applicationName, 'state': applicationStateToString(application.state),
+            'majorFailure': application.majorFailure, 'minorFailure': application.minorFailure }
 
     def getProcessInfo(self, namespec):
         """ Get info about a process named namespec
@@ -165,7 +166,7 @@ class _RPCInterface(object):
         """
         self._checkOperatingOrConciliation()
         return [ self._getProcessInfo(process) for application in context.applications.values()
-            for process in application.processes.values() if process.runningConflict ]
+            for process in application.processes.values() if process.runningConflict() ]
 
     # RPC Command methods
     def startApplication(self, strategy, applicationName, wait=True):
@@ -413,7 +414,7 @@ class _RPCInterface(object):
         return process
 
     def _getProcessInfo(self, process):
-        return { 'processName': process.getNamespec(), 'state': process.stateAsString(), 'address': list(process.addresses), 'conflict': process.runningConflict }
+        return { 'processName': process.getNamespec(), 'state': process.stateAsString(), 'address': list(process.addresses), 'conflict': process.runningConflict() }
 
     def _getProcessRules(self, process):
         rules = process.rules
