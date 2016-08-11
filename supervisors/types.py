@@ -53,6 +53,40 @@ def conciliationStrategiesStrings():
     return enumStrings(ConciliationStrategies.__dict__)
 
 
+# Applicable strategies that can be applied on a failure of a starting application
+class StartingFailureStrategies:
+    ABORT, CONTINUE = range(2)
+
+def startingFailureStrategyToString(value):
+    return enumToString(StartingFailureStrategies.__dict__, value)
+
+def stringToStartingFailureStrategy(strEnum):
+    return stringToEnum(StartingFailureStrategies.__dict__, strEnum)
+
+def startingFailureStrategiesValues():
+    return enumValues(StartingFailureStrategies.__dict__)
+
+def startingFailureStrategiesStrings():
+    return enumStrings(StartingFailureStrategies.__dict__)
+
+
+# Applicable strategies that can be applied on a failure of a running application
+class RunningFailureStrategies:
+    CONTINUE, STOP, RESTART = range(3)
+
+def runningFailureStrategyToString(value):
+    return enumToString(RunningFailureStrategies.__dict__, value)
+
+def stringToRunningFailureStrategy(strEnum):
+    return stringToEnum(RunningFailureStrategies.__dict__, strEnum)
+
+def runningFailureStrategiesValues():
+    return enumValues(RunningFailureStrategies.__dict__)
+
+def runningFailureStrategiesStrings():
+    return enumStrings(RunningFailureStrategies.__dict__)
+
+
 # Internal state of Supervisors
 class SupervisorsStates:
     INITIALIZATION, ELECTION, DEPLOYMENT, OPERATION, CONCILIATION = range(5)
