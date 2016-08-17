@@ -373,6 +373,25 @@ dd {
 
 
 /*
+ * Figure style
+ */
+figure img {
+	display: block;
+	margin: auto;
+   border: 1px solid black outset;
+   border-radius: 6px;
+   box-shadow: 4px 4px 6px black;
+}
+
+figcaption {
+	margin-top: 5px;
+	font-weight: bold;
+	font-style: italic;
+	text-align: center;
+}
+
+
+/*
  * Misc style
  */
 

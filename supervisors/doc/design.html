@@ -49,7 +49,6 @@
 		<div id="right_side">
 			<header>
 				<h1>Documentation &raquo; Software Design</h1>
-				<p>TODO: add 2 statecharts: check in eric ide</p>
 			</header>
 
 			<section>
@@ -162,7 +161,10 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 					<tr><td><code class="attributeName">localTime</code></td><td>date of the last heartbeart received in local reference time</td></tr>
 				</table>
 
-				<p>TODO: add statechart</p>
+				<figure>
+					<img src="violet/RemoteStatus.png" alt="RemoteStatus statechart">
+					<figcaption>RemoteStatus statechart</figcaption>
+				</figure>
 
 				<p>Every time that a Supervisors instance becomes <code>RUNNING</code>, the local Supervisors instance gets and stores all process information from the Supervisor daemon using the <code class="python"><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getAllProcessInfo" class="extLink">supervisor.getAllProcessInfo</a></code> XML-RPC.</p>
 
@@ -275,7 +277,11 @@ self.socket.send_pyobj((addressMapper.localAddresses, payload))</code></pre>
 
 				<h3 id="state-machine">State Machine</h3>
 				<p>During the periodic task, the context of the Supervisors instance is re-evaluated. The State Machine of the Supervisors instance deals with the following states: <code>INITIALIZATION</code>, <code>DEPLOYMENT</code>, <code>OPERATION</code>, <code>CONCILIATION</code>.</p>
-				<p>TODO: add statechart</p>
+
+				<figure>
+					<img src="violet/Supervisors.png" alt="Supervisors statechart">
+					<figcaption>Supervisors statechart</figcaption>
+				</figure>
 
 				<h4>INITIALIZATION state</h4>
 				<p>In the <code>INITIALIZATION</code> state, Supervisors waits for all Supervisors instances to be active. More particularly, heartbeat messages (or Tick events) are expected for every entry in the <a href="configuration.html#supervisors-section" class="intLink">addresslist</a>.</p>
