@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/doc_style.css">
+    <link rel="stylesheet" href="css/menu.css">
     <title>Supervisors: A Control System for Distributed Applications</title>
 </head>
 
@@ -143,9 +144,9 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 				<div class="note" id="deployment-note">
 					<p>Note about the <strong>Deployment Strategy</strong><p>
 					<p>When applying the <code>CONFIG</code> strategy, Supervisors chooses the first address available in the <a href="configuration.html#deployment-file" class="intLink">addresses</a> list.</p>
-					<p>When applying the <code>LESS_LOADED</code> strategy, Supervisors chooses the address in the <a href="configuration.html#deployment-file" class="intLink">addresses</a> list having the lowest loading.<br />
+					<p>When applying the <code>LESS_LOADED</code> strategy, Supervisors chooses the address in the <a href="configuration.html#deployment-file" class="intLink">addresses</a> list having the lowest expected loading.<br />
 					The aim is to distribute the process loading among the available hosts.</p>
-					<p>When applying the <code>MOST_LOADED</code> strategy, with respect of the common rules, Supervisors chooses the address in the <a href="configuration.html#deployment-file" class="intLink">addresses</a> list having the greatest loading.<br />
+					<p>When applying the <code>MOST_LOADED</code> strategy, with respect of the common rules, Supervisors chooses the address in the <a href="configuration.html#deployment-file" class="intLink">addresses</a> list having the greatest expected loading.<br />
 				The aim is to maximize the load of a host before starting to load another host. This strategy is more interesting when the resources are limited.</p>
 				</div>
 

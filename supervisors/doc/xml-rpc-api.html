@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/doc_style.css">
+    <link rel="stylesheet" href="css/menu.css">
     <title>Supervisors: A Control System for Distributed Applications</title>
 </head>
 
@@ -80,7 +81,7 @@
 							<tr><td><code>'state'</code></td><td>state of the Supervisors instance<br />string among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }</td></tr>
 							<tr><td><code>'remoteTime'</code></td><td>date of the last heartbeat received from the Supervisors instance, in the remote reference time<br />integer in miliseconds</td></tr>
 							<tr><td><code>'localTime'</code></td><td>date of the last heartbeat received from the Supervisors instance, in the local reference time<br />integer in miliseconds</td></tr>
-							<tr><td><code>'loading'</code></td><td>current loading on the Supervisors instance<br />integer in [0 ; 100]</td></tr>
+							<tr><td><code>'loading'</code></td><td>sum of the expected loading of the processes running on the address<br />integer in [0 ; 100]</td></tr>
 						</table>
 					</dd>
 

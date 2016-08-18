@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/doc_style.css">
+    <link rel="stylesheet" href="css/menu.css">
     <title>Supervisors: A Control System for Distributed Applications</title>
 </head>
 
@@ -111,7 +112,7 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 						<tr class="added-entry"><td><code>'eventTime'</code></td><td>date of the last event received, in local reference time</td></tr>
 						<tr class="added-entry"><td><code>'uptime'</code></td><td>age of the process</td></tr>
 						<tr><td><code>'state'</code></td><td>state of the process</td></tr>
-						<tr><td><code>'statename'</code></td><td>state of the process (string version)</td></tr>
+						<tr><td><code>'statename'</code></td><td>state of the process, as string</td></tr>
 						<tr><td><code>'spawnerr'</code></td><td>error description when process cannot be spawned</td></tr>
 						<tr class="removed-entry"><td><code>'exitstatus'</code></td><td>exit code of the process</td></tr>
 						<tr class="added-entry"><td><code>'expected'</code></td><td>expected exit of the process (true, false)</td></tr>
@@ -199,38 +200,28 @@ logger = getLogger(logfile, loglevel, loggerFormat, True, logfile_maxbytes, logf
 				<p>As Supervisors runs inside Supervisor, it makes it possible to collect events directly by subscribing to <code>supervisor.events</code> instead of using an event listener program.</p>
 				<pre><code class="python">from supervisor import events
 events.subscribe(events.SupervisorRunningEvent, self._runningListener)
+events.subscribe(events.SupervisorStoppingEvent, self._stoppingListener)
 events.subscribe(events.ProcessStateEvent, self._processListener)
 events.subscribe(events.Tick5Event, self._tickListener)</code></pre>
 
 				<p>Upon notification of the <code class="python">events.SupervisorRunningEvent</code> event, the main loop thread of the Supervisors instance is started.<br />
 				This thread could not be started before (when extending Supervisor XML-RPC) because it would stop if supervisord daemonizes.</p>
 
+				<p>Upon notification of the <code class="python">events.SupervisorStoppingEvent</code> event, the main loop thread of the Supervisors instance is stopped.</p>
+
 				<p>Supervisors creates a heartbeat message upon notification of the <code class="python">events.Tick5Event</code> events.<br />
 				The date <code class="python">event.when</code> is used to fill this message.</p>
 
-				<p>Upon notification of the <code class="python">events.ProcessStateEvent</code> events, Supervisors creates a message quite similar to the <a href="http://supervisord.org/events.html#process-state-event-type" class="extLink">PROCESS_STATE</a> payload, in accordance with the event type, with the following differences:</p>
-				<ul>
-					<li>addition of entries <code>'state'</code> and <code>'now'</code></li>
-					<li>the value of <code>'from_state'</code>, <code>'tries'</code>, <code>'pid'</code> and <code>'expected'</code> are typed instead of using strings</li>
-				</ul>
-
+				<p>Upon notification of the <code class="python">events.ProcessStateEvent</code> events, Supervisors creates a message with the following contents:</p>
 				<table>
 					<caption>Process Event Dictionary</caption>
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'processname'</code></td><td>name of the process</td></tr>
 					<tr><td><code>'groupname'</code></td><td>name of the group, i.e. name of the application for Supervisors</td></tr>
-					<tr class="modified-entry"><td><code>'from_state'</code></td><td>state from which the process is transitioning<br />
-					initial string is transformed into a <code class="className">ProcessStates</code> value</td></tr>
-					<tr class="added-entry"><td><code>'state'</code></td><td>new state of the process, as a <code class="className">ProcessStates</code> value</td></tr>
-					<tr class="added-entry"><td><code>'now'</code></td><td>reception time of the process event</td></tr>
-					<tr><td><code>'state'</code></td><td>state of the process</td></tr>
-					<tr class="modified-entry"><td><code>'tries'</code></td><td>number of times this process has entered the <code>STARTING</code> or <code>BACKOFF</code> state before transitioning to <code>RUNNING</code> or <code>FATAL</code><br />
-					initial string is transformed into an <code class="python">integer</code> value<br />
-					USELESS. may be removed.</td></tr>
-					<tr class="modified-entry"><td><code>'pid'</code></td><td>UNIX process identifier (only when state is <code>RUNNING</code>, <code>STOPPING</code>, <code>STOPPED</code> or <code>EXITED</code>)<br />
-					initial string is transformed into an <code class="python">integer</code> value</td></tr>
-					<tr class="modified-entry"><td><code>'expected'</code></td><td>expected exit status (only when state is <code>EXITED</code>)<br />
-					initial string is transformed into a <code class="python">boolean</code> value</td></tr>
+					<tr><td><code>'state'</code></td><td>new state of the process, as a <code class="className">ProcessStates</code> value, obtained from the event type</td></tr>
+					<tr><td><code>'now'</code></td><td>reception time of the process event</td></tr>
+					<tr><td><code>'pid'</code></td><td>UNIX process identifier (only when state is <code>RUNNING</code>, <code>STOPPING</code>, <code>STOPPED</code> or <code>EXITED</code>)</td></tr>
+					<tr><td><code>'expected'</code></td><td>boolean indicating if the exit status is expected (only when state is <code>EXITED</code>)</td></tr>
 				</table>
 
 				<p>The messages are published using a ZeroMQ PUBLISH socket over a TCP socket bound on the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">internalport</span></a> defined in the Supervisor configuration file. They are sent in two parts:</p>
@@ -240,18 +231,12 @@ events.subscribe(events.Tick5Event, self._tickListener)</code></pre>
 				</ul>
 				<pre><code class="python"># example of sending Tick event
 self.socket.send_string(u'tick', zmq.SNDMORE)
-self.socket.send_pyobj((addressMapper.localAddresses, payload))</code></pre>
+self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<div class="note">
-					<p>Note about the localAddresses<p>
-					<p>This list includes:</p>
-					<ul>
-						<li>the host name</li>
-						<li>the IPv4 addresses of the host, excluding the loopback address</li>
-					</ul>
-					<p>It is expected that one element of this list MUST be an element of the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">addresslist</span></a> option that is defined in the <span class="ini">[supervisors]</span> section of the <a href="configuration.html#supervisor-config">Supervisor configuration file</a>.<br />
-					The contents of this list is used as possible aliases for addresses when using a XML-RPC that requires an address in its parameters.</p>
-					<p>TBC: remove function ? add XML-RPC getHostAliases ? keep the text if addresses used somewhere else</p>
+					<p>Note about the localAddress<p>
+					<p>When starting, the Supervisors instance has to determine its identity. More particularly, it has to find its own address among the list defined in the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">addresslist</span></a> option of the <code class="ini">[supervisors]</code> section in the <a href="configuration.html#supervisor-config" class="intLink">Supervisor configuration file</a>.<br />
+					So, the Supervisors instance gets the host name and all known IPv4 addresses of the host where it is running, excluding the loopback address. It is expected that one element of this list MUST be an element of the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">addresslist</span></a>. This element becomes the localAddress.</p>
 				</div>
 
 				<p>In Supervisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found in <a href="configuration.html#supervisors-section" class="intLink">addresslist</a> on the <a href="configuration.html#supervisors-section" class="intLink">internalport</a> defined in the Supervisor configuration file.<br />
