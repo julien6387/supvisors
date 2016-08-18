@@ -116,7 +116,7 @@ class _Parser(object):
             from collections import OrderedDict
             addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
             from supervisors.addressmapper import addressMapper
-            rules.addresses = [ '*' ] if '*' in addresses else addressMapper.getExpectedAddresses(addresses)
+            rules.addresses = [ '*' ] if '*' in addresses else addressMapper.filterAddresses(addresses)
 
     def _getProgramElement(self, process):
         # try to find program name in file

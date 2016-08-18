@@ -24,51 +24,51 @@ class _AddressMapper(object):
         import socket
         self.localAddresses = [ socket.gethostname() ] + self.__ipv4_addresses()
 
-    def setAddresses(self,  addresses):
+    def setAddresses(self, addresses):
         options.logger.info('Expected addresses: {}'.format(addresses))
         # store IP list as found in config file
         self.expectedAddresses = addresses
         self.mapping = {}
         # get IP list for local board
-        self.localAddress = self.getExpectedAddress(self.localAddresses, True)
+        self.localAddress = self._getExpectedAddress(self.localAddresses)
         options.logger.info('Local addresses: {} - Local address: {}'.format(self.localAddresses, self.localAddress))
  
+    def isAddressValid(self, address):
+        return address in self.expectedAddresses
+
+    # returns a list of expected addresses from a list of names or ip addresses identifying different locations
+    def filterAddresses(self, addressList):
+        # filter unknown addresses
+        addresses = [ address for address in addressList if self.isAddressValid(address) ]
+        # remove duplicates keeping the same ordering
+        from collections import OrderedDict
+        return list(OrderedDict.fromkeys(addresses))
+
    # returns the expected address from a list of names or ip addresses identifying the same location
-    def getExpectedAddress(self, addressList, insertIfNew=None):
+    def _getExpectedAddress(self, addressList):
+        return next((address for address in addressList if self.isAddressValid(address)),  None)
+
+   # WARN: the following version is dead code
+   # it might be somehow reactivated if aliases are allowed for XML-RPC
+    def __getExpectedAddress(self, addressList):
         expectedAddress = None
         if not addressList:
             options.logger.error('empty address list')
         else:
             # first search in mapping using the first element only, expecting that it corresponds to the hostname.
             # other entries may include an internal network address that may be present several times
-            expectedAddress = self.__getMappingAddress(addressList[0])
+            expectedAddress = self.mapping.get(addressList[0], None)
             if not expectedAddress:
                 # if not found, search among Supervisors addresses
-                expectedAddress = self.__getExpectedAddress(addressList)
+                options.logger.trace('searching any of {} among expected addresses'.format(addressList))
+                expectedAddress = next((address for address in addressList if self.isAddressValid(address)),  None)
                 if not expectedAddress:
                     options.logger.error('cannot find any of {} in expected addresses {}'.format(addressList, self.expectedAddresses) )
-                elif insertIfNew:
+                else:
                     # add list in mapping using the expected address found
-                    self.__updateMapping(expectedAddress, addressList)
+                    options.logger.info('inserting {} into mapping with correspondence: {}'.format(addressList, expectedAddress))
+                    self.mapping.update( [ (address, expectedAddress) for address in addressList ] )
         return expectedAddress
-
-    # returns a list of expected addresses from a list of names or ip addresses identifying different locations
-    def getExpectedAddresses(self, addressList):
-        addresses = [ self.getExpectedAddress([address]) for address in addressList ]
-        from collections import OrderedDict
-        return list(OrderedDict.fromkeys(addresses))
-
-    def __getMappingAddress(self, address):
-        options.logger.trace('searching %s in mapping' % address)
-        return self.mapping.get(address, None)
-
-    def __getExpectedAddress(self, addressList):
-        options.logger.trace('searching any of {} among expected addresses'.format(addressList))
-        return next((address for address in addressList if address in self.expectedAddresses),  None)
-
-    def __updateMapping(self, expectedAddress, addressList):
-        options.logger.info('inserting {} into mapping with correspondence: {}'.format(addressList, expectedAddress))
-        self.mapping.update( [ (address, expectedAddress) for address in addressList ] )
 
     def __ipv4_addresses(self):
         from netifaces import interfaces, ifaddresses, AF_INET
@@ -79,14 +79,3 @@ class _AddressMapper(object):
         return ipList
 
 addressMapper = _AddressMapper()
-
-
-# for tests
-if __name__ == "__main__":
-    import socket
-    addressMapper.setAddresses([ socket.gethostname(), 'dumb01'])
-    print addressMapper.getExpectedAddress([]) 
-    print addressMapper.getExpectedAddress([ 'dumber01', 'dumb01' ]) 
-    print addressMapper.getExpectedAddress([ 'dumber01', 'dumb01' ],  False) 
-    print addressMapper.getExpectedAddress([ 'dumber01', 'dumb01' ],  True) 
-    print addressMapper.getExpectedAddress([ 'dumber01', 'dumb01' ]) 

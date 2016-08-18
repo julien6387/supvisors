@@ -1,0 +1,145 @@
+/* General Layout */
+body {
+	margin: auto;
+}
+
+#body_block {
+	min-width: 1000px;
+   min-height: 780px;
+   height: 100vh;
+   display: flex;
+}
+
+#left_side {
+   display: flex;
+	flex-direction: column;
+}
+
+nav {
+	flex: 1;
+}
+
+header, nav, footer, section {
+	padding: 10px;
+}
+
+#right_side {
+	flex: 1;
+   display: flex;
+	flex-direction: column;
+}
+
+section {
+	flex: 1;
+	overflow: auto;
+}
+
+
+/* Additional resources */
+@font-face {
+	font-family: 'kingthings_calligraphica_2Rg';
+	src: url('Kingthings_Calligraphica_2-webfont.eot');
+	src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
+		url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
+		url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
+		url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+
+/* Resource design */
+
+/* fake a background transparency because smoke image is too dark */
+body::after {
+	content: "";
+   background: url(../img/smoke.jpg);
+	top: 0; left: 0; bottom: 0; right: 0;
+	position: absolute;
+	z-index: -1;
+	opacity: 0.5;
+}
+
+#left_side {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+}
+
+#left_side header {
+   text-align: center;
+}
+
+header a, footer a {
+   color: #cc7a00;
+	text-decoration: none;
+}
+
+footer {
+	font-style: italic;
+}
+
+#copyright {
+	font-size: .8em;
+}
+
+section {
+	color: #111;
+	font-family: Verdana, Arial, sans-serif;
+	text-align: justify;
+}
+
+h1, h2, h3 {
+	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+	text-shadow: 2px 2px 6px #202020;
+}
+
+h1, h2 {
+	font-size: 1.6em;
+}
+
+h3 {
+	font-size: 1.4em;
+}
+
+mark {
+	background-color: transparent;
+	text-decoration: underline;
+}
+
+/* decrease spacing between a paragraph and the following list */
+p + ul, p + ol {
+	margin-top: -15px;
+}
+
+/* decrease spacing between a cell text and the following list */
+td ul, td ol {
+	margin-top: 0px;
+}
+
+
+/*
+ * Table style
+ */
+table {
+	border-collapse: collapse;
+	caption-side: bottom;
+	background: rgba(200,200,200,.7);
+	margin: 0 auto
+}
+
+/* add border for all cells */
+th, td {
+	border: 1px solid black;
+}
+
+/* style for a title in a table */
+th {
+	background-color: #555;
+}
+
+td.action {
+	height: 23px;
+	text-align: center;
+	vertical-align: top;
+}
+

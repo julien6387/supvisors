@@ -1,0 +1,349 @@
+/* General Layout */
+body {
+	margin: auto;
+}
+
+#body_block {
+	min-width: 1000px;
+   min-height: 780px;
+   height: 100vh;
+   display: flex;
+}
+
+#left_side {
+   display: flex;
+	flex-direction: column;
+}
+
+nav {
+	flex: 1;
+}
+
+header, nav, footer, section {
+	padding: 10px;
+}
+
+#right_side {
+	flex: 1;
+   display: flex;
+	flex-direction: column;
+}
+
+section {
+	flex: 1;
+	overflow: auto;
+}
+
+
+/* Additional resources */
+@font-face {
+	font-family: 'kingthings_calligraphica_2Rg';
+	src: url('Kingthings_Calligraphica_2-webfont.eot');
+	src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
+		url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
+		url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
+		url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+
+/* Resource design */
+
+/* fake a background transparency because smoke image is too dark */
+body::after {
+	content: "";
+   background: url(../img/smoke.jpg);
+	top: 0; left: 0; bottom: 0; right: 0;
+	position: absolute;
+	z-index: -1;
+	opacity: 0.5;
+}
+
+#left_side {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+}
+
+#left_side header {
+   text-align: center;
+}
+
+header a, footer a {
+   color: #cc7a00;
+	text-decoration: none;
+}
+
+#right_side header {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+}
+
+footer {
+	font-style: italic;
+}
+
+#copyright {
+	font-size: .8em;
+}
+
+section {
+	color: #111;
+	font-family: Verdana, Arial, sans-serif;
+	text-align: justify;
+}
+
+h1, h2, h3, h4 {
+	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+	text-shadow: 2px 2px 6px #202020;
+}
+
+h1, h2 {
+	font-size: 1.6em;
+}
+
+h3 {
+	font-size: 1.4em;
+}
+
+h4 {
+	font-size: 1.2em;
+	font-style: italic;
+}
+
+mark {
+	background-color: transparent;
+	text-decoration: underline;
+}
+
+/* decrease spacing between a paragraph and the following list */
+p + ul, p + ol {
+	margin-top: -15px;
+}
+
+/* decrease spacing between a cell text and the following list */
+td ul, td ol {
+	margin-top: 0px;
+}
+
+
+/*
+ * Link style
+ */
+a.intLink {
+	background: url(../img/arrows-green_16.png) no-repeat right;
+	background-color: forestgreen;
+	color: #eee;
+	text-decoration: none;
+	text-shadow: 2px 2px 2px black;
+	font-size: .8em;
+	padding-left: 2px;
+	padding-right: 18px;
+   border: 1px green outset;
+   border-radius: 0px 10px 10px 0px;
+}
+
+a.extLink {
+	background: url(../img/arrows-blue_16.png) no-repeat right;
+	background-color: dodgerblue;
+	color: #eee;
+	text-decoration: none;
+	text-shadow: 2px 2px 2px black;
+	font-size: .8em;
+	padding-left: 2px;
+	padding-right: 18px;
+   border: 1px blue outset;
+   border-radius: 0px 10px 10px 0px;
+}
+
+
+/*
+ * Source code style
+ */
+
+/* style for source code, including option, className, attributeName */
+code {
+	color: blue;
+}
+
+.option {
+	font-style: italic;
+}
+
+.className {
+	font-weight: bold;
+}
+
+.attributeName {
+	font-style: italic;
+}
+
+/* source code in a pre block is displayed within a box with language set at the top right corner */
+pre code {
+	display: block;
+	width: 75%;
+	margin-left: 10%;
+	background: rgba(100,100,100,.7);
+	padding: 5px;
+	border: 1px solid rgba(0,0,0,.2) inset;
+}
+
+pre code[class]::before {
+	content: attr(class);
+	color: rgba(0,0,0,.7);
+	font-size: 0.8em;
+	float: right;
+	margin-top: -16px;
+}
+
+
+/*
+ * Note style
+ */
+
+/* notes are displayed within a box with an information icon before text */
+.note {
+	padding: 0 0 1px 0;
+	margin: 20px 25px;
+	background: rgba(100,100,100,.7);
+	border: 1px solid black inset;
+}
+
+.note p:first-child::before {
+	content: url(../img/info_16.png) '\00a0';
+	float: left;
+}
+
+.note p:first-child {
+	background: #804d00;
+	padding: 5px 5px;
+	color: #ccc;
+	text-decoration:underline;
+}
+
+.note p {
+	padding: 0 10px;
+}
+
+
+/*
+ * Table style
+ */
+table {
+	border-collapse: collapse;
+	caption-side: bottom;
+	background: rgba(200,200,200,.7);
+	margin: 0 auto
+}
+
+/* caption style */
+caption {
+	margin-top: 3px;
+	font-weight: bold;
+	font-style: italic;
+}
+
+/* add border for all cells */
+th, td {
+	border: 1px solid black;
+}
+
+/* style for a title in a table */
+th {
+	background-color: #555;
+}
+
+/* second (required) and third (default value) columns of an ini table are centered */
+.iniTable th:nth-child(2), .iniTable td:nth-child(2),
+.iniTable th:nth-child(3), .iniTable td:nth-child(3) {
+	text-align:center;
+}
+
+/* third (card value) and fourth (default value) columns of a xml table are centered */
+.xmlTable th:nth-child(3), .xmlTable td:nth-child(3),
+.xmlTable th:nth-child(4), .xmlTable td:nth-child(4) {
+	text-align:center;
+}
+
+/* titles of a model table are centered */
+.modelTable th {
+	text-align:center;
+}
+
+/* title of a state table is centered, second axis has a different color */
+.stateTable th {
+	text-align:center;
+}
+
+.stateTable tr+tr th {
+	background-color: #A0A0A0;
+}
+
+/* style for a information line in a table */
+.tableInfo {
+	background-color: grey;
+	font-style: italic;
+}
+
+/* style for added, modified, removed entries in a table */
+.added-entry {
+	background-color: green;
+	font-style: italic;
+}
+
+.removed-entry {
+	background-color: grey;
+	font-style: italic;
+	text-decoration: line-through;
+}
+
+/* styles for dd / dt (used to describe RPC) */
+dt {
+   border-left: 6px solid darkcyan;
+   border-radius: 2px;
+   margin: 15px 2px 0 2px;
+   padding-left: 5px;
+	font-weight: bold;
+}
+
+dl dt:first-child {
+	margin-top: 0;
+}
+
+dd {
+	margin: 2px;
+   padding-left: 30px
+}
+
+
+/*
+ * Figure style
+ */
+figure img {
+	display: block;
+	margin: auto;
+   border: 1px solid black outset;
+   border-radius: 6px;
+   box-shadow: 4px 4px 6px black;
+}
+
+figcaption {
+	margin-top: 5px;
+	font-weight: bold;
+	font-style: italic;
+	text-align: center;
+}
+
+
+/*
+ * Misc style
+ */
+
+/* mark for functions that are not implemented yet */
+.not-implemented-yet::before {
+	content: "Not implemented yet. ";
+	color: red;
+	font-size: 1em;
+}
+
+

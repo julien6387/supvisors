@@ -151,9 +151,8 @@ class _Context(object):
         for application in self.applications.values():
             application.updateRemoteTime(status.address, remoteTime, localTime)
 
-    def onTickEvent(self, addresses, when):
-        address = addressMapper.getExpectedAddress(addresses, True)
-        if address:
+    def onTickEvent(self, address, when):
+        if addressMapper.isAddressValid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
@@ -163,9 +162,8 @@ class _Context(object):
         else:
             options.logger.warn('got tick from unexpected location={}'.format(addresses))
 
-    def onProcessEvent(self, addresses, processEvent):
-        address = addressMapper.getExpectedAddress(addresses, True)
-        if address:
+    def onProcessEvent(self, address, processEvent):
+        if addressMapper.isAddressValid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
