@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"
+		xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="http://www.plope.com/software/meld3">
+
+<head>
+	<meta charset="utf-8" />
+    <meta http-equiv="refresh" content="5" />
+	<link rel="stylesheet" href="css/ui_style.css" />
+	<link rel="stylesheet" href="css/menu.css" />
+	<link rel="stylesheet" href="css/button.css" />
+	<title>Supervisors status</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+                <div id="control">
+                    <ul class="vertical">
+                        <li><a href="#" meld:id="suprestart_a_mid"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
+                        <li><a href="#" meld:id="supshutdown_a_mid"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
+                    </ul>
+                </div>
+				<h1><a href="index.html">Supervisors</a></h1>
+				<p class="version">0.1 beta</p>
+				<p>TODO: add state + link if conciliation</p>
+			</header>
+
+			<nav id="address-list">
+				<h2>Addresses</h2>
+				<ul>
+					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+				</ul>
+			</nav>
+
+			<nav id="application-list">
+				<h2>Applications</h2>
+				<ul>
+					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+				</ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+				<p id="copyright">&amp;copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+				<p>Supervisors state. actions: restart, shutdown</p>
+			</header>
+
+			<div id="synoptic">
+				<aside>
+					<p>legend: list of applications with color</p>
+				</aside>
+				<section>
+					<p>one box per address, one colored bullet in box for each running process</p>
+				</section>
+			</div>
+		</div>
+
+	</div>
+</body>
+</html>
+

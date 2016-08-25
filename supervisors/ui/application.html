@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en"
+		xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="http://www.plope.com/software/meld3">
+
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="refresh" content="5" />
+	<link rel="stylesheet" href="css/ui_style.css" />
+	<link rel="stylesheet" href="css/menu.css" />
+	<link rel="stylesheet" href="css/button.css" />
+	<title>Supervisors status</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+                <div id="control">
+                    <ul class="vertical">
+                        <li><a href="#" meld:id="suprestart_a_mid"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
+                        <li><a href="#" meld:id="supshutdown_a_mid"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
+                    </ul>
+                </div>
+				<h1><a href="index.html">Supervisors</a></h1>
+				<p class="version">0.1 beta</p>
+				<p>TODO: add state + link if conciliation</p>
+			</header>
+
+			<nav id="address-list">
+				<h2>Addresses</h2>
+				<ul>
+					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+				</ul>
+			</nav>
+
+			<nav id="application-list">
+				<h2>Applications</h2>
+				<ul>
+					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+				</ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+				<p id="copyright">&amp;copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+                <div id="control">
+                    <ul class="linear">
+                    		<!-- TODO: start button missing -->
+                        <li><a href="#" meld:id="startapp_a_mid"><img src="img/start_40.png" alt="Start" title="Start the application"/></a></li>
+                        <li><a href="#" meld:id="stopapp_a_mid"><img src="img/stop_40.png" alt="Stop" title="Stop the application"/></a></li>
+                        <li><a href="#" meld:id="restartapp_a_mid"><img src="img/restart_40.png" alt="Restart" title="Restart the application"/></a></li>
+                    </ul>
+                    <ul class="linear">
+                        <li><a href="#" meld:id="refresh_a_mid" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                    </ul>
+                </div>
+				<h2>Application: <span meld:id="application_mid">application</span></h2>
+            <p><span meld:id="state_mid">ApplicationStates</span> - <span meld:id="major_mid">MajorFailure</span> - <span meld:id="minor_mid">MinorFailure</span></p>
+            <p>TODO: add leds for operational state</p>
+				<div class="hidden" meld:id="message_mid">#</div>
+			</header>
+
+			<aside>
+				<!-- TODO: statistics -->
+			</aside>
+
+			<section id="application">
+				<table meld:id="table_mid">
+					<thead>
+						<tr><th class="name">Name</th><th class="state">State</th><th class="addr">Address</th><th colspan="3">Actions</th></tr>
+					</thead>
+					<tfoot>
+						<tr><th>Name</th><th>State</th><th>Address</th><th colspan="3">Actions</th></tr>
+					</tfoot>
+					<tbody>
+						<tr meld:id="tr_mid">
+							<td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid" target="_blank">Name</a></td>
+							<td meld:id="state_td_mid">State</td>
+							<td meld:id="running_td_mid">
+								<ul meld:id="running_ul_mid" class="linear">
+									<li meld:id="running_li_mid"><a href="#" meld:id="running_a_mid" class="button on">Address</a></li>
+								</ul>
+							</td>
+							<td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid" class="button off">Start</a></td>
+							<td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid" class="button off">Stop</a></td>
+							<td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid" class="button off">Restart</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+		</div>
+
+	</div>
+</body>
+</html>
+

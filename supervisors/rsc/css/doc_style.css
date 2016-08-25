@@ -1,19 +1,16 @@
 /* General Layout */
 body {
 	margin: auto;
-   background: url(../img/scroll6.jpg) no-repeat fixed;
-   background-size: 100%;
 }
 
 #body_block {
-   min-width: 1000px;
+	min-width: 1000px;
    min-height: 780px;
    height: 100vh;
    display: flex;
 }
 
 #left_side {
-   border: 1px black solid; /* for tests */
    display: flex;
 	flex-direction: column;
 }
@@ -23,19 +20,17 @@ nav {
 }
 
 header, nav, footer, section {
-   border: 1px black solid; /* for tests */
 	padding: 10px;
-	margin: 2px;
 }
 
 #right_side {
-   border: 1px black solid; /* for tests */
 	flex: 1;
    display: flex;
 	flex-direction: column;
 }
 
 section {
+	flex: 1;
 	overflow: auto;
 }
 
@@ -54,31 +49,64 @@ section {
 
 
 /* Resource design */
-body {
-	background-color: #e3e3e3;
-	color: #181818;
-	font-family: Verdana, Arial, sans-serif;
-	text-align: justify;
+
+/* fake a background transparency because smoke image is too dark */
+body::after {
+	content: "";
+   background: url(../img/smoke.jpg);
+	top: 0; left: 0; bottom: 0; right: 0;
+	position: absolute;
+	z-index: -1;
+	opacity: 0.5;
+}
+
+#left_side {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+}
+
+#left_side header {
+   text-align: center;
+}
+
+header a, footer a {
+   color: #cc7a00;
+	text-decoration: none;
+}
+
+#right_side header {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
 }
 
 footer {
 	font-style: italic;
 }
 
-h1, h2, h3 {
+#copyright {
+	font-size: .8em;
+}
+
+section {
+	color: #111;
+	font-family: Verdana, Arial, sans-serif;
+	text-align: justify;
+}
+
+h1, h2, h3, h4 {
 	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 	text-shadow: 2px 2px 6px #202020;
 }
 
-h1 {
+h1, h2 {
 	font-size: 1.6em;
 }
 
-h2 {
+h3 {
 	font-size: 1.4em;
 }
 
-h3 {
+h4 {
 	font-size: 1.2em;
 	font-style: italic;
 }
@@ -89,70 +117,13 @@ mark {
 }
 
 /* decrease spacing between a paragraph and the following list */
-p + ul {
+p + ul, p + ol {
 	margin-top: -15px;
 }
 
 /* decrease spacing between a cell text and the following list */
-td ul {
+td ul, td ol {
 	margin-top: 0px;
-}
-
-
-/*
- * Nav style
- */
-nav ul {
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-
-nav li {
-	background-color: #729EBF; 
-   background-image: -webkit-linear-gradient(top, #729EBF 0%, #333A40 100%);
-   background-image: linear-gradient(to bottom, #729EBF 0%, #333A40 100%);
-   margin-bottom: 2px;
-   border: 1px #333A40 solid;
-   border-radius: 0px 6px 0 6px;
-}
-
-nav li li {
-   border-radius: 0;
-   background: #444;
-   border: none;
-   margin: 0;
-	padding: 0 0 0 5px;
-}
-
-nav li li li {
-   background: #222;
-}
-
-nav li a {
-	display: block;
-	text-decoration: none;
-	color: white;
-	padding: 7px 0;
-}
-
-nav li li:last-child {
-   border-radius: 0 0 0 6px;
-}
-
-nav .active {
-	font-weight: bold;
-}
-
-nav li:hover {
-	background: #729EBF
-}
-
-nav li li:hover {
-   background: #999;
-}
-nav li li li:hover {
-   background: red;
 }
 
 
@@ -162,7 +133,7 @@ nav li li li:hover {
 a.intLink {
 	background: url(../img/arrows-green_16.png) no-repeat right;
 	background-color: forestgreen;
-	color: #EEE;
+	color: #eee;
 	text-decoration: none;
 	text-shadow: 2px 2px 2px black;
 	font-size: .8em;
@@ -175,14 +146,14 @@ a.intLink {
 a.extLink {
 	background: url(../img/arrows-blue_16.png) no-repeat right;
 	background-color: dodgerblue;
-	color: #EEE;
+	color: #eee;
 	text-decoration: none;
 	text-shadow: 2px 2px 2px black;
 	font-size: .8em;
 	padding-left: 2px;
 	padding-right: 18px;
-   border: 1px blue outset;
-   border-radius: 0px 10px 10px 0px;
+    border: 1px blue outset;
+    border-radius: 0px 10px 10px 0px;
 }
 
 
@@ -196,7 +167,7 @@ code {
 }
 
 .option {
-	text-shadow: 2px 2px 2px black;
+	font-style: italic;
 }
 
 .className {
@@ -212,14 +183,14 @@ pre code {
 	display: block;
 	width: 75%;
 	margin-left: 10%;
-	background: rgba(0,0,0,.2);
+	background: rgba(100,100,100,.7);
 	padding: 5px;
 	border: 1px solid rgba(0,0,0,.2) inset;
 }
 
-pre code[lang]::before {
-	content: attr(lang);
-	color: rgba(0,0,0,.5);
+pre code[class]::before {
+	content: attr(class);
+	color: rgba(0,0,0,.7);
 	font-size: 0.8em;
 	float: right;
 	margin-top: -16px;
@@ -232,16 +203,26 @@ pre code[lang]::before {
 
 /* notes are displayed within a box with an information icon before text */
 .note {
-	padding: 2px 5px;
+	padding: 0 0 1px 0;
 	margin: 20px 25px;
-	background: rgba(0,0,0,.2);
+	background: rgba(100,100,100,.7);
 	border: 1px solid black inset;
 }
 
-.note::before {
+.note p:first-child::before {
 	content: url(../img/info_16.png) '\00a0';
 	float: left;
-	margin-top: 16px;
+}
+
+.note p:first-child {
+	background: #804d00;
+	padding: 5px 5px;
+	color: #ccc;
+	text-decoration:underline;
+}
+
+.note p {
+	padding: 0 10px;
 }
 
 
@@ -251,12 +232,14 @@ pre code[lang]::before {
 table {
 	border-collapse: collapse;
 	caption-side: bottom;
-	background: rgba(0,0,0,.2);
+	background: rgba(200,200,200,.7);
 	margin: 0 auto
 }
 
 /* caption style */
 caption {
+	margin-top: 3px;
+	font-weight: bold;
 	font-style: italic;
 }
 
@@ -267,11 +250,18 @@ th, td {
 
 /* style for a title in a table */
 th {
-	background-color: grey;
+	background-color: #555;
 }
 
-/* second (required) and third (default value) columns of an option table are centered */
-.optionTable td:nth-child(2), .optionTable td:nth-child(3) {
+/* second (required) and third (default value) columns of an ini table are centered */
+.iniTable th:nth-child(2), .iniTable td:nth-child(2),
+.iniTable th:nth-child(3), .iniTable td:nth-child(3) {
+	text-align:center;
+}
+
+/* third (card value) and fourth (default value) columns of a xml table are centered */
+.xmlTable th:nth-child(3), .xmlTable td:nth-child(3),
+.xmlTable th:nth-child(4), .xmlTable td:nth-child(4) {
 	text-align:center;
 }
 
@@ -301,24 +291,53 @@ th {
 	font-style: italic;
 }
 
-.modified-entry {
-	background-color: darkcyan;
-}
-
 .removed-entry {
 	background-color: grey;
 	font-style: italic;
 	text-decoration: line-through;
 }
 
+/* styles for dd / dt (used to describe RPC) */
+dt {
+   border-left: 6px solid darkcyan;
+   border-radius: 2px;
+   margin: 15px 2px 0 2px;
+   padding-left: 5px;
+	font-weight: bold;
+}
+
+dl dt:first-child {
+	margin-top: 0;
+}
+
+dd {
+	margin: 2px;
+   padding-left: 30px
+}
+
+
+/*
+ * Figure style
+ */
+figure img {
+	display: block;
+	margin: auto;
+   border: 1px solid black outset;
+   border-radius: 6px;
+   box-shadow: 4px 4px 6px black;
+}
+
+figcaption {
+	margin-top: 5px;
+	font-weight: bold;
+	font-style: italic;
+	text-align: center;
+}
+
 
 /*
  * Misc style
  */
-
-#copyright {
-	font-size: .8em;
-}
 
 /* mark for functions that are not implemented yet */
 .not-implemented-yet::before {

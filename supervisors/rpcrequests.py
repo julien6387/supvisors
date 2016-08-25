@@ -38,11 +38,11 @@ def _getSupervisorsProxy(address):
 
 def _getInternalSupervisor():
     from supervisors.infosource import infoSource
-    return None, infoSource.source.getSupervisorRpcInterface()
+    return None, infoSource.getSupervisorRpcInterface()
 
 def _getInternalSupervisors():
     from supervisors.infosource import infoSource
-    return None, infoSource.source.getSupervisorsRpcInterface()
+    return None, infoSource.getSupervisorsRpcInterface()
 
 def _getSupervisor(address):
     return _getSupervisorProxy(address) if _useProxy(address) else _getInternalSupervisor()
@@ -55,6 +55,10 @@ def _getSupervisors(address):
 def getAllProcessInfo(address):
     client, supervisor = _getSupervisor(address)
     return supervisor.getAllProcessInfo()
+
+def getSupervisorsState(address):
+    client, supervisors = _getSupervisors(address)
+    return supervisors.getSupervisorsState()
 
 def internalStartProcess(address, program, wait):
     client, supervisors = _getSupervisors(address)

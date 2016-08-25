@@ -22,10 +22,9 @@ from supervisors.options import options
 from supervisors.process import stringToProcessStates
 from supervisors.utils import TickHeader, ProcessHeader
 
-from supervisor.datatypes import boolean, integer
 from supervisor import events
 
-import time, xmlrpclib, zmq
+import time, zmq
 
 # class for ZMQ publication of event
 class _EventPublisher(object):
@@ -40,47 +39,65 @@ class _EventPublisher(object):
         # publish ZMQ tick
         options.logger.debug('send TickEvent {}'.format(payload))
         self.socket.send_string(TickHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((addressMapper.localAddresses, payload))
+        self.socket.send_pyobj((addressMapper.localAddress, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
         options.logger.debug('send ProcessEvent {}'.format(payload))
         self.socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((addressMapper.localAddresses, payload))
+        self.socket.send_pyobj((addressMapper.localAddress, payload))
 
 
 # class for listening Supervisor events
 class SupervisorListener(object):
-    def __init__(self, zmqContext):
-        self.eventPublisher = _EventPublisher(zmqContext)
+    def __init__(self):
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self._runningListener)
+        events.subscribe(events.SupervisorStoppingEvent, self._stoppingListener)
         events.subscribe(events.ProcessStateEvent, self._processListener)
         events.subscribe(events.Tick5Event, self._tickListener)
+        # ZMQ context definition
+        self.zmqContext = zmq.Context.instance()
+        self.zmqContext.setsockopt(zmq.LINGER, 0)
+
+    def _stoppingListener(self, event):
+        # Supervisor is STOPPING: start Supervisors in this supervisord
+        options.logger.warn('local supervisord is STOPPING')
+        # unsubscribe
+        events.clear()
+        # stop and join main loop
+        self.mainLoop.stop()
+        self.mainLoop.join()
+        options.logger.warn('cleaning resources')
+       # close zmq sockets
+        self.eventPublisher.socket.close()
+        # close zmq context
+        self.zmqContext.term()
+        # finally, close logger
+        options.logger.close()
 
     def _runningListener(self, event):
-        # Supervisor is RUNNING: start Supervisors in this supervisord
+        # Supervisor is RUNNING: start Supervisors main loop
+        from supervisors.mainloop import SupervisorsMainLoop
+        self.mainLoop = SupervisorsMainLoop(self.zmqContext)
+        self.mainLoop.start()
+        # replace the default handler for web ui
         from supervisors.infosource import infoSource
-        options.logger.info('send request to local supervisord to start Supervisors')
-        try:
-            infoSource.source.getSupervisorsRpcInterface().internalStart()
-        except xmlrpclib.Fault, why:
-            options.logger.critical('failed to start Supervisors: {}'.format(why))
+        infoSource.replaceDefaultHandler()
+        # create publisher
+        self.eventPublisher = _EventPublisher(self.zmqContext)
 
     def _processListener(self, event):
         eventName = events.getEventNameByType(event.__class__)
-        options.logger.debug('got Process event from supervisord: {}  {}'.format(eventName, event))
+        options.logger.debug('got Process event from supervisord: {} {}'.format(eventName, event))
         # create payload to get data
-        from supervisor.childutils import get_headers
-        payload = get_headers(str(event))
-        # additional information
-        payload['state'] = stringToProcessStates(eventName.split('_')[-1])
-        payload['now'] = int(time.time())
-        # convert strings into real values
-        payload['from_state'] = stringToProcessStates(payload['from_state'])
-        if 'tries' in payload: payload['tries'] = integer(payload['tries'])
-        if 'pid' in payload: payload['pid'] = integer(payload['pid'])
-        if 'expected' in payload: payload['expected'] = boolean(payload['expected'])
+        payload = {'processname': event.process.config.name,
+            'groupname': event.process.group.config.name,
+            'state': stringToProcessStates(eventName.split('_')[-1]),
+            'now': int(time.time()), 
+            'pid': event.process.pid,
+            'expected': event.expected }
+        options.logger.debug('payload={}'.format(payload))
         self.eventPublisher.sendProcessEvent(payload)
 
     def _tickListener(self, event):

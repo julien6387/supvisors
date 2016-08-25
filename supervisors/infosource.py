@@ -19,7 +19,11 @@
 
 # Supervisors is started in Supervisor so information is available in supervisor instance
 class SupervisordSource(object):
-    def __init__(self, supervisord):
+    def __init__(self):
+        self.supervisord = None
+
+    #WARN: this method to be called first any get
+    def setSupervisorInstance(self, supervisord):
         self.supervisord = supervisord
         if len(supervisord.options.server_configs) == 0:
             raise Exception('no server configuration in config file: {}'.format(supervisord.configfile))
@@ -37,13 +41,18 @@ class SupervisordSource(object):
         # XML-RPC call in an other XML-RPC call on the same server is blocking
         # so, not very proud of the following lines but could not access it any other way
         if not self.supervisorRpcInterface:
-            self.supervisorRpcInterface = self.supervisord.options.httpservers[0][1].handlers[0].rpcinterface.supervisor
+            self.supervisorRpcInterface = self.httpServers.handlers[0].rpcinterface.supervisor
         return self.supervisorRpcInterface
 
     def getSupervisorsRpcInterface(self):
         if not self.supervisorsRpcInterface:
-            self.supervisorsRpcInterface = self.supervisord.options.httpservers[0][1].handlers[0].rpcinterface.supervisors
+            self.supervisorsRpcInterface = self.httpServers.handlers[0].rpcinterface.supervisors
         return self.supervisorsRpcInterface
+
+    @property
+    def httpServers(self):
+        # ugly but works...
+        return self.supervisord.options.httpservers[0][1]
 
     @property
     def serverUrl(self): return self.supervisord.options.serverurl
@@ -66,9 +75,27 @@ class SupervisordSource(object):
         subProcess.spawnerr = reason
         subProcess.give_up()
 
-# wrapper class
-class _InfoSource(object):
-    def __init__(self):
-        self.source = None
+    # this method is used to replace Supervisor web ui with Supervisors web ui
+    def replaceDefaultHandler(self):
+        # create default handler pointing on Supervisors ui directory
+        import os
+        here = os.path.abspath(os.path.dirname(__file__))
+        templatedir = os.path.join(here, 'ui')
+        from supervisor.medusa import filesys
+        filesystem = filesys.os_filesystem(templatedir)
+        from supervisor.medusa import default_handler
+        defaulthandler = default_handler.default_handler(filesystem)
+        # deal with authentication
+        if self.userName:
+            # wrap the xmlrpc handler and tailhandler in an authentication handler
+            users = { self.userName: self.password }
+            from supervisor.web import supervisor_auth_handler
+            defaulthandler = supervisor_auth_handler(users, defaulthandler)
+        else:
+            from supervisors.options import options
+            options.logger.critical('Server %r running without any HTTP authentication checking' % infoSource.serverConfig['section'])
+        # replace Supervisor default handler at the end of the list
+        self.httpServers.handlers.pop()
+        self.httpServers.install_handler(defaulthandler, True)
 
-infoSource = _InfoSource()
+infoSource = SupervisordSource()

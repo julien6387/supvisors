@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/doc_style.css">
+    <link rel="stylesheet" href="css/menu.css">
+    <title>Supervisors: A Control System for Distributed Applications</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+				<h1><a href="#github">Supervisors</a></h1>
+				<p class="version">0.1 beta</p>
+			</header>
+
+			<nav>
+				<ul>
+	 				<li><a href="index.html">Introduction</a></li>
+               <li><a href="configuration.html">Configuration</a></li>
+               <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
+               <li><a href="supervisorctl-api.html" class="active">supervisorctl API</a><ul>
+               	<li><a href="#status">Status</a></li>
+               	<li><a href="#supervisors">Supervisors Control</a></li>
+                  <li><a href="#application">Application Control</a></li>
+                  <li><a href="#process">Process Control</a></li>
+               </ul></li>
+               <li><a href="design.html">Software Design</a></li>
+             </ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&eacute;ach</a></p>
+				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+				<h1>Documentation &raquo; supervisorctl API</h1>
+			</header>
+
+			<section>
+				<p>This is an extension of the existing <a href="http://supervisord.org/running.html#running-supervisorctl" class="extLink">supervisorctl API</a>.<br />
+				The additional commands provided by Supervisors are available by typing <code class="bash">help</code> at the prompt.</p>
+
+				<pre><code class="bash">[bash] > supervisorctl help
+
+default commands (type help &lt;topic&gt;):
+=====================================
+add    exit      open  reload  restart   start   tail   
+avail  fg        pid   remove  shutdown  status  update 
+clear  maintail  quit  reread  signal    stop    version
+
+
+supervisors commands (type help &lt;topic&gt;):
+=========================================
+application_info  restart_application  start_process     sup_shutdown
+conflicts         restart_process      stop_application  sup_state   
+master            rules                stop_process      sup_status  
+remote_status     start_application    sup_reload        sup_version </code></pre>
+
+				<h2 id="status">Status</h2>
+				<dl>
+				   <dt>sup_version</dt>
+					<dd>Get the API version of Supervisors</dd>
+
+				   <dt>master</dt>
+					<dd>Get the Supervisors master address</dd>
+
+				   <dt>sup_state</dt>
+					<dd>Get the Supervisors state</dd>
+
+				   <dt>remote_status</dt>
+					<dd>Get the status of all remote supervisord managed in Supervisors</dd>
+
+				   <dt>remote_status addr</dt>
+					<dd>Get the status of remote supervisord managed in Supervisors and running on addr</dd>
+
+				   <dt>remote_status addr1 addr2</dt>
+					<dd>Get the status for multiple addresses</dd>
+
+				   <dt>application_info</dt>
+					<dd>Get the status of all applications</dd>
+
+				   <dt>application_info appli</dt>
+					<dd>Get the status of application named appli</dd>
+
+				   <dt>application_info appli1 appli2</dt>
+					<dd>Get the status for multiple named applications</dd>
+
+				   <dt>sup_status</dt>
+					<dd>Get the status of all processes</dd>
+
+				   <dt>sup_status proc</dt>
+					<dd>Get the status of the process named proc</dd>
+
+				   <dt>sup_status appli:*</dt>
+					<dd>Get the status of all processes in the application named appli</dd>
+
+				   <dt>sup_status proc1 proc2</dt>
+					<dd>Get the status for multiple named processes</dd>
+
+				   <dt>rules</dt>
+					<dd>Get the deployment rules of all processes</dd>
+
+				   <dt>rules proc</dt>
+					<dd>Get the deployment rules of the process named proc</dd>
+
+				   <dt>rules appli:*</dt>
+					<dd>Get the deployment rules of all processes in the application named appli</dd>
+
+				   <dt>rules proc1 proc2</dt>
+					<dd>Get the deployment rules for multiple named processes</dd>
+
+				   <dt>conflicts</dt>
+					<dd>Get the Supervisors conflicts</dd>
+				</dl>
+
+
+				<h2 id="supervisors">Supervisors Control</h2>
+				<dl>
+				   <dt>sup_reload</dt>
+					<dd>Restart Supervisors through all remote Supervisor instances</dd>
+
+				   <dt>sup_shutdown</dt>
+					<dd>Shutdown Supervisors through all remote Supervisor instances</dd>
+				</dl>
+
+
+				<h2 id="application">Application Control</h2>
+				<dl>
+        			<dt>start_application strategy</dt>
+					<dd>Start all applications with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>start_application strategy appli</dt>
+					<dd>Start the application named appli with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>start_application strategy appli1 appli2</dt>
+					<dd>Start multiple named applications with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+        			<dt>stop_application</dt>
+					<dd>Stop all applications</dd>
+
+				   <dt>stop_application appli</dt>
+					<dd>Stop the application named appli</dd>
+
+				   <dt>stop_application appli1 appli2</dt>
+					<dd>Stop multiple named applications</dd>
+
+        			<dt>restart_application strategy</dt>
+					<dd>Restart all applications with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>restart_application strategy appli</dt>
+					<dd>Restart the application named appli with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>restart_application strategy appli1 appli2</dt>
+					<dd>Restart multiple named applications with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+				</dl>
+
+
+				<h2 id="process">Process Control</h2>
+				<dl>
+        			<dt>start_process strategy</dt>
+					<dd>Start all processes with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>start_process strategy proc</dt>
+					<dd>Start the process named proc with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>start_process strategy proc1 proc2</dt>
+					<dd>Start multiple named processes with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+        			<dt>stop_process</dt>
+					<dd>Stop all processes on all addresses</dd>
+
+				   <dt>stop_process proc</dt>
+					<dd>Stop the process named appli</dd>
+
+				   <dt>stop_process proc1 proc2</dt>
+					<dd>Stop multiple named processes</dd>
+
+        			<dt>restart_process strategy</dt>
+					<dd>Restart all processes with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>restart_process strategy appli</dt>
+					<dd>Restart the process named appli with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+				   <dt>restart_process strategy appli1 appli2</dt>
+					<dd>Restart multiple named process with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+				</dl>
+
+			</section>
+
+		</div>
+	</div>
+</body>
+</html>
+

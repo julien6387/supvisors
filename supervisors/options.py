@@ -58,7 +58,7 @@ class _SupervisorsOptions(object):
         # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
         from supervisors.infosource import infoSource
         from supervisor.loggers import getLogger
-        stdout = infoSource.source.supervisord.options.nodaemon
+        stdout = infoSource.supervisord.options.nodaemon
         self.logger = getLogger(logfile, loglevel, self.loggerFormat, True, logfile_maxbytes, logfile_backups, stdout)
 
     # conversion utils (completion of supervisor.datatypes)

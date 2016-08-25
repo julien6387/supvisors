@@ -25,13 +25,13 @@ class XmlRpcClient(object):
 
     def _getRpcTransport(self, address):
         from supervisors.infosource import infoSource
-        if infoSource.source.serverUrl:
-            serverUrl = infoSource.source.serverUrl.split(':')
+        if infoSource.serverUrl:
+            serverUrl = infoSource.serverUrl.split(':')
             if len(serverUrl) == 3:
                 serverUrl[1] = '//' + address
                 serverUrl = ':'.join(serverUrl)
                 from supervisor.xmlrpc import SupervisorTransport
-                return SupervisorTransport(infoSource.source.userName, infoSource.source.password, serverUrl)
+                return SupervisorTransport(infoSource.userName, infoSource.password, serverUrl)
         return None
 
 

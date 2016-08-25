@@ -19,11 +19,9 @@
 
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
-from supervisors.infosource import infoSource
 from supervisors.options import options
 from supervisors.statemachine import fsm
 
-from supervisors.listener import SupervisorListener
 
 import zmq, time, threading
 
@@ -51,28 +49,27 @@ class EventSubscriber(object):
 
 # class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
-    def __init__(self):
+    def __init__(self, zmqContext):
         # thread attributes
         threading.Thread.__init__(self)
-        # ZMQ context definition
-        self.zmqContext = zmq.Context.instance()
-        self.zmqContext.setsockopt(zmq.LINGER, 0)
-        # create sockets
-        self.eventSubscriber = EventSubscriber(self.zmqContext)
-        # create new event subscriber
-        self.listener = SupervisorListener(self.zmqContext)
+        # create event sockets
+        self.eventSubscriber = EventSubscriber(zmqContext)
+
+    def stop(self):
+        options.logger.info('request to stop main loop')
+        self.loop = False
 
     # main loop
     def run(self):
         from supervisors.utils import TickHeader, ProcessHeader
-        from supervisor.states import SupervisorStates, getSupervisorStateDescription
         # create poller
         poller = zmq.Poller()
         # register event publisher
         poller.register(self.eventSubscriber.socket, zmq.POLLIN) 
         self.timerEventTime = time.time()
         # poll events every seconds
-        while infoSource.source.supervisord.options.mood == SupervisorStates.RUNNING:
+        self.loop = True
+        while self.loop:
             socks = dict(poller.poll(1000))
             # check tick and process events
             if self.eventSubscriber.socket in socks and socks[self.eventSubscriber.socket] == zmq.POLLIN:
@@ -87,9 +84,8 @@ class SupervisorsMainLoop(threading.Thread):
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()
-            # an application that wants process events may use its own EventSubscriber but it's in python
-            # TODO: or publish from here using thrift /protobuf / msgpack ?
-        options.logger.info('exiting main loop because SupervisorState={}'.format(getSupervisorStateDescription(infoSource.source.supervisord.options.mood)))
+            # publish all events from here using pyzmq json
+        options.logger.info('exiting main loop')
         self._close()
 
     def _doPeriodicTask(self):
@@ -105,11 +101,6 @@ class SupervisorsMainLoop(threading.Thread):
 
     def _close(self):
         # close zmq sockets
-        self.listener.eventPublisher.socket.close()
         self.eventSubscriber.socket.close()
-         # close zmq context
-        self.zmqContext.term()
         # cleanup in case of restarting
         context.restart()
-        # finally, close logger
-        options.logger.close()

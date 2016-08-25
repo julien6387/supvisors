@@ -32,7 +32,6 @@ class _Context(object):
         # replace handlers
         self.remotes = { address: RemoteStatus(address) for address in addressMapper.expectedAddresses }
         self.applications = {} # { applicationName: ApplicationStatus }
-        self.processes = {} # { address: [ ProcessStatus ] }
         self.master = False
         self.masterAddress = ''
 
@@ -44,12 +43,13 @@ class _Context(object):
     def _remotesByStates(self, states):
         return [ status.address for status in self.remotes.values() if status.state in states ]
 
+    def getRemoteRunningProcesses(self, address):
+        return [ process for process in self._getAllProcesses() if process.isRunningOn(address) ]
+
     def getRemoteLoading(self, address):
-        if address in self.processes:
-            loading = sum(process.rules.expected_loading for process in self.processes[address] if process.isRunningOn(address))
-            options.logger.debug('address={} loading={}'.format(address, loading))
-            return loading
-        return 0
+        loading = sum(process.rules.expected_loading for process in self.getRemoteRunningProcesses(address))
+        options.logger.debug('address={} loading={}'.format(address, loading))
+        return loading
 
     def endSynchro(self):
         # consider problem if no tick received at the end of synchro time
@@ -64,9 +64,8 @@ class _Context(object):
             status.setState(RemoteStates.SILENT)
             status.checked = False
         # invalidate address in concerned processes
-        if status.address in self.processes:
-            for process in self.processes[status.address]:
-                process.invalidateAddress(status.address)
+        for process in self.getRemoteRunningProcesses(status.address):
+            process.invalidateAddress(status.address)
         # programs running on lost addresses may be declared running without an address, which is inconsistent
 
     # methods on applications / processes
@@ -91,9 +90,6 @@ class _Context(object):
     def _loadProcesses(self, address, allProcessesInfo):
         from supervisors.application import ApplicationStatus
         from supervisors.parser import parser
-        # keep a dictionary address / processes
-        processList = self.processes.setdefault(address, [ ])
-        processList[:] = [ ]
         # get all processes and sort them by group (application)
         # first store applications
         applicationList = { x['group'] for x  in allProcessesInfo }
@@ -115,8 +111,6 @@ class _Context(object):
                 self.applications[process.applicationName].addProcess(process)
             else:
                 process.addInfo(address, processInfo)
-            # fill the dictionary address / processes
-            processList.append(process)
 
     def hasConflict(self):
         # return True if any conflict detected
@@ -151,9 +145,8 @@ class _Context(object):
         for application in self.applications.values():
             application.updateRemoteTime(status.address, remoteTime, localTime)
 
-    def onTickEvent(self, addresses, when):
-        address = addressMapper.getExpectedAddress(addresses, True)
-        if address:
+    def onTickEvent(self, address, when):
+        if addressMapper.isAddressValid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
@@ -163,9 +156,8 @@ class _Context(object):
         else:
             options.logger.warn('got tick from unexpected location={}'.format(addresses))
 
-    def onProcessEvent(self, addresses, processEvent):
-        address = addressMapper.getExpectedAddress(addresses, True)
-        if address:
+    def onProcessEvent(self, address, processEvent):
+        if addressMapper.isAddressValid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():

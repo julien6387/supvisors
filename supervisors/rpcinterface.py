@@ -41,20 +41,11 @@ _FAULTS_OFFSET = 100
 class _RPCInterface(object):
 
     def __init__(self):
-        # start Supervisors main loop
-        from supervisors.mainloop import SupervisorsMainLoop
-        self.mainLoop = SupervisorsMainLoop()
+        # create new event subscriber
+        from supervisors.listener import SupervisorListener
+        self.listener = SupervisorListener()
 
     # RPC for Supervisors internal use
-    def internalStart(self):
-        """ Start Supervisors within supervisord
-        This is usually called by the Supervisors Listener instance once supervisord is RUNNING
-        @return boolean result\t(always True)
-        """
-        # the thread MUST be started here and not in constructor otherwise, it would end after supervisord daemonizes
-        self.mainLoop.start()
-        return True
-
     def internalStartProcess(self, namespec, wait):
         """ Start a process upon request of the Deployer of Supervisors.
         The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL instead of throwing an exception to the RPC client.
@@ -70,7 +61,7 @@ class _RPCInterface(object):
             if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
                 options.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
                 try:
-                    infoSource.source.forceProcessFatalState(namespec, why.text)
+                    infoSource.forceProcessFatalState(namespec, why.text)
                     result = True
                 except KeyError:
                     options.logger.error('could not find {} in supervisord processes'.format(namespec))
@@ -443,8 +434,7 @@ def make_supervisors_rpcinterface(supervisord, **config):
         if not x.startswith('__'):
             setattr(Faults, x, y + _FAULTS_OFFSET)
     # configure supervisor info source
-    from supervisors.infosource import SupervisordSource
-    infoSource.source = SupervisordSource(supervisord)
+    infoSource.setSupervisorInstance(supervisord)
     # get options from config file
     options.realize()
     # set addresses and check local address
