@@ -114,6 +114,12 @@ ul.linear li {
     display: inline;
 }
 
+ul.vertical {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 #control {
     float: right;
 }
