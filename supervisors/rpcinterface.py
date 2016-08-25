@@ -61,7 +61,7 @@ class _RPCInterface(object):
             if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
                 options.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
                 try:
-                    infoSource.source.forceProcessFatalState(namespec, why.text)
+                    infoSource.forceProcessFatalState(namespec, why.text)
                     result = True
                 except KeyError:
                     options.logger.error('could not find {} in supervisord processes'.format(namespec))
@@ -434,8 +434,7 @@ def make_supervisors_rpcinterface(supervisord, **config):
         if not x.startswith('__'):
             setattr(Faults, x, y + _FAULTS_OFFSET)
     # configure supervisor info source
-    from supervisors.infosource import SupervisordSource
-    infoSource.source = SupervisordSource(supervisord)
+    infoSource.setSupervisorInstance(supervisord)
     # get options from config file
     options.realize()
     # set addresses and check local address

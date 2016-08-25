@@ -63,6 +63,8 @@ class SupervisorListener(object):
     def _stoppingListener(self, event):
         # Supervisor is STOPPING: start Supervisors in this supervisord
         options.logger.warn('local supervisord is STOPPING')
+        # unsubscribe
+        events.clear()
         # stop and join main loop
         self.mainLoop.stop()
         self.mainLoop.join()
@@ -79,6 +81,9 @@ class SupervisorListener(object):
         from supervisors.mainloop import SupervisorsMainLoop
         self.mainLoop = SupervisorsMainLoop(self.zmqContext)
         self.mainLoop.start()
+        # replace the default handler for web ui
+        from supervisors.infosource import infoSource
+        infoSource.replaceDefaultHandler()
         # create publisher
         self.eventPublisher = _EventPublisher(self.zmqContext)
 

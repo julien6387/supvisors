@@ -226,7 +226,7 @@ class _Deployer(object):
         # force process state to FATAL in supervisor so as it is published
         if forceFatal:
             options.logger.warn('force {} state to FATAL'.format(process.getNamespec()))
-            infoSource.source.forceProcessFatalState(process.getNamespec(), reason)
+            infoSource.forceProcessFatalState(process.getNamespec(), reason)
 
     # log facilities
     def _getPrintJobs(self):

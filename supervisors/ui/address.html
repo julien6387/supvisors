@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"
+		xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="http://www.plope.com/software/meld3">
+
 <head>
-	<meta charset="utf-8">
-	<link rel="stylesheet" href="css/ui_style.css">
-	<link rel="stylesheet" href="css/menu.css">
-	<link rel="stylesheet" href="css/button.css">
+	<meta charset="utf-8" />
+	<meta http-equiv="refresh" content="5" />
+	<link rel="stylesheet" href="css/ui_style.css" />
+	<link rel="stylesheet" href="css/menu.css" />
+	<link rel="stylesheet" href="css/button.css" />
 	<title>Supervisors status</title>
 </head>
 
@@ -15,84 +19,75 @@
 			<header>
 				<h1><a href="index.html">Supervisors</a></h1>
 				<p class="version">0.1 beta</p>
+				<p>TODO: add state + link if conciliation</p>
 			</header>
 
 			<nav id="address-list">
 				<h2>Addresses</h2>
 				<ul>
-	 				<li meld:id="address_td"><a href="address.html?address=xxx">cliche01</a></li>
-	 				<li meld:id="address_td"><a href="#">Address</a></li>
-             </ul>
+					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+				</ul>
 			</nav>
 
 			<nav id="application-list">
 				<h2>Applications</h2>
 				<ul>
-	 				<li meld:id="address_td"><a href="application.html?appli=xxx">X11</a></li>
-	 				<li meld:id="address_td"><a href="#">Address</a></li>
-             </ul>
+					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+				</ul>
 			</nav>
 
 			<footer>
-				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&eacute;ach</a></p>
-				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+				<p id="copyright">&amp;copy; Copyright 2016 Julien LE CLEACH</p>
 			</footer>
 		</div>
 
 		<div id="right_side">
 			<header>
-				<p>Address state, date.<br />
-				actions: restart, shutdown</p>
-				<p>additional actions: refresh (+ toggle for automatic refresh ?), restart all, stop all</p>
-
-				<div class="hidden" meld:id="status_message">#</div>
+                <div id="control">
+                    <ul class="linear">
+                        <li><a href="#" meld:id="stopall_a_mid"><img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a></li>
+                        <li><a href="#" meld:id="restartsup_a_mid"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a></li>
+                        <li><a href="#" meld:id="shutdownsup_a_mid"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a></li>
+                    </ul>
+                    <ul class="linear">
+                        <li><a href="#" meld:id="refresh_a_mid" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                    </ul>
+                </div>
+				<h2>Address: <span meld:id="address_mid">address</span></h2>
+            <p><span meld:id="state_mid">RemoteStates</span> at <span meld:id="date_mid">Time</span></p>
+				<div class="hidden" meld:id="message_mid">#</div>
 			</header>
 
-			<form action="address.html" method="post">
-				<aside>
-					<p>TODO: statistics</p>
-				</aside>
+			<aside>
+				<!-- TODO: statistics -->
+			</aside>
 
-				<section id="address">
-					<p>processes of the address, look like Supervisor</p>
-					<table>
-						<thead>
-							<tr><th>Name</th><th>State</th><th>Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
-						</thead>
-						<tfoot>
-							<tr><th>Name</th><th>State</th><th>Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
-						</tfoot>
-
-						<tbody>
-							<tr>
-								<td><a href="tail.html?processname=X11%3Axclock" target="_blank">X11:xclock</a></td>
-								<td><span class="running">running</span></td>
-								<td>pid 23235, uptime 0:58:45</td>
-								<td class="action"><a href="address.html?processname=X11%3Axclock&amp;action=start" class="button off">Start</a></td>
-								<td class="action"><a href="address.html?processname=X11%3Axclock&amp;action=stop" class="button on">Stop</a></td>
-								<td class="action"><a href="address.html?processname=X11%3Axclock&amp;action=restart" class="button on">Restart</a></td>
-								<td class="action"><a href="address.html?processname=X11%3Axclock&amp;action=clear" class="button on">Clear Log</a></td>
-								<td class="action"><a href="address.html?processname=X11%3Axclock&amp;action=tail" class="button on">Tail -f</a></td>
-						</tbody>
-
-						<tbody meld:id="tbody">
-							<tr meld:id="tr" class="">
-								<td meld:id="name_td"><a href="#" meld:id="name_anchor" target="_blank">Name</a></td>
-								<td meld:id="status_td"><span meld:id="status_text" class="state">State</span></td>
-								<td meld:id="info_td"><span meld:id="info_text">Info</span></td>
-								<td meld:id="start_td" class="action"><a href="#" meld:id="start_anchor" class="button">Action</a></td>
-								<td meld:id="stop_td" class="action"><a href="#" meld:id="stop_anchor" class="button">Action</a></td>
-								<td meld:id="restart_td" class="action"><a href="#" meld:id="restart_anchor" class="button">Action</a></td>
-								<td meld:id="clear_td" class="action"><a href="#" meld:id="clear_anchor" class="button">Action</a></td>
-								<td meld:id="tail_td" class="action"><a href="#" meld:id="tail_anchor" class="button">Action</a></td>
-							</tr>
-						</tbody>
-					</table>
-
-				</section>
-			</form>
+			<section id="address">
+				<table meld:id="table_mid">
+					<thead>
+						<tr><th class="name">Name</th><th class="state">State</th><th class="desc">Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+					</thead>
+					<tfoot>
+						<tr><th>Name</th><th>State</th><th>Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+					</tfoot>
+					<tbody>
+						<tr meld:id="tr_mid">
+							<td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid" target="_blank">Name</a></td>
+							<td meld:id="state_td_mid">State</td>
+							<td meld:id="desc_td_mid">Description</td>
+							<td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid" class="button off">Start</a></td>
+							<td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid" class="button off">Stop</a></td>
+							<td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid" class="button off">Restart</a></td>
+							<td meld:id="clear_td_mid"><a href="#" meld:id="clear_a_mid" class="button on">Clear</a></td>
+							<td meld:id="tail_td_mid"><a href="#" meld:id="tail_a_mid" class="button on">Tail</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
 
 		</div>
+
 	</div>
 </body>
 </html>

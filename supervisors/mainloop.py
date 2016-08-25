@@ -84,8 +84,7 @@ class SupervisorsMainLoop(threading.Thread):
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()
-            # an application that wants process events may use its own EventSubscriber but it's in python
-            # TODO: or publish from here using thrift /protobuf / msgpack ?
+            # publish all events from here using pyzmq json
         options.logger.info('exiting main loop')
         self._close()
 

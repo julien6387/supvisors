@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"
+		xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="http://www.plope.com/software/meld3">
+
 <head>
-	<meta charset="utf-8">
-	<link rel="stylesheet" href="css/ui_style.css">
-	<link rel="stylesheet" href="css/menu.css">
+	<meta charset="utf-8" />
+    <meta http-equiv="refresh" content="5" />
+	<link rel="stylesheet" href="css/ui_style.css" />
+	<link rel="stylesheet" href="css/menu.css" />
+	<link rel="stylesheet" href="css/button.css" />
 	<title>Supervisors status</title>
 </head>
 
@@ -12,25 +17,28 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="#">Supervisors</a></h1>
+				<h1><a href="index.html">Supervisors</a></h1>
 				<p class="version">0.1 beta</p>
+				<p>TODO: add state + link if conciliation</p>
 			</header>
 
 			<nav id="address-list">
+				<h2>Addresses</h2>
 				<ul>
-	 				<li><a href="address.html?address=xxx">win376</a></li>
-             </ul>
+					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+				</ul>
 			</nav>
 
 			<nav id="application-list">
+				<h2>Applications</h2>
 				<ul>
-	 				<li><a href="application.html?appli=xxx">X11</a></li>
-             </ul>
+					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+				</ul>
 			</nav>
 
 			<footer>
-				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&eacute;ach</a></p>
-				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+				<p id="copyright">&amp;copy; Copyright 2016 Julien LE CLEACH</p>
 			</footer>
 		</div>
 
@@ -38,18 +46,6 @@
 			<header>
 				<p>Supervisors state. actions: restart, shutdown</p>
 			</header>
-
-			<aside id="statistics">
-				<span class="not-implemented-yet"></span>
-			</aside>
-
-			<section id="address">
-				<p>processes of the address, look like Supervisor</p>
-			</section>
-
-			<section id="application">
-				<p>processes of the address, look like Supervisor</p>
-			</section>
 
 			<div id="synoptic">
 				<aside>
@@ -59,8 +55,8 @@
 					<p>one box per address, one colored bullet in box for each running process</p>
 				</section>
 			</div>
-
 		</div>
+
 	</div>
 </body>
 </html>
