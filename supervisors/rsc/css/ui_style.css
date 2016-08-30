@@ -5,13 +5,13 @@ body {
 
 #body_block {
 	min-width: 1000px;
-   min-height: 780px;
-   height: 100vh;
-   display: flex;
+    min-height: 780px;
+    height: 100vh;
+    display: flex;
 }
 
 #left_side {
-   display: flex;
+    display: flex;
 	flex-direction: column;
 }
 
@@ -25,13 +25,25 @@ header, nav, footer, section {
 
 #right_side {
 	flex: 1;
-   display: flex;
+    display: flex;
 	flex-direction: column;
 }
 
-section {
+#contents {
 	flex: 1;
+    display: flex;
+	flex-direction: row;
+	justify-content: space-around;
 	overflow: auto;
+}
+
+#stats {
+    display: flex;
+	flex-direction: column;
+}
+
+#right_side footer {
+    min-height: 40px;
 }
 
 
@@ -53,7 +65,7 @@ section {
 /* fake a background transparency because smoke image is too dark */
 body::after {
 	content: "";
-   background: url(../img/smoke.jpg);
+    background: url(../img/smoke.jpg);
 	top: 0; left: 0; bottom: 0; right: 0;
 	position: absolute;
 	z-index: -1;
@@ -63,19 +75,29 @@ body::after {
 #left_side {
 	background: url(../img/texture.jpg);
 	color: #e6e6e6;
+    border-right: 3px #cc7a00 solid;
 }
 
 #left_side header {
    text-align: center;
 }
 
-header a, footer a {
-   color: #cc7a00;
-	text-decoration: none;
+#left_side footer {
+	font-style: italic;
 }
 
-footer {
-	font-style: italic;
+#right_side footer {
+	font-size: 0.9em;
+}
+
+#right_side header, #right_side footer {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+}
+
+header a, footer a {
+    color: #cc7a00;
+	text-decoration: none;
 }
 
 #copyright {
@@ -101,8 +123,34 @@ h3 {
 	font-size: 1.4em;
 }
 
+
 /*
- * Style for header actions
+ * Generic Style
+ */
+.hidden {
+    display: none
+}
+
+
+/*
+ * Link style
+ */
+a.conciliationLink {
+	background: url(../img/arrows-red_16.png) no-repeat right;
+	background-color: orangered;
+	color: #eee;
+	text-decoration: none;
+	text-shadow: 2px 2px 2px black;
+	font-size: .8em;
+	padding-left: 2px;
+	padding-right: 18px;
+    border: 1px red outset;
+    border-radius: 0px 10px 10px 0px;
+}
+
+
+/*
+ * Style for inline actions
  */
 ul.linear {
     margin: 0;
@@ -114,28 +162,42 @@ ul.linear li {
     display: inline;
 }
 
-ul.vertical {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
 #control {
     float: right;
 }
 
 
 /*
- * Style for status message
+ * Style for operational status
  */
-.hidden {
-    display: none
+.status_empty, .status_green, .status_yellow, .status_red {
+	padding: 10px 100px 10px 2px;
 }
 
-.info, .warn, .error {
-	color: #eee;
-	padding: 5px;
-    width: 80%;
+.status_empty {
+    background: url(../img/leds_empty_30.png) no-repeat right;
+}
+
+.status_green {
+    background: url(../img/leds_green_30.png) no-repeat right;
+}
+
+.status_yellow{
+    background: url(../img/leds_yellow_30.png) no-repeat right;
+}
+
+.status_red {
+    background: url(../img/leds_red_30.png) no-repeat right;
+}
+
+
+/*
+ * Style for status message
+ */
+.info, .warn, .erro {
+    color: #eee;
+    padding: 5px;
+    margin: 5px auto;
     border-radius: 10px;
 }
 
@@ -145,28 +207,63 @@ ul.vertical {
 }
 
 .info::before {
-	content: url(../img/info_16.png) '\00a0';
+	content: url(../img/info_20.png) '\00a0';
 	float: left;
 }
 
 .warn {
-	background-image: linear-gradient(165deg, orange, #1a1a1a);
-   border: 1px orange inset;
+	background-image: linear-gradient(165deg, #f90, #1a1a1a);
+    border: 1px orange inset;
 }
 
 .warn::before {
-	content: url(../img/warn_16.png) '\00a0';
+	content: url(../img/warn_20.png) '\00a0';
 	float: left;
 }
 
-.error {
-	background-image: linear-gradient(165deg, red, #1a1a1a);
-   border: 1px red inset;
+.erro {
+	background-image: linear-gradient(165deg, orangered, #1a1a1a);
+    border: 1px red inset;
 }
 
-.error::before {
-	content: url(../img/error_16.png) '\00a0';
+.erro::before {
+	content: url(../img/erro_20.png) '\00a0';
 	float: left;
+}
+
+
+/*
+ * Strategy style
+ */
+.button.active {
+    color: green;
+    font-weight: bold;
+}
+
+/* decrease spacing between a paragraph and the following list */
+p + ul.linear {
+	margin: 0px 3px 5px 3px;
+}
+
+/* strategies are displayed within a box with an information icon before text */
+.strategy {
+	min-width: 330px;
+	height: 52px;
+	padding: 0 0 1px 0;
+	margin: 20px 25px;
+	background: rgba(150, 150, 150, .7);
+	border: 3px ridge black;
+}
+
+.strategy p {
+	background: url(../img/texture.jpg);
+	padding: 2px 5px;
+	margin: 0 0 5px 0;
+	color: #ccc;
+}
+
+.strategy ul {
+	text-align: center;
 }
 
 
@@ -204,63 +301,130 @@ th.name {
 }
 
 th.state {
-    width: 40px;
+    width: 65px;
 }
 
 th.desc, th.addr {
-  width: 200px;
+  width: 300px;
+}
+
+th a {
+	color: #e6e6e6;
+	text-decoration: none;
 }
 
 /* style for a table of processes like Supervisor */
-#address td:nth-child(2), #address td:nth-child(n+4) {
+#address td:nth-child(2),#address td:nth-child(3), #address td:nth-child(n+5) {
 	text-align: center;
 }
 
-/* gradient for process states in table */
-td.UNKNOWN {
-	background-image: linear-gradient(165deg, grey, #1a1a1a);
-    color: #ccc,
+#address td:nth-child(3) {
+	font-style: italic;
 }
 
-td.STOPPED, td.EXITED {
-    background-image: linear-gradient(165deg, yellow, #1a1a1a);
-    color: #ccc,
+#application td:nth-child(2), #application td:nth-child(n+4) {
+	text-align: center;
 }
 
-td.STARTING {
-	background-image: linear-gradient(165deg, #cc0, green, #1a1a1a);
-    color: #ccc,
+/* style for an address box in main page */
+.addressBox {
+    max-width: 30%;
+    margin: 20px auto;
 }
 
-td.STOPPING {
-	background-image: linear-gradient(165deg, green, #cc0, #1a1a1a);
-    color: #ccc,
+.addressBox table {
+	border: 3px ridge black;
 }
 
-td.RUNNING {
-	background-image: linear-gradient(165deg, green, #1a1a1a);
-    color: #ccc,
+.addressBox tr {
+	background: rgba(100, 100, 100, .5);
 }
 
-td.FATAL {
-	background-image: linear-gradient(165deg, red, #1a1a1a);
-    color: #ccc,
+.addressBox .button {
+	display: inline-block;
+	padding: 2px 4px;
+    margin-bottom: 4px;
+	background-color: orange;
+	border-radius: 6px;
+	cursor: default;
 }
 
-/* gradient for remote states */
+
+/* gradients for states in table */
+th.UNKNOWN, td.UNKNOWN {
+	background-image: linear-gradient(165deg, grey, white);
+}
+
+th.STOPPED, td.STOPPED, th.EXITED, td.EXITED, th.SILENT, td.SILENT {
+    background-image: linear-gradient(165deg, #cc0, #cc0, white);
+}
+
+th.STARTING, td.STARTING, th.BACKOFF, td.BACKOFF {
+	background-image: linear-gradient(165deg, #cc0, green, white);
+}
+
+th.STOPPING, td.STOPPING {
+	background-image: linear-gradient(165deg, green, #cc0, white);
+}
+
+th.RUNNING, td.RUNNING {
+	background-image: linear-gradient(165deg, green, green, white);
+}
+
+th.FATAL, td.FATAL, th.ISOLATED, td.ISOLATED {
+	background-image: linear-gradient(165deg, red, red, white);
+}
+
+th.ISOLATING, td.ISOLATING {
+	background-image: linear-gradient(165deg, #cc0, red, white);
+}
+
+/* gradients for states in navigation */
 nav li.UNKNOWN {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
 }
 
-nav li.SILENT {
+nav li.UNKNOWN.active {
+	background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
+}
+
+nav li.STOPPED, nav li.SILENT {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
+}
+
+nav li.STOPPED.active {
+	background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
 }
 
 nav li.RUNNING {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
 }
 
-nav li.ISOLATING, nav li.ISOLATED {
+nav li.RUNNING.active {
+	background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
+}
+
+nav li.ISOLATING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, red);
+}
+
+nav li.ISOLATED {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
+}
+
+nav li.STARTING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
+}
+
+nav li.STARTING.active {
+	background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
+}
+
+nav li.STOPPING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
+}
+
+nav li.STOPPING.active {
+	background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
 }
 

@@ -21,6 +21,14 @@
 TickHeader = u'tick'
 ProcessHeader = u'process'
 
+# strings used as headers in messages between EventPublisher and Supervisors' Client
+SupervisorsStatusHeader = u'supervisors'
+RemoteStatusHeader = u'remote'
+ApplicationStatusHeader = u'application'
+ProcessStatusHeader = u'process'
+StatisticsHeader = u'statistics'
+
+
 # used to convert enumeration-like value to string and vice-versa
 def enumToString(dico,  idxEnum):
     return next((name for name, value in dico.items() if value == idxEnum),  None)
@@ -34,17 +42,14 @@ def enumValues(dico):
 def enumStrings(dico):
     return [ x for x in dico.keys() if not x.startswith('__') ]
 
-# return 'group:program' or just 'program' if identical
-def getNamespec(applicationName, programName):
-    from supervisor.options import make_namespec
-    return make_namespec(applicationName, programName)
-
-def getApplicationAndProcessNames(namespec):
-    from supervisor.options import split_namespec
-    return split_namespec(namespec)
 
 # return time without date
 def simpleTime(now=None):
     import time
     if now is None: now = time.time()
     return time.strftime("%H:%M:%S", time.localtime(now))
+
+# returns a color avoiding too dark
+def randomHslColor():
+    import random
+    return 'hsl({}, {}%, {}%)'.format(random.randint(0, 360), random.randint(25, 100), random.randint(25, 100))

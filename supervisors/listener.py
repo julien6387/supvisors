@@ -30,7 +30,6 @@ import time, zmq
 class _EventPublisher(object):
     def __init__(self, zmqContext):
         self.socket = zmqContext.socket(zmq.PUB)
-        # FIXME event port in supervisors
         url = 'tcp://*:{}'.format(options.internalport)
         options.logger.info('binding EventPublisher to %s' % url)
         self.socket.bind(url)

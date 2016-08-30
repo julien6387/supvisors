@@ -20,6 +20,7 @@
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.options import options
+from supervisors.publisher import eventPublisher
 from supervisors.statemachine import fsm
 
 
@@ -46,6 +47,9 @@ class EventSubscriber(object):
             options.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
+    def close(self):
+        self.socket.close()
+
 
 # class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
@@ -54,6 +58,7 @@ class SupervisorsMainLoop(threading.Thread):
         threading.Thread.__init__(self)
         # create event sockets
         self.eventSubscriber = EventSubscriber(zmqContext)
+        eventPublisher.open(zmqContext)
 
     def stop(self):
         options.logger.info('request to stop main loop')
@@ -101,6 +106,7 @@ class SupervisorsMainLoop(threading.Thread):
 
     def _close(self):
         # close zmq sockets
-        self.eventSubscriber.socket.close()
+        eventPublisher.close()
+        self.eventSubscriber.close()
         # cleanup in case of restarting
         context.restart()

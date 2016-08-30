@@ -17,15 +17,8 @@
 
 		<div id="left_side">
 			<header>
-                <div id="control">
-                    <ul class="vertical">
-                        <li><a href="#" meld:id="suprestart_a_mid"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
-                        <li><a href="#" meld:id="supshutdown_a_mid"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
-                    </ul>
-                </div>
 				<h1><a href="index.html">Supervisors</a></h1>
-				<p class="version">0.1 beta</p>
-				<p>TODO: add state + link if conciliation</p>
+				<p><span meld:id="version_mid" class="version">0.1 beta</span></p>
 			</header>
 
 			<nav id="address-list">
@@ -50,17 +43,39 @@
 
 		<div id="right_side">
 			<header>
-				<p>Supervisors state. actions: restart, shutdown</p>
-			</header>
+                <div id="control">
+                    <ul class="linear">
+                        <li><a href="index.html?action=restart"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
+                        <li><a href="index.html?action=shutdown"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
+                    </ul>
+                    <ul class="linear">
+                        <li><a href="index.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                    </ul>
+                </div>
+                <h2><code meld:id="state_mid">SupervisorsStates</code> <a href="conciliation.html" meld:id="solve_a_mid" class="conciliationLink hidden">solve</a></h2>
+            </header>
 
-			<div id="synoptic">
-				<aside>
-					<p>legend: list of applications with color</p>
-				</aside>
-				<section>
-					<p>one box per address, one colored bullet in box for each running process</p>
-				</section>
-			</div>
+			<section id="contents">
+                <div meld:id="address_div_mid" class="addressBox">
+                    <table>
+                        <tr>
+                            <th meld:id="address_td_mid"><a href="#" meld:id="address_tda_mid">Address</a></th>
+                            <th meld:id="percent_td_mid">70%</th>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <ul class="linear">
+                                    <li meld:id="process_li_mid" class="button"></li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </section>
+
+            <footer>
+                <div class="statusMsg" meld:id="message_mid"></div>
+            </footer>
 		</div>
 
 	</div>

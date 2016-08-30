@@ -211,7 +211,7 @@ class _RPCInterface(object):
         application = context.applications[applicationName]
         for process in application.processes.values():
             if process.isRunning():
-                for address in process.addresses:
+                for address in process.addresses.copy():
                     options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
                     stopProcess(address, process.getNamespec(), False)
         # wait until all processes in STOPPED_STATES
@@ -381,7 +381,7 @@ class _RPCInterface(object):
         if fsm.state not in stateList:
             from supervisors.types import supervisorsStateToString
             raise RPCError(Faults.BAD_SUPERVISORS_STATE, 'Supervisors (state={}) not in state {} to perform request'.
-                format(supervisorsStateToString(context.fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
+                format(supervisorsStateToString(fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
 
     # almost equivalent to the method in supervisor.rpcinterface
     def _getApplicationAndProcess(self, namespec):
