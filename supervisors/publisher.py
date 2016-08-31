@@ -30,7 +30,7 @@ class _EventPublisher(object):
     def open(self, zmqContext):
         self.socket = zmqContext.socket(zmq.PUB)
         # WARN: this is a local binding, only visible to processes located on the same address
-        url = 'tcp://127.0.0.1:{}'.format(options.eventport)
+        url = 'tcp://127.0.0.1:{}'.format(options.eventPort)
         options.logger.info('binding local Supervisors EventPublisher to %s' % url)
         self.socket.bind(url)
 

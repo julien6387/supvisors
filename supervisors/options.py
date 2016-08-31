@@ -41,15 +41,17 @@ class _SupervisorsOptions(object):
         # get values
         from collections import OrderedDict
         import socket
-        self.addresslist = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', socket.gethostname())))))
-        self.internalport = self._toPortNum(parser.getdefault('internalport', '65001'))
-        self.eventport = self._toPortNum(parser.getdefault('eventport', '65002'))
-        self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
-        self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
-        self.statsport = self._toPortNum(parser.getdefault('statsport', '65003'))
-        self.synchro_timeout = self._toTimeout(parser.getdefault('synchro_timeout', '15'))
-        self.conciliation_strategy = self._toConciliationStrategy(parser.getdefault('conciliation_strategy', 'USER'))
-        self.deployment_strategy = self._toDeploymentStrategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        self.addressList = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', socket.gethostname())))))
+        self.deploymentFile = existing_dirpath(parser.getdefault('deploymentfile', ''))
+        self.internalPort = self._toPortNum(parser.getdefault('internalport', '65001'))
+        self.eventPort = self._toPortNum(parser.getdefault('eventport', '65002'))
+        self.autoFence = boolean(parser.getdefault('autofence', 'false'))
+        self.synchroTimeout = self._toTimeout(parser.getdefault('synchrotimeout', '15'))
+        self.conciliationStrategy = self._toConciliationStrategy(parser.getdefault('conciliation_strategy', 'USER'))
+        self.deploymentStrategy = self._toDeploymentStrategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        # configure statistics
+        self.statsPeriods = self._toPeriods(list_of_strings(parser.getdefault('statsperiods', '10')))
+        self.statsHisto = self._toHisto(parser.getdefault('statshisto', 1000))
         # configure logger
         logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
         logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
@@ -70,7 +72,7 @@ class _SupervisorsOptions(object):
     def _toTimeout(self, value):
         value = integer(value)
         if 0 < value <= 1000: return value
-        raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000]' % value)
+        raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000] (seconds)' % value)
 
     def _toConciliationStrategy(self, value):
         strategy = stringToConciliationStrategy(value)
@@ -83,6 +85,22 @@ class _SupervisorsOptions(object):
         if strategy is None:
             raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, deploymentStrategiesValues()))
         return strategy
+
+    def _toPeriods(self, value):
+        if len(value) > 3: raise ValueError('unexpected number of periods: {}. maximum is 3'.format(value))
+        periods = [ ]
+        for val in value:
+            period = integer(val)
+            if 5 > period or period > 3600: raise ValueError('invalid value for period: {}. expected in [5;3600] (seconds)'.format(val))
+            if period % 5 != 0: raise ValueError('invalid value for period: %d. expected multiple of 5' % period)
+            periods.append(period)
+        return sorted(filter(None, periods))
+
+    def _toHisto(self, value):
+        histo = integer(value)
+        if 10 <= histo <= 1500: return histo
+        raise ValueError('invalid value for histo: {}. expected in [10;1500] (seconds)'.format(value))
+
 
 
 options = _SupervisorsOptions()

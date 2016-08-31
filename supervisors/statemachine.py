@@ -53,7 +53,7 @@ class _InitializationState(_AbstractState):
                 # synchro done if the state of all remotes is known
                 return SupervisorsStates.DEPLOYMENT
             # if synchro timeout reached, stop synchro and work with known remotes
-            if (time.time() - self.startDate) > options.synchro_timeout:
+            if (time.time() - self.startDate) > options.synchroTimeout:
                 options.logger.warn('synchro timed out')
                 # force state of missing Remotes
                 context.endSynchro()
@@ -101,7 +101,7 @@ class _ConciliationState(_AbstractState):
     def enter(self):
         # the Supervisors Master auto-conciliate conflicts
         if context.master:
-            conciliator.conciliate(options.conciliation_strategy, context.getConflicts())
+            conciliator.conciliate(options.conciliationStrategy, context.getConflicts())
 
     def next(self):
         # check if master and local are still RUNNING

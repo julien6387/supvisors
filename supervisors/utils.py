@@ -20,13 +20,13 @@
 # strings used as headers in messages between Listener and MainLoop
 TickHeader = u'tick'
 ProcessHeader = u'process'
+StatisticsHeader = u'statistics'
 
 # strings used as headers in messages between EventPublisher and Supervisors' Client
 SupervisorsStatusHeader = u'supervisors'
 RemoteStatusHeader = u'remote'
 ApplicationStatusHeader = u'application'
 ProcessStatusHeader = u'process'
-StatisticsHeader = u'statistics'
 
 
 # used to convert enumeration-like value to string and vice-versa
@@ -49,7 +49,7 @@ def simpleTime(now=None):
     if now is None: now = time.time()
     return time.strftime("%H:%M:%S", time.localtime(now))
 
-# returns a color avoiding too dark
-def randomHslColor():
-    import random
-    return 'hsl({}, {}%, {}%)'.format(random.randint(0, 360), random.randint(25, 100), random.randint(25, 100))
+
+# simple lambda functions
+mean = lambda x: sum(x) / float(len(x))
+slope = lambda x, y: 100.0 * x / x - 100.0 if x else float('inf')

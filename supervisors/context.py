@@ -44,11 +44,14 @@ class _Context(object):
     def _remotesByStates(self, states):
         return [ status.address for status in self.remotes.values() if status.state in states ]
 
-    def getRemoteRunningProcesses(self, address):
+    def getRunningProcesses(self, address):
         return [ process for process in self._getAllProcesses() if process.isRunningOn(address) ]
 
-    def getRemoteLoading(self, address):
-        loading = sum(process.rules.expected_loading for process in self.getRemoteRunningProcesses(address))
+    def getPidProcesses(self, address):
+        return [ process for process in self._getAllProcesses() if process.hasRunningPidOn(address) ]
+
+    def getLoading(self, address):
+        loading = sum(process.rules.expected_loading for process in self.getRunningProcesses(address))
         options.logger.debug('address={} loading={}'.format(address, loading))
         return loading
 
@@ -59,13 +62,13 @@ class _Context(object):
     def _invalidRemote(self, status):
         # declare SILENT or isolate according to option
         # never isolate local address. may be a problem with Listener. give it a chance to restart
-        if options.auto_fence and status.address != addressMapper.localAddress:
+        if options.autoFence and status.address != addressMapper.localAddress:
             status.setState(RemoteStates.ISOLATING)
         else:
             status.setState(RemoteStates.SILENT)
             status.checked = False
         # invalidate address in concerned processes
-        for process in self.getRemoteRunningProcesses(status.address):
+        for process in self.getRunningProcesses(status.address):
             process.invalidateAddress(status.address)
         # programs running on lost addresses may be declared running without an address, which is inconsistent
 
@@ -133,7 +136,7 @@ class _Context(object):
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
-            if options.auto_fence and not self._isLocalAuthorized(status.address):
+            if options.autoFence and not self._isLocalAuthorized(status.address):
                 options.logger.warn('local is not authorized to deal with {}'.format(status.address))
                 self._invalidRemote(status)
             else:

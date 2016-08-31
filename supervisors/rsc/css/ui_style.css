@@ -19,7 +19,7 @@ nav {
 	flex: 1;
 }
 
-header, nav, footer, section {
+header, nav, footer, section, aside {
 	padding: 10px;
 }
 
@@ -129,6 +129,24 @@ h3 {
  */
 .hidden {
     display: none
+}
+
+
+/*
+ * Figure style
+ */
+figure img {
+	display: block;
+    border: 1px solid black outset;
+    border-radius: 6px;
+    box-shadow: 4px 4px 6px black;
+}
+
+figcaption {
+	margin-top: 5px;
+	font-weight: bold;
+	font-style: italic;
+	text-align: center;
 }
 
 
@@ -356,7 +374,7 @@ th.UNKNOWN, td.UNKNOWN {
 }
 
 th.STOPPED, td.STOPPED, th.EXITED, td.EXITED, th.SILENT, td.SILENT {
-    background-image: linear-gradient(165deg, #cc0, #cc0, white);
+    background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
 }
 
 th.STARTING, td.STARTING, th.BACKOFF, td.BACKOFF {
@@ -368,11 +386,11 @@ th.STOPPING, td.STOPPING {
 }
 
 th.RUNNING, td.RUNNING {
-	background-image: linear-gradient(165deg, green, green, white);
+	background-image: linear-gradient(165deg, white, green, green, white);
 }
 
 th.FATAL, td.FATAL, th.ISOLATED, td.ISOLATED {
-	background-image: linear-gradient(165deg, red, red, white);
+	background-image: linear-gradient(165deg, white, red, red, white);
 }
 
 th.ISOLATING, td.ISOLATING {

@@ -81,6 +81,9 @@ class ProcessStatus(object):
     def isRunningOn(self, address): return self.isRunning() and address in self.addresses
     def isRunningLost(self): return self.isRunning() and not self.addresses
 
+    def hasRunningPidOn(self, address):
+        return self.state in [ ProcessStates.RUNNING, ProcessStates.STOPPING ] and address in self.addresses
+
     def setState(self, state):
         if self.state != state:
             self.state = state

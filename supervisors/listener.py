@@ -18,9 +18,11 @@
 # ======================================================================
 
 from supervisors.addressmapper import addressMapper
+from supervisors.context import context
 from supervisors.options import options
 from supervisors.process import stringToProcessStates
-from supervisors.utils import TickHeader, ProcessHeader
+from supervisors.statistics import getInstantStats
+from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
 
 from supervisor import events
 
@@ -29,8 +31,11 @@ import time, zmq
 # class for ZMQ publication of event
 class _EventPublisher(object):
     def __init__(self, zmqContext):
+        # get self address
+        self.address = addressMapper.localAddress
+        # create ZMQ socket
         self.socket = zmqContext.socket(zmq.PUB)
-        url = 'tcp://*:{}'.format(options.internalport)
+        url = 'tcp://*:{}'.format(options.internalPort)
         options.logger.info('binding EventPublisher to %s' % url)
         self.socket.bind(url)
 
@@ -38,13 +43,19 @@ class _EventPublisher(object):
         # publish ZMQ tick
         options.logger.debug('send TickEvent {}'.format(payload))
         self.socket.send_string(TickHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((addressMapper.localAddress, payload))
+        self.socket.send_pyobj((self.address, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
         options.logger.debug('send ProcessEvent {}'.format(payload))
         self.socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((addressMapper.localAddress, payload))
+        self.socket.send_pyobj((self.address, payload))
+
+    def sendStatistics(self, payload):
+        # publish ZMQ process state
+        options.logger.debug('send Statistics {}'.format(payload))
+        self.socket.send_string(StatisticsHeader, zmq.SNDMORE)
+        self.socket.send_pyobj((self.address, payload))
 
 
 # class for listening Supervisor events
@@ -102,3 +113,8 @@ class SupervisorListener(object):
     def _tickListener(self, event):
         options.logger.debug('got Tick event from supervisord: {}'.format(event))
         self.eventPublisher.sendTickEvent(event.when)
+        # get and publish statistics at tick time
+        pidList = [ (process.getNamespec(), process.processes[addressMapper.localAddress]['pid'])
+            for process in context.getPidProcesses(addressMapper.localAddress)]
+        self.eventPublisher.sendStatistics(getInstantStats(pidList))
+
