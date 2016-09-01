@@ -72,23 +72,15 @@ class AddressView(StatusView):
     def _writeResources(self, root):
         # TODO: parameter this
         period = 10
+        interface = 'eno16777736'
         # get data from statistics module
         from supervisors.statistics import statisticsCompiler
         statsInstance = statisticsCompiler.data[addressMapper.localAddress][period]
         # write CPU / Memory plot
         from supervisors.plot import createCpuMemPlot, createIoPlot
-        cpuData = [ data[1][0] for data in statsInstance.data ]
-        memData = [ data[2] for data in statsInstance.data ]
-        createCpuMemPlot(cpuData, memData, 'ui/tmp/cpu-mem.png')
+        createCpuMemPlot(statsInstance.cpu[0], statsInstance.mem, 'ui/tmp/cpu-mem.png')
         # write I/O plot
-        ioData = [ data[3] for data in statsInstance.data ]
-        # rearrange io data
-        sortedIoData = { inf: ( [ ], [ ] ) for inf in next(data.keys() for data in ioData) }
-        for data in ioData:
-            for inf, infData in data.items():
-                sortedIoData[inf][0].append(infData[0])
-                sortedIoData[inf][1].append(infData[1])
-        createIoPlot(ioData, 'ui/tmp/cpu-mem.png')
+        # createIoPlot(interface, statsInstance.io[interface], 'ui/tmp/io.png')
         # set title
         elt = root.findmeld('address_fig_mid')
         elt.content(addressMapper.localAddress)

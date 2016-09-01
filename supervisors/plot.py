@@ -24,63 +24,72 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 def createCpuMemPlot(cpuData, memData, fileName):
-    # create dummy X axis
-    plt.figure(figsize=(6, 3))
-    xData = [ x for x in range(len(cpuData)) ]
-    # create plot for CPU / RAM
-    # TODO: mix all CPU ?
-    cpuLine, meanCpuLine = plotPercentData(xData, cpuData, 'CPU')
-    memLine, meanMemLine = plotPercentData(xData, memData, 'MEM')
-    # create the CPU legend
-    cpuLegend = plt.legend(handles=[cpuLine, meanCpuLine], loc=2, fontsize='small', fancybox=True, shadow=True)
-    # add the legend to the current axes
-    plt.gca().add_artist(cpuLegend)
-    # create the MEM legend
-    plt.legend(handles=[memLine, meanMemLine], loc=1, fontsize='small', fancybox=True, shadow=True)
-    # export image
-    saveFile(fileName)
-    plt.close()
+    nbData = len(cpuData)
+    if nbData > 0:
+        # create X axis
+        plt.figure(figsize=(6, 3))
+        xData = [ x for x in range(len(cpuData)) ]
+        # calculate max range
+        maxY = getMaxRange(cpuData + memData)
+        # create plot for CPU / RAM
+        cpuLine, meanCpuLine = plotData(xData, cpuData, maxY,'CPU', '%')
+        memLine, meanMemLine = plotData(xData, memData, maxY,'MEM', '%')
+        # create the CPU legend
+        cpuLegend = plt.legend(handles=[cpuLine, meanCpuLine], loc=2, fontsize='small', fancybox=True, shadow=True)
+        # add the legend to the current axes
+        plt.gca().add_artist(cpuLegend)
+        # create the MEM legend
+        plt.legend(handles=[memLine, meanMemLine], loc=1, fontsize='small', fancybox=True, shadow=True)
+        # export image
+        saveFile(fileName)
+        plt.close()
 
-def createIoPlot(ioData, fileName):
-    # create plot for io
-    lines =[ ]
-    for intf, yData in ioData.items():
-        # create dummy X axis
-        xData = [ x for x in range(len(yData)) ]
-        recvLine, = plotPercentData(xData, yData, intf)
-        sentLine, = plotPercentData(xData, yData, intf)
-        lines.expand([ recvLine,  sentLine ])
-    # create the CPU legend
-    plt.legend(loc='upper center', fancybox=True, shadow=True)
-    # export image
-    saveFile(fileName)
-    plt.close()
+def createIoPlot(interface, ioData, fileName):
+    nbData = len(ioData[0])
+    if nbData > 0:
+        # create X axis
+        plt.figure(figsize=(6, 3))
+        xData = [ x for x in range(nbData) ]
+        # calculate max range
+        maxY = getMaxRange(ioData[0] + ioData[1])
+        # create plots for IO
+        recvLine, meanRecvLine = plotData(xData, ioData[0], maxY, interface + ' recv', 'kbit/s')
+        sentLine, meanSentLine = plotData(xData, ioData[1], maxY, interface + ' sent', 'kbit/s')
+        # create the CPU legend
+        recvLegend = plt.legend(handles=[recvLine, meanRecvLine], loc=2, fontsize='small', fancybox=True, shadow=True)
+        # add the legend to the current axes
+        plt.gca().add_artist(recvLegend)
+        # create the MEM legend
+        plt.legend(handles=[sentLine, meanSentLine], loc=1, fontsize='small', fancybox=True, shadow=True)
+        # export image
+        saveFile(fileName)
+        plt.close()
 
 def saveFile(fileName):
-    # FIXME: find either a directory that is visible to HTTP server or a way to avoid an intermediate file
-    from os import path
-    here = path.abspath(path.dirname(__file__))
-    filePath = path.join(here, fileName)
-    plt.savefig(filePath, dpi=80, bbox_inches='tight')
+    # save image to internal memory buffer
+    from supervisors.viewimage import imageContents
+    plt.savefig(imageContents.getNewImage(), dpi=80, bbox_inches='tight', format='png')
 
-def plotPercentData(xData, data, title):
+def getMaxRange(lst):
+    import math
+    # legend need additional space
+    return math.ceil(max(lst) * 1.35)
+
+def plotData(xData, data, maxY, title, unit):
     # calculate average of data
     avg = mean(data)
     avgData = [ avg for _ in data ]
-    # calculate max range
-    import math
-    maxY = math.ceil(max(data) / 10 + 2.5) * 10
     plt.ylim([ 0, maxY ])
     # plot the data
     dataLine, = plt.plot(xData, data, label=title)
     # plot the mean line
-    meanLine, = plt.plot(xData, avgData, label='Mean: {0:.2f}%'.format(avg), linestyle='--', color=dataLine.get_color())
+    meanLine, = plt.plot(xData, avgData, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=dataLine.get_color())
     return dataLine, meanLine
 
 
 # unit test
 if __name__ == "__main__":
-    # from supervisors.plot import createAddressPlot
+    # from supervisors.plot import *
     cpuData = [ 28.2,  31.4,  29.7 ]
     memData = [ 85.2,  85.9,  86.5 ]
-    createAddressPlot(cpuData, memData, 'cliche01')
+    createCpuMemPlot(cpuData, memData, 'cliche01')

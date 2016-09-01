@@ -68,11 +68,8 @@ class SupervisorsView(MeldView):
         addressIterator = root.findmeld('address_div_mid').repeat(addressMapper.expectedAddresses)
         for div_element, address in addressIterator:
             status = context.remotes[address]
-            # set cell color
-            elt = div_element.findmeld('address_td_mid')
-            elt.attrib['class'] = remoteStateToString(status.state)
             # set address
-            elt = elt.findmeld('address_tda_mid')
+            elt = div_element.findmeld('address_tda_mid')
             elt.attrib['class'] = remoteStateToString(status.state)
             if status.state == RemoteStates.RUNNING:
                 # go to web page located on address, so as to reuse Supervisor StatusView
@@ -81,6 +78,10 @@ class SupervisorsView(MeldView):
             else:
                 elt.attrib['class'] = 'off'
             elt.content(address)
+            # set state
+            elt = div_element.findmeld('state_td_mid')
+            elt.attrib['class'] = remoteStateToString(status.state) + ' state'
+            elt.content(remoteStateToString(status.state))
             # set loading
             elt = div_element.findmeld('percent_td_mid')
             elt.content('{}%'.format(context.getLoading(address)))

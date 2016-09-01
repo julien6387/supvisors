@@ -129,18 +129,62 @@ class StatisticsInstance(object):
     def clear(self):
         self.counter = -1
         self.refStats = None
-        self.data = [ ]
+        # data structures
+        self.cpu = [ ]
+        self.mem = [ ]
+        self.io = { }
 
     def pushStatistics(self, stats):
         # check if pid is identical
         self.counter += 1
         if self.counter % self.period == 0:
             if self.refStats:
-                # FIXME: rearrange data so that there is less processing when getting them
-                self.data.append(getStats(stats, self.refStats))
-                # remove first data if size exceeds depth
-                if len(self.data) > self.depth: self.data.pop(0)
-        self.refStats = stats
+                # rearrange data so that there is less processing when getting them
+                integStats = getStats(stats, self.refStats)
+                # add new CPU values to CPU lists
+                for lst in self.cpu:
+                	lst.append(integStats[1].pop(0))
+                	self._truncDepth(lst)
+                # add new Mem value to MEM list
+                self.mem.append(integStats[2])
+                self._truncDepth(self.mem)
+                # add new IO values to IO list
+                for intf, bytes in self.io.items():
+                	newBytes = integStats[3].pop(intf)
+                	bytes[0].append(newBytes[0])
+                	bytes[1].append(newBytes[1])
+                	self._truncDepth(bytes[0])
+                	self._truncDepth(bytes[1])
+                # add new Process CPU / Mem values to Process list
+                # as process list is dynamic, there are special rules
+                destroyList = [ ]
+                for namedPid, values in self.proc.items():
+                	newValues = integStats[4].pop(namedPid, None)
+                	if newValues is None:
+                		# element is obsolete
+                		destroyList.append(namedPid)
+                	else:
+                		values[0].append(newValues[0])
+                		values[1].append(newValues[1])
+                		self._truncDepth(values[0])
+                		self._truncDepth(values[1])
+                # destroy obsolete elements
+                for namedPid in destroyList:
+                	del self.proc[namedPid]
+                # add new elements
+                for namedPid in integStats[4].keys():
+                	self.proc[namedPid] = ( [ ], [ ] )
+            else:
+                # init data structures (mem unchanged)
+                	self.cpu = [ [ ] for _ in stats[1] ]
+                	self.io = { intf: ( [ ], [ ] ) for intf in stats[3].keys() }
+                	self.proc = { namedPid: ( [ ], [ ] ) for namedPid in stats[4].keys() }
+            self.refStats = stats
+
+    # remove first data of all lists if size exceeds depth
+    def _truncDepth(self, lst):
+        while len(lst) > self.depth:
+            lst.pop(0)
 
 
 # Class used to compile statistics coming from all addresses

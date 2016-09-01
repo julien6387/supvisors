@@ -34,16 +34,27 @@ header, nav, footer, section, aside {
     display: flex;
 	flex-direction: row;
 	justify-content: space-around;
+}
+
+section {
+	flex: 1;
+    display: flex;
 	overflow: auto;
 }
 
-#stats {
+aside {
+    max-width: 500px;
     display: flex;
-	flex-direction: column;
+	justify-content: space-around;
+    flex-wrap: wrap;
 }
 
 #right_side footer {
     min-height: 40px;
+}
+
+#control {
+    float: right;
 }
 
 
@@ -110,16 +121,16 @@ section {
 	text-align: justify;
 }
 
-h1, h2, h3 {
+h1, h2 {
 	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 	text-shadow: 2px 2px 6px #202020;
 }
 
-h1, h2 {
+h1 {
 	font-size: 1.6em;
 }
 
-h3 {
+h2 {
 	font-size: 1.4em;
 }
 
@@ -136,14 +147,14 @@ h3 {
  * Figure style
  */
 figure img {
-	display: block;
+    display: block;
     border: 1px solid black outset;
     border-radius: 6px;
     box-shadow: 4px 4px 6px black;
 }
 
 figcaption {
-	margin-top: 5px;
+	margin-top: 6px;
 	font-weight: bold;
 	font-style: italic;
 	text-align: center;
@@ -178,10 +189,6 @@ ul.linear {
 
 ul.linear li {
     display: inline;
-}
-
-#control {
-    float: right;
 }
 
 
@@ -251,7 +258,7 @@ ul.linear li {
 
 
 /*
- * Strategy style
+ * Option style
  */
 .button.active {
     color: green;
@@ -263,43 +270,26 @@ p + ul.linear {
 	margin: 0px 3px 5px 3px;
 }
 
-/* strategies are displayed within a box with an information icon before text */
-.strategy {
-	min-width: 330px;
-	height: 52px;
-	padding: 0 0 1px 0;
-	margin: 20px 25px;
-	background: rgba(150, 150, 150, .7);
-	border: 3px ridge black;
-}
-
-.strategy p {
-	background: url(../img/texture.jpg);
-	padding: 2px 5px;
-	margin: 0 0 5px 0;
-	color: #ccc;
-}
-
-.strategy ul {
-	text-align: center;
-}
-
-
 /*
- * Table style
+ * Common Table style
  */
 table {
 	border-collapse: collapse;
-	caption-side: bottom;
+	caption-side: top;
 	background: rgba(200, 200, 200, .7);
 	margin: 0 auto
+}
+
+caption {
+	font-size: .8em;
+	font-style: italic;
 }
 
 /* add border for all cells */
 th, td {
 	border: 1px solid black;
     padding: 3px 5px;
-	font-size: .8em;
+	font-size: .7em;
 }
 
 /* style for a title in a table */
@@ -314,16 +304,16 @@ tr.shade {
 }
 
 /* fix first columns sizes (button actions have a fixed contents) */
-th.name {
-  width: 200px;
+table .name {
+  width: 180px;
 }
 
-th.state {
-    width: 65px;
+table .state {
+    width: 50px;
 }
 
-th.desc, th.addr {
-  width: 300px;
+table .desc, table.addr {
+  width: 250px;
 }
 
 th a {
@@ -331,12 +321,12 @@ th a {
 	text-decoration: none;
 }
 
-/* style for a table of processes like Supervisor */
-#address td:nth-child(2),#address td:nth-child(3), #address td:nth-child(n+5) {
+/* style for a table of processes */
+#address td:nth-child(2), #address td:nth-child(n+4) {
 	text-align: center;
 }
 
-#address td:nth-child(3) {
+#address td:nth-child(4) {
 	font-style: italic;
 }
 
@@ -344,7 +334,28 @@ th a {
 	text-align: center;
 }
 
-/* style for an address box in main page */
+
+/*
+ * Style for optionBox
+ */
+.optionBox {
+	border: 3px ridge black;
+	background: rgba(150, 150, 150, .7);
+}
+
+.optionBox th {
+	background: url(../img/texture.jpg);
+	text-align: center;
+}
+
+.optionBox ul {
+	text-align: center;
+}
+
+
+/*
+ * Style for addressBox (main page)
+ */
 .addressBox {
     max-width: 30%;
     margin: 20px auto;
@@ -367,78 +378,75 @@ th a {
 	cursor: default;
 }
 
+.addressBox td:nth-child(2) {
+	text-align: center;
+}
 
-/* gradients for states in table */
-th.UNKNOWN, td.UNKNOWN {
+
+/*
+ * State gradients
+ */
+table .UNKNOWN {
 	background-image: linear-gradient(165deg, grey, white);
 }
 
-th.STOPPED, td.STOPPED, th.EXITED, td.EXITED, th.SILENT, td.SILENT {
+table .STOPPED, table .EXITED, table .SILENT {
     background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
 }
 
-th.STARTING, td.STARTING, th.BACKOFF, td.BACKOFF {
+table .STARTING, table .BACKOFF {
 	background-image: linear-gradient(165deg, #cc0, green, white);
 }
 
-th.STOPPING, td.STOPPING {
+table .STOPPING {
 	background-image: linear-gradient(165deg, green, #cc0, white);
 }
 
-th.RUNNING, td.RUNNING {
+table .RUNNING {
 	background-image: linear-gradient(165deg, white, green, green, white);
 }
 
-th.FATAL, td.FATAL, th.ISOLATED, td.ISOLATED {
+table .FATAL, table .ISOLATED {
 	background-image: linear-gradient(165deg, white, red, red, white);
 }
 
-th.ISOLATING, td.ISOLATING {
-	background-image: linear-gradient(165deg, #cc0, red, white);
-}
-
-/* gradients for states in navigation */
-nav li.UNKNOWN {
+nav .UNKNOWN {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
 }
 
-nav li.UNKNOWN.active {
+nav .UNKNOWN.active {
 	background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
 }
 
-nav li.STOPPED, nav li.SILENT {
+nav .STOPPED, nav .SILENT {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
 }
 
-nav li.STOPPED.active {
+nav .STOPPED.active {
 	background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
 }
 
-nav li.RUNNING {
+nav .RUNNING {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
 }
 
-nav li.RUNNING.active {
+nav .RUNNING.active {
 	background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
 }
 
-nav li.ISOLATING {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, red);
-}
-
-nav li.ISOLATED {
+nav .ISOLATED {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
 }
 
-nav li.STARTING {
+nav .STARTING {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
 }
 
-nav li.STARTING.active {
+nav .STARTING.active {
 	background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
 }
 
-nav li.STOPPING {
+nav .STOPPING {
 	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
 }
 

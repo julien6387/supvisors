@@ -51,7 +51,7 @@ class _SupervisorsOptions(object):
         self.deploymentStrategy = self._toDeploymentStrategy(parser.getdefault('deployment_strategy', 'CONFIG'))
         # configure statistics
         self.statsPeriods = self._toPeriods(list_of_strings(parser.getdefault('statsperiods', '10')))
-        self.statsHisto = self._toHisto(parser.getdefault('statshisto', 1000))
+        self.statsHisto = self._toHisto(parser.getdefault('statshisto', 200))
         # configure logger
         logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
         logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))

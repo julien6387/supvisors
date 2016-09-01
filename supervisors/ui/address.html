@@ -58,28 +58,27 @@
 			</header>
 
 			<div id="contents">
-                <aside>
-                    <figure>
-                        <img src="tmp/cpu-mem.png"></img>
-                        <img src="tmp/io.png"></img>
-                        <figcaption>Resources occupation on <span meld:id="address_fig_mid">address</span></figcaption>
-                    </figure>
-                </aside>
-
                 <section id="address">
                     <table meld:id="table_mid">
                         <thead>
-                            <tr><th class="name">Name</th><th class="state">State</th><th class="load">Load</th><th class="desc">Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+                            <tr>
+                                <th class="name">Name</th><th class="state">State</th><th class="desc">Description</th>
+                                <th class="load">Load</th><th class="cpu">CPU</th><th class="mem">MEM</th>
+                                <th colspan="3">Actions</th><th colspan="2">Log</th></tr>
                         </thead>
                         <tfoot>
-                            <tr><th>Name</th><th>State</th><th>Load</th><th>Description</th><th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+                            <tr><th>Name</th><th>State</th><th>Description</th>
+                            <th>Load</th><th>CPU</th><th>MEM</th>
+                            <th colspan="3">Actions</th><th colspan="2">Log</th></tr>
                         </tfoot>
                         <tbody>
                             <tr meld:id="tr_mid">
                                 <td meld:id="name_td_mid"><a href="#" meld:id="name_a_mid" target="_blank">Name</a></td>
                                 <td meld:id="state_td_mid">State</td>
-                                <td meld:id="load_td_mid">5%</td>
                                 <td meld:id="desc_td_mid">Description</td>
+                                <td meld:id="load_td_mid">5%</td>
+                                <td meld:id="cpu_td_mid">5%</td>
+                                <td meld:id="mem_td_mid">5%</td>
                                 <td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid" class="button off">Start</a></td>
                                 <td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid" class="button off">Stop</a></td>
                                 <td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid" class="button off">Restart</a></td>
@@ -89,6 +88,93 @@
                         </tbody>
                     </table>
                 </section>
+
+                <aside>
+                    <div>
+                        <table class="optionBox">
+                            <tr><th>Statistics Period</th></tr>
+                            <tr><td><ul class="linear">
+                                <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">10</a></li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
+
+                    <div>
+                        <table>
+                            <caption>Memory Statistics</caption>
+                            <tr>
+                                <th>Occupied %</th><th>Slope %</th><th>Std Dev %</th>
+                            </tr>
+                            <tr>
+                                <td meld:id="memval_td_mid">25</td>
+                                <td meld:id="memslope_td_mid">2</td>
+                                <td meld:id="memdev_td_mid">2</td>
+                            </tr>
+                        </table>
+                     </div>
+
+                    <div >
+                        <table>
+                            <caption>Processor Statistics</caption>
+                            <tr>
+                                <th>#</th><th>Value %</th><th>Slope %</th>
+                            </tr>
+                            <tr>
+                                <td><a href="address.html?cpu=all" meld:id="cpuall_td_mid" class="button on active">cpu#all</a></td>
+                                <td meld:id="cpuallval_td_mid">25</td>
+                                <td meld:id="cpuallslope_td_mid">2</td>
+                            </tr>
+                            <tr meld:id="cpu_tr_mid">
+                                <td><a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a></td>
+                                <td meld:id="cpuval_td_mid">25</td>
+                                <td meld:id="cpuslope_td_mid">2</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div>
+                        <table>
+                            <caption>Network Statistics</caption>
+                            <tr>
+                                <th>Interface</th><th>Rx / Tx</th><th>Value kbit/s</th><th>Slope %</th>
+                            </tr>
+                            <tr meld:id="intf_tr_mid">
+                                <td><a href="#" meld:id="intf_a_mid" class="button on">eth#</a></td>
+                                <td meld:id="rxtx_td_mid">rx</td>
+                                <td meld:id="intfval_td_mid">25</td>
+                                <td meld:id="intfslope_td_mid">2</td>
+                            </tr>
+                        </table>
+                     </div>
+
+                    <div class="hiddn" meld:id="pstats_div_mid">
+                        <table>
+                            <caption>Detailed Process Statistics</caption>
+                            <tr>
+                                <th rowspan="2">Name</th><th colspan="3">CPU</th><th colspan="3">MEM</th>
+                           </tr>
+                            <tr>
+                                <th>%</th><th>Slope %</th><th>StdDev %</th><th>%</th><th>Slope %</th><th>StdDev %</th>
+                           </tr>
+                            <tr>
+                                <td>processName</td>
+                                <td meld:id="pcpuval_td_mid">12</td>
+                                <td meld:id="pcpuslope_td_mid">+3</td>
+                                <td meld:id="pcpudev_td_mid">10</td>
+                                <td meld:id="pmemval_td_mid">25</td>
+                                <td meld:id="pmemslope_td_mid">-1</td>
+                                <td meld:id="pmemdev_td_mid">2</td>
+                            </tr>
+                        </table>
+                     </div>
+
+                    <div>
+                        <figure>
+                            <img src="stats.png" meld:id="graph_img_mid"></img>
+                            <figcaption>Resources occupation on <span meld:id="address_fig_mid">address</span></figcaption>
+                        </figure>
+                    </div>
+                </aside>
             </div>
  
             <footer>

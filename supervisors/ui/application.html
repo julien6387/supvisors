@@ -83,18 +83,55 @@
                     </table>
                 </section>
 
-                    <div class="strategy">
-                        <p>Deployment strategy</p>
-                        <ul class="linear">
-                            <li><a href="#" meld:id="config_a_mid" class="button on">CONFIG</a></li>
-                            <li><a href="#" meld:id="most_a_mid" class="button on">MOST_LOADED</a></li>
-                        <li><a href="#" meld:id="less_a_mid" class="button on">LESS_LOADED</a></li>
-                        </ul>
+                <aside>
+                    <div>
+                        <table class="optionBox">
+                            <tr><th>Deployment strategy</th></tr>
+                            <tr><td><ul class="linear">
+                                <li><a href="#" meld:id="config_a_mid" class="button on">CONFIG</a></li>
+                                <li><a href="#" meld:id="most_a_mid" class="button on">MOST_LOADED</a></li>
+                                <li><a href="#" meld:id="less_a_mid" class="button on">LESS_LOADED</a></li>
+                            </ul></td></tr>
+                        </table>
                     </div>
 
-                    <aside>
-                        <!-- TODO: statistics -->
-                    </aside>
+                    <div>
+                        <table class="optionBox">
+                            <tr><th>Statistics Period</th></tr>
+                            <tr><td><ul class="linear">
+                                <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">10</a></li>
+                            </ul></td></tr>
+                        </table>
+                    </div>
+
+                    <div class="hiddn" meld:id="pstats_div_mid">
+                        <table>
+                            <caption>Detailed Process Statistics</caption>
+                            <tr>
+                                <th rowspan="2">Name</th><th colspan="3">CPU</th><th colspan="3">MEM</th>
+                           </tr>
+                            <tr>
+                                <th>%</th><th>Slope %</th><th>StdDev %</th><th>%</th><th>Slope %</th><th>StdDev %</th>
+                           </tr>
+                            <tr>
+                                <td>processName</td>
+                                <td meld:id="pcpuval_td_mid">12</td>
+                                <td meld:id="pcpuslope_td_mid">+3</td>
+                                <td meld:id="pcpudev_td_mid">10</td>
+                                <td meld:id="pmemval_td_mid">25</td>
+                                <td meld:id="pmemslope_td_mid">-1</td>
+                                <td meld:id="pmemdev_td_mid">2</td>
+                            </tr>
+                        </table>
+                     </div>
+
+                     <div class="hiddn">
+                        <figure>
+                            <img src="tmp/cpu-mem.png"></img>
+                            <figcaption>Resources occupation on <span meld:id="address_fig_mid">address</span></figcaption>
+                        </figure>
+                    </div>
+                </aside>
             </div>
 
             <footer>
