@@ -17,6 +17,7 @@ body {
 
 nav {
 	flex: 1;
+	font-size: .9em;
 }
 
 header, nav, footer, section {

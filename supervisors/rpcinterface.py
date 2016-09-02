@@ -443,8 +443,9 @@ def updateUiHandler():
     from supervisors.viewapplication import ApplicationView
     VIEWS['application.html'] =  { 'template': path.join(here, 'ui/application.html'), 'view': ApplicationView }
     # set fake page to export images
-    from supervisors.viewimage import ImageView
-    VIEWS['stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ImageView }
+    from supervisors.viewimage import ProcessImageView, AddressImageView
+    VIEWS['process_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ProcessImageView }
+    VIEWS['address_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': AddressImageView }
 
 # Supervisor entry point
 def make_supervisors_rpcinterface(supervisord, **config):

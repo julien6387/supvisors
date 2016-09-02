@@ -32,7 +32,25 @@ import urllib
 
 
 # Supervisors address page
+def getStats(lst):
+    from supervisors.utils import mean, slope, stddev
+    slp = dev = None
+    # calculate mean value
+    avg = mean(lst)
+    if len(lst) > 1:
+        # calculate slope value between last 2 values
+        slp = slope(lst[-1], lst[-2])
+        # calculate standard deviation
+        dev = stddev(lst, avg)
+    return avg, slp, dev
+
+
+# Supervisors address page
 class AddressView(StatusView):
+    # static attributes
+    statsPeriod = next(iter(options.statsPeriods))
+    namespec = ''
+
     # Rendering part
     def render(self):
         # clone the template and set navigation menu
@@ -41,10 +59,14 @@ class AddressView(StatusView):
             # get parameters
             form = self.context.form
             serverPort = form.get('SERVER_PORT')
+            # manage parameters
+            self.handleParameters()
             # write navigation menu and Address header
             writeNav(root, serverPort, address=addressMapper.localAddress)
             self._writeHeader(root)
-            self._writeResources(root)
+            self._writePeriods(root)
+            self._writeAddressStatistics(root)
+            self._writeProcessStatistics(root)
             # manage action
             message = self.handleAction()
             if message is NOT_DONE_YET: return NOT_DONE_YET
@@ -69,21 +91,178 @@ class AddressView(StatusView):
         elt = root.findmeld('date_mid')
         elt.content(time.ctime(remote.remoteTime))
 
-    def _writeResources(self, root):
-        # TODO: parameter this
-        period = 10
-        interface = 'eno16777736'
-        # get data from statistics module
+    def _writeProcessStatistics(self, root):
+        """" Display detailed statistics about process """
+        statsElt = root.findmeld('pstats_div_mid')
+        # get data from statistics module iaw period selection
         from supervisors.statistics import statisticsCompiler
-        statsInstance = statisticsCompiler.data[addressMapper.localAddress][period]
+        statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
+        if AddressView.namespec in statsInstance.proc.keys():
+            procStats = statsInstance.proc[AddressView.namespec]
+            # set CPU statistics
+            if len(procStats[0]) > 0:
+                avg, slp, dev = getStats(procStats[0])
+                # print last CPU value of process
+                elt = statsElt.findmeld('pcpuval_td_mid')
+                elt.content('{:.2f}%'.format(procStats[0][-1]))
+                # set mean value
+                elt = statsElt.findmeld('pcpuavg_td_mid')
+                elt.content('{:.2f}'.format(avg))
+                if slp:
+                    # set slope value between last 2 values
+                    # TODO add class gradient to reflect increase / decrease
+                    elt = statsElt.findmeld('pcpuslope_td_mid')
+                    elt.content('{:.2f}'.format(slp))
+                if dev:
+                    # set standard deviation
+                    elt = statsElt.findmeld('pcpudev_td_mid')
+                    elt.content('{:.2f}'.format(dev))
+            # set MEM statistics
+            if len(procStats[1]) > 0:
+                avg, slp, dev = getStats(procStats[1])
+                # print last MEM value of process
+                elt = statsElt.findmeld('pmemval_td_mid')
+                elt.content('{:.2f}%'.format(procStats[1][-1]))
+                # set mean value
+                elt = statsElt.findmeld('pmemavg_td_mid')
+                elt.content('{:.2f}'.format(avg))
+                if slp:
+                    # set slope value between last 2 values
+                    # TODO add class gradient to reflect increase / decrease
+                    elt = statsElt.findmeld('pmemslope_td_mid')
+                    elt.content('{:.2f}'.format(slp))
+                if dev:
+                    # set standard deviation
+                    elt = statsElt.findmeld('pmemdev_td_mid')
+                    elt.content('{:.2f}'.format(dev))
+            # write CPU / Memory plot
+            from supervisors.plot import createCpuMemPlot
+            from supervisors.viewimage import processImageContents
+            createCpuMemPlot(procStats[0], procStats[1], processImageContents)
+            # set title
+            elt = statsElt.findmeld('process_fig_mid')
+            elt.content(AddressView.namespec)
+        else:
+            AddressView.namespec = ''
+            # hide stats part
+            statsElt.attrib['class'] = "hidden"
+
+    def _writeAddressStatistics(self, root):
+        """" Display tables and figures for address statistics """
+        # position to stats element
+        statsElt = root.findmeld('stats_div_mid')
+        # get data from statistics module iaw period selection
+        from supervisors.statistics import statisticsCompiler
+        statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
+        self._writeMemoryStatistics(statsElt, statsInstance.mem)
+        self._writeProcessorStatistics(statsElt, statsInstance.cpu)
+        self._writeNetworkStatistics(statsElt, statsInstance.io)
+        # TODO: get selection
         # write CPU / Memory plot
-        from supervisors.plot import createCpuMemPlot, createIoPlot
-        createCpuMemPlot(statsInstance.cpu[0], statsInstance.mem, 'ui/tmp/cpu-mem.png')
+        from supervisors.plot import createCpuMemPlot
+        from supervisors.viewimage import addressImageContents
+        createCpuMemPlot(statsInstance.cpu[0], statsInstance.mem, addressImageContents)
         # write I/O plot
-        # createIoPlot(interface, statsInstance.io[interface], 'ui/tmp/io.png')
+        # from supervisors.plot import createIoPlot
+        # createIoPlot(interface, statsInstance.io[interface])
         # set title
         elt = root.findmeld('address_fig_mid')
         elt.content(addressMapper.localAddress)
+
+    def _writePeriods(self, root):
+        """ Display configured periods for statistics """
+        iterator = root.findmeld('period_li_mid').repeat(options.statsPeriods)
+        for li_element, period in iterator:
+            # TODO: set period button on only if there is a related statistics
+            # print period button
+            elt = li_element.findmeld('period_a_mid')
+            if period == AddressView.statsPeriod:
+            	elt.attrib['class'] = "button off active"
+            else:
+            	elt.attributes(href='address.html?period={}'.format(period))
+            elt.content('{}s'.format(period))
+
+    def _writeMemoryStatistics(self, statsElt, memStats):
+        """ Display memory statistics """
+        if len(memStats) > 0:
+            avg, slp, dev = getStats(memStats)
+            # set last value
+            elt = statsElt.findmeld('memval_td_mid')
+            elt.content('{:.2f}'.format(memStats[-1]))
+            # set mean value
+            elt = statsElt.findmeld('memavg_td_mid')
+            elt.content('{:.2f}'.format(avg))
+            if slp:
+            	# set slope value between last 2 values
+            	# TODO add class gradient to reflect increase / decrease
+            	elt = statsElt.findmeld('memslope_td_mid')
+            	elt.content('{:.2f}'.format(slp))
+            if dev:
+            	# set standard deviation
+            	elt = statsElt.findmeld('memdev_td_mid')
+            	elt.content('{:.2f}'.format(dev))
+
+    def _writeProcessorStatistics(self, statsElt, cpuStats):
+        """ Display processor statistics """
+        iterator = statsElt.findmeld('cpu_tr_mid').repeat(cpuStats)
+        for (tr_element, singleCpuStats), idx in zip(iterator, range(-1, len(cpuStats) - 1)):
+            # set CPU id
+            elt = tr_element.findmeld('cpunum_a_mid')
+            elt.content('cpu#{}'.format(idx if idx >= 0 else 'all'))
+            if len(singleCpuStats) > 0:
+            	avg, slp, dev = getStats(singleCpuStats)
+            	# set last value
+            	elt = tr_element.findmeld('cpuval_td_mid')
+            	elt.content('{:.2f}'.format(singleCpuStats[-1]))
+            	# set mean value
+            	elt = tr_element.findmeld('cpuavg_td_mid')
+            	elt.content('{:.2f}'.format(avg))
+            	if slp:
+            	    # set slope value between last 2 values
+            	    # TODO add class gradient to reflect increase / decrease
+            	    elt = tr_element.findmeld('cpuslope_td_mid')
+            	    elt.content('{:.2f}'.format(slp))
+            	if dev:
+            	    # set standard deviation
+            	    elt = tr_element.findmeld('cpudev_td_mid')
+            	    elt.content('{:.2f}'.format(dev))
+
+    def _writeNetworkStatistics(self, statsElt, ioStats):
+        """ Display network statistics """
+        flattenIoStats = [ (intf, lst) for intf, lsts in ioStats.items() for lst in lsts ]
+        iterator = statsElt.findmeld('intf_tr_mid').repeat(flattenIoStats)
+        rowspan = True
+        for tr_element, (intf, singleIoStats) in iterator:
+            # set interface cell rowspan
+            elt = tr_element.findmeld('intf_td_mid')
+            if rowspan:
+            	elt.attrib['rowspan'] = "2"
+            	# set interface name
+            	elt = elt.findmeld('intf_a_mid')
+            	elt.content(intf)
+            else:
+            	elt.replace('')
+            # set interface direction
+            elt = tr_element.findmeld('intfrxtx_td_mid')
+            elt.content('Rx' if rowspan else 'Tx')
+            if len(singleIoStats) > 0:
+            	avg, slp, dev = getStats(singleIoStats)
+            	# set last value
+            	elt = tr_element.findmeld('intfval_td_mid')
+            	elt.content('{:.2f}'.format(singleIoStats[-1]))
+            	# set mean value
+            	elt = tr_element.findmeld('intfavg_td_mid')
+            	elt.content('{:.2f}'.format(avg))
+            	if slp:
+            	    # set slope value between last 2 values
+            	    # TODO add class gradient to reflect increase / decrease
+            	    elt = tr_element.findmeld('intfslope_td_mid')
+            	    elt.content('{:.2f}'.format(slp))
+            	if dev:
+            	    # set standard deviation
+            	    elt = tr_element.findmeld('intfdev_td_mid')
+            	    elt.content('{:.2f}'.format(dev))
+            rowspan = not rowspan
 
     def _renderProcesses(self, root):
         # collect data on processes
@@ -96,6 +275,7 @@ class AddressView(StatusView):
             options.logger.warn('failed to get all process info from {}: {}'.format(addressMapper.localAddress, e.text))
         # print processes
         if data:
+            from supervisors.statistics import statisticsCompiler
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
             for tr_element, item in iterator:
@@ -111,7 +291,31 @@ class AddressView(StatusView):
                 procStatus = context.getProcessFromNamespec(item[0])
                 elt = tr_element.findmeld('load_td_mid')
                 elt.content('{}%'.format(procStatus.rules.expected_loading))
-                # print description
+                # get data from statistics module iaw period selection
+                hideCpuLink = hideMemLink = True
+                statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
+                if item[0] in statsInstance.proc.keys():
+                    procStats = statsInstance.proc[item[0]]
+                    if len(procStats[0]) > 0:
+                        # print last CPU value of process
+                        elt = tr_element.findmeld('pcpu_a_mid')
+                        elt.attributes(href='address.html?pstats={}'.format(urllib.quote(item[0])))
+                        elt.content('{:.2f}%'.format(procStats[0][-1]))
+                        hideCpuLink = False
+                    if len(procStats[1]) > 0:
+                        # print last MEM value of process
+                        elt = tr_element.findmeld('pmem_a_mid')
+                        elt.attributes(href='address.html?pstats={}'.format(urllib.quote(item[0])))
+                        elt.content('{:.2f}%'.format(procStats[1][-1]))
+                        hideMemLink = False
+                # when no data, no not write link
+                if hideCpuLink:
+                    elt = tr_element.findmeld('pcpu_a_mid')
+                    elt.replace('--')
+                if hideMemLink:
+                    elt = tr_element.findmeld('pmem_a_mid')
+                    elt.replace('--')
+               # print description
                 elt = tr_element.findmeld('desc_td_mid')
                 elt.content(item[3])
                 # manage process actions iaw state
@@ -140,7 +344,7 @@ class AddressView(StatusView):
                 elt = tr_element.findmeld('clear_a_mid')
                 elt.attributes(href='address.html?processname={}&amp;action=clearlog'.format( urllib.quote(item[0])))
                 elt = tr_element.findmeld('tail_a_mid')
-                elt.attributes(href='logtail.html?processname={}&amp'.format(urllib.quote(item[0])), target='_blank')
+                elt.attributes(href='logtail/{}'.format(urllib.quote(item[0])), target='_blank')
                 # set line background and invert
                 if shaded_tr:
                     tr_element.attrib['class'] = 'shade'
@@ -148,6 +352,35 @@ class AddressView(StatusView):
         else:
             table = root.findmeld('table_mid')
             table.replace('No programs to manage')
+
+    # Parameters part
+    def handleParameters(self):
+        form = self.context.form
+        # update context period
+        periodString = form.get('period')
+        if periodString:
+            period = int(periodString)
+            if period in options.statsPeriods:
+                if AddressView.statsPeriod != period:
+                    options.logger.info('statistics period set to %d' % period)
+                    AddressView.statsPeriod = period
+            else:
+                message = errorMessage('incorrect period: {}'.format(periodString))
+                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
+                self.context.response['headers']['Location'] = location
+        # update Process statistics selection
+        namespec = form.get('pstats')
+        if namespec:
+            from supervisors.statistics import statisticsCompiler
+            statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod].proc
+            if namespec in statsInstance.keys():
+                if AddressView.namespec != namespec:
+                    options.logger.info('select detailed Process statistics for %s' % namespec)
+                    AddressView.namespec = namespec
+            else:
+                message = errorMessage('incorrect pstat namespec: {}'.format(namespec))
+                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
+                self.context.response['headers']['Location'] = location
 
     # Action part
     def handleAction(self):

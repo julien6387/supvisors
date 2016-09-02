@@ -114,6 +114,7 @@ def getStats(last, ref):
     proc = { }
     for namedPid, stats in last[4].items():
         # calculation is based on key name+pid, in case of process restart
+        # storage result forget about the pid
         proc[namedPid[0]] = getCpuProcessStats(stats, ref[4].get(namedPid, None), totalWork), stats[1]
     return last[0], cpu, mem, io, proc
 

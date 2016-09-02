@@ -31,11 +31,22 @@ class StatsImage(object):
         self.contents = BytesIO()
         return self.contents
 
-imageContents = StatsImage()
+addressImageContents = StatsImage()
+processImageContents = StatsImage()
 
 
-# simple handler for web image
-class ImageView(MeldView):
+# simple handlers for web images
+class AddressImageView(MeldView):
     def render(self):
         # export internal memory buffer
-        return imageContents.contents.getvalue()
+        if addressImageContents.contents:
+            return addressImageContents.contents.getvalue()
+        return self.clone().write_xhtmlstring()
+
+class ProcessImageView(MeldView):
+    def render(self):
+        # export internal memory buffer
+        if processImageContents.contents:
+            return processImageContents.contents.getvalue()
+        return self.clone().write_xhtmlstring()
+

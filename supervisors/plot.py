@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-def createCpuMemPlot(cpuData, memData, fileName):
+def createCpuMemPlot(cpuData, memData, imageContents):
     nbData = len(cpuData)
     if nbData > 0:
         # create X axis
@@ -41,10 +41,10 @@ def createCpuMemPlot(cpuData, memData, fileName):
         # create the MEM legend
         plt.legend(handles=[memLine, meanMemLine], loc=1, fontsize='small', fancybox=True, shadow=True)
         # export image
-        saveFile(fileName)
+        saveFile(imageContents)
         plt.close()
 
-def createIoPlot(interface, ioData, fileName):
+def createIoPlot(interface, ioData, imageContents):
     nbData = len(ioData[0])
     if nbData > 0:
         # create X axis
@@ -62,12 +62,11 @@ def createIoPlot(interface, ioData, fileName):
         # create the MEM legend
         plt.legend(handles=[sentLine, meanSentLine], loc=1, fontsize='small', fancybox=True, shadow=True)
         # export image
-        saveFile(fileName)
+        saveFile(imageContents)
         plt.close()
 
-def saveFile(fileName):
+def saveFile(imageContents):
     # save image to internal memory buffer
-    from supervisors.viewimage import imageContents
     plt.savefig(imageContents.getNewImage(), dpi=80, bbox_inches='tight', format='png')
 
 def getMaxRange(lst):
