@@ -419,7 +419,7 @@ class _RPCInterface(object):
                 try:
                     func(remote.address)
                     options.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
-                except:
+                except RPCError:
                     options.logger.error('failed to {} supervisord on {}'.format(func.__name__, remote.address))
             else:
                 options.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
@@ -465,7 +465,8 @@ def make_supervisors_rpcinterface(supervisord, **config):
     fsm.restart()
     # check parsing
     from supervisors.parser import parser
-    try: parser.setFilename(options.deploymentFile)
+    try:
+        parser.setFilename(options.deploymentFile)
     except:
         raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(options.deploymentFile))
     # update http web pages

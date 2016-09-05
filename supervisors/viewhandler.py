@@ -263,7 +263,7 @@ class ViewHandler(object):
                 cpuid = form.get('idx')
                 try:
                     cpuid = int(cpuid)
-                except:
+                except ValueError:
                     self.setMessage(errorMessage('Cpu id is not an integer: {}'.format(cpuid)))
                 else:
                     # update Address statistics selection
@@ -340,7 +340,7 @@ class ViewHandler(object):
         """ Get the ProcessStatus instance related to the process named namespec """
         try:
             procStatus = context.getProcessFromNamespec(namespec)
-        except:
+        except KeyError:
             options.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
         else:
             return procStatus

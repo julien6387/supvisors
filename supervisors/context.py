@@ -30,7 +30,7 @@ import time
 # Context management
 class _Context(object):
     def restart(self):
-        # replace handlers
+        """ Reinitialize attributes """
         self.remotes = { address: RemoteStatus(address) for address in addressMapper.expectedAddresses }
         self.applications = {} # { applicationName: ApplicationStatus }
         self.master = False
@@ -42,20 +42,27 @@ class _Context(object):
     def isolatingRemotes(self): return self._remotesByStates([ RemoteStates.ISOLATING ])
 
     def _remotesByStates(self, states):
+        """ Return the RemoteStatus instances sorted by state """
         return [ status.address for status in self.remotes.values() if status.state in states ]
 
     def getRunningProcesses(self, address):
+        """ Return the process running on the address
+        here, running means that the process state is in Supervisor RUNNING_STATES """
         return [ process for process in self._getAllProcesses() if process.isRunningOn(address) ]
 
     def getPidProcesses(self, address):
+        """ Return the process running on the address and having a pid
+       different from getRunningProcesses because it excludes the states STARTING and BACKOFF """
         return [ process for process in self._getAllProcesses() if process.hasRunningPidOn(address) ]
 
     def getLoading(self, address):
+        """ Return the loading of the address, by summing the declared loading of the processes running on that address """
         loading = sum(process.rules.expected_loading for process in self.getRunningProcesses(address))
         options.logger.debug('address={} loading={}'.format(address, loading))
         return loading
 
     def endSynchro(self):
+        """ Declare as SILENT the RemotesStatus that are still not responsive at the end of the INITIALIZATION state of Supervisors """
         # consider problem if no tick received at the end of synchro time
         map(self._invalidRemote, filter(lambda x: x.state == RemoteStates.UNKNOWN, self.remotes.values()))
 
@@ -215,16 +222,18 @@ class _Context(object):
     # XML-RPC requets
     def _isLocalAuthorized(self, address):
         # XML-RPC request to remote to check that local is not ISOLATED
-        try: status = getRemoteInfo(address, addressMapper.localAddress)
-        except:
+        try:
+            status = getRemoteInfo(address, addressMapper.localAddress)
+        except RPCError:
             options.logger.critical('[BUG] could not get remote info from running remote supervisor {}'.format(address))
             raise
         return stringToRemoteState(status['state']) not in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
 
     def _getAllProcessInfo(self, address):
         # XML-RPC request to get information about all processes managed by Supervisor on address
-        try: info = getAllProcessInfo(address)
-        except:
+        try:
+            info = getAllProcessInfo(address)
+        except RPCError:
             options.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
             raise
         return info

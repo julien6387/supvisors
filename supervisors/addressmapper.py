@@ -25,6 +25,7 @@ class _AddressMapper(object):
         self.localAddresses = [ socket.gethostname() ] + self.__ipv4_addresses()
 
     def setAddresses(self, addresses):
+        """ Store the addresses of the configuration file and determine the usage name of the local address """
         options.logger.info('Expected addresses: {}'.format(addresses))
         # store IP list as found in config file
         self.expectedAddresses = addresses
@@ -34,6 +35,7 @@ class _AddressMapper(object):
         options.logger.info('Local addresses: {} - Local address: {}'.format(self.localAddresses, self.localAddress))
  
     def isAddressValid(self, address):
+        """ Return True if address is among the addresses defined in the configuration file """
         return address in self.expectedAddresses
 
     # returns a list of expected addresses from a list of names or ip addresses identifying different locations
