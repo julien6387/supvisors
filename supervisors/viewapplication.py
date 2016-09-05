@@ -22,47 +22,39 @@ from supervisors.context import context
 from supervisors.infosource import infoSource
 from supervisors.options import options
 from supervisors.types import DeploymentStrategies
+from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
-from supervisor.web import *
+from supervisor.web import MeldView
 
 import urllib
 
 
 # Supervisors application page
-class ApplicationView(MeldView):
-    # Rendering part
-    def render(self):
-        # clone the template and set navigation menu
-        root = self.clone()
-        if infoSource.supervisorState == SupervisorStates.RUNNING:
-            # get parameters
-            form = self.context.form
-            self.applicationName = form.get('appli')
-            serverPort = form.get('SERVER_PORT')
-            # write navigation menu and Application header
-            writeNav(root, serverPort, appli=self.applicationName)
-            self._writeHeader(root)
-            if self.applicationName is None:
-                options.logger.error('no application')
-                printMessage(root, Warning, 'no application requested')
-            elif self.applicationName not in context.applications.keys():
-                options.logger.error('unknown application: %s' % self.applicationName)
-                printMessage(root, Error, 'unknown application: %s' % self.applicationName)
-            else:
-                # manage action
-                message = self.handleAction()
-                if message is NOT_DONE_YET: return NOT_DONE_YET
-                # display result
-                printMessage(root, self.context.form.get('gravity'), self.context.form.get('message'))
-                self._renderGlobalActions(root)
-                self._renderDeploymentStrategy(root)
-                self._renderProcesses(root)
-        return root.write_xhtmlstring()
+class ApplicationView(MeldView, ViewHandler):
+    # Name of the HTML page
+    pageName = 'application.html'
 
-    def _writeHeader(self, root):
+    def getUrlContext(self):
+        return 'appli={}&amp;'.format(self.applicationName)
+
+    def render(self):
+        """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
+        self.applicationName = self.context.form.get('appli')
+        if self.applicationName is None:
+            options.logger.error('no application')
+        elif self.applicationName not in context.applications.keys():
+            options.logger.error('unknown application: %s' % self.applicationName)
+        else:
+            return self.writePage()
+
+    def writeNavigation(self, root):
+        """ Rendering of the navigation menu with selection of the current address """
+        self.writeNav(root, appli=self.applicationName)
+
+    def writeHeader(self, root):
+        """ Rendering of the header part of the Supervisors Application page """
         # set address name
         elt = root.findmeld('application_mid')
         elt.content(self.applicationName)
@@ -80,98 +72,123 @@ class ApplicationView(MeldView):
                 elt.attrib['class'] = 'status_green'
         else:
             elt.attrib['class'] = 'status_empty'
+        # write periods of statistics
+        self.writeDeploymentStrategy(root)
+        self.writePeriods(root)
+        # write actions related to application
+        self.writeApplicationActions(root)
 
-    def _renderGlobalActions(self, root):
-        # set hyperlinks for global actions
-        elt = root.findmeld('refresh_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=refresh'.format(self.applicationName))
-        elt = root.findmeld('startapp_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=startapp'.format(self.applicationName))
-        elt = root.findmeld('stopapp_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=stopapp'.format(self.applicationName))
-        elt = root.findmeld('restartapp_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=restartapp'.format(self.applicationName))
-
-    def _renderDeploymentStrategy(self, root):
+    def writeDeploymentStrategy(self, root):
+        """ Write applicable deployment strategies """
         # get the current strategy
         from supervisors.deployer import deployer
         strategy = deployer.strategy
         # set hyperlinks for strategy actions
+        # CONFIG strategy
         elt = root.findmeld('config_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=config'.format(self.applicationName))
-        if strategy == DeploymentStrategies.CONFIG: elt.attrib['class'] = "button on active"
+        if strategy == DeploymentStrategies.CONFIG:
+            elt.attrib['class'] = "button off active"
+        else:
+            elt.attributes(href='{}?{}&action=config'.format(self.pageName, self.getUrlContext()))
+        # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=most'.format(self.applicationName))
-        if strategy == DeploymentStrategies.MOST_LOADED: elt.attrib['class'] = "button on active"
+        if strategy == DeploymentStrategies.MOST_LOADED:
+            elt.attrib['class'] = "button off active"
+        else:
+            elt.attributes(href='{}?{}action=most'.format(self.pageName, self.getUrlContext()))
+        # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
-        elt.attributes(href='application.html?appli={}&amp;action=less'.format(self.applicationName))
-        if strategy == DeploymentStrategies.LESS_LOADED: elt.attrib['class'] = "button on active"
+        if strategy == DeploymentStrategies.LESS_LOADED:
+            elt.attrib['class'] = "button off active"
+        else:
+            elt.attributes(href='{}?{}&action=less'.format(self.pageName, self.getUrlContext()))
 
-    def _renderProcesses(self, root):
+
+    def writeApplicationActions(self, root):
+        """ Write actions related to the application """
+        # set hyperlinks for global actions
+        elt = root.findmeld('refresh_a_mid')
+        elt.attributes(href='{}?{}action=refresh'.format(self.pageName, self.getUrlContext()))
+        elt = root.findmeld('startapp_a_mid')
+        elt.attributes(href='{}?{}action=startapp'.format(self.pageName, self.getUrlContext()))
+        elt = root.findmeld('stopapp_a_mid')
+        elt.attributes(href='{}?{}action=stopapp'.format(self.pageName, self.getUrlContext()))
+        elt = root.findmeld('restartapp_a_mid')
+        elt.attributes(href='{}?{}action=restartapp'.format(self.pageName, self.getUrlContext()))
+
+    def writeContents(self, root):
+        """ Rendering of the contents part of the page """
+        self.writeProcessTable(root)
+        # check selected Process Statistics
+        if ViewHandler.namespecStats:
+            procStatus = self.getProcessStatus(ViewHandler.namespecStats)
+            if procStatus is None or procStatus.applicationName != self.applicationName:
+                options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
+                ViewHandler.namespecStats = ''
+        # write selected Process Statistics
+        self.writeProcessStatistics(root)
+
+    def getProcessStats(self, namespec):
+        """ Get the statistics structure related to the period selected and the address where the process named namespec is running """
+        procStatus = self.getProcessStatus(namespec)
+        if procStatus:
+            # get running address from procStatus
+            address = next(iter(procStatus.processes), None)
+            if address:
+                from supervisors.statistics import statisticsCompiler
+                stats = statisticsCompiler.data[address][ViewHandler.periodStats]
+                if namespec in stats.proc.keys():
+                    return stats.proc[namespec]
+
+    def writeProcessTable(self, root):
+        """ Rendering of the application processes managed through Supervisor """
         # collect data on processes
         data = [ ]
         for process in sorted(context.applications[self.applicationName].processes.values(), key=lambda x: x.processName):
-            data.append((process.processName, process.getNamespec(), process.stateAsString(), process.state, list(process.addresses)))
+            data.append({ 'processname': process.processName, 'namespec': process.getNamespec(),
+                'statename': process.stateAsString(), 'state': process.state, 'runninglist': list(process.addresses) })
         # print processes
         if data:
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
-            for tr_element, item in iterator:
-                # print process name. link is for TODO stats
-                elt = tr_element.findmeld('name_a_mid')
-                elt.attributes(href='#')
-                elt.content(item[0])
-                # print state
-                elt = tr_element.findmeld('state_td_mid')
-                elt.attrib['class'] = item[2]
-                elt.content(item[2])
+            for trElt, item in iterator:
+                # get first item in running list
+                runningList = item['runninglist']
+                address = next(iter(runningList), None)
+                # write common status
+                selected_tr = self.writeCommonProcessStatus(trElt, item)
+                # print process name (tail NOT allowed if STOPPED)
+                processName = item['processname']
+                namespec = item['namespec']
+                if address:
+                    elt = trElt.findmeld('name_a_mid')
+                    elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(address, self.getServerPort(), urllib.quote(namespec)))
+                    elt.content(processName)
+                else:
+                    elt = trElt.findmeld('name_a_mid')
+                    elt.replace(processName)
                 # print running addresses
-                if item[4]:
-                    addrIterator = tr_element.findmeld('running_li_mid').repeat(item[4])
-                    for li_element, address in addrIterator:
-                        elt = li_element.findmeld('running_a_mid')
+                if runningList:
+                    addrIterator = trElt.findmeld('running_li_mid').repeat(runningList)
+                    for liElt, address in addrIterator:
+                        elt = liElt.findmeld('running_a_mid')
                         elt.attributes(href='address.html?address={}'.format(address))
                         elt.content(address)
                 else:
-                    elt = tr_element.findmeld('running_ul_mid')
+                    elt = trElt.findmeld('running_ul_mid')
                     elt.replace('')
-                # manage actions iaw state
-                elt = tr_element.findmeld('start_a_mid')
-                elt.attrib['class'] = 'button {}'.format('on' if item[3] in STOPPED_STATES else 'off') 
-                elt.attributes(href='application.html?appli={}&amp;processname={}&amp;action=start'.format(self.applicationName, urllib.quote(item[1])))
-                elt = tr_element.findmeld('stop_a_mid')
-                elt.attrib['class'] = 'button {}'.format('on' if item[3] in RUNNING_STATES else 'off')
-                elt.attributes(href='application.html?appli={}&amp;processname={}&amp;action=stop'.format(self.applicationName, urllib.quote(item[1])))
-                elt = tr_element.findmeld('restart_a_mid')
-                elt.attrib['class'] = 'button {}'.format('on' if item[3] in RUNNING_STATES else 'off')
-                elt.attributes(href='application.html?appli={}&amp;processname={}&amp;action=restart'.format(self.applicationName, urllib.quote(item[1])))
                 # set line background and invert
-                if shaded_tr:
-                    tr_element.attrib['class'] = 'shade'
+                if selected_tr:
+                    trElt.attrib['class'] = 'selected'
+                elif shaded_tr:
+                    trElt.attrib['class'] = 'shaded'
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')
             table.replace('No programs to manage')
 
-    # Action part
-    def handleAction(self):
-        form = self.context.form
-        action = form.get('action')
-        if action:
-            # trigger deferred action and wait
-            processname = form.get('processname')
-            if not self.callback:
-                self.callback = self.make_callback(processname, action)
-                return NOT_DONE_YET
-            # intermediate check
-            message = self.callback()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
-            # post to write message
-            if message is not None:
-                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?appli={}&amp;message={}&amp;gravity={}'.format(self.applicationName, urllib.quote(message[1]), message[0])
-                self.context.response['headers']['Location'] = location
-
     def make_callback(self, namespec, action):
+        """ Triggers processing iaw action requested """
         if action == 'refresh':
             return self.refreshAction()
         if action == 'config':
@@ -190,9 +207,7 @@ class ApplicationView(MeldView):
         if action == 'restartapp':
             return self.restartApplicationAction(strategy)
         if namespec:
-            try:
-                context.getProcessFromNamespec(namespec)
-            except:
+            if self.getProcessStatus(namespec) is None:
                 return delayedError('No such process named %s' % namespec)
             if action == 'start':
                 return self.startProcessAction(strategy, namespec)

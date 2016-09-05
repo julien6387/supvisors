@@ -17,78 +17,59 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.utils import mean
+from supervisors.utils import getStats
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-def createCpuMemPlot(cpuData, memData, imageContents):
-    nbData = len(cpuData)
-    if nbData > 0:
-        # create X axis
+
+# class to create statistics graph using matplotlib 
+class StatisticsPlot(object):
+    def __init__(self):
         plt.figure(figsize=(6, 3))
-        xData = [ x for x in range(len(cpuData)) ]
-        # calculate max range
-        maxY = getMaxRange(cpuData + memData)
-        # create plot for CPU / RAM
-        cpuLine, meanCpuLine = plotData(xData, cpuData, maxY,'CPU', '%')
-        memLine, meanMemLine = plotData(xData, memData, maxY,'MEM', '%')
-        # create the CPU legend
-        cpuLegend = plt.legend(handles=[cpuLine, meanCpuLine], loc=2, fontsize='small', fancybox=True, shadow=True)
-        # add the legend to the current axes
-        plt.gca().add_artist(cpuLegend)
-        # create the MEM legend
-        plt.legend(handles=[memLine, meanMemLine], loc=1, fontsize='small', fancybox=True, shadow=True)
-        # export image
-        saveFile(imageContents)
+        self.yData = { }
+
+    def addPlot(self, title, unit, yData):
+        if len(yData) > 0:
+            self.yData[(title, unit)] = yData
+
+    def exportImage(self, imageContents):
+        if self.yData:
+            # calculate and apply max range
+            allYData = [ ]
+            map(allYData.extend, [yData for yData in self.yData.values()])
+            plt.ylim(self.getRange(allYData))
+            # create plots for each series of data
+            for ((title, unit), yData), location in zip(self.yData.items(), range(len(self.yData))):
+                # create X axis
+                xData = [ x for x in range(len(yData)) ]
+                # get additional statistics
+                avg, slp, dev = getStats(yData)
+                # plot the data
+                dataLine, = plt.plot(xData, yData, label=title)
+                plotColor = dataLine.get_color()
+                # plot the mean line
+                avgData = [ avg for _ in yData ]
+                meanLine, = plt.plot(xData, avgData, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=plotColor)
+                if dev:
+                    # plot the standard deviation
+                    plt.fill_between(xData, avg-dev, avg+dev, facecolor=plotColor, alpha=.3)
+                # create the legend
+                legend = plt.legend(handles=[dataLine, meanLine], loc=location+1, fontsize='small', fancybox=True, shadow=True)
+                # add the legend to the current axes
+                plt.gca().add_artist(legend)
+            # save image to internal memory buffer
+            plt.savefig(imageContents.getNewImage(), dpi=80, bbox_inches='tight', format='png')
+            # reset yData
+            self.yData = { }
+        # close plot
         plt.close()
 
-def createIoPlot(interface, ioData, imageContents):
-    nbData = len(ioData[0])
-    if nbData > 0:
-        # create X axis
-        plt.figure(figsize=(6, 3))
-        xData = [ x for x in range(nbData) ]
-        # calculate max range
-        maxY = getMaxRange(ioData[0] + ioData[1])
-        # create plots for IO
-        recvLine, meanRecvLine = plotData(xData, ioData[0], maxY, interface + ' recv', 'kbit/s')
-        sentLine, meanSentLine = plotData(xData, ioData[1], maxY, interface + ' sent', 'kbit/s')
-        # create the CPU legend
-        recvLegend = plt.legend(handles=[recvLine, meanRecvLine], loc=2, fontsize='small', fancybox=True, shadow=True)
-        # add the legend to the current axes
-        plt.gca().add_artist(recvLegend)
-        # create the MEM legend
-        plt.legend(handles=[sentLine, meanSentLine], loc=1, fontsize='small', fancybox=True, shadow=True)
-        # export image
-        saveFile(imageContents)
-        plt.close()
-
-def saveFile(imageContents):
-    # save image to internal memory buffer
-    plt.savefig(imageContents.getNewImage(), dpi=80, bbox_inches='tight', format='png')
-
-def getMaxRange(lst):
-    import math
-    # legend need additional space
-    return math.ceil(max(lst) * 1.35)
-
-def plotData(xData, data, maxY, title, unit):
-    # calculate average of data
-    avg = mean(data)
-    avgData = [ avg for _ in data ]
-    plt.ylim([ 0, maxY ])
-    # plot the data
-    dataLine, = plt.plot(xData, data, label=title)
-    # plot the mean line
-    meanLine, = plt.plot(xData, avgData, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=dataLine.get_color())
-    return dataLine, meanLine
-
-
-# unit test
-if __name__ == "__main__":
-    # from supervisors.plot import *
-    cpuData = [ 28.2,  31.4,  29.7 ]
-    memData = [ 85.2,  85.9,  86.5 ]
-    createCpuMemPlot(cpuData, memData, 'cliche01')
+    def getRange(self, lst):
+        import math
+        # legend need additional space
+        minRange = math.floor(min(lst))
+        maxRange = math.ceil(max(lst))
+        range = maxRange - minRange
+        return max(0, minRange - range * 0.1), maxRange + range * .35

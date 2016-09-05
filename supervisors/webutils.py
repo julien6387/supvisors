@@ -17,18 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.remote import remoteStateToString, RemoteStates
-from supervisors.statemachine import fsm
-from supervisors.types import SupervisorsStates
-
-import time, urllib
+import time
 
 # TODO: list:
-#   2) tail page
-#   3) statistics
 #   4) check if deployable for buttons (address / resource) ?
 #   6) style for states
 #   7) conciliation page
@@ -41,38 +32,6 @@ import time, urllib
 Info='info'
 Warn = 'warn'
 Error = 'erro'
-
-def writeNav(root, serverPort, address=None, appli=None):
-    # update navigation addresses
-    iterator = root.findmeld('address_li_mid').repeat(addressMapper.expectedAddresses)
-    for li_element, item in iterator:
-        state = context.remotes[item].state
-        # set element class
-        li_element.attrib['class'] = remoteStateToString(state) + (' active' if address and item == address else '')
-        # set hyperlink attributes
-        elt = li_element.findmeld('address_a_mid')
-        if state == RemoteStates.RUNNING:
-            # go to web page located on address, so as to reuse Supervisor StatusView
-            elt.attributes(href='http://{}:{}/address.html'.format(item, serverPort))
-            elt.attrib['class'] = 'on'
-        else:
-            elt.attrib['class'] = 'off'
-        elt.content(item)
-    # update navigation applications
-    iterator = root.findmeld('appli_li_mid').repeat(context.applications.keys())
-    for li_element, item in iterator:
-        state = context.applications[item].state
-        # set element class
-        li_element.attrib['class'] = applicationStateToString(state) + (' active' if appli and item == appli else '')
-        # set hyperlink attributes
-        elt = li_element.findmeld('appli_a_mid')
-        # go to web page located on Supervisors Master, so as to simplify requests
-        if fsm.state == SupervisorsStates.INITIALIZATION:
-            elt.attrib['class'] = 'off'
-        else:
-            elt.attributes(href='http://{}:{}/application.html?appli={}'.format(context.masterAddress, serverPort, urllib.quote(item)))
-            elt.attrib['class'] = 'on'
-        elt.content(item)
 
 def formatGravityMessage(message):
     if not isinstance(message, tuple):
@@ -87,10 +46,12 @@ def formatGravityMessage(message):
 
 def printMessage(root, gravity, message):
     # print message as a result of action
+    elt = root.findmeld('message_mid')
     if message is not None:
-        elt = root.findmeld('message_mid')
         elt.attrib['class'] = gravity
         elt.content(message)
+    else:
+        elt.replace('')
 
 def infoMessage(msg, address=None):
     return (Info, msg + ' at {}'.format(time.ctime()) + (' on {}'.format(address) if address else ''))

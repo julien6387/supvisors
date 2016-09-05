@@ -23,37 +23,29 @@ from supervisors.infosource import infoSource
 from supervisors.remote import remoteStateToString, RemoteStates
 from supervisors.statemachine import fsm
 from supervisors.types import SupervisorsStates, supervisorsStateToString
+from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *
 
-from supervisor.http import NOT_DONE_YET
-from supervisor.states import SupervisorStates
 from supervisor.web import MeldView
 
 import urllib
 
 
 # Supervisors main page
-class SupervisorsView(MeldView):
-    # Rendering part
-    def render(self):
-        # clone the template and set navigation menu
-        root = self.clone()
-        if infoSource.supervisorState == SupervisorStates.RUNNING:
-            # get parameters
-            form = self.context.form
-            serverPort = form.get('SERVER_PORT')
-            # write navigation menu and Supervisors header
-            writeNav(root, serverPort)
-            self._writeHeader(root)
-            # manage action
-            message = self.handleAction()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
-            # display result
-            printMessage(root, self.context.form.get('gravity'), self.context.form.get('message'))
-            self._renderSynoptic(root, serverPort)
-        return root.write_xhtmlstring()
+class SupervisorsView(MeldView, ViewHandler):
+    # Name of the HTML page
+    pageName = 'index.html'
 
-    def _writeHeader(self, root):
+    def render(self):
+        """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
+        return self.writePage()
+
+    def writeNavigation(self, root):
+        """ Rendering of the navigation menu """
+        self.writeNav(root)
+
+    def writeHeader(self, root):
+        """ Rendering of the header part of the Supervisors main page """
         # set Supervisors state
         elt = root.findmeld('state_mid')
         elt.content(supervisorsStateToString(fsm.state))
@@ -64,7 +56,9 @@ class SupervisorsView(MeldView):
         else:
             elt.attrib['class'] = 'hidden'
 
-    def _renderSynoptic(self, root, serverPort):
+    def writeContents(self, root):
+        """ Rendering of the contents of the Supervisors main page
+        This builds a synoptic of the processes running on the addresses """
         addressIterator = root.findmeld('address_div_mid').repeat(addressMapper.expectedAddresses)
         for div_element, address in addressIterator:
             status = context.remotes[address]
@@ -73,7 +67,7 @@ class SupervisorsView(MeldView):
             elt.attrib['class'] = remoteStateToString(status.state)
             if status.state == RemoteStates.RUNNING:
                 # go to web page located on address, so as to reuse Supervisor StatusView
-                elt.attributes(href='http://{addr}:{port}/address.html?address={addr}'.format(addr= urllib.quote(address), port=serverPort))
+                elt.attributes(href='http://{addr}:{port}/address.html?address={addr}'.format(addr= urllib.quote(address), port=self.getServerPort()))
                 elt.attrib['class'] = 'on'
             else:
                 elt.attrib['class'] = 'off'
@@ -92,25 +86,9 @@ class SupervisorsView(MeldView):
                 li_element.content(process.getNamespec())
 
     # Action part
-    def handleAction(self):
-        form = self.context.form
-        action = form.get('action')
-        if action:
-            # trigger deferred action and wait
-            if not self.callback:
-                self.callback = self.make_callback(action)
-                return NOT_DONE_YET
-            # intermediate check
-            message = self.callback()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
-            # post to write message
-            if message is not None:
-                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
-                self.context.response['headers']['Location'] = location
-
-    def make_callback(self, action):
+    def make_callback(self, dummy, action):
         if action == 'refresh':
-        		return self.refreshAction()
+            return self.refreshAction()
         if action == 'restart':
             return self.restartAction()
         if action == 'shutdown':

@@ -5,7 +5,6 @@
 
 <head>
 	<meta charset="utf-8" />
-    <meta http-equiv="refresh" content="5" />
 	<link rel="stylesheet" href="css/ui_style.css" />
 	<link rel="stylesheet" href="css/menu.css" />
 	<link rel="stylesheet" href="css/button.css" />
@@ -58,26 +57,28 @@
                 </div>
             </header>
 
-			<section id="contents">
-                <div class="statusMsg" meld:id="message_mid"></div>
-
-                <div meld:id="address_div_mid" class="addressBox">
-                    <table>
-                        <tr>
-                            <th><a href="#" meld:id="address_tda_mid">Address</a></th>
-                            <td meld:id="state_td_mid">State</td>
-                            <th meld:id="percent_td_mid">70%</th>
-                        </tr>
-                        <tr>
-                            <td colspan="3">
-                                <ul class="linear">
-                                    <li meld:id="process_li_mid" class="button"></li>
-                                </ul>
-                            </td>
-                        </tr>
-                    </table>
+			<div id="contents">
+                <div id="box_part">
+                    <div meld:id="address_div_mid" class="addressBox">
+                        <table>
+                            <tr>
+                                <th><a href="#" meld:id="address_tda_mid">Address</a></th>
+                                <td meld:id="state_td_mid">State</td>
+                                <th meld:id="percent_td_mid">70%</th>
+                            </tr>
+                            <tr>
+                                <td colspan="3">
+                                    <ul class="linear">
+                                        <li meld:id="process_li_mid" class="button"></li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-            </section>
+
+                <div id="messageBox" meld:id="message_mid"></div>
+            </div>
 		</div>
 
 	</div>

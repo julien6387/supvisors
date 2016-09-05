@@ -55,3 +55,16 @@ mean = lambda x: sum(x) / float(len(x))
 slope = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
 stddev = lambda lst, avg: (sum((x - avg)**2 for x in lst) / len(lst))**.5
 
+
+# get statistics from data
+def getStats(lst):
+    slp = dev = None
+    # calculate mean value
+    avg = mean(lst)
+    if len(lst) > 1:
+        # calculate slope value between last 2 values
+        slp = slope(lst[-1], lst[-2])
+        # calculate standard deviation
+        dev = stddev(lst, avg)
+    return avg, slp, dev
+

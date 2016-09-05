@@ -19,63 +19,32 @@
 
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
-from supervisors.infosource import infoSource
 from supervisors.options import options
+from supervisors.utils import getStats
+from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *
 
-from supervisor.http import NOT_DONE_YET
 from supervisor.options import make_namespec
-from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import StatusView
 
 import urllib
 
 
 # Supervisors address page
-def getStats(lst):
-    from supervisors.utils import mean, slope, stddev
-    slp = dev = None
-    # calculate mean value
-    avg = mean(lst)
-    if len(lst) > 1:
-        # calculate slope value between last 2 values
-        slp = slope(lst[-1], lst[-2])
-        # calculate standard deviation
-        dev = stddev(lst, avg)
-    return avg, slp, dev
+class AddressView(StatusView, ViewHandler):
+    # Name of the HTML page
+    pageName = 'address.html'
 
-
-# Supervisors address page
-class AddressView(StatusView):
-    # static attributes
-    statsPeriod = next(iter(options.statsPeriods))
-    namespec = ''
-
-    # Rendering part
     def render(self):
-        # clone the template and set navigation menu
-        root = self.clone()
-        if infoSource.supervisorState == SupervisorStates.RUNNING:
-            # get parameters
-            form = self.context.form
-            serverPort = form.get('SERVER_PORT')
-            # manage parameters
-            self.handleParameters()
-            # write navigation menu and Address header
-            writeNav(root, serverPort, address=addressMapper.localAddress)
-            self._writeHeader(root)
-            self._writePeriods(root)
-            self._writeAddressStatistics(root)
-            self._writeProcessStatistics(root)
-            # manage action
-            message = self.handleAction()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
-            # display result
-            printMessage(root, self.context.form.get('gravity'), self.context.form.get('message'))
-            self._renderProcesses(root)
-        return root.write_xhtmlstring()
+        """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
+        return self.writePage()
 
-    def _writeHeader(self, root):
+    def writeNavigation(self, root):
+        """ Rendering of the navigation menu with selection of the current address """
+        self.writeNav(root, address=addressMapper.localAddress)
+
+    def writeHeader(self, root):
+        """ Rendering of the header part of the Supervisors Address page """
         from supervisors.remote import remoteStateToString
         # set address name
         elt = root.findmeld('address_mid')
@@ -90,125 +59,97 @@ class AddressView(StatusView):
         # set last tick date: remoteTime and localTime should be identical since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(time.ctime(remote.remoteTime))
+        # write periods of statistics
+        self.writePeriods(root)
 
-    def _writeProcessStatistics(self, root):
-        """" Display detailed statistics about process """
-        statsElt = root.findmeld('pstats_div_mid')
-        # get data from statistics module iaw period selection
+    def writeContents(self, root):
+        """ Rendering of the contents part of the page """
+        self.writeProcessTable(root)
+        self.writeStatistics(root)
+
+    def writeStatistics(self, root):
+        """ Rendering of the statistics part of the page """
+        self.writeAddressStatistics(root)
+        self.writeProcessStatistics(root)
+
+    def getAddressStats(self):
+        """ Get the statistics structure related to the local address and the period selected """
         from supervisors.statistics import statisticsCompiler
-        statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
-        if AddressView.namespec in statsInstance.proc.keys():
-            procStats = statsInstance.proc[AddressView.namespec]
-            # set CPU statistics
-            if len(procStats[0]) > 0:
-                avg, slp, dev = getStats(procStats[0])
-                # print last CPU value of process
-                elt = statsElt.findmeld('pcpuval_td_mid')
-                elt.content('{:.2f}%'.format(procStats[0][-1]))
-                # set mean value
-                elt = statsElt.findmeld('pcpuavg_td_mid')
-                elt.content('{:.2f}'.format(avg))
-                if slp:
-                    # set slope value between last 2 values
-                    # TODO add class gradient to reflect increase / decrease
-                    elt = statsElt.findmeld('pcpuslope_td_mid')
-                    elt.content('{:.2f}'.format(slp))
-                if dev:
-                    # set standard deviation
-                    elt = statsElt.findmeld('pcpudev_td_mid')
-                    elt.content('{:.2f}'.format(dev))
-            # set MEM statistics
-            if len(procStats[1]) > 0:
-                avg, slp, dev = getStats(procStats[1])
-                # print last MEM value of process
-                elt = statsElt.findmeld('pmemval_td_mid')
-                elt.content('{:.2f}%'.format(procStats[1][-1]))
-                # set mean value
-                elt = statsElt.findmeld('pmemavg_td_mid')
-                elt.content('{:.2f}'.format(avg))
-                if slp:
-                    # set slope value between last 2 values
-                    # TODO add class gradient to reflect increase / decrease
-                    elt = statsElt.findmeld('pmemslope_td_mid')
-                    elt.content('{:.2f}'.format(slp))
-                if dev:
-                    # set standard deviation
-                    elt = statsElt.findmeld('pmemdev_td_mid')
-                    elt.content('{:.2f}'.format(dev))
-            # write CPU / Memory plot
-            from supervisors.plot import createCpuMemPlot
-            from supervisors.viewimage import processImageContents
-            createCpuMemPlot(procStats[0], procStats[1], processImageContents)
-            # set title
-            elt = statsElt.findmeld('process_fig_mid')
-            elt.content(AddressView.namespec)
-        else:
-            AddressView.namespec = ''
-            # hide stats part
-            statsElt.attrib['class'] = "hidden"
+        return statisticsCompiler.data[addressMapper.localAddress][ViewHandler.periodStats]
 
-    def _writeAddressStatistics(self, root):
-        """" Display tables and figures for address statistics """
+    def getProcessStats(self, namespec):
+        """ Get the statistics structure related to the local address and the period selected """
+        stats = self.getAddressStats()
+        if namespec in stats.proc.keys():
+            return stats.proc[namespec]
+
+    def writeAddressStatistics(self, root):
+        """ Rendering of tables and figures for address statistics """
         # position to stats element
         statsElt = root.findmeld('stats_div_mid')
         # get data from statistics module iaw period selection
-        from supervisors.statistics import statisticsCompiler
-        statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
-        self._writeMemoryStatistics(statsElt, statsInstance.mem)
-        self._writeProcessorStatistics(statsElt, statsInstance.cpu)
-        self._writeNetworkStatistics(statsElt, statsInstance.io)
-        # TODO: get selection
+        statsInstance = self.getAddressStats()
+        self.writeMemoryStatistics(statsElt, statsInstance.mem)
+        self.writeProcessorStatistics(statsElt, statsInstance.cpu)
+        self.writeNetworkStatistics(statsElt, statsInstance.io)
         # write CPU / Memory plot
-        from supervisors.plot import createCpuMemPlot
+        from supervisors.plot import StatisticsPlot
         from supervisors.viewimage import addressImageContents
-        createCpuMemPlot(statsInstance.cpu[0], statsInstance.mem, addressImageContents)
-        # write I/O plot
-        # from supervisors.plot import createIoPlot
-        # createIoPlot(interface, statsInstance.io[interface])
+        img = StatisticsPlot()
+        if AddressView.addressStatsType == 'acpu':
+            img.addPlot('CPU #{}'.format(self._transformCpuIdToString(AddressView.cpuIdStats)), '%', statsInstance.cpu[AddressView.cpuIdStats])
+        elif AddressView.addressStatsType == 'amem':
+            img.addPlot('MEM', '%', statsInstance.mem)
+        elif AddressView.addressStatsType == 'io':
+            img.addPlot('{} recv'.format(AddressView.interfaceStats), 'kbits/s', statsInstance.io[AddressView.interfaceStats][0])
+            img.addPlot('{} sent'.format(AddressView.interfaceStats), 'kbits/s', statsInstance.io[AddressView.interfaceStats][1])
+        img.exportImage(addressImageContents)
         # set title
         elt = root.findmeld('address_fig_mid')
         elt.content(addressMapper.localAddress)
 
-    def _writePeriods(self, root):
-        """ Display configured periods for statistics """
-        iterator = root.findmeld('period_li_mid').repeat(options.statsPeriods)
-        for li_element, period in iterator:
-            # TODO: set period button on only if there is a related statistics
-            # print period button
-            elt = li_element.findmeld('period_a_mid')
-            if period == AddressView.statsPeriod:
-            	elt.attrib['class'] = "button off active"
-            else:
-            	elt.attributes(href='address.html?period={}'.format(period))
-            elt.content('{}s'.format(period))
-
-    def _writeMemoryStatistics(self, statsElt, memStats):
-        """ Display memory statistics """
+    def writeMemoryStatistics(self, statsElt, memStats):
+        """ Rendering of the memory statistics """
         if len(memStats) > 0:
+            tr_elt = statsElt.findmeld('mem_tr_mid')
+            # inactive button if selected
+            if AddressView.addressStatsType == 'amem':
+                tr_elt.attrib['class'] = 'selected'
+                elt = statsElt.findmeld('mem_a_mid')
+                elt.attributes(href='#')
+                elt.attrib['class'] = 'button off active'
+            # get additional statistics
             avg, slp, dev = getStats(memStats)
             # set last value
-            elt = statsElt.findmeld('memval_td_mid')
+            elt = tr_elt.findmeld('memval_td_mid')
             elt.content('{:.2f}'.format(memStats[-1]))
             # set mean value
-            elt = statsElt.findmeld('memavg_td_mid')
+            elt = tr_elt.findmeld('memavg_td_mid')
             elt.content('{:.2f}'.format(avg))
             if slp:
             	# set slope value between last 2 values
             	# TODO add class gradient to reflect increase / decrease
-            	elt = statsElt.findmeld('memslope_td_mid')
+            	elt = tr_elt.findmeld('memslope_td_mid')
             	elt.content('{:.2f}'.format(slp))
             if dev:
             	# set standard deviation
-            	elt = statsElt.findmeld('memdev_td_mid')
+            	elt = tr_elt.findmeld('memdev_td_mid')
             	elt.content('{:.2f}'.format(dev))
 
-    def _writeProcessorStatistics(self, statsElt, cpuStats):
-        """ Display processor statistics """
+    def writeProcessorStatistics(self, statsElt, cpuStats):
+        """ Rendering of the processor statistics """
         iterator = statsElt.findmeld('cpu_tr_mid').repeat(cpuStats)
-        for (tr_element, singleCpuStats), idx in zip(iterator, range(-1, len(cpuStats) - 1)):
+        shaded_tr = False
+        for (tr_element, singleCpuStats), idx in zip(iterator, range(len(cpuStats) )):
+            selected_tr = False
             # set CPU id
             elt = tr_element.findmeld('cpunum_a_mid')
-            elt.content('cpu#{}'.format(idx if idx >= 0 else 'all'))
+            if AddressView.addressStatsType == 'acpu' and AddressView.cpuIdStats == idx:
+                selected_tr = True
+                elt.attrib['class'] = 'button off active'
+            else:
+                elt.attributes(href='address.html?stats=acpu&amp;idx={}'.format(idx))
+            elt.content('cpu#{}'.format(idx-1 if idx > 0 else 'all'))
             if len(singleCpuStats) > 0:
             	avg, slp, dev = getStats(singleCpuStats)
             	# set last value
@@ -226,22 +167,36 @@ class AddressView(StatusView):
             	    # set standard deviation
             	    elt = tr_element.findmeld('cpudev_td_mid')
             	    elt.content('{:.2f}'.format(dev))
+            if shaded_tr:
+                tr_element.attrib['class'] = 'shaded'
+            if selected_tr:
+                tr_element.attrib['class'] = 'selected'
+            shaded_tr = not shaded_tr
 
-    def _writeNetworkStatistics(self, statsElt, ioStats):
-        """ Display network statistics """
+    def writeNetworkStatistics(self, statsElt, ioStats):
+        """ Rendering of the network statistics """
         flattenIoStats = [ (intf, lst) for intf, lsts in ioStats.items() for lst in lsts ]
         iterator = statsElt.findmeld('intf_tr_mid').repeat(flattenIoStats)
         rowspan = True
+        shaded_tr = False
         for tr_element, (intf, singleIoStats) in iterator:
+            selected_tr = False
             # set interface cell rowspan
             elt = tr_element.findmeld('intf_td_mid')
             if rowspan:
-            	elt.attrib['rowspan'] = "2"
-            	# set interface name
-            	elt = elt.findmeld('intf_a_mid')
-            	elt.content(intf)
+                elt.attrib['rowspan'] = "2"
+                # set interface name
+                elt = elt.findmeld('intf_a_mid')
+                if AddressView.addressStatsType == 'io' and AddressView.interfaceStats == intf:
+                    selected_tr = True
+                    elt.attrib['class'] = 'button off active'
+                else:
+                    elt.attributes(href='address.html?stats=io&amp;intf={}'.format(intf))
+                elt.content(intf)
             else:
-            	elt.replace('')
+                if AddressView.addressStatsType == 'io' and AddressView.interfaceStats == intf:
+                    selected_tr = True
+                elt.replace('')
             # set interface direction
             elt = tr_element.findmeld('intfrxtx_td_mid')
             elt.content('Rx' if rowspan else 'Tx')
@@ -262,146 +217,58 @@ class AddressView(StatusView):
             	    # set standard deviation
             	    elt = tr_element.findmeld('intfdev_td_mid')
             	    elt.content('{:.2f}'.format(dev))
+            if shaded_tr:
+                tr_element.attrib['class'] = 'shaded'
+            if selected_tr:
+                tr_element.attrib['class'] = 'selected'
+            if not rowspan:
+                shaded_tr = not shaded_tr
             rowspan = not rowspan
 
-    def _renderProcesses(self, root):
+    def writeProcessTable(self, root):
+        """ Rendering of the processes managed through Supervisor """
         # collect data on processes
         data = [ ]
         try:
             from supervisors.rpcrequests import getAllProcessInfo
             for processinfo in getAllProcessInfo(addressMapper.localAddress):
-                data.append((make_namespec(processinfo['group'], processinfo['name']), processinfo['statename'], processinfo['state'], processinfo['description'] ))
+                data.append({'namespec': make_namespec(processinfo['group'], processinfo['name']), 'statename': processinfo['statename'],
+                    'state': processinfo['state'], 'desc': processinfo['description'] })
         except RPCError, e:
             options.logger.warn('failed to get all process info from {}: {}'.format(addressMapper.localAddress, e.text))
         # print processes
         if data:
-            from supervisors.statistics import statisticsCompiler
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
-            for tr_element, item in iterator:
-                # print process name
-                elt = tr_element.findmeld('name_a_mid')
-                elt.attributes(href='tail.html?processname={}'.format(urllib.quote(item[0])))
-                elt.content(item[0])
-                # print state
-                elt = tr_element.findmeld('state_td_mid')
-                elt.attrib['class'] = item[1]
-                elt.content(item[1])
-                # print expected loading
-                procStatus = context.getProcessFromNamespec(item[0])
-                elt = tr_element.findmeld('load_td_mid')
-                elt.content('{}%'.format(procStatus.rules.expected_loading))
-                # get data from statistics module iaw period selection
-                hideCpuLink = hideMemLink = True
-                statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod]
-                if item[0] in statsInstance.proc.keys():
-                    procStats = statsInstance.proc[item[0]]
-                    if len(procStats[0]) > 0:
-                        # print last CPU value of process
-                        elt = tr_element.findmeld('pcpu_a_mid')
-                        elt.attributes(href='address.html?pstats={}'.format(urllib.quote(item[0])))
-                        elt.content('{:.2f}%'.format(procStats[0][-1]))
-                        hideCpuLink = False
-                    if len(procStats[1]) > 0:
-                        # print last MEM value of process
-                        elt = tr_element.findmeld('pmem_a_mid')
-                        elt.attributes(href='address.html?pstats={}'.format(urllib.quote(item[0])))
-                        elt.content('{:.2f}%'.format(procStats[1][-1]))
-                        hideMemLink = False
-                # when no data, no not write link
-                if hideCpuLink:
-                    elt = tr_element.findmeld('pcpu_a_mid')
-                    elt.replace('--')
-                if hideMemLink:
-                    elt = tr_element.findmeld('pmem_a_mid')
-                    elt.replace('--')
-               # print description
-                elt = tr_element.findmeld('desc_td_mid')
-                elt.content(item[3])
-                # manage process actions iaw state
-                # start button
-                elt = tr_element.findmeld('start_a_mid')
-                if item[2] in STOPPED_STATES:
-                    elt.attrib['class'] = 'button on'
-                    elt.attributes(href='address.html?processname={}&amp;action=start'.format(urllib.quote(item[0])))
-                else:
-                   elt.attrib['class'] = 'button off'
-                # stop button
-                elt = tr_element.findmeld('stop_a_mid')
-                if item[2] in RUNNING_STATES:
-                    elt.attrib['class'] = 'button on'
-                    elt.attributes(href='address.html?processname={}&amp;action=stop'.format(urllib.quote(item[0])))
-                else:
-                   elt.attrib['class'] = 'button off'
-                # restart button
-                elt = tr_element.findmeld('restart_a_mid')
-                if item[2] in RUNNING_STATES:
-                    elt.attrib['class'] = 'button on'
-                    elt.attributes(href='address.html?processname={}&amp;action=restart'.format(urllib.quote(item[0])))
-                else:
-                   elt.attrib['class'] = 'button off'
+            for trElt, item in iterator:
+                selected_tr = self.writeCommonProcessStatus(trElt, item)
+                # print process name (tail allowed if STOPPED)
+                namespec = item['namespec']
+                processName = item.get('processname', namespec)
+                elt = trElt.findmeld('name_a_mid')
+                elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(addressMapper.localAddress, self.getServerPort(), urllib.quote(namespec)))
+                elt.content(processName)
+                # print description
+                elt = trElt.findmeld('desc_td_mid')
+                elt.content(item['desc'])
                 # manage process log actions
-                elt = tr_element.findmeld('clear_a_mid')
-                elt.attributes(href='address.html?processname={}&amp;action=clearlog'.format( urllib.quote(item[0])))
-                elt = tr_element.findmeld('tail_a_mid')
-                elt.attributes(href='logtail/{}'.format(urllib.quote(item[0])), target='_blank')
+                namespec = item['namespec']
+                elt = trElt.findmeld('clear_a_mid')
+                elt.attributes(href='address.html?processname={}&amp;action=clearlog'.format(urllib.quote(namespec)))
+                elt = trElt.findmeld('tail_a_mid')
+                elt.attributes(href='logtail/{}'.format(urllib.quote(namespec)), target='_blank')
                 # set line background and invert
-                if shaded_tr:
-                    tr_element.attrib['class'] = 'shade'
+                if selected_tr:
+                    trElt.attrib['class'] = 'selected'
+                elif shaded_tr:
+                    trElt.attrib['class'] = 'shaded'
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')
             table.replace('No programs to manage')
 
-    # Parameters part
-    def handleParameters(self):
-        form = self.context.form
-        # update context period
-        periodString = form.get('period')
-        if periodString:
-            period = int(periodString)
-            if period in options.statsPeriods:
-                if AddressView.statsPeriod != period:
-                    options.logger.info('statistics period set to %d' % period)
-                    AddressView.statsPeriod = period
-            else:
-                message = errorMessage('incorrect period: {}'.format(periodString))
-                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
-                self.context.response['headers']['Location'] = location
-        # update Process statistics selection
-        namespec = form.get('pstats')
-        if namespec:
-            from supervisors.statistics import statisticsCompiler
-            statsInstance = statisticsCompiler.data[addressMapper.localAddress][AddressView.statsPeriod].proc
-            if namespec in statsInstance.keys():
-                if AddressView.namespec != namespec:
-                    options.logger.info('select detailed Process statistics for %s' % namespec)
-                    AddressView.namespec = namespec
-            else:
-                message = errorMessage('incorrect pstat namespec: {}'.format(namespec))
-                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
-                self.context.response['headers']['Location'] = location
-
-    # Action part
-    def handleAction(self):
-        form = self.context.form
-        action = form.get('action')
-        if action:
-            # trigger deferred action and wait
-            processName = form.get('processname')
-            if not self.callback:
-                self.callback = self.make_callback(processName, action)
-                return NOT_DONE_YET
-            # intermediate check
-            message = self.callback()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
-            # post to write message
-            if message is not None:
-                message = formatGravityMessage(message)
-                location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?message={}&amp;gravity={}'.format(urllib.quote(message[1]), message[0])
-                self.context.response['headers']['Location'] = location
-
     def make_callback(self, namespec, action):
+        """ Triggers processing iaw action requested """
         if action == 'restartsup':
             return self.restartSupAction()
         if action == 'shutdownsup':
@@ -409,6 +276,7 @@ class AddressView(StatusView):
         return StatusView.make_callback(self, namespec, action)
 
     def restartSupAction(self):
+        """ Restart the local supervisor """
         from supervisors.rpcrequests import restart
         restart(addressMapper.localAddress)
         # cannot defer result as restart address is self address
@@ -416,7 +284,9 @@ class AddressView(StatusView):
         return delayedWarn('Supervisor restart requested')
 
     def shutdownSupAction(self):
+        """ Shutdown the local supervisor """
         from supervisors.rpcrequests import shutdown
         shutdown(addressMapper.localAddress)
         # cannot defer result if shutdown address is self address
         return delayedWarn('Supervisor shutdown requested')
+

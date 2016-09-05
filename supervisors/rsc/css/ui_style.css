@@ -91,6 +91,8 @@ nav {
 }
 
 #right_side header {
+    min-height: 90px;
+    
     padding: 0 10px;
 }
 
@@ -101,20 +103,27 @@ nav {
 	justify-content: space-between;
 }
 
-/* first row: process and statistics */
+/* Supervisors page / first row: address boxes */
+#box_part {
+	flex: 1;
+    display: flex;
+	justify-content: space-around;
+    flex-wrap: wrap;
+    margin: 5px;
+}
+
+/* Address page / first row: process and statistics */
 #process_part {
 	flex: 1;
     display: flex;
 	justify-content: space-around;
     margin: 5px;
-    border-bottom: 3px #cc7a00 solid;
 }
 
 #process_left_side {
     flex: 1;
     display: flex;
 	flex-direction: column;
-	justify-content: space-around;
     margin-right: 5px;
 }
 
@@ -136,16 +145,17 @@ nav {
     max-width: 500px;
     display: flex;
 	flex-direction: column;
-	justify-content: space-around;
     align-items: center;
 }
 
 /* second row: address statistics */
 #address_part {
     max-height: 250px;
+    padding-top: 5px;
     display: flex;
 	justify-content: space-around;
     margin-top: 5px;
+    border-top: 3px #cc7a00 solid;
 }
 
 #address_part div {
@@ -334,7 +344,7 @@ table {
 	border-collapse: collapse;
 	caption-side: top;
 	background: rgba(200, 200, 200, .7);
-	margin: auto;
+	margin: 0 auto;
 }
 
 caption {
@@ -355,8 +365,12 @@ th {
 	color: #e6e6e6;
 }
 
-tr.shade {
-	background-color: #CFC;
+tr.shaded {
+	background-color: #ffc;
+}
+
+tr.selected {
+	background-color: #9f9;
 }
 
 /* fix first columns sizes (button actions have a fixed contents) */
@@ -424,14 +438,24 @@ th a {
  * Style for addressBox (main page)
  */
 .addressBox {
-    min-width: 100px;
+    display: flex;
+    min-width: 200px;
     max-width: 30%;
     min-height: 150px;
-    margin: 20px auto;
+    height: 150px;
 }
 
 .addressBox table {
+    height: 100%;
 	border: 3px ridge black;
+}
+
+.addressBox th {
+    height: 18px;
+}
+
+.addressBox td:nth-child(1) {
+    vertical-align: top;
 }
 
 .addressBox tr {
@@ -521,5 +545,24 @@ nav .STOPPING {
 
 nav li.STOPPING.active {
 	background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
+}
+
+
+/*
+ * increase / decrease
+ */
+.increase::after {
+	content: "\2197";
+	color: red;
+}
+
+.stable::after {
+	content: "\219d";
+	color: black;
+}
+
+.decrease::after {
+	content: "\2198";
+	color: green;
 }
 

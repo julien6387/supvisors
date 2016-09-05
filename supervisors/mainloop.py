@@ -81,16 +81,20 @@ class SupervisorsMainLoop(threading.Thread):
             # check tick and process events
             if self.eventSubscriber.socket in socks and socks[self.eventSubscriber.socket] == zmq.POLLIN:
                 options.logger.blather('got message on eventSubscriber')
-                message = self.eventSubscriber.receive()
-                if message[0] == TickHeader:
-                    options.logger.blather('got tick message: {}'.format(message[1]))
-                    context.onTickEvent(message[1][0], message[1][1])
-                elif message[0] == ProcessHeader:
-                    options.logger.blather('got process message: {}'.format(message[1]))
-                    context.onProcessEvent(message[1][0], message[1][1])
-                elif message[0] == StatisticsHeader:
-                    options.logger.blather('got statistics message: {}'.format(message[1]))
-                    statisticsCompiler.pushStatistics(message[1][0], message[1][1])
+                try:
+                    message = self.eventSubscriber.receive()
+                except Exception, e:
+                    options.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                else:
+                    if message[0] == TickHeader:
+                        options.logger.blather('got tick message: {}'.format(message[1]))
+                        context.onTickEvent(message[1][0], message[1][1])
+                    elif message[0] == ProcessHeader:
+                        options.logger.blather('got process message: {}'.format(message[1]))
+                        context.onProcessEvent(message[1][0], message[1][1])
+                    elif message[0] == StatisticsHeader:
+                        options.logger.blather('got statistics message: {}'.format(message[1]))
+                        statisticsCompiler.pushStatistics(message[1][0], message[1][1])
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()

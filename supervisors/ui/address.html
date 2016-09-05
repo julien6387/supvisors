@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en"
-		xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:meld="http://www.plope.com/software/meld3">
+    xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:meld="http://www.plope.com/software/meld3">
 
 <head>
 	<meta charset="utf-8" />
-	<meta http-equiv="refresh" content="5" />
 	<link rel="stylesheet" href="css/ui_style.css" />
 	<link rel="stylesheet" href="css/menu.css" />
 	<link rel="stylesheet" href="css/button.css" />
@@ -48,7 +47,7 @@
                     <p><code meld:id="state_mid">RemoteStates</code> at <span meld:id="date_mid">Time</span></p>
                 </div>
 
-                <div id="parameters">
+                <div>
                     <table class="optionBox">
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
@@ -72,9 +71,6 @@
 			<div id="contents">
                 <div id="process_part">
                     <div id="process_left_side">
-                        <div id="messageBox" meld:id="message_mid">
-                        </div>
-
                         <div id="processes">
                             <table meld:id="table_mid">
                                 <thead>
@@ -105,9 +101,18 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <div id="messageBox" meld:id="message_mid"></div>
                     </div>
 
                     <div id="process_right_side" meld:id="pstats_div_mid">
+                        <div>
+                            <figure>
+                                <img src="process_stats.png" alt="Process Statistics Graph"/>
+                                <figcaption>Detailed Statistics for <span meld:id="process_fig_mid">--</span></figcaption>
+                            </figure>
+                        </div>
+
                         <div>
                             <table>
                                 <tr>
@@ -127,13 +132,6 @@
                                     <td meld:id="pmemdev_td_mid">--</td>
                                 </tr>
                             </table>
-                        </div>
-
-                        <div>
-                            <figure>
-                                <img src="process_stats.png" alt="Process Statistics Graph"/>
-                                <figcaption>Detailed Statistics for <span meld:id="process_fig_mid">--</span></figcaption>
-                            </figure>
                         </div>
                      </div>
                 </div>
@@ -160,10 +158,10 @@
                                 <table>
                                     <caption>Memory Statistics</caption>
                                     <tr>
-                                        <th rowspan="2"><a href="address.html?stats=mem" meld:id="mem_a_mid" class="button on">mem</a></th>
+                                        <th rowspan="2"><a href="address.html?stats=amem" meld:id="mem_a_mid" class="button on">mem</a></th>
                                         <th>Occ %</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
                                     </tr>
-                                    <tr>
+                                    <tr meld:id="mem_tr_mid">
                                         <td meld:id="memval_td_mid">--</td>
                                         <td meld:id="memavg_td_mid">--</td>
                                         <td meld:id="memslope_td_mid">--</td>
