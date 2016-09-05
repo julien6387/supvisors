@@ -62,11 +62,13 @@ class SupervisordSource(object):
     def userName(self): return self.serverConfig['username']
     @property
     def password(self): return self.serverConfig['password']
+    @property
+    def supervisorState(self): return self.supervisord.options.mood
 
     # this method is used to force a process state into supervisord and to dispatch process event to event listeners
     def forceProcessFatalState(self, namespec, reason):
-        from supervisors.utils import getApplicationAndProcessNames
-        applicationName, processName = getApplicationAndProcessNames(namespec)
+        from supervisor.options import split_namespec
+        applicationName, processName = split_namespec(namespec)
         # WARN: may throw KeyError
         subProcess = self.supervisord.process_groups[applicationName].processes[processName]
         # need to force BACKOFF state to go through assertion

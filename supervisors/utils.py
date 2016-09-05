@@ -20,6 +20,14 @@
 # strings used as headers in messages between Listener and MainLoop
 TickHeader = u'tick'
 ProcessHeader = u'process'
+StatisticsHeader = u'statistics'
+
+# strings used as headers in messages between EventPublisher and Supervisors' Client
+SupervisorsStatusHeader = u'supervisors'
+RemoteStatusHeader = u'remote'
+ApplicationStatusHeader = u'application'
+ProcessStatusHeader = u'process'
+
 
 # used to convert enumeration-like value to string and vice-versa
 def enumToString(dico,  idxEnum):
@@ -34,17 +42,53 @@ def enumValues(dico):
 def enumStrings(dico):
     return [ x for x in dico.keys() if not x.startswith('__') ]
 
-# return 'group:program' or just 'program' if identical
-def getNamespec(applicationName, programName):
-    from supervisor.options import make_namespec
-    return make_namespec(applicationName, programName)
-
-def getApplicationAndProcessNames(namespec):
-    from supervisor.options import split_namespec
-    return split_namespec(namespec)
 
 # return time without date
 def simpleTime(now=None):
     import time
     if now is None: now = time.time()
     return time.strftime("%H:%M:%S", time.localtime(now))
+
+
+# simple lambda functions
+import math
+
+mean = lambda x: sum(x) / float(len(x))
+srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
+stddev = lambda lst, avg: math.sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
+
+# linear regression
+def getLinearRegression(xData, yData):
+    try:
+        import numpy
+        return numpy.polyfit(xData, yData, 1)
+    except ImportError:
+        # numpy not available
+        # try something approximate and simple
+        dataSize = len(xData)
+        sumX = sum(xData)
+        sumY = sum(yData)
+        sumXX= sum(map(lambda x: x * x, xData))
+        sumProducts = sum([ xData[i] * yData[i] for i in range(dataSize) ])
+        a = (sumProducts - sumX * sumY / dataSize) / (sumXX - (sumX * sumX) / dataSize)
+        b = (sumY - a * sumX) / dataSize
+        return a, b
+
+def getSimpleLinearRegression(lst):
+    # in Supervisors, Y data is periodic
+    dataSize = len(lst)
+    return getLinearRegression( [ i for i in range(dataSize) ], lst)
+
+# get statistics from data
+def getStats(lst):
+    rate = a = b = dev = None
+    # calculate mean value
+    avg = mean(lst)
+    if len(lst) > 1:
+        # calculate instant rate value between last 2 values
+        rate = srate(lst[-1], lst[-2])
+        # calculate slope value from linear regression of values
+        a, b = getSimpleLinearRegression(lst)
+        # calculate standard deviation
+        dev = stddev(lst, avg)
+    return avg, rate, (a,  b), dev

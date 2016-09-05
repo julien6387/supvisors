@@ -20,8 +20,9 @@
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.options import options
+from supervisors.publisher import eventPublisher
 from supervisors.statemachine import fsm
-
+from supervisors.statistics import statisticsCompiler
 
 import zmq, time, threading
 
@@ -31,7 +32,7 @@ class EventSubscriber(object):
         self.socket = zmqContext.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
         for address in addressMapper.expectedAddresses:
-            url = 'tcp://{}:{}'.format(address, options.internalport)
+            url = 'tcp://{}:{}'.format(address, options.internalPort)
             options.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
         options.logger.debug('EventSubscriber connected')
@@ -42,9 +43,12 @@ class EventSubscriber(object):
 
     def disconnect(self, addresses):
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address, options.internalport)
+            url = 'tcp://{}:{}'.format(address, options.internalPort)
             options.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
+
+    def close(self):
+        self.socket.close()
 
 
 # class for Supervisors main loop. all inputs are sequenced here
@@ -54,6 +58,9 @@ class SupervisorsMainLoop(threading.Thread):
         threading.Thread.__init__(self)
         # create event sockets
         self.eventSubscriber = EventSubscriber(zmqContext)
+        eventPublisher.open(zmqContext)
+        # configure statistics compiler
+        statisticsCompiler.clearAll(options.statsPeriods, options.statsHisto)
 
     def stop(self):
         options.logger.info('request to stop main loop')
@@ -61,7 +68,7 @@ class SupervisorsMainLoop(threading.Thread):
 
     # main loop
     def run(self):
-        from supervisors.utils import TickHeader, ProcessHeader
+        from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
         # create poller
         poller = zmq.Poller()
         # register event publisher
@@ -74,13 +81,20 @@ class SupervisorsMainLoop(threading.Thread):
             # check tick and process events
             if self.eventSubscriber.socket in socks and socks[self.eventSubscriber.socket] == zmq.POLLIN:
                 options.logger.blather('got message on eventSubscriber')
-                message = self.eventSubscriber.receive()
-                if message[0] == TickHeader:
-                    options.logger.blather('got tick message: {}'.format(message[1]))
-                    context.onTickEvent(message[1][0], message[1][1])
-                elif message[0] == ProcessHeader:
-                    options.logger.blather('got process message: {}'.format(message[1]))
-                    context.onProcessEvent(message[1][0], message[1][1])
+                try:
+                    message = self.eventSubscriber.receive()
+                except Exception, e:
+                    options.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                else:
+                    if message[0] == TickHeader:
+                        options.logger.blather('got tick message: {}'.format(message[1]))
+                        context.onTickEvent(message[1][0], message[1][1])
+                    elif message[0] == ProcessHeader:
+                        options.logger.blather('got process message: {}'.format(message[1]))
+                        context.onProcessEvent(message[1][0], message[1][1])
+                    elif message[0] == StatisticsHeader:
+                        options.logger.blather('got statistics message: {}'.format(message[1]))
+                        statisticsCompiler.pushStatistics(message[1][0], message[1][1])
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()
@@ -101,6 +115,8 @@ class SupervisorsMainLoop(threading.Thread):
 
     def _close(self):
         # close zmq sockets
-        self.eventSubscriber.socket.close()
+        eventPublisher.close()
+        self.eventSubscriber.close()
         # cleanup in case of restarting
         context.restart()
+

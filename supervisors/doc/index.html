@@ -87,12 +87,14 @@
 				<p>Packaging <span class="not-implemented-yet"></span></p>
 				<p>Temporary: get a copy of the supervisors directory from <a href="#github" class="extLink">here</a> and export to <code class="bash">PYTHONPATH</code> before running Supervisor</p>
 				<p>Supervisors has the following dependencies:</p>
+                <p>TODO: replace list with table of full dependencies and versions used. talk about problems if necessary</p>
 				<ul>
-					<li><a href="http://supervisord.org" class="extLink">Supervisor</a>: base software, extended by Supervisors</li>
-					<li><a href="http://pyzmq.readthedocs.io" class="extLink">PyZMQ</a>: used for TCP publish / subscribe pattern.</li>
-					<li><a href="https://pypi.python.org/pypi/psutil" class="extLink">psutil</a>: used to get information about running processes and system utilization.</li>
-					<li><a href="https://pypi.python.org/pypi/netifaces" class="extLink">netifaces</a>: used to get IPv4 aliases from host name.</li>
-					<li><a href="http://lxml.de" class="extLink">lxml</a>: for XSD validation of the XML deployment file (optional).</li>
+					<li><a href="http://supervisord.org" class="extLink">Supervisor</a>: base software, extended by Supervisors. version 3.3.0 + elttree 1.2.6 + meld3 0.6.5</li>
+					<li><a href="http://pyzmq.readthedocs.io" class="extLink">PyZMQ</a>: used for TCP publish / subscribe pattern. version 15.2.0 over zeromq 4.1.2</li>
+					<li><a href="https://pypi.python.org/pypi/psutil" class="extLink">psutil</a>: used to get information about running processes and system utilization. version 4.3.0</li>
+					<li><a href="https://pypi.python.org/pypi/netifaces" class="extLink">netifaces</a>: used to get IPv4 aliases from host name. version 0.10.4</li>
+					<li><a href="http://lxml.de" class="extLink">lxml</a>: for XSD validation of the XML deployment file (optional). version 3.2.1</li>
+					<li><a href="http://matplotlib.org" class="extLink">mathplotlib</a>: for web graphs (optional). version 1.2.0</li>
 				</ul>
 
 				<h2 id="run">Running Supervisors</h2>

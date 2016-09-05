@@ -51,13 +51,13 @@ class _InitializationState(_AbstractState):
         if addressMapper.localAddress in runningRemotes:
             if len(context.unknownRemotes()) == 0:
                 # synchro done if the state of all remotes is known
-                return SupervisorsStates.ELECTION
+                return SupervisorsStates.DEPLOYMENT
             # if synchro timeout reached, stop synchro and work with known remotes
-            if (time.time() - self.startDate) > options.synchro_timeout:
+            if (time.time() - self.startDate) > options.synchroTimeout:
                 options.logger.warn('synchro timed out')
                 # force state of missing Remotes
                 context.endSynchro()
-                return SupervisorsStates.ELECTION
+                return SupervisorsStates.DEPLOYMENT
             options.logger.debug('still waiting for remote supervisors to synchronize')
         else:
             options.logger.debug('local address {} still not RUNNING'.format(addressMapper.localAddress))
@@ -65,21 +65,12 @@ class _InitializationState(_AbstractState):
 
     def exit(self):
         # TODO: global checking / endSynchro ?
-        pass
-
-class _ElectionState(_AbstractState):
-    def enter(self):
-        context.masterAddress = ''
-        context.master = False
-
-    def next(self):
         runningRemotes = context.runningRemotes()
         options.logger.info('working with boards {}'.format(runningRemotes))
         # arbitrarily choice : master address is the 'greater' address among running remotes
         context.masterAddress = max(runningRemotes)
         context.master = (context.masterAddress == addressMapper.localAddress)
         options.logger.info('Supervisors master is {} self={}'.format(context.masterAddress, context.master))
-        return SupervisorsStates.DEPLOYMENT
 
 class _DeploymentState(_AbstractState):
     def enter(self):
@@ -100,7 +91,7 @@ class _OperationState(_AbstractState):
         if context.remotes[addressMapper.localAddress].state != RemoteStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
         if context.remotes[context.masterAddress].state != RemoteStates.RUNNING:
-            return SupervisorsStates.ELECTION
+            return SupervisorsStates.INITIALIZATION
         # check duplicated processes
         if context.hasConflict():
             return SupervisorsStates.CONCILIATION
@@ -110,14 +101,14 @@ class _ConciliationState(_AbstractState):
     def enter(self):
         # the Supervisors Master auto-conciliate conflicts
         if context.master:
-            conciliator.conciliate(options.conciliation_strategy, context.getConflicts())
+            conciliator.conciliate(options.conciliationStrategy, context.getConflicts())
 
     def next(self):
         # check if master and local are still RUNNING
         if context.remotes[addressMapper.localAddress].state != RemoteStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
         if context.remotes[context.masterAddress].state != RemoteStates.RUNNING:
-            return SupervisorsStates.ELECTION
+            return SupervisorsStates.INITIALIZATION
         # check conciliation
         if not context.hasConflict():
             return SupervisorsStates.OPERATION
@@ -140,21 +131,27 @@ class _FiniteStateMachine:
     def _updateStateInstance(self, state):
         self.state = state
         self.stateInstance = self.__StateInstances[state]()
+        # publish RemoteStatus event
+        from supervisors.publisher import eventPublisher
+        eventPublisher.sendSupervisorsStatus(self)
+
+    # serialization
+    def toJSON(self):
+        return { 'state': supervisorsStateToString(self.state) }
+
 
     __StateInstances = {
         SupervisorsStates.INITIALIZATION: _InitializationState,
-        SupervisorsStates.ELECTION: _ElectionState,
         SupervisorsStates.DEPLOYMENT: _DeploymentState,
         SupervisorsStates.OPERATION: _OperationState,
         SupervisorsStates.CONCILIATION: _ConciliationState
     }
 
     __Transitions = {
-        SupervisorsStates.INITIALIZATION: [ SupervisorsStates.ELECTION ],
-        SupervisorsStates.ELECTION: [ SupervisorsStates.DEPLOYMENT ],
+        SupervisorsStates.INITIALIZATION: [ SupervisorsStates.DEPLOYMENT ],
         SupervisorsStates.DEPLOYMENT: [ SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION ],
-        SupervisorsStates.OPERATION: [ SupervisorsStates.CONCILIATION, SupervisorsStates.INITIALIZATION, SupervisorsStates.ELECTION ],
-        SupervisorsStates.CONCILIATION: [ SupervisorsStates.OPERATION, SupervisorsStates.INITIALIZATION, SupervisorsStates.ELECTION ]
+        SupervisorsStates.OPERATION: [ SupervisorsStates.CONCILIATION, SupervisorsStates.INITIALIZATION ],
+        SupervisorsStates.CONCILIATION: [ SupervisorsStates.OPERATION, SupervisorsStates.INITIALIZATION ]
    }
 
 fsm = _FiniteStateMachine()

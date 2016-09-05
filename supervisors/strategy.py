@@ -31,7 +31,7 @@ class _DeploymentStrategy(object):
 
     def __isLoadingValid(self, address, expectedLoading):
         if self.__isRemoteValid(address):
-            loading = context.getRemoteLoading(address)
+            loading = context.getLoading(address)
             options.logger.debug('address={} loading={} expectedLoading={}'.format(address, loading, expectedLoading))
             return (loading + expectedLoading < 100, loading)
         options.logger.debug('address {} invalid for handling new process'.format(address))
@@ -43,7 +43,7 @@ class _DeploymentStrategy(object):
             options.logger.trace('address {} state={}'.format(address, remoteStateToString(remoteInfo.state)))
             return remoteInfo.state == RemoteStates.RUNNING
 
-    def _getRemoteLoadingAndValidity(self, addresses, expectedLoading):
+    def _getLoadingAndValidity(self, addresses, expectedLoading):
         # returns adresses with validity and loading
         if '*' in addresses: addresses = addressMapper.expectedAddresses
         loadingValidities = { address: self.__isLoadingValid(address, expectedLoading) for address in addresses }
@@ -60,7 +60,7 @@ class _ConfigStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
         options.logger.debug('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
         # returns the first remote in list that is capable of handling the loading
-        loadingValidities = self._getRemoteLoadingAndValidity(addresses, expectedLoading)
+        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
         for (address, validity) in loadingValidities.items():
             if validity[0]: return address 
 
@@ -68,7 +68,7 @@ class _LessLoadedStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
         options.logger.trace('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
         # returns the less loaded remote from list that is capable of handling the loading
-        loadingValidities = self._getRemoteLoadingAndValidity(addresses, expectedLoading)
+        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
         sortedAddresses = self._sortValidByLoading(loadingValidities)
         return sortedAddresses[0][0]  if sortedAddresses else None
 
@@ -76,7 +76,7 @@ class _MostLoadedStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
         options.logger.trace('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
         # returns the most loaded remote from list that is capable of handling the loading
-        loadingValidities = self._getRemoteLoadingAndValidity(addresses, expectedLoading)
+        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
         sortedAddresses = self._sortValidByLoading(loadingValidities)
         return sortedAddresses[-1][0]  if sortedAddresses else None
 

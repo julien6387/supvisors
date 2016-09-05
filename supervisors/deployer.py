@@ -45,7 +45,7 @@ class _Deployer(object):
     def deployApplications(self, applications):
         options.logger.info('deploy all applications')
         # internal call: default strategy always used
-        self.useStrategy(options.deployment_strategy)
+        self.useStrategy(options.deploymentStrategy)
         # deployment initialization: push program list in todo list
         for application in applications:
             # do not deploy an application that is not properly STOPPED
@@ -86,11 +86,11 @@ class _Deployer(object):
         # restart required processes first
         for process in lostProcesses:
             if process.rules.required:
-                self.deployProcess(options.deployment_strategy, process)
+                self.deployProcess(options.deploymentStrategy, process)
         # restart optional processes
         for process in lostProcesses:
             if not process.rules.required:
-                self.deployProcess(options.deployment_strategy, process)
+                self.deployProcess(options.deploymentStrategy, process)
 
     def checkDeployment(self):
         options.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))

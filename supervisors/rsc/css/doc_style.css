@@ -5,18 +5,19 @@ body {
 
 #body_block {
 	min-width: 1000px;
-   min-height: 780px;
-   height: 100vh;
-   display: flex;
+    min-height: 780px;
+    height: 100vh;
+    display: flex;
 }
 
 #left_side {
-   display: flex;
+    display: flex;
 	flex-direction: column;
 }
 
 nav {
 	flex: 1;
+	font-size: .9em;
 }
 
 header, nav, footer, section {
@@ -139,8 +140,8 @@ a.intLink {
 	font-size: .8em;
 	padding-left: 2px;
 	padding-right: 18px;
-   border: 1px green outset;
-   border-radius: 0px 10px 10px 0px;
+    border: 1px green outset;
+    border-radius: 0px 10px 10px 0px;
 }
 
 a.extLink {
@@ -322,9 +323,9 @@ dd {
 figure img {
 	display: block;
 	margin: auto;
-   border: 1px solid black outset;
-   border-radius: 6px;
-   box-shadow: 4px 4px 6px black;
+    border: 1px solid black outset;
+    border-radius: 6px;
+    box-shadow: 4px 4px 6px black;
 }
 
 figcaption {

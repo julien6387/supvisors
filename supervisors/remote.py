@@ -46,6 +46,12 @@ class RemoteStatus(object):
         self.remoteTime = 0
         self.localTime = 0
 
+    # serialization
+    def toJSON(self):
+        return { 'address': self.address, 'state': self.stateAsString(), 'checked': self.checked,
+            'remoteTime': self.remoteTime, 'localTime': self.localTime }
+
+    # access
     def isInIsolation(self):
         return self.state in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
 
@@ -58,6 +64,8 @@ class RemoteStatus(object):
                 raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self.state), remoteStateToString(state)))
 
     # methods
+    def stateAsString(self): return remoteStateToString(self.state)
+
     def updateRemoteTime(self, remoteTime, localTime):
         self.remoteTime = remoteTime
         self.localTime = localTime

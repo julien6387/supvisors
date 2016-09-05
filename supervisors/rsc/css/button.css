@@ -8,7 +8,7 @@
 	background-color: orange;
 	border: none;
 	border-radius: 6px;
-	box-shadow: 0 2px #999;
+	box-shadow: 0 2px #666;
 	color: #fff;
 	font-size: .8em;
 	text-decoration: none;
@@ -23,7 +23,7 @@
 
 .button[class~=on]:active {
 	background-color: #cc8500;
-	box-shadow: 0 2px #666;
+	box-shadow: 0 2px #333;
 	transform: translateY(1px);
 }
 

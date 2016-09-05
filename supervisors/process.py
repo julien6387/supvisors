@@ -72,13 +72,17 @@ class ProcessStatus(object):
         self.addInfo(address, processInfo)
 
     # access
-    def getNamespec(self): return getNamespec(self.applicationName, self.processName)
-    def stateAsString(self): return getProcessStateDescription(self.state)
+    def getNamespec(self):
+        from supervisor.options import make_namespec
+        return make_namespec(self.applicationName, self.processName)
 
     def isStopped(self): return self.state in STOPPED_STATES
     def isRunning(self): return self.state in RUNNING_STATES
     def isRunningOn(self, address): return self.isRunning() and address in self.addresses
     def isRunningLost(self): return self.isRunning() and not self.addresses
+
+    def hasRunningPidOn(self, address):
+        return self.state in [ ProcessStates.RUNNING, ProcessStates.STOPPING ] and address in self.addresses
 
     def setState(self, state):
         if self.state != state:
@@ -88,7 +92,14 @@ class ProcessStatus(object):
     def runningConflict(self):
         return len(self.addresses) > 1
 
+    # serialization
+    def toJSON(self):
+        return { 'applicationName': self.applicationName, 'processName': self.processName, 'state': self.stateAsString(),
+            'expectedExit': self.expectedExit, 'lastEventTime': self.lastEventTime, 'addresses': list(self.addresses) }
+
     # methods
+    def stateAsString(self): return getProcessStateDescription(self.state)
+
     def addInfo(self, address, processInfo):
         # remove useless fields
         self.__filterInfo(processInfo)

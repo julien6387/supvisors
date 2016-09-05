@@ -105,7 +105,7 @@ class _RPCInterface(object):
         """
         try:
             remote = context.remotes[address]
-            loading = context.getRemoteLoading(address)
+            loading = context.getLoading(address)
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
         from supervisors.remote import remoteStateToString
@@ -211,7 +211,7 @@ class _RPCInterface(object):
         application = context.applications[applicationName]
         for process in application.processes.values():
             if process.isRunning():
-                for address in process.addresses:
+                for address in process.addresses.copy():
                     options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
                     stopProcess(address, process.getNamespec(), False)
         # wait until all processes in STOPPED_STATES
@@ -381,7 +381,7 @@ class _RPCInterface(object):
         if fsm.state not in stateList:
             from supervisors.types import supervisorsStateToString
             raise RPCError(Faults.BAD_SUPERVISORS_STATE, 'Supervisors (state={}) not in state {} to perform request'.
-                format(supervisorsStateToString(context.fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
+                format(supervisorsStateToString(fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
 
     # almost equivalent to the method in supervisor.rpcinterface
     def _getApplicationAndProcess(self, namespec):
@@ -427,6 +427,26 @@ class _RPCInterface(object):
         return func(addressMapper.localAddress)
 
 
+# Trick to replace Supervisor main page
+def updateUiHandler():
+    from supervisor.web import VIEWS
+    # replace Supervisor main entry
+    from os import path
+    here = path.abspath(path.dirname(__file__))
+    # set main page
+    from supervisors.viewsupervisors import SupervisorsView
+    VIEWS['index.html'] =  { 'template': path.join(here, 'ui/index.html'), 'view': SupervisorsView }
+    # set address page
+    from supervisors.viewaddress import AddressView
+    VIEWS['address.html'] =  { 'template': path.join(here, 'ui/address.html'), 'view': AddressView }
+    # set application page
+    from supervisors.viewapplication import ApplicationView
+    VIEWS['application.html'] =  { 'template': path.join(here, 'ui/application.html'), 'view': ApplicationView }
+    # set fake page to export images
+    from supervisors.viewimage import ProcessImageView, AddressImageView
+    VIEWS['process_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ProcessImageView }
+    VIEWS['address_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': AddressImageView }
+
 # Supervisor entry point
 def make_supervisors_rpcinterface(supervisord, **config):
     # expand supervisord Fault definition (no matter if done several times)
@@ -438,18 +458,17 @@ def make_supervisors_rpcinterface(supervisord, **config):
     # get options from config file
     options.realize()
     # set addresses and check local address
-    addressMapper.setAddresses(options.addresslist)
+    addressMapper.setAddresses(options.addressList)
     if not addressMapper.localAddress:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(options.addresslist))
+        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(options.addressList))
     context.restart()
     fsm.restart()
     # check parsing
     from supervisors.parser import parser
-    try: parser.setFilename(options.deployment_file)
+    try: parser.setFilename(options.deploymentFile)
     except:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(options.deployment_file))
+        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(options.deploymentFile))
     # update http web pages
-    from supervisors.web import updateUiHandler
     updateUiHandler()
     # create and return handler
     return _RPCInterface()

@@ -63,14 +63,23 @@ class ApplicationStatus(object):
         self.rules = ApplicationRules()
         self.sequence = { } # { sequence: [ process ] }
 
-    # methods
-    def stateAsString(self): return applicationStateToString(self.state)
+    # access
+    def isRunning(self): return self.state in [ ApplicationStates.STARTING, ApplicationStates.RUNNING ]
+    def isStopped(self): return self.state in [ ApplicationStates.UNKNOWN, ApplicationStates.STOPPED ]
  
     def setState(self, state):
         if self.state != state:
             self.state = state
             options.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
     
+    # serialization
+    def toJSON(self):
+        return { 'applicationName': self.applicationName, 'state': self.stateAsString(),
+            'majorFailure': self.majorFailure, 'minorFailure': self.minorFailure }
+
+    # methods
+    def stateAsString(self): return applicationStateToString(self.state)
+
     def addProcess(self, process):
         self.processes[process.processName] = process
 
@@ -120,84 +129,8 @@ class ApplicationStatus(object):
         elif running: self.setState(ApplicationStates.RUNNING)
         else: self.setState( ApplicationStates.STOPPED)
         # update majorFailure and minorFailure status (only for RUNNING-like applications)
-        self.majorFailure = majorFailure and self.state in RUNNING_STATES
-        self.minorFailure = minorFailure and self.state in RUNNING_STATES
-
-#    def _updateStatus(self):
-#        # get sequence keys without -1 (not to be autostarted)
-#        deployableSequence = [ x for x in self.sequence.keys() if x != -1 ]
-#        options.logger.trace('Application {}: deployable={}'. format(self.applicationName, len(deployableSequence)))
-#        if len(deployableSequence): self._updateDeployableStatus()
-#        else: self._updateNonDeployableStatus()
-#
-#    def _updateDeployableStatus(self):
-#        # application has a deployment definition. its state is only based upon the programs that are deployable
-#        starting = running = stopped = stopping = exited = fatal = minorFailure = False
-#        for process in self.processes.values():
-#            options.logger.trace('Process {}: state={} required={} exitExpected={} sequence={}'. 
-#                format(process.getNamespec(), process.stateAsString(), process.rules.required, process.expectedExit, process.rules.sequence))
-#            if process.rules.sequence != -1:
-#                # RUNNING cases are easy
-#                if process.state == ProcessStates.RUNNING: running = True
-#                elif process.state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]: starting = True
-#                # STOPPED-like cases are more complex
-#                # a FATAL required process is FATAL for application
-#                elif process.state == ProcessStates.FATAL and process.rules.required: fatal = True
-#                # a FATAL optional process is not FATAL for application and should not prevent application to become RUNNING (leads to degraded only)
-#                elif process.state == ProcessStates.FATAL: exited = minorFailure = True
-#                # similarly, an EXITED process is FATAL for application if required and exit code not expected (if not required, leads to degraded only)
-#                elif process.state == ProcessStates.EXITED and process.rules.required and not process.expectedExit: fatal = True
-#                # an EXITED process leads to degraded if optional and exit code not expected
-#                elif process.state == ProcessStates.EXITED and not process.expectedExit: exited = minorFailure = True
-#                # an expected EXITED state can be in STOPPED or RUNNING application
-#                elif process.state == ProcessStates.EXITED and process.expectedExit: exited = True
-#                # all other STOPPED-like states are considered normal
-#                elif process.state in STOPPED_STATES:
-#                    # a STOPPED optional process should not prevent application to be RUNNING (leads to minorFailure only)
-#                    if process.rules.required: stopped = True
-#                    else: exited = minorFailure = True
-#                # STOPPING is not in STOPPED_STATES
-#                elif process.state == ProcessStates.STOPPING:
-#                    stopping = True
-#        options.logger.trace('Application {}: starting={} running={} stopped={} stopping={} exited={} fatal={}'.
-#            format(self.applicationName, starting, running, stopped, stopping, exited, fatal))
-#        # apply rules for state
-#        if fatal: self.setState(ApplicationStates.FATAL)
-#        elif starting: self.setState(ApplicationStates.STARTING)
-#        elif stopping: self.setState(ApplicationStates.STOPPING)
-#        elif running and not stopped: self.setState(ApplicationStates.RUNNING) # whatever exited value
-#        elif (stopped or exited) and not running: self.setState( ApplicationStates.STOPPED)
-#        elif stopped and running: # whatever exited value
-#            # WARN: complex to decide. deployment may be in progress, a process may have been stopped using supervisor XML-RPC, etc
-#            # deployer information should not be used as this would lead to a different application state among supervisors
-#            # impossible to know is this situation is transient or not, so a transient state (STARTING or STOPPING) should not be used
-#            # as a conclusion, take the assumption that application is in FATAL state
-#            self.setState(ApplicationStates.FATAL)
-#        else:
-#            options.logger.error('Application {}: UNEXPECTED case - starting={} running={} stopped={} stopping={} exited={} fatal={}'.
-#                format(self.applicationName, starting, running, stopped, stopping, exited, fatal))
-#            self.setState(ApplicationStates.UNKNOWN)
-#        # update minorFailure status (only for starting / running applications)
-#        self.minorFailure = minorFailure and self.state in [ ApplicationStates.STARTING, ApplicationStates.RUNNING ]
-#
-#    def _updateNonDeployableStatus(self):
-#        # application has no deployment definition. it is never FATAL or degraded
-#        # WARN: the STOPPED state is replaced by an UNKNOWN state
-#        # reason is to prevent a meaningless startApplication on this application
-#        starting = running = unknown = stopping = False
-#        for process in self.processes.values():
-#            if process.state == ProcessStates.RUNNING: running = True
-#            elif process.state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]: starting = True
-#            elif process.state in STOPPED_STATES: unknown = True
-#            elif process.state == ProcessStates.STOPPING: stopping = True
-#        options.logger.trace('Application {}: starting={} running={} unknown={} stopping={}'.
-#            format(self.applicationName, starting, running, unknown, stopping))
-#        # apply rules for state
-#        if starting: self.setState(ApplicationStates.STARTING)
-#        elif stopping: self.setState(ApplicationStates.STOPPING)
-#        elif running: self.setState(ApplicationStates.RUNNING)
-#        else: self.setState(ApplicationStates.UNKNOWN)
-
+        self.majorFailure = majorFailure and self.isRunning()
+        self.minorFailure = minorFailure and self.isRunning()
 
 # unit test
 if __name__ == "__main__":

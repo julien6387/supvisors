@@ -21,6 +21,7 @@ from supervisors.addressmapper import addressMapper
 from supervisors.deployer import deployer
 from supervisors.options import options
 from supervisors.process import *
+from supervisors.publisher import eventPublisher
 from supervisors.remote import *
 from supervisors.rpcrequests import getAllProcessInfo, getRemoteInfo
 
@@ -43,11 +44,14 @@ class _Context(object):
     def _remotesByStates(self, states):
         return [ status.address for status in self.remotes.values() if status.state in states ]
 
-    def getRemoteRunningProcesses(self, address):
+    def getRunningProcesses(self, address):
         return [ process for process in self._getAllProcesses() if process.isRunningOn(address) ]
 
-    def getRemoteLoading(self, address):
-        loading = sum(process.rules.expected_loading for process in self.getRemoteRunningProcesses(address))
+    def getPidProcesses(self, address):
+        return [ process for process in self._getAllProcesses() if process.hasRunningPidOn(address) ]
+
+    def getLoading(self, address):
+        loading = sum(process.rules.expected_loading for process in self.getRunningProcesses(address))
         options.logger.debug('address={} loading={}'.format(address, loading))
         return loading
 
@@ -58,13 +62,13 @@ class _Context(object):
     def _invalidRemote(self, status):
         # declare SILENT or isolate according to option
         # never isolate local address. may be a problem with Listener. give it a chance to restart
-        if options.auto_fence and status.address != addressMapper.localAddress:
+        if options.autoFence and status.address != addressMapper.localAddress:
             status.setState(RemoteStates.ISOLATING)
         else:
             status.setState(RemoteStates.SILENT)
             status.checked = False
         # invalidate address in concerned processes
-        for process in self.getRemoteRunningProcesses(status.address):
+        for process in self.getRunningProcesses(status.address):
             process.invalidateAddress(status.address)
         # programs running on lost addresses may be declared running without an address, which is inconsistent
 
@@ -122,6 +126,9 @@ class _Context(object):
     def _getAllProcesses(self):
         return [ process for application in self.applications.values() for process in application.processes.values() ]
 
+    def getAllProcessesOnAddress(self, address):
+        return [ process for process in self._getAllProcesses() if address in process.processes.keys()]
+
     # methods on events
     def _updateRemoteTime(self, status, remoteTime, localTime):
         status.updateRemoteTime(remoteTime, localTime)
@@ -129,7 +136,7 @@ class _Context(object):
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
-            if options.auto_fence and not self._isLocalAuthorized(status.address):
+            if options.autoFence and not self._isLocalAuthorized(status.address):
                 options.logger.warn('local is not authorized to deal with {}'.format(status.address))
                 self._invalidRemote(status)
             else:
@@ -153,6 +160,8 @@ class _Context(object):
                 options.logger.debug('got tick {} from location={}'.format(when, address))
                 localTime = int(time.time())
                 self._updateRemoteTime(status, when, localTime)
+                # publish RemoteStatus event
+                eventPublisher.sendRemoteStatus(status)
         else:
             options.logger.warn('got tick from unexpected location={}'.format(addresses))
 
@@ -166,9 +175,14 @@ class _Context(object):
                     # refresh process info from process event
                     process = self.getProcessFromEvent(processEvent)
                     process.updateInfo(address, processEvent)
+                    # publish ProcessStatus event
+                    eventPublisher.sendProcessStatus(process)
                     # refresh application status
-                    self.applications[process.applicationName].updateStatus()
-                except:
+                    application = self.applications[process.applicationName]
+                    application.updateStatus()
+                    # publish ApplicationStatus event
+                    eventPublisher.sendApplicationStatus(application)
+                except KeyError:
                     # process not found. normal when no tick yet received from this address
                     options.logger.debug('reject event {} from location={}'.format(processEvent, address))
                 else:
@@ -183,6 +197,8 @@ class _Context(object):
         for status in self.remotes.values():
             if status.state == RemoteStates.RUNNING and (time.time() - status.localTime) > 10:
                 self._invalidRemote(status)
+                # publish RemoteStatus event
+                eventPublisher.sendRemoteStatus(status)
 
     def handleIsolation(self):
         # master can fix inconsistencies if any
@@ -190,7 +206,10 @@ class _Context(object):
         # move ISOLATING remotes to ISOLATED
         addresses = self.isolatingRemotes()
         for address in addresses:
-            self.remotes[address].setState(RemoteStates.ISOLATED)
+            status = self.remotes[address]
+            status.setState(RemoteStates.ISOLATED)
+            # publish RemoteStatus event
+            eventPublisher.sendRemoteStatus(status)
         return addresses
 
     # XML-RPC requets
