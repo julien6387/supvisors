@@ -19,17 +19,11 @@
 
 import time
 
-# TODO: list:
-#   4) check if deployable for buttons (address / resource) ?
-#   6) style for states
-#   7) conciliation page
-
-# -----------------------------------------
-# common utils
+# TODO: conciliation page
 
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
-Info='info'
+Info ='info'
 Warn = 'warn'
 Error = 'erro'
 

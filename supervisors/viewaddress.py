@@ -20,7 +20,7 @@
 from supervisors.addressmapper import addressMapper
 from supervisors.context import context
 from supervisors.options import options
-from supervisors.utils import getStats
+from supervisors.utils import getStats, simpleTime
 from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *
 
@@ -58,7 +58,7 @@ class AddressView(StatusView, ViewHandler):
         elt.content('{}%'.format(context.getLoading(addressMapper.localAddress)))
         # set last tick date: remoteTime and localTime should be identical since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
-        elt.content(time.ctime(remote.remoteTime))
+        elt.content(simpleTime(remote.remoteTime))
         # write periods of statistics
         self.writePeriods(root)
 
@@ -119,19 +119,19 @@ class AddressView(StatusView, ViewHandler):
                 elt.attributes(href='#')
                 elt.attrib['class'] = 'button off active'
             # get additional statistics
-            avg, slp, dev = getStats(memStats)
+            avg, rate, (a, b), dev = getStats(memStats)
             # set last value
             elt = tr_elt.findmeld('memval_td_mid')
+            if rate is not None: self.setSlopeClass(elt, rate)
             elt.content('{:.2f}'.format(memStats[-1]))
             # set mean value
             elt = tr_elt.findmeld('memavg_td_mid')
             elt.content('{:.2f}'.format(avg))
-            if slp:
-            	# set slope value between last 2 values
-            	# TODO add class gradient to reflect increase / decrease
+            if a is not None:
+            	# set slope of linear regression
             	elt = tr_elt.findmeld('memslope_td_mid')
-            	elt.content('{:.2f}'.format(slp))
-            if dev:
+            	elt.content('{:.2f}'.format(a))
+            if dev is not None:
             	# set standard deviation
             	elt = tr_elt.findmeld('memdev_td_mid')
             	elt.content('{:.2f}'.format(dev))
@@ -151,26 +151,26 @@ class AddressView(StatusView, ViewHandler):
                 elt.attributes(href='address.html?stats=acpu&amp;idx={}'.format(idx))
             elt.content('cpu#{}'.format(idx-1 if idx > 0 else 'all'))
             if len(singleCpuStats) > 0:
-            	avg, slp, dev = getStats(singleCpuStats)
-            	# set last value
+            	avg, rate, (a, b), dev = getStats(singleCpuStats)
+            	# set last value with instant slope
             	elt = tr_element.findmeld('cpuval_td_mid')
+            	if rate is not None: self.setSlopeClass(elt, rate)
             	elt.content('{:.2f}'.format(singleCpuStats[-1]))
             	# set mean value
             	elt = tr_element.findmeld('cpuavg_td_mid')
             	elt.content('{:.2f}'.format(avg))
-            	if slp:
-            	    # set slope value between last 2 values
-            	    # TODO add class gradient to reflect increase / decrease
+            	if a is not None:
+            	    # set slope of linear regression
             	    elt = tr_element.findmeld('cpuslope_td_mid')
-            	    elt.content('{:.2f}'.format(slp))
-            	if dev:
+            	    elt.content('{:.2f}'.format(a))
+            	if dev is not None:
             	    # set standard deviation
             	    elt = tr_element.findmeld('cpudev_td_mid')
             	    elt.content('{:.2f}'.format(dev))
-            if shaded_tr:
-                tr_element.attrib['class'] = 'shaded'
             if selected_tr:
                 tr_element.attrib['class'] = 'selected'
+            elif shaded_tr:
+                tr_element.attrib['class'] = 'shaded'
             shaded_tr = not shaded_tr
 
     def writeNetworkStatistics(self, statsElt, ioStats):
@@ -201,26 +201,26 @@ class AddressView(StatusView, ViewHandler):
             elt = tr_element.findmeld('intfrxtx_td_mid')
             elt.content('Rx' if rowspan else 'Tx')
             if len(singleIoStats) > 0:
-            	avg, slp, dev = getStats(singleIoStats)
+            	avg, rate, (a, b), dev = getStats(singleIoStats)
             	# set last value
             	elt = tr_element.findmeld('intfval_td_mid')
+            	if rate is not None: self.setSlopeClass(elt, rate)
             	elt.content('{:.2f}'.format(singleIoStats[-1]))
             	# set mean value
             	elt = tr_element.findmeld('intfavg_td_mid')
             	elt.content('{:.2f}'.format(avg))
-            	if slp:
-            	    # set slope value between last 2 values
-            	    # TODO add class gradient to reflect increase / decrease
+            	if a is not None:
+            	    # set slope of linear regression
             	    elt = tr_element.findmeld('intfslope_td_mid')
-            	    elt.content('{:.2f}'.format(slp))
-            	if dev:
+            	    elt.content('{:.2f}'.format(a))
+            	if dev is not None:
             	    # set standard deviation
             	    elt = tr_element.findmeld('intfdev_td_mid')
             	    elt.content('{:.2f}'.format(dev))
-            if shaded_tr:
-                tr_element.attrib['class'] = 'shaded'
             if selected_tr:
                 tr_element.attrib['class'] = 'selected'
+            elif shaded_tr:
+                tr_element.attrib['class'] = 'shaded'
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan

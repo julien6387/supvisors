@@ -63,6 +63,7 @@ class ApplicationView(MeldView, ViewHandler):
         elt = root.findmeld('state_mid')
         elt.content(applicationStateToString(application.state))
         # set LED iaw major/minor failures
+        elt = root.findmeld('state_led_mid')
         if application.isRunning():
             if application.majorFailure:
                 elt.attrib['class'] = 'status_red'
@@ -125,6 +126,10 @@ class ApplicationView(MeldView, ViewHandler):
             if procStatus is None or procStatus.applicationName != self.applicationName:
                 options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
                 ViewHandler.namespecStats = ''
+            else:
+                # addtional information for title
+                elt = root.findmeld('address_fig_mid')
+                elt.content(next(iter(procStatus.addresses), ''))
         # write selected Process Statistics
         self.writeProcessStatistics(root)
 

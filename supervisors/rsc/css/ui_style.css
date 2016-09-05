@@ -92,7 +92,6 @@ nav {
 
 #right_side header {
     min-height: 90px;
-    
     padding: 0 10px;
 }
 
@@ -181,22 +180,32 @@ header a, footer a {
 	text-decoration: none;
 }
 
-h1, h2 {
+h1, h2, h3 {
 	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
-	text-shadow: 2px 2px 6px #202020;
 }
 
 h1 {
 	font-size: 1.6em;
 }
 
-h2 {
+h2, h3 {
 	font-size: 1.2em;
+    margin: 0 0 8px 0;
+}
+
+h3 code {
+    display: inline-block;
+    padding: 5px 10px;
+    color: black;
+	font-size: 16px;
+	text-shadow: 3px 3px 6px black;
+    background: #e6e6e6;
 }
 
 nav ul, p {
 	font-size: .8em;
 }
+
 
 /*
  * Generic Style
@@ -549,20 +558,29 @@ nav li.STOPPING.active {
 
 
 /*
- * increase / decrease
+ * Increase / Stable / Decrease styles
  */
+.increase {
+	color: red;
+}
+
 .increase::after {
 	content: "\2197";
-	color: red;
+}
+
+.stable {
+	color: blue;
 }
 
 .stable::after {
 	content: "\219d";
-	color: black;
+}
+
+.decrease {
+	color: green;
 }
 
 .decrease::after {
 	content: "\2198";
-	color: green;
 }
 

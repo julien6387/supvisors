@@ -189,37 +189,37 @@ class ViewHandler(object):
         if procStats:
             # set CPU statistics
             if len(procStats[0]) > 0:
-                avg, slp, dev = getStats(procStats[0])
+                avg, rate, (a, b), dev = getStats(procStats[0])
                 # print last CPU value of process
                 elt = statsElt.findmeld('pcpuval_td_mid')
+                if rate is not None: self.setSlopeClass(elt, rate)
                 elt.content('{:.2f}%'.format(procStats[0][-1]))
                 # set mean value
                 elt = statsElt.findmeld('pcpuavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
-                if slp:
+                if a is not None:
                     # set slope value between last 2 values
-                    # TODO add class gradient to reflect increase / decrease
                     elt = statsElt.findmeld('pcpuslope_td_mid')
-                    elt.content('{:.2f}'.format(slp))
-                if dev:
+                    elt.content('{:.2f}'.format(a))
+                if dev is not None:
                     # set standard deviation
                     elt = statsElt.findmeld('pcpudev_td_mid')
                     elt.content('{:.2f}'.format(dev))
             # set MEM statistics
             if len(procStats[1]) > 0:
-                avg, slp, dev = getStats(procStats[1])
+                avg, rate, (a, b), dev = getStats(procStats[1])
                 # print last MEM value of process
                 elt = statsElt.findmeld('pmemval_td_mid')
+                if rate is not None: self.setSlopeClass(elt, rate)
                 elt.content('{:.2f}%'.format(procStats[1][-1]))
                 # set mean value
                 elt = statsElt.findmeld('pmemavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
-                if slp:
+                if a is not None:
                     # set slope value between last 2 values
-                    # TODO add class gradient to reflect increase / decrease
                     elt = statsElt.findmeld('pmemslope_td_mid')
-                    elt.content('{:.2f}'.format(slp))
-                if dev:
+                    elt.content('{:.2f}'.format(a))
+                if dev is not None:
                     # set standard deviation
                     elt = statsElt.findmeld('pmemdev_td_mid')
                     elt.content('{:.2f}'.format(dev))
@@ -323,6 +323,14 @@ class ViewHandler(object):
         form = self.context.form
         location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?{}message={}&amp;gravity={}'.format(self.getUrlContext(), urllib.quote(message[1]), message[0])
         self.context.response['headers']['Location'] = location
+
+    def setSlopeClass(self, elt, value):
+        if (abs(value) < .005):
+            elt.attrib['class'] = 'stable'
+        elif (value > 0):
+            elt.attrib['class'] = 'increase'
+        else:
+            elt.attrib['class'] = 'decrease'
 
     def getUrlContext(self):
         """ Get the extra parameters for the URL """

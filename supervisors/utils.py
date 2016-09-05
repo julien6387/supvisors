@@ -51,20 +51,44 @@ def simpleTime(now=None):
 
 
 # simple lambda functions
-mean = lambda x: sum(x) / float(len(x))
-slope = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
-stddev = lambda lst, avg: (sum((x - avg)**2 for x in lst) / len(lst))**.5
+import math
 
+mean = lambda x: sum(x) / float(len(x))
+srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
+stddev = lambda lst, avg: math.sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
+
+# linear regression
+def getLinearRegression(xData, yData):
+    try:
+        import numpy
+        return numpy.polyfit(xData, yData, 1)
+    except ImportError:
+        # numpy not available
+        # try something approximate and simple
+        dataSize = len(xData)
+        sumX = sum(xData)
+        sumY = sum(yData)
+        sumXX= sum(map(lambda x: x * x, xData))
+        sumProducts = sum([ xData[i] * yData[i] for i in range(dataSize) ])
+        a = (sumProducts - sumX * sumY / dataSize) / (sumXX - (sumX * sumX) / dataSize)
+        b = (sumY - a * sumX) / dataSize
+        return a, b
+
+def getSimpleLinearRegression(lst):
+    # in Supervisors, Y data is periodic
+    dataSize = len(lst)
+    return getLinearRegression( [ i for i in range(dataSize) ], lst)
 
 # get statistics from data
 def getStats(lst):
-    slp = dev = None
+    rate = a = b = dev = None
     # calculate mean value
     avg = mean(lst)
     if len(lst) > 1:
-        # calculate slope value between last 2 values
-        slp = slope(lst[-1], lst[-2])
+        # calculate instant rate value between last 2 values
+        rate = srate(lst[-1], lst[-2])
+        # calculate slope value from linear regression of values
+        a, b = getSimpleLinearRegression(lst)
         # calculate standard deviation
         dev = stddev(lst, avg)
-    return avg, slp, dev
-
+    return avg, rate, (a,  b), dev
