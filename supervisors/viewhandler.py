@@ -17,19 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.application import applicationStateToString
 from supervisors.context import context
 from supervisors.statemachine import fsm
-from supervisors.infosource import infoSource
 from supervisors.options import options
-from supervisors.remote import remoteStateToString, RemoteStates
 from supervisors.types import SupervisorsStates
-from supervisors.utils import getStats
 from supervisors.webutils import *
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
 import urllib
 
@@ -47,6 +41,8 @@ class ViewHandler(object):
     def writePage(self):
         """ Method called by Supervisor to handle the rendering of the Supervisors pages """
         # clone the template and set navigation menu
+        from supervisors.infosource import infoSource
+        from supervisor.states import SupervisorStates
         if infoSource.supervisorState == SupervisorStates.RUNNING:
             # manage action
             message = self.handleAction()
@@ -57,6 +53,9 @@ class ViewHandler(object):
             printMessage(root, form.get('gravity'), form.get('message'))
             # manage parameters
             self.handleParameters()
+            # blink main title in conciliation state
+            if fsm.state == SupervisorsStates.CONCILIATION:
+                root.findmeld('supervisors_mid').attrib['class'] = 'blink'
             # write navigation menu and Address header
             self.writeNavigation(root)
             self.writeHeader(root)
@@ -66,6 +65,8 @@ class ViewHandler(object):
     def writeNav(self, root, address=None, appli=None):
         serverPort = self.getServerPort()
         # update navigation addresses
+        from supervisors.addressmapper import addressMapper
+        from supervisors.remote import remoteStateToString, RemoteStates
         iterator = root.findmeld('address_li_mid').repeat(addressMapper.expectedAddresses)
         for li_element, item in iterator:
             state = context.remotes[item].state
@@ -81,6 +82,7 @@ class ViewHandler(object):
                 elt.attrib['class'] = 'off'
             elt.content(item)
         # update navigation applications
+        from supervisors.application import applicationStateToString
         iterator = root.findmeld('appli_li_mid').repeat(context.applications.keys())
         for li_element, item in iterator:
             state = context.applications[item].state
@@ -88,11 +90,10 @@ class ViewHandler(object):
             li_element.attrib['class'] = applicationStateToString(state) + (' active' if item == appli else '')
             # set hyperlink attributes
             elt = li_element.findmeld('appli_a_mid')
-            # go to web page located on Supervisors Master, so as to simplify requests
             if fsm.state == SupervisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
-                elt.attributes(href='http://{}:{}/application.html?appli={}'.format(context.masterAddress, serverPort, urllib.quote(item)))
+                elt.attributes(href='application.html?appli={}'.format(urllib.quote(item)))
                 elt.attrib['class'] = 'on'
             elt.content(item)
 
@@ -100,7 +101,6 @@ class ViewHandler(object):
         """ Write configured periods for statistics """
         iterator = root.findmeld('period_li_mid').repeat(options.statsPeriods)
         for li_element, period in iterator:
-            # TODO: set period button on only if there is a related statistics
             # print period button
             elt = li_element.findmeld('period_a_mid')
             if period == ViewHandler.periodStats:
@@ -157,6 +157,7 @@ class ViewHandler(object):
             elt = trElt.findmeld('pmem_a_mid')
             elt.replace('--')
         # manage actions iaw state
+        from supervisor.states import RUNNING_STATES, STOPPED_STATES
         processState = item['state']
         # start button
         elt = trElt.findmeld('start_a_mid')
@@ -187,6 +188,7 @@ class ViewHandler(object):
         # get data from statistics module iaw period selection
         procStats = self.getProcessStats(ViewHandler.namespecStats) if ViewHandler.namespecStats else None
         if procStats:
+            from supervisors.utils import getStats
             # set CPU statistics
             if len(procStats[0]) > 0:
                 avg, rate, (a, b), dev = getStats(procStats[0])
@@ -239,8 +241,8 @@ class ViewHandler(object):
             if ViewHandler.namespecStats :
                 options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
                 ViewHandler.namespecStats = ''
-            # hide stats part
-            statsElt.attrib['class'] = 'hidden'
+            # remove stats part
+            statsElt.replace('')
 
     def handleParameters(self):
         """ Retrieve the parameters selected on the web page

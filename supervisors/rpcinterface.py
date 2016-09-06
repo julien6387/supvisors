@@ -32,13 +32,7 @@ from supervisor.xmlrpc import capped_int, Faults, RPCError
 
 API_VERSION  = '1.0'
 
-# Supervisors related faults
-class SupervisorsFaults:
-    SUPERVISORS_CONF_ERROR, BAD_SUPERVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY = range(4)
-
-_FAULTS_OFFSET = 100
-
-class _RPCInterface(object):
+class RPCInterface(object):
 
     def __init__(self):
         # create new event subscriber
@@ -362,8 +356,6 @@ class _RPCInterface(object):
         from supervisors.rpcrequests import shutdown
         return self._sendAddressesFunc(shutdown)
 
-    # TODO: RPC Statistics
-
     # utilities
     def _checkFromDeployment(self):
         self._checkState([ SupervisorsStates.DEPLOYMENT, SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION ])
@@ -425,63 +417,3 @@ class _RPCInterface(object):
                 options.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
         # send request to self supervisord
         return func(addressMapper.localAddress)
-
-
-# Trick to replace Supervisor main page
-def updateUiHandler():
-    from supervisor.web import VIEWS
-    # replace Supervisor main entry
-    from os import path
-    here = path.abspath(path.dirname(__file__))
-    # set main page
-    from supervisors.viewsupervisors import SupervisorsView
-    VIEWS['index.html'] =  { 'template': path.join(here, 'ui/index.html'), 'view': SupervisorsView }
-    # set address page
-    from supervisors.viewaddress import AddressView
-    VIEWS['address.html'] =  { 'template': path.join(here, 'ui/address.html'), 'view': AddressView }
-    # set application page
-    from supervisors.viewapplication import ApplicationView
-    VIEWS['application.html'] =  { 'template': path.join(here, 'ui/application.html'), 'view': ApplicationView }
-    # set fake page to export images
-    from supervisors.viewimage import ProcessImageView, AddressImageView
-    VIEWS['process_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ProcessImageView }
-    VIEWS['address_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': AddressImageView }
-
-# Supervisor entry point
-def make_supervisors_rpcinterface(supervisord, **config):
-    # expand supervisord Fault definition (no matter if done several times)
-    for (x, y) in SupervisorsFaults.__dict__.items():
-        if not x.startswith('__'):
-            setattr(Faults, x, y + _FAULTS_OFFSET)
-    # configure supervisor info source
-    infoSource.setSupervisorInstance(supervisord)
-    # get options from config file
-    options.realize()
-    # set addresses and check local address
-    addressMapper.setAddresses(options.addressList)
-    if not addressMapper.localAddress:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(options.addressList))
-    context.restart()
-    fsm.restart()
-    # check parsing
-    from supervisors.parser import parser
-    try:
-        parser.setFilename(options.deploymentFile)
-    except:
-        raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(options.deploymentFile))
-    # update http web pages
-    updateUiHandler()
-    # create and return handler
-    return _RPCInterface()
-
-# for tests
-if __name__ == "__main__":
-    def createSupervisordInstance():
-        from supervisor.options import ServerOptions
-        from supervisor.supervisord import Supervisor
-        supervisord = Supervisor(ServerOptions())
-        supervisord.options.serverurl = 'http://localhost:60000'
-        supervisord.options.server_configs = [{'username': None, 'section': 'inet_http_server', 'password': None, 'port': 60000}]
-        return supervisord
-    # assign supervisord info source
-    make_supervisors_rpcinterface(createSupervisordInstance())

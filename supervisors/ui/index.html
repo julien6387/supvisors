@@ -16,7 +16,7 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="index.html">Supervisors</a></h1>
+				<h1><a href="index.html" meld:id="supervisors_mid">Supervisors</a></h1>
 				<p><span meld:id="version_mid" class="version">0.1 beta</span></p>
 			</header>
 
@@ -44,13 +44,12 @@
 			<header>
                 <div>
                     <h3><code meld:id="state_mid">SupervisorsStates</code></h3>
-                    <p><a href="conciliation.html" meld:id="solve_a_mid" class="conciliationLink hidden">solve</a></p>
                 </div>
 
                 <div>
                     <ul class="linear">
-                        <li><a href="index.html?action=restart"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
-                        <li><a href="index.html?action=shutdown"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
+                        <li><a href="index.html?action=sup_restart"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisors"/></a></li>
+                        <li><a href="index.html?action=sup_shutdown"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisors"/></a></li>
                     </ul>
                     <ul class="linear">
                         <li><a href="index.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
@@ -59,7 +58,7 @@
             </header>
 
 			<div id="contents">
-                <div id="box_part">
+                <div id="box_part" meld:id="boxes_div_mid">
                     <div meld:id="address_div_mid" class="addressBox">
                         <table>
                             <tr>
@@ -76,6 +75,39 @@
                             </tr>
                         </table>
                     </div>
+                </div>
+
+                <div id="process_part" meld:id="conflicts_div_mid">
+                <div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="name">Name</th><th class="addr">Address</th><th class="date">Uptime</th>
+                                <th colspan="2">Actions</th><th>Strategy</th>
+                            </tr>
+                        </thead>
+                        <tfoot>
+                            <tr>
+                                <th>Name</th><th>Address</th><th>Uptime</th><th colspan="2">Actions</th><th>Strategy</th>
+                            </tr>
+                        </tfoot>
+                        <tbody>
+                            <tr meld:id="tr_mid">
+                                <td meld:id="name_td_mid">Name</td>
+                                <td><a href="#" meld:id="caddress_a_mid" class="button on">Address</a></td>
+                                <td meld:id="uptime_td_mid">Uptime</td>
+                                <td><a href="#" meld:id="pstop_a_mid" class="button on">Stop</a></td>
+                                <td><a href="#" meld:id="pkeep_a_mid" class="button on">Keep</a></td>
+                                <td meld:id="strategy_td_mid"><ul class="vertical">
+                                    <li><a href="#" meld:id="senicide_a_mid" class="button on">Senicide</a></li>
+                                    <li><a href="#" meld:id="infanticide_a_mid" class="button on">Infanticide</a></li>
+                                    <li><a href="#" meld:id="stop_a_mid" class="button on">Stop</a></li>
+                                    <li><a href="#" meld:id="restart_a_mid" class="button on">Restart</a></li>
+                                </ul></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 </div>
 
                 <div id="messageBox" meld:id="message_mid"></div>

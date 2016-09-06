@@ -67,8 +67,8 @@ class _InitializationState(_AbstractState):
         # TODO: global checking / endSynchro ?
         runningRemotes = context.runningRemotes()
         options.logger.info('working with boards {}'.format(runningRemotes))
-        # arbitrarily choice : master address is the 'greater' address among running remotes
-        context.masterAddress = max(runningRemotes)
+        # arbitrarily choice : master address is the 'lowest' address among running remotes
+        context.masterAddress = min(runningRemotes)
         context.master = (context.masterAddress == addressMapper.localAddress)
         options.logger.info('Supervisors master is {} self={}'.format(context.masterAddress, context.master))
 

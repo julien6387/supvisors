@@ -21,8 +21,8 @@ from supervisors.options import options
 from supervisors.types import InvalidTransition
 from supervisors.utils import *
 
-# Enumeration for RemoteStates
 class RemoteStates:
+    """ Enumeration class for the state of remote Supervisors instance """
     UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
 
 def remoteStateToString(value):
@@ -41,7 +41,7 @@ def remoteStatesStrings():
 class RemoteStatus(object):
     def __init__(self, address):
         self.address = address
-        self.state = RemoteStates.UNKNOWN
+        self._state = RemoteStates.UNKNOWN
         self.checked = False
         self.remoteTime = 0
         self.localTime = 0
@@ -51,20 +51,22 @@ class RemoteStatus(object):
         return { 'address': self.address, 'state': self.stateAsString(), 'checked': self.checked,
             'remoteTime': self.remoteTime, 'localTime': self.localTime }
 
-    # access
-    def isInIsolation(self):
-        return self.state in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
-
-    def setState(self, state):
-        if self.state != state:
+    # accessors / mutators
+    def _getState(self): return self._state
+    def _setState(self, state):
+        if self._state != state:
             if self.__checkTransition(state):
-                self.state = state
-                options.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self.state)))
+                self._state = state
+                options.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self._state)))
             else:
-                raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self.state), remoteStateToString(state)))
+                raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self._state), remoteStateToString(state)))
+    state = property(_getState, _setState)
 
     # methods
     def stateAsString(self): return remoteStateToString(self.state)
+
+    def isInIsolation(self):
+        return self.state in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
 
     def updateRemoteTime(self, remoteTime, localTime):
         self.remoteTime = remoteTime

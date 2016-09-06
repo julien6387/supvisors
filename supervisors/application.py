@@ -25,7 +25,6 @@ from supervisor.states import *
 
 # Enumeration for ApplicationStates
 class ApplicationStates:
-    #UNKNOWN, STOPPED, STARTING, RUNNING, STOPPING, FATAL = range(6)
     UNKNOWN, STOPPED, STARTING, RUNNING, STOPPING = range(5)
 
 def applicationStateToString(value):
@@ -55,7 +54,7 @@ class ApplicationStatus(object):
     def __init__(self, applicationName):
         # information part
         self.applicationName = applicationName
-        self.state = ApplicationStates.UNKNOWN
+        self._state = ApplicationStates.UNKNOWN
         self.majorFailure = False
         self.minorFailure = False
         # process part
@@ -67,11 +66,13 @@ class ApplicationStatus(object):
     def isRunning(self): return self.state in [ ApplicationStates.STARTING, ApplicationStates.RUNNING ]
     def isStopped(self): return self.state in [ ApplicationStates.UNKNOWN, ApplicationStates.STOPPED ]
  
-    def setState(self, state):
-        if self.state != state:
-            self.state = state
+    def _getState(self): return self._state
+    def _setState(self, state):
+        if self._state != state:
+            self._state = state
             options.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
-    
+    state = property(_getState, _setState)
+
     # serialization
     def toJSON(self):
         return { 'applicationName': self.applicationName, 'state': self.stateAsString(),
@@ -101,7 +102,7 @@ class ApplicationStatus(object):
         # aim is to force to STOPPED all STOPPED-like processes to simplify later elaboration of application status 
         for process in self.processes.values():
             if process.state in STOPPED_STATES:
-                process.setState(ProcessStates.STOPPED)
+                process.state = ProcessStates.STOPPED
         self.updateStatus()
 
     # try this updateStatus instead of the next one
@@ -124,10 +125,10 @@ class ApplicationStatus(object):
         options.logger.trace('Application {}: starting={} running={} stopping={} majorFailure={} minorFailure={}'.
             format(self.applicationName, starting, running, stopping, majorFailure, minorFailure))
         # apply rules for state
-        if starting: self.setState(ApplicationStates.STARTING)
-        elif stopping: self.setState(ApplicationStates.STOPPING)
-        elif running: self.setState(ApplicationStates.RUNNING)
-        else: self.setState( ApplicationStates.STOPPED)
+        if starting: self.state = ApplicationStates.STARTING
+        elif stopping: self.state = ApplicationStates.STOPPING
+        elif running: self.state = ApplicationStates.RUNNING
+        else: self.state = ApplicationStates.STOPPED
         # update majorFailure and minorFailure status (only for RUNNING-like applications)
         self.majorFailure = majorFailure and self.isRunning()
         self.minorFailure = minorFailure and self.isRunning()

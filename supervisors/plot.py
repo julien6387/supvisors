@@ -41,7 +41,7 @@ class StatisticsPlot(object):
             map(allYData.extend, [yData for yData in self.yData.values()])
             plt.ylim(self.getRange(allYData))
             # create plots for each series of data
-            for ((title, unit), yData), location in zip(self.yData.items(), range(len(self.yData))):
+            for i, ((title, unit), yData) in enumerate(self.yData.items()):
                 # create X axis
                 xData = [ x for x in range(len(yData)) ]
                 # get additional statistics
@@ -59,7 +59,7 @@ class StatisticsPlot(object):
                     # plot the standard deviation
                     plt.fill_between(xData, avg-dev, avg+dev, facecolor=plotColor, alpha=.3)
                 # create the legend
-                legend = plt.legend(handles=[dataLine, meanLine], loc=location+1, fontsize='small', fancybox=True, shadow=True)
+                legend = plt.legend(handles=[dataLine, meanLine], loc=i+1, fontsize='small', fancybox=True, shadow=True)
                 # add the legend to the current axes
                 plt.gca().add_artist(legend)
             # save image to internal memory buffer

@@ -52,14 +52,14 @@ class ProcessRules(object):
             self.sequence, self.required, self.wait_exit, self.expected_loading)
 
 
-# ProcessStatus class: only storage and access
+# ProcessStatus class
 class ProcessStatus(object):
     def __init__(self, address, processInfo):
         # TODO: do I really need to keep all process info ? requests to Supervisor give the same...
         # wait for web development to decide
         self.applicationName = processInfo['group']
         self.processName = processInfo['name']
-        self.state = ProcessStates.UNKNOWN
+        self._state = ProcessStates.UNKNOWN
         self.expectedExit = True
         self.lastEventTime = None
         # expected one single applicable address
@@ -82,12 +82,14 @@ class ProcessStatus(object):
     def isRunningLost(self): return self.isRunning() and not self.addresses
 
     def hasRunningPidOn(self, address):
-        return self.state in [ ProcessStates.RUNNING, ProcessStates.STOPPING ] and address in self.addresses
+        return self.state == ProcessStates.RUNNING and address in self.addresses
 
-    def setState(self, state):
-        if self.state != state:
-            self.state = state
+    def _getState(self): return self._state
+    def _setState(self, state):
+        if self._state != state:
+            self._state = state
             options.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
+    state = property(_getState, _setState)
 
     def runningConflict(self):
         return len(self.addresses) > 1
@@ -157,13 +159,13 @@ class ProcessStatus(object):
             if len(self.addresses) == 1:
                 # if only one address where process is running, the global state is the state of this process
                 state = next(self.processes[address]['state'] for address in self.addresses)
-                self.setState(state)
+                self.state = state
             elif self.isRunning():
                 # addresses is empty for a running process. action expected to fix the inconsistency
                 options.logger.warn('no more address for running process {}'.format(self.getNamespec()))
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
-                self.setState(ProcessStates.STOPPED)
+                self.state = ProcessStates.STOPPED
         else:
             options.logger.debug('process {} still in conflict after address invalidation'.format(self.getNamespec()))
 
@@ -184,7 +186,7 @@ class ProcessStatus(object):
             if not self._evaluateConflictingState():
                 # if zero element, state is the state of the program addressed
                 state = newState if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
-                self.setState(state)
+                self.state = state
                 self.expectedExit = expected
 
     def _evaluateConflictingState(self):
@@ -193,7 +195,7 @@ class ProcessStatus(object):
             states = { self.processes[address]['state'] for address in self.addresses }
             options.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
-            self.setState(self.__getRunningState(states))
+            self.state = self.__getRunningState(states)
             return True
 
     def _updateTimes(self, processInfo, remoteTime, localTime):

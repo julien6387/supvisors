@@ -70,9 +70,9 @@ class _Context(object):
         # declare SILENT or isolate according to option
         # never isolate local address. may be a problem with Listener. give it a chance to restart
         if options.autoFence and status.address != addressMapper.localAddress:
-            status.setState(RemoteStates.ISOLATING)
+            status.state = RemoteStates.ISOLATING
         else:
-            status.setState(RemoteStates.SILENT)
+            status.state = RemoteStates.SILENT
             status.checked = False
         # invalidate address in concerned processes
         for process in self.getRunningProcesses(status.address):
@@ -148,13 +148,13 @@ class _Context(object):
                 self._invalidRemote(status)
             else:
                 options.logger.info('local is authorized to deal with {}'.format(status.address))
-                status.setState(RemoteStates.RUNNING)
+                status.state = RemoteStates.RUNNING
                 # refresh supervisor information
                 info = self._getAllProcessInfo(status.address)
                 if info: self._loadProcesses(status.address, info)
                 else: self._invalidRemote(status)
         else:
-            status.setState(RemoteStates.RUNNING)
+            status.state = RemoteStates.RUNNING
         # refresh dates of processes running on that address
         for application in self.applications.values():
             application.updateRemoteTime(status.address, remoteTime, localTime)
@@ -214,7 +214,7 @@ class _Context(object):
         addresses = self.isolatingRemotes()
         for address in addresses:
             status = self.remotes[address]
-            status.setState(RemoteStates.ISOLATED)
+            status.state = RemoteStates.ISOLATED
             # publish RemoteStatus event
             eventPublisher.sendRemoteStatus(status)
         return addresses

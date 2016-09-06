@@ -27,6 +27,7 @@ from supervisors.webutils import *
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
+from supervisor.xmlrpc import RPCError
 
 import urllib
 

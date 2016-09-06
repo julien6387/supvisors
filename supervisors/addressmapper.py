@@ -38,20 +38,20 @@ class _AddressMapper(object):
         """ Return True if address is among the addresses defined in the configuration file """
         return address in self.expectedAddresses
 
-    # returns a list of expected addresses from a list of names or ip addresses identifying different locations
     def filterAddresses(self, addressList):
+        """ Returns a list of expected addresses from a list of names or ip addresses identifying different locations """
         # filter unknown addresses
         addresses = [ address for address in addressList if self.isAddressValid(address) ]
         # remove duplicates keeping the same ordering
         from collections import OrderedDict
         return list(OrderedDict.fromkeys(addresses))
 
-   # returns the expected address from a list of names or ip addresses identifying the same location
     def _getExpectedAddress(self, addressList):
+        """ Returns the expected address from a list of names or ip addresses identifying the same location """
         return next((address for address in addressList if self.isAddressValid(address)),  None)
 
    # WARN: the following version is dead code
-   # it might be somehow reactivated if aliases are allowed for XML-RPC
+   # it might be reactivated somehow if aliases are allowed for XML-RPC
     def __getExpectedAddress(self, addressList):
         expectedAddress = None
         if not addressList:
@@ -73,8 +73,8 @@ class _AddressMapper(object):
         return expectedAddress
 
     def __ipv4_addresses(self):
+        """ Get all IPv4 addresses for all interfaces """
         from netifaces import interfaces, ifaddresses, AF_INET
-        # get all IPv4 addresses for all interfaces
         ipList = [ link['addr'] for interface in interfaces() for link in ifaddresses(interface)[AF_INET] ]
         # remove loopback address (no interest here)
         ipList.remove('127.0.0.1')

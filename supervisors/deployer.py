@@ -32,6 +32,7 @@ class _Deployer(object):
     def __init__(self):
         self.inProgress = {} # { applicationName: [ process ] }
         self.jobs = {} # { applicationName: { sequence: [ process ] } }
+        self.strategy = options.deploymentStrategy
 
     # used to overload the default stragey (used in rpcinterface)
     def useStrategy(self, strategy):

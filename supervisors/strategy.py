@@ -103,11 +103,12 @@ class _SenicideStrategy(object):
             # determine running address with lower uptime (the youngest)
             savedAddress = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
             options.logger.warn("senicide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
-            # stop other processes
-            for address in process.addresses:
+            # stop other processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            addresses.remove(savedAddress)
+            for address in addresses:
                 options.logger.debug("senicide conciliation: {} running on {}".format(process.getNamespec(), address))
-                if address != savedAddress:
-                    stopProcess(address, process.getNamespec(), False)
+                stopProcess(address, process.getNamespec(), False)
 
 class _InfanticideStrategy(object):
     # designed to stop the youngest processes
@@ -116,8 +117,10 @@ class _InfanticideStrategy(object):
             # determine running address with lower uptime (the youngest)
             savedAddress = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
             options.logger.warn("infanticide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
-            # stop other processes
-            for address in process.addresses:
+            # stop other processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            addresses.remove(savedAddress)
+            for address in addresses:
                 if address != savedAddress:
                     stopProcess(address, process.getNamespec(), False)
 
@@ -126,17 +129,33 @@ class _UserStrategy(object):
     def conciliate(self, conflicts):
         pass
 
+class _StopStrategy(object):
+    # designed to stop all processes and to re-deploy it
+    def conciliate(self, conflicts):
+        for process in conflicts:
+            options.logger.warn("restart conciliation: {}".format(process.getNamespec()))
+            # stop all processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            for address in addresses:
+                options.logger.warn("stopProcess requested at {}".format(address))
+                stopProcess(address, process.getNamespec(), False)
+
 class _RestartStrategy(object):
     # designed to stop all processes and to re-deploy it
     def conciliate(self, conflicts):
         for process in conflicts:
             options.logger.warn("restart conciliation: {}".format(process.getNamespec()))
+            # work on copy as it may change during iteration
+            addresses = process.addresses.copy()
             # stop all processes
-            for address in process.addresses:
+            for address in addresses:
                 options.logger.warn("stopProcess requested at {}".format(address))
                 stopProcess(address, process.getNamespec(), False)
             # force warm restart: fake a lost process by clearing addresses and just let normal processing work
+            # FIXME: does not work !
             process.addresses.clear()
+            from supervisor.states import ProcessStates
+            process.state = ProcessStates.RUNNING
 
 class _ConciliationStrategyHandler(object):
     def getStrategyInstance(self, strategy):
@@ -146,6 +165,8 @@ class _ConciliationStrategyHandler(object):
             return _InfanticideStrategy()
         if strategy == ConciliationStrategies.USER:
             return _UserStrategy()
+        if strategy == ConciliationStrategies.STOP:
+            return _StopStrategy()
         if strategy == ConciliationStrategies.RESTART:
             return _RestartStrategy()
 
@@ -153,3 +174,4 @@ class _ConciliationStrategyHandler(object):
         return self.getStrategyInstance(strategy).conciliate(conflicts)
 
 conciliator = _ConciliationStrategyHandler()
+

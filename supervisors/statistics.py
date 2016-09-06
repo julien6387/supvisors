@@ -17,7 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisors.options import options
 from supervisors.utils import mean
+
 import psutil, time
 
 
@@ -84,10 +86,14 @@ def getIOStats(last, ref, duration):
 # Process statistics
 def getInstantProcessStats(pid):
     work = memory = 0
-    proc = psutil.Process(pid)
-    for p in [ proc ] + proc.children(recursive=True):
-        work += sum(p.cpu_times())
-        memory += p.memory_percent()
+    try:
+        proc = psutil.Process(pid)
+    except (psutil.NoSuchProcess, ValueError) as e:
+        options.logger.critical(e)
+    else:
+        for p in [ proc ] + proc.children(recursive=True):
+            work += sum(p.cpu_times())
+            memory += p.memory_percent()
     return work, memory
 
 def getCpuProcessStats(last, ref, totalWork):

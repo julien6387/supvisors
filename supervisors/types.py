@@ -38,7 +38,7 @@ def deploymentStrategiesStrings():
 
 # Applicable strategies that can be applied during a conciliation
 class ConciliationStrategies:
-    SENICIDE, INFANTICIDE, USER, RESTART = range(4)
+    SENICIDE, INFANTICIDE, USER, STOP, RESTART = range(5)
 
 def conciliationStrategyToString(value):
     return enumToString(ConciliationStrategies.__dict__, value)

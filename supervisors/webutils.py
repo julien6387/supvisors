@@ -19,8 +19,6 @@
 
 import time
 
-# TODO: conciliation page
-
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
 Info ='info'

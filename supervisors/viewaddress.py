@@ -140,7 +140,7 @@ class AddressView(StatusView, ViewHandler):
         """ Rendering of the processor statistics """
         iterator = statsElt.findmeld('cpu_tr_mid').repeat(cpuStats)
         shaded_tr = False
-        for (tr_element, singleCpuStats), idx in zip(iterator, range(len(cpuStats) )):
+        for idx, (tr_element, singleCpuStats) in enumerate(iterator):
             selected_tr = False
             # set CPU id
             elt = tr_element.findmeld('cpunum_a_mid')
@@ -177,8 +177,7 @@ class AddressView(StatusView, ViewHandler):
         """ Rendering of the network statistics """
         flattenIoStats = [ (intf, lst) for intf, lsts in ioStats.items() for lst in lsts ]
         iterator = statsElt.findmeld('intf_tr_mid').repeat(flattenIoStats)
-        rowspan = True
-        shaded_tr = False
+        rowspan, shaded_tr = True, False
         for tr_element, (intf, singleIoStats) in iterator:
             selected_tr = False
             # set interface cell rowspan

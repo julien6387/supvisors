@@ -285,7 +285,7 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 					</tr>
 					<tr>
 						<th><img src="img/arrow-left_30.png" alt="exit"></th>
-						<td>A <strong>Master</strong> is elected among the active Supervisors instances. It has been arbitrarily decided to choose the greater address, from a 'string' point of view.</td>
+						<td>A <strong>Master</strong> is elected among the active Supervisors instances. It has been arbitrarily decided to choose the lowest address, from a 'string' point of view.</td>
 					</tr>
 				</table>
 
@@ -414,6 +414,7 @@ subProcess.give_up()</code></pre>
 				<p>When applying the <code>SENICIDE</code> strategy, Supervisors keeps the <em>youngest</em> process, i.e. tha process that has been started the most recently, and stops all the others.</p>
 				<p>When applying the <code>INFANTICIDE</code> strategy, Supervisors keeps the <em>oldest</em> process and stops all the others.</p>
 				<p>When applying the <code>USER</code> strategy, Supervisors just waits that a user aplication solves the conflicts using <code class="bash">supervisorctl</code>, XML-RPC, process signal, or any other solution.</p>
+				<p>When applying the <code>STOP</code> strategy, Supervisors stops all conflicting processes.</p>
 				<p>When applying the <code>RESTART</code> strategy, Supervisors stops all conflicting processes and restarts a new one.</p>
 
 
