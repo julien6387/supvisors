@@ -27,6 +27,7 @@ from supervisor.http import NOT_DONE_YET
 
 import urllib
 
+# TODO: mark MASTER address somehow
 
 # Supervisors address page
 class ViewHandler(object):

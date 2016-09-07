@@ -56,6 +56,7 @@ class _DeploymentStrategy(object):
         options.logger.trace('sortedAddresses={}'.format(sortedAddresses))
         return sortedAddresses
 
+
 class _ConfigStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
         options.logger.debug('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
@@ -63,6 +64,7 @@ class _ConfigStrategy(_DeploymentStrategy):
         loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
         for (address, validity) in loadingValidities.items():
             if validity[0]: return address 
+
 
 class _LessLoadedStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
@@ -72,6 +74,7 @@ class _LessLoadedStrategy(_DeploymentStrategy):
         sortedAddresses = self._sortValidByLoading(loadingValidities)
         return sortedAddresses[0][0]  if sortedAddresses else None
 
+
 class _MostLoadedStrategy(_DeploymentStrategy):
     def getRemote(self, addresses, expectedLoading):
         options.logger.trace('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
@@ -80,8 +83,12 @@ class _MostLoadedStrategy(_DeploymentStrategy):
         sortedAddresses = self._sortValidByLoading(loadingValidities)
         return sortedAddresses[-1][0]  if sortedAddresses else None
 
+
 class _DeploymentStrategyHandler(object):
+    """ Class that handles requests for deployment """
+
     def getStrategyInstance(self, strategy):
+        """ Factory for a Deployment Strategy """
         if strategy == DeploymentStrategies.CONFIG:
             return _ConfigStrategy()
         if strategy == DeploymentStrategies.LESS_LOADED:
@@ -90,15 +97,20 @@ class _DeploymentStrategyHandler(object):
             return _MostLoadedStrategy()
 
     def getRemote(self, strategy, addresses, expectedLoading):
+        """ Creates a strategy and let it find an address to start a process having a defined loading """
         return self.getStrategyInstance(strategy).getRemote(addresses, expectedLoading)
 
+
+""" Singleton for deployment strategy """
 addressSelector = _DeploymentStrategyHandler()
 
 
 # Strategy management for Conciliation
 class _SenicideStrategy(object):
-    # designed to stop the oldest processes
+    """ Strategy designed to stop the oldest processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
             savedAddress = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
@@ -110,9 +122,12 @@ class _SenicideStrategy(object):
                 options.logger.debug("senicide conciliation: {} running on {}".format(process.getNamespec(), address))
                 stopProcess(address, process.getNamespec(), False)
 
+
 class _InfanticideStrategy(object):
-    # designed to stop the youngest processes
+    """ Strategy designed to stop the youngest processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
             savedAddress = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
@@ -124,14 +139,20 @@ class _InfanticideStrategy(object):
                 if address != savedAddress:
                     stopProcess(address, process.getNamespec(), False)
 
+
 class _UserStrategy(object):
-    # designed to let the user handle it
+    """ Strategy designed to let the user do the job """
+
     def conciliate(self, conflicts):
+        """ Does nothing """
         pass
 
+
 class _StopStrategy(object):
-    # designed to stop all processes and to re-deploy it
+    """ Strategy designed to stop all conflicting processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by stopping all processes """
         for process in conflicts:
             options.logger.warn("restart conciliation: {}".format(process.getNamespec()))
             # stop all processes. work on copy as it may change during iteration
@@ -140,9 +161,12 @@ class _StopStrategy(object):
                 options.logger.warn("stopProcess requested at {}".format(address))
                 stopProcess(address, process.getNamespec(), False)
 
+
 class _RestartStrategy(object):
-    # designed to stop all processes and to re-deploy it
+    """ Strategy designed to stop all conflicting processes and to re-deploy a single instance """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor deployer restarts it """
         for process in conflicts:
             options.logger.warn("restart conciliation: {}".format(process.getNamespec()))
             # work on copy as it may change during iteration
@@ -151,14 +175,18 @@ class _RestartStrategy(object):
             for address in addresses:
                 options.logger.warn("stopProcess requested at {}".format(address))
                 stopProcess(address, process.getNamespec(), False)
-            # force warm restart: fake a lost process by clearing addresses and just let normal processing work
-            # FIXME: does not work !
-            process.addresses.clear()
-            from supervisor.states import ProcessStates
-            process.state = ProcessStates.RUNNING
+            # force warm restart
+            # FIXME: only master can use deployer. the marking instance is not necessarily a master
+            # solution 1: 2 types of marks, one for lost, one for strategy
+            # solution 2: web conciliation is only for master
+            process.markForRestart = True
+
 
 class _ConciliationStrategyHandler(object):
+    """ Class that handles requests for conciliation """
+
     def getStrategyInstance(self, strategy):
+        """ Factory for a Conciliation Strategy """
         if strategy == ConciliationStrategies.SENICIDE:
             return _SenicideStrategy()
         if strategy == ConciliationStrategies.INFANTICIDE:
@@ -171,7 +199,9 @@ class _ConciliationStrategyHandler(object):
             return _RestartStrategy()
 
     def conciliate(self, strategy, conflicts):
+        """ Creates a strategy and let it conciliate the conflicts """
         return self.getStrategyInstance(strategy).conciliate(conflicts)
 
-conciliator = _ConciliationStrategyHandler()
 
+""" Singleton for conciliation strategy """
+conciliator = _ConciliationStrategyHandler()

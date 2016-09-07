@@ -75,7 +75,7 @@ class SupervisorsView(MeldView, ViewHandler):
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
             self.writeConciliationTable(root)
-            # TODO: add global conciliation
+            # TODO: add global conciliation = >optionBox
         else:
             # remove conflicts table
             root.findmeld('conflicts_div_mid').replace('')

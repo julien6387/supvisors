@@ -94,8 +94,8 @@ class _Context(object):
     def getProcess(self, applicationName, processName):
         return self.applications[applicationName].processes[processName]
 
-    def getLostProcesses(self):
-        return [ process for process in self._getAllProcesses() if process.isRunningLost() ]
+    def getMarkedProcesses(self):
+        return [ process for process in self._getAllProcesses() if process.markForRestart ]
 
     # load internal maps from processes info got from Supervisor on address
     def _loadProcesses(self, address, allProcessesInfo):
@@ -209,7 +209,7 @@ class _Context(object):
 
     def handleIsolation(self):
         # master can fix inconsistencies if any
-        if context.master: deployer.deployLostProcesses(self.getLostProcesses())
+        if context.master: deployer.deployMarkedProcesses(self.getMarkedProcesses())
         # move ISOLATING remotes to ISOLATED
         addresses = self.isolatingRemotes()
         for address in addresses:

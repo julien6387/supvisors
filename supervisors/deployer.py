@@ -83,15 +83,17 @@ class _Deployer(object):
         # return True when deployment over
         return not self.isDeploymentInProgress()
 
-    def deployLostProcesses(self, lostProcesses):
+    def deployMarkedProcesses(self, markedProcesses):
         # restart required processes first
-        for process in lostProcesses:
+        for process in markedProcesses:
             if process.rules.required:
                 self.deployProcess(options.deploymentStrategy, process)
+                process.markForRestart = False
         # restart optional processes
-        for process in lostProcesses:
+        for process in markedProcesses:
             if not process.rules.required:
                 self.deployProcess(options.deploymentStrategy, process)
+                process.markForRestart = False
 
     def checkDeployment(self):
         options.logger.debug('deployment progress: jobs={} inProgress={}'.format(self._getPrintJobs(), self._getPrintInProgress()))
@@ -186,7 +188,7 @@ class _Deployer(object):
     def _processJob(self, process, inProgress):
         resetFlag = True
         # process is either stopped, or was running on a lost board
-        if process.isStopped() or process.isRunningLost():
+        if process.isStopped() or process.markedForRestart:
             fullProgramName = process.getNamespec()
             address = self._getStartingAddress(process)
             if address:

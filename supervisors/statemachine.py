@@ -41,8 +41,8 @@ class _InitializationState(_AbstractState):
         # re-init remotes that are not isolated
         for remote in context.remotes.values():
             if not remote.isInIsolation():
-                # do NOT use setState as transition may be rejected
-                remote.state = RemoteStates.UNKNOWN
+                # do NOT use state setter as transition may be rejected
+                remote._state = RemoteStates.UNKNOWN
                 remote.checked = False
 
     def next(self):
