@@ -29,11 +29,8 @@ from supervisors.options import options
 
 # Supervisors is started in Supervisor so information is available in supervisor instance
 class SupervisordSource(object):
-    def __init__(self):
-        self.supervisord = None
 
-    #WARN: this method to be called first any get
-    def setSupervisorInstance(self, supervisord):
+    def __init__(self, supervisord):
         self.supervisord = supervisord
         if len(supervisord.options.server_configs) == 0:
             raise Exception('no server configuration in config file: {}'.format(supervisord.configfile))

@@ -129,7 +129,6 @@ class FiniteStateMachine:
         self.supervisors = supervisors
         self.updateStateInstance(SupervisorsStates.INITIALIZATION)
         self.stateInstance.enter()
-        context.restart()
 
     def next(self):
         """ Send the event to the state and transitions if possible.

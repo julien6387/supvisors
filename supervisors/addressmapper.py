@@ -21,18 +21,18 @@ from socket import gethostname
 from collections import OrderedDict
 
 from netifaces import interfaces, ifaddresses, AF_INET
-from supervisors.options import options
 
 
 class AddressMapper(object):
     """ Class used for storage of the addresses defined in the configuration file.
     These addresses are expected to be host names or IP addresses where a Supervisors instance is running. """
 
-    def __init__(self):
+    def __init__(self, logger):
         """ The constructor initializes the following information:
         - the list of addresses defined in the Supervisors configuration file,
         - the list of known aliases of the current host, i.e. the host name and the IPv4 addresses,
         - the usage name of the current host, i.e. the name in the known aliases that corresponds to an address of the Supervisors list. """
+        self.logger = logger
         self._addresses = []
         self.local_addresses = [gethostname()] + self.ipv4()
         self.local_address = None
@@ -44,12 +44,12 @@ class AddressMapper(object):
     @addresses.setter
     def addresses(self, addr):
         """ Store the addresses of the configuration file and determine the usage name of the local address. """
-        options.logger.info('Expected addresses: {}'.format(addr))
+        self.logger.info('Expected addresses: {}'.format(addr))
         # store IP list as found in config file
         self._addresses = addr
         # get IP list for local board
         self.local_address = self.get_expected(self.local_addresses)
-        options.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
+        self.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
  
     def is_valid(self, address):
         """ Return True if address is among the addresses defined in the configuration file. """
