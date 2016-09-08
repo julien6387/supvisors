@@ -31,22 +31,21 @@ from supervisors.statemachine import FiniteStateMachine
 
 
 class Supervisors(object):
-    """ La la la """
+    """ the Supervisors class  """
 
     # logger output
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
 
     def __init__(self, supervisord):
         # configure supervisor info source
-        self.infoSource = SupervisordSource()
-        self.infoSource.setSupervisorInstance(supervisord)
+        self.infoSource = SupervisordSource(supervisord)
         # get options from config file
         self.options = SupervisorsOptions()
         # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
         stdout = supervisord.options.nodaemon
         self.logger = getLogger(self.options.logfile, self.options.loglevel, Supervisors.LOGGER_FORMAT, True, self.options.logfile_maxbytes, self.options.logfile_backups, stdout)
         # set addresses and check local address
-        self.addressMapper = AddressMapper()
+        self.addressMapper = AddressMapper(self.logger)
         self.addressMapper.addresses = self.options.addressList
         if not self.addressMapper.local_address:
             raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(self.options.addressList))
