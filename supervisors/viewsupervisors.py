@@ -70,7 +70,7 @@ class SupervisorsView(MeldView, ViewHandler):
     def writeContents(self, root):
         """ Rendering of the contents of the Supervisors main page
         This builds either a synoptic of the processes running on the addresses or the table of conflicts if any """
-        if self.supervisors.fsm.state == SupervisorsStates.CONCILIATION and context.getConflicts():
+        if self.supervisors.fsm.state == SupervisorsStates.CONCILIATION and self.supervisors.context.getConflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
@@ -199,7 +199,7 @@ class SupervisorsView(MeldView, ViewHandler):
         # get running addresses of process
         runningAddresses = self.supervisors.context.getProcessFromNamespec(namespec).addresses
         try:
-            stopProcess(address, namespec, False)
+            self.supervisors.requester.stopProcess(address, namespec, False)
         except RPCError, e:
             return delayedError('stopProcess: {}'.format(e.message))
         def onWait():
@@ -229,9 +229,9 @@ class SupervisorsView(MeldView, ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts """
         if namespec:
             # conciliate only one process
-            conciliate(stringToConciliationStrategy(action), [ context.getProcessFromNamespec(namespec) ])
+            conciliate(self.supervisors, stringToConciliationStrategy(action), [self.supervisors.context.getProcessFromNamespec(namespec)])
             return delayedInfo('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate(stringToConciliationStrategy(action), context.getConflicts())
+            conciliate(self.supervisors, stringToConciliationStrategy(action), self.supervisors.context.getConflicts())
             return delayedInfo('{} in progress for all conflicts'.format(action))

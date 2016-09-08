@@ -59,8 +59,8 @@ class ProcessRules(object):
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
-            self.addresses = addressMapper.addresses
-            self.logger.warn('{} - no address defined so all Supervisors addresses are applicable')
+            self.addresses = ['*']
+            self.logger.warn('{} - no address defined so all Supervisors addresses are applicable'.format(logName))
 
     def __str__(self):
         """ Contents as string """
@@ -125,12 +125,15 @@ class ProcessStatus(object):
         return self.state == ProcessStates.RUNNING and address in self.addresses
 
     # property for state access
-    def _getState(self): return self._state
-    def _setState(self, state):
-        if self._state != state:
-            self._state = state
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, newState):
+        if self._state != newState:
+            self._state = newState
             self.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
-    state = property(_getState, _setState)
 
     def runningConflict(self):
         """ Return True if the process is in a conflicting state (more than one instance running) """
@@ -139,8 +142,8 @@ class ProcessStatus(object):
     # serialization
     def toJSON(self):
         """ Return a JSON-serializable form of the ProcessStatus """
-        return { 'applicationName': self.applicationName, 'processName': self.processName, 'state': self.stateAsString(),
-            'expectedExit': self.expectedExit, 'lastEventTime': self.lastEventTime, 'addresses': list(self.addresses) }
+        return {'applicationName': self.applicationName, 'processName': self.processName, 'state': self.stateAsString(),
+            'expectedExit': self.expectedExit, 'lastEventTime': self.lastEventTime, 'addresses': list(self.addresses)}
 
     # methods
     def stateAsString(self):
@@ -200,7 +203,7 @@ class ProcessStatus(object):
 
     def invalidateAddress(self, address):
         """ Update status of a process that was running on a lost address """
-        self.logger.debug("{} invalidateAddress {} / {}".format(self.getNamespec(), self.addresses, address))
+        self.logger.debug('{} invalidateAddress {} / {}'.format(self.getNamespec(), self.addresses, address))
         # reassign the difference between current set and parameter
         if address in self.addresses: self.addresses.remove(address)
         # check if conflict still applicable

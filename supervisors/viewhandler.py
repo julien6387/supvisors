@@ -233,6 +233,7 @@ class ViewHandler(object):
                     elt.content('{:.2f}'.format(dev))
             # write CPU / Memory plot
             img = StatisticsPlot()
+            # FIXME: hide graph if no data
             if ViewHandler.processStatsType == 'pcpu':
                 img.addPlot('CPU', '%', procStats[0])
             elif ViewHandler.processStatsType == 'pmem':

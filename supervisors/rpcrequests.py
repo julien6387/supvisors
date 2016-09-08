@@ -47,7 +47,7 @@ class RpcRequester(object):
     def useProxy(self, address):
         return address != self.supervisors.address_mapper.local_address
 
-    def _getSupervisorProxy(self, address):
+    def getSupervisorProxy(self, address):
         # return client so as is it not destroyed when exiting
         client = XmlRpcClient(address, self.supervisors.infoSource)
         return client, client.proxy.supervisor

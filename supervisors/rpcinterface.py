@@ -197,7 +197,7 @@ class RPCInterface(object):
             if process.isRunning():
                 for address in process.addresses.copy():
                     self.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
-                    self.supervisors.rpc.stopProcess(address, process.getNamespec(), False)
+                    self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
         # wait until all processes in STOPPED_STATES
         if wait:
             def onwait():
@@ -289,7 +289,7 @@ class RPCInterface(object):
                 # work on copy as it may change during iteration
                 for address in process.addresses.copy():
                     self.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
-                    self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
+                    self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
             else:
                 self.logger.info('process {} already stopped'.format(process.getNamespec()))
         # wait until processes are in STOPPED_STATES

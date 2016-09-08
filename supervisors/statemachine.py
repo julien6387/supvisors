@@ -116,7 +116,7 @@ class ConciliationState(AbstractState):
     def enter(self):
         # the Supervisors Master auto-conciliate conflicts
         if self.context.is_master:
-            conciliate(self.supervisors.options.conciliationStrategy, self.context.getConflicts())
+            conciliate(self.supervisors, self.supervisors.options.conciliationStrategy, self.context.getConflicts())
 
     def next(self):
         # check if master and local are still RUNNING

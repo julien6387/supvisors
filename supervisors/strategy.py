@@ -121,13 +121,13 @@ class SenicideStrategy(AbstractStrategy):
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
             savedAddress = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
-            self.logger.warn("senicide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
+            self.logger.warn('senicide conciliation: keep {} at {}'.format(process.getNamespec(), savedAddress))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()
             addresses.remove(savedAddress)
             for address in addresses:
-                self.logger.debug("senicide conciliation: {} running on {}".format(process.getNamespec(), address))
-                self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
+                self.logger.debug('senicide conciliation: {} running on {}'.format(process.getNamespec(), address))
+                self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
 
 
 class InfanticideStrategy(AbstractStrategy):
@@ -138,13 +138,13 @@ class InfanticideStrategy(AbstractStrategy):
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
             savedAddress = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
-            self.logger.warn("infanticide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
+            self.logger.warn('infanticide conciliation: keep {} at {}'.format(process.getNamespec(), savedAddress))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()
             addresses.remove(savedAddress)
             for address in addresses:
                 if address != savedAddress:
-                    self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
+                    self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
 
 
 class UserStrategy(AbstractStrategy):
@@ -161,27 +161,27 @@ class StopStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes """
         for process in conflicts:
-            self.logger.warn("restart conciliation: {}".format(process.getNamespec()))
+            self.logger.warn('restart conciliation: {}'.format(process.getNamespec()))
             # stop all processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()
             for address in addresses:
-                self.logger.warn("stopProcess requested at {}".format(address))
-                self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
+                self.logger.warn('stopProcess requested at {}'.format(address))
+                self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
 
 
-class RestartStrategy(object):
+class RestartStrategy(AbstractStrategy):
     """ Strategy designed to stop all conflicting processes and to re-deploy a single instance """
 
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor deployer restarts it """
         for process in conflicts:
-            self.logger.warn("restart conciliation: {}".format(process.getNamespec()))
+            self.logger.warn('restart conciliation: {}'.format(process.getNamespec()))
             # work on copy as it may change during iteration
             addresses = process.addresses.copy()
             # stop all processes
             for address in addresses:
-                self.logger.warn("stopProcess requested at {}".format(address))
-                self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
+                self.logger.warn('stopProcess requested at {}'.format(address))
+                self.supervisors.requester.stopProcess(address, process.getNamespec(), False)
             # force warm restart
             # WARN: only master can use deployer
             # conciliation MUST be triggered from the Supervisors MASTER
