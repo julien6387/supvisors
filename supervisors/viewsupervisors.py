@@ -17,22 +17,23 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.infosource import infoSource
-from supervisors.remote import remoteStateToString, RemoteStates
-from supervisors.statemachine import fsm
-from supervisors.strategy import conciliator
-from supervisors.types import SupervisorsStates, supervisorsStateToString, stringToConciliationStrategy, conciliationStrategiesStrings
-from supervisors.utils import simpleTime
-from supervisors.viewhandler import ViewHandler
-from supervisors.webutils import *
+import urllib
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-import urllib
+from supervisors.addressmapper import addressMapper
+from supervisors.context import context
+from supervisors.statemachine import fsm
+from supervisors.infosource import infoSource
+from supervisors.remote import remoteStateToString, RemoteStates
+from supervisors.rpcrequests import stopProcess
+from supervisors.strategy import conciliator
+from supervisors.types import ConciliationStrategies, conciliationStrategyToString, conciliationStrategiesStrings, stringToConciliationStrategy, SupervisorsStates, supervisorsStateToString
+from supervisors.utils import simpleGmTime
+from supervisors.viewhandler import ViewHandler
+from supervisors.webutils import *
 
 
 class SupervisorsView(MeldView, ViewHandler):
@@ -41,7 +42,7 @@ class SupervisorsView(MeldView, ViewHandler):
     * the state of Supervisors
     * actions on Supervisors
     * a synoptic of the processes running on the different addresses
-    * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with means to solve them """
+    * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them """
 
     # Name of the HTML page
     pageName = 'index.html'
@@ -49,6 +50,9 @@ class SupervisorsView(MeldView, ViewHandler):
     def __init__(self, context):
         """ Constructor stores actions for easy access """
         MeldView.__init__(self, context)
+        # get applicable conciliation strategies
+        self.strategies = map(str.lower, conciliationStrategiesStrings())
+        self.strategies.remove(conciliationStrategyToString(ConciliationStrategies.USER).lower())
         # global actions (no parameter)
         self.globalMethods = { 'refresh': self.refreshAction, 'sup_restart': self.supRestartAction, 'sup_shutdown': self.supShutdownAction }
         # process actions
@@ -74,8 +78,8 @@ class SupervisorsView(MeldView, ViewHandler):
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
+            self.writeConciliationStrategies(root)
             self.writeConciliationTable(root)
-            # TODO: add global conciliation = >optionBox
         else:
             # remove conflicts table
             root.findmeld('conflicts_div_mid').replace('')
@@ -84,18 +88,15 @@ class SupervisorsView(MeldView, ViewHandler):
 
     def writeAddressBoxes(self, root):
         """ Rendering of the addresses boxes """
-        addressIterator = root.findmeld('address_div_mid').repeat(addressMapper.expectedAddresses)
+        addressIterator = root.findmeld('address_div_mid').repeat(addressMapper.addresses)
         for divElt, address in addressIterator:
             status = context.remotes[address]
             # set address
             elt = divElt.findmeld('address_tda_mid')
-            elt.attrib['class'] = remoteStateToString(status.state)
             if status.state == RemoteStates.RUNNING:
                 # go to web page located on address, so as to reuse Supervisor StatusView
                 elt.attributes(href='http://{}:{}/address.html'.format(urllib.quote(address), self.getServerPort()))
                 elt.attrib['class'] = 'on'
-            else:
-                elt.attrib['class'] = 'off'
             elt.content(address)
             # set state
             elt = divElt.findmeld('state_td_mid')
@@ -110,10 +111,20 @@ class SupervisorsView(MeldView, ViewHandler):
             for liElt, process in processIterator:
                 liElt.content(process.getNamespec())
 
+    def writeConciliationStrategies(self, root):
+        """ Rendering of the global conciliation actions """
+        divElt = root.findmeld('conflicts_div_mid')
+        strategyIterator = divElt.findmeld('global_strategy_li_mid').repeat(self.strategies)
+        for liElt, item in strategyIterator:
+           elt = liElt.findmeld('global_strategy_a_mid')
+           # conciliation requests MUST be sent to MASTER
+           elt.attributes(href='http://{}:{}/index.html?action={}'.format(context.masterAddress, self.getServerPort(), item))
+           elt.content(item.title())
+
     def writeConciliationTable(self, root):
         """ Rendering of the conflicts table """
         divElt = root.findmeld('conflicts_div_mid')
-        # get data
+        # get data for table
         data = [ { 'namespec': process.getNamespec(), 'rowspan': len(process.addresses) if idx == 0 else 0,
             'address': address, 'uptime': process.processes[address]['uptime'] }
             for process in context.getConflicts() for idx, address in enumerate(process.addresses) ]
@@ -135,7 +146,7 @@ class SupervisorsView(MeldView, ViewHandler):
             elt.content(address)
             # set uptime
             elt = trElt.findmeld('uptime_td_mid')
-            elt.content(simpleTime(item['uptime']))
+            elt.content(simpleGmTime(item['uptime']))
             # set detailed process action links
             for action in self.processMethods.keys():
                 elt = trElt.findmeld(action + '_a_mid')
@@ -144,9 +155,13 @@ class SupervisorsView(MeldView, ViewHandler):
             tdElt = trElt.findmeld('strategy_td_mid')
             if rowspan > 0:
                 tdElt.attrib['rowspan'] = str(rowspan)
-                for action in map(str.lower, conciliationStrategiesStrings()):
-                    elt = tdElt.findmeld(action + '_a_mid')
-                    if elt is not None: elt.attributes(href='index.html?processname={}&amp;action={}'.format(urllib.quote(namespec), action))
+                strategyIterator = tdElt.findmeld('local_strategy_li_mid').repeat(self.strategies)
+                for liElt, item in strategyIterator:
+                    elt = liElt.findmeld('local_strategy_a_mid')
+                    # conciliation requests MUST be sent to MASTER
+                    elt.attributes(href='http://{}:{}/index.html?processname={}&amp;action={}'.format(context.masterAddress, self.getServerPort(),
+                        urllib.quote(namespec), item))
+                    elt.content(item.title())
             else:
                 tdElt.replace('')
 
@@ -155,7 +170,7 @@ class SupervisorsView(MeldView, ViewHandler):
         # global actions (no parameter)
         if action in self.globalMethods.keys(): return self.globalMethods[action]()
         # strategy actions
-        if action in map(str.lower, conciliationStrategiesStrings()): return self.conciliationAction(namespec, action.upper())
+        if action in self.strategies: return self.conciliationAction(namespec, action.upper())
         # process actions
         address = self.context.form.get('address')
         if action in self.processMethods.keys(): return self.processMethods[action](namespec, address)
@@ -185,7 +200,6 @@ class SupervisorsView(MeldView, ViewHandler):
         # get running addresses of process
         runningAddresses = context.getProcessFromNamespec(namespec).addresses
         try:
-            from supervisors.rpcrequests import stopProcess
             stopProcess(address, namespec, False)
         except RPCError, e:
             return delayedError('stopProcess: {}'.format(e.message))
@@ -202,7 +216,6 @@ class SupervisorsView(MeldView, ViewHandler):
         runningAddresses = addresses.copy()
         runningAddresses.remove(address)
         try:
-            from supervisors.rpcrequests import stopProcess
             for address in runningAddresses:
             	stopProcess(address, namespec, False)
         except RPCError, e:
@@ -214,7 +227,12 @@ class SupervisorsView(MeldView, ViewHandler):
         return onWait
 
     def conciliationAction(self, namespec, action):
-        """ Performs the automatic concicliation to solve the conflicts """
-        conciliator.conciliate(stringToConciliationStrategy(action), [ context.getProcessFromNamespec(namespec) ])
-        return delayedInfo('{} in progress for {}'.format(action, namespec))
-
+        """ Performs the automatic conciliation to solve the conflicts """
+        if namespec:
+            # conciliate only one process
+            conciliator.conciliate(stringToConciliationStrategy(action), [ context.getProcessFromNamespec(namespec) ])
+            return delayedInfo('{} in progress for {}'.format(action, namespec))
+        else:
+            # conciliate all conflicts
+            conciliator.conciliate(stringToConciliationStrategy(action), context.getConflicts())
+            return delayedInfo('{} in progress for all conflicts'.format(action))

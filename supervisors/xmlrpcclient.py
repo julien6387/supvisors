@@ -17,20 +17,24 @@
 # limitations under the License.
 # ======================================================================
 
+import xmlrpclib
+
+from supervisor.xmlrpc import SupervisorTransport
+
+from supervisors.infosource import infoSource
+
+
 class XmlRpcClient(object):
     def __init__(self, address):
-        import xmlrpclib
         self.transport = self._getRpcTransport(address)
         self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport) if self.transport else None
 
     def _getRpcTransport(self, address):
-        from supervisors.infosource import infoSource
         if infoSource.serverUrl:
             serverUrl = infoSource.serverUrl.split(':')
             if len(serverUrl) == 3:
                 serverUrl[1] = '//' + address
                 serverUrl = ':'.join(serverUrl)
-                from supervisor.xmlrpc import SupervisorTransport
                 return SupervisorTransport(infoSource.userName, infoSource.password, serverUrl)
         return None
 
@@ -49,7 +53,7 @@ if __name__ == "__main__":
     from supervisor.loggers import getLogger
     options.logger = getLogger('/tmp/xmlrpcclient.log', 20, '%(asctime)s %(levelname)s %(message)s\n', False, 0, 0, True)
     # assign supervisord info source
-    from supervisors.infosource import infoSource, SupervisordSource
+    from supervisors.infosource import SupervisordSource
     infoSource.source = SupervisordSource(createSupervisordInstance())
     # test xml-rpc
     client = XmlRpcClient('cliche01')

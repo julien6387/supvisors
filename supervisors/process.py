@@ -17,10 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
+from time import time
+
+from supervisor.options import make_namespec
+from supervisor.states import *
+
+from supervisors.addressmapper import addressMapper
 from supervisors.options import options
 from supervisors.utils import *
-from supervisor.states import *
-import time
 
 
 def stringToProcessStates(strEnum):
@@ -29,11 +33,18 @@ def stringToProcessStates(strEnum):
 
 
 class ProcessRules(object):
-    """ Defines the rules for starting a process, iaw deployment file
-    """
+    """ Defines the rules for starting a process, iaw deployment file """
+
     def __init__(self):
+        """ The constructor initializes the following attributes:
+        - the addresses where the process can be started (all by default)
+        - the order in the starting sequence of the application
+        - a status telling if the process is required within the application
+        - a status telling if Supervisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application
+        - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)
+        """
         # TODO: see if dependency (process, application) is to be implemented
-        self.addresses = [ '*' ] # all addresses are applicable by default
+        self.addresses = ['*']
         self.sequence = -1
         self.required = False
         self.wait_exit = False
@@ -49,8 +60,7 @@ class ProcessRules(object):
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
-            from supervisors.addressmapper import addressMapper
-            self.addresses = addressMapper.expectedAddresses 
+            self.addresses = addressMapper.addresses
             options.logger.warn('{} - no address defined so all Supervisors addresses are applicable')
 
     def __str__(self):
@@ -94,7 +104,6 @@ class ProcessStatus(object):
     # access
     def getNamespec(self):
         """ Returns a namespec from application and process names """
-        from supervisor.options import make_namespec
         return make_namespec(self.applicationName, self.processName)
 
     def isStopped(self):
@@ -145,7 +154,7 @@ class ProcessStatus(object):
         # store time info
         self.lastEventTime = processInfo['now']
         processInfo['eventTime'] = self.lastEventTime
-        self._updateTimes(processInfo, self.lastEventTime, int(time.time()))
+        self._updateTimes(processInfo, self.lastEventTime, int(time()))
         # add info entry to process
         options.logger.debug('adding {} for {}'.format(processInfo, address))
         self.processes[address] = processInfo
@@ -165,7 +174,7 @@ class ProcessStatus(object):
             remoteTime = processEvent['now']
             processInfo['eventTime'] = remoteTime
             self.lastEventTime = remoteTime
-            self._updateTimes(processInfo, remoteTime, int(time.time()))
+            self._updateTimes(processInfo, remoteTime, int(time()))
             if newState == ProcessStates.RUNNING:
                 processInfo['pid'] = processEvent['pid']
             elif newState in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]:
@@ -228,8 +237,7 @@ class ProcessStatus(object):
             # evaluate state iaw running addresses
             if not self._evaluateConflictingState():
                 # if zero element, state is the state of the program addressed
-                state = newState if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
-                self.state = state
+                self.state = newState if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
                 self.expectedExit = expected
 
     def _evaluateConflictingState(self):
@@ -251,11 +259,9 @@ class ProcessStatus(object):
 
     def __filterInfo(self, processInfo):
         """ Remove from dictionary the fields that are not used in Supervisors and/or not updated through process events """
-        useless_fields = [ 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus' ]
-        for field in useless_fields: del processInfo[field]
+        map(processInfo.pop, [ 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus' ])
 
     def __getRunningState(self, states):
         """ Return the first matching state in RUNNING_STATES """
-        for state in RUNNING_STATES:
-            if state in states: return state
-        return ProcessStates.UNKNOWN
+        return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
+

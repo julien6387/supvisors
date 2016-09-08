@@ -17,17 +17,21 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import *
+from collections import OrderedDict
+from socket import gethostname
+
 from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
+from supervisor.options import Options, UnhosedConfigParser
+
+from supervisors.types import *
+
 
 # Options of main section
-class _SupervisorsOptions(object):
-    # logger output
-    loggerFormat = '%(asctime)s %(levelname)s %(message)s\n'
+class SupervisorsOptions(object):
+    """ Class used to parse the options of the 'supervisors' section in the supervisor configuration file. """
 
-    def realize(self):
+    def __init__(self):
         # supervisor Options class used to initialize search paths
-        from supervisor.options import Options, UnhosedConfigParser
         options = Options(True)
         # get supervisord.conf file from search paths
         configfile = options.default_configfile()
@@ -39,9 +43,7 @@ class _SupervisorsOptions(object):
         if not parser.has_section(parser.mysection):
             raise ValueError('section [{}] not found in config file {}'.format(parser.mysection, configfile))
         # get values
-        from collections import OrderedDict
-        import socket
-        self.addressList = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', socket.gethostname())))))
+        self.addressList = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', gethostname())))))
         self.deploymentFile = existing_dirpath(parser.getdefault('deploymentfile', ''))
         self.internalPort = self._toPortNum(parser.getdefault('internalport', '65001'))
         self.eventPort = self._toPortNum(parser.getdefault('eventport', '65002'))
@@ -53,15 +55,10 @@ class _SupervisorsOptions(object):
         self.statsPeriods = self._toPeriods(list_of_strings(parser.getdefault('statsperiods', '10')))
         self.statsHisto = self._toHisto(parser.getdefault('statshisto', 200))
         # configure logger
-        logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
-        logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
-        logfile_backups = integer(parser.getdefault('logfile_backups', 10))
-        loglevel = logging_level(parser.getdefault('loglevel', 'info'))
-        # WARN: restart problems with loggers. do NOT close previous logger if any (closing rolling file handler leads to IOError)
-        from supervisors.infosource import infoSource
-        from supervisor.loggers import getLogger
-        stdout = infoSource.supervisord.options.nodaemon
-        self.logger = getLogger(logfile, loglevel, self.loggerFormat, True, logfile_maxbytes, logfile_backups, stdout)
+        self.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
+        self.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
+        self.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
+        self.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
 
     # conversion utils (completion of supervisor.datatypes)
     def _toPortNum(self, value):
@@ -100,7 +97,3 @@ class _SupervisorsOptions(object):
         histo = integer(value)
         if 10 <= histo <= 1500: return histo
         raise ValueError('invalid value for histo: {}. expected in [10;1500] (seconds)'.format(value))
-
-
-
-options = _SupervisorsOptions()

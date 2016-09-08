@@ -17,6 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
+import os
+
+from supervisor.http import supervisor_auth_handler
+from supervisor.medusa import default_handler, filesys
+from supervisor.options import split_namespec
+from supervisor.states import ProcessStates
+
+from supervisors.options import options
+
+
 # Supervisors is started in Supervisor so information is available in supervisor instance
 class SupervisordSource(object):
     def __init__(self):
@@ -67,12 +77,10 @@ class SupervisordSource(object):
 
     # this method is used to force a process state into supervisord and to dispatch process event to event listeners
     def forceProcessFatalState(self, namespec, reason):
-        from supervisor.options import split_namespec
         applicationName, processName = split_namespec(namespec)
         # WARN: may throw KeyError
         subProcess = self.supervisord.process_groups[applicationName].processes[processName]
         # need to force BACKOFF state to go through assertion
-        from supervisor.states import ProcessStates
         subProcess.state = ProcessStates.BACKOFF
         subProcess.spawnerr = reason
         subProcess.give_up()
@@ -80,21 +88,16 @@ class SupervisordSource(object):
     # this method is used to replace Supervisor web ui with Supervisors web ui
     def replaceDefaultHandler(self):
         # create default handler pointing on Supervisors ui directory
-        import os
         here = os.path.abspath(os.path.dirname(__file__))
         templatedir = os.path.join(here, 'ui')
-        from supervisor.medusa import filesys
         filesystem = filesys.os_filesystem(templatedir)
-        from supervisor.medusa import default_handler
         defaulthandler = default_handler.default_handler(filesystem)
         # deal with authentication
         if self.userName:
             # wrap the xmlrpc handler and tailhandler in an authentication handler
             users = { self.userName: self.password }
-            from supervisor.web import supervisor_auth_handler
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            from supervisors.options import options
             options.logger.critical('Server %r running without any HTTP authentication checking' % infoSource.serverConfig['section'])
         # replace Supervisor default handler at the end of the list
         self.httpServers.handlers.pop()

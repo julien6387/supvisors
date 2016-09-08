@@ -19,6 +19,7 @@
 
 from supervisors.utils import *
 
+
 # Applicable strategies that can be applied during a deployment
 class DeploymentStrategies:
     CONFIG, LESS_LOADED, MOST_LOADED = range(3)

@@ -17,6 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+from math import sqrt
+from time import gmtime, localtime, time
+
+
 # strings used as headers in messages between Listener and MainLoop
 TickHeader = u'tick'
 ProcessHeader = u'process'
@@ -44,18 +48,19 @@ def enumStrings(dico):
 
 
 # return time without date
-def simpleTime(now=None):
-    import time
-    if now is None: now = time.time()
-    return time.strftime("%H:%M:%S", time.localtime(now))
+def simpleLocalTime(now=None):
+    if now is None: now = time()
+    return time.strftime("%H:%M:%S", localtime(now))
+
+def simpleGmTime(now=None):
+    if now is None: now = time()
+    return time.strftime("%H:%M:%S", gmtime(now))
 
 
 # simple lambda functions
-import math
-
 mean = lambda x: sum(x) / float(len(x))
 srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
-stddev = lambda lst, avg: math.sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
+stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 # linear regression
 def getLinearRegression(xData, yData):

@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import time
+from time import ctime
 
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
@@ -46,13 +46,13 @@ def printMessage(root, gravity, message):
         elt.replace('')
 
 def infoMessage(msg, address=None):
-    return (Info, msg + ' at {}'.format(time.ctime()) + (' on {}'.format(address) if address else ''))
+    return (Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
 def warnMessage(msg, address=None):
-    return (Warn, msg + ' at {}'.format(time.ctime()) + (' on {}'.format(address) if address else ''))
+    return (Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
 def errorMessage(msg, address=None):
-    return (Error, msg + ' at {}'.format(time.ctime()) + (' on {}'.format(address) if address else ''))
+    return (Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
 def delayedInfo(msg, address=None):
     def onWait():

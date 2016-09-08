@@ -17,13 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import stringToDeploymentStrategy, deploymentStrategiesStrings
-from supervisors.utils import simpleTime
+import errno
+import socket
+import xmlrpclib
 
 from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
-import errno, socket, xmlrpclib
+from supervisors.rpcinterface import API_VERSION
+from supervisors.types import stringToDeploymentStrategy, deploymentStrategiesStrings
+from supervisors.utils import simpleLocalTime
+
 
 class _ControllerPlugin(ControllerPluginBase):
     def getSupervisors(self):
@@ -81,7 +85,7 @@ class _ControllerPlugin(ControllerPluginBase):
         template = '%(addr)-20s%(state)-12s%(checked)-12s%(load)-8s%(lTime)-12s'
         checked = info['checked']
         line = template % {'addr': info['address'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
-            'load': '{}%'.format(info['loading']), 'lTime': simpleTime(info['localTime']) if checked else ''}
+            'load': '{}%'.format(info['loading']), 'lTime': simpleLocalTime(info['localTime']) if checked else ''}
         self.ctl.output(line)
 
     def help_remote_status(self):
@@ -363,7 +367,6 @@ class _ControllerPlugin(ControllerPluginBase):
     def _upcheck(self):
         try:
             api = self.getSupervisors().getAPIVersion()
-            from supervisors.rpcinterface import API_VERSION
             if api != API_VERSION:
                 self.ctl.output('Sorry, this version of supervisorsctl expects to talk to a server '
                     'with API version %s, but the remote version is %s.' % (API_VERSION, api))

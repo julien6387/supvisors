@@ -17,13 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisors.addressmapper import addressMapper
+from supervisors.infosource import infoSource
+from supervisors.xmlrpcclient import XmlRpcClient
+
+
 # utilities to determine if using XmlRpcClient or internal handler directly
 def _useProxy(address):
-    from supervisors.addressmapper import addressMapper
-    return address != addressMapper.localAddress
+    return address != addressMapper.local_address
 
 def _getXmlRpcClient(address):
-    from supervisors.xmlrpcclient import XmlRpcClient
     return XmlRpcClient(address)
 
 def _getSupervisorProxy(address):
@@ -37,11 +40,9 @@ def _getSupervisorsProxy(address):
     return client, client.proxy.supervisors
 
 def _getInternalSupervisor():
-    from supervisors.infosource import infoSource
     return None, infoSource.getSupervisorRpcInterface()
 
 def _getInternalSupervisors():
-    from supervisors.infosource import infoSource
     return None, infoSource.getSupervisorsRpcInterface()
 
 def _getSupervisor(address):

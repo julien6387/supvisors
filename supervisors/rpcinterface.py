@@ -17,27 +17,28 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisor.http import NOT_DONE_YET
+from supervisor.options import split_namespec
+from supervisor.xmlrpc import capped_int, Faults, RPCError
+
 from supervisors.addressmapper import addressMapper
+from supervisors.application import ApplicationStates, applicationStateToString
 from supervisors.context import context
 from supervisors.deployer import deployer
 from supervisors.infosource import infoSource
 from supervisors.options import options
 from supervisors.remote import RemoteStates, remoteStateToString
-from supervisors.rpcrequests import startProcess, stopProcess
+from supervisors.rpcrequests import restart, shutdown, startProcess, stopProcess
 from supervisors.statemachine import fsm
-from supervisors.types import deploymentStrategiesValues, SupervisorsStates
+from supervisors.types import deploymentStrategiesValues, SupervisorsStates, supervisorsStateToString
 
-from supervisor.http import NOT_DONE_YET
-from supervisor.xmlrpc import capped_int, Faults, RPCError
 
 API_VERSION  = '1.0'
 
 class RPCInterface(object):
 
-    def __init__(self):
-        # create new event subscriber
-        from supervisors.listener import SupervisorListener
-        self.listener = SupervisorListener()
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
 
     # RPC for Supervisors internal use
     def internalStartProcess(self, namespec, wait):
@@ -49,7 +50,7 @@ class RPCInterface(object):
         """
         try:
             options.logger.info('RPC startProcess {}'.format(namespec))
-            result = startProcess(addressMapper.localAddress, namespec, wait)
+            result = startProcess(addressMapper.local_address, namespec, wait)
         except RPCError, why:
             options.logger.error('startProcess {} failed: {}'.format(namespec, why))
             if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
@@ -76,7 +77,6 @@ class RPCInterface(object):
         """ Return the state of Supervisors
         @return string result\tThe state of Supervisors
         """
-        from supervisors.types import supervisorsStateToString
         return supervisorsStateToString(fsm.state)
 
     def getMasterAddress(self):
@@ -102,7 +102,6 @@ class RPCInterface(object):
             loading = context.getLoading(address)
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
-        from supervisors.remote import remoteStateToString
         return { 'address': address, 'state': remoteStateToString(remote.state), 'checked': remote.checked,
             'remoteTime': capped_int(remote.remoteTime), 'localTime': capped_int(remote.localTime), 'loading': loading }
 
@@ -120,7 +119,6 @@ class RPCInterface(object):
         """
         self._checkOperatingOrConciliation()
         application = self._getApplication(applicationName)
-        from supervisors.application import applicationStateToString
         return { 'applicationName': application.applicationName, 'state': applicationStateToString(application.state),
             'majorFailure': application.majorFailure, 'minorFailure': application.minorFailure }
 
@@ -169,7 +167,6 @@ class RPCInterface(object):
         if applicationName not in context.applications.keys():
             raise RPCError(Faults.BAD_NAME, applicationName)
         # check application is not already RUNNING
-        from supervisors.application import ApplicationStates
         application = context.applications[applicationName]
         if application.state == ApplicationStates.RUNNING:
             raise RPCError(Faults.ALREADY_STARTED, applicationName)
@@ -345,7 +342,6 @@ class RPCInterface(object):
         @return boolean result\tAlways True unless error
         """
         self._checkOperatingOrConciliation()
-        from supervisors.rpcrequests import restart
         return self._sendAddressesFunc(restart)
 
     def shutdown(self):
@@ -353,7 +349,6 @@ class RPCInterface(object):
         @return boolean result\tAlways True unless error
         """
         self._checkFromDeployment()
-        from supervisors.rpcrequests import shutdown
         return self._sendAddressesFunc(shutdown)
 
     # utilities
@@ -371,14 +366,12 @@ class RPCInterface(object):
 
     def _checkState(self, stateList):
         if fsm.state not in stateList:
-            from supervisors.types import supervisorsStateToString
             raise RPCError(Faults.BAD_SUPERVISORS_STATE, 'Supervisors (state={}) not in state {} to perform request'.
                 format(supervisorsStateToString(fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
 
     # almost equivalent to the method in supervisor.rpcinterface
     def _getApplicationAndProcess(self, namespec):
         # get process to start from name
-        from supervisor.options import split_namespec
         applicationName, processName = split_namespec(namespec)
         return self._getApplication(applicationName), self._getProcess(namespec) if processName else None
 
@@ -407,7 +400,7 @@ class RPCInterface(object):
     def _sendAddressesFunc(self, func):
         # send func request to all locals (but self address)
         for remote in context.remotes.values():
-            if remote.state in [ RemoteStates.RUNNING, RemoteStates.SILENT ] and remote.address != addressMapper.localAddress:
+            if remote.state in [ RemoteStates.RUNNING, RemoteStates.SILENT ] and remote.address != addressMapper.local_address:
                 try:
                     func(remote.address)
                     options.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
@@ -416,4 +409,4 @@ class RPCInterface(object):
             else:
                 options.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
         # send request to self supervisord
-        return func(addressMapper.localAddress)
+        return func(addressMapper.local_address)

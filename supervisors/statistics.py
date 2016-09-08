@@ -17,10 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
+from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
+from time import time
+
 from supervisors.options import options
 from supervisors.utils import mean
-
-import psutil, time
 
 
 # CPU statistics
@@ -28,7 +29,7 @@ def getInstantCpuStats():
     work = [ ]
     idle = [ ]
     # CPU details
-    cpuStats = psutil.cpu_times(percpu=True)
+    cpuStats = cpu_times(percpu=True)
     for cpuStat in cpuStats:
         work.append(cpuStat.user + cpuStat.nice + cpuStat.system + cpuStat.irq + cpuStat.softirq + cpuStat.steal + cpuStat.guest)
         idle.append(cpuStat.idle + cpuStat.iowait)
@@ -55,7 +56,7 @@ def getTotalWork(last, ref):
 # Memory statistics
 def getInstantMemStats():
     # return RAM used
-    return psutil.virtual_memory().percent
+    return virtual_memory().percent
 
 def getMemStats(last, ref):
     # return last memory value
@@ -66,7 +67,7 @@ def getMemStats(last, ref):
 def getInstantIOStats():
     result = { }
     # IO details
-    ioStats = psutil.net_io_counters(pernic=True)
+    ioStats = net_io_counters(pernic=True)
     for intf, ioStat in ioStats.items():
         result[intf] = ioStat.bytes_recv, ioStat.bytes_sent
     return result
@@ -87,8 +88,8 @@ def getIOStats(last, ref, duration):
 def getInstantProcessStats(pid):
     work = memory = 0
     try:
-        proc = psutil.Process(pid)
-    except (psutil.NoSuchProcess, ValueError) as e:
+        proc = Process(pid)
+    except (NoSuchProcess, ValueError) as e:
         options.logger.critical(e)
     else:
         for p in [ proc ] + proc.children(recursive=True):
@@ -105,7 +106,7 @@ def getCpuProcessStats(last, ref, totalWork):
 # Snapshot of all resources
 def getInstantStats(pidList):
     procStats = { namedPid: getInstantProcessStats(namedPid[1]) for namedPid in pidList }
-    return time.time(), getInstantCpuStats(), getInstantMemStats(), getInstantIOStats(), procStats
+    return time(), getInstantCpuStats(), getInstantMemStats(), getInstantIOStats(), procStats
 
 
 # Calculate resources taken between two snapshots

@@ -20,6 +20,7 @@
 
 from supervisor.web import MeldView
 
+
 # exchange class for images
 class StatsImage(object):
     def __init__(self):

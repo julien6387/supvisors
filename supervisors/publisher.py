@@ -17,21 +17,23 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import options
+import zmq
+
 from supervisors.utils import *
 
-import zmq
 
 # class for ZMQ publication of event
 class _EventPublisher(object):
-    def __init__(self):
+
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
         self.socket = None
 
     def open(self, zmqContext):
         self.socket = zmqContext.socket(zmq.PUB)
         # WARN: this is a local binding, only visible to processes located on the same address
-        url = 'tcp://127.0.0.1:{}'.format(options.eventPort)
-        options.logger.info('binding local Supervisors EventPublisher to %s' % url)
+        url = 'tcp://127.0.0.1:{}'.format(self.supervisors.options.eventPort)
+        self.supervisors.logger.info('binding local Supervisors EventPublisher to %s' % url)
         self.socket.bind(url)
 
     def close(self):
@@ -41,32 +43,30 @@ class _EventPublisher(object):
 
     def sendSupervisorsStatus(self, status):
         if not self.socket: return
-        options.logger.debug('send SupervisorsStatus {}'.format(status))
+        self.supervisors.logger.debug('send SupervisorsStatus {}'.format(status))
         self.socket.send_string(SupervisorsStatusHeader, zmq.SNDMORE)
         self.socket.send_json(status.toJSON())
 
     def sendRemoteStatus(self, status):
         if not self.socket: return
-        options.logger.debug('send RemoteStatus( {}'.format(status))
+        self.supervisors.logger.debug('send RemoteStatus( {}'.format(status))
         self.socket.send_string(RemoteStatusHeader, zmq.SNDMORE)
         self.socket.send_json(status.toJSON())
 
     def sendApplicationStatus(self, status):
         if not self.socket: return
-        options.logger.debug('send ApplicationStatus {}'.format(status))
+        self.supervisors.logger.debug('send ApplicationStatus {}'.format(status))
         self.socket.send_string(ApplicationStatusHeader, zmq.SNDMORE)
         self.socket.send_json(status.toJSON())
 
     def sendProcessStatus(self, status):
         if not self.socket: return
-        options.logger.debug('send ProcessStatus {}'.format(status))
+        self.supervisors.logger.debug('send ProcessStatus {}'.format(status))
         self.socket.send_string(ProcessStatusHeader, zmq.SNDMORE)
         self.socket.send_json(status.toJSON())
 
     def sendStatistics(self, stats):
         if not self.socket: return
-        options.logger.debug('send Statistics {}'.format(stats))
+        self.supervisors.logger.debug('send Statistics {}'.format(stats))
         self.socket.send_string(StatisticsHeader, zmq.SNDMORE)
         self.socket.send_json(status.toJSON())
-
-eventPublisher = _EventPublisher()

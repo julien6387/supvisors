@@ -17,21 +17,24 @@
 # limitations under the License.
 # ======================================================================
 
+import threading
+import time
+import zmq
+
 from supervisors.addressmapper import addressMapper
-from supervisors.context import context
 from supervisors.options import options
 from supervisors.publisher import eventPublisher
 from supervisors.statemachine import fsm
 from supervisors.statistics import statisticsCompiler
+from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
 
-import zmq, time, threading
 
 # class for subscription to Listener events
 class EventSubscriber(object):
     def __init__(self, zmqContext):
         self.socket = zmqContext.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
-        for address in addressMapper.expectedAddresses:
+        for address in addressMapper.addresses:
             url = 'tcp://{}:{}'.format(address, options.internalPort)
             options.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
@@ -68,7 +71,6 @@ class SupervisorsMainLoop(threading.Thread):
 
     # main loop
     def run(self):
-        from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
         # create poller
         poller = zmq.Poller()
         # register event publisher
@@ -88,10 +90,10 @@ class SupervisorsMainLoop(threading.Thread):
                 else:
                     if message[0] == TickHeader:
                         options.logger.blather('got tick message: {}'.format(message[1]))
-                        context.onTickEvent(message[1][0], message[1][1])
+                        fsm.onTickEvent(message[1][0], message[1][1])
                     elif message[0] == ProcessHeader:
                         options.logger.blather('got process message: {}'.format(message[1]))
-                        context.onProcessEvent(message[1][0], message[1][1])
+                        fsm.onProcessEvent(message[1][0], message[1][1])
                     elif message[0] == StatisticsHeader:
                         options.logger.blather('got statistics message: {}'.format(message[1]))
                         statisticsCompiler.pushStatistics(message[1][0], message[1][1])
@@ -104,10 +106,7 @@ class SupervisorsMainLoop(threading.Thread):
 
     def _doPeriodicTask(self):
         options.logger.blather('periodic task')
-        context.onTimerEvent()
-        fsm.next()
-        # check if new isolating remotes
-        addresses = context.handleIsolation()
+        addresses = fsm.onTimerEvent()
         # disconnect isolated addresses from sockets
         self.eventSubscriber.disconnect(addresses)
         # set date for next task
@@ -117,6 +116,4 @@ class SupervisorsMainLoop(threading.Thread):
         # close zmq sockets
         eventPublisher.close()
         self.eventSubscriber.close()
-        # cleanup in case of restarting
-        context.restart()
 

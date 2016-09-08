@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisor.states import *
+
 from supervisors.options import options
 from supervisors.utils import *
 from supervisors.types import StartingFailureStrategies, RunningFailureStrategies
 
-from supervisor.states import *
 
 # Enumeration for ApplicationStates
 class ApplicationStates:
@@ -36,6 +37,8 @@ def stringToApplicationState(strEnum):
 
 # ApplicationRules class
 class ApplicationRules(object):
+    """ Defines the rules for starting an application, iaw deployment file """
+
     def __init__(self):
         self.autostart = False
         # TODO: implement sequence
@@ -46,6 +49,7 @@ class ApplicationRules(object):
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def __str__(self):
+        """ Contents as string """
         return 'autostart={}'.format(self.autostart)
 
 
@@ -63,15 +67,21 @@ class ApplicationStatus(object):
         self.sequence = { } # { sequence: [ process ] }
 
     # access
-    def isRunning(self): return self.state in [ ApplicationStates.STARTING, ApplicationStates.RUNNING ]
-    def isStopped(self): return self.state in [ ApplicationStates.UNKNOWN, ApplicationStates.STOPPED ]
+    def isRunning(self):
+        return self.state in [ApplicationStates.STARTING, ApplicationStates.RUNNING]
+
+    def isStopped(self):
+        return self.state in [ApplicationStates.UNKNOWN, ApplicationStates.STOPPED]
  
-    def _getState(self): return self._state
-    def _setState(self, state):
-        if self._state != state:
-            self._state = state
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, newState):
+        if self._state != newState:
+            self._state = newState
             options.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
-    state = property(_getState, _setState)
 
     # serialization
     def toJSON(self):
@@ -132,9 +142,3 @@ class ApplicationStatus(object):
         # update majorFailure and minorFailure status (only for RUNNING-like applications)
         self.majorFailure = majorFailure and self.isRunning()
         self.minorFailure = minorFailure and self.isRunning()
-
-# unit test
-if __name__ == "__main__":
-    print ApplicationStates.STARTING
-    print ApplicationStateToString(ApplicationStates.STARTING)
-    print stringToApplicationState('FATAL')

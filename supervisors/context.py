@@ -17,21 +17,25 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.deployer import deployer
-from supervisors.options import options
+import time
+
+from supervisor.options import split_namespec
+
+from supervisors.application import ApplicationStatus
 from supervisors.process import *
-from supervisors.publisher import eventPublisher
 from supervisors.remote import *
 from supervisors.rpcrequests import getAllProcessInfo, getRemoteInfo
 
-import time
 
-# Context management
-class _Context(object):
-    def restart(self):
-        """ Reinitialize attributes """
-        self.remotes = { address: RemoteStatus(address) for address in addressMapper.expectedAddresses }
+class Context(object):
+    """ TODO: add a map of processes
+    link remotes + applications on them
+    move behaviour from context to RemoteStatus and / or ApplicationStatus """
+
+    def __init__(self, supervisors):
+        """ Initialize attributes. TODO """
+        self.supervisors = supervisors
+        self.remotes = { address: RemoteStatus(address) for address in self.supervisors.addressMapper.addresses }
         self.applications = {} # { applicationName: ApplicationStatus }
         self.master = False
         self.masterAddress = ''
@@ -58,18 +62,18 @@ class _Context(object):
     def getLoading(self, address):
         """ Return the loading of the address, by summing the declared loading of the processes running on that address """
         loading = sum(process.rules.expected_loading for process in self.getRunningProcesses(address))
-        options.logger.debug('address={} loading={}'.format(address, loading))
+        self.supervisors.logger.debug('address={} loading={}'.format(address, loading))
         return loading
 
     def endSynchro(self):
         """ Declare as SILENT the RemotesStatus that are still not responsive at the end of the INITIALIZATION state of Supervisors """
         # consider problem if no tick received at the end of synchro time
-        map(self._invalidRemote, filter(lambda x: x.state == RemoteStates.UNKNOWN, self.remotes.values()))
+        map(self.invalidRemote, filter(lambda x: x.state == RemoteStates.UNKNOWN, self.remotes.values()))
 
-    def _invalidRemote(self, status):
+    def invalidRemote(self, status):
         # declare SILENT or isolate according to option
         # never isolate local address. may be a problem with Listener. give it a chance to restart
-        if options.autoFence and status.address != addressMapper.localAddress:
+        if self.supervisors.options.autoFence and status.address != self.supervisors.addressMapper.local_address:
             status.state = RemoteStates.ISOLATING
         else:
             status.state = RemoteStates.SILENT
@@ -87,7 +91,6 @@ class _Context(object):
         return self.getProcess(processEvent['groupname'], processEvent['processname'])
 
     def getProcessFromNamespec(self, namespec):
-        from supervisor.options import split_namespec
         applicationName, processName = split_namespec(namespec)
         return self.getProcess(applicationName, processName)
 
@@ -99,17 +102,15 @@ class _Context(object):
 
     # load internal maps from processes info got from Supervisor on address
     def _loadProcesses(self, address, allProcessesInfo):
-        from supervisors.application import ApplicationStatus
-        from supervisors.parser import parser
         # get all processes and sort them by group (application)
         # first store applications
         applicationList = { x['group'] for x  in allProcessesInfo }
-        options.logger.debug('applicationList={} from {}'.format(applicationList, address))
+        self.supervisors.logger.debug('applicationList={} from {}'.format(applicationList, address))
         # add unknown applications
         for applicationName in applicationList:
             if applicationName not in self.applications:
                 application = ApplicationStatus(applicationName)
-                parser.setApplicationRules(application)
+                self.supervisors.parser.setApplicationRules(application)
                 self.applications[applicationName] = application
         # store processes into their application entry
         for processInfo in allProcessesInfo:
@@ -118,7 +119,7 @@ class _Context(object):
             except KeyError:
                 # not found. add new instance
                 process = ProcessStatus(address, processInfo)
-                parser.setProcessRules(process)
+                self.supervisors.parser.setProcessRules(process)
                 self.applications[process.applicationName].addProcess(process)
             else:
                 process.addInfo(address, processInfo)
@@ -143,16 +144,16 @@ class _Context(object):
         if not status.checked:
             status.checked = True
             # if auto fencing activated: get authorization from remote by port-knocking
-            if options.autoFence and not self._isLocalAuthorized(status.address):
-                options.logger.warn('local is not authorized to deal with {}'.format(status.address))
-                self._invalidRemote(status)
+            if self.supervisors.options.autoFence and not self._isLocalAuthorized(status.address):
+                self.supervisors.logger.warn('local is not authorized to deal with {}'.format(status.address))
+                self.invalidRemote(status)
             else:
-                options.logger.info('local is authorized to deal with {}'.format(status.address))
+                self.supervisors.logger.info('local is authorized to deal with {}'.format(status.address))
                 status.state = RemoteStates.RUNNING
                 # refresh supervisor information
                 info = self._getAllProcessInfo(status.address)
                 if info: self._loadProcesses(status.address, info)
-                else: self._invalidRemote(status)
+                else: self.invalidRemote(status)
         else:
             status.state = RemoteStates.RUNNING
         # refresh dates of processes running on that address
@@ -160,72 +161,68 @@ class _Context(object):
             application.updateRemoteTime(status.address, remoteTime, localTime)
 
     def onTickEvent(self, address, when):
-        if addressMapper.isAddressValid(address):
+        if self.supervisors.addressMapper.is_valid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
-                options.logger.debug('got tick {} from location={}'.format(when, address))
+                self.supervisors.logger.debug('got tick {} from location={}'.format(when, address))
                 localTime = int(time.time())
                 self._updateRemoteTime(status, when, localTime)
                 # publish RemoteStatus event
-                eventPublisher.sendRemoteStatus(status)
+                self.supervisors.eventPublisher.sendRemoteStatus(status)
         else:
-            options.logger.warn('got tick from unexpected location={}'.format(addresses))
+            self.supervisors.logger.warn('got tick from unexpected location={}'.format(addresses))
 
     def onProcessEvent(self, address, processEvent):
-        if addressMapper.isAddressValid(address):
+        if self.supervisors.addressMapper.is_valid(address):
             status = self.remotes[address]
             # ISOLATED remote is not updated anymore
             if not status.isInIsolation():
-                options.logger.debug('got event {} from location={}'.format(processEvent, address))
+                self.supervisors.logger.debug('got event {} from location={}'.format(processEvent, address))
                 try:
                     # refresh process info from process event
                     process = self.getProcessFromEvent(processEvent)
+                except KeyError:
+                    # process not found. normal when no tick yet received from this address
+                    self.supervisors.logger.debug('reject event {} from location={}'.format(processEvent, address))
+                else:
                     process.updateInfo(address, processEvent)
                     # publish ProcessStatus event
-                    eventPublisher.sendProcessStatus(process)
+                    self.supervisors.eventPublisher.sendProcessStatus(process)
                     # refresh application status
                     application = self.applications[process.applicationName]
                     application.updateStatus()
                     # publish ApplicationStatus event
-                    eventPublisher.sendApplicationStatus(application)
-                except KeyError:
-                    # process not found. normal when no tick yet received from this address
-                    options.logger.debug('reject event {} from location={}'.format(processEvent, address))
-                else:
-                    # trigger deployment work if needed
-                    if deployer.isDeploymentInProgress():
-                        deployer.deployOnEvent(process)
+                    self.supervisors.eventPublisher.sendApplicationStatus(application)
+                    return process
         else:
-            options.logger.error('got process event from unexpected location={}'.format(addresses))
+            self.supervisors.logger.error('got process event from unexpected location={}'.format(addresses))
 
     def onTimerEvent(self):
         # check that all remotes are still publishing. consider problem if no tick received in last 10s
         for status in self.remotes.values():
             if status.state == RemoteStates.RUNNING and (time.time() - status.localTime) > 10:
-                self._invalidRemote(status)
+                self.invalidRemote(status)
                 # publish RemoteStatus event
-                eventPublisher.sendRemoteStatus(status)
+                self.supervisors.eventPublisher.sendRemoteStatus(status)
 
     def handleIsolation(self):
-        # master can fix inconsistencies if any
-        if context.master: deployer.deployMarkedProcesses(self.getMarkedProcesses())
         # move ISOLATING remotes to ISOLATED
         addresses = self.isolatingRemotes()
         for address in addresses:
             status = self.remotes[address]
             status.state = RemoteStates.ISOLATED
             # publish RemoteStatus event
-            eventPublisher.sendRemoteStatus(status)
+            self.supervisors.eventPublisher.sendRemoteStatus(status)
         return addresses
 
     # XML-RPC requets
     def _isLocalAuthorized(self, address):
         # XML-RPC request to remote to check that local is not ISOLATED
         try:
-            status = getRemoteInfo(address, addressMapper.localAddress)
+            status = getRemoteInfo(address, self.supervisors.addressMapper.local_address)
         except RPCError:
-            options.logger.critical('[BUG] could not get remote info from running remote supervisor {}'.format(address))
+            self.supervisors.logger.critical('[BUG] could not get remote info from running remote supervisor {}'.format(address))
             raise
         return stringToRemoteState(status['state']) not in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
 
@@ -234,8 +231,6 @@ class _Context(object):
         try:
             info = getAllProcessInfo(address)
         except RPCError:
-            options.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
+            self.supervisors.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
             raise
         return info
-
-context = _Context()

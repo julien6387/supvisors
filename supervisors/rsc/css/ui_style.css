@@ -335,6 +335,14 @@ ul.vertical li {
 
 
 /*
+ * Master address style
+ */
+.master::after {
+	content: " \272A";
+}
+
+
+/*
  * Common Table style
  */
 table {

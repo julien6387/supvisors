@@ -21,6 +21,7 @@ from supervisors.options import options
 from supervisors.types import InvalidTransition
 from supervisors.utils import *
 
+
 class RemoteStates:
     """ Enumeration class for the state of remote Supervisors instance """
     UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)

@@ -17,11 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import options
+from collections import OrderedDict
+from StringIO import StringIO
+from sys import stderr
+
 from supervisor.datatypes import boolean, list_of_strings
 
+from supervisors.addressmapper import addressMapper
+from supervisors.options import options
+
+
 # XSD contents for XML validation
-from StringIO import StringIO
 XSDContents = StringIO('''\
 <xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
     <xs:simpleType name="Loading">
@@ -66,8 +72,9 @@ XSDContents = StringIO('''\
 </xs:schema>
 ''')
 
-class _Parser(object):
-    def setFilename(self, filename):
+class Parser(object):
+
+    def __init__(self, filename):
         self.tree = self._parse(filename)
         self.root = self.tree.getroot()
         # get models
@@ -113,10 +120,8 @@ class _Parser(object):
         value = programElement.findtext('addresses')
         if value:
             # sort and trim
-            from collections import OrderedDict
             addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            from supervisors.addressmapper import addressMapper
-            rules.addresses = [ '*' ] if '*' in addresses else addressMapper.filterAddresses(addresses)
+            rules.addresses = [ '*' ] if '*' in addresses else addressMapper.filter(addresses)
 
     def _getProgramElement(self, process):
         # try to find program name in file
@@ -154,8 +159,7 @@ class _Parser(object):
                 options.logger.info('XML validated')
             else:
                 options.logger.error('XML NOT validated: {0}'.format(filename))
-                import sys
-                print >> sys.stderr,  schema.error_log
+                print >> stderr,  schema.error_log
             return tree if xmlValid else None
         except ImportError:
             try:
@@ -165,19 +169,3 @@ class _Parser(object):
             except ImportError:
                 options.logger.critical("Failed to import ElementTree from any known place")
                 raise
-
-
-parser = _Parser()
-
-# unit test expecting that a Supervisor Server is running at address below
-if __name__ == "__main__":
-    from xml.etree import ElementTree
-    tree = ElementTree.parse('/home/cliche/python/DISTRIB/etc/deployment.xml')
-    root = tree.getroot()
-    # get models
-    elements = root.findall("./model[@name]")
-    print elements
-    for element in elements:
-        print element, element.get('name')
-    models = { element.get('name'): element for element in elements }
-    print models

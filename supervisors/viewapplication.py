@@ -17,19 +17,21 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.infosource import infoSource
-from supervisors.options import options
-from supervisors.types import DeploymentStrategies
-from supervisors.viewhandler import ViewHandler
-from supervisors.webutils import *
+import urllib
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-import urllib
+from supervisors.application import applicationStateToString
+from supervisors.context import context
+from supervisors.deployer import deployer
+from supervisors.infosource import infoSource
+from supervisors.options import options
+from supervisors.statistics import statisticsCompiler
+from supervisors.types import DeploymentStrategies, deploymentStrategyToString
+from supervisors.viewhandler import ViewHandler
+from supervisors.webutils import *
 
 
 # Supervisors application page
@@ -83,7 +85,6 @@ class ApplicationView(MeldView, ViewHandler):
     def writeDeploymentStrategy(self, root):
         """ Write applicable deployment strategies """
         # get the current strategy
-        from supervisors.deployer import deployer
         strategy = deployer.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
@@ -141,7 +142,6 @@ class ApplicationView(MeldView, ViewHandler):
             # get running address from procStatus
             address = next(iter(procStatus.processes), None)
             if address:
-                from supervisors.statistics import statisticsCompiler
                 stats = statisticsCompiler.data[address][ViewHandler.periodStats]
                 if namespec in stats.proc.keys():
                     return stats.proc[namespec]
@@ -204,7 +204,6 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'less':
             return self.setDeploymentStrategy(DeploymentStrategies.LESS_LOADED)
         # get current strategy
-        from supervisors.deployer import deployer
         strategy = deployer.strategy
         if action == 'startapp':
             return self.startApplicationAction(strategy)
@@ -226,8 +225,6 @@ class ApplicationView(MeldView, ViewHandler):
         return delayedInfo('Page refreshed')
 
     def setDeploymentStrategy(self, strategy):
-        from supervisors.deployer import deployer
-        from supervisors.types import deploymentStrategyToString
         deployer.useStrategy(strategy)
         return delayedInfo('Deployment strategy set to {}'.format(deploymentStrategyToString(strategy)))
 

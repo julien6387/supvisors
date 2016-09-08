@@ -17,50 +17,58 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.options import options
+import time
+import zmq
+
+from supervisor import events
+
+from supervisors.mainloop import SupervisorsMainLoop
 from supervisors.process import stringToProcessStates
 from supervisors.statistics import getInstantStats
 from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
 
-from supervisor import events
-
-import time, zmq
 
 # class for ZMQ publication of event
 class _EventPublisher(object):
-    def __init__(self, zmqContext):
-        # get self address
-        self.address = addressMapper.localAddress
+
+    def __init__(self, zmqContext, supervisors):
+        self.supervisors = supervisors
+        # shortcuts for source code readability
+        self.local_address = self.supervisors.addressMapper.local_address
+        self.logger = self.supervisors.logger
         # create ZMQ socket
         self.socket = zmqContext.socket(zmq.PUB)
-        url = 'tcp://*:{}'.format(options.internalPort)
-        options.logger.info('binding EventPublisher to %s' % url)
+        url = 'tcp://*:{}'.format(self.supervisors.options.internalPort)
+        self.logger.info('binding EventPublisher to %s' % url)
         self.socket.bind(url)
 
     def sendTickEvent(self, payload):
         # publish ZMQ tick
-        options.logger.debug('send TickEvent {}'.format(payload))
+        self.logger.debug('send TickEvent {}'.format(payload))
         self.socket.send_string(TickHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((self.local_address, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
-        options.logger.debug('send ProcessEvent {}'.format(payload))
+        self.logger.debug('send ProcessEvent {}'.format(payload))
         self.socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((self.local_address, payload))
 
     def sendStatistics(self, payload):
         # publish ZMQ process state
-        options.logger.debug('send Statistics {}'.format(payload))
+        self.logger.debug('send Statistics {}'.format(payload))
         self.socket.send_string(StatisticsHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((self.local_address, payload))
 
 
 # class for listening Supervisor events
 class SupervisorListener(object):
-    def __init__(self):
+
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
+        # shortcuts for source code readability
+        self.local_address = self.supervisors.addressMapper.local_address
+        self.logger = self.supervisors.logger
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self._runningListener)
         events.subscribe(events.SupervisorStoppingEvent, self._stoppingListener)
@@ -72,34 +80,32 @@ class SupervisorListener(object):
 
     def _stoppingListener(self, event):
         # Supervisor is STOPPING: start Supervisors in this supervisord
-        options.logger.warn('local supervisord is STOPPING')
+        self.logger.warn('local supervisord is STOPPING')
         # unsubscribe
         events.clear()
         # stop and join main loop
         self.mainLoop.stop()
         self.mainLoop.join()
-        options.logger.warn('cleaning resources')
+        self.logger.warn('cleaning resources')
        # close zmq sockets
         self.eventPublisher.socket.close()
         # close zmq context
         self.zmqContext.term()
         # finally, close logger
-        options.logger.close()
+        self.logger.close()
 
     def _runningListener(self, event):
         # Supervisor is RUNNING: start Supervisors main loop
-        from supervisors.mainloop import SupervisorsMainLoop
         self.mainLoop = SupervisorsMainLoop(self.zmqContext)
         self.mainLoop.start()
         # replace the default handler for web ui
-        from supervisors.infosource import infoSource
-        infoSource.replaceDefaultHandler()
+        self.supervisorsinfoSource.replaceDefaultHandler()
         # create publisher
         self.eventPublisher = _EventPublisher(self.zmqContext)
 
     def _processListener(self, event):
         eventName = events.getEventNameByType(event.__class__)
-        options.logger.debug('got Process event from supervisord: {} {}'.format(eventName, event))
+        self.logger.debug('got Process event from supervisord: {} {}'.format(eventName, event))
         # create payload to get data
         payload = {'processname': event.process.config.name,
             'groupname': event.process.group.config.name,
@@ -107,14 +113,14 @@ class SupervisorListener(object):
             'now': int(time.time()), 
             'pid': event.process.pid,
             'expected': event.expected }
-        options.logger.debug('payload={}'.format(payload))
+        self.logger.debug('payload={}'.format(payload))
         self.eventPublisher.sendProcessEvent(payload)
 
     def _tickListener(self, event):
-        options.logger.debug('got Tick event from supervisord: {}'.format(event))
+        self.logger.debug('got Tick event from supervisord: {}'.format(event))
         self.eventPublisher.sendTickEvent(event.when)
         # get and publish statistics at tick time
-        pidList = [ (process.getNamespec(), process.processes[addressMapper.localAddress]['pid'])
-            for process in context.getPidProcesses(addressMapper.localAddress)]
+        pidList = [ (process.getNamespec(), process.processes[self.local_address]['pid'])
+            for process in self.supervisors.context.getPidProcesses(self.local_address)]
         self.eventPublisher.sendStatistics(getInstantStats(pidList))
 

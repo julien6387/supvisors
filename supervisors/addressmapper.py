@@ -17,67 +17,58 @@
 # limitations under the License.
 # ======================================================================
 
+from socket import gethostname
+from collections import OrderedDict
+
+from netifaces import interfaces, ifaddresses, AF_INET
 from supervisors.options import options
 
-class _AddressMapper(object):
+
+class AddressMapper(object):
+    """ Class used for storage of the addresses defined in the configuration file.
+    These addresses are expected to be host names or IP addresses where a Supervisors instance is running. """
+
     def __init__(self):
-        import socket
-        self.localAddresses = [ socket.gethostname() ] + self.__ipv4_addresses()
+        """ The constructor initializes the following information:
+        - the list of addresses defined in the Supervisors configuration file,
+        - the list of known aliases of the current host, i.e. the host name and the IPv4 addresses,
+        - the usage name of the current host, i.e. the name in the known aliases that corresponds to an address of the Supervisors list. """
+        self._addresses = []
+        self.local_addresses = [gethostname()] + self.ipv4()
+        self.local_address = None
 
-    def setAddresses(self, addresses):
-        """ Store the addresses of the configuration file and determine the usage name of the local address """
-        options.logger.info('Expected addresses: {}'.format(addresses))
+    @property
+    def addresses(self):
+        return self._addresses
+
+    @addresses.setter
+    def addresses(self, addr):
+        """ Store the addresses of the configuration file and determine the usage name of the local address. """
+        options.logger.info('Expected addresses: {}'.format(addr))
         # store IP list as found in config file
-        self.expectedAddresses = addresses
-        self.mapping = {}
+        self._addresses = addr
         # get IP list for local board
-        self.localAddress = self._getExpectedAddress(self.localAddresses)
-        options.logger.info('Local addresses: {} - Local address: {}'.format(self.localAddresses, self.localAddress))
+        self.local_address = self.get_expected(self.local_addresses)
+        options.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
  
-    def isAddressValid(self, address):
-        """ Return True if address is among the addresses defined in the configuration file """
-        return address in self.expectedAddresses
+    def is_valid(self, address):
+        """ Return True if address is among the addresses defined in the configuration file. """
+        return address in self._addresses
 
-    def filterAddresses(self, addressList):
-        """ Returns a list of expected addresses from a list of names or ip addresses identifying different locations """
+    def filter(self, address_list):
+        """ Returns a list of expected addresses from a list of names or ip addresses identifying different locations. """
         # filter unknown addresses
-        addresses = [ address for address in addressList if self.isAddressValid(address) ]
+        addresses = [address for address in address_list if self.is_valid(address)]
         # remove duplicates keeping the same ordering
-        from collections import OrderedDict
         return list(OrderedDict.fromkeys(addresses))
 
-    def _getExpectedAddress(self, addressList):
-        """ Returns the expected address from a list of names or ip addresses identifying the same location """
-        return next((address for address in addressList if self.isAddressValid(address)),  None)
+    def get_expected(self, address_list):
+        """ Returns the expected address from a list of names or ip addresses identifying the same location. """
+        return next((address for address in address_list if self.is_valid(address)),  None)
 
-   # WARN: the following version is dead code
-   # it might be reactivated somehow if aliases are allowed for XML-RPC
-    def __getExpectedAddress(self, addressList):
-        expectedAddress = None
-        if not addressList:
-            options.logger.error('empty address list')
-        else:
-            # first search in mapping using the first element only, expecting that it corresponds to the hostname.
-            # other entries may include an internal network address that may be present several times
-            expectedAddress = self.mapping.get(addressList[0], None)
-            if not expectedAddress:
-                # if not found, search among Supervisors addresses
-                options.logger.trace('searching any of {} among expected addresses'.format(addressList))
-                expectedAddress = next((address for address in addressList if self.isAddressValid(address)),  None)
-                if not expectedAddress:
-                    options.logger.error('cannot find any of {} in expected addresses {}'.format(addressList, self.expectedAddresses) )
-                else:
-                    # add list in mapping using the expected address found
-                    options.logger.info('inserting {} into mapping with correspondence: {}'.format(addressList, expectedAddress))
-                    self.mapping.update( [ (address, expectedAddress) for address in addressList ] )
-        return expectedAddress
-
-    def __ipv4_addresses(self):
-        """ Get all IPv4 addresses for all interfaces """
-        from netifaces import interfaces, ifaddresses, AF_INET
-        ipList = [ link['addr'] for interface in interfaces() for link in ifaddresses(interface)[AF_INET] ]
+    def ipv4(self):
+        """ Get all IPv4 addresses for all interfaces. """
+        ip_list = [link['addr'] for interface in interfaces() for link in ifaddresses(interface)[AF_INET]]
         # remove loopback address (no interest here)
-        ipList.remove('127.0.0.1')
-        return ipList
-
-addressMapper = _AddressMapper()
+        ip_list.remove('127.0.0.1')
+        return ip_list

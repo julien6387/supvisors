@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.utils import getStats
-
+import math
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+from supervisors.utils import getStats
 
 
 # class to create statistics graph using matplotlib 
@@ -70,7 +71,6 @@ class StatisticsPlot(object):
         plt.close()
 
     def getRange(self, lst):
-        import math
         # legend need additional space
         minRange = math.floor(min(lst))
         maxRange = math.ceil(max(lst))

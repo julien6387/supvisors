@@ -17,16 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
+import time
+
+from supervisor.childutils import get_asctime
+from supervisor.states import ProcessStates
+
 from supervisors.application import ApplicationStates
 from supervisors.infosource import infoSource
 from supervisors.options import options
 from supervisors.rpcrequests import internalStartProcess
 from supervisors.types import deploymentStrategyToString
 
-from supervisor.childutils import get_asctime
-from supervisor.states import ProcessStates
-
-import time
 
 class _Deployer(object):
     def __init__(self):
