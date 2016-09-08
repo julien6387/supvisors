@@ -22,8 +22,8 @@ from os import path
 from supervisor.web import VIEWS
 from supervisor.xmlrpc import Faults
 
+from supervisors.initializer import Supervisors
 from supervisors.rpcinterface import RPCInterface
-from supervisors.supervisors import Supervisors
 from supervisors.viewaddress import AddressView
 from supervisors.viewapplication import ApplicationView
 from supervisors.viewimage import ProcessImageView, AddressImageView
@@ -56,9 +56,9 @@ def make_supervisors_rpcinterface(supervisord, **config):
     for (x, y) in SupervisorsFaults.__dict__.items():
         if not x.startswith('__'):
             setattr(Faults, x, y + _FAULTS_OFFSET)
-    # create a new Supervisors instance and add it to the supervisord instance for persistence
-    supervisord.supervisors = Supervisors()
     # update http web pages
     updateViews()
+    # create a new Supervisors instance
+    supervisors = Supervisors(supervisord)
     # create and return handler
-    return RPCInterface(supervisord.supervisors)
+    return RPCInterface(supervisors)

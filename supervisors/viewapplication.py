@@ -24,12 +24,8 @@ from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.deployer import deployer
-from supervisors.infosource import infoSource
-from supervisors.options import options
-from supervisors.statistics import statisticsCompiler
 from supervisors.types import DeploymentStrategies, deploymentStrategyToString
+from supervisors.utils import supervisors_short_cuts
 from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *
 
@@ -39,6 +35,11 @@ class ApplicationView(MeldView, ViewHandler):
     # Name of the HTML page
     pageName = 'application.html'
 
+    def __init__(self, context):
+        MeldView.__init__(self, context)
+        self.supervisors = self.context.supervisord.supervisors
+        supervisors_short_cuts(self, ['logger'])
+
     def getUrlContext(self):
         return 'appli={}&amp;'.format(self.applicationName)
 
@@ -46,9 +47,9 @@ class ApplicationView(MeldView, ViewHandler):
         """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
         self.applicationName = self.context.form.get('appli')
         if self.applicationName is None:
-            options.logger.error('no application')
-        elif self.applicationName not in context.applications.keys():
-            options.logger.error('unknown application: %s' % self.applicationName)
+            self.logger.error('no application')
+        elif self.applicationName not in self.supervisors.context.applications.keys():
+            self.logger.error('unknown application: %s' % self.applicationName)
         else:
             return self.writePage()
 
@@ -62,7 +63,7 @@ class ApplicationView(MeldView, ViewHandler):
         elt = root.findmeld('application_mid')
         elt.content(self.applicationName)
         # set application state
-        application = context.applications[self.applicationName]
+        application = self.supervisors.context.applications[self.applicationName]
         elt = root.findmeld('state_mid')
         elt.content(applicationStateToString(application.state))
         # set LED iaw major/minor failures
@@ -85,7 +86,7 @@ class ApplicationView(MeldView, ViewHandler):
     def writeDeploymentStrategy(self, root):
         """ Write applicable deployment strategies """
         # get the current strategy
-        strategy = deployer.strategy
+        strategy = self.supervisors.deployer.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
@@ -126,7 +127,7 @@ class ApplicationView(MeldView, ViewHandler):
         if ViewHandler.namespecStats:
             procStatus = self.getProcessStatus(ViewHandler.namespecStats)
             if procStatus is None or procStatus.applicationName != self.applicationName:
-                options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
+                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
                 ViewHandler.namespecStats = ''
             else:
                 # addtional information for title
@@ -142,17 +143,17 @@ class ApplicationView(MeldView, ViewHandler):
             # get running address from procStatus
             address = next(iter(procStatus.processes), None)
             if address:
-                stats = statisticsCompiler.data[address][ViewHandler.periodStats]
+                stats = self.supervisors.statistician.data[address][ViewHandler.periodStats]
                 if namespec in stats.proc.keys():
                     return stats.proc[namespec]
 
     def writeProcessTable(self, root):
         """ Rendering of the application processes managed through Supervisor """
         # collect data on processes
-        data = [ ]
-        for process in sorted(context.applications[self.applicationName].processes.values(), key=lambda x: x.processName):
-            data.append({ 'processname': process.processName, 'namespec': process.getNamespec(),
-                'statename': process.stateAsString(), 'state': process.state, 'runninglist': list(process.addresses) })
+        data = []
+        for process in sorted(self.supervisors.context.applications[self.applicationName].processes.values(), key=lambda x: x.processName):
+            data.append({'processname': process.processName, 'namespec': process.getNamespec(),
+                'statename': process.stateAsString(), 'state': process.state, 'runninglist': list(process.addresses)})
         # print processes
         if data:
             iterator = root.findmeld('tr_mid').repeat(data)
@@ -204,7 +205,7 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'less':
             return self.setDeploymentStrategy(DeploymentStrategies.LESS_LOADED)
         # get current strategy
-        strategy = deployer.strategy
+        strategy = self.supervisors.deployer.strategy
         if action == 'startapp':
             return self.startApplicationAction(strategy)
         if action == 'stopapp':
@@ -225,13 +226,13 @@ class ApplicationView(MeldView, ViewHandler):
         return delayedInfo('Page refreshed')
 
     def setDeploymentStrategy(self, strategy):
-        deployer.useStrategy(strategy)
+        self.supervisors.deployer.strategy = strategy
         return delayedInfo('Deployment strategy set to {}'.format(deploymentStrategyToString(strategy)))
 
     # Application actions
     def startApplicationAction(self, strategy):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().startApplication(strategy, self.applicationName)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().startApplication(strategy, self.applicationName)
         except RPCError, e:
             return delayedError('startApplication: {}'.format(e.text))
         if callable(cb):
@@ -240,17 +241,20 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('startApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Application {} started'.format(self.applicationName))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return infoMessage('Application {} started'.format(self.applicationName))
                 return warnMessage('Application {} NOT started'.format(self.applicationName))
             onWait.delay = 0.1
             return onWait
-        if cb: return delayedInfo('Application {} started'.format(self.applicationName))
+        if cb:
+            return delayedInfo('Application {} started'.format(self.applicationName))
         return delayedWarn('Application {} NOT started'.format(self.applicationName))
  
     def stopApplicationAction(self):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().stopApplication(self.applicationName)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().stopApplication(self.applicationName)
         except RPCError, e:
             return delayedError('stopApplication: {}'.format(e.text))
         if callable(cb):
@@ -259,7 +263,8 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('stopApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
                 return infoMessage('Application {} stopped'.format(self.applicationName))
             onWait.delay = 0.1
             return onWait
@@ -267,7 +272,7 @@ class ApplicationView(MeldView, ViewHandler):
  
     def restartApplicationAction(self, strategy):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().restartApplication(strategy, self.applicationName)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().restartApplication(strategy, self.applicationName)
         except RPCError, e:
             return delayedError('restartApplication: {}'.format(e.text))
         if callable(cb):
@@ -276,18 +281,21 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('restartApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Application {} restarted'.format(self.applicationName))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return infoMessage('Application {} restarted'.format(self.applicationName))
                 return warnMessage('Application {} NOT restarted'.format(self.applicationName))
             onWait.delay = 0.1
             return onWait
-        if cb: return delayedInfo('Application {} restarted'.format(self.applicationName))
+        if cb:
+            return delayedInfo('Application {} restarted'.format(self.applicationName))
         return delayedWarn('Application {} NOT restarted'.format(self.applicationName))
 
     # Process actions
     def startProcessAction(self, strategy, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().startProcess(strategy, namespec)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().startProcess(strategy, namespec)
         except RPCError, e:
             return delayedError('startProcess: {}'.format(e.text))
         if callable(cb):
@@ -296,17 +304,20 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('startProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Process {} started'.format(namespec))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return infoMessage('Process {} started'.format(namespec))
                 return warnMessage('Process {} NOT started'.format(namespec))
             onWait.delay = 0.1
             return onWait
-        if cb: return delayedInfo('Process {} started'.format(namespec))
+        if cb:
+            return delayedInfo('Process {} started'.format(namespec))
         return delayedWarn('Process {} NOT started'.format(namespec))
 
     def stopProcessAction(self, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().stopProcess(namespec)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().stopProcess(namespec)
         except RPCError, e:
             return delayedError('stopProcess: {}'.format(e.text))
         if callable(cb):
@@ -315,7 +326,8 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('stopProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
                 return infoMessage('process {} stopped'.format(namespec))
             onWait.delay = 0.1
             return onWait
@@ -323,7 +335,7 @@ class ApplicationView(MeldView, ViewHandler):
  
     def restartProcessAction(self, strategy, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().restartProcess(strategy, namespec)
+            cb = self.supervisors.infoSource.getSupervisorsRpcInterface().restartProcess(strategy, namespec)
         except RPCError, e:
             return delayedError('restartProcess: {}'.format(e.text))
         if callable(cb):
@@ -332,10 +344,13 @@ class ApplicationView(MeldView, ViewHandler):
                     result = cb()
                 except RPCError, e:
                     return errorMessage('restartProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Process {} restarted'.format(namespec))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return infoMessage('Process {} restarted'.format(namespec))
                 return warnMessage('Process {} NOT restarted'.format(namespec))
             onWait.delay = 0.1
             return onWait
-        if cb: return delayedInfo('Process {} restarted'.format(namespec))
+        if cb:
+            return delayedInfo('Process {} restarted'.format(namespec))
         return delayedWarn('Process {} NOT restarted'.format(namespec))

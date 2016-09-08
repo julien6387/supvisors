@@ -17,7 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.options import options
 from supervisors.types import InvalidTransition
 from supervisors.utils import *
 
@@ -40,7 +39,9 @@ def remoteStatesStrings():
 
 # RemoteStatus class
 class RemoteStatus(object):
-    def __init__(self, address):
+
+    def __init__(self, address, logger):
+        self.logger = logger
         self.address = address
         self._state = RemoteStates.UNKNOWN
         self.checked = False
@@ -53,18 +54,22 @@ class RemoteStatus(object):
             'remoteTime': self.remoteTime, 'localTime': self.localTime }
 
     # accessors / mutators
-    def _getState(self): return self._state
-    def _setState(self, state):
-        if self._state != state:
-            if self.__checkTransition(state):
-                self._state = state
-                options.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self._state)))
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, newState):
+        if self._state != newState:
+            if self.__checkTransition(newState):
+                self._state = newState
+                self.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self._state)))
             else:
-                raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self._state), remoteStateToString(state)))
-    state = property(_getState, _setState)
+                raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self._state), remoteStateToString(newState)))
 
     # methods
-    def stateAsString(self): return remoteStateToString(self.state)
+    def stateAsString(self):
+        return remoteStateToString(self.state)
 
     def isInIsolation(self):
         return self.state in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]

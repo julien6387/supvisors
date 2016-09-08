@@ -20,7 +20,6 @@
 from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
 from time import time
 
-from supervisors.options import options
 from supervisors.utils import mean
 
 
@@ -89,8 +88,9 @@ def getInstantProcessStats(pid):
     work = memory = 0
     try:
         proc = Process(pid)
-    except (NoSuchProcess, ValueError) as e:
-        options.logger.critical(e)
+    except (NoSuchProcess, ValueError):
+        # process may have disappeared in the meantime
+        pass
     else:
         for p in [ proc ] + proc.children(recursive=True):
             work += sum(p.cpu_times())
@@ -197,12 +197,12 @@ class StatisticsInstance(object):
 
 # Class used to compile statistics coming from all addresses
 class StatisticsCompiler(object):
-    def __init__(self):
-        self.clearAll([ 10 ], 10)
 
-    def clearAll(self, periods, histoSize):
-        from supervisors.addressmapper import addressMapper
-        self.data = { address: { period: StatisticsInstance(period, histoSize) for period in periods } for address in addressMapper.expectedAddresses }
+    def __init__(self, supervisors):
+        """ Initializes the data dictionary. """
+        self.data = {address: {period: StatisticsInstance(period, supervisors.options.statsHisto)
+            for period in supervisors.options.statsPeriods}
+            for address in supervisors.address_mapper.addresses}
 
     def clear(self, address):
         for period in self.data[address].values():
@@ -211,7 +211,3 @@ class StatisticsCompiler(object):
     def pushStatistics(self, address, stats):
         for period in self.data[address].values():
             period.pushStatistics(stats)
-
-
-statisticsCompiler = StatisticsCompiler()
-

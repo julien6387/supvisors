@@ -23,7 +23,7 @@ from supervisors.utils import *
 
 
 # class for ZMQ publication of event
-class _EventPublisher(object):
+class EventPublisher(object):
 
     def __init__(self, supervisors):
         self.supervisors = supervisors

@@ -22,14 +22,9 @@ import urllib
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
-from supervisors.addressmapper import addressMapper
 from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.infosource import infoSource
 from supervisors.plot import StatisticsPlot
 from supervisors.remote import remoteStateToString, RemoteStates
-from supervisors.statemachine import fsm
-from supervisors.options import options
 from supervisors.types import SupervisorsStates
 from supervisors.utils import getStats
 from supervisors.viewimage import processImageContents
@@ -45,7 +40,7 @@ class ViewHandler(object):
 
     # static attributes for statistics selection
     # TODO: find short and discriminating code for URL
-    periodStats = next(iter(options.statsPeriods))
+    periodStats = None
     addressStatsType = 'acpu'
     cpuIdStats = 0
     interfaceStats = ''
@@ -55,7 +50,7 @@ class ViewHandler(object):
     def writePage(self):
         """ Method called by Supervisor to handle the rendering of the Supervisors pages """
         # clone the template and set navigation menu
-        if infoSource.supervisorState == SupervisorStates.RUNNING:
+        if self.supervisors.infoSource.supervisorState == SupervisorStates.RUNNING:
             # manage action
             message = self.handleAction()
             if message is NOT_DONE_YET: return NOT_DONE_YET
@@ -66,7 +61,7 @@ class ViewHandler(object):
             # manage parameters
             self.handleParameters()
             # blink main title in conciliation state
-            if fsm.state == SupervisorsStates.CONCILIATION and context.getConflicts():
+            if self.supervisors.fsm.state == SupervisorsStates.CONCILIATION and self.supervisors.context.getConflicts():
                 root.findmeld('supervisors_mid').attrib['class'] = 'blink'
             # write navigation menu and Address header
             self.writeNavigation(root)
@@ -77,9 +72,9 @@ class ViewHandler(object):
     def writeNav(self, root, address=None, appli=None):
         serverPort = self.getServerPort()
         # update navigation addresses
-        iterator = root.findmeld('address_li_mid').repeat(addressMapper.addresses)
+        iterator = root.findmeld('address_li_mid').repeat(self.supervisors.address_mapper.addresses)
         for li_element, item in iterator:
-            state = context.remotes[item].state
+            state = self.supervisors.context.remotes[item].state
             # set element class
             li_element.attrib['class'] = remoteStateToString(state) + (' active' if item == address else '')
             # set hyperlink attributes
@@ -87,19 +82,19 @@ class ViewHandler(object):
             if state == RemoteStates.RUNNING:
                 # go to web page located on address, so as to reuse Supervisor StatusView
                 elt.attributes(href='http://{}:{}/address.html'.format(item, serverPort))
-                elt.attrib['class'] = 'on' + (' master' if item == context.masterAddress else '')
+                elt.attrib['class'] = 'on' + (' master' if item == self.supervisors.context.master_address else '')
             else:
                 elt.attrib['class'] = 'off'
             elt.content(item)
         # update navigation applications
-        iterator = root.findmeld('appli_li_mid').repeat(context.applications.keys())
+        iterator = root.findmeld('appli_li_mid').repeat(self.supervisors.context.applications.keys())
         for li_element, item in iterator:
-            state = context.applications[item].state
+            state = self.supervisors.context.applications[item].state
             # set element class
             li_element.attrib['class'] = applicationStateToString(state) + (' active' if item == appli else '')
             # set hyperlink attributes
             elt = li_element.findmeld('appli_a_mid')
-            if fsm.state == SupervisorsStates.INITIALIZATION:
+            if self.supervisors.fsm.state == SupervisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
                 elt.attributes(href='application.html?appli={}'.format(urllib.quote(item)))
@@ -108,7 +103,11 @@ class ViewHandler(object):
 
     def writePeriods(self, root):
         """ Write configured periods for statistics """
-        iterator = root.findmeld('period_li_mid').repeat(options.statsPeriods)
+        # init period if necessary
+        if ViewHandler.periodStats is None:
+            ViewHandler.periodStats = next(iter(self.supervisors.options.statsPeriods))
+        # render periods
+        iterator = root.findmeld('period_li_mid').repeat(self.supervisors.options.statsPeriods)
         for li_element, period in iterator:
             # print period button
             elt = li_element.findmeld('period_a_mid')
@@ -244,7 +243,7 @@ class ViewHandler(object):
             elt.content(ViewHandler.namespecStats)
         else:
             if ViewHandler.namespecStats :
-                options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
+                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
                 ViewHandler.namespecStats = ''
             # remove stats part
             statsElt.replace('')
@@ -257,9 +256,9 @@ class ViewHandler(object):
         periodString = form.get('period')
         if periodString:
             period = int(periodString)
-            if period in options.statsPeriods:
+            if period in self.supervisors.options.statsPeriods:
                 if ViewHandler.periodStats != period:
-                    options.logger.info('statistics period set to %d' % period)
+                    self.logger.info('statistics period set to %d' % period)
                     ViewHandler.periodStats = period
             else:
                 self.setMessage(errorMessage('Incorrect period: {}'.format(periodString)))
@@ -276,7 +275,7 @@ class ViewHandler(object):
                     # update Address statistics selection
                     if cpuid < len(self.getAddressStats().cpu):
                         if ViewHandler.addressStatsType != statsType or ViewHandler.cpuIdStats != cpuid:
-                            options.logger.info('select cpu#{} statistics for address'.format(self._transformCpuIdToString(cpuid)))
+                            self.logger.info('select cpu#{} statistics for address'.format(self._transformCpuIdToString(cpuid)))
                             ViewHandler.addressStatsType = statsType
                             ViewHandler.cpuIdStats = cpuid
                     else:
@@ -284,7 +283,7 @@ class ViewHandler(object):
             if statsType == 'amem':
                 # update Address statistics selection
                 if ViewHandler.addressStatsType != statsType:
-                    options.logger.info('select mem statistics for address')
+                    self.logger.info('select mem statistics for address')
                     ViewHandler.addressStatsType = statsType
             elif statsType == 'io':
                 interface = form.get('intf')
@@ -292,7 +291,7 @@ class ViewHandler(object):
                 ioStats = self.getAddressStats().io
                 if interface in ioStats.keys():
                     if ViewHandler.addressStatsType != statsType or ViewHandler.interfaceStats != interface:
-                        options.logger.info('select Interface graph for %s' % interface)
+                        self.logger.info('select Interface graph for %s' % interface)
                         ViewHandler.addressStatsType = statsType
                         ViewHandler.interfaceStats = interface
                 else:
@@ -302,7 +301,7 @@ class ViewHandler(object):
                 procStats = self.getProcessStats(namespec)
                 if procStats:
                     if ViewHandler.processStatsType != statsType or ViewHandler.namespecStats != namespec:
-                        options.logger.info('select detailed Process statistics for %s' % namespec)
+                        self.logger.info('select detailed Process statistics for %s' % namespec)
                         ViewHandler.processStatsType = statsType
                         ViewHandler.namespecStats = namespec
                 else:
@@ -346,9 +345,9 @@ class ViewHandler(object):
     def getProcessStatus(self, namespec):
         """ Get the ProcessStatus instance related to the process named namespec """
         try:
-            procStatus = context.getProcessFromNamespec(namespec)
+            procStatus = self.supervisors.context.getProcessFromNamespec(namespec)
         except KeyError:
-            options.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
+            self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
         else:
             return procStatus
 

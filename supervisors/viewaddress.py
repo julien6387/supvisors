@@ -21,15 +21,11 @@ import urllib
 
 from supervisor.options import make_namespec
 from supervisor.web import StatusView
+from supervisor.xmlrpc import RPCError
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.options import options
 from supervisors.plot import StatisticsPlot
 from supervisors.remote import remoteStateToString
-from supervisors.rpcrequests import getAllProcessInfo, restart, shutdown
-from supervisors.statistics import statisticsCompiler
-from supervisors.utils import getStats, simpleLocalTime
+from supervisors.utils import getStats, simpleLocalTime, supervisors_short_cuts
 from supervisors.viewhandler import ViewHandler
 from supervisors.viewimage import addressImageContents
 from supervisors.webutils import *
@@ -40,27 +36,34 @@ class AddressView(StatusView, ViewHandler):
     # Name of the HTML page
     pageName = 'address.html'
 
+    def __init__(self, context):
+        StatusView.__init__(self, context)
+        self.supervisors = self.context.supervisord.supervisors
+        supervisors_short_cuts(self, ['logger'])
+        self.address = self.supervisors.address_mapper.local_address
+
     def render(self):
         """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
         return self.writePage()
 
     def writeNavigation(self, root):
         """ Rendering of the navigation menu with selection of the current address """
-        self.writeNav(root, address=addressMapper.local_address)
+        self.writeNav(root, address=self.address)
 
     def writeHeader(self, root):
         """ Rendering of the header part of the Supervisors Address page """
         # set address name
         elt = root.findmeld('address_mid')
-        if context.master: elt.attrib['class'] = 'master'
-        elt.content(addressMapper.local_address)
+        if self.supervisors.context.is_master:
+            elt.attrib['class'] = 'master'
+        elt.content(self.address)
         # set address state
-        remote = context.remotes[addressMapper.local_address]
+        remote = self.supervisors.context.remotes[self.address]
         elt = root.findmeld('state_mid')
         elt.content(remoteStateToString(remote.state))
         # set loading
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(context.getLoading(addressMapper.local_address)))
+        elt.content('{}%'.format(self.supervisors.context.getLoading(self.address)))
         # set last tick date: remoteTime and localTime should be identical since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(simpleLocalTime(remote.remoteTime))
@@ -79,7 +82,7 @@ class AddressView(StatusView, ViewHandler):
 
     def getAddressStats(self):
         """ Get the statistics structure related to the local address and the period selected """
-        return statisticsCompiler.data[addressMapper.local_address][ViewHandler.periodStats]
+        return self.supervisors.statistician.data[self.address][ViewHandler.periodStats]
 
     def getProcessStats(self, namespec):
         """ Get the statistics structure related to the local address and the period selected """
@@ -108,7 +111,7 @@ class AddressView(StatusView, ViewHandler):
         img.exportImage(addressImageContents)
         # set title
         elt = root.findmeld('address_fig_mid')
-        elt.content(addressMapper.local_address)
+        elt.content(self.address)
 
     def writeMemoryStatistics(self, statsElt, memStats):
         """ Rendering of the memory statistics """
@@ -231,11 +234,11 @@ class AddressView(StatusView, ViewHandler):
         # collect data on processes
         data = [ ]
         try:
-            for processinfo in getAllProcessInfo(addressMapper.local_address):
+            for processinfo in self.supervisors.requester.getAllProcessInfo(self.address):
                 data.append({'namespec': make_namespec(processinfo['group'], processinfo['name']), 'statename': processinfo['statename'],
                     'state': processinfo['state'], 'desc': processinfo['description'] })
         except RPCError, e:
-            options.logger.warn('failed to get all process info from {}: {}'.format(addressMapper.local_address, e.text))
+            self.logger.warn('failed to get all process info from {}: {}'.format(self.address, e.text))
         # print processes
         if data:
             iterator = root.findmeld('tr_mid').repeat(data)
@@ -246,7 +249,7 @@ class AddressView(StatusView, ViewHandler):
                 namespec = item['namespec']
                 processName = item.get('processname', namespec)
                 elt = trElt.findmeld('name_a_mid')
-                elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(addressMapper.local_address, self.getServerPort(), urllib.quote(namespec)))
+                elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(self.address, self.getServerPort(), urllib.quote(namespec)))
                 elt.content(processName)
                 # print description
                 elt = trElt.findmeld('desc_td_mid')
@@ -277,14 +280,14 @@ class AddressView(StatusView, ViewHandler):
 
     def restartSupAction(self):
         """ Restart the local supervisor """
-        restart(addressMapper.local_address)
+        restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
         return delayedWarn('Supervisor restart requested')
 
     def shutdownSupAction(self):
         """ Shutdown the local supervisor """
-        shutdown(addressMapper.local_address)
+        shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayedWarn('Supervisor shutdown requested')
 

@@ -24,8 +24,6 @@ from supervisor.medusa import default_handler, filesys
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates
 
-from supervisors.options import options
-
 
 # Supervisors is started in Supervisor so information is available in supervisor instance
 class SupervisordSource(object):
@@ -95,9 +93,7 @@ class SupervisordSource(object):
             users = { self.userName: self.password }
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            options.logger.critical('Server %r running without any HTTP authentication checking' % infoSource.serverConfig['section'])
+            self.supervisord.supervisors.logger.warn('Server running without any HTTP authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpServers.handlers.pop()
         self.httpServers.install_handler(defaulthandler, True)
-
-infoSource = SupervisordSource()

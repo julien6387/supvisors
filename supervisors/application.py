@@ -19,7 +19,6 @@
 
 from supervisor.states import *
 
-from supervisors.options import options
 from supervisors.utils import *
 from supervisors.types import StartingFailureStrategies, RunningFailureStrategies
 
@@ -55,7 +54,9 @@ class ApplicationRules(object):
 
 # ApplicationStatus class
 class ApplicationStatus(object):
-    def __init__(self, applicationName):
+
+    def __init__(self, applicationName, logger):
+        self.logger = logger
         # information part
         self.applicationName = applicationName
         self._state = ApplicationStates.UNKNOWN
@@ -81,7 +82,7 @@ class ApplicationStatus(object):
     def state(self, newState):
         if self._state != newState:
             self._state = newState
-            options.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
+            self.logger.info('Application {} is {}'.format(self.applicationName, self.stateAsString()))
 
     # serialization
     def toJSON(self):
@@ -99,7 +100,7 @@ class ApplicationStatus(object):
         self.sequence.clear()
         for process in self.processes.values():
             self.sequence.setdefault(process.rules.sequence, [ ]).append(process)
-        options.logger.debug('Application {}: sequence={}'.format(self.applicationName, self.sequence))
+        self.logger.debug('Application {}: sequence={}'.format(self.applicationName, self.sequence))
         # evaluate application
         self.updateStatus()
 
@@ -119,7 +120,7 @@ class ApplicationStatus(object):
     def updateStatus(self):
         starting = running = stopping = majorFailure = minorFailure = False
         for process in self.processes.values():
-            options.logger.trace('Process {}: state={} required={} exitExpected={}'.
+            self.logger.trace('Process {}: state={} required={} exitExpected={}'.
                 format(process.getNamespec(), process.stateAsString(), process.rules.required, process.expectedExit))
             if process.state == ProcessStates.RUNNING: running = True
             elif process.state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]: starting = True
@@ -132,7 +133,7 @@ class ApplicationStatus(object):
                if process.rules.required: majorFailure = True
                else: minorFailure = True
             # all other STOPPED-like states are considered normal
-        options.logger.trace('Application {}: starting={} running={} stopping={} majorFailure={} minorFailure={}'.
+        self.logger.trace('Application {}: starting={} running={} stopping={} majorFailure={} minorFailure={}'.
             format(self.applicationName, starting, running, stopping, majorFailure, minorFailure))
         # apply rules for state
         if starting: self.state = ApplicationStates.STARTING

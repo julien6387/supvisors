@@ -18,13 +18,13 @@
 # ======================================================================
 
 from math import sqrt
-from time import gmtime, localtime, time
+from time import gmtime, localtime, strftime, time
 
 
 # strings used as headers in messages between Listener and MainLoop
-TickHeader = u'tick'
-ProcessHeader = u'process'
-StatisticsHeader = u'statistics'
+TICK_HEADER = u'tick'
+PROCESS_HEADER = u'process'
+STATISTICS_HEADER = u'statistics'
 
 # strings used as headers in messages between EventPublisher and Supervisors' Client
 SupervisorsStatusHeader = u'supervisors'
@@ -47,14 +47,20 @@ def enumStrings(dico):
     return [ x for x in dico.keys() if not x.startswith('__') ]
 
 
+def supervisors_short_cuts(instance, lst):
+    """ Used to set shortcuts in object attributes against supervisors attributes. """
+    for attr in lst:
+        setattr(instance, attr, getattr(instance.supervisors, attr))
+
+
 # return time without date
 def simpleLocalTime(now=None):
     if now is None: now = time()
-    return time.strftime("%H:%M:%S", localtime(now))
+    return strftime("%H:%M:%S", localtime(now))
 
 def simpleGmTime(now=None):
     if now is None: now = time()
-    return time.strftime("%H:%M:%S", gmtime(now))
+    return strftime("%H:%M:%S", gmtime(now))
 
 
 # simple lambda functions

@@ -25,17 +25,17 @@ from supervisor import events
 from supervisors.mainloop import SupervisorsMainLoop
 from supervisors.process import stringToProcessStates
 from supervisors.statistics import getInstantStats
-from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
+from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
 
 
 # class for ZMQ publication of event
-class _EventPublisher(object):
+class EventPublisher(object):
 
-    def __init__(self, zmqContext, supervisors):
+    def __init__(self, supervisors, zmqContext):
         self.supervisors = supervisors
         # shortcuts for source code readability
-        self.local_address = self.supervisors.addressMapper.local_address
-        self.logger = self.supervisors.logger
+        supervisors_short_cuts(self, ['logger'])
+        self.address = self.supervisors.address_mapper.local_address
         # create ZMQ socket
         self.socket = zmqContext.socket(zmq.PUB)
         url = 'tcp://*:{}'.format(self.supervisors.options.internalPort)
@@ -45,20 +45,20 @@ class _EventPublisher(object):
     def sendTickEvent(self, payload):
         # publish ZMQ tick
         self.logger.debug('send TickEvent {}'.format(payload))
-        self.socket.send_string(TickHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.local_address, payload))
+        self.socket.send_string(TICK_HEADER, zmq.SNDMORE)
+        self.socket.send_pyobj((self.address, payload))
 
     def sendProcessEvent(self, payload):
         # publish ZMQ process state
         self.logger.debug('send ProcessEvent {}'.format(payload))
-        self.socket.send_string(ProcessHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.local_address, payload))
+        self.socket.send_string(PROCESS_HEADER, zmq.SNDMORE)
+        self.socket.send_pyobj((self.address, payload))
 
     def sendStatistics(self, payload):
         # publish ZMQ process state
         self.logger.debug('send Statistics {}'.format(payload))
-        self.socket.send_string(StatisticsHeader, zmq.SNDMORE)
-        self.socket.send_pyobj((self.local_address, payload))
+        self.socket.send_string(STATISTICS_HEADER, zmq.SNDMORE)
+        self.socket.send_pyobj((self.address, payload))
 
 
 # class for listening Supervisor events
@@ -67,18 +67,18 @@ class SupervisorListener(object):
     def __init__(self, supervisors):
         self.supervisors = supervisors
         # shortcuts for source code readability
-        self.local_address = self.supervisors.addressMapper.local_address
-        self.logger = self.supervisors.logger
+        supervisors_short_cuts(self, ['logger'])
+        self.address = self.supervisors.address_mapper.local_address
         # subscribe to internal events
-        events.subscribe(events.SupervisorRunningEvent, self._runningListener)
-        events.subscribe(events.SupervisorStoppingEvent, self._stoppingListener)
-        events.subscribe(events.ProcessStateEvent, self._processListener)
-        events.subscribe(events.Tick5Event, self._tickListener)
+        events.subscribe(events.SupervisorRunningEvent, self.runningListener)
+        events.subscribe(events.SupervisorStoppingEvent, self.stoppingListener)
+        events.subscribe(events.ProcessStateEvent, self.processListener)
+        events.subscribe(events.Tick5Event, self.tickListener)
         # ZMQ context definition
         self.zmqContext = zmq.Context.instance()
         self.zmqContext.setsockopt(zmq.LINGER, 0)
 
-    def _stoppingListener(self, event):
+    def stoppingListener(self, event):
         # Supervisor is STOPPING: start Supervisors in this supervisord
         self.logger.warn('local supervisord is STOPPING')
         # unsubscribe
@@ -88,22 +88,22 @@ class SupervisorListener(object):
         self.mainLoop.join()
         self.logger.warn('cleaning resources')
        # close zmq sockets
-        self.eventPublisher.socket.close()
+        self.publisher.socket.close()
         # close zmq context
         self.zmqContext.term()
         # finally, close logger
         self.logger.close()
 
-    def _runningListener(self, event):
+    def runningListener(self, event):
         # Supervisor is RUNNING: start Supervisors main loop
-        self.mainLoop = SupervisorsMainLoop(self.zmqContext)
+        self.mainLoop = SupervisorsMainLoop(self.supervisors, self.zmqContext)
         self.mainLoop.start()
         # replace the default handler for web ui
-        self.supervisorsinfoSource.replaceDefaultHandler()
+        self.supervisors.infoSource.replaceDefaultHandler()
         # create publisher
-        self.eventPublisher = _EventPublisher(self.zmqContext)
+        self.publisher = EventPublisher(self.supervisors, self.zmqContext)
 
-    def _processListener(self, event):
+    def processListener(self, event):
         eventName = events.getEventNameByType(event.__class__)
         self.logger.debug('got Process event from supervisord: {} {}'.format(eventName, event))
         # create payload to get data
@@ -114,13 +114,13 @@ class SupervisorListener(object):
             'pid': event.process.pid,
             'expected': event.expected }
         self.logger.debug('payload={}'.format(payload))
-        self.eventPublisher.sendProcessEvent(payload)
+        self.publisher.sendProcessEvent(payload)
 
-    def _tickListener(self, event):
+    def tickListener(self, event):
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
-        self.eventPublisher.sendTickEvent(event.when)
+        self.publisher.sendTickEvent(event.when)
         # get and publish statistics at tick time
-        pidList = [ (process.getNamespec(), process.processes[self.local_address]['pid'])
-            for process in self.supervisors.context.getPidProcesses(self.local_address)]
-        self.eventPublisher.sendStatistics(getInstantStats(pidList))
+        pidList = [ (process.getNamespec(), process.processes[self.address]['pid'])
+            for process in self.supervisors.context.getPidProcesses(self.address)]
+        self.publisher.sendStatistics(getInstantStats(pidList))
 

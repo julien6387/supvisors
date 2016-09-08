@@ -21,16 +21,10 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.options import split_namespec
 from supervisor.xmlrpc import capped_int, Faults, RPCError
 
-from supervisors.addressmapper import addressMapper
 from supervisors.application import ApplicationStates, applicationStateToString
-from supervisors.context import context
-from supervisors.deployer import deployer
-from supervisors.infosource import infoSource
-from supervisors.options import options
 from supervisors.remote import RemoteStates, remoteStateToString
-from supervisors.rpcrequests import restart, shutdown, startProcess, stopProcess
-from supervisors.statemachine import fsm
 from supervisors.types import deploymentStrategiesValues, SupervisorsStates, supervisorsStateToString
+from supervisors.utils import supervisors_short_cuts
 
 
 API_VERSION  = '1.0'
@@ -39,6 +33,8 @@ class RPCInterface(object):
 
     def __init__(self, supervisors):
         self.supervisors = supervisors
+        supervisors_short_cuts(self, ['context', 'logger', 'requester'])
+        self.address = supervisors.address_mapper.local_address
 
     # RPC for Supervisors internal use
     def internalStartProcess(self, namespec, wait):
@@ -49,17 +45,17 @@ class RPCInterface(object):
         @return boolean result\tAlways true unless error
         """
         try:
-            options.logger.info('RPC startProcess {}'.format(namespec))
-            result = startProcess(addressMapper.local_address, namespec, wait)
+            self.logger.info('RPC startProcess {}'.format(namespec))
+            result = self.requester.startProcess(self.address, namespec, wait)
         except RPCError, why:
-            options.logger.error('startProcess {} failed: {}'.format(namespec, why))
+            self.logger.error('startProcess {} failed: {}'.format(namespec, why))
             if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
-                options.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
+                self.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
                 try:
-                    infoSource.forceProcessFatalState(namespec, why.text)
+                    self.supervisors.infoSource.forceProcessFatalState(namespec, why.text)
                     result = True
                 except KeyError:
-                    options.logger.error('could not find {} in supervisord processes'.format(namespec))
+                    self.logger.error('could not find {} in supervisord processes'.format(namespec))
                     result = False
             else:
                 # process is already started. should not happen because Supervisors checks state before sending the request
@@ -77,20 +73,20 @@ class RPCInterface(object):
         """ Return the state of Supervisors
         @return string result\tThe state of Supervisors
         """
-        return supervisorsStateToString(fsm.state)
+        return supervisorsStateToString(self.supervisors.fsm.state)
 
     def getMasterAddress(self):
         """ Get the address of the Supervisors Master used to send requests
         @return string result\tThe IPv4 address or host name
         """
-        self._checkOperatingOrConciliation()
-        return context.masterAddress
+        self.checkOperatingOrConciliation()
+        return self.context.masterAddress
 
     def getAllRemoteInfo(self):
         """ Get info about all remote supervisord managed in Supervisors
         @return list result\tA list of structures containing data about all remote supervisord
         """
-        return [ self.getRemoteInfo(address) for address in context.remotes ]
+        return [self.getRemoteInfo(address) for address in self.context.remotes]
 
     def getRemoteInfo(self, address):
         """ Get info about a remote supervisord managed in Supervisors and running on address
@@ -98,58 +94,56 @@ class RPCInterface(object):
         @return struct result\t\tA structure containing data about the remote supervisord
         """
         try:
-            remote = context.remotes[address]
-            loading = context.getLoading(address)
+            remote = self.context.remotes[address]
+            loading = self.context.getLoading(address)
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
-        return { 'address': address, 'state': remoteStateToString(remote.state), 'checked': remote.checked,
-            'remoteTime': capped_int(remote.remoteTime), 'localTime': capped_int(remote.localTime), 'loading': loading }
+        return {'address': address, 'state': remoteStateToString(remote.state), 'checked': remote.checked,
+            'remoteTime': capped_int(remote.remoteTime), 'localTime': capped_int(remote.localTime), 'loading': loading}
 
     def getAllApplicationInfo(self):
         """ Get info about all applications managed in Supervisors
         @return list result\tA list of structures containing data about all applications
         """
-        self._checkOperatingOrConciliation()
-        return [ self.getApplicationInfo(applicationName) for applicationName in context.applications.keys() ]
+        self.checkOperatingOrConciliation()
+        return [self.getApplicationInfo(applicationName) for applicationName in self.context.applications.keys()]
 
     def getApplicationInfo(self, applicationName):
         """ Get info about an application named applicationName
         @param string applicationName\tThe name of the application
-        @return struct result\tA structure containing data about the application
-        """
-        self._checkOperatingOrConciliation()
-        application = self._getApplication(applicationName)
-        return { 'applicationName': application.applicationName, 'state': applicationStateToString(application.state),
-            'majorFailure': application.majorFailure, 'minorFailure': application.minorFailure }
+        @return struct result\tA structure containing data about the application """
+        self.checkOperatingOrConciliation()
+        application = self.getApplication(applicationName)
+        return {'applicationName': application.applicationName, 'state': applicationStateToString(application.state),
+            'majorFailure': application.majorFailure, 'minorFailure': application.minorFailure}
 
     def getProcessInfo(self, namespec):
         """ Get info about a process named namespec
         It just complements supervisor ProcessInfo by telling where the process is running
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @return list result\tA list of structures containing data about the processes
-        """
-        self._checkOperatingOrConciliation()
-        application, process = self._getApplicationAndProcess(namespec)
-        if process: return [ self._getProcessInfo(process) ]
-        return [ self._getProcessInfo(proc) for proc in application.processes.values() ]
+        @return list result\tA list of structures containing data about the processes """
+        self.checkOperatingOrConciliation()
+        application, process = self.getApplicationAndProcess(namespec)
+        if process:
+            return [self.getInternalProcessInfo(process)]
+        return [self.getInternalProcessInfo(proc) for proc in application.processes.values()]
 
     def getProcessRules(self, namespec):
         """ Get the rules used to deploy the process named namespec
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @return list result\tA list of structures containing data about the deployment rules
-        """
-        self._checkFromDeployment()
-        application, process = self._getApplicationAndProcess(namespec)
-        if process: return [ self._getProcessRules(process) ]
-        return [ self._getProcessRules(proc) for proc in application.processes.values() ]
+        @return list result\tA list of structures containing data about the deployment rules """
+        self.checkFromDeployment()
+        application, process = self.getApplicationAndProcess(namespec)
+        if process:
+            return [self.getInternalProcessRules(process)]
+        return [self.getInternalProcessRules(proc) for proc in application.processes.values()]
 
     def getConflicts(self):
         """ Get the conflicting processes
-        @return list result\t\t\tA list of structures containing data about the conflicting processes
-        """
-        self._checkOperatingOrConciliation()
-        return [ self._getProcessInfo(process) for application in context.applications.values()
-            for process in application.processes.values() if process.runningConflict() ]
+        @return list result\t\t\tA list of structures containing data about the conflicting processes """
+        self.checkOperatingOrConciliation()
+        return [self.getInternalProcessInfo(process) for application in self.context.applications.values()
+            for process in application.processes.values() if process.runningConflict()]
 
     # RPC Command methods
     def startApplication(self, strategy, applicationName, wait=True):
@@ -157,29 +151,29 @@ class RPCInterface(object):
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string applicationName\tThe name of the application
         @param boolean wait\tWait for application to be fully started
-        @return boolean result\tAlways True unless error or nothing to start
-        """
-        self._checkOperating()
+        @return boolean result\tAlways True unless error or nothing to start """
+        self.checkOperating()
         # check strategy
         if strategy not in deploymentStrategiesValues():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check application is known
-        if applicationName not in context.applications.keys():
+        if applicationName not in self.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, applicationName)
         # check application is not already RUNNING
-        application = context.applications[applicationName]
+        application = self.context.applications[applicationName]
         if application.state == ApplicationStates.RUNNING:
             raise RPCError(Faults.ALREADY_STARTED, applicationName)
         # TODO: develop a predictive model to check if deployment can be achieved
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
-        done = deployer.deployApplication(strategy, application)
-        options.logger.debug('startApplication {} done={}'.format(applicationName, done))
+        done = self.supervisors.deployer.deployApplication(strategy, application)
+        self.logger.debug('startApplication {} done={}'.format(applicationName, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
                 # check deployer
-                if deployer.isDeploymentInProgress(): return NOT_DONE_YET
+                if self.supervisors.deployer.isDeploymentInProgress():
+                    return NOT_DONE_YET
                 if application.state != ApplicationStates.RUNNING:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, applicationName)
                 return True
@@ -192,24 +186,24 @@ class RPCInterface(object):
         """ Stop the application named applicationName.
         @param string applicationName\tThe name of the application
         @param boolean wait\tWait for application to be fully stopped
-        @return boolean result\tAlways True unless error
-        """
-        self._checkOperatingOrConciliation()
+        @return boolean result\tAlways True unless error """
+        self.checkOperatingOrConciliation()
         # check application is known
-        if applicationName not in context.applications.keys():
+        if applicationName not in self.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, applicationName)
         # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
-        application = context.applications[applicationName]
+        application = self.context.applications[applicationName]
         for process in application.processes.values():
             if process.isRunning():
                 for address in process.addresses.copy():
-                    options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
-                    stopProcess(address, process.getNamespec(), False)
+                    self.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
+                    self.supervisors.rpc.stopProcess(address, process.getNamespec(), False)
         # wait until all processes in STOPPED_STATES
         if wait:
             def onwait():
                 for process in application.processes.values():
-                    if not process.isStopped(): return NOT_DONE_YET
+                    if not process.isStopped():
+                        return NOT_DONE_YET
                 return True
             onwait.delay = 0.5
             return onwait # deferred
@@ -220,9 +214,8 @@ class RPCInterface(object):
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string applicationName\tThe name of the application
         @param boolean wait\tWait for application to be fully stopped
-        @return boolean result\tAlways True unless error
-        """
-        self._checkOperating()
+        @return boolean result\tAlways True unless error """
+        self.checkOperating()
         def onwait():
             # first wait for application to be stopped
             if onwait.waitstop:
@@ -231,7 +224,8 @@ class RPCInterface(object):
                     # done. request start application
                     onwait.waitstop = False
                     value = self.startApplication(strategy, applicationName, wait)
-                    if type(value) is bool: return value
+                    if type(value) is bool:
+                        return value
                     # deferred job to wait for application to be started
                     onwait.job = value
                 return NOT_DONE_YET
@@ -248,15 +242,14 @@ class RPCInterface(object):
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @param boolean wait\tWait for process to be fully started
-        @return boolean result\tAlways true unless error
-        """
-        self._checkOperating()
+        @return boolean result\tAlways true unless error """
+        self.checkOperating()
         # check strategy
         if strategy not in deploymentStrategiesValues():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check names
-        application, process = self._getApplicationAndProcess(namespec)
-        processes = [ process ] if process else application.processes.values()
+        application, process = self.getApplicationAndProcess(namespec)
+        processes = [process] if process else application.processes.values()
         # check processes are not already RUNNING
         for process in processes:
             if process.isRunning():
@@ -264,13 +257,14 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= deployer.deployProcess(strategy, process)
-        options.logger.debug('startProcess {} done={}'.format(process.getNamespec(), done))
+            done &= self.supervisors.deployer.deployProcess(strategy, process)
+        self.logger.debug('startProcess {} done={}'.format(process.getNamespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
                 # check deployer
-                if deployer.isDeploymentInProgress(): return NOT_DONE_YET
+                if self.supervisors.deployer.isDeploymentInProgress():
+                    return NOT_DONE_YET
                 for process in processes:
                     if process.isStopped():
                         raise RPCError(Faults.ABNORMAL_TERMINATION, process.getNamespec())
@@ -284,26 +278,26 @@ class RPCInterface(object):
         """ Stop the process named namespec where it is running.
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @param boolean wait\tWait for process to be fully stopped
-        @return boolean result\tAlways True unless error
-        """
-        self._checkOperatingOrConciliation()
+        @return boolean result\tAlways True unless error """
+        self.checkOperatingOrConciliation()
         # check names
-        application, process = self._getApplicationAndProcess(namespec)
-        processes = [ process ] if process else application.processes.values()
+        application, process = self.getApplicationAndProcess(namespec)
+        processes = [process] if process else application.processes.values()
         # stop all processes
         for process in processes:
             if process.isRunning():
                 # work on copy as it may change during iteration
                 for address in process.addresses.copy():
-                    options.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
-                    stopProcess(address, process.getNamespec(), False)
+                    self.logger.info('stopping process {} on {}'.format(process.getNamespec(), address))
+                    self.supervisors.rpc_requester.stopProcess(address, process.getNamespec(), False)
             else:
-                options.logger.info('process {} already stopped'.format(process.getNamespec()))
+                self.logger.info('process {} already stopped'.format(process.getNamespec()))
         # wait until processes are in STOPPED_STATES
         if wait:
             def onwait():
                 for process in processes:
-                    if not process.isStopped(): return NOT_DONE_YET
+                    if not process.isStopped():
+                        return NOT_DONE_YET
                 return True
             onwait.delay = 0.5
             return onwait # deferred
@@ -315,9 +309,8 @@ class RPCInterface(object):
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @param boolean wait\tWait for process to be fully stopped
-        @return boolean result\tAlways True unless error
-        """
-        self._checkOperating()
+        @return boolean result\tAlways True unless error """
+        self.checkOperating()
         def onwait():
             # first wait for process to be stopped
             if onwait.waitstop:
@@ -326,7 +319,8 @@ class RPCInterface(object):
                     # done. request start process
                     onwait.waitstop = False
                     value = self.startProcess(strategy, namespec, wait)
-                    if type(value) is bool: return value
+                    if type(value) is bool:
+                        return value
                     # deferred job to wait for process to be started
                     onwait.job = value
                 return NOT_DONE_YET
@@ -339,74 +333,72 @@ class RPCInterface(object):
 
     def restart(self):
         """ Restart Supervisors through all remote supervisord
-        @return boolean result\tAlways True unless error
-        """
-        self._checkOperatingOrConciliation()
-        return self._sendAddressesFunc(restart)
+        @return boolean result\tAlways True unless error """
+        self.checkOperatingOrConciliation()
+        return self.sendAddressesFunc(self.supervisors.requester.restart)
 
     def shutdown(self):
         """ Shut down Supervisors through all remote supervisord
-        @return boolean result\tAlways True unless error
-        """
-        self._checkFromDeployment()
-        return self._sendAddressesFunc(shutdown)
+        @return boolean result\tAlways True unless error """
+        self.checkFromDeployment()
+        return self.sendAddressesFunc(self.supervisors.requester.shutdown)
 
     # utilities
-    def _checkFromDeployment(self):
-        self._checkState([ SupervisorsStates.DEPLOYMENT, SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION ])
+    def checkFromDeployment(self):
+        self.checkState([SupervisorsStates.DEPLOYMENT, SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION])
 
-    def _checkOperatingOrConciliation(self):
-        self._checkState([ SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION ])
+    def checkOperatingOrConciliation(self):
+        self.checkState([SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION])
 
-    def _checkOperating(self):
-        self._checkState([ SupervisorsStates.OPERATION ])
+    def checkOperating(self):
+        self.checkState([SupervisorsStates.OPERATION])
 
-    def _checkConciliation(self):
-        self._checkState([ SupervisorsStates.CONCILIATION ])
+    def checkConciliation(self):
+        self.checkState([SupervisorsStates.CONCILIATION])
 
-    def _checkState(self, stateList):
-        if fsm.state not in stateList:
+    def checkState(self, stateList):
+        if self.supervisors.fsm.state not in stateList:
             raise RPCError(Faults.BAD_SUPERVISORS_STATE, 'Supervisors (state={}) not in state {} to perform request'.
-                format(supervisorsStateToString(fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
+                format(supervisorsStateToString(self.supervisors.fsm.state), [ supervisorsStateToString(state) for state in stateList ]))
 
     # almost equivalent to the method in supervisor.rpcinterface
-    def _getApplicationAndProcess(self, namespec):
+    def getApplicationAndProcess(self, namespec):
         # get process to start from name
         applicationName, processName = split_namespec(namespec)
-        return self._getApplication(applicationName), self._getProcess(namespec) if processName else None
+        return self.getApplication(applicationName), self.getProcess(namespec) if processName else None
 
-    def _getApplication(self, applicationName):
+    def getApplication(self, applicationName):
         try:
-            application = context.applications[applicationName]
+            application = self.context.applications[applicationName]
         except KeyError:
             raise RPCError(Faults.BAD_NAME, 'application {} unknown in Supervisors'.format(applicationName))
         return application
 
-    def _getProcess(self, namespec):
+    def getProcess(self, namespec):
         try:
-            process = context.getProcessFromNamespec(namespec)
+            process = self.context.getProcessFromNamespec(namespec)
         except KeyError:
             raise RPCError(Faults.BAD_NAME, 'process {} unknown in Supervisors'.format(namespec))
         return process
 
-    def _getProcessInfo(self, process):
+    def getInternalProcessInfo(self, process):
         return { 'processName': process.getNamespec(), 'state': process.stateAsString(), 'address': list(process.addresses), 'conflict': process.runningConflict() }
 
-    def _getProcessRules(self, process):
+    def getInternalProcessRules(self, process):
         rules = process.rules
         return { 'processName': process.getNamespec(), 'addresses': rules.addresses, 'sequence': rules.sequence,
             'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading }
 
-    def _sendAddressesFunc(self, func):
+    def sendAddressesFunc(self, func):
         # send func request to all locals (but self address)
-        for remote in context.remotes.values():
-            if remote.state in [ RemoteStates.RUNNING, RemoteStates.SILENT ] and remote.address != addressMapper.local_address:
+        for remote in self.context.remotes.values():
+            if remote.state in [RemoteStates.RUNNING, RemoteStates.SILENT] and remote.address != self.address:
                 try:
                     func(remote.address)
-                    options.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
+                    self.logger.warn('supervisord {} on {}'.format(func.__name__, remote.address))
                 except RPCError:
-                    options.logger.error('failed to {} supervisord on {}'.format(func.__name__, remote.address))
+                    self.logger.error('failed to {} supervisord on {}'.format(func.__name__, remote.address))
             else:
-                options.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
+                self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, remote.address, remoteStateToString(remote.state)))
         # send request to self supervisord
-        return func(addressMapper.local_address)
+        return func(self.address)
