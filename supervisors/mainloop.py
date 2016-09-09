@@ -95,7 +95,7 @@ class SupervisorsMainLoop(threading.Thread):
                         self.fsm.onProcessEvent(message[1][0], message[1][1])
                     elif message[0] == STATISTICS_HEADER:
                         self.logger.blather('got statistics message: {}'.format(message[1]))
-                        self.statistician.pushStatistics(message[1][0], message[1][1])
+                        self.statistician.push_statistics(message[1][0], message[1][1])
             # check periodic task
             if self.timerEventTime + 5 < time.time():
                 self._doPeriodicTask()

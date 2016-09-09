@@ -194,7 +194,10 @@ class ViewHandler(object):
         statsElt = root.findmeld('pstats_div_mid')
         # get data from statistics module iaw period selection
         procStats = self.getProcessStats(ViewHandler.namespecStats) if ViewHandler.namespecStats else None
-        if procStats:
+        if procStats and (len(procStats[0]) > 0 or len(procStats[1]) > 0):
+            # set title
+            elt = statsElt.findmeld('process_fig_mid')
+            elt.content(ViewHandler.namespecStats)
             # set CPU statistics
             if len(procStats[0]) > 0:
                 avg, rate, (a, b), dev = getStats(procStats[0])
@@ -233,15 +236,11 @@ class ViewHandler(object):
                     elt.content('{:.2f}'.format(dev))
             # write CPU / Memory plot
             img = StatisticsPlot()
-            # FIXME: hide graph if no data
             if ViewHandler.processStatsType == 'pcpu':
                 img.addPlot('CPU', '%', procStats[0])
             elif ViewHandler.processStatsType == 'pmem':
                 img.addPlot('MEM', '%', procStats[1])
             img.exportImage(processImageContents)
-            # set title
-            elt = statsElt.findmeld('process_fig_mid')
-            elt.content(ViewHandler.namespecStats)
         else:
             if ViewHandler.namespecStats :
                 self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))

@@ -24,7 +24,7 @@ from supervisor import events
 
 from supervisors.mainloop import SupervisorsMainLoop
 from supervisors.process import stringToProcessStates
-from supervisors.statistics import getInstantStats
+from supervisors.statistics import instant_statistics
 from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
 
 
@@ -120,7 +120,7 @@ class SupervisorListener(object):
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
         self.publisher.sendTickEvent(event.when)
         # get and publish statistics at tick time
-        pidList = [ (process.getNamespec(), process.processes[self.address]['pid'])
+        pid_list = [ (process.getNamespec(), process.processes[self.address]['pid'])
             for process in self.supervisors.context.getPidProcesses(self.address)]
-        self.publisher.sendStatistics(getInstantStats(pidList))
+        self.publisher.sendStatistics(instant_statistics(pid_list))
 
