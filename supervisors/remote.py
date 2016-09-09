@@ -21,37 +21,47 @@ from supervisors.types import InvalidTransition
 from supervisors.utils import *
 
 
-class RemoteStates:
+@enumerationTools
+class AddressStates:
     """ Enumeration class for the state of remote Supervisors instance """
     UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
 
-def remoteStateToString(value):
-    return enumToString(RemoteStates.__dict__, value)
+    @staticmethod
+    def to_string(value):
+        """ Convert the application state into a string. """
+        return enumToString(AddressStates.__dict__, value)
 
-def stringToRemoteState(strEnum):
-    return stringToEnum(RemoteStates.__dict__, strEnum)
+    @staticmethod
+    def from_string(strEnum):
+        """ Convert a string into an application state. """
+        return stringToEnum(AddressStates.__dict__, strEnum)
 
-def remoteStatesValues():
-    return enumValues(RemoteStates.__dict__)
+    @staticmethod
+    def values():
+        """ Return all state values. """
+        return enumValues(AddressStates.__dict__)
 
-def remoteStatesStrings():
-    return enumStrings(RemoteStates.__dict__)
+    @staticmethod
+    def strings():
+        """ Return all state values as string. """
+        return enumStrings(AddressStates.__dict__)
 
-# RemoteStatus class
-class RemoteStatus(object):
+
+class AddressStatus(object):
+    """ TODO """
 
     def __init__(self, address, logger):
         self.logger = logger
         self.address = address
-        self._state = RemoteStates.UNKNOWN
+        self._state = AddressStates.UNKNOWN
         self.checked = False
         self.remoteTime = 0
         self.localTime = 0
 
     # serialization
-    def toJSON(self):
-        return { 'address': self.address, 'state': self.stateAsString(), 'checked': self.checked,
-            'remoteTime': self.remoteTime, 'localTime': self.localTime }
+    def to_json(self):
+        return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
+            'remote_time': self.remote_time, 'local_time': self.local_time }
 
     # accessors / mutators
     @property
@@ -61,30 +71,30 @@ class RemoteStatus(object):
     @state.setter
     def state(self, newState):
         if self._state != newState:
-            if self.__checkTransition(newState):
+            if self.checkTransition(newState):
                 self._state = newState
-                self.logger.info('Remote {} is {}'.format(self.address, remoteStateToString(self._state)))
+                self.logger.info('Address {} is {}'.format(self.address, self.state_string()))
             else:
-                raise InvalidTransition('Remote: transition rejected {} to {}'.format(remoteStateToString(self._state), remoteStateToString(newState)))
+                raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates.to_string(newState)))
 
     # methods
-    def stateAsString(self):
-        return remoteStateToString(self.state)
+    def state_string(self):
+        return AddressStates.to_string(self.state)
 
-    def isInIsolation(self):
-        return self.state in [ RemoteStates.ISOLATING, RemoteStates.ISOLATED ]
+    def in_isolation(self):
+        return self.state in [RemoteStates.ISOLATING, RemoteStates.ISOLATED]
 
-    def updateRemoteTime(self, remoteTime, localTime):
-        self.remoteTime = remoteTime
-        self.localTime = localTime
+    def update_times(self, remote_time, local_time):
+        self.remote_time = remote_time
+        self.local_time = local_time
 
-    def __checkTransition(self, newState):
+    def checkTransition(self, newState):
         return newState in self.__Transitions[self.state]
 
     __Transitions = {
-        RemoteStates.UNKNOWN: (RemoteStates.RUNNING, RemoteStates.ISOLATING, RemoteStates.SILENT),
-        RemoteStates.RUNNING: (RemoteStates.SILENT, RemoteStates.ISOLATING),
-        RemoteStates.SILENT: (RemoteStates.RUNNING, ),
-        RemoteStates.ISOLATING: (RemoteStates.ISOLATED, ), 
-        RemoteStates.ISOLATED: ()
+        AddressStates.UNKNOWN: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
+        AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING),
+        AddressStates.SILENT: (AddressStates.RUNNING, ),
+        AddressStates.ISOLATING: (AddressStates.ISOLATED, ), 
+        AddressStates.ISOLATED: ()
     }
