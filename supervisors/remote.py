@@ -26,26 +26,6 @@ class AddressStates:
     """ Enumeration class for the state of remote Supervisors instance """
     UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
 
-    @staticmethod
-    def to_string(value):
-        """ Convert the application state into a string. """
-        return enumToString(AddressStates.__dict__, value)
-
-    @staticmethod
-    def from_string(strEnum):
-        """ Convert a string into an application state. """
-        return stringToEnum(AddressStates.__dict__, strEnum)
-
-    @staticmethod
-    def values():
-        """ Return all state values. """
-        return enumValues(AddressStates.__dict__)
-
-    @staticmethod
-    def strings():
-        """ Return all state values as string. """
-        return enumStrings(AddressStates.__dict__)
-
 
 class AddressStatus(object):
     """ TODO """
