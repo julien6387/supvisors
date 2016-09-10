@@ -27,12 +27,12 @@ from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, su
 # class for subscription to Listener events
 class EventSubscriber(object):
 
-    def __init__(self, supervisors, zmqContext):
+    def __init__(self, supervisors, zmq_context):
         self.supervisors = supervisors
-        self.socket = zmqContext.socket(zmq.SUB)
+        self.socket = zmq_context.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
         for address in supervisors.address_mapper.addresses:
-            url = 'tcp://{}:{}'.format(address, supervisors.options.internalPort)
+            url = 'tcp://{}:{}'.format(address, supervisors.options.internal_port)
             supervisors.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
         supervisors.logger.debug('EventSubscriber connected')
@@ -43,7 +43,7 @@ class EventSubscriber(object):
 
     def disconnect(self, addresses):
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address, self.supervisors.options.internalPort)
+            url = 'tcp://{}:{}'.format(address, self.supervisors.options.internal_port)
             self.supervisors.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
@@ -54,15 +54,15 @@ class EventSubscriber(object):
 # class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
 
-    def __init__(self, supervisors, zmqContext):
+    def __init__(self, supervisors, zmq_context):
         # thread attributes
         threading.Thread.__init__(self)
         # shortcuts
         self.supervisors = supervisors
         supervisors_short_cuts(self, ['fsm', 'logger', 'statistician'])
         # create event sockets
-        self.subscriber = EventSubscriber(supervisors, zmqContext)
-        supervisors.publisher.open(zmqContext)
+        self.subscriber = EventSubscriber(supervisors, zmq_context)
+        supervisors.publisher.open(zmq_context)
 
     def stop(self):
         self.logger.info('request to stop main loop')
@@ -74,7 +74,7 @@ class SupervisorsMainLoop(threading.Thread):
         poller = zmq.Poller()
         # register event publisher
         poller.register(self.subscriber.socket, zmq.POLLIN) 
-        self.timerEventTime = time.time()
+        self.timer_event_time = time.time()
         # poll events every seconds
         self.loop = True
         while self.loop:
@@ -89,29 +89,29 @@ class SupervisorsMainLoop(threading.Thread):
                 else:
                     if message[0] == TICK_HEADER:
                         self.logger.blather('got tick message: {}'.format(message[1]))
-                        self.fsm.onTickEvent(message[1][0], message[1][1])
+                        self.fsm.on_tick_event(message[1][0], message[1][1])
                     elif message[0] == PROCESS_HEADER:
                         self.logger.blather('got process message: {}'.format(message[1]))
-                        self.fsm.onProcessEvent(message[1][0], message[1][1])
+                        self.fsm.on_process_event(message[1][0], message[1][1])
                     elif message[0] == STATISTICS_HEADER:
                         self.logger.blather('got statistics message: {}'.format(message[1]))
                         self.statistician.push_statistics(message[1][0], message[1][1])
             # check periodic task
-            if self.timerEventTime + 5 < time.time():
-                self._doPeriodicTask()
+            if self.timer_event_time + 5 < time.time():
+                self.periodic_task()
             # publish all events from here using pyzmq json
         self.logger.info('exiting main loop')
-        self._close()
+        self.close()
 
-    def _doPeriodicTask(self):
+    def periodic_task(self):
         self.logger.blather('periodic task')
-        addresses = self.fsm.onTimerEvent()
+        addresses = self.fsm.on_timer_event()
         # disconnect isolated addresses from sockets
         self.subscriber.disconnect(addresses)
         # set date for next task
-        self.timerEventTime = time.time()
+        self.timer_event_time = time.time()
 
-    def _close(self):
+    def close(self):
         # close zmq sockets
         self.supervisors.publisher.close()
         self.subscriber.close()

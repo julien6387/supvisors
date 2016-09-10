@@ -34,10 +34,11 @@ from supervisors.viewsupervisors import SupervisorsView
 class SupervisorsFaults:
     SUPERVISORS_CONF_ERROR, BAD_SUPERVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY = range(4)
 
-_FAULTS_OFFSET = 100
+FAULTS_OFFSET = 100
+
 
 # Trick to replace Supervisor main page
-def updateViews():
+def update_views():
     # replace Supervisor main entry
     here = path.abspath(path.dirname(__file__))
     # set main page
@@ -55,9 +56,9 @@ def make_supervisors_rpcinterface(supervisord, **config):
     # expand supervisord Fault definition (no matter if done several times)
     for (x, y) in SupervisorsFaults.__dict__.items():
         if not x.startswith('__'):
-            setattr(Faults, x, y + _FAULTS_OFFSET)
+            setattr(Faults, x, y + FAULTS_OFFSET)
     # update http web pages
-    updateViews()
+    update_views()
     # create a new Supervisors instance
     supervisors = Supervisors(supervisord)
     # create and return handler

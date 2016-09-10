@@ -23,7 +23,7 @@ from socket import gethostname
 from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
 from supervisor.options import Options, UnhosedConfigParser
 
-from supervisors.types import *
+from supervisors.types import ConciliationStrategies, DeploymentStrategies
 
 
 # Options of main section
@@ -43,17 +43,17 @@ class SupervisorsOptions(object):
         if not parser.has_section(parser.mysection):
             raise ValueError('section [{}] not found in config file {}'.format(parser.mysection, configfile))
         # get values
-        self.addressList = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('addresslist', gethostname())))))
-        self.deploymentFile = existing_dirpath(parser.getdefault('deploymentfile', ''))
-        self.internalPort = self._toPortNum(parser.getdefault('internalport', '65001'))
-        self.eventPort = self._toPortNum(parser.getdefault('eventport', '65002'))
-        self.autoFence = boolean(parser.getdefault('autofence', 'false'))
-        self.synchroTimeout = self._toTimeout(parser.getdefault('synchrotimeout', '15'))
-        self.conciliationStrategy = self._toConciliationStrategy(parser.getdefault('conciliation_strategy', 'USER'))
-        self.deploymentStrategy = self._toDeploymentStrategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        self.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))))
+        self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
+        self.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
+        self.event_port = self.to_port_num(parser.getdefault('eventp_ort', '65002'))
+        self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
+        self.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
+        self.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
+        self.deployment_strategy = self.to_deployment_strategy(parser.getdefault('deployment_strategy', 'CONFIG'))
         # configure statistics
-        self.statsPeriods = self._toPeriods(list_of_strings(parser.getdefault('statsperiods', '10')))
-        self.statsHisto = self._toHisto(parser.getdefault('statshisto', 200))
+        self.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
+        self.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
         # configure logger
         self.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
         self.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
@@ -61,29 +61,29 @@ class SupervisorsOptions(object):
         self.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
 
     # conversion utils (completion of supervisor.datatypes)
-    def _toPortNum(self, value):
+    def to_port_num(self, value):
         value = integer(value)
         if 0 < value <= 65535: return value
         raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
 
-    def _toTimeout(self, value):
+    def to_timeout(self, value):
         value = integer(value)
         if 0 < value <= 1000: return value
         raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000] (seconds)' % value)
 
-    def _toConciliationStrategy(self, value):
-        strategy = stringToConciliationStrategy(value)
+    def to_conciliation_strategy(self, value):
+        strategy = ConciliationStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, conciliationStrategiesValues()))
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, ConciliationStrategies.values()))
         return strategy
 
-    def _toDeploymentStrategy(self, value):
-        strategy = stringToDeploymentStrategy(value)
+    def to_deployment_strategy(self, value):
+        strategy = DeploymentStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, deploymentStrategiesValues()))
+            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, DeploymentStrategies.values()))
         return strategy
 
-    def _toPeriods(self, value):
+    def to_periods(self, value):
         if len(value) > 3: raise ValueError('unexpected number of periods: {}. maximum is 3'.format(value))
         periods = [ ]
         for val in value:
@@ -93,7 +93,7 @@ class SupervisorsOptions(object):
             periods.append(period)
         return sorted(filter(None, periods))
 
-    def _toHisto(self, value):
+    def to_histo(self, value):
         histo = integer(value)
         if 10 <= histo <= 1500: return histo
         raise ValueError('invalid value for histo: {}. expected in [10;1500] (seconds)'.format(value))

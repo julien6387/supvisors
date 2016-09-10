@@ -19,13 +19,13 @@
 
 from time import ctime
 
-# gravity classes for messages
+# gravity classes for _messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
 Info ='info'
 Warn = 'warn'
 Error = 'erro'
 
-def formatGravityMessage(message):
+def format_gravity__message(message):
     if not isinstance(message, tuple):
         # gravity is not set by Supervisor so let's deduce it
         if 'ERROR' in message:
@@ -36,39 +36,39 @@ def formatGravityMessage(message):
         return (gravity, message)
     return message
 
-def printMessage(root, gravity, message):
-    # print message as a result of action
-    elt = root.findmeld('message_mid')
+def print__message(root, gravity, message):
+    # print _message as a result of action
+    elt = root.findmeld('_message_mid')
     if message is not None:
         elt.attrib['class'] = gravity
         elt.content(message)
     else:
         elt.replace('')
 
-def infoMessage(msg, address=None):
+def info_message(msg, address=None):
     return (Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
-def warnMessage(msg, address=None):
+def warn_message(msg, address=None):
     return (Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
-def errorMessage(msg, address=None):
+def error_message(msg, address=None):
     return (Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
 
-def delayedInfo(msg, address=None):
-    def onWait():
-        return infoMessage(msg, address)
-    onWait.delay = 0.05
-    return onWait
+def delayed_info(msg, address=None):
+    def on_wait():
+        return info_message(msg, address)
+    on_wait.delay = 0.05
+    return on_wait
 
-def delayedWarn(msg, address=None):
-    def onWait():
-        return warnMessage(msg, address)
-    onWait.delay = 0.05
-    return onWait
+def delayed_warn(msg, address=None):
+    def on_wait():
+        return warn_message(msg, address)
+    on_wait.delay = 0.05
+    return on_wait
 
-def delayedError(msg, address=None):
-    def onWait():
-        return errorMessage(msg, address)
-    onWait.delay = 0.05
-    return onWait
+def delayed_error(msg, address=None):
+    def on_wait():
+        return error_message(msg, address)
+    on_wait.delay = 0.05
+    return on_wait
 

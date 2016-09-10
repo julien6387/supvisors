@@ -25,17 +25,14 @@ from supervisor.xmlrpc import SupervisorTransport
 class XmlRpcClient(object):
 
     def __init__(self, address, info_source):
-        self.info_source = info_source
-        self.transport = self.getRpcTransport(address)
-        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport) if self.transport else None
-
-    def getRpcTransport(self, address):
-        if self.info_source.serverUrl:
-            serverUrl = self.info_source.serverUrl.split(':')
-            if len(serverUrl) == 3:
-                serverUrl[1] = '//' + address
-                serverUrl = ':'.join(serverUrl)
-                return SupervisorTransport(self.info_source.userName, self.info_source.password, serverUrl)
+        if info_source.serverurl:
+            # TODO: what is the expected contents ?
+            serverurl = info_source.serverurl.split(':')
+            if len(serverurl) == 3:
+                serverurl[1] = '//' + address
+                serverurl = ':'.join(serverurl)
+                self.transport = SupervisorTransport(info_source.username, info_source.password, serverurl)
+        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport)
 
 
 class RpcRequester(object):
@@ -44,60 +41,60 @@ class RpcRequester(object):
         self.supervisors = supervisors
 
     # utilities to determine if using XmlRpcClient or internal handler directly
-    def useProxy(self, address):
+    def use_proxy(self, address):
         return address != self.supervisors.address_mapper.local_address
 
-    def getSupervisorProxy(self, address):
+    def supervisor_proxy(self, address):
         # return client so as is it not destroyed when exiting
-        client = XmlRpcClient(address, self.supervisors.infoSource)
+        client = XmlRpcClient(address, self.supervisors.info_source)
         return client, client.proxy.supervisor
 
-    def getSupervisorsProxy(self, address):
+    def supervisors_proxy(self, address):
         # return client so as is it not destroyed when exiting
-        client = XmlRpcClient(address, self.supervisors.infoSource)
+        client = XmlRpcClient(address, self.supervisors.info_source)
         return client, client.proxy.supervisors
 
-    def getInternalSupervisor(self):
-        return None, self.supervisors.infoSource.getSupervisorRpcInterface()
+    def internal_supervisor(self):
+        return None, self.supervisors.info_source.supervisor_rpc_interface
 
-    def getInternalSupervisors(self):
-        return None, self.supervisors.infoSource.getSupervisorsRpcInterface()
+    def internal_supervisors(self):
+        return None, self.supervisors.info_source.supervisors_rpc_interface
 
-    def getSupervisor(self, address):
-        return self.getSupervisorProxy(address) if self.useProxy(address) else self.getInternalSupervisor()
+    def get_supervisor(self, address):
+        return self.supervisor_proxy(address) if self.use_proxy(address) else self.internal_supervisor()
 
-    def getSupervisors(self, address):
-        return self.getSupervisorsProxy(address) if self.useProxy(address) else self.getInternalSupervisors()
+    def get_supervisors(self, address):
+        return self.supervisors_proxy(address) if self.use_proxy(address) else self.internal_supervisors()
 
     # Requests
-    def getAllProcessInfo(self, address):
-        client, supervisor = self.getSupervisor(address)
+    def all_process_info(self, address):
+        client, supervisor = self.get_supervisor(address)
         return supervisor.getAllProcessInfo()
 
-    def getSupervisorsState(self, address):
-        client, supervisors = self.getSupervisors(address)
-        return supervisors.getSupervisorsState()
+    def supervisors_state(self, address):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.get_supervisors_state()
 
-    def internalStartProcess(self, address, program, wait):
-        client, supervisors = self.getSupervisors(address)
-        return supervisors.internalStartProcess(program, wait)
+    def internal_start_process(self, address, program, wait):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.internal_start_process(program, wait)
 
-    def getRemoteInfo(self, address, remoteAddress):
-        client, supervisors = self.getSupervisors(address)
-        return supervisors.getRemoteInfo(remoteAddress)
+    def address_info(self, address, remote_address):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.get_address_info(remote_address)
 
-    def startProcess(self, address, program, wait):
-        client, supervisor = self.getSupervisor(address)
+    def start_process(self, address, program, wait):
+        client, supervisor = self.get_supervisor(address)
         return supervisor.startProcess(program, wait)
 
-    def stopProcess(self, address, program, wait):
-        client, supervisor = self.getSupervisor(address)
+    def stop_process(self, address, program, wait):
+        client, supervisor = self.get_supervisor(address)
         return supervisor.stopProcess(program, wait)
 
     def restart(self, address):
-        client, supervisor = self.getSupervisor(address)
+        client, supervisor = self.get_supervisor(address)
         return supervisor.restart()
 
     def shutdown(self, address):
-        client, supervisor = self.getSupervisor(address)
+        client, supervisor = self.get_supervisor(address)
         return supervisor.shutdown()

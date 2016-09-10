@@ -28,7 +28,8 @@ class StatsImage(object):
         self.contents = None
 
     def getNewImage(self):
-        if self.contents: self.contents.close()
+        if self.contents:
+            self.contents.close()
         from io import BytesIO
         self.contents = BytesIO()
         return self.contents

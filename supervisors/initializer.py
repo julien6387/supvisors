@@ -34,7 +34,7 @@ from supervisors.statistics import StatisticsCompiler
 
 
 class Supervisors(object):
-    """ the Supervisors class  """
+    """ The Supervisors class  """
 
     # logger output
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
@@ -48,12 +48,12 @@ class Supervisors(object):
         stdout = supervisord.options.nodaemon
         self.logger = getLogger(self.options.logfile, self.options.loglevel, Supervisors.LOGGER_FORMAT, True, self.options.logfile_maxbytes, self.options.logfile_backups, stdout)
         # configure supervisor info source
-        self.infoSource = SupervisordSource(supervisord)
+        self.info_source = SupervisordSource(supervisord)
         # set addresses and check local address
         self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.addresses = self.options.addressList
+        self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
-            raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(self.options.addressList))
+            raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'local host unexpected in address list: {}'.format(self.options.address_list))
         # create context data
         self.context = Context(self)
         # create event publisher
@@ -70,6 +70,6 @@ class Supervisors(object):
         try:
             self.parser = Parser(self)
         except:
-            raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(self.options.deploymentFile))
+            raise RPCError(Faults.SUPERVISORS_CONF_ERROR, 'cannot parse deployment file: {}'.format(self.options.deployment_file))
         # create event subscriber
         self.listener = SupervisorListener(self)

@@ -25,22 +25,23 @@ from supervisor.states import *
 from supervisors.utils import *
 
 
-def stringToProcessStates(strEnum):
+def to_string(strEnum):
     """ Get a string from Supervisor ProcessStates enumeration """
-    return stringToEnum(ProcessStates.__dict__, strEnum)
+    return string_to_enum(ProcessStates.__dict__, strEnum)
 
 
 class ProcessRules(object):
-    """ Defines the rules for starting a process, iaw deployment file """
+    """ Defines the rules for starting a process, iaw deployment file.
 
-    def __init__(self, logger):
-        """ The constructor initializes the following attributes:
+    Attributes:
         - the addresses where the process can be started (all by default)
         - the order in the starting sequence of the application
         - a status telling if the process is required within the application
         - a status telling if Supervisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application
-        - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)
-        """
+        - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)"""
+
+    def __init__(self, logger):
+        """ Initialization of the attributes. """
         self.logger = logger
         # TODO: see if dependency (process, application) is to be implemented
         self.addresses = ['*']
@@ -49,18 +50,18 @@ class ProcessRules(object):
         self.wait_exit = False
         self.expected_loading = 1
 
-    def checkDependencies(self, logName):
+    def check_dependencies(self):
         """ Update rules after they have been read from the deployment file
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have sequence, so force to optional if no sequence
         if self.required and self.sequence == -1:
-            self.logger.warn('{} - required forced to False because no sequence defined'.format(logName))
+            self.logger.warn('required forced to False because no sequence defined')
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
             self.addresses = ['*']
-            self.logger.warn('{} - no address defined so all Supervisors addresses are applicable'.format(logName))
+            self.logger.warn('no address defined so all Supervisors addresses are applicable')
 
     def __str__(self):
         """ Contents as string """
@@ -70,7 +71,9 @@ class ProcessRules(object):
 
 # ProcessStatus class
 class ProcessStatus(object):
-    """ Class defining the status of a process of Supervisors. It contains:
+    """ Class defining the status of a process of Supervisors.
+
+    Attributes:
     - the application name, or group name from a Supervisor point of view
     - the process name
     - the synthetic state of the process, same enumeration as Supervisor
@@ -80,45 +83,46 @@ class ProcessStatus(object):
     - the list of all addresses where the process is running
     - a Supervisor-like process info dictionary for each address (running or not)
     - the starting rules related to this process
-    - a status telling if the waitExit rule is applicable (should be temporary)
-    """
-    def __init__(self, address, processInfo, logger):
+    - a status telling if the wait_exit rule is applicable (should be temporary). """
+
+    def __init__(self, address, info, logger):
+        """ Initialization of the attributes. """
         self.logger = logger
         # TODO: do I really need to keep all process info ? requests to Supervisor give the same...
         # wait for web development to decide
-        self.applicationName = processInfo['group']
-        self.processName = processInfo['name']
+        self.application_name = info['group']
+        self.process_name = info['name']
         self._state = ProcessStates.UNKNOWN
-        self.expectedExit = True
-        self.lastEventTime = None
+        self.expected_exit = True
+        self.last_event_time = None
         self.mark_for_restart = False
         # expected one single applicable address
         self.addresses = set() # addresses
         self.processes = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
-        self.ignoreWaitExit = False
+        self.ignore_wait_exit = False
         # init parameters
-        self.addInfo(address, processInfo)
+        self.add_info(address, info)
 
     # access
-    def getNamespec(self):
+    def namespec(self):
         """ Returns a namespec from application and process names """
-        return make_namespec(self.applicationName, self.processName)
+        return make_namespec(self.application_name, self.process_name)
 
-    def isStopped(self):
+    def stopped(self):
         """ Return True if process is stopped, as designed in Supervisor """
         return self.state in STOPPED_STATES
 
-    def isRunning(self):
+    def running(self):
         """ Return True if process is running, as designed in Supervisor """
         return self.state in RUNNING_STATES
 
-    def isRunningOn(self, address):
+    def running_on(self, address):
         """ Return True if process is running on address """
-        return self.isRunning() and address in self.addresses
+        return self.running() and address in self.addresses
 
-    def hasRunningPidOn(self, address):
+    def pid_running_on(self, address):
         """ Return True if process is RUNNING on address 
         Different from isRunningOn as it considers only the RUNNING state and not STARTING or BACKOFF
         This is used by the statistics module that requires an existing PID """
@@ -133,138 +137,139 @@ class ProcessStatus(object):
     def state(self, newState):
         if self._state != newState:
             self._state = newState
-            self.logger.info('Process {} is {} at {}'.format(self.getNamespec(), self.stateAsString(), list(self.addresses)))
+            self.logger.info('Process {} is {} at {}'.format(self.namespec(), self.state_string(), list(self.addresses)))
 
-    def runningConflict(self):
+    def conflicting(self):
         """ Return True if the process is in a conflicting state (more than one instance running) """
         return len(self.addresses) > 1
 
     # serialization
-    def toJSON(self):
+    def to_json(self):
         """ Return a JSON-serializable form of the ProcessStatus """
-        return {'applicationName': self.applicationName, 'processName': self.processName, 'state': self.stateAsString(),
-            'expectedExit': self.expectedExit, 'lastEventTime': self.lastEventTime, 'addresses': list(self.addresses)}
+        return {'application_name': self.application_name, 'process_name': self.process_name, 'state': self.state_string(),
+            'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time, 'addresses': list(self.addresses)}
 
     # methods
-    def stateAsString(self):
+    def state_string(self):
         """ Return the state as a string """
-        return getProcessStateDescription(self.state)
+        return to_string(self.state)
 
-    def addInfo(self, address, processInfo):
+    def add_info(self, address, info):
         """ Insert a new Supervisor ProcessInfo in internal list """
         # remove useless fields
-        self.__filterInfo(processInfo)
+        self.filter(info)
         # store time info
-        self.lastEventTime = processInfo['now']
-        processInfo['eventTime'] = self.lastEventTime
-        self._updateTimes(processInfo, self.lastEventTime, int(time()))
+        self.last_event_time = info['now']
+        info['eventTime'] = self.last_event_time
+        self.update_single_times(info, self.last_event_time, int(time()))
         # add info entry to process
-        self.logger.debug('adding {} for {}'.format(processInfo, address))
-        self.processes[address] = processInfo
+        self.logger.debug('adding {} for {}'.format(info, address))
+        self.processes[address] = info
         # update process status
-        self.updateStatus(address, processInfo['state'], not processInfo['spawnerr']) 
+        self.update_status(address, info['state'], not info['spawnerr']) 
 
-    def updateInfo(self, address, processEvent):
+    def update_info(self, address, event):
         """ Update the internal ProcessInfo from event received """
         # do not add process in list while not added through tick
         if address in self.processes:
-            processInfo = self.processes[address]
-            self.logger.trace('inserting {} into {} at {}'.format(processEvent, processInfo, address))
-            newState = processEvent['state']
-            processInfo['state'] = newState
-            processInfo['statename'] = getProcessStateDescription(newState)
+            info = self.processes[address]
+            self.logger.trace('inserting {} into {} at {}'.format(event, info, address))
+            new_state = event['state']
+            info['state'] = new_state
+            info['statename'] = to_string(new_state)
             # manage times and pid
-            remoteTime = processEvent['now']
-            processInfo['eventTime'] = remoteTime
-            self.lastEventTime = remoteTime
-            self._updateTimes(processInfo, remoteTime, int(time()))
-            if newState == ProcessStates.RUNNING:
-                processInfo['pid'] = processEvent['pid']
-            elif newState in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]:
-                processInfo['start'] = remoteTime
-                processInfo['stop'] = 0
-                processInfo['uptime'] = 0
-            elif newState in STOPPED_STATES:
-                processInfo['stop'] = remoteTime
-                processInfo['pid'] = -1
-                if newState == ProcessStates.EXITED:
+            remote_time = event['now']
+            info['eventTime'] = remote_time
+            self.last_event_time = remote_time
+            self.update_single_times(info, remote_time, int(time()))
+            if new_state == ProcessStates.RUNNING:
+                info['pid'] = event['pid']
+            elif new_state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]:
+                info['start'] = remote_time
+                info['stop'] = 0
+                info['uptime'] = 0
+            elif new_state in STOPPED_STATES:
+                info['stop'] = remote_time
+                info['pid'] = -1
+                if new_state == ProcessStates.EXITED:
                     # unexpected status is declared in spawnerr
-                    processInfo['spawnerr'] = '' if processEvent['expected'] else 'Bad exit code (unknown)'
+                    info['spawnerr'] = '' if event['expected'] else 'Bad exit code (unknown)'
             # update / check running addresses
-            self.updateStatus(address, newState, processEvent.get('expected', True))
-            self.logger.debug('new processInfo: {}'.format(processInfo))
-        else: self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.processName, address))
+            self.update_status(address, new_state, event.get('expected', True))
+            self.logger.debug('new processInfo: {}'.format(info))
+        else: self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.process_name, address))
 
-    def updateRemoteTime(self, address, remoteTime, localTime):
+    def update_times(self, address, remote_time, local_time):
         """ Update the time fields of the internal ProcessInfo when a new tick is received from the remote Supervisors instance """
         if address in self.processes:
             processInfo = self.processes[address]
-            self._updateTimes(processInfo, remoteTime, localTime)
+            self.update_single_times(processInfo, remote_time, local_time)
 
-    def invalidateAddress(self, address):
+    def update_single_times(self, info, remote_time, local_time):
+        """ Update time fields """
+        info['now'] = remote_time
+        info['localTime'] = local_time
+        if info['state'] in [ ProcessStates.RUNNING, ProcessStates.STOPPING ]:
+            info['uptime'] = remote_time - info['start']
+
+    def invalidate_address(self, address):
         """ Update status of a process that was running on a lost address """
-        self.logger.debug('{} invalidateAddress {} / {}'.format(self.getNamespec(), self.addresses, address))
+        self.logger.debug('{} invalidateAddress {} / {}'.format(self.namespec(), self.addresses, address))
         # reassign the difference between current set and parameter
-        if address in self.addresses: self.addresses.remove(address)
+        if address in self.addresses:
+            self.addresses.remove(address)
         # check if conflict still applicable
-        if not self._evaluateConflictingState():
+        if not self.evaluate_conflict():
             if len(self.addresses) == 1:
                 # if only one address where process is running, the global state is the state of this process
                 state = next(self.processes[address]['state'] for address in self.addresses)
                 self.state = state
-            elif self.isRunning():
+            elif self.running():
                 # addresses is empty for a running process. action expected to fix the inconsistency
-                self.logger.warn('no more address for running process {}'.format(self.getNamespec()))
+                self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 self.mark_for_restart = True
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.state = ProcessStates.STOPPED
         else:
-            self.logger.debug('process {} still in conflict after address invalidation'.format(self.getNamespec()))
+            self.logger.debug('process {} still in conflict after address invalidation'.format(self.namespec()))
 
-    def updateStatus(self, address, newState, expected):
+    def update_status(self, address, new_state, expected):
         """ Updates the state and list of running address iaw the new event """
-        if newState == ProcessStates.UNKNOWN:
-            self.logger.warn('unexpected state {} for {} at {}'.format(getProcessStateDescription(newState), self.getNamespec(), address))
+        if new_state == ProcessStates.UNKNOWN:
+            self.logger.warn('unexpected state {} for {} at {}'.format(to_string(newState), self.namespec(), address))
         else:
             # update addresses list
-            if newState in STOPPED_STATES:
+            if new_state in STOPPED_STATES:
                 self.addresses.discard(address)
-            elif newState in RUNNING_STATES:
+            elif new_state in RUNNING_STATES:
                 # replace if current state stopped-like, add otherwise
-                if self.isStopped():
-                    self.addresses = { address }
+                if self.stopped():
+                    self.addresses = {address}
                 else:
                     self.addresses.add(address)
             # evaluate state iaw running addresses
-            if not self._evaluateConflictingState():
+            if not self.evaluate_conflict():
                 # if zero element, state is the state of the program addressed
-                self.state = newState if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
-                self.expectedExit = expected
+                self.state = new_state if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
+                self.expected_exit = expected
 
-    def _evaluateConflictingState(self):
+    def evaluate_conflict(self):
         """ Gets a synthetic state if several processes are in a RUNNING-like state """
-        if self.runningConflict():
+        if self.conflicting():
             # several processes seems to be in a running state so that becomes tricky
-            states = { self.processes[address]['state'] for address in self.addresses }
-            self.logger.debug('{} multiple states {} for addresses {}'.format(self.processName, [ getProcessStateDescription(x) for x in states ], list(self.addresses)))
+            states = {self.processes[address]['state'] for address in self.addresses}
+            self.logger.debug('{} multiple states {} for addresses {}'.format(self.process_name, [to_string(x) for x in states], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
-            self.state = self.__getRunningState(states)
+            self.state = self.running_state(states)
             return True
 
-    def _updateTimes(self, processInfo, remoteTime, localTime):
-        """ Update time fields """
-        processInfo['now'] = remoteTime
-        processInfo['localTime'] = localTime
-        if processInfo['state'] in [ ProcessStates.RUNNING, ProcessStates.STOPPING ]:
-            processInfo['uptime'] = remoteTime - processInfo['start']
-
-    def __filterInfo(self, processInfo):
+    def filter(self, info):
         """ Remove from dictionary the fields that are not used in Supervisors and/or not updated through process events """
-        map(processInfo.pop, [ 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus' ])
+        map(info.pop, [ 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus' ])
 
-    def __getRunningState(self, states):
+    def running_state(self, states):
         """ Return the first matching state in RUNNING_STATES """
         return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
 

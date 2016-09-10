@@ -76,73 +76,74 @@ class Parser(object):
     def __init__(self, supervisors):
         self.supervisors = supervisors
         supervisors_short_cuts(self, ['logger'])
-        self.tree = self.parse(supervisors.options.deploymentFile)
+        self.tree = self.parse(supervisors.options.deployment_file)
         self.root = self.tree.getroot()
         # get models
         elements = self.root.findall("./model[@name]")
-        self.models = { element.get('name'): element for element in elements }
+        self.models = {element.get('name'): element for element in elements}
         self.logger.debug(self.models)
         # get patterns
         elements = self.root.findall(".//pattern[@name]")
-        self.patterns = { element.get('name'): element for element in elements }
+        self.patterns = {element.get('name'): element for element in elements}
         self.logger.debug(self.patterns)
 
-    def setApplicationRules(self, application):
+    def load_application_rules(self, application):
         # find application element
-        self.logger.trace('searching application element for {}'.format(application.applicationName))
-        applicationElement = self.root.find("./application[@name='{}']".format(application.applicationName))
-        if applicationElement is not None:
+        self.logger.trace('searching application element for {}'.format(application.application_name))
+        application_elt = self.root.find("./application[@name='{}']".format(application.application_name))
+        if application_elt is not None:
             # get rules
-            value = applicationElement.findtext('autostart')
+            value = application_elt.findtext('autostart')
             application.rules.autostart = boolean(value) if value else False
-            self.logger.info('application {} - rules {}'.format(application.applicationName, application.rules))
+            self.logger.info('application {} - rules {}'.format(application.application_name, application.rules))
 
-    def setProcessRules(self, process):
-        self.logger.trace('searching program element for {}'.format(process.getNamespec()))
-        programElement = self.getProgramElement(process)
-        if programElement is not None:
+    def load_process_rules(self, process):
+        self.logger.trace('searching program element for {}'.format(process.namespec()))
+        program_elt = self.get_program_element(process)
+        if program_elt is not None:
             # get addresses rule
-            self.getProgramAddresses(programElement, process.rules)
+            self.get_program_addresses(program_elt, process.rules)
             # get sequence rule
-            value = programElement.findtext('sequence')
+            value = program_elt.findtext('sequence')
             process.rules.sequence = int(value) if value and int(value)>=0 else -1
             # get required rule
-            value = programElement.findtext('required')
+            value = program_elt.findtext('required')
             process.rules.required = boolean(value) if value else False
             # get wait_exit rule
-            value = programElement.findtext('wait_exit')
+            value = program_elt.findtext('wait_exit')
             process.rules.wait_exit = boolean(value) if value else False
             # get expected_loading rule
-            value = programElement.findtext('expected_loading')
-            process.rules.expected_loading = int(value) if value and 0<=int(value)<=100 else 1
-        self.logger.debug('process {} - rules {}'.format(process.getNamespec(), process.rules))
+            value = program_elt.findtext('expected_loading')
+            process.rules.expected_loading = int(value) if value and 0 <= int(value) <= 100 else 1
+        process.rules.check_dependencies()
+        self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
 
-    def getProgramAddresses(self, programElement, rules):
-        value = programElement.findtext('addresses')
+    def get_program_addresses(self, program_elt, rules):
+        value = program_elt.findtext('addresses')
         if value:
             # sort and trim
             addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
             rules.addresses = [ '*' ] if '*' in addresses else self.supervisors.address_mapper.filter(addresses)
 
-    def getProgramElement(self, process):
+    def get_program_element(self, process):
         # try to find program name in file
-        programElement = self.root.find("./application[@name='{}']/program[@name='{}']".format(process.applicationName, process.processName))
-        self.logger.trace('{} - direct search program element {}'.format(process.getNamespec(), programElement))
-        if programElement is None:
+        program_elt = self.root.find("./application[@name='{}']/program[@name='{}']".format(process.application_name, process.process_name))
+        self.logger.trace('{} - direct search program element {}'.format(process.namespec(), program_elt))
+        if program_elt is None:
             # try to find a corresponding pattern
-            patterns = [ name for name, element in self.patterns.items() if name in process.getNamespec() ]
-            self.supervisors.logger.trace('{} - found patterns {}'.format(process.getNamespec(), patterns))
+            patterns = [name for name, element in self.patterns.items() if name in process.namespec()]
+            self.supervisors.logger.trace('{} - found patterns {}'.format(process.namespec(), patterns))
             if patterns:
                 pattern = max(patterns, key=len)
-                programElement = self.patterns[pattern]
-            self.logger.trace('{} - pattern search program element {}'.format(process.getNamespec(), programElement))
-        if programElement is not None:
+                program_elt = self.patterns[pattern]
+            self.logger.trace('{} - pattern search program element {}'.format(process.namespec(), program_elt))
+        if program_elt is not None:
             # find if model referenced in element
-            model = programElement.findtext('reference')
+            model = program_elt.findtext('reference')
             if model in self.models.keys():
-                programElement = self.models[model]
-            self.logger.trace('{} - model search ({}) program element {}'.format(process.getNamespec(), model, programElement))
-        return programElement
+                program_elt = self.models[model]
+            self.logger.trace('{} - model search ({}) program element {}'.format(process.namespec(), model, program_elt))
+        return program_elt
 
     def parse(self, filename):
         self.parser = None
@@ -155,13 +156,13 @@ class Parser(object):
             # get XSD
             schemaDoc = etree.parse(XSDContents)
             schema = etree.XMLSchema(schemaDoc)
-            xmlValid = schema.validate(tree)
-            if xmlValid:
+            xml_valid = schema.validate(tree)
+            if xml_valid:
                 self.logger.info('XML validated')
             else:
                 self.logger.error('XML NOT validated: {0}'.format(filename))
                 print >> stderr,  schema.error_log
-            return tree if xmlValid else None
+            return tree if xml_valid else None
         except ImportError:
             try:
                 from xml.etree import ElementTree

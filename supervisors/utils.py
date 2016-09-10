@@ -27,24 +27,46 @@ PROCESS_HEADER = u'process'
 STATISTICS_HEADER = u'statistics'
 
 # strings used as headers in messages between EventPublisher and Supervisors' Client
-SupervisorsStatusHeader = u'supervisors'
-RemoteStatusHeader = u'remote'
-ApplicationStatusHeader = u'application'
-ProcessStatusHeader = u'process'
+SUPERVISORS_STATUS_HEADER = u'supervisors'
+ADDRESS_STATUS_HEADER = u'address'
+APPLICATION_STATUS_HEADER = u'application'
+PROCESS_STATUS_HEADER = u'process'
 
 
 # used to convert enumeration-like value to string and vice-versa
-def enumToString(dico,  idxEnum):
+def enum_to_string(dico, idxEnum):
     return next((name for name, value in dico.items() if value == idxEnum),  None)
 
-def stringToEnum(dico,  strEnum):
+def string_to_enum(dico, strEnum):
     return next((value for name, value in dico.items() if name == strEnum),  None)
 
-def enumValues(dico):
-    return [ y for (x, y) in dico.items() if not x.startswith('__') ]
+def enum_values(dico):
+    return [y for x, y in dico.items() if not x.startswith('_')]
 
-def enumStrings(dico):
-    return [ x for x in dico.keys() if not x.startswith('__') ]
+def enum_strings(dico):
+    return [x for x in dico.keys() if not x.startswith('_')]
+
+
+def enumeration_tools(cls):
+    """ Decorator for enumeration classes.
+    Add class methods for conversion between string and enum, for listing enumeration values and strings. """
+    def _to_string(cls, value):
+        """ Convert the enum value into a string. """
+        return enum_to_string(cls.__dict__, value)
+    def _from_string(cls, strEnum):
+        """ Convert a string into an enum value. """
+        return string_to_enum(cls.__dict__, strEnum)
+    def _values(cls):
+        """ Return all enum values. """
+        return enum_values(cls.__dict__)
+    def _strings(cls):
+        """ Return all enum values as string. """
+        return enum_strings(cls.__dict__)
+    setattr(cls, '_to_string', classmethod(_to_string))
+    setattr(cls, '_from_string', classmethod(_from_string))
+    setattr(cls, '_values', classmethod(_values))
+    setattr(cls, '_strings', classmethod(_strings))
+    return cls
 
 
 def supervisors_short_cuts(instance, lst):
@@ -54,11 +76,11 @@ def supervisors_short_cuts(instance, lst):
 
 
 # return time without date
-def simpleLocalTime(now=None):
+def simple_localtime(now=None):
     if now is None: now = time()
     return strftime("%H:%M:%S", localtime(now))
 
-def simpleGmTime(now=None):
+def simple_gmtime(now=None):
     if now is None: now = time()
     return strftime("%H:%M:%S", gmtime(now))
 
@@ -69,37 +91,37 @@ srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
 stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 # linear regression
-def getLinearRegression(xData, yData):
+def get_linear_regression(xdata, ydata):
     try:
         import numpy
-        return numpy.polyfit(xData, yData, 1)
+        return numpy.polyfit(xdata, ydata, 1)
     except ImportError:
         # numpy not available
         # try something approximate and simple
-        dataSize = len(xData)
-        sumX = sum(xData)
-        sumY = sum(yData)
-        sumXX= sum(map(lambda x: x * x, xData))
-        sumProducts = sum([ xData[i] * yData[i] for i in range(dataSize) ])
-        a = (sumProducts - sumX * sumY / dataSize) / (sumXX - (sumX * sumX) / dataSize)
-        b = (sumY - a * sumX) / dataSize
+        datasize = len(xdata)
+        sumX = sum(xdata)
+        sumY = sum(ydata)
+        sumXX= sum(map(lambda x: x * x, xdata))
+        sumProducts = sum([xdata[i] * ydata[i] for i in range(datasize)])
+        a = (sumProducts - sumX * sumY / datasize) / (sumXX - (sumX * sumX) / datasize)
+        b = (sumY - a * sumX) / datasize
         return a, b
 
-def getSimpleLinearRegression(lst):
+def get_simple_linear_regression(lst):
     # in Supervisors, Y data is periodic
-    dataSize = len(lst)
-    return getLinearRegression( [ i for i in range(dataSize) ], lst)
+    datasize = len(lst)
+    return get_linear_regression( [ i for i in range(datasize) ], lst)
 
 # get statistics from data
-def getStats(lst):
-    rate = a = b = dev = None
+def get_stats(lst):
+    rate, a, b, dev = (None, )*4
     # calculate mean value
     avg = mean(lst)
     if len(lst) > 1:
         # calculate instant rate value between last 2 values
         rate = srate(lst[-1], lst[-2])
         # calculate slope value from linear regression of values
-        a, b = getSimpleLinearRegression(lst)
+        a, b = get_simple_linear_regression(lst)
         # calculate standard deviation
         dev = stddev(lst, avg)
     return avg, rate, (a,  b), dev

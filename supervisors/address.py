@@ -17,58 +17,67 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import InvalidTransition
-from supervisors.utils import *
-
-
-@enumerationTools
-class AddressStates:
-    """ Enumeration class for the state of remote Supervisors instance """
-    UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
+from supervisors.types import AddressStates, InvalidTransition
 
 
 class AddressStatus(object):
-    """ TODO """
+    """ Class defining the status of a Supervisors instance.
+
+    Attributes:
+    - address: the address where the Supervisor instance is expected to be running,
+    - state: the state of the Supervisor instance in AddressStates,
+    - checked: a status telling if Supervisors has already checked that it is allowed to deal with the remote Supervisors in,
+    - remote_time: the last date received from the Supervisors instance,
+    - local_time: the last date received from the Supervisors instance, in the local reference time. """
 
     def __init__(self, address, logger):
+        """ Initialization of the attributes. """
+        # keep a reference to the common logger
         self.logger = logger
+        # attributes
         self.address = address
         self._state = AddressStates.UNKNOWN
         self.checked = False
-        self.remoteTime = 0
+        self.remote_time = 0
         self.localTime = 0
-
-    # serialization
-    def to_json(self):
-        return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
-            'remote_time': self.remote_time, 'local_time': self.local_time }
 
     # accessors / mutators
     @property
     def state(self):
+        """ Property for the 'state' attribute. """
         return self._state
 
     @state.setter
     def state(self, newState):
         if self._state != newState:
-            if self.checkTransition(newState):
+            if self.check_transition(newState):
                 self._state = newState
                 self.logger.info('Address {} is {}'.format(self.address, self.state_string()))
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates.to_string(newState)))
 
+    # serialization
+    def to_json(self):
+        """ Return a JSON-serializable form of the AddressStatus. """
+        return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
+            'remote_time': self.remote_time, 'local_time': self.local_time }
+
     # methods
     def state_string(self):
-        return AddressStates.to_string(self.state)
+        """ Return the application state as a string. """
+        return AddressStates._to_string(self.state)
 
     def in_isolation(self):
-        return self.state in [RemoteStates.ISOLATING, RemoteStates.ISOLATED]
+        """ Return True if the Supervisors instance is in isolation. """
+        return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
 
     def update_times(self, remote_time, local_time):
+        """ Update the last times attributes. """
         self.remote_time = remote_time
         self.local_time = local_time
 
-    def checkTransition(self, newState):
+    def check_transition(self, newState):
+        """ Check that the state transition is valid. """
         return newState in self.__Transitions[self.state]
 
     __Transitions = {

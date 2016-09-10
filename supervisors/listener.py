@@ -23,7 +23,7 @@ import zmq
 from supervisor import events
 
 from supervisors.mainloop import SupervisorsMainLoop
-from supervisors.process import stringToProcessStates
+from supervisors.process import to_string
 from supervisors.statistics import instant_statistics
 from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
 
@@ -31,30 +31,31 @@ from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, su
 # class for ZMQ publication of event
 class EventPublisher(object):
 
-    def __init__(self, supervisors, zmqContext):
+    def __init__(self, supervisors, zmq_context):
+        # keep a reference to supervisors
         self.supervisors = supervisors
         # shortcuts for source code readability
         supervisors_short_cuts(self, ['logger'])
         self.address = self.supervisors.address_mapper.local_address
         # create ZMQ socket
-        self.socket = zmqContext.socket(zmq.PUB)
-        url = 'tcp://*:{}'.format(self.supervisors.options.internalPort)
+        self.socket = zmq_context.socket(zmq.PUB)
+        url = 'tcp://*:{}'.format(self.supervisors.options.internal_port)
         self.logger.info('binding EventPublisher to %s' % url)
         self.socket.bind(url)
 
-    def sendTickEvent(self, payload):
+    def send_tick_event(self, payload):
         # publish ZMQ tick
         self.logger.debug('send TickEvent {}'.format(payload))
         self.socket.send_string(TICK_HEADER, zmq.SNDMORE)
         self.socket.send_pyobj((self.address, payload))
 
-    def sendProcessEvent(self, payload):
+    def send_process_event(self, payload):
         # publish ZMQ process state
         self.logger.debug('send ProcessEvent {}'.format(payload))
         self.socket.send_string(PROCESS_HEADER, zmq.SNDMORE)
         self.socket.send_pyobj((self.address, payload))
 
-    def sendStatistics(self, payload):
+    def send_statistics(self, payload):
         # publish ZMQ process state
         self.logger.debug('send Statistics {}'.format(payload))
         self.socket.send_string(STATISTICS_HEADER, zmq.SNDMORE)
@@ -70,57 +71,57 @@ class SupervisorListener(object):
         supervisors_short_cuts(self, ['logger'])
         self.address = self.supervisors.address_mapper.local_address
         # subscribe to internal events
-        events.subscribe(events.SupervisorRunningEvent, self.runningListener)
-        events.subscribe(events.SupervisorStoppingEvent, self.stoppingListener)
-        events.subscribe(events.ProcessStateEvent, self.processListener)
-        events.subscribe(events.Tick5Event, self.tickListener)
+        events.subscribe(events.SupervisorRunningEvent, self.on_running)
+        events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
+        events.subscribe(events.ProcessStateEvent, self.on_process)
+        events.subscribe(events.Tick5Event, self.on_tick)
         # ZMQ context definition
-        self.zmqContext = zmq.Context.instance()
-        self.zmqContext.setsockopt(zmq.LINGER, 0)
+        self.zmq_context = zmq.Context.instance()
+        self.zmq_context.setsockopt(zmq.LINGER, 0)
 
-    def stoppingListener(self, event):
+    def on_stopping(self, event):
         # Supervisor is STOPPING: start Supervisors in this supervisord
         self.logger.warn('local supervisord is STOPPING')
         # unsubscribe
         events.clear()
         # stop and join main loop
-        self.mainLoop.stop()
-        self.mainLoop.join()
+        self.main_loop.stop()
+        self.main_loop.join()
         self.logger.warn('cleaning resources')
        # close zmq sockets
         self.publisher.socket.close()
         # close zmq context
-        self.zmqContext.term()
+        self.zmq_context.term()
         # finally, close logger
         self.logger.close()
 
-    def runningListener(self, event):
+    def on_running(self, event):
         # Supervisor is RUNNING: start Supervisors main loop
-        self.mainLoop = SupervisorsMainLoop(self.supervisors, self.zmqContext)
-        self.mainLoop.start()
+        self.main_loop = SupervisorsMainLoop(self.supervisors, self.zmq_context)
+        self.main_loop.start()
         # replace the default handler for web ui
-        self.supervisors.infoSource.replaceDefaultHandler()
+        self.supervisors.info_source.replace_default_handler()
         # create publisher
-        self.publisher = EventPublisher(self.supervisors, self.zmqContext)
+        self.publisher = EventPublisher(self.supervisors, self.zmq_context)
 
-    def processListener(self, event):
-        eventName = events.getEventNameByType(event.__class__)
-        self.logger.debug('got Process event from supervisord: {} {}'.format(eventName, event))
+    def on_process(self, event):
+        event_name = events.getEventNameByType(event.__class__)
+        self.logger.debug('got Process event from supervisord: {} {}'.format(event_name, event))
         # create payload to get data
         payload = {'processname': event.process.config.name,
             'groupname': event.process.group.config.name,
-            'state': stringToProcessStates(eventName.split('_')[-1]),
+            'state': to_string(event_name.split('_')[-1]),
             'now': int(time.time()), 
             'pid': event.process.pid,
             'expected': event.expected }
         self.logger.debug('payload={}'.format(payload))
-        self.publisher.sendProcessEvent(payload)
+        self.publisher.send_process_event(payload)
 
-    def tickListener(self, event):
+    def on_tick(self, event):
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
-        self.publisher.sendTickEvent(event.when)
+        self.publisher.send_tick_event(event.when)
         # get and publish statistics at tick time
-        pid_list = [ (process.getNamespec(), process.processes[self.address]['pid'])
-            for process in self.supervisors.context.getPidProcesses(self.address)]
-        self.publisher.sendStatistics(instant_statistics(pid_list))
+        pid_list = [ (process.namespec(), process.processes[self.address]['pid'])
+            for process in self.supervisors.context.pid_processes_on(self.address)]
+        self.publisher.send_statistics(instant_statistics(pid_list))
 

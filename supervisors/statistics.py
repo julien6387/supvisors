@@ -211,8 +211,8 @@ class StatisticsCompiler(object):
     def __init__(self, supervisors):
         """ Initializes the statistics dictionary.
         The dictionary contains a StatisticsInstance entry for each pair of address and period. """
-        self.data = {address: {period: StatisticsInstance(period, supervisors.options.statsHisto)
-            for period in supervisors.options.statsPeriods}
+        self.data = {address: {period: StatisticsInstance(period, supervisors.options.stats_histo)
+            for period in supervisors.options.stats_periods}
             for address in supervisors.address_mapper.addresses}
 
     def clear(self, address):
