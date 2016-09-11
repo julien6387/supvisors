@@ -17,32 +17,37 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import stringToDeploymentStrategy, deploymentStrategiesStrings
-from supervisors.utils import simpleTime
+import errno
+import socket
+import xmlrpclib
 
 from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
-import errno, socket, xmlrpclib
+from supervisors.rpcinterface import API_VERSION
+from supervisors.types import DeploymentStrategies
+from supervisors.utils import simple_localtime
 
-class _ControllerPlugin(ControllerPluginBase):
-    def getSupervisors(self):
+
+class ControllerPlugin(ControllerPluginBase):
+
+    def supervisors(self):
         return self.ctl.get_server_proxy('supervisors')
 
     # get Supervisors API version
-    def do_sup_version(self, arg):
+    def do_sversion(self, arg):
         if self._upcheck():
-            version = self.getSupervisors().getAPIVersion()
+            version = self.supervisors().get_api_version()
             self.ctl.output(version)
 
-    def help_sup_version(self):
-        self.ctl.output("sup_version\t\t\t\tGet the API version of Supervisors.")
+    def help_sversion(self):
+        self.ctl.output("sversion\t\t\t\tGet the API version of Supervisors.")
 
     # get Supervisors master address
     def do_master(self, arg):
         if self._upcheck():
             try:
-                address = self.getSupervisors().getMasterAddress()
+                address = self.supervisors().get_master_address()
             except xmlrpclib.Fault, e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
@@ -52,65 +57,66 @@ class _ControllerPlugin(ControllerPluginBase):
         self.ctl.output("master\t\t\t\t\tGet the Supervisors master address.")
 
     # get Supervisors state
-    def do_sup_state(self, arg):
+    def do_sstate(self, arg):
         if self._upcheck():
-            state = self.getSupervisors().getSupervisorsState()
+            state = self.supervisors().get_supervisors_state()
             self.ctl.output(state)
 
-    def help_sup_state(self):
-        self.ctl.output("sup_state\t\t\t\tGet the Supervisors state.")
+    def help_sstate(self):
+        self.ctl.output("sstate\t\t\t\tGet the Supervisors state.")
 
     # get Supervisors list of addresses
-    def do_remote_status(self, arg):
+    def do_address_status(self, arg):
         if self._upcheck():
             addresses = arg.split()
             if not addresses or "all" in addresses:
-                infos = self.getSupervisors().getAllRemoteInfo()
+                infos = self.supervisors().get_all_address_info()
                 for info in infos:
-                    self._outputRemoteInfo(info)
+                    self.output_address_info(info)
             else:
                 for address in addresses:
                     try:
-                        info = self.getSupervisors().getRemoteInfo(address)
+                        info = self.supervisors().get_address_info(address)
                     except xmlrpclib.Fault, e:
                         self.ctl.output('{}: ERROR ({})'.format(address, e.faultString))
                     else:
-                        self._outputRemoteInfo(info)
+                        self.output_address_info(info)
 
-    def _outputRemoteInfo(self, info):
+    def output_address_info(self, info):
         template = '%(addr)-20s%(state)-12s%(checked)-12s%(load)-8s%(lTime)-12s'
         checked = info['checked']
         line = template % {'addr': info['address'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
-            'load': '{}%'.format(info['loading']), 'lTime': simpleTime(info['localTime']) if checked else ''}
+            'load': '{}%'.format(info['loading']), 'lTime': simple_localtime(info['localTime']) if checked else ''}
         self.ctl.output(line)
 
-    def help_remote_status(self):
-        self.ctl.output("remote_status <addr>\t\t\tGet the status of remote supervisord managed in Supervisors and running on addr.")
-        self.ctl.output("remote_status <addr> <addr>\t\tGet the status for multiple addresses")
-        self.ctl.output("remote_status\t\t\t\tGet the status of all remote supervisord managed in Supervisors.")
+    def help_address_status(self):
+        self.ctl.output("address_status <addr>\t\t\tGet the status of remote supervisord managed in Supervisors and running on addr.")
+        self.ctl.output("address_status <addr> <addr>\t\tGet the status for multiple addresses")
+        self.ctl.output("address_status\t\t\t\tGet the status of all remote supervisord managed in Supervisors.")
 
     # get Supervisors application info
     def do_application_info(self, arg):
         if self._upcheck():
             applications = arg.split()
             if not applications or "all" in applications:
-                infos = self.getSupervisors().getAllApplicationInfo()
+                infos = self.supervisors().get_all_application_info()
                 for info in infos:
-                    self._outputApplicationInfo(info)
+                    self.output_application_info(info)
             else:
-                for applicationName in applications:
+                for application_name in applications:
                     try:
-                        info = self.getSupervisors().getApplicationInfo(applicationName)
+                        info = self.supervisors().get_application_info(application_name)
                     except xmlrpclib.Fault, e:
-                        self.ctl.output('{}: ERROR ({})'.format(applicationName, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
                     else:
-                        self._outputApplicationInfo(info)
+                        self.output_application_info(info)
 
-    def _outputApplicationInfo(self, info):
+    def output_application_info(self, info):
         template = '%(name)-20s%(state)-12s%(majorFailure)-15s%(minorFailure)-15s'
-        majorFailure = info['majorFailure']
-        minorFailure = info['minorFailure']
-        line = template % {'name': info['applicationName'], 'state': info['state'], 'majorFailure': 'majorFailure' if majorFailure else '', 'minorFailure': 'minorFailure' if minorFailure else '' }
+        major_failure = info['major_failure']
+        minor_failure = info['minor_failure']
+        line = template % {'name': info['application_name'], 'state': info['state'],
+            'major_failure': 'major_failure' if major_failure else '', 'minor_failure': 'minor_failure' if minor_failure else ''}
         self.ctl.output(line)
 
     def help_application_info(self):
@@ -119,46 +125,46 @@ class _ControllerPlugin(ControllerPluginBase):
         self.ctl.output("application_info\t\t\tGet the status of all applications.")
 
     # get Supervisors process list of an application
-    def do_sup_status(self, arg):
+    def do_sstatus(self, arg):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(applicationInfo['applicationName']) for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info()]
             template = '%(name)-30s%(state)-12s%(conflict)-12s%(addresses)s'
             for process in processes:
                 try:
-                    infoList = self.getSupervisors().getProcessInfo(process)
+                    infoList = self.supervisors().get_process_info(process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
                     for info in infoList:
                         conflict = info['conflict']
-                        line = template % {'name': info['processName'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address'] }
+                        line = template % {'name': info['process_name'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address']}
                         self.ctl.output(line)
 
-    def help_sup_status(self):
-        self.ctl.output("sup_status <proc>\t\t\tGet the status of the process named proc.")
-        self.ctl.output("sup_status <appli>:*\t\t\tGet the process status of application named appli.")
-        self.ctl.output("sup_status <proc> <proc>\t\tGet the status for multiple named processes")
-        self.ctl.output("sup_status\t\t\t\tGet the status of all processes.")
+    def help_sstatus(self):
+        self.ctl.output("sstatus <proc>\t\t\tGet the status of the process named proc.")
+        self.ctl.output("sstatus <appli>:*\t\t\tGet the process status of application named appli.")
+        self.ctl.output("sstatus <proc> <proc>\t\tGet the status for multiple named processes")
+        self.ctl.output("sstatus\t\t\t\tGet the status of all processes.")
 
     # get Supervisors deployment rules for processes
     def do_rules(self, arg):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(applicationInfo['applicationName']) for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info()]
             template = '%(name)-30s%(seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'
             for process in processes:
                 try:
-                    rulesList = self.getSupervisors().getProcessRules(process)
+                    rulesList = self.supervisors().get_process_rules(process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
                     for rules in rulesList:
                         required = rules['required']
                         wait_exit = rules['wait_exit']
-                        line = template % {'name': rules['processName'], 'addr': rules['addresses'], 'seq': rules['sequence'], 
+                        line = template % {'name': rules['process_name'], 'addr': rules['addresses'], 'seq': rules['sequence'], 
                             'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '', 'load': '{}%'.format(rules['expected_loading'])}
                         self.ctl.output(line)
 
@@ -172,13 +178,13 @@ class _ControllerPlugin(ControllerPluginBase):
     def do_conflicts(self, arg):
         if self._upcheck():
             try:
-                conflicts = self.getSupervisors().getConflicts()
+                conflicts = self.supervisors().get_conflicts()
             except xmlrpclib.Fault, e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
                 template = '%(name)-30s%(state)-12s%(addresses)s'
                 for conflict in conflicts:
-                    line = template % {'name': conflict['processName'], 'state': conflict['state'], 'addresses': conflict['address'] }
+                    line = template % {'name': conflict['process_name'], 'state': conflict['state'], 'addresses': conflict['address']}
                     self.ctl.output(line)
 
     def help_conflicts(self):
@@ -192,17 +198,17 @@ class _ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_application requires a strategy and an application name')
                 self.help_start_application()
                 return
-            strategy = stringToDeploymentStrategy(args[0])
+            strategy = DeploymentStrategies._to_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'.format(deploymentStrategiesStrings()))
+                self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_start_application()
                 return
             applications = args[1:]
             if not applications or "all" in applications:
-                applications = [ applicationInfo['applicationName'] for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_application_info()]
             for application in applications:
                 try:
-                    result = self.getSupervisors().startApplication(strategy, application)
+                    result = self.supervisors().start_application(strategy, application)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -218,10 +224,10 @@ class _ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             applications = arg.split()
             if not applications or "all" in applications:
-                applications = [ applicationInfo['applicationName'] for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_application_info()]
             for application in applications:
                 try:
-                    self.getSupervisors().stopApplication(application)
+                    self.supervisors().stop_application(application)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -240,17 +246,17 @@ class _ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_application requires a strategy and an application name')
                 self.help_restart_application()
                 return
-            strategy = stringToDeploymentStrategy(args[0])
+            strategy = DeploymentStrategies._to_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'.format(deploymentStrategiesStrings()))
+                self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_restart_application()
                 return
             applications = args[1:]
             if not applications or "all" in applications:
-                applications = [ applicationInfo['applicationName'] for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                applications = [ application_info['application_name'] for application_info in self.supervisors().get_all_application_info() ]
             for application in applications:
                 try:
-                    self.getSupervisors().restartApplication(strategy, application)
+                    self.supervisors().restart_application(strategy, application)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -269,17 +275,17 @@ class _ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires a strategy and a program name')
                 self.help_start_process()
                 return
-            strategy = stringToDeploymentStrategy(args[0])
+            strategy = DeploymentStrategies._to_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(deploymentStrategiesStrings()))
+                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_start_process()
                 return
             processes = args[1:]
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(applicationInfo['applicationName']) for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
             for process in processes:
                 try:
-                    result = self.getSupervisors().startProcess(strategy, process)
+                    result = self.supervisors().start_process(strategy, process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -296,10 +302,10 @@ class _ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(applicationInfo['applicationName']) for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
             for process in processes:
                 try:
-                    self.getSupervisors().stopProcess(process)
+                    self.supervisors().stop_process(process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -319,17 +325,17 @@ class _ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
                 self.help_restart_process()
                 return
-            strategy = stringToDeploymentStrategy(args[0])
+            strategy = DeploymentStrategies._to_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'.format(deploymentStrategiesStrings()))
+                self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_restart_process()
                 return
             processes = args[1:]
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(applicationInfo['applicationName']) for applicationInfo in self.getSupervisors().getAllApplicationInfo() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
             for process in processes:
                 try:
-                    result = self.getSupervisors().restartProcess(strategy, process)
+                    result = self.supervisors().restart_process(strategy, process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -344,7 +350,7 @@ class _ControllerPlugin(ControllerPluginBase):
     # restart Supervisors
     def do_sup_reload(self, arg):
         if self._upcheck():
-            self.getSupervisors().restart()
+            self.supervisors().restart()
 
     def help_sup_reload(self):
         self.ctl.output("sup_reload\t\t\t\tRestart Supervisors.")
@@ -353,7 +359,7 @@ class _ControllerPlugin(ControllerPluginBase):
     # shutdown Supervisors
     def do_sup_shutdown(self, arg):
         if self._upcheck():
-            self.getSupervisors().shutdown()
+            self.supervisors().shutdown()
 
     def help_sup_shutdown(self):
         self.ctl.output("sup_shutdown\t\t\t\tShutdown Supervisors.")
@@ -362,8 +368,7 @@ class _ControllerPlugin(ControllerPluginBase):
     # checking API versions
     def _upcheck(self):
         try:
-            api = self.getSupervisors().getAPIVersion()
-            from supervisors.rpcinterface import API_VERSION
+            api = self.supervisors().get_api_version()
             if api != API_VERSION:
                 self.ctl.output('Sorry, this version of supervisorsctl expects to talk to a server '
                     'with API version %s, but the remote version is %s.' % (API_VERSION, api))
@@ -386,5 +391,5 @@ class _ControllerPlugin(ControllerPluginBase):
 
 
 def make_supervisors_controller_plugin(supervisord, **config):
-    return _ControllerPlugin(supervisord)
+    return ControllerPlugin(supervisord)
     

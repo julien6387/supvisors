@@ -20,33 +20,39 @@
 
 from supervisor.web import MeldView
 
+
 # exchange class for images
 class StatsImage(object):
+
     def __init__(self):
         self.contents = None
 
-    def getNewImage(self):
-        if self.contents: self.contents.close()
+    def new_image(self):
+        if self.contents:
+            self.contents.close()
         from io import BytesIO
         self.contents = BytesIO()
         return self.contents
 
-addressImageContents = StatsImage()
-processImageContents = StatsImage()
+address_image_contents = StatsImage()
+process_image_contents = StatsImage()
 
 
 # simple handlers for web images
 class AddressImageView(MeldView):
+
     def render(self):
         # export internal memory buffer
-        if addressImageContents.contents:
-            return addressImageContents.contents.getvalue()
+        if address_image_contents.contents:
+            return address_image_contents.contents.getvalue()
         return self.clone().write_xhtmlstring()
 
+
 class ProcessImageView(MeldView):
+
     def render(self):
         # export internal memory buffer
-        if processImageContents.contents:
-            return processImageContents.contents.getvalue()
+        if process_image_contents.contents:
+            return process_image_contents.contents.getvalue()
         return self.clone().write_xhtmlstring()
 

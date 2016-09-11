@@ -17,25 +17,25 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.options import options
-from supervisors.publisher import eventPublisher
-from supervisors.statemachine import fsm
-from supervisors.statistics import statisticsCompiler
+import threading
+import time
+import zmq
 
-import zmq, time, threading
+from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
+
 
 # class for subscription to Listener events
 class EventSubscriber(object):
-    def __init__(self, zmqContext):
-        self.socket = zmqContext.socket(zmq.SUB)
+
+    def __init__(self, supervisors, zmq_context):
+        self.supervisors = supervisors
+        self.socket = zmq_context.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
-        for address in addressMapper.expectedAddresses:
-            url = 'tcp://{}:{}'.format(address, options.internalPort)
-            options.logger.info('connecting EventSubscriber to %s' % url)
+        for address in supervisors.address_mapper.addresses:
+            url = 'tcp://{}:{}'.format(address, supervisors.options.internal_port)
+            supervisors.logger.info('connecting EventSubscriber to %s' % url)
             self.socket.connect(url)
-        options.logger.debug('EventSubscriber connected')
+        supervisors.logger.debug('EventSubscriber connected')
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
  
     def receive(self):
@@ -43,8 +43,8 @@ class EventSubscriber(object):
 
     def disconnect(self, addresses):
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address, options.internalPort)
-            options.logger.info('disconnecting EventSubscriber from %s' % url)
+            url = 'tcp://{}:{}'.format(address, self.supervisors.options.internal_port)
+            self.supervisors.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
     def close(self):
@@ -53,70 +53,66 @@ class EventSubscriber(object):
 
 # class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
-    def __init__(self, zmqContext):
+
+    def __init__(self, supervisors, zmq_context):
         # thread attributes
         threading.Thread.__init__(self)
+        # shortcuts
+        self.supervisors = supervisors
+        supervisors_short_cuts(self, ['fsm', 'logger', 'statistician'])
         # create event sockets
-        self.eventSubscriber = EventSubscriber(zmqContext)
-        eventPublisher.open(zmqContext)
-        # configure statistics compiler
-        statisticsCompiler.clearAll(options.statsPeriods, options.statsHisto)
+        self.subscriber = EventSubscriber(supervisors, zmq_context)
+        supervisors.publisher.open(zmq_context)
 
     def stop(self):
-        options.logger.info('request to stop main loop')
+        self.logger.info('request to stop main loop')
         self.loop = False
 
     # main loop
     def run(self):
-        from supervisors.utils import TickHeader, ProcessHeader, StatisticsHeader
         # create poller
         poller = zmq.Poller()
         # register event publisher
-        poller.register(self.eventSubscriber.socket, zmq.POLLIN) 
-        self.timerEventTime = time.time()
+        poller.register(self.subscriber.socket, zmq.POLLIN) 
+        self.timer_event_time = time.time()
         # poll events every seconds
         self.loop = True
         while self.loop:
             socks = dict(poller.poll(1000))
             # check tick and process events
-            if self.eventSubscriber.socket in socks and socks[self.eventSubscriber.socket] == zmq.POLLIN:
-                options.logger.blather('got message on eventSubscriber')
+            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
+                self.logger.blather('got message on eventSubscriber')
                 try:
-                    message = self.eventSubscriber.receive()
+                    message = self.subscriber.receive()
                 except Exception, e:
-                    options.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
                 else:
-                    if message[0] == TickHeader:
-                        options.logger.blather('got tick message: {}'.format(message[1]))
-                        context.onTickEvent(message[1][0], message[1][1])
-                    elif message[0] == ProcessHeader:
-                        options.logger.blather('got process message: {}'.format(message[1]))
-                        context.onProcessEvent(message[1][0], message[1][1])
-                    elif message[0] == StatisticsHeader:
-                        options.logger.blather('got statistics message: {}'.format(message[1]))
-                        statisticsCompiler.pushStatistics(message[1][0], message[1][1])
+                    if message[0] == TICK_HEADER:
+                        self.logger.blather('got tick message: {}'.format(message[1]))
+                        self.fsm.on_tick_event(message[1][0], message[1][1])
+                    elif message[0] == PROCESS_HEADER:
+                        self.logger.blather('got process message: {}'.format(message[1]))
+                        self.fsm.on_process_event(message[1][0], message[1][1])
+                    elif message[0] == STATISTICS_HEADER:
+                        self.logger.blather('got statistics message: {}'.format(message[1]))
+                        self.statistician.push_statistics(message[1][0], message[1][1])
             # check periodic task
-            if self.timerEventTime + 5 < time.time():
-                self._doPeriodicTask()
+            if self.timer_event_time + 5 < time.time():
+                self.periodic_task()
             # publish all events from here using pyzmq json
-        options.logger.info('exiting main loop')
-        self._close()
+        self.logger.info('exiting main loop')
+        self.close()
 
-    def _doPeriodicTask(self):
-        options.logger.blather('periodic task')
-        context.onTimerEvent()
-        fsm.next()
-        # check if new isolating remotes
-        addresses = context.handleIsolation()
+    def periodic_task(self):
+        self.logger.blather('periodic task')
+        addresses = self.fsm.on_timer_event()
         # disconnect isolated addresses from sockets
-        self.eventSubscriber.disconnect(addresses)
+        self.subscriber.disconnect(addresses)
         # set date for next task
-        self.timerEventTime = time.time()
+        self.timer_event_time = time.time()
 
-    def _close(self):
+    def close(self):
         # close zmq sockets
-        eventPublisher.close()
-        self.eventSubscriber.close()
-        # cleanup in case of restarting
-        context.restart()
+        self.supervisors.publisher.close()
+        self.subscriber.close()
 

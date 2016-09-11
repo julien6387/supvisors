@@ -17,176 +17,177 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.infosource import infoSource
-from supervisors.options import options
-from supervisors.types import DeploymentStrategies
-from supervisors.viewhandler import ViewHandler
-from supervisors.webutils import *
+import urllib
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
+from supervisor.xmlrpc import RPCError
 
-import urllib
+from supervisors.types import DeploymentStrategies
+from supervisors.utils import supervisors_short_cuts
+from supervisors.viewhandler import ViewHandler
+from supervisors.webutils import *
 
 
 # Supervisors application page
 class ApplicationView(MeldView, ViewHandler):
     # Name of the HTML page
-    pageName = 'application.html'
+    page_name = 'application.html'
 
-    def getUrlContext(self):
-        return 'appli={}&amp;'.format(self.applicationName)
+    def __init__(self, context):
+        MeldView.__init__(self, context)
+        self.supervisors = self.context.supervisord.supervisors
+        supervisors_short_cuts(self, ['logger'])
+
+    def url_context(self):
+        return 'appli={}&amp;'.format(self.application_name)
 
     def render(self):
         """ Method called by Supervisor to handle the rendering of the Supervisors Address page """
-        self.applicationName = self.context.form.get('appli')
-        if self.applicationName is None:
-            options.logger.error('no application')
-        elif self.applicationName not in context.applications.keys():
-            options.logger.error('unknown application: %s' % self.applicationName)
+        self.application_name = self.context.form.get('appli')
+        if self.application_name is None:
+            self.logger.error('no application')
+        elif self.application_name not in self.supervisors.context.applications.keys():
+            self.logger.error('unknown application: %s' % self.application_name)
         else:
-            return self.writePage()
+            return self.write_page()
 
-    def writeNavigation(self, root):
+    def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current address """
-        self.writeNav(root, appli=self.applicationName)
+        self.write_nav(root, appli=self.application_name)
 
-    def writeHeader(self, root):
+    def write_header(self, root):
         """ Rendering of the header part of the Supervisors Application page """
         # set address name
         elt = root.findmeld('application_mid')
-        elt.content(self.applicationName)
+        elt.content(self.application_name)
         # set application state
-        application = context.applications[self.applicationName]
+        application = self.supervisors.context.applications[self.application_name]
         elt = root.findmeld('state_mid')
-        elt.content(applicationStateToString(application.state))
+        elt.content(application.state_string())
         # set LED iaw major/minor failures
         elt = root.findmeld('state_led_mid')
-        if application.isRunning():
-            if application.majorFailure:
+        if application.running():
+            if application.major_failure:
                 elt.attrib['class'] = 'status_red'
-            elif application.minorFailure:
+            elif application.minor_failure:
                 elt.attrib['class'] = 'status_yellow'
             else:
                 elt.attrib['class'] = 'status_green'
         else:
             elt.attrib['class'] = 'status_empty'
         # write periods of statistics
-        self.writeDeploymentStrategy(root)
-        self.writePeriods(root)
+        self.write_deployment_strategy(root)
+        self.write_periods(root)
         # write actions related to application
-        self.writeApplicationActions(root)
+        self.write_application_actions(root)
 
-    def writeDeploymentStrategy(self, root):
+    def write_deployment_strategy(self, root):
         """ Write applicable deployment strategies """
         # get the current strategy
-        from supervisors.deployer import deployer
-        strategy = deployer.strategy
+        strategy = self.supervisors.deployer.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
         if strategy == DeploymentStrategies.CONFIG:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=config'.format(self.pageName, self.getUrlContext()))
+            elt.attributes(href='{}?{}&action=config'.format(self.page_name, self.url_context()))
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
         if strategy == DeploymentStrategies.MOST_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}action=most'.format(self.pageName, self.getUrlContext()))
+            elt.attributes(href='{}?{}action=most'.format(self.page_name, self.url_context()))
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
         if strategy == DeploymentStrategies.LESS_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=less'.format(self.pageName, self.getUrlContext()))
+            elt.attributes(href='{}?{}&action=less'.format(self.page_name, self.url_context()))
 
 
-    def writeApplicationActions(self, root):
+    def write_application_actions(self, root):
         """ Write actions related to the application """
         # set hyperlinks for global actions
         elt = root.findmeld('refresh_a_mid')
-        elt.attributes(href='{}?{}action=refresh'.format(self.pageName, self.getUrlContext()))
+        elt.attributes(href='{}?{}action=refresh'.format(self.page_name, self.url_context()))
         elt = root.findmeld('startapp_a_mid')
-        elt.attributes(href='{}?{}action=startapp'.format(self.pageName, self.getUrlContext()))
+        elt.attributes(href='{}?{}action=startapp'.format(self.page_name, self.url_context()))
         elt = root.findmeld('stopapp_a_mid')
-        elt.attributes(href='{}?{}action=stopapp'.format(self.pageName, self.getUrlContext()))
+        elt.attributes(href='{}?{}action=stopapp'.format(self.page_name, self.url_context()))
         elt = root.findmeld('restartapp_a_mid')
-        elt.attributes(href='{}?{}action=restartapp'.format(self.pageName, self.getUrlContext()))
+        elt.attributes(href='{}?{}action=restartapp'.format(self.page_name, self.url_context()))
 
-    def writeContents(self, root):
+    def write_contents(self, root):
         """ Rendering of the contents part of the page """
-        self.writeProcessTable(root)
+        self.write_process_table(root)
         # check selected Process Statistics
-        if ViewHandler.namespecStats:
-            procStatus = self.getProcessStatus(ViewHandler.namespecStats)
-            if procStatus is None or procStatus.applicationName != self.applicationName:
-                options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
-                ViewHandler.namespecStats = ''
+        if ViewHandler.namespec_stats:
+            status = self.get_process_status(ViewHandler.namespec_stats)
+            if status is None or status.application_name != self.application_name:
+                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
+                ViewHandler.namespec_stats = ''
             else:
                 # addtional information for title
                 elt = root.findmeld('address_fig_mid')
-                elt.content(next(iter(procStatus.addresses), ''))
+                elt.content(next(iter(status.addresses), ''))
         # write selected Process Statistics
-        self.writeProcessStatistics(root)
+        self.write_process_statistics(root)
 
-    def getProcessStats(self, namespec):
+    def get_process_stats(self, namespec):
         """ Get the statistics structure related to the period selected and the address where the process named namespec is running """
-        procStatus = self.getProcessStatus(namespec)
-        if procStatus:
+        status = self.get_process_status(namespec)
+        if status:
             # get running address from procStatus
-            address = next(iter(procStatus.processes), None)
+            address = next(iter(status.processes), None)
             if address:
-                from supervisors.statistics import statisticsCompiler
-                stats = statisticsCompiler.data[address][ViewHandler.periodStats]
+                stats = self.supervisors.statistician.data[address][ViewHandler.period_stats]
                 if namespec in stats.proc.keys():
                     return stats.proc[namespec]
 
-    def writeProcessTable(self, root):
+    def write_process_table(self, root):
         """ Rendering of the application processes managed through Supervisor """
         # collect data on processes
-        data = [ ]
-        for process in sorted(context.applications[self.applicationName].processes.values(), key=lambda x: x.processName):
-            data.append({ 'processname': process.processName, 'namespec': process.getNamespec(),
-                'statename': process.stateAsString(), 'state': process.state, 'runninglist': list(process.addresses) })
+        data = []
+        for process in sorted(self.supervisors.context.applications[self.application_name].processes.values(), key=lambda x: x.process_name):
+            data.append({'process_name': process.process_name, 'namespec': process.namespec(),
+                'statename': process.state_string(), 'state': process.state, 'running_list': list(process.addresses)})
         # print processes
         if data:
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
-            for trElt, item in iterator:
+            for tr_elt, item in iterator:
                 # get first item in running list
-                runningList = item['runninglist']
-                address = next(iter(runningList), None)
+                running_list = item['running_list']
+                address = next(iter(running_list), None)
                 # write common status
-                selected_tr = self.writeCommonProcessStatus(trElt, item)
+                selected_tr = self.write_common_process_status(tr_elt, item)
                 # print process name (tail NOT allowed if STOPPED)
-                processName = item['processname']
+                process_name = item['process_name']
                 namespec = item['namespec']
                 if address:
-                    elt = trElt.findmeld('name_a_mid')
-                    elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(address, self.getServerPort(), urllib.quote(namespec)))
-                    elt.content(processName)
+                    elt = tr_elt.findmeld('name_a_mid')
+                    elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(address, self.server_port(), urllib.quote(namespec)))
+                    elt.content(process_name)
                 else:
-                    elt = trElt.findmeld('name_a_mid')
-                    elt.replace(processName)
+                    elt = tr_elt.findmeld('name_a_mid')
+                    elt.replace(process_name)
                 # print running addresses
-                if runningList:
-                    addrIterator = trElt.findmeld('running_li_mid').repeat(runningList)
-                    for liElt, address in addrIterator:
-                        elt = liElt.findmeld('running_a_mid')
+                if running_list:
+                    addrIterator = tr_elt.findmeld('running_li_mid').repeat(running_list)
+                    for li_elt, address in addrIterator:
+                        elt = li_elt.findmeld('running_a_mid')
                         elt.attributes(href='address.html?address={}'.format(address))
                         elt.content(address)
                 else:
-                    elt = trElt.findmeld('running_ul_mid')
+                    elt = tr_elt.findmeld('running_ul_mid')
                     elt.replace('')
                 # set line background and invert
                 if selected_tr:
-                    trElt.attrib['class'] = 'selected'
+                    tr_elt.attrib['class'] = 'selected'
                 elif shaded_tr:
-                    trElt.attrib['class'] = 'shaded'
+                    tr_elt.attrib['class'] = 'shaded'
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')
@@ -195,149 +196,160 @@ class ApplicationView(MeldView, ViewHandler):
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested """
         if action == 'refresh':
-            return self.refreshAction()
+            return self.refresh_action()
         if action == 'config':
-            return self.setDeploymentStrategy(DeploymentStrategies.CONFIG)
+            return self.set_deployment_strategy(DeploymentStrategies.CONFIG)
         if action == 'most':
-            return self.setDeploymentStrategy(DeploymentStrategies.MOST_LOADED)
+            return self.set_deployment_strategy(DeploymentStrategies.MOST_LOADED)
         if action == 'less':
-            return self.setDeploymentStrategy(DeploymentStrategies.LESS_LOADED)
+            return self.set_deployment_strategy(DeploymentStrategies.LESS_LOADED)
         # get current strategy
-        from supervisors.deployer import deployer
-        strategy = deployer.strategy
+        strategy = self.supervisors.deployer.strategy
         if action == 'startapp':
-            return self.startApplicationAction(strategy)
+            return self.start_application_action(strategy)
         if action == 'stopapp':
-            return self.stopApplicationAction()
+            return self.stop_application_action()
         if action == 'restartapp':
-            return self.restartApplicationAction(strategy)
+            return self.restart_application_action(strategy)
         if namespec:
-            if self.getProcessStatus(namespec) is None:
-                return delayedError('No such process named %s' % namespec)
+            if self.get_process_status(namespec) is None:
+                return delayed_error('No such process named %s' % namespec)
             if action == 'start':
-                return self.startProcessAction(strategy, namespec)
+                return self.start_process_action(strategy, namespec)
             if action == 'stop':
-                return self.stopProcessAction(namespec)
+                return self.stop_process_action(namespec)
             if action == 'restart':
-                return self.restartProcessAction(strategy, namespec)
+                return self.restart_process_action(strategy, namespec)
 
-    def refreshAction(self):
-        return delayedInfo('Page refreshed')
+    def refresh_action(self):
+        return delayed_info('Page refreshed')
 
-    def setDeploymentStrategy(self, strategy):
-        from supervisors.deployer import deployer
-        from supervisors.types import deploymentStrategyToString
-        deployer.useStrategy(strategy)
-        return delayedInfo('Deployment strategy set to {}'.format(deploymentStrategyToString(strategy)))
+    def set_deployment_strategy(self, strategy):
+        self.supervisors.deployer.strategy = strategy
+        return delayed_info('Deployment strategy set to {}'.format(DeploymentStrategies._to_string(strategy)))
 
     # Application actions
-    def startApplicationAction(self, strategy):
+    def start_application_action(self, strategy):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().startApplication(strategy, self.applicationName)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.start_application(strategy, self.application_name)
         except RPCError, e:
-            return delayedError('startApplication: {}'.format(e.text))
+            return delayed_error('start_application: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('startApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Application {} started'.format(self.applicationName))
-                return warnMessage('Application {} NOT started'.format(self.applicationName))
-            onWait.delay = 0.1
-            return onWait
-        if cb: return delayedInfo('Application {} started'.format(self.applicationName))
-        return delayedWarn('Application {} NOT started'.format(self.applicationName))
+                    return error_message('start_application: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return info_message('Application {} started'.format(self.application_name))
+                return warn_message('Application {} NOT started'.format(self.application_name))
+            on_wait.delay = 0.1
+            return on_wait
+        if cb:
+            return delayed_info('Application {} started'.format(self.application_name))
+        return delayed_warn('Application {} NOT started'.format(self.application_name))
  
-    def stopApplicationAction(self):
+    def stop_application_action(self):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().stopApplication(self.applicationName)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.stop_application(self.application_name)
         except RPCError, e:
-            return delayedError('stopApplication: {}'.format(e.text))
+            return delayed_error('stopApplication: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('stopApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                return infoMessage('Application {} stopped'.format(self.applicationName))
-            onWait.delay = 0.1
-            return onWait
-        return delayedInfo('Application {} stopped'.format(self.applicationName))
+                    return error_message('stopApplication: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                return info_message('Application {} stopped'.format(self.application_name))
+            on_wait.delay = 0.1
+            return on_wait
+        return delayed_info('Application {} stopped'.format(self.application_name))
  
-    def restartApplicationAction(self, strategy):
+    def restart_application_action(self, strategy):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().restartApplication(strategy, self.applicationName)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.restart_application(strategy, self.application_name)
         except RPCError, e:
-            return delayedError('restartApplication: {}'.format(e.text))
+            return delayed_error('restartApplication: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('restartApplication: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Application {} restarted'.format(self.applicationName))
-                return warnMessage('Application {} NOT restarted'.format(self.applicationName))
-            onWait.delay = 0.1
-            return onWait
-        if cb: return delayedInfo('Application {} restarted'.format(self.applicationName))
-        return delayedWarn('Application {} NOT restarted'.format(self.applicationName))
+                    return error_message('restartApplication: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return info_message('Application {} restarted'.format(self.application_name))
+                return warn_message('Application {} NOT restarted'.format(self.application_name))
+            on_wait.delay = 0.1
+            return on_wait
+        if cb:
+            return delayed_info('Application {} restarted'.format(self.application_name))
+        return delayed_warn('Application {} NOT restarted'.format(self.application_name))
 
     # Process actions
-    def startProcessAction(self, strategy, namespec):
+    def start_process_action(self, strategy, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().startProcess(strategy, namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.start_process(strategy, namespec)
         except RPCError, e:
-            return delayedError('startProcess: {}'.format(e.text))
+            return delayed_error('startProcess: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('startProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Process {} started'.format(namespec))
-                return warnMessage('Process {} NOT started'.format(namespec))
-            onWait.delay = 0.1
-            return onWait
-        if cb: return delayedInfo('Process {} started'.format(namespec))
-        return delayedWarn('Process {} NOT started'.format(namespec))
+                    return error_message('startProcess: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return info_message('Process {} started'.format(namespec))
+                return warn_message('Process {} NOT started'.format(namespec))
+            on_wait.delay = 0.1
+            return on_wait
+        if cb:
+            return delayed_info('Process {} started'.format(namespec))
+        return delayed_warn('Process {} NOT started'.format(namespec))
 
-    def stopProcessAction(self, namespec):
+    def stop_process_action(self, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().stopProcess(namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.stop_process(namespec)
         except RPCError, e:
-            return delayedError('stopProcess: {}'.format(e.text))
+            return delayed_error('stopProcess: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('stopProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                return infoMessage('process {} stopped'.format(namespec))
-            onWait.delay = 0.1
-            return onWait
-        return delayedInfo('process {} stopped'.format(namespec))
+                    return error_message('stopProcess: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                return info_message('process {} stopped'.format(namespec))
+            on_wait.delay = 0.1
+            return on_wait
+        return delayed_info('process {} stopped'.format(namespec))
  
-    def restartProcessAction(self, strategy, namespec):
+    def restart_process_action(self, strategy, namespec):
         try:
-            cb = infoSource.getSupervisorsRpcInterface().restartProcess(strategy, namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.restart_process(strategy, namespec)
         except RPCError, e:
-            return delayedError('restartProcess: {}'.format(e.text))
+            return delayed_error('restartProcess: {}'.format(e.text))
         if callable(cb):
-            def onWait():
+            def on_wait():
                 try:
                     result = cb()
                 except RPCError, e:
-                    return errorMessage('restartProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET: return NOT_DONE_YET
-                if result: return infoMessage('Process {} restarted'.format(namespec))
-                return warnMessage('Process {} NOT restarted'.format(namespec))
-            onWait.delay = 0.1
-            return onWait
-        if cb: return delayedInfo('Process {} restarted'.format(namespec))
-        return delayedWarn('Process {} NOT restarted'.format(namespec))
+                    return error_message('restartProcess: {}'.format(e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return info_message('Process {} restarted'.format(namespec))
+                return warn_message('Process {} NOT restarted'.format(namespec))
+            on_wait.delay = 0.1
+            return on_wait
+        if cb:
+            return delayed_info('Process {} restarted'.format(namespec))
+        return delayed_warn('Process {} NOT restarted'.format(namespec))

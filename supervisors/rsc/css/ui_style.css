@@ -208,14 +208,15 @@ nav ul, p {
 
 
 /*
- * Generic Style
+ * Blink Style
  */
-.hidden {
-    display: none
+.blink {
+    color: orangered;
+    animation: blinker 1.2s linear infinite;
 }
 
-.hidden div {
-    display: none
+@keyframes blinker {  
+  50% { opacity: 0.0; }
 }
 
 
@@ -242,26 +243,9 @@ figcaption {
 
 
 /*
- * Link style
- */
-a.conciliationLink {
-	background: url(../img/arrows-red_16.png) no-repeat right;
-	background-color: orangered;
-	color: #eee;
-	text-decoration: none;
-	text-shadow: 2px 2px 2px black;
-	font-size: .8em;
-	padding-left: 2px;
-	padding-right: 18px;
-    border: 1px red outset;
-    border-radius: 0px 10px 10px 0px;
-}
-
-
-/*
  * Style for inline actions
  */
-ul.linear {
+ul.linear, ul.vertical {
     margin: 0;
     padding: 0;
     list-style: none;
@@ -269,6 +253,10 @@ ul.linear {
 
 ul.linear li {
     display: inline;
+}
+
+ul.vertical li {
+    margin: 2px 0;
 }
 
 
@@ -343,6 +331,14 @@ ul.linear li {
 .button.active {
     color: green;
     font-weight: bold;
+}
+
+
+/*
+ * Master address style
+ */
+.master::after {
+	content: " \272A";
 }
 
 
@@ -583,4 +579,3 @@ nav li.STOPPING.active {
 .decrease::after {
 	content: "\2198";
 }
-

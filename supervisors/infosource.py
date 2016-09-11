@@ -17,13 +17,18 @@
 # limitations under the License.
 # ======================================================================
 
+import os
+
+from supervisor.http import supervisor_auth_handler
+from supervisor.medusa import default_handler, filesys
+from supervisor.options import split_namespec
+from supervisor.states import ProcessStates
+
+
 # Supervisors is started in Supervisor so information is available in supervisor instance
 class SupervisordSource(object):
-    def __init__(self):
-        self.supervisord = None
 
-    #WARN: this method to be called first any get
-    def setSupervisorInstance(self, supervisord):
+    def __init__(self, supervisord):
         self.supervisord = supervisord
         if len(supervisord.options.server_configs) == 0:
             raise Exception('no server configuration in config file: {}'.format(supervisord.configfile))
@@ -33,71 +38,64 @@ class SupervisordSource(object):
         if serverSection != 'inet_http_server':
             raise Exception('inet_http_server expected in config file: {}'.format(supervisord.configfile))
         # shortcuts (not available yet)
-        self.supervisorRpcInterface = None
-        self.supervisorsRpcInterface = None
+        self._supervisor_rpc_interface = None
+        self._supervisors_rpc_interface = None
 
-    def getSupervisorRpcInterface(self):
+    @property
+    def supervisor_rpc_interface(self):
         # need to get internal Supervisor RPC handler to call behaviour from Supervisors
         # XML-RPC call in an other XML-RPC call on the same server is blocking
         # so, not very proud of the following lines but could not access it any other way
-        if not self.supervisorRpcInterface:
-            self.supervisorRpcInterface = self.httpServers.handlers[0].rpcinterface.supervisor
-        return self.supervisorRpcInterface
-
-    def getSupervisorsRpcInterface(self):
-        if not self.supervisorsRpcInterface:
-            self.supervisorsRpcInterface = self.httpServers.handlers[0].rpcinterface.supervisors
-        return self.supervisorsRpcInterface
+        if not self._supervisor_rpc_interface:
+            self._supervisor_rpc_interface = self.httpservers.handlers[0].rpcinterface.supervisor
+        return self._supervisor_rpc_interface
 
     @property
-    def httpServers(self):
+    def supervisors_rpc_interface(self):
+        if not self._supervisors_rpc_interface:
+            self._supervisors_rpc_interface = self.httpservers.handlers[0].rpcinterface.supervisors
+        return self._supervisors_rpc_interface
+
+    @property
+    def httpservers(self):
         # ugly but works...
         return self.supervisord.options.httpservers[0][1]
 
     @property
-    def serverUrl(self): return self.supervisord.options.serverurl
+    def serverurl(self): return self.supervisord.options.serverurl
     @property
-    def serverPort(self): return self.serverConfig['port']
+    def serverport(self): return self.serverConfig['port']
     @property
-    def userName(self): return self.serverConfig['username']
+    def username(self): return self.serverConfig['username']
     @property
     def password(self): return self.serverConfig['password']
     @property
-    def supervisorState(self): return self.supervisord.options.mood
+    def supervisor_state(self): return self.supervisord.options.mood
 
     # this method is used to force a process state into supervisord and to dispatch process event to event listeners
-    def forceProcessFatalState(self, namespec, reason):
-        from supervisor.options import split_namespec
-        applicationName, processName = split_namespec(namespec)
-        # WARN: may throw KeyError
-        subProcess = self.supervisord.process_groups[applicationName].processes[processName]
+    def force_process_fatal(self, namespec, reason):
+        application_name, process_name = split_namespec(namespec)
+        # FIXME: may throw KeyError
+        process = self.supervisord.process_groups[application_name].processes[process_name]
         # need to force BACKOFF state to go through assertion
-        from supervisor.states import ProcessStates
-        subProcess.state = ProcessStates.BACKOFF
-        subProcess.spawnerr = reason
-        subProcess.give_up()
+        process.state = ProcessStates.BACKOFF
+        process.spawnerr = reason
+        process.give_up()
 
     # this method is used to replace Supervisor web ui with Supervisors web ui
-    def replaceDefaultHandler(self):
+    def replace_default_handler(self):
         # create default handler pointing on Supervisors ui directory
-        import os
         here = os.path.abspath(os.path.dirname(__file__))
         templatedir = os.path.join(here, 'ui')
-        from supervisor.medusa import filesys
         filesystem = filesys.os_filesystem(templatedir)
-        from supervisor.medusa import default_handler
         defaulthandler = default_handler.default_handler(filesystem)
         # deal with authentication
-        if self.userName:
+        if self.username:
             # wrap the xmlrpc handler and tailhandler in an authentication handler
-            users = { self.userName: self.password }
-            from supervisor.web import supervisor_auth_handler
+            users = { self.username: self.password }
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            from supervisors.options import options
-            options.logger.critical('Server %r running without any HTTP authentication checking' % infoSource.serverConfig['section'])
+            self.supervisord.supervisors.logger.warn('Server running without any HTTP authentication checking')
         # replace Supervisor default handler at the end of the list
-        self.httpServers.handlers.pop()
-        self.httpServers.install_handler(defaulthandler, True)
-
-infoSource = SupervisordSource()
+        self.httpservers.handlers.pop()
+        self.httpservers.install_handler(defaulthandler, True)

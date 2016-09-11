@@ -17,62 +17,63 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.utils import getStats
-
+import math
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from supervisors.utils import get_stats
+
 
 # class to create statistics graph using matplotlib 
 class StatisticsPlot(object):
+
     def __init__(self):
         plt.figure(figsize=(6, 3))
-        self.yData = { }
+        self.ydata = {}
 
-    def addPlot(self, title, unit, yData):
-        if len(yData) > 0:
-            self.yData[(title, unit)] = yData
+    def addPlot(self, title, unit, ydata):
+        if len(ydata) > 0:
+            self.ydata[(title, unit)] = ydata
 
-    def exportImage(self, imageContents):
-        if self.yData:
+    def exportImage(self, image_contents):
+        if self.ydata:
             # calculate and apply max range
-            allYData = [ ]
-            map(allYData.extend, [yData for yData in self.yData.values()])
-            plt.ylim(self.getRange(allYData))
+            all_ydata = []
+            map(all_ydata.extend, [ydata for ydata in self.ydata.values()])
+            plt.ylim(self.get_range(all_ydata))
             # create plots for each series of data
-            for ((title, unit), yData), location in zip(self.yData.items(), range(len(self.yData))):
+            for i, ((title, unit), ydata) in enumerate(self.ydata.items()):
                 # create X axis
-                xData = [ x for x in range(len(yData)) ]
+                xdata = [x for x in range(len(ydata))]
                 # get additional statistics
-                avg, rate, (a, b), dev = getStats(yData)
+                avg, rate, (a, b), dev = get_stats(ydata)
                 # plot the data
-                dataLine, = plt.plot(xData, yData, label=title)
+                dataLine, = plt.plot(xdata, ydata, label=title)
                 plotColor = dataLine.get_color()
                 # plot the mean line
-                avgData = [ avg for _ in yData ]
-                meanLine, = plt.plot(xData, avgData, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=plotColor)
+                avg_data = [avg for _ in ydata]
+                meanLine, = plt.plot(xdata, avg_data, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=plotColor)
                 if a is not None:
                     # plot the linear regression
-                    plt.plot( [ xData[0], xData[-1] ], [ a * xData[0] + b,  a * xData[-1] + b], linestyle=':', color=plotColor)
+                    plt.plot([xdata[0], xdata[-1]], [a * xdata[0] + b,  a * xdata[-1] + b], linestyle=':', color=plotColor)
                 if dev is not None:
                     # plot the standard deviation
-                    plt.fill_between(xData, avg-dev, avg+dev, facecolor=plotColor, alpha=.3)
+                    plt.fill_between(xdata, avg-dev, avg+dev, facecolor=plotColor, alpha=.3)
                 # create the legend
-                legend = plt.legend(handles=[dataLine, meanLine], loc=location+1, fontsize='small', fancybox=True, shadow=True)
+                legend = plt.legend(handles=[dataLine, meanLine], loc=i+1, fontsize='small', fancybox=True, shadow=True)
                 # add the legend to the current axes
                 plt.gca().add_artist(legend)
             # save image to internal memory buffer
-            plt.savefig(imageContents.getNewImage(), dpi=80, bbox_inches='tight', format='png')
+            plt.savefig(image_contents.new_image(), dpi=80, bbox_inches='tight', format='png')
             # reset yData
-            self.yData = { }
+            self.ydata = { }
         # close plot
         plt.close()
 
-    def getRange(self, lst):
-        import math
+    def get_range(self, lst):
         # legend need additional space
-        minRange = math.floor(min(lst))
-        maxRange = math.ceil(max(lst))
-        range = maxRange - minRange
-        return max(0, minRange - range * 0.1), maxRange + range * .35
+        min_range = math.floor(min(lst))
+        max_range = math.ceil(max(lst))
+        range = max_range - min_range
+        return max(0, min_range - range * 0.1), max_range + range * .35

@@ -17,314 +17,322 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.application import applicationStateToString
-from supervisors.context import context
-from supervisors.statemachine import fsm
-from supervisors.infosource import infoSource
-from supervisors.options import options
-from supervisors.remote import remoteStateToString, RemoteStates
-from supervisors.types import SupervisorsStates
-from supervisors.utils import getStats
-from supervisors.webutils import *
+import urllib
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
-import urllib
+from supervisors.plot import StatisticsPlot
+from supervisors.types import AddressStates, SupervisorsStates
+from supervisors.utils import get_stats
+from supervisors.viewimage import process_image_contents
+from supervisors.webutils import *
 
 
-# Supervisors address page
 class ViewHandler(object):
-    # static attributes for statistics selection
-    periodStats = next(iter(options.statsPeriods))
-    addressStatsType = 'acpu'
-    cpuIdStats = 0
-    interfaceStats = ''
-    processStatsType = ''
-    namespecStats = ''
+    """ Helper class to commonize rendering and behaviour between handlers inheriting from MeldView.
+    The use of some 'self' attributes may appear quite strange as they actually belongs to MeldView inheritance.
+    However it works because python interprets the attributes in the context of the instance inheriting from both MeldView and this class.
+    The choice of the statistics is made through class attributes for the moement because it would take too much place on the URL.
+    An change may be done later to use a short code that would be discriminating """
 
-    def writePage(self):
+    # static attributes for statistics selection
+    # TODO: find short and discriminating code for URL
+    period_stats = None
+    address_stats_type = 'acpu'
+    cpu_id_stats = 0
+    interface_stats = ''
+    process_stats_type = ''
+    namespec_stats = ''
+
+    def write_page(self):
         """ Method called by Supervisor to handle the rendering of the Supervisors pages """
         # clone the template and set navigation menu
-        if infoSource.supervisorState == SupervisorStates.RUNNING:
+        if self.supervisors.info_source.supervisor_state == SupervisorStates.RUNNING:
             # manage action
-            message = self.handleAction()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
+            message = self.handle_action()
+            if message is NOT_DONE_YET:
+                return NOT_DONE_YET
             # display result
             root = self.clone()
             form = self.context.form
-            printMessage(root, form.get('gravity'), form.get('message'))
+            print_message(root, form.get('gravity'), form.get('message'))
             # manage parameters
-            self.handleParameters()
+            self.handle_parameters()
+            # blink main title in conciliation state
+            if self.supervisors.fsm.state == SupervisorsStates.CONCILIATION and self.supervisors.context.conflicts():
+                root.findmeld('supervisors_mid').attrib['class'] = 'blink'
             # write navigation menu and Address header
-            self.writeNavigation(root)
-            self.writeHeader(root)
-            self.writeContents(root)
+            self.write_navigation(root)
+            self.write_header(root)
+            self.write_contents(root)
             return root.write_xhtmlstring()
 
-    def writeNav(self, root, address=None, appli=None):
-        serverPort = self.getServerPort()
+    def write_nav(self, root, address=None, appli=None):
+        server_port = self.server_port()
         # update navigation addresses
-        iterator = root.findmeld('address_li_mid').repeat(addressMapper.expectedAddresses)
-        for li_element, item in iterator:
-            state = context.remotes[item].state
+        iterator = root.findmeld('address_li_mid').repeat(self.supervisors.address_mapper.addresses)
+        for li_elt, item in iterator:
+            status = self.supervisors.context.addresses[item]
             # set element class
-            li_element.attrib['class'] = remoteStateToString(state) + (' active' if item == address else '')
+            li_elt.attrib['class'] = status.state_string() + (' active' if item == address else '')
             # set hyperlink attributes
-            elt = li_element.findmeld('address_a_mid')
-            if state == RemoteStates.RUNNING:
+            elt = li_elt.findmeld('address_a_mid')
+            if status.state == AddressStates.RUNNING:
                 # go to web page located on address, so as to reuse Supervisor StatusView
-                elt.attributes(href='http://{}:{}/address.html'.format(item, serverPort))
-                elt.attrib['class'] = 'on'
+                elt.attributes(href='http://{}:{}/address.html'.format(item, server_port))
+                elt.attrib['class'] = 'on' + (' master' if item == self.supervisors.context.master_address else '')
             else:
                 elt.attrib['class'] = 'off'
             elt.content(item)
         # update navigation applications
-        iterator = root.findmeld('appli_li_mid').repeat(context.applications.keys())
-        for li_element, item in iterator:
-            state = context.applications[item].state
+        iterator = root.findmeld('appli_li_mid').repeat(self.supervisors.context.applications.keys())
+        for li_elt, item in iterator:
+            application = self.supervisors.context.applications[item]
             # set element class
-            li_element.attrib['class'] = applicationStateToString(state) + (' active' if item == appli else '')
+            li_elt.attrib['class'] = application.state_string() + (' active' if item == appli else '')
             # set hyperlink attributes
-            elt = li_element.findmeld('appli_a_mid')
-            # go to web page located on Supervisors Master, so as to simplify requests
-            if fsm.state == SupervisorsStates.INITIALIZATION:
+            elt = li_elt.findmeld('appli_a_mid')
+            if self.supervisors.fsm.state == SupervisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
-                elt.attributes(href='http://{}:{}/application.html?appli={}'.format(context.masterAddress, serverPort, urllib.quote(item)))
+                elt.attributes(href='application.html?appli={}'.format(urllib.quote(item)))
                 elt.attrib['class'] = 'on'
             elt.content(item)
 
-    def writePeriods(self, root):
+    def write_periods(self, root):
         """ Write configured periods for statistics """
-        iterator = root.findmeld('period_li_mid').repeat(options.statsPeriods)
-        for li_element, period in iterator:
-            # TODO: set period button on only if there is a related statistics
+        # init period if necessary
+        if ViewHandler.period_stats is None:
+            ViewHandler.period_stats = next(iter(self.supervisors.options.stats_periods))
+        # render periods
+        iterator = root.findmeld('period_li_mid').repeat(self.supervisors.options.stats_periods)
+        for li_elt, period in iterator:
             # print period button
-            elt = li_element.findmeld('period_a_mid')
-            if period == ViewHandler.periodStats:
+            elt = li_elt.findmeld('period_a_mid')
+            if period == ViewHandler.period_stats:
                 elt.attrib['class'] = "button off active"
             else:
-                elt.attributes(href='{}?{}period={}'.format(self.pageName, self.getUrlContext(), period))
+                elt.attributes(href='{}?{}period={}'.format(self.page_name, self.url_context(), period))
             elt.content('{}s'.format(period))
 
-    def writeCommonProcessStatus(self, trElt, item):
+    def write_common_process_status(self, tr_elt, item):
         selected_tr = False
         namespec = item['namespec']
         # print state
-        elt = trElt.findmeld('state_td_mid')
+        elt = tr_elt.findmeld('state_td_mid')
         elt.attrib['class'] = item['statename']
         elt.content(item['statename'])
         # print expected loading
-        procStatus = self.getProcessStatus(namespec)
-        if procStatus:
-            elt = trElt.findmeld('load_td_mid')
-            elt.content('{}%'.format(procStatus.rules.expected_loading))
+        status = self.get_process_status(namespec)
+        if status:
+            elt = tr_elt.findmeld('load_td_mid')
+            elt.content('{}%'.format(status.rules.expected_loading))
         # get data from statistics module iaw period selection
-        hideCpuLink = hideMemLink = True
-        procStats = self.getProcessStats(namespec)
-        if procStats:
-            if len(procStats[0]) > 0:
+        hide_cpu_link, hide_mem_link = (True, )*2
+        proc_stats = self.get_process_stats(namespec)
+        if proc_stats:
+            if len(proc_stats[0]) > 0:
                 # print last CPU value of process
-                elt = trElt.findmeld('pcpu_a_mid')
-                elt.content('{:.2f}%'.format(procStats[0][-1]))
-                if ViewHandler.processStatsType == 'pcpu' and ViewHandler.namespecStats == namespec:
+                elt = tr_elt.findmeld('pcpu_a_mid')
+                elt.content('{:.2f}%'.format(proc_stats[0][-1]))
+                if ViewHandler.process_stats_type == 'pcpu' and ViewHandler.namespec_stats == namespec:
                     selected_tr = True
                     elt.attributes(href='#')
                     elt.attrib['class'] = 'button off active'
                 else:
-                    elt.attributes(href='{}?{}stats=pcpu&amp;processname={}'.format(self.pageName, self.getUrlContext(), urllib.quote(namespec)))
+                    elt.attributes(href='{}?{}stats=pcpu&amp;processname={}'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
                     elt.attrib['class'] = 'button on'
-                hideCpuLink = False
-            if len(procStats[1]) > 0:
+                hide_cpu_link = False
+            if len(proc_stats[1]) > 0:
                 # print last MEM value of process
-                elt = trElt.findmeld('pmem_a_mid')
-                elt.content('{:.2f}%'.format(procStats[1][-1]))
-                if ViewHandler.processStatsType == 'pmem' and ViewHandler.namespecStats == namespec:
+                elt = tr_elt.findmeld('pmem_a_mid')
+                elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+                if ViewHandler.process_stats_type == 'pmem' and ViewHandler.namespec_stats == namespec:
                     selected_tr = True
                     elt.attributes(href='#')
                     elt.attrib['class'] = 'button off active'
                 else:
-                    elt.attributes(href='{}?{}stats=pmem&amp;processname={}'.format(self.pageName, self.getUrlContext(), urllib.quote(namespec)))
+                    elt.attributes(href='{}?{}stats=pmem&amp;processname={}'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
                     elt.attrib['class'] = 'button on'
-                hideMemLink = False
+                hide_mem_link = False
         # when no data, no not write link
-        if hideCpuLink:
-            elt = trElt.findmeld('pcpu_a_mid')
+        if hide_cpu_link:
+            elt = tr_elt.findmeld('pcpu_a_mid')
             elt.replace('--')
-        if hideMemLink:
-            elt = trElt.findmeld('pmem_a_mid')
+        if hide_mem_link:
+            elt = tr_elt.findmeld('pmem_a_mid')
             elt.replace('--')
         # manage actions iaw state
-        processState = item['state']
+        process_state = item['state']
         # start button
-        elt = trElt.findmeld('start_a_mid')
-        if processState in STOPPED_STATES:
+        elt = tr_elt.findmeld('start_a_mid')
+        if process_state in STOPPED_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}processname={}&amp;action=start'.format(self.pageName, self.getUrlContext(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}processname={}&amp;action=start'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         # stop button
-        elt = trElt.findmeld('stop_a_mid')
-        if processState in RUNNING_STATES:
+        elt = tr_elt.findmeld('stop_a_mid')
+        if process_state in RUNNING_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}processname={}&amp;action=stop'.format(self.pageName, self.getUrlContext(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}processname={}&amp;action=stop'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         # restart button
-        elt = trElt.findmeld('restart_a_mid')
-        if processState in RUNNING_STATES:
+        elt = tr_elt.findmeld('restart_a_mid')
+        if process_state in RUNNING_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}processname={}&amp;action=restart'.format(self.pageName, self.getUrlContext(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}processname={}&amp;action=restart'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         return selected_tr
  
-    def writeProcessStatistics(self, root):
+    def write_process_statistics(self, root):
         """ Display detailed statistics about the selected process """
-        statsElt = root.findmeld('pstats_div_mid')
+        stats_elt = root.findmeld('pstats_div_mid')
         # get data from statistics module iaw period selection
-        procStats = self.getProcessStats(ViewHandler.namespecStats) if ViewHandler.namespecStats else None
-        if procStats:
+        proc_stats = self.get_process_stats(ViewHandler.namespec_stats) if ViewHandler.namespec_stats else None
+        if proc_stats and (len(proc_stats[0]) > 0 or len(proc_stats[1]) > 0):
+            # set title
+            elt = stats_elt.findmeld('process_fig_mid')
+            elt.content(ViewHandler.namespec_stats)
             # set CPU statistics
-            if len(procStats[0]) > 0:
-                avg, rate, (a, b), dev = getStats(procStats[0])
+            if len(proc_stats[0]) > 0:
+                avg, rate, (a, b), dev = get_stats(proc_stats[0])
                 # print last CPU value of process
-                elt = statsElt.findmeld('pcpuval_td_mid')
-                if rate is not None: self.setSlopeClass(elt, rate)
-                elt.content('{:.2f}%'.format(procStats[0][-1]))
+                elt = stats_elt.findmeld('pcpuval_td_mid')
+                if rate is not None:
+                    self.set_slope_class(elt, rate)
+                elt.content('{:.2f}%'.format(proc_stats[0][-1]))
                 # set mean value
-                elt = statsElt.findmeld('pcpuavg_td_mid')
+                elt = stats_elt.findmeld('pcpuavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
                 if a is not None:
                     # set slope value between last 2 values
-                    elt = statsElt.findmeld('pcpuslope_td_mid')
+                    elt = stats_elt.findmeld('pcpuslope_td_mid')
                     elt.content('{:.2f}'.format(a))
                 if dev is not None:
                     # set standard deviation
-                    elt = statsElt.findmeld('pcpudev_td_mid')
+                    elt = stats_elt.findmeld('pcpudev_td_mid')
                     elt.content('{:.2f}'.format(dev))
             # set MEM statistics
-            if len(procStats[1]) > 0:
-                avg, rate, (a, b), dev = getStats(procStats[1])
+            if len(proc_stats[1]) > 0:
+                avg, rate, (a, b), dev = get_stats(proc_stats[1])
                 # print last MEM value of process
-                elt = statsElt.findmeld('pmemval_td_mid')
-                if rate is not None: self.setSlopeClass(elt, rate)
-                elt.content('{:.2f}%'.format(procStats[1][-1]))
+                elt = stats_elt.findmeld('pmemval_td_mid')
+                if rate is not None:
+                    self.set_slope_class(elt, rate)
+                elt.content('{:.2f}%'.format(proc_stats[1][-1]))
                 # set mean value
-                elt = statsElt.findmeld('pmemavg_td_mid')
+                elt = stats_elt.findmeld('pmemavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
                 if a is not None:
                     # set slope value between last 2 values
-                    elt = statsElt.findmeld('pmemslope_td_mid')
+                    elt = stats_elt.findmeld('pmemslope_td_mid')
                     elt.content('{:.2f}'.format(a))
                 if dev is not None:
                     # set standard deviation
-                    elt = statsElt.findmeld('pmemdev_td_mid')
+                    elt = stats_elt.findmeld('pmemdev_td_mid')
                     elt.content('{:.2f}'.format(dev))
             # write CPU / Memory plot
-            from supervisors.plot import StatisticsPlot
             img = StatisticsPlot()
-            if ViewHandler.processStatsType == 'pcpu':
-                img.addPlot('CPU', '%', procStats[0])
-            elif ViewHandler.processStatsType == 'pmem':
-                img.addPlot('MEM', '%', procStats[1])
-            from supervisors.viewimage import processImageContents
-            img.exportImage(processImageContents)
-            # set title
-            elt = statsElt.findmeld('process_fig_mid')
-            elt.content(ViewHandler.namespecStats)
+            if ViewHandler.process_stats_type == 'pcpu':
+                img.addPlot('CPU', '%', proc_stats[0])
+            elif ViewHandler.process_stats_type == 'pmem':
+                img.addPlot('MEM', '%', proc_stats[1])
+            img.exportImage(process_image_contents)
         else:
-            if ViewHandler.namespecStats :
-                options.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespecStats))
-                ViewHandler.namespecStats = ''
-            # hide stats part
-            statsElt.attrib['class'] = 'hidden'
+            if ViewHandler.namespec_stats :
+                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
+                ViewHandler.namespec_stats = ''
+            # remove stats part
+            stats_elt.replace('')
 
-    def handleParameters(self):
+    def handle_parameters(self):
         """ Retrieve the parameters selected on the web page
         These parameters are static to the current class, so they are shared between all browsers connected on this server """
         form = self.context.form
         # update context period
-        periodString = form.get('period')
-        if periodString:
-            period = int(periodString)
-            if period in options.statsPeriods:
-                if ViewHandler.periodStats != period:
-                    options.logger.info('statistics period set to %d' % period)
-                    ViewHandler.periodStats = period
+        period_string = form.get('period')
+        if period_string:
+            period = int(period_string)
+            if period in self.supervisors.options.stats_periods:
+                if ViewHandler.period_stats != period:
+                    self.logger.info('statistics period set to %d' % period)
+                    ViewHandler.period_stats = period
             else:
-                self.setMessage(errorMessage('Incorrect period: {}'.format(periodString)))
+                self.message(error_message('Incorrect period: {}'.format(period_string)))
         # get statistics type
-        statsType = form.get('stats')
-        if statsType:
-            if statsType == 'acpu':
+        stats_type = form.get('stats')
+        if stats_type:
+            if stats_type == 'acpu':
                 cpuid = form.get('idx')
                 try:
                     cpuid = int(cpuid)
-                except:
-                    self.setMessage(errorMessage('Cpu id is not an integer: {}'.format(cpuid)))
+                except ValueError:
+                    self.message(error_message('Cpu id is not an integer: {}'.format(cpuid)))
                 else:
                     # update Address statistics selection
-                    if cpuid < len(self.getAddressStats().cpu):
-                        if ViewHandler.addressStatsType != statsType or ViewHandler.cpuIdStats != cpuid:
-                            options.logger.info('select cpu#{} statistics for address'.format(self._transformCpuIdToString(cpuid)))
-                            ViewHandler.addressStatsType = statsType
-                            ViewHandler.cpuIdStats = cpuid
+                    if cpuid < len(self.get_address_stats().cpu):
+                        if ViewHandler.address_stats_type != stats_type or ViewHandler.cpu_id_stats != cpuid:
+                            self.logger.info('select cpu#{} statistics for address'.format(self.cpu_id_to_string(cpuid)))
+                            ViewHandler.address_stats_type = stats_type
+                            ViewHandler.cpu_id_stats = cpuid
                     else:
-                        self.setMessage(errorMessage('Incorrect stats cpu id: {}'.format(cpuid)))
-            if statsType == 'amem':
+                        self.message(error_message('Incorrect stats cpu id: {}'.format(cpuid)))
+            elif stats_type == 'amem':
                 # update Address statistics selection
-                if ViewHandler.addressStatsType != statsType:
-                    options.logger.info('select mem statistics for address')
-                    ViewHandler.addressStatsType = statsType
-            elif statsType == 'io':
+                if ViewHandler.address_stats_type != stats_type:
+                    self.logger.info('select mem statistics for address')
+                    ViewHandler.address_stats_type = stats_type
+            elif stats_type == 'io':
                 interface = form.get('intf')
                 # update Network statistics selection
-                ioStats = self.getAddressStats().io
-                if interface in ioStats.keys():
-                    if ViewHandler.addressStatsType != statsType or ViewHandler.interfaceStats != interface:
-                        options.logger.info('select Interface graph for %s' % interface)
-                        ViewHandler.addressStatsType = statsType
-                        ViewHandler.interfaceStats = interface
+                io_stats = self.get_address_stats().io
+                if interface in io_stats.keys():
+                    if ViewHandler.address_stats_type != stats_type or ViewHandler.interface_stats != interface:
+                        self.logger.info('select Interface graph for %s' % interface)
+                        ViewHandler.address_stats_type = stats_type
+                        ViewHandler.interface_stats = interface
                 else:
-                    self.setMessage(errorMessage('Incorrect stats interface: {}'.format(intf)))
-            elif statsType in ['pcpu', 'pmem']:
+                    self.message(error_message('Incorrect stats interface: {}'.format(intf)))
+            elif stats_type in ['pcpu', 'pmem']:
                 namespec = form.get('processname')
-                procStats = self.getProcessStats(namespec)
-                if procStats:
-                    if ViewHandler.processStatsType != statsType or ViewHandler.namespecStats != namespec:
-                        options.logger.info('select detailed Process statistics for %s' % namespec)
-                        ViewHandler.processStatsType = statsType
-                        ViewHandler.namespecStats = namespec
+                proc_stats = self.get_process_stats(namespec)
+                if proc_stats:
+                    if ViewHandler.process_stats_type != stats_type or ViewHandler.namespec_stats != namespec:
+                        self.logger.info('select detailed Process statistics for %s' % namespec)
+                        ViewHandler.process_stats_type = stats_type
+                        ViewHandler.namespec_stats = namespec
                 else:
-                    self.setMessage(errorMessage('Incorrect stats namespec: {}'.format(namespec)))
+                    self.message(error_message('Incorrect stats namespec: {}'.format(namespec)))
 
-    def handleAction(self):
+    def handle_action(self):
         """ Handling of the actions requested from the Supervisors Address web page """
         form = self.context.form
         action = form.get('action')
         if action:
             # trigger deferred action and wait
-            processName = form.get('processname')
+            process_name = form.get('processname')
             if not self.callback:
-                self.callback = self.make_callback(processName, action)
+                self.callback = self.make_callback(process_name, action)
                 return NOT_DONE_YET
             # intermediate check
             message = self.callback()
-            if message is NOT_DONE_YET: return NOT_DONE_YET
+            if message is NOT_DONE_YET:
+                return NOT_DONE_YET
             # post to write message
             if message is not None:
-                self.setMessage(formatGravityMessage(message))
+                self.message(format_gravity_message(message))
 
-    def setMessage(self, message):
+    def message(self, message):
         """ Set message in context response to be displayed at next refresh """
         form = self.context.form
-        location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?{}message={}&amp;gravity={}'.format(self.getUrlContext(), urllib.quote(message[1]), message[0])
+        location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?{}message={}&amp;gravity={}'.format(self.url_context(), urllib.quote(message[1]), message[0])
         self.context.response['headers']['Location'] = location
 
-    def setSlopeClass(self, elt, value):
+    def set_slope_class(self, elt, value):
         if (abs(value) < .005):
             elt.attrib['class'] = 'stable'
         elif (value > 0):
@@ -332,24 +340,24 @@ class ViewHandler(object):
         else:
             elt.attrib['class'] = 'decrease'
 
-    def getUrlContext(self):
+    def url_context(self):
         """ Get the extra parameters for the URL """
         return ''
 
-    def getProcessStatus(self, namespec):
+    def get_process_status(self, namespec):
         """ Get the ProcessStatus instance related to the process named namespec """
         try:
-            procStatus = context.getProcessFromNamespec(namespec)
-        except:
-            options.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
+            status = self.supervisors.context.process_from_namespec(namespec)
+        except KeyError:
+            self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
         else:
-            return procStatus
+            return status
 
-    def getServerPort(self):
+    def server_port(self):
         """ Get the port number of the web server """
         return self.context.form.get('SERVER_PORT')
 
-    def _transformCpuIdToString(self, idx):
+    def cpu_id_to_string(self, idx):
         """ Get a displayable form to cpu index """
         return idx- 1 if idx > 0 else 'all'
 

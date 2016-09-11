@@ -17,141 +17,193 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.deployer import deployer
-from supervisors.options import options
-from supervisors.remote import RemoteStates
-from supervisors.strategy import conciliator
-from supervisors.types import SupervisorsStates, supervisorsStateToString
+from time import time
 
-import time
+from supervisors.strategy import conciliate
+from supervisors.types import AddressStates, SupervisorsStates
+from supervisors.utils import supervisors_short_cuts
 
-# FSM management
-class _AbstractState(object):
-    def enter(self): pass
-    def next(self): pass
-    def exit(self): pass
 
-class _InitializationState(_AbstractState):
+class AbstractState(object):
+    """ Base class for a state with simple entry / next / exit actions """
+
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
+        supervisors_short_cuts(self, ['context', 'logger'])
+        self.address = supervisors.address_mapper.local_address
+
     def enter(self):
-        context.masterAddress = ''
-        context.master = False
-        self.startDate = int(time.time())
+        pass
+
+    def next(self):
+        pass
+
+    def exit(self):
+        pass
+
+
+class InitializationState(AbstractState):
+
+    def enter(self):
+        self.context.master_address = ''
+        self.start_date = int(time())
         # re-init remotes that are not isolated
-        for remote in context.remotes.values():
-            if not remote.isInIsolation():
-                # do NOT use setState as transition may be rejected
-                remote.state = RemoteStates.UNKNOWN
-                remote.checked = False
+        for status in self.context.addresses.values():
+            if not status.in_isolation():
+                # do NOT use state setter as transition may be rejected
+                status._state = AddressStates.UNKNOWN
+                status.checked = False
 
     def next(self):
         # cannot get out of this state without local supervisor RUNNING
-        runningRemotes = context.runningRemotes()
-        if addressMapper.localAddress in runningRemotes:
-            if len(context.unknownRemotes()) == 0:
+        addresses = self.context.running_addresses()
+        if self.address in addresses:
+            if len(self.context.unknown_addresses()) == 0:
                 # synchro done if the state of all remotes is known
                 return SupervisorsStates.DEPLOYMENT
             # if synchro timeout reached, stop synchro and work with known remotes
-            if (time.time() - self.startDate) > options.synchroTimeout:
-                options.logger.warn('synchro timed out')
-                # force state of missing Remotes
-                context.endSynchro()
+            if (time() - self.start_date) > self.supervisors.options.synchro_timeout:
+                self.logger.warn('synchro timed out')
                 return SupervisorsStates.DEPLOYMENT
-            options.logger.debug('still waiting for remote supervisors to synchronize')
+            self.logger.debug('still waiting for remote supervisors to synchronize')
         else:
-            options.logger.debug('local address {} still not RUNNING'.format(addressMapper.localAddress))
+            self.logger.debug('local address {} still not RUNNING'.format(self.address))
         return SupervisorsStates.INITIALIZATION
 
     def exit(self):
-        # TODO: global checking / endSynchro ?
-        runningRemotes = context.runningRemotes()
-        options.logger.info('working with boards {}'.format(runningRemotes))
-        # arbitrarily choice : master address is the 'greater' address among running remotes
-        context.masterAddress = max(runningRemotes)
-        context.master = (context.masterAddress == addressMapper.localAddress)
-        options.logger.info('Supervisors master is {} self={}'.format(context.masterAddress, context.master))
+        # force state of missing Supervisors instances
+        self.supervisors.context.end_synchro()
+        # arbitrarily choice : master address is the 'lowest' address among running remotes
+        addresses = self.supervisors.context.running_addresses()
+        self.logger.info('working with boards {}'.format(addresses))
+        self.context.master_address = min(addresses)
 
-class _DeploymentState(_AbstractState):
+
+class DeploymentState(AbstractState):
+
     def enter(self):
         # define ordering iaw Remotes
-        for application in context.applications.values():
-            application.sequenceDeployment()
+        for application in self.context.applications.values():
+            application.sequence_deployment()
+            application.update_status()
         # only Supervisors master deploys applications
-        if context.master: deployer.deployApplications(context.applications.values())
+        if self.context.master:
+            self.supervisors.deployer.deploy_applications(self.context.applications.values())
 
     def next(self):
-        if deployer.checkDeployment():
-                return SupervisorsStates.CONCILIATION if context.hasConflict() else SupervisorsStates.OPERATION
+        if self.supervisors.deployer.check_deployment():
+                return SupervisorsStates.CONCILIATION if self.context.conflicting() else SupervisorsStates.OPERATION
         return SupervisorsStates.DEPLOYMENT
 
-class _OperationState(_AbstractState):
+
+class OperationState(AbstractState):
+
     def next(self):
         # check if master and local are still RUNNING
-        if context.remotes[addressMapper.localAddress].state != RemoteStates.RUNNING:
+        if self.context.addresses[self.address].state != AddressStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
-        if context.remotes[context.masterAddress].state != RemoteStates.RUNNING:
+        if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
         # check duplicated processes
-        if context.hasConflict():
+        if self.context.conflicting():
             return SupervisorsStates.CONCILIATION
         return SupervisorsStates.OPERATION
 
-class _ConciliationState(_AbstractState):
+
+class ConciliationState(AbstractState):
+
     def enter(self):
         # the Supervisors Master auto-conciliate conflicts
-        if context.master:
-            conciliator.conciliate(options.conciliationStrategy, context.getConflicts())
+        if self.context.master:
+            conciliate(self.supervisors, self.supervisors.options.conciliation_strategy, self.context.conflicts())
 
     def next(self):
         # check if master and local are still RUNNING
-        if context.remotes[addressMapper.localAddress].state != RemoteStates.RUNNING:
+        if self.context.addresses[self.address].state != AddressStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
-        if context.remotes[context.masterAddress].state != RemoteStates.RUNNING:
+        if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
             return SupervisorsStates.INITIALIZATION
         # check conciliation
-        if not context.hasConflict():
+        if not self.context.conflicting():
             return SupervisorsStates.OPERATION
         return SupervisorsStates.CONCILIATION
 
-class _FiniteStateMachine:
-    def restart(self):
-        self._updateStateInstance(SupervisorsStates.INITIALIZATION)
-        self.stateInstance.enter()
+
+class FiniteStateMachine:
+    """ This class implements a very simple behaviour of FiniteStateMachine based on a single event.
+    A state is able to evaluate itself for transitions. """
+
+    def __init__(self, supervisors):
+        """ Reset the state machine and the associated context """
+        self.supervisors = supervisors
+        supervisors_short_cuts(self, ['context', 'deployer', 'logger'])
+        self.update_instance(SupervisorsStates.INITIALIZATION)
+        self.instance.enter()
+
+    def state_string(self):
+        """ Return the application state as a string. """
+        return SupervisorsStates._to_string(self.state)
 
     def next(self):
-        nextState = self.stateInstance.next()
-        while nextState != self.state and nextState in self.__Transitions[self.state]:
-            self.stateInstance.exit()
-            self._updateStateInstance(nextState)
-            options.logger.info('Supervisors in {}'.format(supervisorsStateToString(self.state)))
-            self.stateInstance.enter()
-            nextState = self.stateInstance.next()
+        """ Send the event to the state and transitions if possible.
+        The state machine re-sends the event as long as it transitions. """
+        next_state = self.instance.next()
+        while next_state != self.state and next_state in self.__Transitions[self.state]:
+            self.instance.exit()
+            self.update_instance(next_state)
+            self.logger.info('Supervisors in {}'.format(self.state_string()))
+            self.instance.enter()
+            next_state = self.instance.next()
 
-    def _updateStateInstance(self, state):
+    def update_instance(self, state):
+        """ Change the current state.
+        The method also triggers the publication of the change. """
         self.state = state
-        self.stateInstance = self.__StateInstances[state]()
+        self.instance = self.__StateInstances[state](self.supervisors)
         # publish RemoteStatus event
-        from supervisors.publisher import eventPublisher
-        eventPublisher.sendSupervisorsStatus(self)
+        self.supervisors.publisher.send_supervisors_status(self)
+
+    def on_timer_event(self):
+        """ Periodic task used to check if remote Supervisors instance are still active.
+        This is also the main event on this state machine. """
+        self.context.on_timer_event()
+        self.next()
+        # master can fix inconsistencies if any
+        if self.context.master:
+            self.deployer.deploy_marked_processes(self.context.marked_processes())
+        # check if new isolating remotes and return the list of newly isolated addresses
+        return self.context.handle_isolation()
+
+    def on_tick_event(self, address, when):
+        """ This event is used to refresh the data related to the address. """
+        self.context.on_tick_event(address, when)
+        # could call the same behaviour as onTimerEvent if necessary
+
+    def on_process_event(self, address, event):
+        """ This event is used to refresh the process data related to the event and address.
+        This event also triggers the deployer. """
+        process = self.context.on_process_event(address, event)
+        # trigger deployment work if needed
+        if process and self.deployer.in_progress():
+            self.deployer.deploy_on_event(process)
 
     # serialization
-    def toJSON(self):
-        return { 'state': supervisorsStateToString(self.state) }
+    def to_json(self):
+        """ Return a JSON-serializable form of the SupervisorState """
+        return {'state': self.state_string()}
 
-
+    # Map between state enumeration and class
     __StateInstances = {
-        SupervisorsStates.INITIALIZATION: _InitializationState,
-        SupervisorsStates.DEPLOYMENT: _DeploymentState,
-        SupervisorsStates.OPERATION: _OperationState,
-        SupervisorsStates.CONCILIATION: _ConciliationState
+        SupervisorsStates.INITIALIZATION: InitializationState,
+        SupervisorsStates.DEPLOYMENT: DeploymentState,
+        SupervisorsStates.OPERATION: OperationState,
+        SupervisorsStates.CONCILIATION: ConciliationState
     }
 
+    # Transitions allowed between states
     __Transitions = {
         SupervisorsStates.INITIALIZATION: [ SupervisorsStates.DEPLOYMENT ],
         SupervisorsStates.DEPLOYMENT: [ SupervisorsStates.OPERATION, SupervisorsStates.CONCILIATION ],
         SupervisorsStates.OPERATION: [ SupervisorsStates.CONCILIATION, SupervisorsStates.INITIALIZATION ],
         SupervisorsStates.CONCILIATION: [ SupervisorsStates.OPERATION, SupervisorsStates.INITIALIZATION ]
    }
-
-fsm = _FiniteStateMachine()

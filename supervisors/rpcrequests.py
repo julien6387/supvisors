@@ -17,69 +17,84 @@
 # limitations under the License.
 # ======================================================================
 
-# utilities to determine if using XmlRpcClient or internal handler directly
-def _useProxy(address):
-    from supervisors.addressmapper import addressMapper
-    return address != addressMapper.localAddress
+import xmlrpclib
 
-def _getXmlRpcClient(address):
-    from supervisors.xmlrpcclient import XmlRpcClient
-    return XmlRpcClient(address)
-
-def _getSupervisorProxy(address):
-    # return client so as is it not destroyed when exiting
-    client = _getXmlRpcClient(address)
-    return client, client.proxy.supervisor
-
-def _getSupervisorsProxy(address):
-    # return client so as is it not destroyed when exiting
-    client = _getXmlRpcClient(address)
-    return client, client.proxy.supervisors
-
-def _getInternalSupervisor():
-    from supervisors.infosource import infoSource
-    return None, infoSource.getSupervisorRpcInterface()
-
-def _getInternalSupervisors():
-    from supervisors.infosource import infoSource
-    return None, infoSource.getSupervisorsRpcInterface()
-
-def _getSupervisor(address):
-    return _getSupervisorProxy(address) if _useProxy(address) else _getInternalSupervisor()
-
-def _getSupervisors(address):
-    return _getSupervisorsProxy(address) if _useProxy(address) else _getInternalSupervisors()
+from supervisor.xmlrpc import SupervisorTransport
 
 
-# Requests
-def getAllProcessInfo(address):
-    client, supervisor = _getSupervisor(address)
-    return supervisor.getAllProcessInfo()
+class XmlRpcClient(object):
 
-def getSupervisorsState(address):
-    client, supervisors = _getSupervisors(address)
-    return supervisors.getSupervisorsState()
+    def __init__(self, address, info_source):
+        if info_source.serverurl:
+            # TODO: what is the expected contents ?
+            serverurl = info_source.serverurl.split(':')
+            if len(serverurl) == 3:
+                serverurl[1] = '//' + address
+                serverurl = ':'.join(serverurl)
+                self.transport = SupervisorTransport(info_source.username, info_source.password, serverurl)
+        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport)
 
-def internalStartProcess(address, program, wait):
-    client, supervisors = _getSupervisors(address)
-    return supervisors.internalStartProcess(program, wait)
 
-def getRemoteInfo(address, remoteAddress):
-    client, supervisors = _getSupervisors(address)
-    return supervisors.getRemoteInfo(remoteAddress)
+class RpcRequester(object):
 
-def startProcess(address, program, wait):
-    client, supervisor = _getSupervisor(address)
-    return supervisor.startProcess(program, wait)
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
 
-def stopProcess(address, program, wait):
-    client, supervisor = _getSupervisor(address)
-    return supervisor.stopProcess(program, wait)
+    # utilities to determine if using XmlRpcClient or internal handler directly
+    def use_proxy(self, address):
+        return address != self.supervisors.address_mapper.local_address
 
-def restart(address):
-    client, supervisor = _getSupervisor(address)
-    return supervisor.restart()
+    def supervisor_proxy(self, address):
+        # return client so as is it not destroyed when exiting
+        client = XmlRpcClient(address, self.supervisors.info_source)
+        return client, client.proxy.supervisor
 
-def shutdown(address):
-    client, supervisor = _getSupervisor(address)
-    return supervisor.shutdown()
+    def supervisors_proxy(self, address):
+        # return client so as is it not destroyed when exiting
+        client = XmlRpcClient(address, self.supervisors.info_source)
+        return client, client.proxy.supervisors
+
+    def internal_supervisor(self):
+        return None, self.supervisors.info_source.supervisor_rpc_interface
+
+    def internal_supervisors(self):
+        return None, self.supervisors.info_source.supervisors_rpc_interface
+
+    def get_supervisor(self, address):
+        return self.supervisor_proxy(address) if self.use_proxy(address) else self.internal_supervisor()
+
+    def get_supervisors(self, address):
+        return self.supervisors_proxy(address) if self.use_proxy(address) else self.internal_supervisors()
+
+    # Requests
+    def all_process_info(self, address):
+        client, supervisor = self.get_supervisor(address)
+        return supervisor.getAllProcessInfo()
+
+    def supervisors_state(self, address):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.get_supervisors_state()
+
+    def internal_start_process(self, address, program, wait):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.internal_start_process(program, wait)
+
+    def address_info(self, address, remote_address):
+        client, supervisors = self.get_supervisors(address)
+        return supervisors.get_address_info(remote_address)
+
+    def start_process(self, address, program, wait):
+        client, supervisor = self.get_supervisor(address)
+        return supervisor.startProcess(program, wait)
+
+    def stop_process(self, address, program, wait):
+        client, supervisor = self.get_supervisor(address)
+        return supervisor.stopProcess(program, wait)
+
+    def restart(self, address):
+        client, supervisor = self.get_supervisor(address)
+        return supervisor.restart()
+
+    def shutdown(self, address):
+        client, supervisor = self.get_supervisor(address)
+        return supervisor.shutdown()

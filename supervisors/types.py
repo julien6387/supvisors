@@ -17,95 +17,51 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.utils import *
+from supervisors.utils import enumeration_tools
 
-# Applicable strategies that can be applied during a deployment
+
+@enumeration_tools
+class AddressStates:
+    """ Enumeration class for the state of remote Supervisors instance """
+    UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
+
+@enumeration_tools
+class ApplicationStates:
+    """ Class holding the possible enumeration values for an application state. """
+    UNKNOWN, STOPPED, STARTING, RUNNING, STOPPING = range(5)
+
+@enumeration_tools
 class DeploymentStrategies:
+    """ Applicable strategies that can be applied during a deployment. """
     CONFIG, LESS_LOADED, MOST_LOADED = range(3)
 
-def deploymentStrategyToString(value):
-    return enumToString(DeploymentStrategies.__dict__, value)
-
-def stringToDeploymentStrategy(strEnum):
-    return stringToEnum(DeploymentStrategies.__dict__, strEnum)
-
-def deploymentStrategiesValues():
-    return enumValues(DeploymentStrategies.__dict__)
-
-def deploymentStrategiesStrings():
-    return enumStrings(DeploymentStrategies.__dict__)
-
-
-# Applicable strategies that can be applied during a conciliation
+@enumeration_tools
 class ConciliationStrategies:
-    SENICIDE, INFANTICIDE, USER, RESTART = range(4)
+    """ Applicable strategies that can be applied during a conciliation. """
+    SENICIDE, INFANTICIDE, USER, STOP, RESTART = range(5)
 
-def conciliationStrategyToString(value):
-    return enumToString(ConciliationStrategies.__dict__, value)
-
-def stringToConciliationStrategy(strEnum):
-    return stringToEnum(ConciliationStrategies.__dict__, strEnum)
-
-def conciliationStrategiesValues():
-    return enumValues(ConciliationStrategies.__dict__)
-
-def conciliationStrategiesStrings():
-    return enumStrings(ConciliationStrategies.__dict__)
-
-
-# Applicable strategies that can be applied on a failure of a starting application
+@enumeration_tools
 class StartingFailureStrategies:
+    """ Applicable strategies that can be applied on a failure of a starting application. """
     ABORT, CONTINUE = range(2)
 
-def startingFailureStrategyToString(value):
-    return enumToString(StartingFailureStrategies.__dict__, value)
-
-def stringToStartingFailureStrategy(strEnum):
-    return stringToEnum(StartingFailureStrategies.__dict__, strEnum)
-
-def startingFailureStrategiesValues():
-    return enumValues(StartingFailureStrategies.__dict__)
-
-def startingFailureStrategiesStrings():
-    return enumStrings(StartingFailureStrategies.__dict__)
-
-
-# Applicable strategies that can be applied on a failure of a running application
+@enumeration_tools
 class RunningFailureStrategies:
+    """ Applicable strategies that can be applied on a failure of a running application. """
     CONTINUE, STOP, RESTART = range(3)
 
-def runningFailureStrategyToString(value):
-    return enumToString(RunningFailureStrategies.__dict__, value)
-
-def stringToRunningFailureStrategy(strEnum):
-    return stringToEnum(RunningFailureStrategies.__dict__, strEnum)
-
-def runningFailureStrategiesValues():
-    return enumValues(RunningFailureStrategies.__dict__)
-
-def runningFailureStrategiesStrings():
-    return enumStrings(RunningFailureStrategies.__dict__)
-
-
-# Internal state of Supervisors
+@enumeration_tools
 class SupervisorsStates:
+    """ Internal state of Supervisors. """
     INITIALIZATION, ELECTION, DEPLOYMENT, OPERATION, CONCILIATION = range(5)
-
-def supervisorsStateToString(value):
-    return enumToString(SupervisorsStates.__dict__, value)
-
-def stringToSupervisorsState(strEnum):
-    return stringToEnum(SupervisorsStates.__dict__, strEnum)
-
-def supervisorsStatesValues():
-    return enumValues(SupervisorsStates.__dict__)
-    
-def supervisorsStatesStrings():
-    return enumStrings(SupervisorsStates.__dict__)
 
 
 # Exceptions
 class InvalidTransition(Exception):
-    def __init__(self, value): self.value = value
-    def __str__(self): return repr(self.value)
+    """ Exception used for an invalid transition in state machines. """
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
     

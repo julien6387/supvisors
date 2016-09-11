@@ -17,139 +17,187 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.addressmapper import addressMapper
-from supervisors.context import context
-from supervisors.remote import *
-from supervisors.options import options
-from supervisors.rpcrequests import stopProcess
-from supervisors.types import ConciliationStrategies, DeploymentStrategies
+from supervisors.types import AddressStates, ConciliationStrategies, DeploymentStrategies
+from supervisors.utils import supervisors_short_cuts
 
-# Strategy management for Deployment
-class _DeploymentStrategy(object):
-    def getRemote(self, addresses, expectedLoading):
-        raise NotImplementedError('To be implemented in subclass')
 
-    def __isLoadingValid(self, address, expectedLoading):
-        if self.__isRemoteValid(address):
-            loading = context.getLoading(address)
-            options.logger.debug('address={} loading={} expectedLoading={}'.format(address, loading, expectedLoading))
-            return (loading + expectedLoading < 100, loading)
-        options.logger.debug('address {} invalid for handling new process'.format(address))
+class AbstractStrategy(object):
+    """ Base class for a state with simple entry / next / exit actions """
+
+    def __init__(self, supervisors):
+        self.supervisors = supervisors
+        supervisors_short_cuts(self, ['context', 'logger'])
+
+
+class AbstractDeploymentStrategy(AbstractStrategy):
+    """ Base class for a state with simple entry / next / exit actions """
+
+    def is_address_valid(self, address):
+        """ Return True if remote Supervisors instance is active """
+        if address in self.context.addresses.keys():
+            status = self.context.addresses[address] 
+            self.logger.trace('address {} state={}'.format(address, status.state_string()))
+            return status.state == AddressStates.RUNNING
+
+    def is_loading_valid(self, address, expected_loading):
+        """ Return True and current loading if remote Supervisors instance is active and can suport the additional loading """
+        if self.is_address_valid(address):
+            loading = self.context.loading(address)
+            self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
+            return (loading + expected_loading < 100, loading)
+        self.logger.debug('address {} invalid for handling new process'.format(address))
         return (False, 0)
 
-    def __isRemoteValid(self, address):
-        if address in context.remotes.keys():
-            remoteInfo = context.remotes[address] 
-            options.logger.trace('address {} state={}'.format(address, remoteStateToString(remoteInfo.state)))
-            return remoteInfo.state == RemoteStates.RUNNING
+    def get_loading_and_validity(self, addresses, expected_loading):
+        """ Return the report of loading capability of all addresses iaw the additional loading required """
+        if '*' in addresses:
+            addresses = self.supervisors.address_mapper.addresses
+        loading_validities = { address: self.is_loading_valid(address, expected_loading) for address in addresses }
+        self.logger.trace('loading_validities={}'.format(loading_validities))
+        return loading_validities
 
-    def _getLoadingAndValidity(self, addresses, expectedLoading):
+    def sort_valid_by_loading(self, loading_validities):
+        """ Sort the loading report by loading value """
         # returns adresses with validity and loading
-        if '*' in addresses: addresses = addressMapper.expectedAddresses
-        loadingValidities = { address: self.__isLoadingValid(address, expectedLoading) for address in addresses }
-        options.logger.trace('loadingValidities={}'.format(loadingValidities))
-        return loadingValidities
+        sorted_addresses = sorted([(x, y[1]) for x, y in loading_validities.items() if y[0]], key=lambda (x, y): y)
+        self.logger.trace('sorted_addresses={}'.format(sorted_addresses))
+        return sorted_addresses
 
-    def _sortValidByLoading(self, loadingValidities):
-        # returns adresses with validity and loading
-        sortedAddresses = sorted([ (x, y[1]) for (x, y) in loadingValidities.items() if y[0] ], key=lambda (x, y): y)
-        options.logger.trace('sortedAddresses={}'.format(sortedAddresses))
-        return sortedAddresses
 
-class _ConfigStrategy(_DeploymentStrategy):
-    def getRemote(self, addresses, expectedLoading):
-        options.logger.debug('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
+class ConfigStrategy(AbstractDeploymentStrategy):
+    """ Strategy designed to choose the address using the order defined in the configuration file """
+
+    def get_address(self, addresses, expected_loading):
+        """ Choose the first address that can support the additional loading requested """
+        self.logger.debug('addresses={} expected_loading={}'.format(addresses, expected_loading))
         # returns the first remote in list that is capable of handling the loading
-        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
-        for (address, validity) in loadingValidities.items():
-            if validity[0]: return address 
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        return next((address for address, validity in loading_validities.items() if validity[0]),  None)
 
-class _LessLoadedStrategy(_DeploymentStrategy):
-    def getRemote(self, addresses, expectedLoading):
-        options.logger.trace('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
+
+class LessLoadedStrategy(AbstractDeploymentStrategy):
+    """ Strategy designed to share the loading among all the addresses """
+
+    def getAddress(self, addresses, expected_loading):
+        """ Choose the address having the lowest loading that can support the additional loading requested """
+        self.logger.trace('addresses={} expectedLoading={}'.format(addresses, expected_loading))
         # returns the less loaded remote from list that is capable of handling the loading
-        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
-        sortedAddresses = self._sortValidByLoading(loadingValidities)
-        return sortedAddresses[0][0]  if sortedAddresses else None
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        sorted_addresses = self.sort_valid_by_loading(loading_validities)
+        return sorted_addresses[0][0]  if sorted_addresses else None
 
-class _MostLoadedStrategy(_DeploymentStrategy):
-    def getRemote(self, addresses, expectedLoading):
-        options.logger.trace('addresses={} expectedLoading={}'.format(addresses, expectedLoading))
+
+class MostLoadedStrategy(AbstractDeploymentStrategy):
+    """ Strategy designed to maximize the loading of an address """
+
+    def get_address(self, addresses, expected_loading):
+        """ Choose the address having the highest loading that can support the additional loading requested """
+        self.logger.trace('addresses={} expectedLoading={}'.format(addresses, expected_loading))
         # returns the most loaded remote from list that is capable of handling the loading
-        loadingValidities = self._getLoadingAndValidity(addresses, expectedLoading)
-        sortedAddresses = self._sortValidByLoading(loadingValidities)
-        return sortedAddresses[-1][0]  if sortedAddresses else None
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        sorted_addresses = self.sort_valid_by_loading(loading_validities)
+        return sorted_addresses[-1][0]  if sorted_addresses else None
 
-class _DeploymentStrategyHandler(object):
-    def getStrategyInstance(self, strategy):
-        if strategy == DeploymentStrategies.CONFIG:
-            return _ConfigStrategy()
-        if strategy == DeploymentStrategies.LESS_LOADED:
-            return _LessLoadedStrategy()
-        if strategy == DeploymentStrategies.MOST_LOADED:
-            return _MostLoadedStrategy()
 
-    def getRemote(self, strategy, addresses, expectedLoading):
-        return self.getStrategyInstance(strategy).getRemote(addresses, expectedLoading)
-
-addressSelector = _DeploymentStrategyHandler()
+def get_address(supervisors, strategy, addresses, expected_loading):
+    """ Creates a strategy and let it find an address to start a process having a defined loading """
+    if strategy == DeploymentStrategies.CONFIG:
+        instance = ConfigStrategy(supervisors)
+    if strategy == DeploymentStrategies.LESS_LOADED:
+        instance = LessLoadedStrategy(supervisors)
+    if strategy == DeploymentStrategies.MOST_LOADED:
+        instance = MostLoadedStrategy(supervisors)
+    # apply strategy result
+    return instance.get_address(addresses, expected_loading)
 
 
 # Strategy management for Conciliation
-class _SenicideStrategy(object):
-    # designed to stop the oldest processes
+class SenicideStrategy(AbstractStrategy):
+    """ Strategy designed to stop the oldest processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            savedAddress = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
-            options.logger.warn("senicide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
-            # stop other processes
-            for address in process.addresses:
-                options.logger.debug("senicide conciliation: {} running on {}".format(process.getNamespec(), address))
-                if address != savedAddress:
-                    stopProcess(address, process.getNamespec(), False)
+            saved_address = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            self.logger.warn('senicide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
+            # stop other processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            addresses.remove(saved_address)
+            for address in addresses:
+                self.logger.debug('senicide conciliation: {} running on {}'.format(process.namespec(), address))
+                self.supervisors.requester.stop_process(address, process.namespec(), False)
 
-class _InfanticideStrategy(object):
-    # designed to stop the youngest processes
+
+class InfanticideStrategy(AbstractStrategy):
+    """ Strategy designed to stop the youngest processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            savedAddress = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
-            options.logger.warn("infanticide conciliation: keep {} at {}".format(process.getNamespec(), savedAddress))
-            # stop other processes
-            for address in process.addresses:
-                if address != savedAddress:
-                    stopProcess(address, process.getNamespec(), False)
+            saved_address = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            self.logger.warn('infanticide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
+            # stop other processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            addresses.remove(saved_address)
+            for address in addresses:
+                self.logger.debug('infanticide conciliation: {} running on {}'.format(process.namespec(), address))
+                self.supervisors.requester.stop_process(address, process.namespec(), False)
 
-class _UserStrategy(object):
-    # designed to let the user handle it
+
+class UserStrategy(AbstractStrategy):
+    """ Strategy designed to let the user do the job """
+
     def conciliate(self, conflicts):
+        """ Does nothing """
         pass
 
-class _RestartStrategy(object):
-    # designed to stop all processes and to re-deploy it
+
+class StopStrategy(AbstractStrategy):
+    """ Strategy designed to stop all conflicting processes """
+
     def conciliate(self, conflicts):
+        """ Conciliate the conflicts by stopping all processes """
         for process in conflicts:
-            options.logger.warn("restart conciliation: {}".format(process.getNamespec()))
+            self.logger.warn('restart conciliation: {}'.format(process.namespec()))
+            # stop all processes. work on copy as it may change during iteration
+            addresses = process.addresses.copy()
+            for address in addresses:
+                self.logger.warn('stop_process requested at {}'.format(address))
+                self.supervisors.requester.stop_process(address, process.namespec(), False)
+
+
+class RestartStrategy(AbstractStrategy):
+    """ Strategy designed to stop all conflicting processes and to re-deploy a single instance """
+
+    def conciliate(self, conflicts):
+        """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor deployer restarts it """
+        for process in conflicts:
+            self.logger.warn('restart conciliation: {}'.format(process.namespec()))
+            # work on copy as it may change during iteration
+            addresses = process.addresses.copy()
             # stop all processes
-            for address in process.addresses:
-                options.logger.warn("stopProcess requested at {}".format(address))
-                stopProcess(address, process.getNamespec(), False)
-            # force warm restart: fake a lost process by clearing addresses and just let normal processing work
-            process.addresses.clear()
+            for address in addresses:
+                self.logger.warn('stop_process requested at {}'.format(address))
+                self.supervisors.requester.stop_process(address, process.namespec(), False)
+            # force warm restart
+            # WARN: only master can use deployer
+            # conciliation MUST be triggered from the Supervisors MASTER
+            process.mark_for_restart = True
 
-class _ConciliationStrategyHandler(object):
-    def getStrategyInstance(self, strategy):
-        if strategy == ConciliationStrategies.SENICIDE:
-            return _SenicideStrategy()
-        if strategy == ConciliationStrategies.INFANTICIDE:
-            return _InfanticideStrategy()
-        if strategy == ConciliationStrategies.USER:
-            return _UserStrategy()
-        if strategy == ConciliationStrategies.RESTART:
-            return _RestartStrategy()
 
-    def conciliate(self, strategy, conflicts):
-        return self.getStrategyInstance(strategy).conciliate(conflicts)
-
-conciliator = _ConciliationStrategyHandler()
+def conciliate(supervisors, strategy, conflicts):
+    """ Creates a strategy and let it conciliate the conflicts """
+    if strategy == ConciliationStrategies.SENICIDE:
+        instance = SenicideStrategy(supervisors)
+    elif strategy == ConciliationStrategies.INFANTICIDE:
+        instance = InfanticideStrategy(supervisors)
+    elif strategy == ConciliationStrategies.USER:
+        instance = UserStrategy(supervisors)
+    elif strategy == ConciliationStrategies.STOP:
+        instance = StopStrategy(supervisors)
+    elif strategy == ConciliationStrategies.RESTART:
+        instance = RestartStrategy(supervisors)
+    # apply strategy to conflicts
+    instance.conciliate(conflicts)
