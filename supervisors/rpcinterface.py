@@ -192,7 +192,7 @@ class RPCInterface(object):
         # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
         application = self.context.applications[application_name]
         for process in application.processes.values():
-            if process.isRunning():
+            if process.running():
                 for address in process.addresses.copy():
                     self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
                     self.supervisors.requester.stop_process(address, process.namespec(), False)
@@ -213,7 +213,7 @@ class RPCInterface(object):
         @param string application_name\tThe name of the application
         @param boolean wait\tWait for application to be fully stopped
         @return boolean result\tAlways True unless error """
-        self.checkOperating()
+        self.check_operating()
         def onwait():
             # first wait for application to be stopped
             if onwait.waitstop:
@@ -241,7 +241,7 @@ class RPCInterface(object):
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @param boolean wait\tWait for process to be fully started
         @return boolean result\tAlways true unless error """
-        self.checkOperating()
+        self.check_operating()
         # check strategy
         if strategy not in DeploymentStrategies._values():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
@@ -250,7 +250,7 @@ class RPCInterface(object):
         processes = [process] if process else application.processes.values()
         # check processes are not already RUNNING
         for process in processes:
-            if process.isRunning():
+            if process.running():
                 raise RPCError(Faults.ALREADY_STARTED, process.namespec())
         # start all processes
         done = True
@@ -387,7 +387,7 @@ class RPCInterface(object):
     def send_addresses_func(self, func):
         # send func request to all locals (but self address)
         for status in self.context.addresses.values():
-            if status.state in [AddressStates.RUNNING, AddressStates.SILENT] and status.address != self.address:
+            if status.state == AddressStates.RUNNING and status.address != self.address:
                 try:
                     func(status.address)
                     self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address))

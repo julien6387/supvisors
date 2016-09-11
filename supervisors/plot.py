@@ -36,12 +36,12 @@ class StatisticsPlot(object):
         if len(ydata) > 0:
             self.ydata[(title, unit)] = ydata
 
-    def exportImage(self, imageContents):
+    def exportImage(self, image_contents):
         if self.ydata:
             # calculate and apply max range
             all_ydata = []
             map(all_ydata.extend, [ydata for ydata in self.ydata.values()])
-            plt.ylim(self.getRange(all_ydata))
+            plt.ylim(self.get_range(all_ydata))
             # create plots for each series of data
             for i, ((title, unit), ydata) in enumerate(self.ydata.items()):
                 # create X axis
@@ -65,7 +65,7 @@ class StatisticsPlot(object):
                 # add the legend to the current axes
                 plt.gca().add_artist(legend)
             # save image to internal memory buffer
-            plt.savefig(imageContents.new_image(), dpi=80, bbox_inches='tight', format='png')
+            plt.savefig(image_contents.new_image(), dpi=80, bbox_inches='tight', format='png')
             # reset yData
             self.ydata = { }
         # close plot

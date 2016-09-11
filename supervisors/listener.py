@@ -23,7 +23,7 @@ import zmq
 from supervisor import events
 
 from supervisors.mainloop import SupervisorsMainLoop
-from supervisors.process import to_string
+from supervisors.process import from_string
 from supervisors.statistics import instant_statistics
 from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
 
@@ -110,7 +110,7 @@ class SupervisorListener(object):
         # create payload to get data
         payload = {'processname': event.process.config.name,
             'groupname': event.process.group.config.name,
-            'state': to_string(event_name.split('_')[-1]),
+            'state': from_string(event_name.split('_')[-1]),
             'now': int(time.time()), 
             'pid': event.process.pid,
             'expected': event.expected }

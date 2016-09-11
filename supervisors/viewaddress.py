@@ -26,7 +26,7 @@ from supervisor.xmlrpc import RPCError
 from supervisors.plot import StatisticsPlot
 from supervisors.utils import get_stats, simple_localtime, supervisors_short_cuts
 from supervisors.viewhandler import ViewHandler
-from supervisors.viewimage import addressImageContents
+from supervisors.viewimage import address_image_contents
 from supervisors.webutils import *
 
 
@@ -59,7 +59,7 @@ class AddressView(StatusView, ViewHandler):
         # set address state
         status = self.supervisors.context.addresses[self.address]
         elt = root.findmeld('state_mid')
-        elt.content(remote.state_string())
+        elt.content(status.state_string())
         # set loading
         elt = root.findmeld('percent_mid')
         elt.content('{}%'.format(self.supervisors.context.loading(self.address)))
@@ -105,16 +105,16 @@ class AddressView(StatusView, ViewHandler):
         elif AddressView.address_stats_type == 'amem':
             img.addPlot('MEM', '%', stats_instance.mem)
         elif AddressView.address_stats_type == 'io':
-            img.addPlot('{} recv'.format(AddressView.interfaceStats), 'kbits/s', stats_instance.io[AddressView.interface_stats][0])
-            img.addPlot('{} sent'.format(AddressView.interfaceStats), 'kbits/s', stats_instance.io[AddressView.interface_stats][1])
-        img.exportImage(addressImageContents)
+            img.addPlot('{} recv'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][0])
+            img.addPlot('{} sent'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][1])
+        img.exportImage(address_image_contents)
         # set title
         elt = root.findmeld('address_fig_mid')
         elt.content(self.address)
 
     def write_memory_statistics(self, stats_elt, mem_stats):
         """ Rendering of the memory statistics """
-        if len(memStats) > 0:
+        if len(mem_stats) > 0:
             tr_elt = stats_elt.findmeld('mem_tr_mid')
             # inactive button if selected
             if AddressView.address_stats_type == 'amem':
@@ -128,7 +128,7 @@ class AddressView(StatusView, ViewHandler):
             elt = tr_elt.findmeld('memval_td_mid')
             if rate is not None:
                 self.set_slope_class(elt, rate)
-            elt.content('{:.2f}'.format(memStats[-1]))
+            elt.content('{:.2f}'.format(mem_stats[-1]))
             # set mean value
             elt = tr_elt.findmeld('memavg_td_mid')
             elt.content('{:.2f}'.format(avg))
@@ -205,23 +205,24 @@ class AddressView(StatusView, ViewHandler):
             # set interface direction
             elt = tr_element.findmeld('intfrxtx_td_mid')
             elt.content('Rx' if rowspan else 'Tx')
-            if len(singleIoStats) > 0:
-            	avg, rate, (a, b), dev = get_stats(single_io_stats)
-            	# set last value
-            	elt = tr_element.findmeld('intfval_td_mid')
-            	if rate is not None: self.set_slope_class(elt, rate)
-            	elt.content('{:.2f}'.format(singleIoStats[-1]))
-            	# set mean value
-            	elt = tr_element.findmeld('intfavg_td_mid')
-            	elt.content('{:.2f}'.format(avg))
-            	if a is not None:
-            	    # set slope of linear regression
-            	    elt = tr_element.findmeld('intfslope_td_mid')
-            	    elt.content('{:.2f}'.format(a))
-            	if dev is not None:
-            	    # set standard deviation
-            	    elt = tr_element.findmeld('intfdev_td_mid')
-            	    elt.content('{:.2f}'.format(dev))
+            if len(single_io_stats) > 0:
+                avg, rate, (a, b), dev = get_stats(single_io_stats)
+                # set last value
+                elt = tr_element.findmeld('intfval_td_mid')
+                if rate is not None:
+                    self.set_slope_class(elt, rate)
+                elt.content('{:.2f}'.format(single_io_stats[-1]))
+                # set mean value
+                elt = tr_element.findmeld('intfavg_td_mid')
+                elt.content('{:.2f}'.format(avg))
+                if a is not None:
+                    # set slope of linear regression
+                    elt = tr_element.findmeld('intfslope_td_mid')
+                    elt.content('{:.2f}'.format(a))
+                if dev is not None:
+                    # set standard deviation
+                    elt = tr_element.findmeld('intfdev_td_mid')
+                    elt.content('{:.2f}'.format(dev))
             if selected_tr:
                 tr_element.attrib['class'] = 'selected'
             elif shaded_tr:
@@ -235,7 +236,7 @@ class AddressView(StatusView, ViewHandler):
         # collect data on processes
         data = [ ]
         try:
-            for info in self.supervisors.requester.get_all_process_info(self.address):
+            for info in self.supervisors.requester.all_process_info(self.address):
                 data.append({'namespec': make_namespec(info['group'], info['name']), 'statename': info['statename'],
                     'state': info['state'], 'desc': info['description'] })
         except RPCError, e:

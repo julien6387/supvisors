@@ -25,7 +25,7 @@ from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisors.plot import StatisticsPlot
 from supervisors.types import AddressStates, SupervisorsStates
 from supervisors.utils import get_stats
-from supervisors.viewimage import processImageContents
+from supervisors.viewimage import process_image_contents
 from supervisors.webutils import *
 
 
@@ -121,8 +121,8 @@ class ViewHandler(object):
         namespec = item['namespec']
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = item['state_name']
-        elt.content(item['state_name'])
+        elt.attrib['class'] = item['statename']
+        elt.content(item['statename'])
         # print expected loading
         status = self.get_process_status(namespec)
         if status:
@@ -147,7 +147,7 @@ class ViewHandler(object):
             if len(proc_stats[1]) > 0:
                 # print last MEM value of process
                 elt = tr_elt.findmeld('pmem_a_mid')
-                elt.content('{:.2f}%'.format(procStats[1][-1]))
+                elt.content('{:.2f}%'.format(proc_stats[1][-1]))
                 if ViewHandler.process_stats_type == 'pmem' and ViewHandler.namespec_stats == namespec:
                     selected_tr = True
                     elt.attributes(href='#')
@@ -203,7 +203,7 @@ class ViewHandler(object):
                 # print last CPU value of process
                 elt = stats_elt.findmeld('pcpuval_td_mid')
                 if rate is not None:
-                    self.setSlopeClass(elt, rate)
+                    self.set_slope_class(elt, rate)
                 elt.content('{:.2f}%'.format(proc_stats[0][-1]))
                 # set mean value
                 elt = stats_elt.findmeld('pcpuavg_td_mid')
@@ -218,11 +218,11 @@ class ViewHandler(object):
                     elt.content('{:.2f}'.format(dev))
             # set MEM statistics
             if len(proc_stats[1]) > 0:
-                avg, rate, (a, b), dev = getStats(proc_stats[1])
+                avg, rate, (a, b), dev = get_stats(proc_stats[1])
                 # print last MEM value of process
                 elt = stats_elt.findmeld('pmemval_td_mid')
                 if rate is not None:
-                    self.setSlopeClass(elt, rate)
+                    self.set_slope_class(elt, rate)
                 elt.content('{:.2f}%'.format(proc_stats[1][-1]))
                 # set mean value
                 elt = stats_elt.findmeld('pmemavg_td_mid')
@@ -241,7 +241,7 @@ class ViewHandler(object):
                 img.addPlot('CPU', '%', proc_stats[0])
             elif ViewHandler.process_stats_type == 'pmem':
                 img.addPlot('MEM', '%', proc_stats[1])
-            img.exportImage(processImageContents)
+            img.exportImage(process_image_contents)
         else:
             if ViewHandler.namespec_stats :
                 self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))

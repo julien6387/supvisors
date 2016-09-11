@@ -86,7 +86,8 @@ class Deployer(object):
         # push program list in todo list and start work
         if application.state == ApplicationStates.STOPPED:
             self.get_application_deployment(application)
-            application.reinit()
+            #FIXME: useless ?
+            #application.reinit()
             self.process_application_jobs(application.application_name)
         # return True when deployment over
         return not self.in_progress()

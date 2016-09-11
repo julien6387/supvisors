@@ -26,6 +26,10 @@ from supervisors.utils import *
 
 
 def to_string(strEnum):
+    """ Get a Supervisor ProcessStates enumeration from string"""
+    return getProcessStateDescription(strEnum)
+
+def from_string(strEnum):
     """ Get a string from Supervisor ProcessStates enumeration """
     return string_to_enum(ProcessStates.__dict__, strEnum)
 
@@ -124,7 +128,7 @@ class ProcessStatus(object):
 
     def pid_running_on(self, address):
         """ Return True if process is RUNNING on address 
-        Different from isRunningOn as it considers only the RUNNING state and not STARTING or BACKOFF
+        Different from running_on as it considers only the RUNNING state and not STARTING or BACKOFF
         This is used by the statistics module that requires an existing PID """
         return self.state == ProcessStates.RUNNING and address in self.addresses
 

@@ -123,7 +123,7 @@ class ApplicationView(MeldView, ViewHandler):
         """ Rendering of the contents part of the page """
         self.write_process_table(root)
         # check selected Process Statistics
-        if ViewHandler.namespecStats:
+        if ViewHandler.namespec_stats:
             status = self.get_process_status(ViewHandler.namespec_stats)
             if status is None or status.application_name != self.application_name:
                 self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
@@ -152,7 +152,7 @@ class ApplicationView(MeldView, ViewHandler):
         data = []
         for process in sorted(self.supervisors.context.applications[self.application_name].processes.values(), key=lambda x: x.process_name):
             data.append({'process_name': process.process_name, 'namespec': process.namespec(),
-                'state_name': process.stateAsString(), 'state': process.state, 'running_list': list(process.addresses)})
+                'statename': process.state_string(), 'state': process.state, 'running_list': list(process.addresses)})
         # print processes
         if data:
             iterator = root.findmeld('tr_mid').repeat(data)
@@ -231,7 +231,7 @@ class ApplicationView(MeldView, ViewHandler):
     # Application actions
     def start_application_action(self, strategy):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().start_application(strategy, self.application_name)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.start_application(strategy, self.application_name)
         except RPCError, e:
             return delayed_error('start_application: {}'.format(e.text))
         if callable(cb):
@@ -253,7 +253,7 @@ class ApplicationView(MeldView, ViewHandler):
  
     def stop_application_action(self):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().stop_application(self.application_name)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.stop_application(self.application_name)
         except RPCError, e:
             return delayed_error('stopApplication: {}'.format(e.text))
         if callable(cb):
@@ -271,7 +271,7 @@ class ApplicationView(MeldView, ViewHandler):
  
     def restart_application_action(self, strategy):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().restart_application(strategy, self.application_name)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.restart_application(strategy, self.application_name)
         except RPCError, e:
             return delayed_error('restartApplication: {}'.format(e.text))
         if callable(cb):
@@ -294,7 +294,7 @@ class ApplicationView(MeldView, ViewHandler):
     # Process actions
     def start_process_action(self, strategy, namespec):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().start_process(strategy, namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.start_process(strategy, namespec)
         except RPCError, e:
             return delayed_error('startProcess: {}'.format(e.text))
         if callable(cb):
@@ -316,7 +316,7 @@ class ApplicationView(MeldView, ViewHandler):
 
     def stop_process_action(self, namespec):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().stop_process(namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.stop_process(namespec)
         except RPCError, e:
             return delayed_error('stopProcess: {}'.format(e.text))
         if callable(cb):
@@ -334,7 +334,7 @@ class ApplicationView(MeldView, ViewHandler):
  
     def restart_process_action(self, strategy, namespec):
         try:
-            cb = self.supervisors.info_source.supervisors_rpc_interface().restart_process(strategy, namespec)
+            cb = self.supervisors.info_source.supervisors_rpc_interface.restart_process(strategy, namespec)
         except RPCError, e:
             return delayed_error('restartProcess: {}'.format(e.text))
         if callable(cb):

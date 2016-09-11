@@ -101,7 +101,7 @@ class SupervisorsView(MeldView, ViewHandler):
             elt = div_elt.findmeld('percent_td_mid')
             elt.content('{}%'.format(self.supervisors.context.loading(address)))
             # fill with running processes
-            data = self.supervisors.context.running_processes(address)
+            data = self.supervisors.context.running_processes_on(address)
             processIterator = div_elt.findmeld('process_li_mid').repeat(data)
             for li_elt, process in processIterator:
                 li_elt.content(process.namespec())
@@ -180,7 +180,7 @@ class SupervisorsView(MeldView, ViewHandler):
     def sup_restart_action(self):
         """ Restart all Supervisor instances """
         try:
-            self.supervisors.info_source.supervisors_rpc_interface().restart()
+            self.supervisors.info_source.supervisors_rpc_interface.restart()
         except RPCError, e:
             return delayed_error('restart: {}'.format(e))
         return delayed_info('Supervisors restarted')
@@ -188,7 +188,7 @@ class SupervisorsView(MeldView, ViewHandler):
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances """
         try:
-            self.supervisors.info_source.supervisors_rpc_interface().shutdown()
+            self.supervisors.info_source.supervisors_rpc_interface.shutdown()
         except RPCError, e:
             return delayed_error('shutdown: {}'.format(e))
         return delayed_info('Supervisors shut down')
@@ -230,9 +230,9 @@ class SupervisorsView(MeldView, ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts """
         if namespec:
             # conciliate only one process
-            conciliate(self.supervisors, ConciliationStrategies.from_string(action), [self.supervisors.context.process_from_namespec(namespec)])
+            conciliate(self.supervisors, ConciliationStrategies._from_string(action), [self.supervisors.context.process_from_namespec(namespec)])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate(self.supervisors, ConciliationStrategies.from_string(action), self.supervisors.context.conflicts())
+            conciliate(self.supervisors, ConciliationStrategies._from_string(action), self.supervisors.context.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

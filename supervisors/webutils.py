@@ -25,7 +25,7 @@ Info ='info'
 Warn = 'warn'
 Error = 'erro'
 
-def format_gravity__message(message):
+def format_gravity_message(message):
     if not isinstance(message, tuple):
         # gravity is not set by Supervisor so let's deduce it
         if 'ERROR' in message:
@@ -36,9 +36,9 @@ def format_gravity__message(message):
         return (gravity, message)
     return message
 
-def print__message(root, gravity, message):
+def print_message(root, gravity, message):
     # print _message as a result of action
-    elt = root.findmeld('_message_mid')
+    elt = root.findmeld('message_mid')
     if message is not None:
         elt.attrib['class'] = gravity
         elt.content(message)

@@ -124,7 +124,7 @@ class ApplicationStatus(object):
         for process in self.processes.values():
             if process.state in STOPPED_STATES:
                 process.state = ProcessStates.STOPPED
-        self.updateStatus()
+        self.update_status()
 
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """
