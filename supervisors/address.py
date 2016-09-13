@@ -39,7 +39,7 @@ class AddressStatus(object):
         self._state = AddressStates.UNKNOWN
         self.checked = False
         self.remote_time = 0
-        self.localTime = 0
+        self.local_time = 0
 
     # accessors / mutators
     @property
