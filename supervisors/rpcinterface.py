@@ -93,11 +93,10 @@ class RPCInterface(object):
         """
         try:
             status = self.context.addresses[address]
-            loading = self.context.loading(address)
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
         return {'address': address, 'state': status.state_string(), 'checked': status.checked,
-            'remoteTime': capped_int(status.remote_time), 'localTime': capped_int(status.local_time), 'loading': loading}
+            'remoteTime': capped_int(status.remote_time), 'localTime': capped_int(status.local_time), 'loading': status.loading()}
 
     def get_all_application_info(self):
         """ Get info about all applications managed in Supervisors
@@ -371,7 +370,7 @@ class RPCInterface(object):
 
     def get_process(self, namespec):
         try:
-            process = self.context.process_from_namespec(namespec)
+            process = self.context.processes[namespec]
         except KeyError:
             raise RPCError(Faults.BAD_NAME, 'process {} unknown in Supervisors'.format(namespec))
         return process

@@ -32,20 +32,16 @@ class AbstractStrategy(object):
 class AbstractDeploymentStrategy(AbstractStrategy):
     """ Base class for a state with simple entry / next / exit actions """
 
-    def is_address_valid(self, address):
-        """ Return True if remote Supervisors instance is active """
+    def is_loading_valid(self, address, expected_loading):
+        """ Return True and current loading if remote Supervisors instance is active and can support the additional loading """
         if address in self.context.addresses.keys():
             status = self.context.addresses[address] 
             self.logger.trace('address {} state={}'.format(address, status.state_string()))
-            return status.state == AddressStates.RUNNING
-
-    def is_loading_valid(self, address, expected_loading):
-        """ Return True and current loading if remote Supervisors instance is active and can suport the additional loading """
-        if self.is_address_valid(address):
-            loading = self.context.loading(address)
-            self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
-            return (loading + expected_loading < 100, loading)
-        self.logger.debug('address {} invalid for handling new process'.format(address))
+            if status.state == AddressStates.RUNNING:
+                loading = status.loading()
+                self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
+                return (loading + expected_loading < 100, loading)
+            self.logger.debug('address {} not RUNNING'.format(address))
         return (False, 0)
 
     def get_loading_and_validity(self, addresses, expected_loading):

@@ -99,9 +99,9 @@ class SupervisorsView(MeldView, ViewHandler):
             elt.content(status.state_string())
             # set loading
             elt = div_elt.findmeld('percent_td_mid')
-            elt.content('{}%'.format(self.supervisors.context.loading(address)))
+            elt.content('{}%'.format(status.loading()))
             # fill with running processes
-            data = self.supervisors.context.running_processes_on(address)
+            data = status.running_processes()
             processIterator = div_elt.findmeld('process_li_mid').repeat(data)
             for li_elt, process in processIterator:
                 li_elt.content(process.namespec())
@@ -196,7 +196,7 @@ class SupervisorsView(MeldView, ViewHandler):
     def stop_action(self, namespec, address):
         """ Stop the conflicting process """
         # get running addresses of process
-        addresses = self.supervisors.context.process_from_namespec(namespec).addresses
+        addresses = self.supervisors.context.processes[namespec].addresses
         try:
             self.supervisors.requester.stop_process(address, namespec, False)
         except RPCError, e:
@@ -211,7 +211,7 @@ class SupervisorsView(MeldView, ViewHandler):
     def keep_action(self, namespec, address):
         """ Stop the conflicting processes excepted the one running on address """
         # get running addresses of process
-        addresses = self.supervisors.context.process_from_namespec(namespec).addresses
+        addresses = self.supervisors.context.processes[namespec].addresses
         running_addresses = addresses.copy()
         running_addresses.remove(address)
         try:
@@ -230,7 +230,7 @@ class SupervisorsView(MeldView, ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts """
         if namespec:
             # conciliate only one process
-            conciliate(self.supervisors, ConciliationStrategies._from_string(action), [self.supervisors.context.process_from_namespec(namespec)])
+            conciliate(self.supervisors, ConciliationStrategies._from_string(action), [self.supervisors.context.processes[namespec]])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts

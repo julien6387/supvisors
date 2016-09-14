@@ -73,7 +73,8 @@ class AddressMapper(object):
 
     def ipv4(self):
         """ Get all IPv4 addresses for all interfaces. """
-        ip_list = [link['addr'] for interface in interfaces() for link in ifaddresses(interface)[AF_INET]]
-        # remove loopback address (no interest here)
-        ip_list.remove('127.0.0.1')
-        return ip_list
+        # remove loopback addresses (no interest here)
+        # loopback holds a 'peer' instead of a 'broadcast' address
+        return [link['addr'] for interface in interfaces()
+            for link in ifaddresses(interface)[AF_INET] if 'peer' not in link.keys()]
+

@@ -49,13 +49,13 @@ class AddressMapperTest(unittest.TestCase):
         hostname = socket.gethostname()
         address_lst = [hostname, '292.168.0.1', '292.168.0.2']
         mapper.addresses = address_lst
-        self.assertEqual(address_lst, mapper.addresses)
+        self.assertListEqual(address_lst, mapper.addresses)
         # check that hostname is the local address
         self.assertEqual(hostname, mapper.local_address)
         # set addresses with invalid IP addresses only
         address_lst = ['292.168.0.1', '292.168.0.2']
         mapper.addresses = address_lst
-        self.assertEqual(address_lst, mapper.addresses)
+        self.assertListEqual(address_lst, mapper.addresses)
         # check that the local address is not set
         self.assertIsNone(mapper.local_address)
 
@@ -87,14 +87,14 @@ class AddressMapperTest(unittest.TestCase):
         # test that the same list with a different sequence is not filtered
         shuffle_lst1 = address_lst[:]
         random.shuffle(shuffle_lst1)
-        self.assertEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
+        self.assertListEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
         # test that an subset of the sequence is not filtered
         shuffle_lst2 = shuffle_lst1[:]
         shuffle_lst2.pop()
-        self.assertEqual(shuffle_lst2, mapper.filter(shuffle_lst2))
+        self.assertListEqual(shuffle_lst2, mapper.filter(shuffle_lst2))
         # test that an invalid entry in the sequence is filtered
         shuffle_lst2 = ['292.168.0.3'] + shuffle_lst1
-        self.assertEqual(shuffle_lst1, mapper.filter(shuffle_lst2))
+        self.assertListEqual(shuffle_lst1, mapper.filter(shuffle_lst2))
 
     def test_expected(self):
         """ Test the expected method. """

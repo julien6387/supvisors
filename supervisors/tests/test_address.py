@@ -45,7 +45,7 @@ class AddressTest(unittest.TestCase):
         self.assertFalse(status.checked)
         self.assertEqual(0, status.remote_time)
         self.assertEqual(0, status.local_time)
- 
+
     def test_isolation(self):
         """ Test the in_isolation method. """
         from supervisors.address import AddressStatus
@@ -77,7 +77,7 @@ class AddressTest(unittest.TestCase):
         status.local_time = 60
         # test to_json method
         json = status.to_json()
-        self.assertEqual(sorted(['address', 'state', 'checked', 'remote_time', 'local_time']), sorted(json.keys()))
+        self.assertListEqual(sorted(['address', 'state', 'checked', 'remote_time', 'local_time']), sorted(json.keys()))
         self.assertEqual('66.51.20.10', json['address'])
         self.assertEqual('RUNNING', json['state'])
         self.assertTrue(json['checked'])
@@ -91,7 +91,36 @@ class AddressTest(unittest.TestCase):
 
     def test_transitions(self):
         """ Test the state transitions of AddressStatus. """
-        # TODO
+        from supervisors.address import AddressStatus
+        from supervisors.types import AddressStates, InvalidTransition
+        status = AddressStatus('66.51.20.10', self.logger)
+        for state1 in self.all_states:
+            for state2 in self.all_states:
+                # check all possible transitions from each state
+                status._state = state1
+                if state2 in status._Transitions[state1]:
+                    status.state = state2
+                    self.assertEqual(state2, status.state)
+                    self.assertEqual(AddressStates._to_string(state2), status.state_string())
+                    self.assertTrue(len(self.logger.messages) == 1)
+                    self.assertTrue(self.logger.messages.pop()[0] == 'info')
+                elif state1 == state2:
+                    self.assertEqual(state1, status.state)
+                else:
+                    with self.assertRaises(InvalidTransition):
+                        status.state = state2
+
+    def test_add_process(self):
+        """ Test the add_process method. """
+
+    def test_running_process(self):
+        """ Test the add_process method. """
+
+    def test_pid_process(self):
+        """ Test the add_process method. """
+
+    def test_loading(self):
+        """ Test the add_process method. """
 
 
 def test_suite():
@@ -99,3 +128,4 @@ def test_suite():
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
+

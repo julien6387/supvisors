@@ -19,7 +19,6 @@
 
 from time import time
 
-from supervisor.options import split_namespec
 from supervisor.xmlrpc import RPCError
 
 from supervisors.address import *
@@ -33,11 +32,7 @@ class Context(object):
     - addresses: the dictionary of all AddressStatus (key is address),
     - applications: the dictionary of all ApplicationStatus (key is application name),
     - master_address: the address of the Supervisors master,
-    - master:  a boolean telling if the local address is the master address.
-    
-    TODO: add all processes here
-    link remotes + applications on them
-    move behaviour from context to RemoteStatus and / or ApplicationStatus """
+    - master:  a boolean telling if the local address is the master address. """
 
     def __init__(self, supervisors):
         """ Initialization of the attributes. """
@@ -48,6 +43,7 @@ class Context(object):
         # attributes
         self.addresses = {address: AddressStatus(address, self.logger) for address in self.address_mapper.addresses}
         self.applications = {}
+        self.processes = {}
         self._master_address = ''
         self.master = False
 
@@ -79,22 +75,6 @@ class Context(object):
         """ Return the AddressStatus instances sorted by state. """
         return [status.address for status in self.addresses.values() if status.state in states]
 
-    def running_processes_on(self, address):
-        """ Return the process running on the address.
-        Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
-        return [process for process in self.all_processes() if process.running_on(address)]
-
-    def pid_processes_on(self, address):
-        """ Return the process running on the address and having a pid.
-       Different from running_processes_on because it excludes the states STARTING and BACKOFF """
-        return [process for process in self.all_processes() if process.pid_running_on(address)]
-
-    def loading(self, address):
-        """ Return the loading of the address, by summing the declared loading of the processes running on that address """
-        loading = sum(process.rules.expected_loading for process in self.running_processes_on(address))
-        self.logger.debug('address={} loading={}'.format(address, loading))
-        return loading
-
     def end_synchro(self):
         """ Declare as SILENT the AddressStatus that are still not responsive at the end of the INITIALIZATION state of Supervisors """
         # consider problem if no tick received at the end of synchro time
@@ -109,7 +89,7 @@ class Context(object):
             status.state = AddressStates.SILENT
             status.checked = False
         # invalidate address in concerned processes
-        for process in self.running_processes_on(status.address):
+        for process in status.running_processes():
             process.invalidate_address(status.address)
 
     # methods on applications / processes
@@ -121,11 +101,6 @@ class Context(object):
         """ Return the ProcessStatus instance corresponding to the ProcessEvent dictionary in parameter. """
         return self.get_process(event['groupname'], event['processname'])
 
-    def process_from_namespec(self, namespec):
-        """ Return the ProcessStatus instance corresponding to the namespec in parameter. """
-        application_name, process_name = split_namespec(namespec)
-        return self.get_process(application_name, process_name)
-
     def get_process(self, application_name, process_name):
         """ Return the ProcessStatus instance corresponding to the application and process names. """
         return self.applications[application_name].processes[process_name]
@@ -135,7 +110,15 @@ class Context(object):
         This mark is used to restart:
         - a process that was running on a lost address,
         - a conflicting process, i.e. more than one instance of the same process is running on different addresses. """
-        return [process for process in self.all_processes() if process.mark_for_restart]
+        return [process for process in self.processes.values() if process.mark_for_restart]
+
+    def conflicting(self):
+        """ Return True if any conflicting ProcessStatus is detected. """
+        return next((True for process in self.processes.values() if process.conflicting()), False)
+
+    def conflicts(self):
+        """ Return all conflicting ProcessStatus. """
+        return [process for process in self.processes.values() if process.conflicting()]
 
     def load_processes(self, address, all_info):
         """ Load application dictionary from process info got from Supervisor on address. """
@@ -145,7 +128,7 @@ class Context(object):
         self.logger.debug('applicationList={} from {}'.format(application_list, address))
         # add unknown applications
         for application_name in application_list:
-            if application_name not in self.applications:
+            if application_name not in self.applications.keys():
                 application = ApplicationStatus(application_name, self.logger)
                 self.supervisors.parser.load_application_rules(application)
                 self.applications[application_name] = application
@@ -154,24 +137,16 @@ class Context(object):
             try:
                 process = self.process_from_info(info)
             except KeyError:
-                # not found. add new instance
+                # not found. add new instance to dictionary
                 process = ProcessStatus(address, info, self.logger)
                 self.supervisors.parser.load_process_rules(process)
+                self.processes[process.namespec()] = process
+                # share the instance to the application and the Supervisor instance that holds it
+                self.addresses[address].add_process(process)
                 self.applications[process.application_name].add_process(process)
             else:
+                # update current entry
                 process.add_info(address, info)
-
-    def conflicting(self):
-        """ Return True if any conflicting ProcessStatus is detected. """
-        return next((True for process in self.all_processes() if process.conflicting()), False)
-
-    def conflicts(self):
-        """ Return all conflicting ProcessStatus. """
-        return [process for process in self.all_processes() if process.conflicting()]
-
-    def all_processes(self):
-        """ Return all ProcessStatus instances. """
-        return [process for application in self.applications.values() for process in application.processes.values()]
 
     # methods on events
     def check_address(self, status):

@@ -117,15 +117,6 @@ class ApplicationStatus(object):
         for process in self.processes.values():
             process.update_times(address, remote_time, local_time)
 
-    # FIXME: not useful anymore
-    def reinit(self):
-        # called before a deployment on this application
-        # aim is to force to STOPPED all STOPPED-like processes to simplify later elaboration of application status 
-        for process in self.processes.values():
-            if process.state in STOPPED_STATES:
-                process.state = ProcessStates.STOPPED
-        self.update_status()
-
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """
         starting, running, stopping, major_failure, minor_failure = (False, )*5

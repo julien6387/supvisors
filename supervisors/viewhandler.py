@@ -347,11 +347,9 @@ class ViewHandler(object):
     def get_process_status(self, namespec):
         """ Get the ProcessStatus instance related to the process named namespec """
         try:
-            status = self.supervisors.context.process_from_namespec(namespec)
+            return self.supervisors.context.processes[namespec]
         except KeyError:
             self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
-        else:
-            return status
 
     def server_port(self):
         """ Get the port number of the web server """

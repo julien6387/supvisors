@@ -62,7 +62,7 @@ class AddressView(StatusView, ViewHandler):
         elt.content(status.state_string())
         # set loading
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(self.supervisors.context.loading(self.address)))
+        elt.content('{}%'.format(status.loading()))
         # set last tick date: remoteTime and localTime should be identical since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(simple_localtime(status.remote_time))
