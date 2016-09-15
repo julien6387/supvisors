@@ -96,7 +96,7 @@ class RPCInterface(object):
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
         return {'address': address, 'state': status.state_string(), 'checked': status.checked,
-            'remoteTime': capped_int(status.remote_time), 'localTime': capped_int(status.local_time), 'loading': status.loading()}
+            'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time), 'loading': status.loading()}
 
     def get_all_application_info(self):
         """ Get info about all applications managed in Supervisors

@@ -65,9 +65,9 @@ class ApplicationStatus(object):
         self.major_failure = False
         self.minor_failure = False
         # process part
-        self.processes = {}
+        self.processes = {} # {process_name: [process]}
         self.rules = ApplicationRules()
-        self.sequence = {} # { sequence: [ process ] }
+        self.sequence = {} # {sequence: [process]}
 
     # access
     def running(self):

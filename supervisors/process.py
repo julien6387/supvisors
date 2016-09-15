@@ -102,7 +102,7 @@ class ProcessStatus(object):
         self.mark_for_restart = False
         # expected one single applicable address
         self.addresses = set() # addresses
-        self.processes = {} # address: processInfo
+        self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
         self.ignore_wait_exit = False
@@ -168,15 +168,15 @@ class ProcessStatus(object):
         self.update_single_times(info, self.last_event_time, int(time()))
         # add info entry to process
         self.logger.debug('adding {} for {}'.format(info, address))
-        self.processes[address] = info
+        self.infos[address] = info
         # update process status
         self.update_status(address, info['state'], not info['spawnerr']) 
 
     def update_info(self, address, event):
         """ Update the internal ProcessInfo from event received """
         # do not add process in list while not added through tick
-        if address in self.processes:
-            info = self.processes[address]
+        if address in self.infos:
+            info = self.infos[address]
             self.logger.trace('inserting {} into {} at {}'.format(event, info, address))
             new_state = event['state']
             info['state'] = new_state
@@ -188,7 +188,7 @@ class ProcessStatus(object):
             self.update_single_times(info, remote_time, int(time()))
             if new_state == ProcessStates.RUNNING:
                 info['pid'] = event['pid']
-            elif new_state in [ ProcessStates.STARTING, ProcessStates.BACKOFF ]:
+            elif new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
                 info['start'] = remote_time
                 info['stop'] = 0
                 info['uptime'] = 0
@@ -205,15 +205,15 @@ class ProcessStatus(object):
 
     def update_times(self, address, remote_time, local_time):
         """ Update the time fields of the internal ProcessInfo when a new tick is received from the remote Supervisors instance """
-        if address in self.processes:
-            processInfo = self.processes[address]
+        if address in self.infos:
+            processInfo = self.infos[address]
             self.update_single_times(processInfo, remote_time, local_time)
 
     def update_single_times(self, info, remote_time, local_time):
         """ Update time fields """
         info['now'] = remote_time
-        info['localTime'] = local_time
-        if info['state'] in [ ProcessStates.RUNNING, ProcessStates.STOPPING ]:
+        info['local_time'] = local_time
+        if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING]:
             info['uptime'] = remote_time - info['start']
 
     def invalidate_address(self, address):
@@ -226,7 +226,7 @@ class ProcessStatus(object):
         if not self.evaluate_conflict():
             if len(self.addresses) == 1:
                 # if only one address where process is running, the global state is the state of this process
-                state = next(self.processes[address]['state'] for address in self.addresses)
+                state = next(self.infos[address]['state'] for address in self.addresses)
                 self.state = state
             elif self.running():
                 # addresses is empty for a running process. action expected to fix the inconsistency
@@ -256,14 +256,14 @@ class ProcessStatus(object):
             # evaluate state iaw running addresses
             if not self.evaluate_conflict():
                 # if zero element, state is the state of the program addressed
-                self.state = new_state if not self.addresses else next(self.processes[address]['state'] for address in self.addresses)
+                self.state = new_state if not self.addresses else next(self.infos[address]['state'] for address in self.addresses)
                 self.expected_exit = expected
 
     def evaluate_conflict(self):
         """ Gets a synthetic state if several processes are in a RUNNING-like state """
         if self.conflicting():
             # several processes seems to be in a running state so that becomes tricky
-            states = {self.processes[address]['state'] for address in self.addresses}
+            states = {self.infos[address]['state'] for address in self.addresses}
             self.logger.debug('{} multiple states {} for addresses {}'.format(self.process_name, [to_string(x) for x in states], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)

@@ -115,7 +115,7 @@ class SenicideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            saved_address = min(process.addresses, key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('senicide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()
@@ -132,7 +132,7 @@ class InfanticideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            saved_address = max(process.addresses, key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('infanticide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()

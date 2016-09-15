@@ -121,7 +121,7 @@ class SupervisorsView(MeldView, ViewHandler):
         div_elt = root.findmeld('conflicts_div_mid')
         # get data for table
         data = [{'namespec': process.namespec(), 'rowspan': len(process.addresses) if idx == 0 else 0,
-            'address': address, 'uptime': process.processes[address]['uptime']}
+            'address': address, 'uptime': process.infos[address]['uptime']}
             for process in self.supervisors.context.conflicts() for idx, address in enumerate(process.addresses)]
         addressIterator = div_elt.findmeld('tr_mid').repeat(data)
         for tr_elt, item in addressIterator:

@@ -140,7 +140,7 @@ class ApplicationView(MeldView, ViewHandler):
         status = self.get_process_status(namespec)
         if status:
             # get running address from procStatus
-            address = next(iter(status.processes), None)
+            address = next(iter(status.infos), None)
             if address:
                 stats = self.supervisors.statistician.data[address][ViewHandler.period_stats]
                 if namespec in stats.proc.keys():

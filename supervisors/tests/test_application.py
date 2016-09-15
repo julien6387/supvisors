@@ -20,7 +20,8 @@
 import sys
 import unittest
 
-from supervisors.tests.base import DummyLogger
+from supervisors.tests.base import (DummyLogger, ProcessInfoDatabase,
+    any_process_info, any_stopped_process_info, any_running_process_info)
 
 
 class ApplicationTest(unittest.TestCase):
@@ -50,18 +51,86 @@ class ApplicationTest(unittest.TestCase):
 
     def test_running(self):
         """ Test the running method. """
+        from supervisors.application import ApplicationStatus
+        from supervisors.process import ProcessStatus
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        self.assertFalse(application.running())
+        # add a stopped process
+        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.logger)
+        application.add_process(process)
+        application.update_status()
+        self.assertFalse(application.running())
+        # add a running process
+        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.logger)
+        application.add_process(process)
+        application.update_status()
+        self.assertTrue(application.running())
 
     def test_stopped(self):
         """ Test the stopped method. """
+        from supervisors.application import ApplicationStatus
+        from supervisors.process import ProcessStatus
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        self.assertTrue(application.stopped())
+        # add a stopped process
+        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.logger)
+        application.add_process(process)
+        application.update_status()
+        self.assertTrue(application.stopped())
+        # add a running process
+        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.logger)
+        application.add_process(process)
+        application.update_status()
+        self.assertFalse(application.stopped())
 
     def test_serialization(self):
         """ Test the to_json method used to get a serializable form of Application. """
+        from supervisors.application import ApplicationStatus
+        from supervisors.types import ApplicationStates
+        # create address status instance
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        application._state = ApplicationStates.RUNNING
+        application.major_failure = False
+        application.minor_failure = True
+        # test to_json method
+        json = application.to_json()
+        self.assertListEqual(sorted(['application_name', 'state', 'major_failure', 'minor_failure']), sorted(json.keys()))
+        self.assertEqual('ApplicationTest', json['application_name'])
+        self.assertEqual('RUNNING', json['state'])
+        self.assertFalse(json['major_failure'])
+        self.assertTrue(json['minor_failure'])
+        # test that returned structure is serializable using pickle
+        import pickle
+        serial = pickle.dumps(json)
+        after_json = pickle.loads(serial)
+        self.assertDictEqual(json, after_json)
 
-    def test_add_process(self, process):
+    def test_add_process(self):
         """ Test the add_process method. """
+        from supervisors.application import ApplicationStatus
+        from supervisors.process import ProcessStatus
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        # add a process to the application
+        process = ProcessStatus('10.0.0.1', any_process_info(), self.logger)
+        application.add_process(process)
+        # check that process is stored
+        self.assertIn(process.process_name, application.processes.keys())
+        self.assertIs(process, application.processes[process.process_name])
 
     def test_sequence_deployment(self):
         """ Test the sequencing of the deployment method. """
+        from supervisors.application import ApplicationStatus
+        from supervisors.process import ProcessStatus
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        # add processes to the application
+        for info in ProcessInfoDatabase:
+            process = ProcessStatus('10.0.0.1', info.copy(), self.logger)
+            # TODO: add rules
+            application.add_process(process)
+        # call the sequencer
+        application.sequence_deployment()
+        # TODO: check the sequencing
+        pass
 
     def test_update_status(self):
         """ Test the rules to update the status of the application method. """

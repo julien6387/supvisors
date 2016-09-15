@@ -22,7 +22,7 @@ import sys
 import time
 import unittest
 
-from supervisors.tests.base import DummyLogger, ProcessDatabase
+from supervisors.tests.base import DummyLogger, ProcessInfoDatabase, any_process_info
 
 
 class AddressTest(unittest.TestCase):
@@ -46,6 +46,7 @@ class AddressTest(unittest.TestCase):
         self.assertFalse(status.checked)
         self.assertEqual(0, status.remote_time)
         self.assertEqual(0, status.local_time)
+        self.assertDictEqual({}, status.processes)
 
     def test_isolation(self):
         """ Test the in_isolation method. """
@@ -79,7 +80,7 @@ class AddressTest(unittest.TestCase):
         import pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
-        self.assertEqual(json, after_json)
+        self.assertDictEqual(json, after_json)
 
     def test_transitions(self):
         """ Test the state transitions of AddressStatus. """
@@ -107,8 +108,7 @@ class AddressTest(unittest.TestCase):
         from supervisors.address import AddressStatus
         from supervisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.logger)
-        info = random.choice(ProcessDatabase)
-        process = ProcessStatus('10.0.0.1', info, self.logger)
+        process = ProcessStatus('10.0.0.1', any_process_info(), self.logger)
         status.add_process(process)
         # check that process is stored
         self.assertIn(process.namespec(), status.processes.keys())
@@ -116,23 +116,43 @@ class AddressTest(unittest.TestCase):
 
     def test_times(self):
         """ Test the update_times method. """
+        from supervisor.states import ProcessStates
         from supervisors.address import AddressStatus
+        from supervisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.logger)
+        # add processes
+        for info in ProcessInfoDatabase:
+            status.add_process(ProcessStatus('10.0.0.1', info.copy(), self.logger))
+        # get current process times
+        ref_data = {process.namespec(): (process.state, info['now'], info['local_time'], info.get('uptime', None))
+            for process in status.processes.values() for info in [process.infos['10.0.0.1']]}
+        # update times and check
         now = time.time()
-        status.update_times(50, now)
-        self.assertEqual(50, status.remote_time)
+        status.update_times(now + 10, now)
+        self.assertEqual(now + 10, status.remote_time)
         self.assertEqual(now, status.local_time)
-        # TODO: test process times
+        # test process times: only RUNNING has an uptime
+        new_data = {process.namespec(): (process.state, info['now'], info['local_time'], info.get('uptime', None))
+            for process in status.processes.values() for info in [process.infos['10.0.0.1']]}
+        for namespec, new_info in new_data.items():
+            ref_info = ref_data[namespec]
+            self.assertEqual(new_info[0], ref_info[0])
+            self.assertGreater(new_info[1], ref_info[1])
+            self.assertGreater(new_info[2], ref_info[2])
+            if new_info[0] in [ProcessStates.RUNNING, ProcessStates.STOPPING]:
+                self.assertGreater(new_info[3], ref_info[3])
+            else:
+                self.assertEqual(new_info[3], ref_info[3])
 
     def test_running_process(self):
         """ Test the running_process method. """
         from supervisors.address import AddressStatus
         from supervisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.logger)
-        for info in ProcessDatabase:
+        for info in ProcessInfoDatabase:
             status.add_process(ProcessStatus('10.0.0.1', info.copy(), self.logger))
         # check the name of the running processes
-        self.assertListEqual(sorted(['late_segv','segv', 'xclock', 'xfontsel', 'yeux_01']),
+        self.assertListEqual(sorted(['late_segv','segv', 'xfontsel', 'yeux_01']),
             sorted(process.process_name for process in status.running_processes()))
 
     def test_pid_process(self):
@@ -140,10 +160,10 @@ class AddressTest(unittest.TestCase):
         from supervisors.address import AddressStatus
         from supervisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.logger)
-        for info in ProcessDatabase:
+        for info in ProcessInfoDatabase:
             status.add_process(ProcessStatus('10.0.0.1', info.copy(), self.logger))
         # check the namespec and pid of the running processes
-        self.assertListEqual(sorted([('sample_test_1:xclock', 80877), ('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)]),
+        self.assertListEqual(sorted([('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)]),
             sorted(status.pid_processes()))
 
     def test_loading(self):
@@ -151,18 +171,18 @@ class AddressTest(unittest.TestCase):
         from supervisors.address import AddressStatus
         from supervisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.logger)
-        for info in ProcessDatabase:
+        for info in ProcessInfoDatabase:
             status.add_process(ProcessStatus('10.0.0.1', info.copy(), self.logger))
         # check the loading of the address: gives 5 (1 per running process) by default because no rule has been loaded
-        self.assertEqual(5, status.loading())
+        self.assertEqual(4, status.loading())
         # change expected_loading of any stopped process
         process = random.choice([proc for proc in status.processes.values() if proc.stopped()])
         process.rules.expected_loading = 50
-        self.assertEqual(5, status.loading())
+        self.assertEqual(4, status.loading())
         # change expected_loading of any running process
         process = random.choice([proc for proc in status.processes.values() if proc.running()])
         process.rules.expected_loading = 50
-        self.assertEqual(54, status.loading())
+        self.assertEqual(53, status.loading())
 
 
 def test_suite():

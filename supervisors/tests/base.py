@@ -17,6 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+import random
+
+from supervisor.states import RUNNING_STATES, STOPPED_STATES
+
 
 class DummyLogger:
     """ Simple logger that stores log traces. """
@@ -46,7 +50,7 @@ class DummyLogger:
         self.messages.append(('blather', message))
 
 
-ProcessDatabase = [
+ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
         'logfile': './log/late_segv_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888091,
         'group': 'crash', 'name': 'late_segv', 'statename': 'STARTING', 'start': 1473888089, 'state': 10,
@@ -62,7 +66,7 @@ ProcessDatabase = [
         'stdout_logfile': './log/firefox_cliche01.log'},
     {'description': 'pid 80877, uptime 0:01:20', 'pid': 80877, 'stderr_logfile': '', 'stop': 0,
         'logfile': './log/xclock_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
-        'group': 'sample_test_1', 'name': 'xclock', 'statename': 'RUNNING', 'start': 1473888078, 'state': 20,
+        'group': 'sample_test_1', 'name': 'xclock', 'statename': 'STOPPING', 'start': 1473888078, 'state': 40,
         'stdout_logfile': './log/xclock_cliche01.log'},
     {'description': 'pid 80879, uptime 0:01:19', 'pid': 80879, 'stderr_logfile': '', 'stop': 0,
         'logfile': './log/xfontsel_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
@@ -84,3 +88,17 @@ ProcessDatabase = [
         'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
         'group': 'sample_test_2', 'name': 'yeux_01', 'statename': 'RUNNING', 'start': 1473888086, 'state': 20,
         'stdout_logfile': './log/xeyes_cliche01.log'}]
+
+
+def any_process_info():
+    """ Return a copy of any process in database. """
+    return random.choice(ProcessInfoDatabase).copy()
+
+def any_stopped_process_info():
+    """ Return a copy of any stopped process in database. """
+    return random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES]).copy()
+
+def any_running_process_info():
+    """ Return a copy of any running process in database. """
+    return random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES]).copy()
+

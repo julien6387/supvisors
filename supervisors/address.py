@@ -97,7 +97,7 @@ class AddressStatus(object):
     def pid_processes(self):
         """ Return the process running on the address and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF """
-        return [(process.namespec(), process.processes[self.address]['pid'])
+        return [(process.namespec(), process.infos[self.address]['pid'])
             for process in self.processes.values() if process.pid_running_on(self.address)]
 
     def loading(self):
