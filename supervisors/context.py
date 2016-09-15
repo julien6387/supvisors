@@ -176,16 +176,12 @@ class Context(object):
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
                 self.logger.debug('got tick {} from location={}'.format(when, address))
-                local_time = int(time())
-                status.update_times(when, local_time)
                 if not status.checked:
                     self.check_address(status)
                 # re-test isolation status as it may have been changed by the check_address
                 if not status.in_isolation():
                     status.state = AddressStates.RUNNING
-                    # refresh dates of processes running on that address
-                    for application in self.applications.values():
-                        application.update_times(status.address, when, local_time)
+                    status.update_times(when, int(time()))
                     # publish AddressStatus event
                     self.supervisors.publisher.send_address_status(status)
         else:

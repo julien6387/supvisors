@@ -271,7 +271,8 @@ class ProcessStatus(object):
 
     def filter(self, info):
         """ Remove from dictionary the fields that are not used in Supervisors and/or not updated through process events """
-        map(info.pop, [ 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus' ])
+        for key in ['description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus']:
+            info.pop(key, None)
 
     def running_state(self, states):
         """ Return the first matching state in RUNNING_STATES """

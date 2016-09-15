@@ -74,9 +74,11 @@ class AddressStatus(object):
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
 
     def update_times(self, remote_time, local_time):
-        """ Update the last times attributes. """
+        """ Update the last times attributes of the AddressStatus and of all the processes running on it. """
         self.remote_time = remote_time
         self.local_time = local_time
+        for process in self.processes.values():
+            process.update_times(self.address, remote_time, local_time)
 
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """

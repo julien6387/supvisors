@@ -112,11 +112,6 @@ class ApplicationStatus(object):
             self.sequence.setdefault(process.rules.sequence, []).append(process)
         self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.sequence))
 
-    def update_times(self, address, remote_time, local_time):
-        """ Update the times of the application processes from times just received from address. """
-        for process in self.processes.values():
-            process.update_times(address, remote_time, local_time)
-
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """
         starting, running, stopping, major_failure, minor_failure = (False, )*5

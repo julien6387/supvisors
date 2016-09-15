@@ -48,6 +48,24 @@ class ApplicationTest(unittest.TestCase):
         self.assertEqual(StartingFailureStrategies.ABORT, application.rules.starting_failure_strategy)
         self.assertEqual(RunningFailureStrategies.CONTINUE, application.rules.running_failure_strategy)
 
+    def test_running(self):
+        """ Test the running method. """
+
+    def test_stopped(self):
+        """ Test the stopped method. """
+
+    def test_serialization(self):
+        """ Test the to_json method used to get a serializable form of Application. """
+
+    def test_add_process(self, process):
+        """ Test the add_process method. """
+
+    def test_sequence_deployment(self):
+        """ Test the sequencing of the deployment method. """
+
+    def test_update_status(self):
+        """ Test the rules to update the status of the application method. """
+
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])

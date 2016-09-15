@@ -44,3 +44,43 @@ class DummyLogger:
 
     def blather(self, message):
         self.messages.append(('blather', message))
+
+
+ProcessDatabase = [
+    {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
+        'logfile': './log/late_segv_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888091,
+        'group': 'crash', 'name': 'late_segv', 'statename': 'STARTING', 'start': 1473888089, 'state': 10,
+        'stdout_logfile': './log/late_segv_cliche01.log'},
+    {'description': 'Exited too quickly (process log may have details)', 'pid': 0, 'stderr_logfile': '',
+        'stop': 1473888156, 'logfile': './log/segv_cliche01.log', 'exitstatus': 0,
+        'spawnerr': 'Exited too quickly (process log may have details)', 'now': 1473888156,
+        'group': 'crash', 'name': 'segv', 'statename': 'BACKOFF', 'start': 1473888155, 'state': 30,
+        'stdout_logfile': './log/segv_cliche01.log'}, 
+    {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473887937,
+        'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'group': 'firefox', 'name': 'firefox', 'statename': 'EXITED', 'start': 1473887932, 'state': 100,
+        'stdout_logfile': './log/firefox_cliche01.log'},
+    {'description': 'pid 80877, uptime 0:01:20', 'pid': 80877, 'stderr_logfile': '', 'stop': 0,
+        'logfile': './log/xclock_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'group': 'sample_test_1', 'name': 'xclock', 'statename': 'RUNNING', 'start': 1473888078, 'state': 20,
+        'stdout_logfile': './log/xclock_cliche01.log'},
+    {'description': 'pid 80879, uptime 0:01:19', 'pid': 80879, 'stderr_logfile': '', 'stop': 0,
+        'logfile': './log/xfontsel_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'group': 'sample_test_1', 'name': 'xfontsel', 'statename': 'RUNNING', 'start': 1473888079, 'state': 20,
+        'stdout_logfile': './log/xfontsel_cliche01.log'},
+    {'description': 'Sep 14 05:21 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888104,
+        'logfile': './log/xlogo_cliche01.log', 'exitstatus': -1, 'spawnerr': '', 'now': 1473888158,
+        'group': 'sample_test_1', 'name': 'xlogo', 'statename': 'STOPPED', 'start': 1473888085, 'state': 0,
+        'stdout_logfile': './log/xlogo_cliche01.log'},
+    {'description': 'No resource available', 'pid': 0, 'stderr_logfile': '', 'stop': 0,
+        'logfile': './log/sleep_cliche01.log', 'exitstatus': 0, 'spawnerr': 'No resource available',
+        'now': 1473888158, 'group': 'sample_test_2', 'name': 'sleep', 'statename': 'FATAL', 'start': 0, 'state': 200,
+        'stdout_logfile': './log/sleep_cliche01.log'},
+    {'description': 'Sep 14 05:22 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888130,
+        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'group': 'sample_test_2', 'name': 'yeux_00', 'statename': 'EXITED', 'start': 1473888086, 'state': 100,
+        'stdout_logfile': './log/xeyes_cliche01.log'},
+    {'description': 'pid 80882, uptime 0:01:12', 'pid': 80882, 'stderr_logfile': '', 'stop': 0,
+        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'group': 'sample_test_2', 'name': 'yeux_01', 'statename': 'RUNNING', 'start': 1473888086, 'state': 20,
+        'stdout_logfile': './log/xeyes_cliche01.log'}]
