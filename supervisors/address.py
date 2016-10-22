@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import AddressStates, InvalidTransition
+from supervisors.ttypes import AddressStates, InvalidTransition
 
 
 class AddressStatus(object):
@@ -59,6 +59,7 @@ class AddressStatus(object):
                 raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates._to_string(newState)))
 
     # serialization
+    # TODO: remplacer par __getstate__ ?
     def to_json(self):
         """ Return a JSON-serializable form of the AddressStatus. """
         return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,

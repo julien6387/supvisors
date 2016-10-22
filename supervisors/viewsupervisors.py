@@ -24,7 +24,7 @@ from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supervisors.strategy import conciliate
-from supervisors.types import AddressStates, ConciliationStrategies, SupervisorsStates
+from supervisors.ttypes import AddressStates, ConciliationStrategies, SupervisorsStates
 from supervisors.utils import simple_gmtime
 from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *

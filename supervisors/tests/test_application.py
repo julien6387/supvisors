@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import random
 import sys
 import unittest
 
@@ -34,7 +35,7 @@ class ApplicationTest(unittest.TestCase):
     def test_create(self):
         """ Test the values set at construction. """
         from supervisors.application import ApplicationStatus
-        from supervisors.types import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
+        from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
         application = ApplicationStatus('ApplicationTest', self.logger)
         # check application default attributes
         self.assertEqual('ApplicationTest', application.application_name)
@@ -86,7 +87,7 @@ class ApplicationTest(unittest.TestCase):
     def test_serialization(self):
         """ Test the to_json method used to get a serializable form of Application. """
         from supervisors.application import ApplicationStatus
-        from supervisors.types import ApplicationStates
+        from supervisors.ttypes import ApplicationStates
         # create address status instance
         application = ApplicationStatus('ApplicationTest', self.logger)
         application._state = ApplicationStates.RUNNING
@@ -125,15 +126,84 @@ class ApplicationTest(unittest.TestCase):
         # add processes to the application
         for info in ProcessInfoDatabase:
             process = ProcessStatus('10.0.0.1', info.copy(), self.logger)
-            # TODO: add rules
+            # set random sequence to process
+            process.rules.sequence = random.randint(0, 2)
             application.add_process(process)
         # call the sequencer
         application.sequence_deployment()
-        # TODO: check the sequencing
-        pass
+        # first, extract all sequence numbers
+        sequences = sorted({process.rules.sequence for process in application.processes.values()})
+        # check the sequencing
+        # as key is an integer, the sequence dictionary is sorted
+        for sequence, processes in application.sequence.items():
+            self.assertEqual(sequence, sequences.pop(0))
+            self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
+                sorted([proc for proc in application.processes.values() if sequence == proc.rules.sequence], key=lambda x: x.process_name))
 
     def test_update_status(self):
         """ Test the rules to update the status of the application method. """
+        from supervisor.states import ProcessStates
+        from supervisors.application import ApplicationStatus
+        from supervisors.process import ProcessStatus
+        from supervisors.ttypes import ApplicationStates
+        application = ApplicationStatus('ApplicationTest', self.logger)
+        # add processes to the application
+        for info in ProcessInfoDatabase:
+            process = ProcessStatus('10.0.0.1', info.copy(), self.logger)
+            application.add_process(process)
+        # init status
+        # there are lots of states but the 'strongest' is STARTING
+        # STARTING is a 'running' state so major/minor failures are applicable
+        application.update_status()
+        self.assertEqual(ApplicationStates.STARTING, application.state)
+        # there is a FATAL state in the process database
+        # no rule is set for processes, so there are only minor failures
+        self.assertFalse(application.major_failure)
+        self.assertTrue(application.minor_failure)
+        # set FATAL process to major
+        fatal_process = next((process for process in application.processes.values() if process.state == ProcessStates.FATAL), None)
+        fatal_process.rules.required = True
+        # update status. major failure is now expected
+        application.update_status()
+        self.assertEqual(ApplicationStates.STARTING, application.state)
+        self.assertTrue(application.major_failure)
+        self.assertFalse(application.minor_failure)
+        # set STARTING process to RUNNING
+        starting_process = next((process for process in application.processes.values() if process.state == ProcessStates.STARTING), None)
+        starting_process.state = ProcessStates.RUNNING
+        # update status. there is still one BACKOFF process leading to STARTING application
+        application.update_status()
+        self.assertEqual(ApplicationStates.STARTING, application.state)
+        self.assertTrue(application.major_failure)
+        self.assertFalse(application.minor_failure)
+        # set BACKOFF process to EXITED
+        backoff_process = next((process for process in application.processes.values() if process.state == ProcessStates.BACKOFF), None)
+        backoff_process.state = ProcessStates.EXITED
+        # update status. the 'strongest' state is now STOPPING
+        # as STOPPING is not a 'running' state, failures are not applicable
+        application.update_status()
+        self.assertEqual(ApplicationStates.STOPPING, application.state)
+        self.assertFalse(application.major_failure)
+        self.assertFalse(application.minor_failure)
+        # set STOPPING process to STOPPED
+        stopping_process = next((process for process in application.processes.values() if process.state == ProcessStates.STOPPING), None)
+        stopping_process.state = ProcessStates.STOPPED
+        # update status. the 'strongest' state is now RUNNING
+        # failures are applicable again
+        application.update_status()
+        self.assertEqual(ApplicationStates.RUNNING, application.state)
+        self.assertTrue(application.major_failure)
+        self.assertTrue(application.minor_failure)
+        # set RUNNING processes to STOPPED
+        for process in application.processes.values():
+            if process.state == ProcessStates.RUNNING:
+                process.state = ProcessStates.STOPPED
+        # update status. the 'strongest' state is now RUNNING
+        # failures are not applicable anymore
+        application.update_status()
+        self.assertEqual(ApplicationStates.STOPPED, application.state)
+        self.assertFalse(application.major_failure)
+        self.assertFalse(application.minor_failure)
 
 
 def test_suite():

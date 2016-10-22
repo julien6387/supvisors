@@ -94,17 +94,17 @@ stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 def get_linear_regression(xdata, ydata):
     try:
         import numpy
-        return numpy.polyfit(xdata, ydata, 1)
+        return tuple(numpy.polyfit(xdata, ydata, 1))
     except ImportError:
         # numpy not available
         # try something approximate and simple
         datasize = len(xdata)
-        sumX = sum(xdata)
-        sumY = sum(ydata)
-        sumXX= sum(map(lambda x: x * x, xdata))
-        sumProducts = sum([xdata[i] * ydata[i] for i in range(datasize)])
-        a = (sumProducts - sumX * sumY / datasize) / (sumXX - (sumX * sumX) / datasize)
-        b = (sumY - a * sumX) / datasize
+        sum_x = float(sum(xdata))
+        sum_y = float(sum(ydata))
+        sum_xx = float(sum(map(lambda x: x * x, xdata)))
+        sum_products = float(sum([xdata[i] * ydata[i] for i in range(datasize)]))
+        a = (sum_products - sum_x * sum_y / datasize) / (sum_xx - (sum_x * sum_x) / datasize)
+        b = (sum_y - a * sum_x) / datasize
         return a, b
 
 def get_simple_linear_regression(lst):

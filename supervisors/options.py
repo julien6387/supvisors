@@ -23,7 +23,7 @@ from socket import gethostname
 from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
 from supervisor.options import Options, UnhosedConfigParser
 
-from supervisors.types import ConciliationStrategies, DeploymentStrategies
+from supervisors.ttypes import ConciliationStrategies, DeploymentStrategies
 
 
 # Options of main section

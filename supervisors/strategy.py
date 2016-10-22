@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import AddressStates, ConciliationStrategies, DeploymentStrategies
+from supervisors.ttypes import AddressStates, ConciliationStrategies, DeploymentStrategies
 from supervisors.utils import supervisors_short_cuts
 
 

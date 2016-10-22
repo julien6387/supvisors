@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
 from supervisors.plot import StatisticsPlot
-from supervisors.types import AddressStates, SupervisorsStates
+from supervisors.ttypes import AddressStates, SupervisorsStates
 from supervisors.utils import get_stats
 from supervisors.viewimage import process_image_contents
 from supervisors.webutils import *

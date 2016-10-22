@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supervisors.types import DeploymentStrategies
+from supervisors.ttypes import DeploymentStrategies
 from supervisors.utils import supervisors_short_cuts
 from supervisors.viewhandler import ViewHandler
 from supervisors.webutils import *

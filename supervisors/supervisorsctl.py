@@ -25,7 +25,7 @@ from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supervisors.rpcinterface import API_VERSION
-from supervisors.types import DeploymentStrategies
+from supervisors.ttypes import DeploymentStrategies
 from supervisors.utils import simple_localtime
 
 

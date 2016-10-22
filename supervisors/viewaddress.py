@@ -282,6 +282,7 @@ class AddressView(StatusView, ViewHandler):
 
     def restart_sup_action(self):
         """ Restart the local supervisor """
+        # FIXME: restart unknown
         restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
@@ -289,6 +290,7 @@ class AddressView(StatusView, ViewHandler):
 
     def shutdown_sup_action(self):
         """ Shutdown the local supervisor """
+        # FIXME: shutdown unknown
         shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')

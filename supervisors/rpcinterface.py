@@ -21,7 +21,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.options import split_namespec
 from supervisor.xmlrpc import capped_int, Faults, RPCError
 
-from supervisors.types import AddressStates, ApplicationStates, DeploymentStrategies, SupervisorsStates
+from supervisors.ttypes import AddressStates, ApplicationStates, DeploymentStrategies, SupervisorsStates
 from supervisors.utils import supervisors_short_cuts
 
 

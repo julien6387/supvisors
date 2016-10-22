@@ -87,7 +87,8 @@ class UtilsTest(unittest.TestCase):
         from supervisors.utils import mean, srate, stddev
         # test mean lambda
         self.assertAlmostEqual(4, mean([2, 5, 5]))
-        self.assertAlmostEqual(0, mean([]))
+        with self.assertRaises(ZeroDivisionError):
+            self.assertAlmostEqual(0, mean([]))
         # test srate lambda
         self.assertAlmostEqual(-50, srate(2, 4))
         self.assertAlmostEqual(100, srate(4, 2))

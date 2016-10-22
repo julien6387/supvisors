@@ -24,7 +24,7 @@ from supervisor.states import ProcessStates
 
 from supervisors.application import ApplicationStates
 from supervisors.strategy import get_address
-from supervisors.types import DeploymentStrategies
+from supervisors.ttypes import DeploymentStrategies
 from supervisors.utils import supervisors_short_cuts
 
 

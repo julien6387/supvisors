@@ -31,17 +31,17 @@ class AddressTest(unittest.TestCase):
     def setUp(self):
         """ Create a logger that stores log traces. """
         self.logger = DummyLogger()
-        from supervisors.types import AddressStates
+        from supervisors.ttypes import AddressStates
         self.all_states = AddressStates._values()
 
     def test_create(self):
         """ Test the values set at construction. """
         from supervisors.address import AddressStatus
+        from supervisors.ttypes import AddressStates
         status = AddressStatus('10.0.0.1', self.logger)
         # test all AddressStatus values
         self.assertIs(self.logger, status.logger)
         self.assertEqual('10.0.0.1', status.address)
-        from supervisors.types import AddressStates
         self.assertEqual(AddressStates.UNKNOWN, status.state)
         self.assertFalse(status.checked)
         self.assertEqual(0, status.remote_time)
@@ -51,7 +51,7 @@ class AddressTest(unittest.TestCase):
     def test_isolation(self):
         """ Test the in_isolation method. """
         from supervisors.address import AddressStatus
-        from supervisors.types import AddressStates
+        from supervisors.ttypes import AddressStates
         status = AddressStatus('10.0.0.1', self.logger)
         for state in self.all_states:
             status._state = state
@@ -60,8 +60,9 @@ class AddressTest(unittest.TestCase):
 
     def test_serialization(self):
         """ Test the to_json method used to get a serializable form of AddressStatus. """
+        import pickle
         from supervisors.address import AddressStatus
-        from supervisors.types import AddressStates
+        from supervisors.ttypes import AddressStates
         # create address status instance
         status = AddressStatus('10.0.0.1', self.logger)
         status._state = AddressStates.RUNNING
@@ -77,7 +78,6 @@ class AddressTest(unittest.TestCase):
         self.assertEqual(50, json['remote_time'])
         self.assertEqual(60, json['local_time'])
         # test that returned structure is serializable using pickle
-        import pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
         self.assertDictEqual(json, after_json)
@@ -85,7 +85,7 @@ class AddressTest(unittest.TestCase):
     def test_transitions(self):
         """ Test the state transitions of AddressStatus. """
         from supervisors.address import AddressStatus
-        from supervisors.types import AddressStates, InvalidTransition
+        from supervisors.ttypes import AddressStates, InvalidTransition
         status = AddressStatus('10.0.0.1', self.logger)
         for state1 in self.all_states:
             for state2 in self.all_states:

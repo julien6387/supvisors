@@ -50,6 +50,27 @@ class DummyLogger:
         self.messages.append(('blather', message))
 
 
+class DummySupervisors:
+    """ Simple supervisors with all dummies. """
+
+    def __init__(self):
+        class DummyClass:
+            pass
+        self.address_mapper = DummyClass()
+        self.fsm = DummyClass()
+        self.statistician = DummyClass()
+        self.requester = DummyClass()
+        self.deployer = DummyClass()
+        self.logger = DummyLogger()
+
+
+class DummySupervisor:
+    """ Simple supervisor with simple supervisors attribute. """
+
+    def __init__(self):
+        self.supervisors = DummySupervisors()
+
+
 ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
         'logfile': './log/late_segv_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888091,

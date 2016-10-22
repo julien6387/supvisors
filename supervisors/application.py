@@ -19,7 +19,7 @@
 
 from supervisor.states import *
 
-from supervisors.types import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
+from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
 
 
 class ApplicationRules(object):
