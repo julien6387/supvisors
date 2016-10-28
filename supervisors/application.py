@@ -19,7 +19,7 @@
 
 from supervisor.states import *
 
-from supervisors.types import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
+from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
 
 
 class ApplicationRules(object):
@@ -65,9 +65,9 @@ class ApplicationStatus(object):
         self.major_failure = False
         self.minor_failure = False
         # process part
-        self.processes = {}
+        self.processes = {} # {process_name: [process]}
         self.rules = ApplicationRules()
-        self.sequence = {} # { sequence: [ process ] }
+        self.sequence = {} # {sequence: [process]}
 
     # access
     def running(self):
@@ -111,20 +111,6 @@ class ApplicationStatus(object):
         for process in self.processes.values():
             self.sequence.setdefault(process.rules.sequence, []).append(process)
         self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.sequence))
-
-    def update_times(self, address, remote_time, local_time):
-        """ Update the times of the application processes from times just received from address. """
-        for process in self.processes.values():
-            process.update_times(address, remote_time, local_time)
-
-    # FIXME: not useful anymore
-    def reinit(self):
-        # called before a deployment on this application
-        # aim is to force to STOPPED all STOPPED-like processes to simplify later elaboration of application status 
-        for process in self.processes.values():
-            if process.state in STOPPED_STATES:
-                process.state = ProcessStates.STOPPED
-        self.update_status()
 
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """

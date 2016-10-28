@@ -121,7 +121,6 @@ class SupervisorListener(object):
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
         self.publisher.send_tick_event(event.when)
         # get and publish statistics at tick time
-        pid_list = [ (process.namespec(), process.processes[self.address]['pid'])
-            for process in self.supervisors.context.pid_processes_on(self.address)]
-        self.publisher.send_statistics(instant_statistics(pid_list))
+        status = self.supervisors.context.addresses[self.address]
+        self.publisher.send_statistics(instant_statistics(status.pid_processes()))
 

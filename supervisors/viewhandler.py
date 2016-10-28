@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
 from supervisors.plot import StatisticsPlot
-from supervisors.types import AddressStates, SupervisorsStates
+from supervisors.ttypes import AddressStates, SupervisorsStates
 from supervisors.utils import get_stats
 from supervisors.viewimage import process_image_contents
 from supervisors.webutils import *
@@ -347,11 +347,9 @@ class ViewHandler(object):
     def get_process_status(self, namespec):
         """ Get the ProcessStatus instance related to the process named namespec """
         try:
-            status = self.supervisors.context.process_from_namespec(namespec)
+            return self.supervisors.context.processes[namespec]
         except KeyError:
             self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
-        else:
-            return status
 
     def server_port(self):
         """ Get the port number of the web server """

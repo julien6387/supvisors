@@ -24,7 +24,7 @@ from supervisor.states import ProcessStates
 
 from supervisors.application import ApplicationStates
 from supervisors.strategy import get_address
-from supervisors.types import DeploymentStrategies
+from supervisors.ttypes import DeploymentStrategies
 from supervisors.utils import supervisors_short_cuts
 
 
@@ -73,8 +73,6 @@ class Deployer(object):
             # do not deploy an application that is not properly STOPPED
             if application.state == ApplicationStates.STOPPED and application.rules.autostart:
                 self.get_application_deployment(application)
-                # FIXME: useless
-                #application.reinit()
         # start work
         self.initial_jobs()
 
@@ -86,8 +84,6 @@ class Deployer(object):
         # push program list in todo list and start work
         if application.state == ApplicationStates.STOPPED:
             self.get_application_deployment(application)
-            #FIXME: useless ?
-            #application.reinit()
             self.process_application_jobs(application.application_name)
         # return True when deployment over
         return not self.in_progress()
@@ -256,7 +252,11 @@ class Deployer(object):
         # force process state to FATAL in supervisor so as it is published
         if force_fatal:
             self.logger.warn('force {} state to FATAL'.format(process.namespec()))
-            self.supervisors.info_source.force_process_fatal(process.namespec(), reason)
+            try:
+                self.supervisors.info_source.force_process_fatal(process.namespec(), reason)
+            except KeyError:
+                self.logger.error('impossible to force {} state to FATAL. process unknown in this Supervisor'.format(process.namespec()))
+                # FIXME: what can i do then ?
 
     # log facilities
     def printable_planned_jobs(self):

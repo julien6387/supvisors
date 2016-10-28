@@ -20,7 +20,7 @@
 from time import time
 
 from supervisors.strategy import conciliate
-from supervisors.types import AddressStates, SupervisorsStates
+from supervisors.ttypes import AddressStates, SupervisorsStates
 from supervisors.utils import supervisors_short_cuts
 
 

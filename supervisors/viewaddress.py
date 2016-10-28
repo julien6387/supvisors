@@ -62,8 +62,8 @@ class AddressView(StatusView, ViewHandler):
         elt.content(status.state_string())
         # set loading
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(self.supervisors.context.loading(self.address)))
-        # set last tick date: remoteTime and localTime should be identical since self is running on the 'remote' address
+        elt.content('{}%'.format(status.loading()))
+        # set last tick date: remote_time and local_time should be identical since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(simple_localtime(status.remote_time))
         # write periods of statistics
@@ -282,6 +282,7 @@ class AddressView(StatusView, ViewHandler):
 
     def restart_sup_action(self):
         """ Restart the local supervisor """
+        # FIXME: restart unknown
         restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
@@ -289,6 +290,7 @@ class AddressView(StatusView, ViewHandler):
 
     def shutdown_sup_action(self):
         """ Shutdown the local supervisor """
+        # FIXME: shutdown unknown
         shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')

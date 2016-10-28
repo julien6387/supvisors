@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import AddressStates, InvalidTransition
+from supervisors.ttypes import AddressStates, InvalidTransition
 
 
 class AddressStatus(object):
@@ -28,7 +28,8 @@ class AddressStatus(object):
     - state: the state of the Supervisor instance in AddressStates,
     - checked: a status telling if Supervisors has already checked that it is allowed to deal with the remote Supervisors in,
     - remote_time: the last date received from the Supervisors instance,
-    - local_time: the last date received from the Supervisors instance, in the local reference time. """
+    - local_time: the last date received from the Supervisors instance, in the local reference time,
+    - processes: the list of processes that are available on this address. """
 
     def __init__(self, address, logger):
         """ Initialization of the attributes. """
@@ -37,9 +38,10 @@ class AddressStatus(object):
         # attributes
         self.address = address
         self._state = AddressStates.UNKNOWN
-        self.checked = False
         self.remote_time = 0
-        self.localTime = 0
+        self.local_time = 0
+        self.checked = False
+        self.processes = {}
 
     # accessors / mutators
     @property
@@ -54,9 +56,10 @@ class AddressStatus(object):
                 self._state = newState
                 self.logger.info('Address {} is {}'.format(self.address, self.state_string()))
             else:
-                raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates.to_string(newState)))
+                raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates._to_string(newState)))
 
     # serialization
+    # TODO: remplacer par __getstate__ ?
     def to_json(self):
         """ Return a JSON-serializable form of the AddressStatus. """
         return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
@@ -72,15 +75,40 @@ class AddressStatus(object):
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
 
     def update_times(self, remote_time, local_time):
-        """ Update the last times attributes. """
+        """ Update the last times attributes of the AddressStatus and of all the processes running on it. """
         self.remote_time = remote_time
         self.local_time = local_time
+        for process in self.processes.values():
+            process.update_times(self.address, remote_time, local_time)
 
-    def check_transition(self, newState):
+    def check_transition(self, new_state):
         """ Check that the state transition is valid. """
-        return newState in self.__Transitions[self.state]
+        return new_state in self._Transitions[self.state]
 
-    __Transitions = {
+    # methods on processes
+    def add_process(self, process):
+        """ Add a new process to the process list. """
+        self.processes[process.namespec()] = process
+
+    def running_processes(self):
+        """ Return the process running on the address.
+        Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
+        return [process for process in self.processes.values() if process.running_on(self.address)]
+
+    def pid_processes(self):
+        """ Return the process running on the address and having a pid.
+       Different from running_processes_on because it excludes the states STARTING and BACKOFF """
+        return [(process.namespec(), process.infos[self.address]['pid'])
+            for process in self.processes.values() if process.pid_running_on(self.address)]
+
+    def loading(self):
+        """ Return the loading of the address, by summing the declared loading of the processes running on that address """
+        loading = sum(process.rules.expected_loading for process in self.running_processes())
+        self.logger.debug('address={} loading={}'.format(self.address, loading))
+        return loading
+
+    # dictionary for transitions
+    _Transitions = {
         AddressStates.UNKNOWN: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
         AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING),
         AddressStates.SILENT: (AddressStates.RUNNING, ),

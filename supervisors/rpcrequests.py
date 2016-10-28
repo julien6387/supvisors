@@ -26,7 +26,6 @@ class XmlRpcClient(object):
 
     def __init__(self, address, info_source):
         if info_source.serverurl:
-            # TODO: what is the expected contents ?
             serverurl = info_source.serverurl.split(':')
             if len(serverurl) == 3:
                 serverurl[1] = '//' + address
@@ -42,6 +41,7 @@ class RpcRequester(object):
 
     # utilities to determine if using XmlRpcClient or internal handler directly
     def use_proxy(self, address):
+        """ Return True if RPC address is NOT the local address. """
         return address != self.supervisors.address_mapper.local_address
 
     def supervisor_proxy(self, address):

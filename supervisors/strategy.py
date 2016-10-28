@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisors.types import AddressStates, ConciliationStrategies, DeploymentStrategies
+from supervisors.ttypes import AddressStates, ConciliationStrategies, DeploymentStrategies
 from supervisors.utils import supervisors_short_cuts
 
 
@@ -32,20 +32,16 @@ class AbstractStrategy(object):
 class AbstractDeploymentStrategy(AbstractStrategy):
     """ Base class for a state with simple entry / next / exit actions """
 
-    def is_address_valid(self, address):
-        """ Return True if remote Supervisors instance is active """
+    def is_loading_valid(self, address, expected_loading):
+        """ Return True and current loading if remote Supervisors instance is active and can support the additional loading """
         if address in self.context.addresses.keys():
             status = self.context.addresses[address] 
             self.logger.trace('address {} state={}'.format(address, status.state_string()))
-            return status.state == AddressStates.RUNNING
-
-    def is_loading_valid(self, address, expected_loading):
-        """ Return True and current loading if remote Supervisors instance is active and can suport the additional loading """
-        if self.is_address_valid(address):
-            loading = self.context.loading(address)
-            self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
-            return (loading + expected_loading < 100, loading)
-        self.logger.debug('address {} invalid for handling new process'.format(address))
+            if status.state == AddressStates.RUNNING:
+                loading = status.loading()
+                self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
+                return (loading + expected_loading < 100, loading)
+            self.logger.debug('address {} not RUNNING'.format(address))
         return (False, 0)
 
     def get_loading_and_validity(self, addresses, expected_loading):
@@ -119,7 +115,7 @@ class SenicideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = min(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            saved_address = min(process.addresses, key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('senicide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()
@@ -136,7 +132,7 @@ class InfanticideStrategy(AbstractStrategy):
         """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = max(process.addresses, key=lambda x: process.processes[x]['uptime'])
+            saved_address = max(process.addresses, key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('infanticide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             addresses = process.addresses.copy()

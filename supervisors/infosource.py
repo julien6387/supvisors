@@ -75,7 +75,7 @@ class SupervisordSource(object):
     # this method is used to force a process state into supervisord and to dispatch process event to event listeners
     def force_process_fatal(self, namespec, reason):
         application_name, process_name = split_namespec(namespec)
-        # FIXME: may throw KeyError
+        # WARN: the following line may throw a KeyError exception
         process = self.supervisord.process_groups[application_name].processes[process_name]
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
