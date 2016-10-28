@@ -164,7 +164,7 @@ class ProcessStatus(object):
         self.filter(info)
         # store time info
         self.last_event_time = info['now']
-        info['eventTime'] = self.last_event_time
+        info['event_time'] = self.last_event_time
         self.update_single_times(info, self.last_event_time, int(time()))
         # add info entry to process
         self.logger.debug('adding {} for {}'.format(info, address))
@@ -183,7 +183,7 @@ class ProcessStatus(object):
             info['statename'] = to_string(new_state)
             # manage times and pid
             remote_time = event['now']
-            info['eventTime'] = remote_time
+            info['event_time'] = remote_time
             self.last_event_time = remote_time
             self.update_single_times(info, remote_time, int(time()))
             if new_state == ProcessStates.RUNNING:
