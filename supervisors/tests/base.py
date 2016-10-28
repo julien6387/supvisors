@@ -123,3 +123,11 @@ def any_running_process_info():
     """ Return a copy of any running process in database. """
     return random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES]).copy()
 
+def any_process_info_by_state(state):
+    """ Return a copy of any process in state 'state' in database. """
+    return random.choice([info for info in ProcessInfoDatabase if info['state'] == state]).copy()
+
+def process_info_by_name(name):
+    """ Return a copy of a process named 'name' in database. """
+    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+
