@@ -25,15 +25,18 @@ from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, Run
 class ApplicationRules(object):
     """ Definition of the rules for starting an application, iaw deployment file:
     - autostart: a boolean telling if the application is to be started when Supervisors enters in DEPLOYMENT state,
-    - sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
+    - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
+    - stop_sequence: defines the order of this application when stopping all the applications,
     - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply when a required process cannot be strated during the starting of the application,
     - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply when a required process crashes when the application is running. """
 
     def __init__(self):
         """ Initializes the rules applicable to an application"""
         self.autostart = False
-        # TODO: implement sequence
-        self.sequence = -1
+        # TODO: implement start_sequence
+        self.start_sequence = -1
+        # TODO: implement stop_sequence
+        self.stop_sequence = -1
         # TODO: implement starting failure strategy
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
         # TODO: implement running failure strategy
@@ -67,7 +70,8 @@ class ApplicationStatus(object):
         # process part
         self.processes = {} # {process_name: [process]}
         self.rules = ApplicationRules()
-        self.sequence = {} # {sequence: [process]}
+        self.start_sequence = {} # {sequence: [process]}
+        self.stop_sequence = {} # {sequence: [process]}
 
     # access
     def running(self):
@@ -104,13 +108,21 @@ class ApplicationStatus(object):
         """ Add a new process to the process list. """
         self.processes[process.process_name] = process
 
-    def sequence_deployment(self):
-        """ Evaluate the application sequencing from its list of processes. """
+    def update_start_sequence(self):
+        """ Evaluate the sequencing of the starting application from its list of processes. """
         # fill ordering iaw process rules
-        self.sequence.clear()
+        self.start_sequence.clear()
         for process in self.processes.values():
-            self.sequence.setdefault(process.rules.sequence, []).append(process)
-        self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.sequence))
+            self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
+        self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.start_sequence))
+
+    def update_stop_sequence(self):
+        """ Evaluate the sequencing of the stopping application from its list of processes. """
+        # fill ordering iaw process rules
+        self.stop_sequence.clear()
+        for process in self.processes.values():
+            self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
+        self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.stop_sequence))
 
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """

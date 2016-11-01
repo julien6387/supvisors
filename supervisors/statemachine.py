@@ -84,7 +84,7 @@ class DeploymentState(AbstractState):
     def enter(self):
         # define ordering iaw Remotes
         for application in self.context.applications.values():
-            application.sequence_deployment()
+            application.update_start_sequence()
             application.update_status()
         # only Supervisors master deploys applications
         if self.context.master:

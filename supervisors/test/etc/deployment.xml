@@ -9,18 +9,18 @@
 		<!-- * means that all addresses can be used -->
 		<addresses>*</addresses>
 		<!--  defines the starting phase when supervisors is ready, MUST be >= 0 -->
-		<sequence>0</sequence>
+		<start_sequence>0</start_sequence>
 		<!-- if (required == true) -->
 		<!--    1) the automatic start will fail if process does not start -->
 		<!--    2) process will be re-deployed on another host (if possible) if current host is down -->
-                <!-- if (required == false) or not set -->
+        <!-- if (required == false) or not set -->
 		<!--    1) the automatic start won't be blocked if process does not start -->
 		<!--    2) process won't be re-deployed if current host is down -->
-                <required>false</required>
-                <!-- if set to true, will wait for program to be EXITED before starting the next phase -->
-                <wait_exit>false</wait_exit>
-                <!-- resource expected -->
-                <expected_loading>0</expected_loading>
+        <required>false</required>
+        <!-- if set to true, will wait for program to be EXITED before starting the next phase -->
+        <wait_exit>false</wait_exit>
+        <!-- resource expected -->
+        <expected_loading>0</expected_loading>
 	</model>
 
 	<!-- web application -->
@@ -29,7 +29,7 @@
 
 		<program name="firefox">
 			<reference>model_1</reference>
-                </program>
+        </program>
 	</application>
 
 	<!-- 1st sample_test application -->
@@ -38,8 +38,8 @@
 
 		<program name ="xlogo">
 			<addresses>cliche02</addresses>
-			<sequence>1</sequence>
-                	<expected_loading>35</expected_loading>
+			<start_sequence>1</start_sequence>
+            <expected_loading>35</expected_loading>
 		</program>
 	</application>
 
@@ -47,18 +47,18 @@
 	<application name="sample_test_2">
 		<autostart>true</autostart>
 
-                <program name="sleep">
-			<addresses>cliche02</addresses>
-                        <sequence>1</sequence>
-                        <required>true</required>
-                        <wait_exit>true</wait_exit>
-                	<expected_loading>20</expected_loading>
-                </program>
+        <program name="sleep">
+            <addresses>cliche02</addresses>
+            <start_sequence>1</start_sequence>
+            <required>true</required>
+            <wait_exit>true</wait_exit>
+            <expected_loading>20</expected_loading>
+        </program>
 
-                <pattern name="yeux">
+        <pattern name="yeux">
 			<addresses>cliche01</addresses>
-                        <sequence>2</sequence>
-                        <expected_loading>35</expected_loading>
+            <start_sequence>2</start_sequence>
+            <expected_loading>35</expected_loading>
 		</pattern>
-         </application>
+    </application>
 </root>
