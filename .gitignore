@@ -13,9 +13,16 @@ _ropeproject/
 *.bak
 *.rej
 *~
+build/
+dist/
 cur/
 tmp/
 __pycache__/
 *.DS_Store
 thrift/
+log/
+*.e4p
+*.log
+*.coverage
+*.egg-info
 

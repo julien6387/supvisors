@@ -179,7 +179,7 @@ class Deployer(object):
 
     def get_application_deployment(self, application):
         # copy sequence and remove programs that are not meant to be deployed automatically
-        sequence = application.sequence.copy()
+        sequence = application.start_sequence.copy()
         sequence.pop(-1, None)
         if len(sequence) > 0:
             self.planned_jobs[application.application_name] = sequence

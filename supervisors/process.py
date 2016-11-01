@@ -40,6 +40,7 @@ class ProcessRules(object):
     Attributes:
         - the addresses where the process can be started (all by default)
         - the order in the starting sequence of the application
+        - the order in the stopping sequence of the application (not implemented yet)
         - a status telling if the process is required within the application
         - a status telling if Supervisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application
         - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)"""
@@ -49,7 +50,8 @@ class ProcessRules(object):
         self.logger = logger
         # TODO: see if dependency (process, application) is to be implemented
         self.addresses = ['*']
-        self.sequence = -1
+        self.start_sequence = -1
+        self.stop_sequence = -1
         self.required = False
         self.wait_exit = False
         self.expected_loading = 1
@@ -58,9 +60,9 @@ class ProcessRules(object):
         """ Update rules after they have been read from the deployment file
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
-        # required MUST have sequence, so force to optional if no sequence
-        if self.required and self.sequence == -1:
-            self.logger.warn('required forced to False because no sequence defined')
+        # required MUST have start_sequence, so force to optional if no start_sequence
+        if self.required and self.start_sequence == -1:
+            self.logger.warn('required forced to False because no start_sequence defined')
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
@@ -69,8 +71,8 @@ class ProcessRules(object):
 
     def __str__(self):
         """ Contents as string """
-        return 'addresses={} sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
-            self.sequence, self.required, self.wait_exit, self.expected_loading)
+        return 'addresses={} start_sequence={} stop_sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
+            self.start_sequence, self.stop_sequence, self.required, self.wait_exit, self.expected_loading)
 
 
 # ProcessStatus class

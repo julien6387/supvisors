@@ -49,7 +49,7 @@ class EventPublisher(object):
 
     def send_address_status(self, status):
         if self.socket:
-            self.supervisors.logger.debug('send RemoteStatus( {}'.format(status))
+            self.supervisors.logger.debug('send RemoteStatus {}'.format(status))
             self.socket.send_string(ADDRESS_STATUS_HEADER, zmq.SNDMORE)
             self.socket.send_json(status.to_json())
 

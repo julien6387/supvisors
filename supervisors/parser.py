@@ -40,7 +40,8 @@ XSDContents = StringIO('''\
             <xs:element type="xs:string" name="reference"/>
             <xs:sequence>
                 <xs:element type="xs:string" name="addresses" minOccurs="0" maxOccurs="1"/>
-                <xs:element type="xs:byte" name="sequence" minOccurs="0" maxOccurs="1"/>
+                <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
+                <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
                 <xs:element type="xs:boolean" name="required" minOccurs="0" maxOccurs="1"/>
                 <xs:element type="xs:boolean" name="wait_exit" minOccurs="0" maxOccurs="1"/>
                 <xs:element type="Loading" name="expected_loading" minOccurs="0" maxOccurs="1"/>
@@ -93,6 +94,7 @@ class Parser(object):
         application_elt = self.root.find("./application[@name='{}']".format(application.application_name))
         if application_elt is not None:
             # get rules
+            # TODO: autostart will be replaced by start_sequence
             value = application_elt.findtext('autostart')
             application.rules.autostart = boolean(value) if value else False
             self.logger.info('application {} - rules {}'.format(application.application_name, application.rules))
@@ -103,9 +105,12 @@ class Parser(object):
         if program_elt is not None:
             # get addresses rule
             self.get_program_addresses(program_elt, process.rules)
-            # get sequence rule
-            value = program_elt.findtext('sequence')
-            process.rules.sequence = int(value) if value and int(value)>=0 else -1
+            # get start_sequence rule
+            value = program_elt.findtext('start_sequence')
+            process.rules.start_sequence = int(value) if value and int(value)>=0 else -1
+            # get stop_sequence rule
+            value = program_elt.findtext('stop_sequence')
+            process.rules.stop_sequence = int(value) if value and int(value)>=0 else -1
             # get required rule
             value = program_elt.findtext('required')
             process.rules.required = boolean(value) if value else False
@@ -149,25 +154,25 @@ class Parser(object):
         self.parser = None
         # find parser
         try:
-            from lxml import etree
+            from lxml.etree import parse, XMLSchema
             self.logger.info('using lxml.etree parser')
             # parse XML and validate it
-            tree = etree.parse(filename)
+            tree = parse(filename)
             # get XSD
-            schemaDoc = etree.parse(XSDContents)
-            schema = etree.XMLSchema(schemaDoc)
+            schemaDoc = parse(XSDContents)
+            schema = XMLSchema(schemaDoc)
             xml_valid = schema.validate(tree)
             if xml_valid:
                 self.logger.info('XML validated')
             else:
-                self.logger.error('XML NOT validated: {0}'.format(filename))
+                self.logger.error('XML NOT validated: {}'.format(filename))
                 print >> stderr,  schema.error_log
             return tree if xml_valid else None
         except ImportError:
             try:
-                from xml.etree import ElementTree
+                from xml.etree.ElementTree import parse
                 self.logger.info('using xml.etree.ElementTree parser')
-                return ElementTree.parse(filename)
+                return parse(filename)
             except ImportError:
                 self.logger.critical("Failed to import ElementTree from any known place")
                 raise

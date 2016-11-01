@@ -20,6 +20,10 @@
 import os
 import sys
 
+from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+
 if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     msg = ("Supervisors requires Python 2.7 or later but does not work on "
            "any version of Python 3.  You are using version %s.  Please "
@@ -27,13 +31,13 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     sys.stderr.write(msg)
     sys.exit(1)
 
-requires = ['meld3 >= 0.6.5']
+requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0', 'netifaces >= 0.10.4',
+    'matplotlib >= 1.5.2', 'psutil >= 4.3.0']
 
-from setuptools import setup, find_packages
 here = os.path.abspath(os.path.dirname(__file__))
 try:
-    README = open(os.path.join(here, 'README.md')).read()
-    #CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
+    README = open(os.path.join(here, 'README.rst')).read()
+    CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 except:
     README = """Supervisors is a control system for distributed applications over multiple Supervisor instances. """
     CHANGES = ''
@@ -52,7 +56,7 @@ CLASSIFIERS = [
     "Topic :: System :: Software Distribution"
 ]
 
-version_txt = os.path.join(here, 'supervisor/version.txt')
+version_txt = os.path.join(here, 'supervisors/version.txt')
 supervisors_version = open(version_txt).read().strip()
 
 dist = setup(
@@ -69,10 +73,10 @@ dist = setup(
     ],
     packages=find_packages(),
     install_requires=requires,
-    #extras_require={'iterparse': ['cElementTree >= 1.0.2']},
-    #tests_require=['mock >= 0.5.0'],
+    extras_require={'parse': ['lxml >= 3.2.1']},
     include_package_data=True,
     zip_safe=False,
     namespace_packages=['supervisors'],
     test_suite="supervisors.tests",
 )
+

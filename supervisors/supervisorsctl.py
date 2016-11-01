@@ -154,7 +154,7 @@ class ControllerPlugin(ControllerPluginBase):
             processes = arg.split()
             if not processes or "all" in processes:
                 processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info()]
-            template = '%(name)-30s%(seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'
+            template = '%(name)-30s%(start_seq)-12s%(stop_seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'
             for process in processes:
                 try:
                     rulesList = self.supervisors().get_process_rules(process)
@@ -164,8 +164,10 @@ class ControllerPlugin(ControllerPluginBase):
                     for rules in rulesList:
                         required = rules['required']
                         wait_exit = rules['wait_exit']
-                        line = template % {'name': rules['process_name'], 'addr': rules['addresses'], 'seq': rules['sequence'], 
-                            'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '', 'load': '{}%'.format(rules['expected_loading'])}
+                        line = template % {'name': rules['process_name'], 'addr': rules['addresses'],
+                            'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'], 
+                            'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '',
+                            'load': '{}%'.format(rules['expected_loading'])}
                         self.ctl.output(line)
 
     def help_rules(self):

@@ -1,0 +1,581 @@
+/* Additional resources */
+@font-face {
+	font-family: 'kingthings_calligraphica_2Rg';
+	src: url('Kingthings_Calligraphica_2-webfont.eot');
+	src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
+		url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
+		url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
+		url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+
+/*
+ * General Layout
+ */
+html, body, #body_block {
+    height: 100%;
+    min-height: 700px;
+}
+
+body {
+	margin: auto;
+}
+
+/* fake a background transparency because smoke image is too dark */
+body::after {
+	content: "";
+    background: url(../img/smoke.jpg);
+	top: 0; left: 0; bottom: 0; right: 0;
+	position: absolute;
+	z-index: -1;
+	opacity: 0.5;
+}
+
+#body_block {
+	min-width: 1000px;
+    display: flex;
+}
+
+
+/*
+ * Left Side Layout
+*/
+#left_side {
+	min-width: 220px;
+    max-width: 220px;
+	flex: 1;
+    display: flex;
+	flex-direction: column;
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+    border-right: 3px #cc7a00 solid;
+}
+
+#left_side header {
+   text-align: center;
+}
+
+nav {
+	flex: 1;
+    display: flex;
+	flex-direction: column;
+	overflow: auto;
+}
+
+#left_side footer {
+	font-style: italic;
+}
+
+#copyright {
+	font-size: .6em;
+}
+
+
+/*
+ * Right Side Layout
+*/
+#right_side {
+	flex: 1;
+    display: flex;
+	flex-direction: column;
+}
+
+#right_side header {
+	background: url(../img/texture.jpg);
+	color: #e6e6e6;
+    display: flex;
+	justify-content: space-between;
+    align-items: center;
+}
+
+#right_side header {
+    min-height: 90px;
+    padding: 0 10px;
+}
+
+#contents {
+	flex: 1;
+    display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+/* Supervisors page / first row: address boxes */
+#box_part {
+	flex: 1;
+    display: flex;
+	justify-content: space-around;
+    flex-wrap: wrap;
+    margin: 5px;
+}
+
+/* Address page / first row: process and statistics */
+#process_part {
+	flex: 1;
+    display: flex;
+	justify-content: space-around;
+    margin: 5px;
+}
+
+#process_left_side {
+    flex: 1;
+    display: flex;
+	flex-direction: column;
+    margin-right: 5px;
+}
+
+#messageBox {
+    width: 98%;
+	font-size: 0.9em;
+}
+
+#processes {
+	flex: 1;
+    display: flex;
+	overflow: auto;
+	color: #111;
+	font-family: Verdana, Arial, sans-serif;
+	text-align: justify;
+}
+
+#process_right_side {
+    max-width: 500px;
+    display: flex;
+	flex-direction: column;
+    align-items: center;
+}
+
+/* second row: address statistics */
+#address_part {
+    max-height: 250px;
+    padding-top: 5px;
+    display: flex;
+	justify-content: space-around;
+    margin-top: 5px;
+    border-top: 3px #cc7a00 solid;
+}
+
+#address_part div {
+    display: flex;
+	flex-direction: column;
+	justify-content: space-around;
+}
+
+#address_part div:nth-child(1) {
+    margin-bottom: 5px;
+}
+
+
+/*
+ * Resource design
+*/
+header, nav, footer {
+	padding: 5px;
+}
+
+header a, footer a {
+    color: #cc7a00;
+	text-decoration: none;
+}
+
+h1, h2, h3 {
+	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+}
+
+h1 {
+	font-size: 1.6em;
+}
+
+h2, h3 {
+	font-size: 1.2em;
+    margin: 0 0 8px 0;
+}
+
+h3 code {
+    display: inline-block;
+    padding: 5px 10px;
+    color: black;
+	font-size: 16px;
+	text-shadow: 3px 3px 6px black;
+    background: #e6e6e6;
+}
+
+nav ul, p {
+	font-size: .8em;
+}
+
+
+/*
+ * Blink Style
+ */
+.blink {
+    color: orangered;
+    animation: blinker 1.2s linear infinite;
+}
+
+@keyframes blinker {  
+  50% { opacity: 0.0; }
+}
+
+
+/*
+ * Figure style
+ */
+figure {
+    margin: 0;
+}
+
+figure img {
+    border: 1px solid black outset;
+    border-radius: 6px;
+    box-shadow: 4px 4px 6px black;
+}
+
+figcaption {
+	margin-top: 6px;
+	font-weight: bold;
+	font-style: italic;
+	text-align: center;
+	font-size: .8em;
+}
+
+
+/*
+ * Style for inline actions
+ */
+ul.linear, ul.vertical {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+ul.linear li {
+    display: inline;
+}
+
+ul.vertical li {
+    margin: 2px 0;
+}
+
+
+/*
+ * Style for operational status
+ */
+.status_empty, .status_green, .status_yellow, .status_red {
+	padding: 10px 100px 10px 2px;
+}
+
+.status_empty {
+    background: url(../img/leds_empty_30.png) no-repeat right;
+}
+
+.status_green {
+    background: url(../img/leds_green_30.png) no-repeat right;
+}
+
+.status_yellow{
+    background: url(../img/leds_yellow_30.png) no-repeat right;
+}
+
+.status_red {
+    background: url(../img/leds_red_30.png) no-repeat right;
+}
+
+
+/*
+ * Style for status message
+ */
+.info, .warn, .erro {
+    color: #eee;
+    padding: 5px;
+    margin: 5px auto;
+    border-radius: 10px;
+}
+
+.info {
+	background-image: linear-gradient(165deg, dodgerblue, #1a1a1a);
+    border: 1px blue inset;
+}
+
+.info::before {
+	content: url(../img/info_20.png) '\00a0';
+	float: left;
+}
+
+.warn {
+	background-image: linear-gradient(165deg, #f90, #1a1a1a);
+    border: 1px orange inset;
+}
+
+.warn::before {
+	content: url(../img/warn_20.png) '\00a0';
+	float: left;
+}
+
+.erro {
+	background-image: linear-gradient(165deg, orangered, #1a1a1a);
+    border: 1px red inset;
+}
+
+.erro::before {
+	content: url(../img/erro_20.png) '\00a0';
+	float: left;
+}
+
+
+/*
+ * Option style
+ */
+.button.active {
+    color: green;
+    font-weight: bold;
+}
+
+
+/*
+ * Master address style
+ */
+.master::after {
+	content: " \272A";
+}
+
+
+/*
+ * Common Table style
+ */
+table {
+	border-collapse: collapse;
+	caption-side: top;
+	background: rgba(200, 200, 200, .7);
+	margin: 0 auto;
+}
+
+caption {
+    padding-right: 4px;
+	font-size: .8em;
+	font-style: italic;
+}
+
+/* add border for all cells */
+th, td {
+	border: 1px solid black;
+    padding: 3px 5px;
+	font-size: .7em;
+}
+
+th {
+	background-color: #555;
+	color: #e6e6e6;
+}
+
+tr.shaded {
+	background-color: #ffc;
+}
+
+tr.selected {
+	background-color: #9f9;
+}
+
+/* fix first columns sizes (button actions have a fixed contents) */
+table .name {
+  width: 180px;
+}
+
+table .state {
+    width: 50px;
+}
+
+table .desc, table.addr {
+  width: 250px;
+}
+
+th a {
+	color: #e6e6e6;
+	text-decoration: none;
+}
+
+/* style for a table of processes */
+#processes th {
+	text-align: left;
+}
+
+#processes td:nth-child(2), #processes th:nth-child(2),
+#processes td:nth-child(n+4), #processes th:nth-child(n+4) {
+	text-align: center;
+}
+
+#processes td:nth-child(4) {
+	font-style: italic;
+}
+
+#address_part th, #address_part td,
+#process_right_side th, #process_right_side td {
+	text-align: center;
+    vertical-align:middle;
+}
+
+#application td:nth-child(2), #application td:nth-child(n+4) {
+	text-align: center;
+}
+
+
+/*
+ * Style for optionBox
+ */
+.optionBox {
+	border: 3px ridge black;
+	background: rgba(150, 150, 150, .7);
+}
+
+.optionBox th {
+	background: url(../img/texture.jpg);
+	text-align: center;
+}
+
+.optionBox ul {
+	text-align: center;
+}
+
+
+/*
+ * Style for addressBox (main page)
+ */
+.addressBox {
+    display: flex;
+    min-width: 200px;
+    max-width: 30%;
+    min-height: 150px;
+    height: 150px;
+}
+
+.addressBox table {
+    height: 100%;
+	border: 3px ridge black;
+}
+
+.addressBox th {
+    height: 18px;
+}
+
+.addressBox td:nth-child(1) {
+    vertical-align: top;
+}
+
+.addressBox tr {
+	background: rgba(100, 100, 100, .5);
+}
+
+.addressBox .button {
+	display: inline-block;
+	padding: 2px 4px;
+    margin-bottom: 4px;
+	background-color: orange;
+	border-radius: 6px;
+	cursor: default;
+}
+
+.addressBox td:nth-child(2) {
+	text-align: center;
+}
+
+
+/*
+ * State gradients
+ */
+table .UNKNOWN {
+	background-image: linear-gradient(165deg, grey, white);
+}
+
+table .STOPPED, table .EXITED, table .SILENT {
+    background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
+}
+
+table .STARTING, table .BACKOFF {
+	background-image: linear-gradient(165deg, #cc0, green, white);
+}
+
+table .STOPPING {
+	background-image: linear-gradient(165deg, green, #cc0, white);
+}
+
+table .RUNNING {
+	background-image: linear-gradient(165deg, white, green, green, white);
+}
+
+table .FATAL, table .ISOLATED {
+	background-image: linear-gradient(165deg, white, red, red, white);
+}
+
+nav .UNKNOWN {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
+}
+
+nav .UNKNOWN.active {
+	background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
+}
+
+nav .STOPPED, nav .SILENT {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
+}
+
+nav .STOPPED.active {
+	background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
+}
+
+nav .RUNNING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
+}
+
+nav .RUNNING.active {
+	background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
+}
+
+nav .ISOLATED {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
+}
+
+nav .STARTING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
+}
+
+nav .STARTING.active {
+	background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
+}
+
+nav .STOPPING {
+	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
+}
+
+nav li.STOPPING.active {
+	background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
+}
+
+
+/*
+ * Increase / Stable / Decrease styles
+ */
+.increase {
+	color: red;
+}
+
+.increase::after {
+	content: "\2197";
+}
+
+.stable {
+	color: blue;
+}
+
+.stable::after {
+	content: "\219d";
+}
+
+.decrease {
+	color: green;
+}
+
+.decrease::after {
+	content: "\2198";
+}

@@ -380,7 +380,8 @@ class RPCInterface(object):
 
     def get_internal_process_rules(self, process):
         rules = process.rules
-        return {'process_name': process.namespec(), 'addresses': rules.addresses, 'sequence': rules.sequence,
+        return {'process_name': process.namespec(), 'addresses': rules.addresses,
+            'start_sequence': rules.start_sequence, 'stop_sequence': rules.stop_sequence,
             'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading}
 
     def send_addresses_func(self, func):
