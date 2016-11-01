@@ -1,0 +1,12 @@
+#include CHANGES.txt
+include LICENSE
+include README.rst
+include supervisors/version.txt
+graft supervisors/rsc
+graft supervisors/doc
+graft supervisors/ui
+include supervisors/ui/css
+include supervisors/ui/fonts
+include supervisors/ui/img
+prune supervisors/rsc/img/ref
+
