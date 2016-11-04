@@ -13,23 +13,24 @@
 		<div id="left_side">
 			<header>
 				<h1><a href="#github">Supervisors</a></h1>
-				<p class="version">0.1 beta</p>
+				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
 				<ul>
 	 				<li><a href="index.html">Introduction</a></li>
-               <li><a href="configuration.html" class="active">Configuration</a><ul>
-               	<li><a href="#supervisor-config">Supervisor Configuration</a><ul>
-               		<li><a href="#supervisor-ext">Extension points</a></li>
-               		<li><a href="#supervisors-section">Supervisors section</a></li>
-               	</ul></li>
-               	<li><a href="#deployment-file">Deployment File</a></li>
-               </ul></li>
-               <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
-               <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
-               <li><a href="design.html">Software Design</a></li>
-             </ul>
+                    <li><a href="configuration.html" class="active">Configuration</a><ul>
+               	        <li><a href="#supervisor-config">Supervisor Configuration</a><ul>
+               		        <li><a href="#supervisor-ext">Extension points</a></li>
+               		        <li><a href="#supervisors-section">Supervisors section</a></li>
+               	        </ul></li>
+               	        <li><a href="#deployment-file">Deployment File</a></li>
+                    </ul></li>
+                    <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
+                    <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="dashboard.html">HTTP Dashboard</a></li>
+                    <li><a href="design.html">Software Design</a></li>
+                </ul>
 			</nav>
 
 			<footer>
@@ -64,52 +65,67 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 					</thead>
 					<tbody>
 						<tr>
-							<td><span class="option">addresslist</span></td>
+							<td><span class="option">address_list</span></td>
 							<td>yes</td>
 							<td></td>
-							<td>list of host names or IP addresses where supervisors will be running</td>
+							<td>List of host names or IP addresses where supervisors will be running.</td>
 						</tr>
 						<tr>
 							<td><span class="option">deployment_file</span></td>
 							<td>no</td>
 							<td></td>
-							<td>absolute or relative path of the XML deployment file</td>
+							<td>Absolute or relative path of the XML deployment file.</td>
 						</tr>
 						<tr>
-							<td><span class="option">auto_fencing</span></td>
+							<td><span class="option">auto_fence</span></td>
 							<td>no</td>
 							<td>false</td>
-							<td>when true, Supervisors won't try to reconnect to a Supervisors instance that has been inactive.</td>
+							<td>When true, Supervisors won't try to reconnect to a Supervisors instance that has been inactive.</td>
 						</tr>
 						<tr>
-							<td><span class="option">internalport</span></td>
+							<td><span class="option">internal_port</span></td>
 							<td>no</td>
 							<td>65001</td>
-							<td>port number used to publish local events to remote Supervisors instances</td>
+							<td>Port number used to publish local events to remote Supervisors instances.</td>
 						</tr>
 						<tr>
-							<td><span class="option">eventport</span></td>
+							<td><span class="option">event_port</span></td>
 							<td>no</td>
 							<td>65002</td>
-							<td>port number used to publish all Supervisors events (PROCESS + APPLICATION + HOST). <span class="not-implemented-yet"></span></td>
+							<td>Port number used to publish all Supervisors events (PROCESS + APPLICATION + HOST).</td>
 						</tr>
 						<tr>
 							<td><span class="option">synchro_timeout</span></td>
 							<td>no</td>
 							<td>15</td>
-							<td>time in seconds that Supervisors waits for all expected Supervisors instances to publish</td>
+							<td>Time in seconds that Supervisors waits for all expected Supervisors instances to publish.</td>
 						</tr>
 						<tr>
 							<td><span class="option">deployment_strategy</span></td>
 							<td>no</td>
 							<td>CONFIG</td>
-							<td>strategy used to start applications on addresses. values in { <code>CONFIG</code>, <code>LESS_LOADED</code>, <code>MOST_LOADED</code> } <a href="#deployment-note" class="intLink">details</a></td>
+							<td>Strategy used to start applications on addresses.<br />Value in { <code>CONFIG</code>, <code>LESS_LOADED</code>, <code>MOST_LOADED</code> } <a href="#deployment-note" class="intLink">details</a>.</td>
 						</tr>
 						<tr>
 							<td><span class="option">conciliation_strategy</span></td>
 							<td>no</td>
 							<td>USER</td>
-							<td>strategy used to solve conflicts when detected when multiple instances of the same program are <code>RUNNING</code>. values in { <code>SENICIDE</code>, <code>INFANTICIDE</code>, <code>USER</code>, <code>STOP</code>, <code>RESTART</code> } <a href="#conciliation-note" class="intLink">details</a></td>
+							<td>Strategy used to solve conflicts when detected when multiple instances of the same program are <code>RUNNING</code>.<br />Value in { <code>SENICIDE</code>, <code>INFANTICIDE</code>, <code>USER</code>, <code>STOP</code>, <code>RESTART</code> } <a href="#conciliation-note" class="intLink">details</a>.</td>
+						</tr>
+						<tr>
+							<td colspan="4" class="tableInfo">Supervisors options for the web page</td>
+						</tr>
+						<tr>
+							<td><span class="option">stats_period</span></td>
+							<td>no</td>
+							<td>10</td>
+							<td>List of periods for which the statistics will be provided in the Supervisors web page.<br />Up to 3 values allowed in [5 ; 3600] seconds, each of them MUST be a multiple of 5.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stats_histo</span></td>
+							<td>no</td>
+							<td>200</td>
+							<td>Depth of statistics history. Value in [10 ; 1500].</td>
 						</tr>
 						<tr>
 							<td colspan="4" class="tableInfo">Logging options, identical to <a href="http://supervisord.org/configuration.html#supervisord-section-values" class="extLink">Supervisor's</a></td>
@@ -118,25 +134,25 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td><span class="option">logfile</span></td>
 							<td>no</td>
 							<td>supervisors.log</td>
-							<td>absolute or relative path of the Supervisors log file</td>
+							<td>Absolute or relative path of the Supervisors log file.</td>
 						</tr>
 						<tr>
 							<td><span class="option">logfile_maxbytes</span></td>
 							<td>no</td>
 							<td>50MB</td>
-							<td>maximum size of the Supervisors log file</td>
+							<td>Maximum size of the Supervisors log file.</td>
 						</tr>
 						<tr>
 							<td><span class="option">logfile_backups</span></td>
 							<td>no</td>
 							<td>10</td>
-							<td>number of Supervisors backup log files</td>
+							<td>Number of Supervisors backup log files.</td>
 						</tr>
 						<tr>
 							<td><span class="option">loglevel</span></td>
 							<td>no</td>
 							<td>info</td>
-							<td>logging level</td>
+							<td>Logging level.</td>
 						</tr>
 					</tbody>
 				</table>
@@ -177,21 +193,40 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td>Name of the application. A Supervisor group name is expected.</td>
 						</tr>
 						<tr>
-							<td><span class="option">sequence</span></td>
+							<td><span class="option">autostart</span></td>
 							<td>element</td>
 							<td>0, 1</td>
-							<td>-1</td>
-							<td>Starting order of the application when automatic deployment is starting.<br />
-							If set to -1, application is not automatically started.<br />
-							When >= 0, application is started automatically in the order specified.<br />
-							<span class="not-implemented-yet"></span> Only -1 and 0 values are application for the moment.</td>
+							<td>false</td>
+							<td>If true, the application is started automatically when automatic deployment is starting.<br />
+							<strong>This option will be removed and replaced by the following options: <span class="option">start_sequence</span> and <span class="option">stop_sequence</span></strong></td>
+						</tr>
+						<tr>
+							<td><span class="option">start_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td>span class="not-implemented-yet"></span><br />
+							Starting order of the application when automatic deployment is starting.<br />
+							If set to 0, application is not automatically started.<br />
+							When > 0, application is started automatically in the order specified.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stop_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td><span class="not-implemented-yet"></span><br />
+							Stopping order of the application when Supervisors is shutdown.<br />
+							If set to 0, Supervisors does nothing and let Supervisor do the job.<br />
+							When > 0, Supervisors stops the application in the order specified, BEFORE the shutdown of Supervisor is requested.</td>
 						</tr>
 						<tr>
 							<td><span class="option">starting_failure_strategy</span></td>
 							<td>element</td>
 							<td>0, 1</td>
 							<td>ABORT</td>
-							<td><span class="not-implemented-yet"></span>Strategy applied upon a major failure in the starting phase. Values among:<ul>
+							<td><span class="not-implemented-yet"></span><br />
+							Strategy applied upon a major failure in the starting phase. Values among:<ul>
 								<li>ABORT: Abort the application starting.</li>
 								<li>STOP: Stop the application.</li>
 								<li>CONTINUE: Skip the failure and continue the application starting.</li></ul>
@@ -202,7 +237,8 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td>element</td>
 							<td>0, 1</td>
 							<td>CONTINUE</td>
-							<td><span class="not-implemented-yet"></span>Strategy applied upon a major failure in the running phase. Values among:<ul>
+							<td><span class="not-implemented-yet"></span><br />
+							Strategy applied upon a major failure in the running phase. Values among:<ul>
 								<li>CONTINUE: Skip the failure. The application stays with the major failure.</li>
 								<li>STOP: Stop the application.</li>
 								<li>RESTART: Restart the application.</li></ul>
@@ -278,13 +314,23 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							TBC: However, in case of warm restart, it also gives a priority for restarting processes, i.e. required processes are always restarted before 'optional' processes.</td>
 						</tr>
 						<tr>
-							<td><span class="option">sequence</span></td>
+							<td><span class="option">start_sequence</span></td>
 							<td>element</td>
 							<td>0, 1</td>
-							<td>-1</td>
+							<td>0</td>
 							<td>Starting order of the program when application is starting.<br />
-							If set to -1, program is not automatically started.<br />
-							When >= 0, program is started automatically in the order specified.</td>
+							If set to 0, program is not automatically started.<br />
+							When > 0, program is started automatically in the order specified.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stop_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td><span class="not-implemented-yet"></span><br />
+							Stopping order of the program when application is stopping.<br />
+							If set to 0, program is stopped immediately.<br />
+							When > 0, program is stopped in the order specified.</td>
 						</tr>
 						<tr>
 							<td><span class="option">wait_exit</span></td>
@@ -316,7 +362,7 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 				<pre><code class="xml">&lt;model name="X11_model"&gt;
 	&lt;addresses&gt;192.168.0.10 192.168.0.12 sample03&lt;/addresses&gt;
 	&lt;required&gt;true&lt;/required&gt;
-	&lt;sequence&gt;1&lt;/sequence&gt;
+	&lt;start_sequence&gt;1&lt;/start_sequence&gt;
 	&lt;wait_exit&gt;false&lt;/wait_exit&gt;
 	&lt;loading&gt;3&lt;/loading&gt;
 &lt;/model&gt;</code></pre>

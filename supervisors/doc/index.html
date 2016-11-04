@@ -13,7 +13,7 @@
 		<div id="left_side">
 			<header>
 				<h1><a href="#github">Supervisors</a></h1>
-				<p class="version">0.1 beta</p>
+				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
@@ -27,6 +27,7 @@
                <li><a href="configuration.html">Configuration</a></li>
                <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
                <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+               <li><a href="dashboard.html">HTTP Dashboard</a></li>
                <li><a href="design.html">Software Design</a></li>
              </ul>
 			</nav>
@@ -84,23 +85,55 @@
 				<p>Supervisors works with Python 2.7 or later but will not work under any version of Python 3.</p>
 
 				<h2 id="install">Installation</h2>
-				<p>Packaging <span class="not-implemented-yet"></span></p>
-				<p>Temporary: get a copy of the supervisors directory from <a href="#github" class="extLink">here</a> and export to <code class="bash">PYTHONPATH</code> before running Supervisor</p>
-				<p>Supervisors has the following dependencies:</p>
-                <p>TODO: replace list with table of full dependencies and versions used. talk about problems if necessary</p>
-				<ul>
-					<li><a href="http://supervisord.org" class="extLink">Supervisor</a>: base software, extended by Supervisors. version 3.3.0 + elttree 1.2.6 + meld3 0.6.5</li>
-					<li><a href="http://pyzmq.readthedocs.io" class="extLink">PyZMQ</a>: used for TCP publish / subscribe pattern. version 15.2.0 over zeromq 4.1.2</li>
-					<li><a href="https://pypi.python.org/pypi/psutil" class="extLink">psutil</a>: used to get information about running processes and system utilization. version 4.3.0</li>
-					<li><a href="https://pypi.python.org/pypi/netifaces" class="extLink">netifaces</a>: used to get IPv4 aliases from host name. version 0.10.4</li>
-					<li><a href="http://lxml.de" class="extLink">lxml</a>: for XSD validation of the XML deployment file (optional). version 3.2.1</li>
-					<li><a href="http://matplotlib.org" class="extLink">mathplotlib</a>: for web graphs (optional). version 1.2.0</li>
-				</ul>
+				<p>The following dependencies are required before you install Supervisors:<br />fix size in CSS</p>
+				<table>
+					<caption>Supervisors dependencies</caption>
+					<tr><th>Dependency</th><th>Version</th><th>Comment</th>
+					<tr>
+					    <td><a href="http://supervisord.org" class="extLink">Supervisor</a></td>
+					    <td>3.3.0</td>
+					    <td>Base software, extended by Supervisors</td>
+					</tr>
+					<tr>
+					    <td><a href="http://zeromq.org" class="extLink">ZeroMQ</a></td>
+					    <td>4.1.2</td>
+					    <td>TCP publish / subscribe pattern</td>
+					</tr>
+					<tr>
+					    <td><a href="http://pyzmq.readthedocs.io" class="extLink">PyZMQ</a></td>
+					    <td>15.2.0</td>
+					    <td>Python binding of ZeroMQ</td>
+					</tr>
+					<tr>
+					    <td><a href="https://pypi.python.org/pypi/psutil" class="extLink">psutil</a></td>
+					    <td>4.3.0</td>
+					    <td>Get information about running processes and system utilization</td>
+					</tr>
+					<tr>
+					    <td><a href="https://pypi.python.org/pypi/netifaces" class="extLink">netifaces</a></td>
+					    <td>0.10.4</td>
+					    <td>Get IPv4 aliases from host name</td>
+					</tr>
+					<tr>
+					    <td><a href="http://matplotlib.org" class="extLink">matplotlib</a></td>
+					    <td>1.2.0</td>
+					    <td>Create graphs for Supervisors web page</td>
+					</tr>
+					<tr>
+					    <td><a href="http://lxml.de" class="extLink">lxml</a></td>
+					    <td>3.2.1</td>
+					    <td>XSD validation of the XML deployment file (optional)</td>
+					</tr>
+				</table>
+
+				<p>Get the latest release from <a href="https://github.com/julien6387/supervisors/releases" class="extLink">here</a>, unzip the archive and enter the directory supervisors-<em>version</em>.<br />
+				Install Supervisors with the following command:</p>
+                <pre><code class="bash">[bash] > python setup.py install</code></pre>
 
 				<h2 id="run">Running Supervisors</h2>
-				<p>Same principle as <a href="http://supervisord.org/running.html" class="extLink">Running Supervisor</a> but using multiple UNIX-like operating systems.</p>
+				<p>Supervisors runs as a plugin of Supervisor so it follows the same principle as <a href="http://supervisord.org/running.html" class="extLink">Running Supervisor</a> but using multiple UNIX-like operating systems. However, the supervisor configuration file MUST be updated to include the supervisors section (refer to the <a href="configuration.html" class="intLink">Configuration</a> part).</p>
 				<p>Note that a script may be required to start Supervisor on several addresses if not configured to run automatically at startup (ssh loop for example).<br />
-				All Supervisor instances should be started during a given lap of time (configuration is explained later) so that Supervisors works as expected.</p>
+				All Supervisor instances should be started during a given lap of time so that Supervisors works as expected.</p>
 			</section>
 
 		</div>

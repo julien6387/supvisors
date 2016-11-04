@@ -16,8 +16,9 @@ Supervisors is known to work with Python 2.7 or later but will not work under an
 Documentation
 -------------
 
-You can view the current Supervisors documentation in the supervisors/doc directory of the release.
+You can view the current Supervisors documentation in the **supervisors/doc** directory of the release.
 You will find detailed installation and configuration documentation.
+For the moment, the CSS is Firefox-compliant only.
 
 Reporting Bugs and Viewing the Source Repository
 ---------------------------------------------------------------

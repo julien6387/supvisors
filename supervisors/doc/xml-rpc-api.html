@@ -13,22 +13,23 @@
 		<div id="left_side">
 			<header>
 				<h1><a href="#github">Supervisors</a></h1>
-				<p class="version">0.1 beta</p>
+				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
 				<ul>
 	 				<li><a href="index.html">Introduction</a></li>
-               <li><a href="configuration.html">Configuration</a></li>
-               <li><a href="xml-rpc-api.html" class="active">XML-RPC API</a><ul>
-               	<li><a href="#status">Status</a></li>
-               	<li><a href="#supervisors">Supervisors Control</a></li>
-                  <li><a href="#application">Application Control</a></li>
-                  <li><a href="#process">Process Control</a></li>
-               </ul></li>
-               <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
-               <li><a href="design.html">Software Design</a></li>
-             </ul>
+                    <li><a href="configuration.html">Configuration</a></li>
+                    <li><a href="xml-rpc-api.html" class="active">XML-RPC API</a><ul>
+               	        <li><a href="#status">Status</a></li>
+               	        <li><a href="#supervisors">Supervisors Control</a></li>
+                        <li><a href="#application">Application Control</a></li>
+                        <li><a href="#process">Process Control</a></li>
+                    </ul></li>
+                    <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="dashboard.html">HTTP Dashboard</a></li>
+                    <li><a href="design.html">Software Design</a></li>
+                </ul>
 			</nav>
 
 			<footer>
@@ -76,12 +77,12 @@
 					<dd>@throws RPCError: with code <code>Faults.BAD_ADDRESS</code> if address is unknown to Supervisors
 					<dd>@return struct: a structure containing data about the remote Supervisors instances
 						<table>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'address'</code></td><td>address of the Supervisors instance<br />string</td></tr>
-							<tr><td><code>'state'</code></td><td>state of the Supervisors instance<br />string among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }</td></tr>
-							<tr><td><code>'remoteTime'</code></td><td>date of the last heartbeat received from the Supervisors instance, in the remote reference time<br />integer in miliseconds</td></tr>
-							<tr><td><code>'localTime'</code></td><td>date of the last heartbeat received from the Supervisors instance, in the local reference time<br />integer in miliseconds</td></tr>
-							<tr><td><code>'loading'</code></td><td>sum of the expected loading of the processes running on the address<br />integer in [0 ; 100]</td></tr>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'address'</code></td><td>str</td><td></td><td></td><td>Address of the Supervisors instance.</td></tr>
+							<tr><td><code>'state'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'RUNNING'</code><br /><code>'SILENT'</code><br /><code>'ISOLATING'</code><br /><code>'ISOLATED'</code></td><td>State of the Supervisors instance.</td></tr>
+							<tr><td><code>'remote_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supervisors instance, in the remote reference time.</td></tr>
+							<tr><td><code>'local_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supervisors instance, in the local reference time.</td></tr>
+							<tr><td><code>'loading'</code></td><td>int</td><td>%</td><td>[0;100]</td><td>Sum of the expected loading of the processes running on the address.</td></tr>
 						</table>
 					</dd>
 
@@ -98,11 +99,11 @@
 					</ul></dd>
 					<dd>@return struct: a structure containing data about the application
 						<table>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'applicationName'</code></td><td>name of the application<br />string</td></tr>
-							<tr><td><code>'state'</code></td><td>state of the application<br />string among { <code>'UNKNOWN'</code>, <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'STOPPING'</code>, <code>'RUNNING'</code> }</td></tr>
-							<tr><td><code>'majorFailure'</code></td><td>True if at least one required process is not started<br />boolean</td></tr>
-							<tr><td><code>'minorFailure'</code></td><td>True if at least one optional process could not be started<br />boolean</td></tr>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'application_name'</code></td><td>str</td><td></td><td></td><td>Name of the application.</td></tr>
+							<tr><td><code>'state'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'STOPPED'</code><br /><code>'STARTING'</code><br /><code>'STOPPING'</code><br /><code>'RUNNING'</code></td><td>State of the application.</td></tr>
+							<tr><td><code>'major_failure'</code></td><td>bool</td><td></td><td></td><td>True if at least one required process is not started.</td></tr>
+							<tr><td><code>'minor_failure'</code></td><td>bool</td><td></td><td></td><td>True if at least one optional process could not be started.</td></tr>
 						</table>
 					</dd>
 
@@ -121,11 +122,11 @@
 					</ul></dd>
 					<dd>@return list: a list of structures containing data about the processes
 						<table>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'processName'</code></td><td>namespec of the process<br />string</td></tr>
-							<tr><td><code>'state'</code></td><td>state of the process<br />string</td></tr>
-							<tr><td><code>'address'</code></td><td>list of all addresses where the process is running<br />
-							if more than one element in list, consider that a conflict is in progress<br />list of string</td></tr>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'state'</code></td><td>str</td><td></td><td></td><td>State of the process.</td></tr>
+							<tr><td><code>'address'</code></td><td>list(str)</td><td></td><td></td><td>List of all addresses where the process is running.<br />
+							If more than one element in list, consider that a conflict is in progress.</td></tr>
 						</table>
 					</dd>
 
@@ -138,13 +139,14 @@
 					</ul></dd>
 					<dd>@return list: a list of structures containing data about the deployment rules
 						<table>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'processName'</code></td><td>namespec of the process<br />string</td></tr>
-							<tr><td><code>'addresses'</code></td><td>list of all addresses where the process can be started<br />list of string</td></tr>
-							<tr><td><code>'sequence'</code></td><td>starting order of the process when starting the related application<br />integer</td></tr>
-							<tr><td><code>'required'</code></td><td>importance of the process in the application<br />boolean</td></tr>
-							<tr><td><code>'wait_exit'</code></td><td>True if Supervisors has to wait for the process to exit before triggering the next deployment phase<br />boolean</td></tr>
-							<tr><td><code>'loading'</code></td><td>expected loading of the process when <code>RUNNING</code><br />integer in [0 ; 100]</td></tr>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'addresses'</code></td><td>list(str)</td><td></td><td></td><td>List of all addresses where the process can be started.</td></tr>
+							<tr><td><code>'start_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Starting order of the process when starting the related application.</td></tr>
+							<tr><td><code>'stop_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Stopping order of the process when stopping the related application.</td></tr>
+							<tr><td><code>'required'</code></td><td>bool</td><td></td><td></td><td>Importance of the process in the application.</td></tr>
+							<tr><td><code>'wait_exit'</code></td><td>bool</td><td></td><td></td><td>True if Supervisors has to wait for the process to exit before triggering the next deployment phase.</td></tr>
+							<tr><td><code>'loading'</code></td><td>int</td><td></td><td>[0;100]</td><td>Expected loading of the process when <code>RUNNING</code>.</td></tr>
 						</table>
 					</dd>
 
@@ -153,11 +155,11 @@
 					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return list: a list of structures containing data about the conflicting processes
 						<table>
-							<tr><th>Key</th><th>Value</th></tr>
-							<tr><td><code>'processName'</code></td><td>namespec of the process<br />string</td></tr>
-							<tr><td><code>'state'</code></td><td>state of the process<br />string</td></tr>
-							<tr><td><code>'address'</code></td><td>list of all addresses where the process is running<br />
-							if more than one element in list, consider that a conflict is in progress<br />list of string</td></tr>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'state'</code></td><td>str</td><td>State of the process.</td></tr>
+							<tr><td><code>'address'</code></td><td>list(str)</td><td>List of all addresses where the process is running.<br />
+							If more than one element in list, consider that a conflict is in progress.</td></tr>
 						</table>
 					</dd>
 				</dl>

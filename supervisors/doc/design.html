@@ -13,7 +13,7 @@
 		<div id="left_side">
 			<header>
 				<h1><a href="#github">Supervisors</a></h1>
-				<p class="version">0.1 beta</p>
+				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
@@ -22,6 +22,7 @@
                <li><a href="configuration.html">Configuration</a></li>
                <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
                <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+               <li><a href="dashboard.html">HTTP Dashboard</a></li>
                <li><a href="design.html" class="active">Software Design</a><ul>
                	<li><a href="#design-supervisord">Extending supervisord</a><ul>
                	   <li><a href="#data-model">Data Model</a></li>
@@ -34,9 +35,9 @@
                      <li><a href="#failure">Process Failure</a></li>
                      <li><a href="#conciliation">Conciliation</a></li>
                      <li><a href="#external-io">External Interfaces</a></li>
+                     <li><a href="#design-web-ext">Replacing the web pages</a></li>
                   </ul></li>
                   <li><a href="#design-supervisorctl">Extending supervisorctl</a></li>
-                  <li><a href="#design-web-ext">Replacing the web pages</a></li>
                 </ul></li>
              </ul>
 			</nav>
@@ -65,11 +66,11 @@
 				More particularly, it contains the following information:</p>
 				<table class="modelTable">
 					<tr><th colspan="2"><code class="className">ProcessStatus</code></th></tr>
-					<tr><td><code class="attributeName">applicationName</code></td><td>name of the application that the process belongs to, in other words the Supervisor group</td></tr>
-					<tr><td><code class="attributeName">processName</code></td><td>name of the process, in other words the Supervisor program name</td></tr>
+					<tr><td><code class="attributeName">application_name</code></td><td>name of the application that the process belongs to, in other words the Supervisor group</td></tr>
+					<tr><td><code class="attributeName">process_name</code></td><td>name of the process, in other words the Supervisor program name</td></tr>
 					<tr><td><code class="attributeName">state</code></td><td>state of the process, as defined in <a href="http://supervisord.org/subprocess.html#process-states" class="extLink">Supervisor</a></td></tr>
-					<tr><td><code class="attributeName">expectedExit</code></td><td>status telling if the process has exited as expected, only makes sense when state is <code>EXITED</code></td></tr>
-					<tr><td><code class="attributeName">lastEventTime</code></td><td>date of the last process event received from Supervisor, in remote reference time</td></tr>
+					<tr><td><code class="attributeName">expected_exit</code></td><td>status telling if the process has exited as expected, only makes sense when state is <code>EXITED</code></td></tr>
+					<tr><td><code class="attributeName">last_event_time</code></td><td>date of the last process event received from Supervisor, in remote reference time</td></tr>
 					<tr><td><code class="attributeName">addresses</code></td><td>set of addresses where the process is in a <code>RUNNING</code> state<br />
 						0 or 1 value is expected<br />
 						if more that one value, a split-brain syndrome is happening</td></tr>
@@ -108,8 +109,8 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 						<tr><td><code>'start'</code></td><td>start time of the process, in remote reference time</td></tr>
 						<tr><td><code>'stop'</code></td><td>stop time of the process, in remote reference time</td></tr>
 						<tr><td><code>'now'</code></td><td>current time of the process, in remote reference time</td></tr>
-						<tr class="added-entry"><td><code>'localTime'</code></td><td>current time of the process, in local reference time</td></tr>
-						<tr class="added-entry"><td><code>'eventTime'</code></td><td>date of the last event received, in local reference time</td></tr>
+						<tr class="added-entry"><td><code>'local_time'</code></td><td>current time of the process, in local reference time</td></tr>
+						<tr class="added-entry"><td><code>'event_time'</code></td><td>date of the last event received, in local reference time</td></tr>
 						<tr class="added-entry"><td><code>'uptime'</code></td><td>age of the process</td></tr>
 						<tr><td><code>'state'</code></td><td>state of the process</td></tr>
 						<tr><td><code>'statename'</code></td><td>state of the process, as string</td></tr>
@@ -128,7 +129,7 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 				More particularly, it contains the following information:</p>
 				<table class="modelTable">
 					<tr><th colspan="2"><code class="className">ApplicationStatus</code></th></tr>
-					<tr><td><code class="attributeName">applicationName</code></td><td>name of the application, in other words the Supervisor group</td></tr>
+					<tr><td><code class="attributeName">application_name</code></td><td>name of the application, in other words the Supervisor group</td></tr>
 					<tr><td><code class="attributeName">state</code></td><td>state of the application, among:<ul>
 							<li><code>UNKNOWN</code>: application state cannot be determined (initial state)</li>
 							<li><code>STOPPED</code>: all processes are in <code>STOPPED_STATES</code></li>
@@ -136,9 +137,9 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 							<li><code>STOPPING</code>: at least one process is <code>STOPPING</code> and none is <code>STARTING</code> or <code>BACKOFF</code></li>
 							<li><code>RUNNING</code>: at least one process is <code>RUNNING</code> and none is <code>STARTING</code>, <code>BACKOFF</code> or <code>STOPPING</code></li>
 						</ul></td></tr>
-					<tr><td><code class="attributeName">majorFailure</code></td><td>indicates a required process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
+					<tr><td><code class="attributeName">major_failure</code></td><td>indicates a required process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
 					In this case, the application is not operational.</td></tr>
-					<tr><td><code class="attributeName">minorFailure</code></td><td>indicates an optional process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
+					<tr><td><code class="attributeName">minor_failure</code></td><td>indicates an optional process is in <code>FATAL</code> state or is unexpectedly <code>EXITED</code>.<br />
 					this status should not affect the operational status of the application.</td></tr>
 					<tr><td><code class="attributeName">processes</code></td><td>map of <code class="className">ProcessStatus</code> instances.<br />
 					key is <code class="attributeName">processName</code>.</td></tr>
@@ -155,11 +156,11 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 							<li><code>UNKNOWN</code>: not active yet, no heartbeat received in <code>INITIALIZATION</code> state (default).</li>
 							<li><code>RUNNING</code>: active, a heartbeat has been received in the last 10 seconds.</li>
 							<li><code>SILENT</code>: inactive, no heartbeat has been received in the last 10 seconds.</li>
-							<li><code>ISOLATING</code>: inactive Supervisors instance is marked for isolation when <a href="configuration.html#supervisors-section" class="intLink"><span class="option">auto-fencing</span></a> set to <code>True</code>.</li>
+							<li><code>ISOLATING</code>: inactive Supervisors instance is marked for isolation when <a href="configuration.html#supervisors-section" class="intLink"><span class="option">auto-fencing</span></a> is activated.</li>
 							<li><code>ISOLATED</code>: definitely disconnected, no more events expected anymore.</li>
 						</ul></td></tr>
-					<tr><td><code class="attributeName">remoteTime</code></td><td>date of the last heartbeart received in remote reference time</td></tr>
-					<tr><td><code class="attributeName">localTime</code></td><td>date of the last heartbeart received in local reference time</td></tr>
+					<tr><td><code class="attributeName">remote_time</code></td><td>date of the last heartbeart received in remote reference time</td></tr>
+					<tr><td><code class="attributeName">local_time</code></td><td>date of the last heartbeart received in local reference time</td></tr>
 				</table>
 
 				<figure>
@@ -191,18 +192,18 @@ parser.mysection = 'supervisors'</code></pre>
 				<h3 id="logging">Logging</h3>
 				<p>Supervisors uses the python module <code>supervisor.loggers</code> for logging.</p>
 				<pre><code class="python">from supervisor.loggers import getLogger
+LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
 stdout = supervisord.options.nodaemon
-loggerFormat = '%(asctime)s %(levelname)s %(message)s\n'
-logger = getLogger(logfile, loglevel, loggerFormat, True, logfile_maxbytes, logfile_backups, stdout)</code></pre>
+logger = getLogger(logfile, loglevel, LOGGER_FORMAT, True, logfile_maxbytes, logfile_backups, stdout)</code></pre>
 
 
 				<h3 id="supervisor-events">Supervisor events</h3>
 				<p>As Supervisors runs inside Supervisor, it makes it possible to collect events directly by subscribing to <code>supervisor.events</code> instead of using an event listener program.</p>
 				<pre><code class="python">from supervisor import events
-events.subscribe(events.SupervisorRunningEvent, self._runningListener)
-events.subscribe(events.SupervisorStoppingEvent, self._stoppingListener)
-events.subscribe(events.ProcessStateEvent, self._processListener)
-events.subscribe(events.Tick5Event, self._tickListener)</code></pre>
+events.subscribe(events.SupervisorRunningEvent, self.on_running)
+events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
+events.subscribe(events.ProcessStateEvent, self.on_process)
+events.subscribe(events.Tick5Event, self.on_tick)</code></pre>
 
 				<p>Upon notification of the <code class="python">events.SupervisorRunningEvent</code> event, the main loop thread of the Supervisors instance is started.<br />
 				This thread could not be started before (when extending Supervisor XML-RPC) because it would stop if supervisord daemonizes.</p>
@@ -224,7 +225,7 @@ events.subscribe(events.Tick5Event, self._tickListener)</code></pre>
 					<tr><td><code>'expected'</code></td><td>boolean indicating if the exit status is expected (only when state is <code>EXITED</code>)</td></tr>
 				</table>
 
-				<p>The messages are published using a ZeroMQ PUBLISH socket over a TCP socket bound on the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">internalport</span></a> defined in the Supervisor configuration file. They are sent in two parts:</p>
+				<p>The messages are published using a ZeroMQ PUBLISH socket over a TCP socket bound on the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">internal_port</span></a> defined in the Supervisor configuration file. They are sent in two parts:</p>
 				<ul>
 					<li>the header part, consisting in an unicode string identifying the message type,</li>
 					<li>the body part, consisting of a pair <code class="python">(localAddress, payload)</code>, where payload is the event contents, serialized with <em>pickle</em> (provided by <a href="http://pyzmq.readthedocs.io/en/latest/serialization.html" class="extLink">PyZMQ</a>).</li>
@@ -235,11 +236,11 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<div class="note">
 					<p>Note about the localAddress<p>
-					<p>When starting, the Supervisors instance has to determine its identity. More particularly, it has to find its own address among the list defined in the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">addresslist</span></a> option of the <code class="ini">[supervisors]</code> section in the <a href="configuration.html#supervisor-config" class="intLink">Supervisor configuration file</a>.<br />
-					So, the Supervisors instance gets the host name and all known IPv4 addresses of the host where it is running, excluding the loopback address. It is expected that one element of this list MUST be an element of the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">addresslist</span></a>. This element becomes the localAddress.</p>
+					<p>When starting, the Supervisors instance has to determine its identity. More particularly, it has to find its own address among the list defined in the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">address_list</span></a> option of the <code class="ini">[supervisors]</code> section in the <a href="configuration.html#supervisor-config" class="intLink">Supervisor configuration file</a>.<br />
+					So, the Supervisors instance gets the host name and all known IPv4 addresses of the host where it is running, excluding the loopback address. It is expected that one element of this list MUST be an element of the <a href="configuration.html#supervisors-section" class="intLink"><span class="option">address_list</span></a>. This element becomes the localAddress.</p>
 				</div>
 
-				<p>In Supervisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found in <a href="configuration.html#supervisors-section" class="intLink">addresslist</a> on the <a href="configuration.html#supervisors-section" class="intLink">internalport</a> defined in the Supervisor configuration file.<br />
+				<p>In Supervisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found in <a href="configuration.html#supervisors-section" class="intLink">address_list</a> on the <a href="configuration.html#supervisors-section" class="intLink">internal_port</a> defined in the Supervisor configuration file.<br />
 				The Supervisors main loop polls the Supervisors events coming from all addresses through this socket with a timeout of one second.<br />
 				Tick events are used to update the status of the <code class="className">RemoteStatus</code> instances.<br />
 				ProcessState events are used to update the status of the <code class="className">ProcessStatus</code> instances and consequently the related <code class="className">ApplicationStatus</code> instances.</p>
@@ -269,7 +270,7 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 				</figure>
 
 				<h4>INITIALIZATION state</h4>
-				<p>In the <code>INITIALIZATION</code> state, Supervisors waits for all Supervisors instances to be active. More particularly, heartbeat messages (or Tick events) are expected for every entry in the <a href="configuration.html#supervisors-section" class="intLink">addresslist</a>.</p>
+				<p>In the <code>INITIALIZATION</code> state, Supervisors waits for all Supervisors instances to be active. More particularly, heartbeat messages (or Tick events) are expected for every entry in the <a href="configuration.html#supervisors-section" class="intLink">address_list</a>.</p>
 
 				<table class="stateTable">
 					<tr><th colspan="2"><code>INITIALIZATION</code> state</th></tr>
@@ -384,7 +385,7 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<p>Whatever the strategy applied, there are common rules to choose an address to start a process:</p>
 				<ul>
-					<li>the address chosen shall be one of the <a href="configuration.html#supervisors-section" class="intLink">addresslist</a> defined in the Supervisors section of the Supervisor configuration file,</li>
+					<li>the address chosen shall be one of the <a href="configuration.html#supervisors-section" class="intLink">address_list</a> defined in the Supervisors section of the Supervisor configuration file,</li>
 					<li>the address chosen shall be one of the <a href="configuration.html#deployment-file" class="intLink">addresses</a> defined in the program section of the XML deployment file,</li>
 					<li>the <code class="className">RemoteStatus</code> representing this address shall be in <code>RUNNING</code>state,</li>
 					<li>the sum of the <a href="configuration.html#deployment-file" class="intLink">loading</a> values associated to the program considered and to all processes that are currently running on the address considered shall not exceed 100%.</li>
@@ -420,7 +421,7 @@ subProcess.give_up()</code></pre>
 
 				<h3 id="external-io">External Interfaces</h3>
 				<h4>Event Interface</h4>
-				<p><span class="not-implemented-yet"></span>The process events received in the main loop are re-published using a ZeroMQ PUBLISH socket over a TCP socket <strong>locally</strong> bound on the <a href="configuration.html#supervisors-section" class="intLink">eventport</a> defined in the Supervisor configuration file. The body is serialized with <em>json</em> instead of <em>pickle</em> (also provided by <a href="http://pyzmq.readthedocs.io/en/latest/serialization.html" class="extLink">PyZMQ</a>).</p>
+				<p><span class="not-implemented-yet"></span>The process events received in the main loop are re-published using a ZeroMQ PUBLISH socket over a TCP socket <strong>locally</strong> bound on the <a href="configuration.html#supervisors-section" class="intLink">event_port</a> defined in the Supervisor configuration file. The body is serialized with <em>json</em> instead of <em>pickle</em> (also provided by <a href="http://pyzmq.readthedocs.io/en/latest/serialization.html" class="extLink">PyZMQ</a>).</p>
 				<div class="note">
 					<p>Note about the Supervisors Event Interface<p>
 					<p>This is a local publication (bound on localhost). An applicative process can only subscribe to its co-located Supervisors instance.<br />
@@ -438,14 +439,26 @@ BAD_ADDRESS=102,
 BAD_STRATEGY=103</code></pre>
 
 
+				<h3 id="design-web">Replacing the web pages</h2>
+                <p>Supervisors uses the HTTP server created by Supervisor but replaces the main page. This is done by modifying dynamically the contents of the <code class="python">VIEWS</code> dictionary in the module <code class="python">supervisor.web</code>.</p>
+				<pre><code class="python">from supervisor.web import VIEWS
+here = path.abspath(path.dirname(__file__))
+# set main page
+VIEWS['index.html'] =  { 'template': path.join(here, 'ui/index.html'), 'view': SupervisorsView }
+# set address page
+VIEWS['address.html'] =  { 'template': path.join(here, 'ui/address.html'), 'view': AddressView }
+# set application page
+VIEWS['application.html'] =  { 'template': path.join(here, 'ui/application.html'), 'view': ApplicationView }
+# set fake page to export images
+VIEWS['process_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ProcessImageView }
+VIEWS['address_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': AddressImageView }</code></pre>
+                <p>The last two 'pages' are used to publish the contents of an image generated by <a href="http://matplotlib.org" class="extLink">matplotlib</a> through the HTTP server, and without writing anything on disk.</p>
+
+
 				<h2 id="design-supervisorctl">Extending supervisorctl</h2>
 				<p>The extension point provided in <a href="configuration.html#supervisor-ext" class="intLink">Supervisor configuration file</a> adds a plugin to the existing supervisorctl.<br />
 				The <code class="className">ControllerPlugin</code> class in the module <code class="python">supervisors.supervisorctl</code> was inspired by the <code class="className">DefaultControllerPlugin</code> class in the module <code class="python">supervisor.supervisorctl</code>.</p>
 				<p>The additional supervisorctl commands provided by Supervisors are described <a href="supervisorctl-api.html" class="intLink">here</a>.</p>
-
-
-				<h2 id="design-web">Replacing the web pages</h2>
-				<p><span class="not-implemented-yet"></span></p>
 
 			</section>
 
