@@ -38,7 +38,7 @@ class AddressView(StatusView, ViewHandler):
     def __init__(self, context):
         StatusView.__init__(self, context)
         self.supervisors = self.context.supervisord.supervisors
-        supervisors_short_cuts(self, ['logger'])
+        supervisors_short_cuts(self, ['logger', 'requester'])
         self.address = self.supervisors.address_mapper.local_address
 
     def render(self):
@@ -282,16 +282,14 @@ class AddressView(StatusView, ViewHandler):
 
     def restart_sup_action(self):
         """ Restart the local supervisor """
-        # FIXME: restart unknown
-        restart(self.address)
+        self.requester.restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shutdown the local supervisor """
-        # FIXME: shutdown unknown
-        shutdown(self.address)
+        self.requester.shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')
 
