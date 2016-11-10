@@ -132,21 +132,24 @@ class Context(object):
                 application = ApplicationStatus(application_name, self.logger)
                 self.supervisors.parser.load_application_rules(application)
                 self.applications[application_name] = application
+        # get AddressStatus corresponding to address
+        status = self.addresses[address]
         # store processes into their application entry
         for info in all_info:
             try:
                 process = self.process_from_info(info)
             except KeyError:
-                # not found. add new instance to dictionary
+                # not found. add new ProcessStatus instance to dictionary and application
                 process = ProcessStatus(address, info, self.logger)
                 self.supervisors.parser.load_process_rules(process)
                 self.processes[process.namespec()] = process
-                # share the instance to the application and the Supervisor instance that holds it
-                self.addresses[address].add_process(process)
                 self.applications[process.application_name].add_process(process)
             else:
                 # update current entry
                 process.add_info(address, info)
+            finally:
+                # share the instance to the Supervisor instance that holds it
+                status.add_process(process)
 
     # methods on events
     def check_address(self, status):
