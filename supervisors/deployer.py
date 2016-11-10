@@ -32,7 +32,10 @@ class Deployer(object):
     """ Class handling the starting of processes and applications.
     Attributes are:
     - strategy: the deployment strategy applied, defaulted to the value set in the Supervisor configuration file,
-    - planned_jobs: a dictionary of processes to be started, grouped by application name and sequence order,
+    - planned_sequence: the applications to be started, as a dictionary of processes,
+        grouped by application sequence order, application name and process sequence order,
+    - planned_jobs: the current sequence of applications to be started,
+        as a dictionary of processes, grouped by application name and process sequence order,
     - current_jobs: a dictionary of starting processes, grouped by application name. """
 
     def __init__(self, supervisors):
@@ -43,7 +46,8 @@ class Deployer(object):
         supervisors_short_cuts(self, ['logger'])
         #attributes
         self._strategy = supervisors.options.deployment_strategy
-        self.planned_jobs = {} # {application_name: {sequence: [process]}}
+        self.planned_sequence = {} # {application_sequence: {application_name: {process_sequence: [process]}}}
+        self.planned_jobs = {} # {application_name: {process_sequence: [process]}}
         self.current_jobs = {} # {application_name: [process]}
 
     @property
@@ -59,11 +63,12 @@ class Deployer(object):
 
     def in_progress(self):
         """ Return True if there are jobs planned or in progress. """
-        self.logger.debug('deployment progress: jobs={} inProgress={}'.format(self.printable_planned_jobs(), self.printable_current_jobs()))
-        return len(self.planned_jobs) or len(self.current_jobs)
+        self.logger.debug('deployment progress: planned_sequence={} planned_jobs={} current_jobs={}'.format(
+            self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
+        return len(self.planned_sequence) or len(self.planned_jobs) or len(self.current_jobs)
 
     def deploy_applications(self, applications):
-        """ Plan and start the necessary jobs to start all the applications ahving an autostart status.
+        """ Plan and start the necessary jobs to start all the applications having a start_sequence.
         It uses the default strategy, as defined in the Supervisor configuration file. """
         self.logger.info('deploy all applications')
         # internal call: default strategy always used
@@ -71,7 +76,7 @@ class Deployer(object):
         # deployment initialization: push program list in todo list
         for application in applications:
             # do not deploy an application that is not properly STOPPED
-            if application.state == ApplicationStates.STOPPED and application.rules.autostart:
+            if application.state == ApplicationStates.STOPPED and application.rules.start_sequence > 0:
                 self.get_application_deployment(application)
         # start work
         self.initial_jobs()
@@ -84,6 +89,8 @@ class Deployer(object):
         # push program list in todo list and start work
         if application.state == ApplicationStates.STOPPED:
             self.get_application_deployment(application)
+            # add application immediately to planned jobs
+            self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
             self.process_application_jobs(application.application_name)
         # return True when deployment over
         return not self.in_progress()
@@ -119,7 +126,8 @@ class Deployer(object):
 
     def check_deployment(self):
         """ Check the progress of the deployment. """
-        self.logger.debug('deployment progress: jobs={} inProgress={}'.format(self.printable_planned_jobs(), self.printable_current_jobs()))
+        self.logger.debug('deployment progress: planned_sequence={} planned_jobs={} current_jobs={}'.format(
+            self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
         # once the startProcess has been called, a STARTING event is expected in less than 5 seconds
         now = int(time.time())
         processes= [process for process_list in self.current_jobs.values() for process in process_list]
@@ -167,32 +175,37 @@ class Deployer(object):
                     jobs.remove(process)
                     # decide to continue deployment or not
                     self.process_failure(process, 'Unexpected crash')
-                # check remaining jobs
-                if len(jobs) == 0:
-                    # remove application entry for in_progress
+                # check if there are remaining jobs in progress for this application
+                if not jobs:
+                    # remove application entry from current_jobs
                     del self.current_jobs[process.application_name]
                     # trigger next job for aplication
                     if process.application_name in self.planned_jobs:
                         self.process_application_jobs(process.application_name)
                     else:
                         self.logger.info('deployment completed for application {}'.format(process.application_name))
+                        # check if there are planned jobs
+                        if not self.planned_jobs:
+                            # trigger next sequence of applications
+                            self.initial_jobs()
 
     def get_application_deployment(self, application):
-        # copy sequence and remove programs that are not meant to be deployed automatically
-        sequence = application.start_sequence.copy()
-        sequence.pop(-1, None)
-        if len(sequence) > 0:
-            self.planned_jobs[application.application_name] = sequence
+        # copy sequence and remove programs that are not meant to be deployed automatically, i.e. their start_sequence is 0
+        application_sequence = application.start_sequence.copy()
+        application_sequence.pop(0, None)
+        if len(application_sequence) > 0:
+            sequence = self.planned_sequence.setdefault(application.rules.start_sequence, {})
+            sequence[application.application_name] = application_sequence
 
     def process_application_jobs(self, application_name):
         if application_name in self.planned_jobs:
             sequence = self.planned_jobs[application_name]
             self.current_jobs[application_name] = jobs = []
-            # loop until there is something to check in list inProgress
+            # loop until there is something to do in sequence
             while len(sequence) > 0 and application_name in self.planned_jobs and len(jobs) == 0:
                 # pop lower group from sequence
                 group = sequence.pop(min(sequence.keys()))
-                self.logger.debug('application {} - next group: {}'.format(application_name, self.printable_process_list(group)))
+                self.logger.info('deployment: application {} - next group: {}'.format(application_name, self.printable_process_list(group)))
                 for process in group:
                     # check state and start if not already RUNNING
                     self.logger.trace('{} - state={}'.format(process.namespec(), process.state_string()))
@@ -234,10 +247,16 @@ class Deployer(object):
             process.ignore_wait_exit = False
 
     def initial_jobs(self):
-        self.logger.info('deployment work: jobs={}'.format(self.printable_planned_jobs()))
-        # iterate on copy to avoid problems with deletions
-        for application_name in self.planned_jobs.keys()[:]:
-            self.process_application_jobs(application_name)
+        self.logger.info('deployment: planned_sequence={}'.format(self.printable_planned_sequence()))
+        # pop lower application group from planned_sequence
+        if self.planned_sequence:
+            self.planned_jobs = self.planned_sequence.pop(min(self.planned_sequence.keys()))
+            self.logger.info('deployment: planned_jobs={}'.format(self.printable_planned_jobs()))
+            # iterate on copy to avoid problems with deletions
+            for application_name in self.planned_jobs.keys()[:]:
+                self.process_application_jobs(application_name)
+        else:
+            self.logger.info('deployment: completed')
 
     def process_failure(self, process, reason, force_fatal=None):
         application_name = process.application_name
@@ -259,13 +278,20 @@ class Deployer(object):
                 # FIXME: what can i do then ?
 
     # log facilities
+    def printable_planned_sequence(self):
+        return {application_sequence:
+                {application_name:
+                    {sequence: self.printable_process_list(processes) for sequence, processes in sequences.items()}
+                for application_name, sequences in applications.items()}
+            for application_sequence, applications in self.planned_sequence.items()}
+
     def printable_planned_jobs(self):
-        return {application_name: {sequence: self.printable_process_list(processes) for sequence, processes in sequences.items()}
+        return {application_name:
+                {sequence: self.printable_process_list(processes) for sequence, processes in sequences.items()}
             for application_name, sequences in self.planned_jobs.items()}
+
+    def printable_current_jobs(self):
+        return {application_name: self.printable_process_list(processes) for application_name, processes in self.current_jobs.items()}
 
     def printable_process_list(self, processes):
         return [process.namespec() for process in processes]
-
-    def printable_current_jobs(self):
-        return [process.namespec() for processes in self.current_jobs.values() for process in processes]
-

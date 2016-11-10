@@ -24,19 +24,20 @@ from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, Run
 
 class ApplicationRules(object):
     """ Definition of the rules for starting an application, iaw deployment file:
-    - autostart: a boolean telling if the application is to be started when Supervisors enters in DEPLOYMENT state,
     - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
+        0 means: no automatic start,
     - stop_sequence: defines the order of this application when stopping all the applications,
-    - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply when a required process cannot be strated during the starting of the application,
-    - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply when a required process crashes when the application is running. """
+        0 means: immediate stop,
+    - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply
+        when a required process cannot be strated during the starting of the application,
+    - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply
+        when a required process crashes when the application is running. """
 
     def __init__(self):
         """ Initializes the rules applicable to an application"""
-        self.autostart = False
-        # TODO: implement start_sequence
-        self.start_sequence = -1
+        self.start_sequence = 0
         # TODO: implement stop_sequence
-        self.stop_sequence = -1
+        self.stop_sequence = 0
         # TODO: implement starting failure strategy
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
         # TODO: implement running failure strategy
@@ -44,7 +45,8 @@ class ApplicationRules(object):
 
     def __str__(self):
         """ Contents as string """
-        return 'autostart={} starting_failure_strategy={} running_failure_strategy={}'.format(self.autostart, self.starting_failure_strategy, self.running_failure_strategy)
+        return 'start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}'.format(
+            self.start_sequence, self.stop_sequence, self.starting_failure_strategy, self.running_failure_strategy)
 
 
 # ApplicationStatus class
@@ -56,7 +58,10 @@ class ApplicationStatus(object):
     - minor_failure: a status telling if an optional process has crashed while the application is running,
     - processes: the map (key is process name) of the ProcessStatus belonging to the application,
     - rules: the ApplicationRules instance applicable to the application,
-    - sequence: the sequencing to start the processes belonging to the application, as a dictionary. The value corresponds to a list of processes having the same sequence order, used as key. """
+    - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
+        The value corresponds to a list of processes having the same sequence order, used as key.
+    - stop_sequence: the sequencing to stop the processes belonging to the application, as a dictionary.
+        The value corresponds to a list of processes having the same sequence order, used as key. """
 
     def __init__(self, application_name, logger):
         """ Initialization of the attributes. """

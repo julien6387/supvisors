@@ -51,7 +51,8 @@ XSDContents = StringIO('''\
     </xs:complexType>
     <xs:complexType name="ApplicationModel">
         <xs:sequence>
-            <xs:element type="xs:boolean" name="autostart" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
                 <xs:element type="ProgramModel" name="pattern"/>
@@ -93,10 +94,13 @@ class Parser(object):
         self.logger.trace('searching application element for {}'.format(application.application_name))
         application_elt = self.root.find("./application[@name='{}']".format(application.application_name))
         if application_elt is not None:
-            # get rules
-            # TODO: autostart will be replaced by start_sequence
-            value = application_elt.findtext('autostart')
-            application.rules.autostart = boolean(value) if value else False
+            # get start_sequence rule
+            value = application_elt.findtext('start_sequence')
+            application.rules.start_sequence = int(value) if value else 0
+            # get stop_sequence rule
+            value = application_elt.findtext('stop_sequence')
+            application.rules.stop_sequence = int(value) if value else 0
+            # final print
             self.logger.info('application {} - rules {}'.format(application.application_name, application.rules))
 
     def load_process_rules(self, process):
@@ -120,8 +124,9 @@ class Parser(object):
             # get expected_loading rule
             value = program_elt.findtext('expected_loading')
             process.rules.expected_loading = int(value) if value and 0 <= int(value) <= 100 else 1
-        process.rules.check_dependencies()
-        self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
+            # check that rules are compliant with dependencies
+            process.rules.check_dependencies()
+            self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
 
     def get_program_addresses(self, program_elt, rules):
         value = program_elt.findtext('addresses')
