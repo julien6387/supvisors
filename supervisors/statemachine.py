@@ -84,14 +84,14 @@ class DeploymentState(AbstractState):
     def enter(self):
         # define ordering iaw Remotes
         for application in self.context.applications.values():
-            application.update_start_sequence()
+            application.update_sequences()
             application.update_status()
         # only Supervisors master deploys applications
         if self.context.master:
-            self.supervisors.deployer.deploy_applications(self.context.applications.values())
+            self.supervisors.starter.start_applications(self.context.applications.values())
 
     def next(self):
-        if self.supervisors.deployer.check_deployment():
+        if self.supervisors.starter.check_starting():
                 return SupervisorsStates.CONCILIATION if self.context.conflicting() else SupervisorsStates.OPERATION
         return SupervisorsStates.DEPLOYMENT
 
@@ -136,7 +136,7 @@ class FiniteStateMachine:
     def __init__(self, supervisors):
         """ Reset the state machine and the associated context """
         self.supervisors = supervisors
-        supervisors_short_cuts(self, ['context', 'deployer', 'logger'])
+        supervisors_short_cuts(self, ['context', 'starter', 'stopper', 'logger'])
         self.update_instance(SupervisorsStates.INITIALIZATION)
         self.instance.enter()
 
@@ -170,7 +170,7 @@ class FiniteStateMachine:
         self.next()
         # master can fix inconsistencies if any
         if self.context.master:
-            self.deployer.deploy_marked_processes(self.context.marked_processes())
+            self.starter.start_marked_processes(self.context.marked_processes())
         # check if new isolating remotes and return the list of newly isolated addresses
         return self.context.handle_isolation()
 
@@ -181,11 +181,15 @@ class FiniteStateMachine:
 
     def on_process_event(self, address, event):
         """ This event is used to refresh the process data related to the event and address.
-        This event also triggers the deployer. """
+        This event also triggers the application starter. """
         process = self.context.on_process_event(address, event)
-        # trigger deployment work if needed
-        if process and self.deployer.in_progress():
-            self.deployer.deploy_on_event(process)
+        if process:
+            # wake up starter if needed
+            if self.starter.in_progress():
+                self.starter.on_event(process)
+            # wake up stopper if needed
+            if self.stopper.in_progress():
+                self.stopper.on_event(process)
 
     # serialization
     def to_json(self):

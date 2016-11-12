@@ -36,7 +36,6 @@ class ApplicationRules(object):
     def __init__(self):
         """ Initializes the rules applicable to an application"""
         self.start_sequence = 0
-        # TODO: implement stop_sequence
         self.stop_sequence = 0
         # TODO: implement starting failure strategy
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
@@ -69,7 +68,7 @@ class ApplicationStatus(object):
         self.logger = logger
         # information part
         self.application_name = application_name
-        self._state = ApplicationStates.UNKNOWN
+        self._state = ApplicationStates.STOPPED
         self.major_failure = False
         self.minor_failure = False
         # process part
@@ -85,7 +84,7 @@ class ApplicationStatus(object):
 
     def stopped(self):
         """ Return True if application is stopped. """
-        return self.state in [ApplicationStates.UNKNOWN, ApplicationStates.STOPPED]
+        return self.state == ApplicationStates.STOPPED
  
     @property
     def state(self):
@@ -113,21 +112,16 @@ class ApplicationStatus(object):
         """ Add a new process to the process list. """
         self.processes[process.process_name] = process
 
-    def update_start_sequence(self):
-        """ Evaluate the sequencing of the starting application from its list of processes. """
+    def update_sequences(self):
+        """ Evaluate the sequencing of the starting / stopping application from its list of processes. """
         # fill ordering iaw process rules
         self.start_sequence.clear()
-        for process in self.processes.values():
-            self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
-        self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.start_sequence))
-
-    def update_stop_sequence(self):
-        """ Evaluate the sequencing of the stopping application from its list of processes. """
-        # fill ordering iaw process rules
         self.stop_sequence.clear()
         for process in self.processes.values():
+            self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
             self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
-        self.logger.debug('Application {}: sequence={}'.format(self.application_name, self.stop_sequence))
+        self.logger.debug('Application {}: start_sequence={} stop_sequence={}'.format(
+            self.application_name, self.start_sequence, self.stop_sequence))
 
     def update_status(self):
         """ Update the state of the application iaw the state of its processes. """

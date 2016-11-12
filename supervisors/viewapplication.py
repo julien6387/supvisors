@@ -85,7 +85,7 @@ class ApplicationView(MeldView, ViewHandler):
     def write_deployment_strategy(self, root):
         """ Write applicable deployment strategies """
         # get the current strategy
-        strategy = self.supervisors.deployer.strategy
+        strategy = self.supervisors.starter.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
@@ -204,7 +204,7 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'less':
             return self.set_deployment_strategy(DeploymentStrategies.LESS_LOADED)
         # get current strategy
-        strategy = self.supervisors.deployer.strategy
+        strategy = self.supervisors.starter.strategy
         if action == 'startapp':
             return self.start_application_action(strategy)
         if action == 'stopapp':
@@ -225,7 +225,7 @@ class ApplicationView(MeldView, ViewHandler):
         return delayed_info('Page refreshed')
 
     def set_deployment_strategy(self, strategy):
-        self.supervisors.deployer.strategy = strategy
+        self.supervisors.starter.strategy = strategy
         return delayed_info('Deployment strategy set to {}'.format(DeploymentStrategies._to_string(strategy)))
 
     # Application actions
