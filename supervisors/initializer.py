@@ -21,8 +21,8 @@ from supervisor.loggers import getLogger
 from supervisor.xmlrpc import Faults, RPCError
 
 from supervisors.addressmapper import AddressMapper
+from supervisors.commander import Starter, Stopper
 from supervisors.context import Context
-from supervisors.deployer import Deployer
 from supervisors.infosource import SupervisordSource
 from supervisors.listener import SupervisorListener
 from supervisors.options import SupervisorsOptions
@@ -58,8 +58,9 @@ class Supervisors(object):
         self.context = Context(self)
         # create event publisher
         self.publisher = EventPublisher(self)
-        # create deployer
-        self.deployer = Deployer(self)
+        # create application starter and stopper
+        self.starter = Starter(self)
+        self.stopper = Stopper(self)
         # create statistics handler
         self.statistician = StatisticsCompiler(self)
         # create RPC requester

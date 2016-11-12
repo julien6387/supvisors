@@ -36,7 +36,7 @@ class RPCInterface(object):
 
     # RPC for Supervisors internal use
     def internal_start_process(self, namespec, wait):
-        """ Start a process upon request of the Deployer of Supervisors.
+        """ Start a process upon request of the Starter of Supervisors.
         The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL instead of throwing an exception to the RPC client.
         @param string name\tThe process name
         @param boolean wait\tWait for process to be fully started
@@ -163,13 +163,13 @@ class RPCInterface(object):
         # TODO: develop a predictive model to check if deployment can be achieved
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
-        done = self.supervisors.deployer.deploy_application(strategy, application)
-        self.logger.debug('startApplication {} done={}'.format(application_name, done))
+        done = self.supervisors.starter.start_application(strategy, application)
+        self.logger.debug('start_application {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
-                # check deployer
-                if self.supervisors.deployer.in_progress():
+                # check starter
+                if self.supervisors.starter.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.RUNNING:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
@@ -190,21 +190,36 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
         application = self.context.applications[application_name]
-        for process in application.processes.values():
-            if process.running():
-                for address in process.addresses.copy():
-                    self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                    self.supervisors.requester.stop_process(address, process.namespec(), False)
-        # wait until all processes in STOPPED_STATES
-        if wait:
+        if False:
+            for process in application.processes.values():
+                if process.running():
+                    for address in process.addresses.copy():
+                        self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
+                        self.supervisors.requester.stop_process(address, process.namespec(), False)
+            # wait until all processes in STOPPED_STATES
+            if wait:
+                def onwait():
+                    for process in application.processes.values():
+                        if not process.stopped():
+                            return NOT_DONE_YET
+                    return True
+                onwait.delay = 0.5
+                return onwait # deferred
+        done = self.supervisors.stopper.stop_application(application)
+        self.logger.debug('stop_application {} done={}'.format(application_name, done))
+        # wait until application fully STOPPED
+        if wait and not done:
             def onwait():
-                for process in application.processes.values():
-                    if not process.stopped():
-                        return NOT_DONE_YET
+                # check stopper
+                if self.supervisors.stopper.in_progress():
+                    return NOT_DONE_YET
+                if application.state != ApplicationStates.STOPPED:
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
                 return True
             onwait.delay = 0.5
             return onwait # deferred
-        return True
+        # if done is True, nothing to do
+        return not done
 
     def restart_application(self, strategy, application_name, wait=True):
         """ Retart the application named application_name iaw the strategy and the rules defined in the deployment file.
@@ -254,13 +269,13 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= self.supervisors.deployer.deploy_process(strategy, process)
+            done &= self.supervisors.starter.start_process(strategy, process)
         self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
-                # check deployer
-                if self.supervisors.deployer.in_progress():
+                # check starter
+                if self.supervisors.starter.in_progress():
                     return NOT_DONE_YET
                 for process in processes:
                     if process.stopped():

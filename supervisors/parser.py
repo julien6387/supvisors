@@ -96,10 +96,10 @@ class Parser(object):
         if application_elt is not None:
             # get start_sequence rule
             value = application_elt.findtext('start_sequence')
-            application.rules.start_sequence = int(value) if value else 0
+            application.rules.start_sequence = int(value) if value and int(value)>0 else 0
             # get stop_sequence rule
             value = application_elt.findtext('stop_sequence')
-            application.rules.stop_sequence = int(value) if value else 0
+            application.rules.stop_sequence = int(value) if value and int(value)>0 else 0
             # final print
             self.logger.info('application {} - rules {}'.format(application.application_name, application.rules))
 
@@ -111,10 +111,10 @@ class Parser(object):
             self.get_program_addresses(program_elt, process.rules)
             # get start_sequence rule
             value = program_elt.findtext('start_sequence')
-            process.rules.start_sequence = int(value) if value and int(value)>=0 else -1
+            process.rules.start_sequence = int(value) if value and int(value)>0 else 0
             # get stop_sequence rule
             value = program_elt.findtext('stop_sequence')
-            process.rules.stop_sequence = int(value) if value and int(value)>=0 else -1
+            process.rules.stop_sequence = int(value) if value and int(value)>0 else 0
             # get required rule
             value = program_elt.findtext('required')
             process.rules.required = boolean(value) if value else False

@@ -28,7 +28,7 @@ class AddressStates:
 @enumeration_tools
 class ApplicationStates:
     """ Class holding the possible enumeration values for an application state. """
-    UNKNOWN, STOPPED, STARTING, RUNNING, STOPPING = range(5)
+    STOPPED, STARTING, RUNNING, STOPPING = range(4)
 
 @enumeration_tools
 class DeploymentStrategies:

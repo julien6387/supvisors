@@ -48,10 +48,9 @@ class ProcessRules(object):
     def __init__(self, logger):
         """ Initialization of the attributes. """
         self.logger = logger
-        # TODO: see if dependency (process, application) is to be implemented
         self.addresses = ['*']
-        self.start_sequence = -1
-        self.stop_sequence = -1
+        self.start_sequence = 0
+        self.stop_sequence = 0
         self.required = False
         self.wait_exit = False
         self.expected_loading = 1
@@ -61,7 +60,7 @@ class ProcessRules(object):
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have start_sequence, so force to optional if no start_sequence
-        if self.required and self.start_sequence == -1:
+        if self.required and self.start_sequence <= 0:
             self.logger.warn('required forced to False because no start_sequence defined')
             self.required = False
         # if no addresses, consider all addresses

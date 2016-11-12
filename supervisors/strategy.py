@@ -168,7 +168,7 @@ class RestartStrategy(AbstractStrategy):
     """ Strategy designed to stop all conflicting processes and to re-deploy a single instance """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor deployer restarts it """
+        """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor starter restarts it """
         for process in conflicts:
             self.logger.warn('restart conciliation: {}'.format(process.namespec()))
             # work on copy as it may change during iteration
@@ -178,7 +178,7 @@ class RestartStrategy(AbstractStrategy):
                 self.logger.warn('stop_process requested at {}'.format(address))
                 self.supervisors.requester.stop_process(address, process.namespec(), False)
             # force warm restart
-            # WARN: only master can use deployer
+            # WARN: only master can use starter
             # conciliation MUST be triggered from the Supervisors MASTER
             process.mark_for_restart = True
 
