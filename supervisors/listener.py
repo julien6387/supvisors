@@ -21,6 +21,8 @@ import time
 import zmq
 
 from supervisor import events
+from supervisor.options import split_namespec
+from supervisor.states import ProcessStates
 
 from supervisors.mainloop import SupervisorsMainLoop
 from supervisors.process import from_string
@@ -107,7 +109,7 @@ class SupervisorListener(object):
     def on_process(self, event):
         event_name = events.getEventNameByType(event.__class__)
         self.logger.debug('got Process event from supervisord: {} {}'.format(event_name, event))
-        # create payload to get data
+        # create payload from event
         payload = {'processname': event.process.config.name,
             'groupname': event.process.group.config.name,
             'state': from_string(event_name.split('_')[-1]),
@@ -124,3 +126,14 @@ class SupervisorListener(object):
         status = self.supervisors.context.addresses[self.address]
         self.publisher.send_statistics(instant_statistics(status.pid_processes()))
 
+    def force_process_fatal(self, namespec):
+        application_name, process_name = split_namespec(namespec)
+        # create payload from event
+        payload = {'processname': process_name,
+            'groupname': application_name,
+            'state': ProcessStates.FATAL,
+            'now': int(time.time()), 
+            'pid': 0,
+            'expected': False}
+        self.logger.debug('payload={}'.format(payload))
+        self.publisher.send_process_event(payload)

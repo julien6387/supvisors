@@ -82,6 +82,7 @@ class InitializationState(AbstractState):
 class DeploymentState(AbstractState):
 
     def enter(self):
+        # TODO: make a restriction of addresses in process rules, iaw process location in Supervisor instances
         # define ordering iaw Remotes
         for application in self.context.applications.values():
             application.update_sequences()

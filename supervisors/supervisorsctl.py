@@ -112,7 +112,7 @@ class ControllerPlugin(ControllerPluginBase):
                         self.output_application_info(info)
 
     def output_application_info(self, info):
-        template = '%(name)-20s%(state)-12s%(majorFailure)-15s%(minorFailure)-15s'
+        template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
         major_failure = info['major_failure']
         minor_failure = info['minor_failure']
         line = template % {'name': info['application_name'], 'state': info['state'],

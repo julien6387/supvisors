@@ -25,7 +25,7 @@ from supervisors.ttypes import AddressStates, ApplicationStates, DeploymentStrat
 from supervisors.utils import supervisors_short_cuts
 
 
-API_VERSION  = '1.0'
+API_VERSION  = '0.1'
 
 class RPCInterface(object):
 
@@ -37,7 +37,8 @@ class RPCInterface(object):
     # RPC for Supervisors internal use
     def internal_start_process(self, namespec, wait):
         """ Start a process upon request of the Starter of Supervisors.
-        The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL instead of throwing an exception to the RPC client.
+        The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
+        instead of throwing an exception to the RPC client.
         @param string name\tThe process name
         @param boolean wait\tWait for process to be fully started
         @return boolean result\tAlways true unless error
@@ -53,10 +54,13 @@ class RPCInterface(object):
                     self.supervisors.info_source.force_process_fatal(namespec, why.text)
                     result = True
                 except KeyError:
+                    # process is unknown to the local Supervisor
+                    # this should not happen as Supervisors checks the configuration before it sends this request
                     self.logger.error('could not find {} in supervisord processes'.format(namespec))
                     result = False
             else:
-                # process is already started. should not happen because Supervisors checks state before sending the request
+                # process is already started
+                # this should not happen as Supervisors checks the process state before it sends this request
                 result = False
         return result
 

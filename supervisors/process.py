@@ -60,7 +60,7 @@ class ProcessRules(object):
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have start_sequence, so force to optional if no start_sequence
-        if self.required and self.start_sequence <= 0:
+        if self.required and self.start_sequence == 0:
             self.logger.warn('required forced to False because no start_sequence defined')
             self.required = False
         # if no addresses, consider all addresses

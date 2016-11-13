@@ -276,8 +276,7 @@ class Starter(Commander):
                     jobs.append(process)
                     reset_flag = False
                 else:
-                    # when internal_start_process returns false, this is a huge problem
-                    # the process could not be started through supervisord and it is not even referenced in its internal strucutre
+                    # this should not happen but log a critical message, just in case...
                     self.logger.critical('[BUG] RPC internal_start_process failed {}'.format(namespec))
             else:
                 self.logger.warn('no resource available to start {}'.format(namespec))
@@ -296,15 +295,17 @@ class Starter(Commander):
             self.planned_jobs.pop(application_name, None)
         else:
             self.logger.info('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
-        # force process state to FATAL in supervisor so as it is published
         if force_fatal:
+            # publish the process state as FATAL to all Supervisors instances
             self.logger.warn('force {} state to FATAL'.format(process.namespec()))
             try:
                 self.supervisors.info_source.force_process_fatal(process.namespec(), reason)
             except KeyError:
                 self.logger.error('impossible to force {} state to FATAL. process unknown in this Supervisor'.format(process.namespec()))
-                # FIXME: what can i do then ?
-
+                # the Supervisors user is not forced to use the same process configuration on all machines,
+                # although it is strongly recommended to avoid troubles.
+                # so, publish directly a fake process event
+                self.supervisors.listener.force_process_fatal(process.namespec())
 
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
