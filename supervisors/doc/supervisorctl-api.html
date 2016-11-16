@@ -12,14 +12,13 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="#github">Supervisors</a></h1>
+				<h1><a href="https://github.com/julien6387/supervisors" target="_blank">Supervisors</a></h1>
 				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
 				<ul>
 	 				<li><a href="index.html">Introduction</a></li>
-                    <li><a href="configuration.html">Configuration</a></li>
                     <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
                     <li><a href="supervisorctl-api.html" class="active">supervisorctl API</a><ul>
                	        <li><a href="#status">Status</a></li>
@@ -27,6 +26,7 @@
                         <li><a href="#application">Application Control</a></li>
                         <li><a href="#process">Process Control</a></li>
                     </ul></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
                     <li><a href="dashboard.html">HTTP Dashboard</a></li>
                     <li><a href="design.html">Software Design</a></li>
                 </ul>
@@ -40,10 +40,10 @@
 
 		<div id="right_side">
 			<header>
-				<h1>Documentation &raquo; supervisorctl API</h1>
+				<h2>Documentation &raquo; supervisorctl API</h2>
 			</header>
 
-			<section>
+			<section id="doc-contents">
 				<p>This is an extension of the existing <a href="http://supervisord.org/running.html#running-supervisorctl" class="extLink">supervisorctl API</a>.<br />
 				The additional commands provided by Supervisors are available by typing <code class="bash">help</code> at the prompt.</p>
 
@@ -58,29 +58,29 @@ clear  maintail  quit  reread  signal    stop    version
 
 supervisors commands (type help &lt;topic&gt;):
 =========================================
-application_info  restart_application  start_process     sup_shutdown
-conflicts         restart_process      stop_application  sup_state   
-master            rules                stop_process      sup_status  
-remote_status     start_application    sup_reload        sup_version </code></pre>
+address_status    restart_application  sstatus            stop_process
+application_info  restart_process      start_application  sreload  
+conflicts         rules                start_process      sshutdown
+master            sstate               stop_application   sversion</code></pre>
 
 				<h2 id="status">Status</h2>
 				<dl>
-				   <dt>sup_version</dt>
+				   <dt>sversion</dt>
 					<dd>Get the API version of Supervisors</dd>
 
 				   <dt>master</dt>
 					<dd>Get the Supervisors master address</dd>
 
-				   <dt>sup_state</dt>
+				   <dt>sstate</dt>
 					<dd>Get the Supervisors state</dd>
 
-				   <dt>remote_status</dt>
+				   <dt>address_status</dt>
 					<dd>Get the status of all remote supervisord managed in Supervisors</dd>
 
-				   <dt>remote_status addr</dt>
+				   <dt>address_status addr</dt>
 					<dd>Get the status of remote supervisord managed in Supervisors and running on addr</dd>
 
-				   <dt>remote_status addr1 addr2</dt>
+				   <dt>address_status addr1 addr2</dt>
 					<dd>Get the status for multiple addresses</dd>
 
 				   <dt>application_info</dt>
@@ -92,16 +92,16 @@ remote_status     start_application    sup_reload        sup_version </code></pr
 				   <dt>application_info appli1 appli2</dt>
 					<dd>Get the status for multiple named applications</dd>
 
-				   <dt>sup_status</dt>
+				   <dt>sstatus</dt>
 					<dd>Get the status of all processes</dd>
 
-				   <dt>sup_status proc</dt>
+				   <dt>sstatus proc</dt>
 					<dd>Get the status of the process named proc</dd>
 
-				   <dt>sup_status appli:*</dt>
+				   <dt>sstatus appli:*</dt>
 					<dd>Get the status of all processes in the application named appli</dd>
 
-				   <dt>sup_status proc1 proc2</dt>
+				   <dt>sstatus proc1 proc2</dt>
 					<dd>Get the status for multiple named processes</dd>
 
 				   <dt>rules</dt>
@@ -123,10 +123,10 @@ remote_status     start_application    sup_reload        sup_version </code></pr
 
 				<h2 id="supervisors">Supervisors Control</h2>
 				<dl>
-				   <dt>sup_reload</dt>
+				   <dt>sreload</dt>
 					<dd>Restart Supervisors through all remote Supervisor instances</dd>
 
-				   <dt>sup_shutdown</dt>
+				   <dt>sshutdown</dt>
 					<dd>Shutdown Supervisors through all remote Supervisor instances</dd>
 				</dl>
 

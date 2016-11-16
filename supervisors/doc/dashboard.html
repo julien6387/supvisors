@@ -10,22 +10,24 @@
 <body>
     <div id="body_block">
 
-    <div id="left_side">
-    	<header>
-    		<h1><a href="#github">Supervisors</a></h1>
+        <div id="left_side">
+            <header>
+                <h1><a href="https://github.com/julien6387/supervisors" target="_blank">Supervisors</a></h1>
     			<p class="version">0.1 alpha</p>
     		</header>
 
 			<nav>
     		    <ul>
-	 			    <li><a href="index.html" class="active">Introduction</a></li>
-                    <li><a href="configuration.html">Configuration</a></li>
+	 			    <li><a href="index.html">Introduction</a></li>
                     <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
                     <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
-                    <li><a href="dashboard.html">HTTP Dashboard</a><ul>
-            		    <li><a href="#main">Main Page</a></li>
-               	        <li><a href="#address">Address Page</a></li>
-               	        <li><a href="#application">Application Page</a></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
+                    <li><a href="dashboard.html" class="active">HTTP Dashboard</a><ul>
+            		    <li><a href="#menu">Menu</a></li>
+            		    <li><a href="#main-page">Main Page</a></li>
+             		    <li><a href="#conciliation-page">Conciliation Page</a></li>
+              	        <li><a href="#address-page">Address Page</a></li>
+               	        <li><a href="#application-page">Application Page</a></li>
                     </ul></li>
                     <li><a href="design.html">Software Design</a></li>
                 </ul>
@@ -39,19 +41,153 @@
 
 		<div id="right_side">
 			<header>
-				<h1>Documentation &raquo; Dashboard (Under construction)</h1>
-				<p>Ne pas oublier de modifier le layout de la doc pour aligner sur la page web</p>
+				<h2>Documentation &raquo; Dashboard (Under construction)</h2>
 			</header>
 
 			<section id="doc-contents">
-				<h2 id="main">Main page</h2>
-				<p>Ajout copies écran</p>
+                <p>Each Supervisor instance provides a <a href="http://supervisord.org/introduction.html#supervisor-components" class="extLink">Web Server</a> and the Supervisors extension provides the following web user interface, as a replacement of the Supervisor one.</p>
+                <p><strong>Pages are not auto-refreshed.</strong><br />
+                The 'Refresh' button on the top right corner of all pages does the job.</p>
 
-				<h2 id="address">Address page</h2>
-				<p></p>
+				<div class="note">
+					<p>Note about the browser compliance</p>
+					<p>As the present documentation, the CSS of the web pages has been written for Firefox ESR 45.4.0.<br />
+                    The compatibility with other browsers or other versions of Firefox is unknown.</p>
+				</div>
 
-				<h2 id="application">Application page</h2>
-				<p></p>
+                <h2 id="menu">Menu</h2>
+
+                <div id="menu-contents">
+                    <aside><img src="img/supervisors_menu.png" alt="Menu" id="web_menu"></aside>
+                    <section>
+                        <div>
+                            <p>Clicking on 'Supervisors' brings the <a href="#main-page" class="intLink">Main page</a> back or the <a href="#conciliation-page" class="intLink">Conciliation page</a> if it blinks in red.<br />
+                            The version of Supervisors is displayed.</p>
+                        </div>
+                        <div>
+                            <p>Below is the Addresses part that lists all the addresses defined in the <a href="index.html#supervisors-section" class="intLink">supervisors section</a> of the Supervisor configuration file.<br />
+                            The color gives the state of the Address, as seen by the Supervisors instance that is displaying this page:</p>
+                            <ul>
+                                <li>grey for <code>UNKNOWN</code>,</li>
+                                <li>yellow for <code>SILENT</code>,</li>
+                                <li>green for <code>RUNNING</code>,</li>
+                                <li>red for <code>ISOLATED</code>.</li>
+                            </ul>
+                            <p>Only the hyperlinks of the <code>RUNNING</code> addresses are active. The browser is redirected to the <a href="#address-page" class="intLink">Address page</a> of the corresponding Web Server.<br />
+                            The Supervisors instance playing the role of "Master" is pointed out with the &#10026; sign.</p>
+                       </div>
+                        <div>
+                            <p>Below is the Application part that lists all the applications defined through the <a href="http://supervisord.org/configuration.html#group-x-section-settings" class="extLink">group sections</a> of the Supervisor configuration file.<br />
+                            The color gives the state of the Application, as seen by the Supervisors instance that is displaying this page:</p>
+                            <ul>
+                                <li>grey for <code>UNKNOWN</code>,</li>
+                                <li>yellow for <code>STOPPED</code>,</li>
+                                <li>yellow-to-green gradient for <code>STARTING</code>,</li>
+                                <li>green-to-yellow gradient for <code>STOPPING</code>,</li>
+                                <li>green for <code>RUNNING</code>.</li>
+                            </ul>
+                            <p>All hyperlinks are active. The browser is redirected to the corresponding <a href="#application-page" class="intLink">Application page</a> on the local Web Server.</p>
+                       </div>
+                        <div>
+                            <p>The bottom part of the menu contains a contact link and copyright information.</p>
+                       </div>
+                    </section>
+                </div>
+
+                
+				<h2 id="main-page">Main page</h2>
+                <p>The Main page shows a synoptic of the Supervisors status.<br />
+                It is divided into 3 parts:</p>
+
+                <div class="page-figure">
+                    <div>the common <a href="#menu" class="intLink">Menu</a></div>
+                    <div>
+                        <div>a <a href="#main-header" class="intLink">header</a></div>
+                        <figure>
+                            <img src="img/supervisors_main_page.png" alt="Main page">
+                            <figcaption>Supervisors Main page</figcaption>
+                        </figure>
+                    </div>
+                    <div>the <a href="#main-contents" class="intLink">contents</a> itself</div>
+                </div>
+
+                <h3 id="main-header">Header</h3>
+                <p>The state of Supervisors is displayed on the left side of the header:</p>
+                <ul>
+                    <li><code>INITIALISATION</code> corresponds to the Supervisors starting phase, waiting for all Supervisors instances to connect themselves,</li>
+                    <li><code>DEPLOYMENT</code> corresponds to the phase when Supervisors is automatically starting applications (<a href="design.html#deployment" class="intLink">here</a> for more details),</li>
+                    <li><code>OPERATION</code> corresponds to the supervising phase in which the Supervisors <a href="xml-rpc-api.html" class="intLink">XML-RPC</a> are available,</li>
+                    <li><code>CONCILIATION</code> corresponds to the phase when Supervisors is solving conflicts (<a href="design.html#conciliation" class="intLink">here</a> for more details).</li>
+                </ul>
+
+                <p>On the right side, 3 buttons are available:</p>
+                <ul>
+                    <li><img src="img/restart_40.png" alt="Restart button"> restarts Supervisors through all Supervisor instances,</li>
+                    <li><img src="img/shutdown_40.png" alt="Shutdown button"> shuts down Supervisors through all Supervisor instances,</li>
+                    <li>  <img src="img/reload_30.png" alt="Refresh button"> refreshes the current page.</li>
+                </ul>
+
+                <h3 id="main-contents">Contents</h3>
+                <p>For every addresses, a box is displayed in the contents of the Supervisor Main page.<br />
+                Each box contains:</p>
+                <ul>
+                    <li>the address name, which is a hyperlink to the corresponding <a href="#address-page" class="intLink">Address page</a> if the Address state is <code>RUNNING</code>,</li>
+                    <li>the state of the Address, colord with the same rules used in the <a href="#menu" class="intLink">Menu</a>,</li>
+                    <li>the process loading of the Address,</li>
+                    <li>the list of all processes that are running on this address.</li>
+                </ul>
+
+                
+				<h2 id="conciliation-page">Conciliation page</h2>
+                <p>If the page is refreshed when Supervisors is in <code>Conciliation</code> state, the 'Supervisors' label in the top left of the common <a href="#menu" class="intLink">Menu</a> becomes red and blinks.<br />
+                This situation is unlikely to happen if the <a href="index.html#supervisors-section" class="intLink">Conciliation Strategy</a> chosen in the Supervisors section of the configuration file is different from <code>USER</code>.</p>
+                <p>The Conciliation page can be reached by clicking on this blinking red label.<br />
+                It is divided into 3 parts:</p>
+
+                <div class="page-figure">
+                    <div>the common <a href="#menu" class="intLink">Menu</a></div>
+                    <div>
+                        <div>a <a href="#conciliation-header" class="intLink">header</a></div>
+                        <figure>
+                            <img src="img/supervisors_conciliation_page.png" alt="Conciliation page">
+                            <figcaption>Supervisors Conciliation page</figcaption>
+                        </figure>
+                    </div>
+                    <div>the <a href="#conciliation-contents" class="intLink">contents</a> itself</div>
+                </div>
+
+                <h3 id="conciliation-header">Header</h3>
+                <p>The header of the Conciliation page has exactly the same contents as the <a href="#main-header" class="intLink">header</a> of the Main page.</p>
+
+                <h3 id="conciliation-contents">Contents</h3>
+                <p>On the right side of the page, the list of process conflicts is displayed into a table.<br />
+                A process conflict is raised when the same program is running on several machines.</p>
+                <p>So the tables lists, for each conflict:</p>
+                <ul>
+                    <li>the name of the program incriminated,</li>
+                    <li>the list of addresses where it is running,</li>
+                    <li>the uptime of the corresponding process on each address,</li>
+                    <li>for each process, a list of actions that contribute to the solving of this conflict:<ul>
+                        <li>Stop the process,</li>
+                        <li>Keep this process (and Stop all others),</li>
+                    </ul></li>
+                    <li>for each process, a list of automatic strategies (<a href="index.html#conciliation-note" class="intLink">details</a>) that contribute to the solving of this conflict.</li>
+                </ul>
+                <p>The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts, using one of the automatic strategies.</p>
+
+
+				<h2 id="address-page">Address page</h2>
+				<figure>
+					<img src="img/supervisors_address_page.png" alt="Address page">
+					<figcaption>Supervisors Address page</figcaption>
+				</figure>
+
+                
+				<h2 id="application-page">Application page</h2>
+				<figure>
+					<img src="img/supervisors_application_page.png" alt="Application page">
+					<figcaption>Supervisors Application page</figcaption>
+				</figure>
 
 			</section>
 

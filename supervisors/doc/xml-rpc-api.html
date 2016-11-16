@@ -12,14 +12,13 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="#github">Supervisors</a></h1>
+				<h1><a href="https://github.com/julien6387/supervisors" target="_blank">Supervisors</a></h1>
 				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
 				<ul>
 	 				<li><a href="index.html">Introduction</a></li>
-                    <li><a href="configuration.html">Configuration</a></li>
                     <li><a href="xml-rpc-api.html" class="active">XML-RPC API</a><ul>
                	        <li><a href="#status">Status</a></li>
                	        <li><a href="#supervisors">Supervisors Control</a></li>
@@ -27,6 +26,7 @@
                         <li><a href="#process">Process Control</a></li>
                     </ul></li>
                     <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
                     <li><a href="dashboard.html">HTTP Dashboard</a></li>
                     <li><a href="design.html">Software Design</a></li>
                 </ul>
@@ -40,10 +40,10 @@
 
 		<div id="right_side">
 			<header>
-				<h1>Documentation &raquo; XML-RPC API</h1>
+				<h2>Documentation &raquo; XML-RPC API</h2>
 			</header>
 
-			<section>
+			<section id="doc-contents">
 				<p>The Supervisors XML-RPC API is an extension of the Supervisor API.<br />
 				Detailed information can be found in the <a href="http://supervisord.org/api.html#xml-rpc-api-documentation" class="extLink">Supervisor XML-RPC API Documentation</a>.</p>
 				<p>The <strong>supervisors</strong> namespace has been added to the supervisord XML-RPC interface.</p>
@@ -58,24 +58,24 @@
 
 				<h2 id="status">Status</h2>
 				<dl>
-					<dt>getAPIVersion()</dt>
+					<dt>get_api_version()</dt>
 					<dd>Return the version of the RPC API used by Supervisors</dd>
 					<dd>@return string: the version id</dd>
 
-					<dt>getSupervisorsState()</dt>
+					<dt>get_supervisors_state()</dt>
 					<dd>Return the state of Supervisors</dd>
 					<dd>@return string: the state of Supervisors, value among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>, <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }</dd>
 
-					<dt>getMasterAddress()</dt>
+					<dt>get_master_address()</dt>
 					<dd>Return the address of the Supervisors Master</dd>
 					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return string: the IPv4 address or host name</dd>
 
-					<dt>getRemoteInfo(address)</dt>
+					<dt>get_address_info(address)</dt>
 					<dd>Return information about a remote supervisord managed in Supervisors and running on address</dd>
 					<dd>@param string address: the address of the Supervisors instance</dd>
 					<dd>@throws RPCError: with code <code>Faults.BAD_ADDRESS</code> if address is unknown to Supervisors
-					<dd>@return struct: a structure containing data about the remote Supervisors instances
+					<dd>@return struct: a structure containing data about the Supervisors instances
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
 							<tr><td><code>'address'</code></td><td>str</td><td></td><td></td><td>Address of the Supervisors instance.</td></tr>
@@ -86,16 +86,16 @@
 						</table>
 					</dd>
 
-					<dt>getAllRemoteInfo()</dt>
+					<dt>get_all_addresses_info()</dt>
 					<dd>Return information about all remote supervisord managed in Supervisors</dd>
 					<dd>@return list: a list of structures containing data about all remote Supervisors instances</dd>
 
-					<dt>getApplicationInfo(applicationName)</dt>
-					<dd>Return information about the application named applicationName</dd>
-					<dd>@param string applicationName: the name of the application</dd>
+					<dt>get_application_info(application_name)</dt>
+					<dd>Return information about the application named application_name</dd>
+					<dd>@param string application_name: the name of the application</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
-						<li>with code <code>Faults.BAD_NAME</code> if applicationName is unknown to Supervisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return struct: a structure containing data about the application
 						<table>
@@ -107,14 +107,14 @@
 						</table>
 					</dd>
 
-					<dt>getAllApplicationInfo()</dt>
+					<dt>get_all_applications_info()</dt>
 					<dd>Return information about all applications managed in Supervisors</dd>
 					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return list: a list of structures containing data about all applications</dd>
 
-					<dt>getProcessInfo(namespec)</dt>
+					<dt>get_process_info(namespec)</dt>
 					<dd>Return information about the process named namespec<br />
-					It just complements supervisor ProcessInfo by telling where the process is running</dd>
+					It is a complement of supervisor ProcessInfo by telling where the process is running</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
@@ -130,7 +130,7 @@
 						</table>
 					</dd>
 
-					<dt>getProcessRules(namespec)</dt>
+					<dt>get_process_rules(namespec)</dt>
 					<dd>Return the rules used to deploy the process named namespec</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
 					<dd>@throws RPCError:<ul>
@@ -150,7 +150,7 @@
 						</table>
 					</dd>
 
-					<dt>getConflicts()</dt>
+					<dt>get_conflicts()</dt>
 					<dd>Return the conflicting processes</dd>
 					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return list: a list of structures containing data about the conflicting processes
@@ -181,39 +181,39 @@
 
 				<h2 id="application">Application Control</h2>
 				<dl>
-					<dt>startApplication(strategy, applicationName, wait=True)</dt>
-					<dd>Start the processes related to the application named applicationName in accordance with the strategy and the rules defined in the deployment file</dd>
+					<dt>start_application(strategy, application_name, wait=True)</dt>
+					<dd>Start the processes related to the application named application_name in accordance with the strategy and the rules defined in the deployment file</dd>
 					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
-					<dd>@param string applicationName: the name of the application</dd>
+					<dd>@param string application_name: the name of the application</dd>
 					<dd>@param boolean wait: wait for the application to be fully started</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code></li>
 						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supervisors</li>
-						<li>with code <code>Faults.BAD_NAME</code> if applicationName is unknown to Supervisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 						<li>with code <code>Faults.ALREADY_STARTED</code> if application is <code>RUNNING</code></li>
 						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if application could not be started</li>
 					</ul></dd>
 					<dd>@return boolean: always True unless error or nothing to start</dd>
 
-					<dt>stopApplication(applicationName, wait=True)</dt>
-					<dd>Stop the running processes related to the application named applicationName</dd>
-					<dd>@param string applicationName: the name of the application</dd>
+					<dt>stop_application(application_name, wait=True)</dt>
+					<dd>Stop the running processes related to the application named application_name</dd>
+					<dd>@param string application_name: the name of the application</dd>
 					<dd>@param boolean wait: wait for the application to be fully stopped</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
-						<li>with code <code>Faults.BAD_NAME</code> if applicationName is unknown to Supervisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
 
-					<dt>restartApplication(strategy, applicationName, wait=True)</dt>
-					<dd>Restart the processes related to the application named applicationName in accordance with the strategy and the rules defined in the deployment file</dd>
+					<dt>restart_application(strategy, application_name, wait=True)</dt>
+					<dd>Restart the processes related to the application named application_name in accordance with the strategy and the rules defined in the deployment file</dd>
 					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
-					<dd>@param string applicationName: the name of the application</dd>
+					<dd>@param string application_name: the name of the application</dd>
 					<dd>@param boolean wait: wait for the application to be fully restarted</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code></li>
 						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supervisors</li>
-						<li>with code <code>Faults.BAD_NAME</code> if applicationName is unknown to Supervisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 						<li>with code <code>Faults.ALREADY_STARTED</code> if application is <code>RUNNING</code></li>
 						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if application could not be started</li>
 					</ul></dd>
@@ -223,7 +223,7 @@
 
 				<h2 id="process">Process Control</h2>
 				<dl>
-					<dt>startProcess(strategy, namespec, wait=True)</dt>
+					<dt>start_process(strategy, namespec, wait=True)</dt>
 					<dd>Start the process named namespec in accordance with the strategy and the rules defined in the deployment file<br />
 					WARN: the 'wait_exit' rule is not considered here</dd>
 					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
@@ -238,7 +238,7 @@
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
 
-					<dt>stopProcess(namespec, wait=True)</dt>
+					<dt>stop_process(namespec, wait=True)</dt>
 					<dd>Stop the process named namespec where it is running</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
 					<dd>@param boolean wait: wait for the process to be fully stopped</dd>
@@ -248,7 +248,7 @@
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
 
-					<dt>restartProcess(strategy, namespec, wait=True)</dt>
+					<dt>restart_process(strategy, namespec, wait=True)</dt>
 					<dd>Stop the process named namespec where it is running and restart it in accordance with the strategy and the rules defined in the deployment file<br />
 					WARN: the 'wait_exit' rule is not considered here</dd>
 					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
@@ -263,7 +263,7 @@
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
 
-					<dt>internalStartProcess(namespec, wait)</dt>
+					<dt>internal_start_process(namespec, wait)</dt>
 					<dd><em>Only designed for internal use</em><br />
 					Start a process upon request of the Deployer of Supervisors<br />
         			The behaviour is different from <code class="python">supervisor.startProcess</code> as it sets the process state to FATAL instead of throwing an exception to the RPC client</dd>

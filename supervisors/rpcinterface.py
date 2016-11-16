@@ -84,7 +84,7 @@ class RPCInterface(object):
         self.check_operating_conciliation()
         return self.context.master_address
 
-    def get_all_address_info(self):
+    def get_all_addresses_info(self):
         """ Get info about all remote supervisord managed in Supervisors
         @return list result\tA list of structures containing data about all remote supervisord
         """
@@ -102,7 +102,7 @@ class RPCInterface(object):
         return {'address': address, 'state': status.state_string(), 'checked': status.checked,
             'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time), 'loading': status.loading()}
 
-    def get_all_application_info(self):
+    def get_all_applications_info(self):
         """ Get info about all applications managed in Supervisors
         @return list result\tA list of structures containing data about all applications
         """

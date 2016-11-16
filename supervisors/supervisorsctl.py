@@ -350,21 +350,21 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("restart_process <strategy> \t\t\tRestart all named processes.")
 
     # restart Supervisors
-    def do_sup_reload(self, arg):
+    def do_sreload(self, arg):
         if self._upcheck():
             self.supervisors().restart()
 
-    def help_sup_reload(self):
-        self.ctl.output("sup_reload\t\t\t\tRestart Supervisors.")
+    def help_sreload(self):
+        self.ctl.output("sreload\t\t\t\tRestart Supervisors.")
         self.ctl.output("\t\t\t\t\tRestart all remote supervisord")
 
     # shutdown Supervisors
-    def do_sup_shutdown(self, arg):
+    def do_sshutdown(self, arg):
         if self._upcheck():
             self.supervisors().shutdown()
 
-    def help_sup_shutdown(self):
-        self.ctl.output("sup_shutdown\t\t\t\tShutdown Supervisors.")
+    def help_sshutdown(self):
+        self.ctl.output("sshutdown\t\t\t\tShutdown Supervisors.")
         self.ctl.output("\t\t\t\t\tShut all remote supervisord down")
 
     # checking API versions

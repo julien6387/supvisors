@@ -83,16 +83,13 @@ nav {
 }
 
 #right_side header {
+    min-height: 90px;
+    padding: 0 10px;
 	background: url(../img/texture.jpg);
 	color: #e6e6e6;
     display: flex;
 	justify-content: space-between;
     align-items: center;
-}
-
-#right_side header {
-    min-height: 90px;
-    padding: 0 10px;
 }
 
 #contents {
