@@ -12,7 +12,7 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="#github">Supervisors</a></h1>
+				<h1><a href="https://github.com/julien6387/supervisors" target="_blank">Supervisors</a></h1>
 				<p class="version">0.1 alpha</p>
 			</header>
 
@@ -28,6 +28,7 @@
                     </ul></li>
                     <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
                     <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
                     <li><a href="dashboard.html">HTTP Dashboard</a></li>
                     <li><a href="design.html">Software Design</a></li>
                 </ul>
@@ -41,10 +42,10 @@
 
 		<div id="right_side">
 			<header>
-				<h1>Documentation &raquo; Configuration</h1>
+				<h2>Documentation &raquo; Configuration</h2>
 			</header>
 
-			<section>
+			<section id="doc-contents">
 				<h2 id="supervisor-config">Supervisor Configuration</h2>
 				<p>This section explains how Supervisors uses and complements the <a href="http://supervisord.org/configuration.html" class="extLink">Supervisor configuration</a>.</p>
 
@@ -193,20 +194,11 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td>Name of the application. A Supervisor group name is expected.</td>
 						</tr>
 						<tr>
-							<td><span class="option">autostart</span></td>
-							<td>element</td>
-							<td>0, 1</td>
-							<td>false</td>
-							<td>If true, the application is started automatically when automatic deployment is starting.<br />
-							<strong>This option will be removed and replaced by the following options: <span class="option">start_sequence</span> and <span class="option">stop_sequence</span></strong></td>
-						</tr>
-						<tr>
 							<td><span class="option">start_sequence</span></td>
 							<td>element</td>
 							<td>0, 1</td>
 							<td>0</td>
-							<td>span class="not-implemented-yet"></span><br />
-							Starting order of the application when automatic deployment is starting.<br />
+							<td>Starting order of the application when automatic deployment is starting.<br />
 							If set to 0, application is not automatically started.<br />
 							When > 0, application is started automatically in the order specified.</td>
 						</tr>
@@ -327,8 +319,7 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td>element</td>
 							<td>0, 1</td>
 							<td>0</td>
-							<td><span class="not-implemented-yet"></span><br />
-							Stopping order of the program when application is stopping.<br />
+							<td>Stopping order of the program when application is stopping.<br />
 							If set to 0, program is stopped immediately.<br />
 							When > 0, program is stopped in the order specified.</td>
 						</tr>
