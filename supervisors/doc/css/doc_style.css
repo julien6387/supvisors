@@ -136,21 +136,6 @@ body::after {
 }
 
 
-.page-figure {
-    display: flex;
-    text-align: center;
-}
-
-.page-figure div {
-    margin: auto;
-}
-
-.page-figure div:nth-child(2)  {
-    display: flex;
-	flex-direction: column;
-}
-
-
 /* Resource design */
 
 header, nav, footer {
