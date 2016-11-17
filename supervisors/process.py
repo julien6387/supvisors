@@ -88,6 +88,7 @@ class ProcessStatus(object):
     - the list of all addresses where the process is running
     - a Supervisor-like process info dictionary for each address (running or not)
     - the starting rules related to this process
+    - optional extra arguments to be passed to the command line
     - a status telling if the wait_exit rule is applicable (should be temporary). """
 
     def __init__(self, address, info, logger):
@@ -106,6 +107,7 @@ class ProcessStatus(object):
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
+        self.extra_args = None
         self.ignore_wait_exit = False
         # init parameters
         self.add_info(address, info)

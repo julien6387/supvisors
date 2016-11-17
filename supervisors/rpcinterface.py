@@ -31,27 +31,36 @@ class RPCInterface(object):
 
     def __init__(self, supervisors):
         self.supervisors = supervisors
-        supervisors_short_cuts(self, ['context', 'logger', 'requester'])
+        supervisors_short_cuts(self, ['context', 'info_source', 'logger', 'requester'])
         self.address = supervisors.address_mapper.local_address
 
     # RPC for Supervisors internal use
-    def internal_start_process(self, namespec, wait):
+    def internal_start_process(self, namespec, extra_args):
         """ Start a process upon request of the Starter of Supervisors.
         The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
         instead of throwing an exception to the RPC client.
         @param string name\tThe process name
-        @param boolean wait\tWait for process to be fully started
+        @param string extra_args\tExtra arguments to be passed to the command line of the program
         @return boolean result\tAlways true unless error
         """
+        self.logger.info('RPC start_process {}'.format(namespec))
+        # update command line in process config with extra_args
         try:
-            self.logger.info('RPC start_process {}'.format(namespec))
-            result = self.requester.start_process(self.address, namespec, wait)
+            self.info_source.update_extra_args(namespec, extra_args)
+        except KeyError:
+            # process is unknown to the local Supervisor
+            # this should not happen as Supervisors checks the configuration before it sends this request
+            self.logger.error('could not find {} in supervisord processes'.format(namespec))
+            return False
+        # start process with Supervisor internal RPC
+        try:
+            result = self.info_source.supervisor_rpc_interface.startProcess(namespec, False)
         except RPCError, why:
             self.logger.error('start_process {} failed: {}'.format(namespec, why))
-            if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
+            if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
                 self.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
                 try:
-                    self.supervisors.info_source.force_process_fatal(namespec, why.text)
+                    self.info_source.force_process_fatal(namespec, why.text)
                     result = True
                 except KeyError:
                     # process is unknown to the local Supervisor
@@ -252,11 +261,12 @@ class RPCInterface(object):
         onwait.job = self.stop_application(application_name, True)
         return onwait # deferred
 
-    def start_process(self, strategy, namespec, wait=True):
+    def start_process(self, strategy, namespec, extra_args=None, wait=True):
         """ Start a process named namespec iaw the strategy and some of the rules defined in the deployment file
         WARN; the 'wait_exit' rule is not considered here
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
+        @param string extra_args\tExtra arguments to be passed to command line
         @param boolean wait\tWait for process to be fully started
         @return boolean result\tAlways true unless error """
         self.check_operating()
@@ -273,7 +283,7 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= self.supervisors.starter.start_process(strategy, process)
+            done &= self.supervisors.starter.start_process(strategy, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:

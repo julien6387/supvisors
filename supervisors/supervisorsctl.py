@@ -277,7 +277,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires a strategy and a program name')
                 self.help_start_process()
                 return
-            strategy = DeploymentStrategies._to_string(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_start_process()
@@ -294,10 +294,36 @@ class ControllerPlugin(ControllerPluginBase):
                     self.ctl.output('{} started: {}'.format(process, result))
 
     def help_start_process(self):
-        self.ctl.output("Start a process with strategy and rules.")
+        self.ctl.output("Start a process with strategy.")
         self.ctl.output("start_process <strategy> <proc>\t\tStart the process named proc.")
         self.ctl.output("start_process <strategy> <proc> <proc>\tStart multiple named processes.")
         self.ctl.output("start_process <strategy> \t\t\tStart all named processes.")
+
+    # start a process using strategy and rules
+    def do_start_process_args(self, arg):
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 3:
+                self.ctl.output('ERROR: start_process requires a strategy, a program name and extra arguments')
+                self.help_start_process_args()
+                return
+            self.ctl.output(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
+            if strategy is None:
+                self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'.format(DeploymentStrategies._strings()))
+                self.help_start_process_args()
+                return
+            namespec = args[1]
+            try:
+                result = self.supervisors().start_process(strategy, namespec, ' '.join(args[2:]))
+            except xmlrpclib.Fault, e:
+                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+            else:
+                self.ctl.output('{} started: {}'.format(namespec, result))
+
+    def help_start_process_args(self):
+        self.ctl.output("Start a process with strategy and additional arguments.")
+        self.ctl.output("start_process <strategy> <proc> <arg_list>\t\tStart the process named proc with additional arguments arg_list.")
 
     # stop a process
     def do_stop_process(self, arg):

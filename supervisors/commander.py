@@ -158,11 +158,13 @@ class Starter(Commander):
         # return True when deployment over
         return not self.in_progress()
 
-    def start_process(self, strategy, process):
+    def start_process(self, strategy, process, extra_args=None):
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested. """
         self.logger.info('start process {}'.format(process.namespec()))
         # called from rpcinterface: strategy is a user choice
         self.strategy = strategy
+        # store extra arguments to be passed to the command line
+        process.extra_args = extra_args
         # WARN: when deploying a single process (outside the scope of an application deployment), do NOT consider the 'wait_exit' rule
         process.ignore_wait_exit = True
         # push program list in todo list and start work
@@ -269,7 +271,7 @@ class Starter(Commander):
             if address:
                 self.logger.info('try to start {} at address={}'.format(namespec, address))
                 # use xml rpc to start program
-                if self.supervisors.requester.internal_start_process(address, namespec, False):
+                if self.supervisors.requester.internal_start_process(address, namespec, process.extra_args):
                     # push to jobs and timestamp process
                     process.request_time = time.time()
                     self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
@@ -278,6 +280,8 @@ class Starter(Commander):
                 else:
                     # this should not happen but log a critical message, just in case...
                     self.logger.critical('[BUG] RPC internal_start_process failed {}'.format(namespec))
+                # reset extra arguments
+                process.extra_args = None
             else:
                 self.logger.warn('no resource available to start {}'.format(namespec))
                 self.process_failure(process, 'no resource available', True)

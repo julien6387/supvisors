@@ -74,7 +74,7 @@ class ConfigStrategy(AbstractDeploymentStrategy):
 class LessLoadedStrategy(AbstractDeploymentStrategy):
     """ Strategy designed to share the loading among all the addresses """
 
-    def getAddress(self, addresses, expected_loading):
+    def get_address(self, addresses, expected_loading):
         """ Choose the address having the lowest loading that can support the additional loading requested """
         self.logger.trace('addresses={} expectedLoading={}'.format(addresses, expected_loading))
         # returns the less loaded remote from list that is capable of handling the loading
