@@ -55,7 +55,15 @@
                     The compatibility with other browsers or other versions of Firefox is unknown.</p>
 				</div>
 
-                <h2 id="menu">Menu</h2>
+                <p>All pages are divided into 3 parts:</p>
+                <ul>
+                    <li>the <a href="#menu" class="intLink">Common Menu</a> on the left side,</li>
+                    <li>a header on the top right,</li>
+                    <li>the contents itself on the lower right.</li>
+                </ul>
+
+
+                <h2 id="menu">Common Menu</h2>
 
                 <div id="menu-contents">
                     <aside><img src="img/supervisors_menu.png" alt="Menu" id="web_menu"></aside>
@@ -96,22 +104,14 @@
 
                 
 				<h2 id="main-page">Main page</h2>
-                <p>The Main page shows a synoptic of the Supervisors status.<br />
-                It is divided into 3 parts:</p>
+                <p>The Main page shows a synoptic of the Supervisors status.</p>
 
-                <div class="page-figure">
-                    <div>the common <a href="#menu" class="intLink">Menu</a></div>
-                    <div>
-                        <div>a <a href="#main-header" class="intLink">header</a></div>
-                        <figure>
-                            <img src="img/supervisors_main_page.png" alt="Main page">
-                            <figcaption>Supervisors Main page</figcaption>
-                        </figure>
-                    </div>
-                    <div>the <a href="#main-contents" class="intLink">contents</a> itself</div>
-                </div>
+                <figure>
+                    <img src="img/supervisors_main_page.png" alt="Main page">
+                    <figcaption>Supervisors Main page</figcaption>
+                </figure>
 
-                <h3 id="main-header">Header</h3>
+                <h3>Main page Header</h3>
                 <p>The state of Supervisors is displayed on the left side of the header:</p>
                 <ul>
                     <li><code>INITIALISATION</code> corresponds to the Supervisors starting phase, waiting for all Supervisors instances to connect themselves,</li>
@@ -127,7 +127,7 @@
                     <li>  <img src="img/reload_30.png" alt="Refresh button"> refreshes the current page.</li>
                 </ul>
 
-                <h3 id="main-contents">Contents</h3>
+                <h3>Main page Contents</h3>
                 <p>For every addresses, a box is displayed in the contents of the Supervisor Main page.<br />
                 Each box contains:</p>
                 <ul>
@@ -141,25 +141,17 @@
 				<h2 id="conciliation-page">Conciliation page</h2>
                 <p>If the page is refreshed when Supervisors is in <code>Conciliation</code> state, the 'Supervisors' label in the top left of the common <a href="#menu" class="intLink">Menu</a> becomes red and blinks.<br />
                 This situation is unlikely to happen if the <a href="index.html#supervisors-section" class="intLink">Conciliation Strategy</a> chosen in the Supervisors section of the configuration file is different from <code>USER</code>.</p>
-                <p>The Conciliation page can be reached by clicking on this blinking red label.<br />
-                It is divided into 3 parts:</p>
+                <p>The Conciliation page can be reached by clicking on this blinking red label.</p>
 
-                <div class="page-figure">
-                    <div>the common <a href="#menu" class="intLink">Menu</a></div>
-                    <div>
-                        <div>a <a href="#conciliation-header" class="intLink">header</a></div>
-                        <figure>
-                            <img src="img/supervisors_conciliation_page.png" alt="Conciliation page">
-                            <figcaption>Supervisors Conciliation page</figcaption>
-                        </figure>
-                    </div>
-                    <div>the <a href="#conciliation-contents" class="intLink">contents</a> itself</div>
-                </div>
+                <figure>
+                    <img src="img/supervisors_conciliation_page.png" alt="Conciliation page">
+                    <figcaption>Supervisors Conciliation page</figcaption>
+                </figure>
 
-                <h3 id="conciliation-header">Header</h3>
+                <h3>Conciliation page Header</h3>
                 <p>The header of the Conciliation page has exactly the same contents as the <a href="#main-header" class="intLink">header</a> of the Main page.</p>
 
-                <h3 id="conciliation-contents">Contents</h3>
+                <h3>Conciliation page Contents</h3>
                 <p>On the right side of the page, the list of process conflicts is displayed into a table.<br />
                 A process conflict is raised when the same program is running on several machines.</p>
                 <p>So the tables lists, for each conflict:</p>
@@ -167,27 +159,43 @@
                     <li>the name of the program incriminated,</li>
                     <li>the list of addresses where it is running,</li>
                     <li>the uptime of the corresponding process on each address,</li>
-                    <li>for each process, a list of actions that contribute to the solving of this conflict:<ul>
+                    <li>for each process, a list of actions helping to the solving of this conflict:<ul>
                         <li>Stop the process,</li>
                         <li>Keep this process (and Stop all others),</li>
                     </ul></li>
-                    <li>for each process, a list of automatic strategies (<a href="index.html#conciliation-note" class="intLink">details</a>) that contribute to the solving of this conflict.</li>
+                    <li>for each process, a list of automatic strategies (<a href="index.html#conciliation-note" class="intLink">details</a>) helping to the solving of this conflict.</li>
                 </ul>
                 <p>The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts, using one of the automatic strategies.</p>
 
 
 				<h2 id="address-page">Address page</h2>
+                <p></p>
+
 				<figure>
 					<img src="img/supervisors_address_page.png" alt="Address page">
 					<figcaption>Supervisors Address page</figcaption>
 				</figure>
 
+                <h3>Address page Header</h3>
+                <p></p>
+
+                <h3>Address page Contents</h3>
+                <p></p>
+
                 
 				<h2 id="application-page">Application page</h2>
+                <p></p>
+
 				<figure>
 					<img src="img/supervisors_application_page.png" alt="Application page">
 					<figcaption>Supervisors Application page</figcaption>
 				</figure>
+
+                <h3>Application page Header</h3>
+                <p></p>
+
+                <h3>Application page Contents</h3>
+                <p></p>
 
 			</section>
 
