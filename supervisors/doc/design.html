@@ -68,7 +68,7 @@
 					<tr><th colspan="2"><code class="className">ProcessStatus</code></th></tr>
 					<tr><td><code class="attributeName">application_name</code></td><td>name of the application that the process belongs to, in other words the Supervisor group</td></tr>
 					<tr><td><code class="attributeName">process_name</code></td><td>name of the process, in other words the Supervisor program name</td></tr>
-					<tr><td><code class="attributeName">state</code></td><td>state of the process, as defined in <a href="http://supervisord.org/subprocess.html#process-states" class="extLink">Supervisor</a></td></tr>
+					<tr><td><code class="attributeName">state</code></td><td>'synthetic' state of the process, as defined in <a href="http://supervisord.org/subprocess.html#process-states" class="extLink">Supervisor</a></td></tr>
 					<tr><td><code class="attributeName">expected_exit</code></td><td>status telling if the process has exited as expected, only makes sense when state is <code>EXITED</code></td></tr>
 					<tr><td><code class="attributeName">last_event_time</code></td><td>date of the last process event received from Supervisor, in remote reference time</td></tr>
 					<tr><td><code class="attributeName">addresses</code></td><td>set of addresses where the process is in a <code>RUNNING</code> state<br />
@@ -86,6 +86,19 @@
 RUNNING_STATES = (ProcessStates.RUNNING,
 	ProcessStates.BACKOFF,
 	ProcessStates.STARTING)</code></pre>
+
+				<div class="note" id="synthetic-state-note">
+					<p>Note about the state synthesis of a process</p>
+                    <p>The state of the <code class="className">ProcessStatus</code> is a kind of synthesis based on the states declared on all Supervisor instances.<br />
+                    Depending on how the program has been used on different addresses, it may be <code>STOPPED</code> on address A, <code>EXITED</code> on address B,
+                    <code>RUNNING</code> on address C, etc.<br />
+                    So Supervisors uses the following priority to declare the process state:</p>
+                    <ul>
+                        <li>the 'highest' state in <code>RUNNING_STATES</code>, with <code>RUNNING</code> &gt; <code>BACKOFF</code> &gt; <code>STARTING</code>,</li>
+                        <li>the <code>STOPPING</code> state,</li>
+                        <li>the last state received in <code>STOPPED_STATES</code>.</li>
+                    </ul>
+				</div>
 
 				<div class="note">
 					<p>Note about the decision not to use the <code class="className">Subprocess</code> class, available in Supervisor source code</p>
