@@ -169,12 +169,14 @@
 				<dl>
 					<dt>restart()</dt>
 					<dd>Restart Supervisors through all remote Supervisor instances</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code>
+                    if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return boolean: always True unless error</dd>
 
 					<dt>shutdown()</dt>
 					<dd>Shut down Supervisors through all remote Supervisor instances</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code>
+                    if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return boolean: always True unless error</dd>
 				</dl>
 
@@ -200,7 +202,8 @@
 					<dd>@param string application_name: the name of the application</dd>
 					<dd>@param boolean wait: wait for the application to be fully stopped</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code>
+                        if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
 						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
@@ -223,11 +226,30 @@
 
 				<h2 id="process">Process Control</h2>
 				<dl>
-					<dt>start_process(strategy, namespec, wait=True)</dt>
+					<dt>start_args(namespec, extra_args=None, wait=True)</dt>
+					<dd>Start a process upon request of the Deployer of Supervisors<br />
+        			The behaviour is different from <code class="python">supervisor.startProcess</code> as it sets the process state to FATAL instead of throwing an exception to the RPC client<br />
+                    In addition to that, it is possible to pass extra arguments to the command line</dd>
+					<dd>@param string namespec: the process name</dd>
+					<dd>@param string extra_args: the additional arguments to be passed to the command line</dd>
+					<dd>@param boolean wait: wait for the process to be fully started</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code>
+                        if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to the local Supervisor</li>
+						<li>with code <code>Faults.BAD_EXTRA_ARGUMENTS</code> if program is required or has a start sequence</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if process could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>start_process(strategy, namespec, extra_args=None, wait=True)</dt>
 					<dd>Start the process named namespec in accordance with the strategy and the rules defined in the deployment file<br />
+                    Additional arguments can be passed to the command line using the extra_ags parameter.<br />
 					WARN: the 'wait_exit' rule is not considered here</dd>
 					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>@param string extra_args: the additional arguments to be passed to the command line</dd>
 					<dd>@param boolean wait: wait for the process to be fully started</dd>
 					<dd>@throws RPCError:<ul>
 						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code></li>
@@ -261,14 +283,6 @@
 						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
 						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if process could not be started</li>
 					</ul></dd>
-					<dd>@return boolean: always True unless error</dd>
-
-					<dt>internal_start_process(namespec, wait)</dt>
-					<dd><em>Only designed for internal use</em><br />
-					Start a process upon request of the Deployer of Supervisors<br />
-        			The behaviour is different from <code class="python">supervisor.startProcess</code> as it sets the process state to FATAL instead of throwing an exception to the RPC client</dd>
-					<dd>@param string namespec: the process name</dd>
-					<dd>@param boolean wait: wait for the process to be fully started</dd>
 					<dd>@return boolean: always True unless error</dd>
 				</dl>
 

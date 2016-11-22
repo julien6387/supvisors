@@ -269,6 +269,26 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("restart_application <strategy> <appli> <appli>\tStart multiple named applications with strategy")
         self.ctl.output("restart_application <strategy> \t\t\tStart all named applications with strategy.")
 
+    # start a local process using strategy and rules
+    def do_start_args(self, arg):
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: start_args requires a program name and extra arguments')
+                self.help_start_args()
+                return
+            namespec = args[0]
+            try:
+                result = self.supervisors().start_args(namespec, ' '.join(args[1:]))
+            except xmlrpclib.Fault, e:
+                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+            else:
+                self.ctl.output('{} started: {}'.format(namespec, result))
+
+    def help_start_args(self):
+        self.ctl.output("Start a local process with additional arguments.")
+        self.ctl.output("start_process <proc> <arg_list>\t\tStart the local process named proc with additional arguments arg_list.")
+
     # start a process using strategy and rules
     def do_start_process(self, arg):
         if self._upcheck():
@@ -304,7 +324,7 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             args = arg.split()
             if len(args) < 3:
-                self.ctl.output('ERROR: start_process requires a strategy, a program name and extra arguments')
+                self.ctl.output('ERROR: start_process_args requires a strategy, a program name and extra arguments')
                 self.help_start_process_args()
                 return
             self.ctl.output(args[0])

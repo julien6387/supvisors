@@ -32,7 +32,7 @@ from supervisors.viewsupervisors import SupervisorsView
 
 # Supervisors related faults
 class SupervisorsFaults:
-    SUPERVISORS_CONF_ERROR, BAD_SUPERVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY = range(4)
+    SUPERVISORS_CONF_ERROR, BAD_SUPERVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_EXTRA_ARGUMENTS = range(5)
 
 FAULTS_OFFSET = 100
 

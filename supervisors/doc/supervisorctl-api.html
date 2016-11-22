@@ -58,10 +58,11 @@ clear  maintail  quit  reread  signal    stop    version
 
 supervisors commands (type help &lt;topic&gt;):
 =========================================
-address_status    restart_application  sstatus            stop_process
-application_info  restart_process      start_application  sreload  
-conflicts         rules                start_process      sshutdown
-master            sstate               stop_application   sversion</code></pre>
+address_status       restart_process  sstatus             stop_application
+application_info     rules            start_application   stop_process    
+conflicts            sreload          start_args          sversion        
+master               sshutdown        start_process     
+restart_application  sstate           start_process_args</code></pre>
 
 				<h2 id="status">Status</h2>
 				<dl>
@@ -167,11 +168,17 @@ master            sstate               stop_application   sversion</code></pre>
         			<dt>start_process strategy</dt>
 					<dd>Start all processes with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
 
-				   <dt>start_process strategy proc</dt>
+                    <dt>start_process strategy proc</dt>
 					<dd>Start the process named proc with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
 
-				   <dt>start_process strategy proc1 proc2</dt>
+                    <dt>start_process strategy proc1 proc2</dt>
 					<dd>Start multiple named processes with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED }</dd>
+
+                    <dt>start_args proc arg_list</dt>
+					<dd>Start the process named proc on the local address and with the additional arguments arg_list passed to the command line</dd>
+
+                    <dt>start_process_args strategy proc arg_list</dt>
+					<dd>Start the process named proc with a strategy among { CONFIG, LESS_LOADED, MOST_LOADED } and with the additional arguments arg_list passed to the command line</dd>
 
         			<dt>stop_process</dt>
 					<dd>Stop all processes on all addresses</dd>

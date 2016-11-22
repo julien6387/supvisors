@@ -281,3 +281,5 @@ class ProcessStatus(object):
         """ Return the first matching state in RUNNING_STATES """
         return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
 
+    def accept_extra_arguments(self):
+        return not self.rules.required and self.rules.start_sequence == 0
