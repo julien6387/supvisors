@@ -72,8 +72,22 @@ class SupervisordSource(object):
     @property
     def supervisor_state(self): return self.supervisord.options.mood
 
-    # this method is used to force a process state into supervisord and to dispatch process event to event listeners
+    def update_extra_args(self, namespec, extra_args):
+        """ This method is used to add extra arguments to the command line. """
+        application_name, process_name = split_namespec(namespec)
+        # WARN: the following line may throw a KeyError exception
+        config = self.supervisord.process_groups[application_name].processes[process_name].config
+        # on first time, save the original command line
+        if not hasattr(config, 'config_ref'):
+            setattr(config, 'config_ref', config.command)
+        # reset command line
+        config.command = config.config_ref
+        # apply args to command line
+        if extra_args:
+            config.command += ' '+ extra_args
+
     def force_process_fatal(self, namespec, reason):
+        """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
         application_name, process_name = split_namespec(namespec)
         # WARN: the following line may throw a KeyError exception
         process = self.supervisord.process_groups[application_name].processes[process_name]

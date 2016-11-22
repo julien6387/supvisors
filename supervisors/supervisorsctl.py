@@ -112,7 +112,7 @@ class ControllerPlugin(ControllerPluginBase):
                         self.output_application_info(info)
 
     def output_application_info(self, info):
-        template = '%(name)-20s%(state)-12s%(majorFailure)-15s%(minorFailure)-15s'
+        template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
         major_failure = info['major_failure']
         minor_failure = info['minor_failure']
         line = template % {'name': info['application_name'], 'state': info['state'],
@@ -269,6 +269,26 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("restart_application <strategy> <appli> <appli>\tStart multiple named applications with strategy")
         self.ctl.output("restart_application <strategy> \t\t\tStart all named applications with strategy.")
 
+    # start a local process using strategy and rules
+    def do_start_args(self, arg):
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: start_args requires a program name and extra arguments')
+                self.help_start_args()
+                return
+            namespec = args[0]
+            try:
+                result = self.supervisors().start_args(namespec, ' '.join(args[1:]))
+            except xmlrpclib.Fault, e:
+                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+            else:
+                self.ctl.output('{} started: {}'.format(namespec, result))
+
+    def help_start_args(self):
+        self.ctl.output("Start a local process with additional arguments.")
+        self.ctl.output("start_process <proc> <arg_list>\t\tStart the local process named proc with additional arguments arg_list.")
+
     # start a process using strategy and rules
     def do_start_process(self, arg):
         if self._upcheck():
@@ -277,7 +297,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires a strategy and a program name')
                 self.help_start_process()
                 return
-            strategy = DeploymentStrategies._to_string(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_start_process()
@@ -294,10 +314,36 @@ class ControllerPlugin(ControllerPluginBase):
                     self.ctl.output('{} started: {}'.format(process, result))
 
     def help_start_process(self):
-        self.ctl.output("Start a process with strategy and rules.")
+        self.ctl.output("Start a process with strategy.")
         self.ctl.output("start_process <strategy> <proc>\t\tStart the process named proc.")
         self.ctl.output("start_process <strategy> <proc> <proc>\tStart multiple named processes.")
         self.ctl.output("start_process <strategy> \t\t\tStart all named processes.")
+
+    # start a process using strategy and rules
+    def do_start_process_args(self, arg):
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 3:
+                self.ctl.output('ERROR: start_process_args requires a strategy, a program name and extra arguments')
+                self.help_start_process_args()
+                return
+            self.ctl.output(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
+            if strategy is None:
+                self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'.format(DeploymentStrategies._strings()))
+                self.help_start_process_args()
+                return
+            namespec = args[1]
+            try:
+                result = self.supervisors().start_process(strategy, namespec, ' '.join(args[2:]))
+            except xmlrpclib.Fault, e:
+                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+            else:
+                self.ctl.output('{} started: {}'.format(namespec, result))
+
+    def help_start_process_args(self):
+        self.ctl.output("Start a process with strategy and additional arguments.")
+        self.ctl.output("start_process <strategy> <proc> <arg_list>\t\tStart the process named proc with additional arguments arg_list.")
 
     # stop a process
     def do_stop_process(self, arg):
@@ -350,21 +396,21 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("restart_process <strategy> \t\t\tRestart all named processes.")
 
     # restart Supervisors
-    def do_sup_reload(self, arg):
+    def do_sreload(self, arg):
         if self._upcheck():
             self.supervisors().restart()
 
-    def help_sup_reload(self):
-        self.ctl.output("sup_reload\t\t\t\tRestart Supervisors.")
+    def help_sreload(self):
+        self.ctl.output("sreload\t\t\t\tRestart Supervisors.")
         self.ctl.output("\t\t\t\t\tRestart all remote supervisord")
 
     # shutdown Supervisors
-    def do_sup_shutdown(self, arg):
+    def do_sshutdown(self, arg):
         if self._upcheck():
             self.supervisors().shutdown()
 
-    def help_sup_shutdown(self):
-        self.ctl.output("sup_shutdown\t\t\t\tShutdown Supervisors.")
+    def help_sshutdown(self):
+        self.ctl.output("sshutdown\t\t\t\tShutdown Supervisors.")
         self.ctl.output("\t\t\t\t\tShut all remote supervisord down")
 
     # checking API versions

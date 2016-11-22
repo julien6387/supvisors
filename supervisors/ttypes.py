@@ -53,7 +53,7 @@ class RunningFailureStrategies:
 @enumeration_tools
 class SupervisorsStates:
     """ Internal state of Supervisors. """
-    INITIALIZATION, ELECTION, DEPLOYMENT, OPERATION, CONCILIATION = range(5)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION = range(4)
 
 
 # Exceptions

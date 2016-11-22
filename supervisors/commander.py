@@ -158,11 +158,13 @@ class Starter(Commander):
         # return True when deployment over
         return not self.in_progress()
 
-    def start_process(self, strategy, process):
+    def start_process(self, strategy, process, extra_args=None):
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested. """
         self.logger.info('start process {}'.format(process.namespec()))
         # called from rpcinterface: strategy is a user choice
         self.strategy = strategy
+        # store extra arguments to be passed to the command line
+        process.extra_args = extra_args
         # WARN: when deploying a single process (outside the scope of an application deployment), do NOT consider the 'wait_exit' rule
         process.ignore_wait_exit = True
         # push program list in todo list and start work
@@ -269,16 +271,17 @@ class Starter(Commander):
             if address:
                 self.logger.info('try to start {} at address={}'.format(namespec, address))
                 # use xml rpc to start program
-                if self.supervisors.requester.internal_start_process(address, namespec, False):
+                if self.supervisors.requester.internal_start_process(address, namespec, process.extra_args):
                     # push to jobs and timestamp process
                     process.request_time = time.time()
                     self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
                     jobs.append(process)
                     reset_flag = False
                 else:
-                    # when internal_start_process returns false, this is a huge problem
-                    # the process could not be started through supervisord and it is not even referenced in its internal strucutre
+                    # this should not happen but log a critical message, just in case...
                     self.logger.critical('[BUG] RPC internal_start_process failed {}'.format(namespec))
+                # reset extra arguments
+                process.extra_args = None
             else:
                 self.logger.warn('no resource available to start {}'.format(namespec))
                 self.process_failure(process, 'no resource available', True)
@@ -296,15 +299,17 @@ class Starter(Commander):
             self.planned_jobs.pop(application_name, None)
         else:
             self.logger.info('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
-        # force process state to FATAL in supervisor so as it is published
         if force_fatal:
+            # publish the process state as FATAL to all Supervisors instances
             self.logger.warn('force {} state to FATAL'.format(process.namespec()))
             try:
                 self.supervisors.info_source.force_process_fatal(process.namespec(), reason)
             except KeyError:
                 self.logger.error('impossible to force {} state to FATAL. process unknown in this Supervisor'.format(process.namespec()))
-                # FIXME: what can i do then ?
-
+                # the Supervisors user is not forced to use the same process configuration on all machines,
+                # although it is strongly recommended to avoid troubles.
+                # so, publish directly a fake process event
+                self.supervisors.listener.force_process_fatal(process.namespec())
 
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """

@@ -12,23 +12,28 @@
 
 		<div id="left_side">
 			<header>
-				<h1><a href="#github">Supervisors</a></h1>
+				<h1><a href="https://github.com/julien6387/supervisors" target="_blank">Supervisors</a></h1>
 				<p class="version">0.1 alpha</p>
 			</header>
 
 			<nav>
 				<ul>
 	 				<li><a href="index.html" class="active">Introduction</a><ul>
-            		<li><a href="#overview">Overview</a></li>
-               	<li><a href="#platform">Platform Requirements</a></li>
-               	<li><a href="#install">Installation</a></li>
-               	<li><a href="#run">Running Supervisors</a></li>
-            	</ul></li>
-               <li><a href="configuration.html">Configuration</a></li>
-               <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
-               <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
-               <li><a href="dashboard.html">HTTP Dashboard</a></li>
-               <li><a href="design.html">Software Design</a></li>
+                        <li><a href="#overview">Overview</a></li>
+                        <li><a href="#platform">Platform Requirements</a></li>
+                        <li><a href="#install">Installation</a></li>
+                        <li><a href="#run">Running Supervisors</a></li>
+                        <li><a href="#supervisor-config">Configuration</a><ul>
+               		        <li><a href="#supervisor-ext">Extension points</a></li>
+               		        <li><a href="#supervisors-section">Supervisors section</a></li>
+                            <li><a href="#deployment-file">Deployment File</a></li>
+                        </ul></li>
+                    </ul></li>
+                    <li><a href="xml-rpc-api.html">XML-RPC API</a></li>
+                    <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
+                    <li><a href="dashboard.html">HTTP Dashboard</a></li>
+                    <li><a href="design.html">Software Design</a></li>
              </ul>
 			</nav>
 
@@ -40,11 +45,12 @@
 
 		<div id="right_side">
 			<header>
-				<h1>Documentation &raquo; Introduction</h1>
+				<h2>Documentation &raquo; Introduction</h2>
 			</header>
 
 			<section id="doc-contents">
-				<h2 id="overview">Overview</h2>
+
+                <h2 id="overview">Overview</h2>
 				<p>Supervisors is a control system for distributed applications over multiple Supervisor instances.</p>
 
 				<p>This piece of software is born from a common need in embedded systems where applications are distributed over several boards.<br />
@@ -74,18 +80,22 @@
 				<p>After some researches on the net, it seems that there is no simple, free and open source solution that meets all these requirements.<br />
 				<a href="http://supervisord.org" class="extLink">Supervisor</a> can handle a part of these requirements but it only works on a single UNIX-like operating system.<br />
 				The Supervisor website references <a href="http://supervisord.org/plugins.html" class="extLink">some tools</a> that deal with multiple Supervisor instances but they only consist in dashboards and none of them is focused on the application itself.<br />
-				However, the extensibility of Supervisor made it possible to implement the missing requirements.</p>
+				Nevertheless, the extensibility of Supervisor made it possible to implement the missing requirements.</p>
 
-				<dfn>In this documentation, a <em>Supervisors instance</em> refers to a Supervisor instance including a Supervisors extension.<br />
-				<em>Supervisors</em> is used to refererence the defined set of these instances.</dfn>
+				<p>In this documentation, a <em>Supervisors instance</em> refers to a Supervisor instance including a Supervisors extension.<br />
+				<em>Supervisors</em> is used to refererence the defined set of these instances.</p>
+
 
 				<h2 id="platform">Platform Requirements</h2>
-				<p>Supervisors has been tested and is known to run on Linux (CentOS 7.2)</p>
-				<p>Supervisors will not run at all under any version of Windows.</p>
-				<p>Supervisors works with Python 2.7 or later but will not work under any version of Python 3.</p>
+				<p>Supervisors has been tested and is known to run on Linux (CentOS 7.2)<br />
+				Supervisors will not run at all under any version of Windows.<br />
+				Supervisors works with Python 2.7 or later but will not work under any version of Python 3.</p>
+                <p><strong>The CSS of the present documentation has been written for Firefox ESR 45.4.0.</strong><br />
+                The compatibility with other browsers or other versions of Firefox is unknown.</p>
+
 
 				<h2 id="install">Installation</h2>
-				<p>The following dependencies are required before you install Supervisors:<br />fix size in CSS</p>
+				<p>The following dependencies are required before you install Supervisors:</p>
 				<table>
 					<caption>Supervisors dependencies</caption>
 					<tr><th>Dependency</th><th>Version</th><th>Comment</th>
@@ -130,11 +140,339 @@
 				Install Supervisors with the following command:</p>
                 <pre><code class="bash">[bash] > python setup.py install</code></pre>
 
+
 				<h2 id="run">Running Supervisors</h2>
-				<p>Supervisors runs as a plugin of Supervisor so it follows the same principle as <a href="http://supervisord.org/running.html" class="extLink">Running Supervisor</a> but using multiple UNIX-like operating systems. However, the supervisor configuration file MUST be updated to include the supervisors section (refer to the <a href="configuration.html" class="intLink">Configuration</a> part).</p>
+				<p>Supervisors runs as a plugin of Supervisor so it follows the same principle as <a href="http://supervisord.org/running.html" class="extLink">Running Supervisor</a> but using multiple UNIX-like operating systems.<br />
+                However, the supervisor configuration file <strong>MUST</strong>:</p>
+                <ul>
+                    <li>be configured with an internet socket (refer to the <a href="http://supervisord.org/configuration.html#inet-http-server-section-settings" class="extLink">inet-http-server</a> section settings),</li>
+                    <li>include the supervisors section (refer to the <a href="#supervisor-config" class="intLink">Configuration</a> part just below).</li>
+                </ul>
 				<p>Note that a script may be required to start Supervisor on several addresses if not configured to run automatically at startup (ssh loop for example).<br />
 				All Supervisor instances should be started during a given lap of time so that Supervisors works as expected.</p>
-			</section>
+
+
+				<h2 id="supervisor-config">Configuration</h2>
+				<p>This section explains how Supervisors uses and complements the <a href="http://supervisord.org/configuration.html" class="extLink">Supervisor configuration</a>.</p>
+
+				<h3 id="supervisor-ext">Extension points</h3>
+				<p>Supervisors extends the <a href="http://supervisord.org/xmlrpc.html" class="extLink">Supervisor's XML-RPC API</a></p>
+				<pre><code class="ini">[rpcinterface:supervisors]
+supervisor.rpcinterface_factory = supervisors.rpcinterface:make_supervisors_rpcinterface</code></pre>
+				<p>Supervisors extends also <a href="http://supervisord.org/running.html#running-supervisorctl" class="extLink">supervisorctl</a>. This possibility is not documented in Supervisor.</p>
+				<pre><code class="ini">[ctlplugin:supervisors]
+supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_plugin</code></pre>
+
+				<h3 id="supervisors-section">Supervisors section</h3>
+				<p>Supervisors uses an additional section <code class="ini">[supervisors]</code> in the Supervisor configuration file file.</p>
+				<table class="iniTable">
+					<caption>Supervisors options</caption>
+					<thead>
+						<tr><th>option</th><th>required</th><th>default</th><th>description</th></tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><span class="option">address_list</span></td>
+							<td>yes</td>
+							<td></td>
+							<td>List of host names or IP addresses where supervisors will be running.</td>
+						</tr>
+						<tr>
+							<td><span class="option">deployment_file</span></td>
+							<td>no</td>
+							<td></td>
+							<td>Absolute or relative path of the XML deployment file.</td>
+						</tr>
+						<tr>
+							<td><span class="option">auto_fence</span></td>
+							<td>no</td>
+							<td>false</td>
+							<td>When true, Supervisors won't try to reconnect to a Supervisors instance that has been inactive.</td>
+						</tr>
+						<tr>
+							<td><span class="option">internal_port</span></td>
+							<td>no</td>
+							<td>65001</td>
+							<td>Port number used to publish local events to remote Supervisors instances.</td>
+						</tr>
+						<tr>
+							<td><span class="option">event_port</span></td>
+							<td>no</td>
+							<td>65002</td>
+							<td>Port number used to publish all Supervisors events (PROCESS + APPLICATION + HOST).</td>
+						</tr>
+						<tr>
+							<td><span class="option">synchro_timeout</span></td>
+							<td>no</td>
+							<td>15</td>
+							<td>Time in seconds that Supervisors waits for all expected Supervisors instances to publish.</td>
+						</tr>
+						<tr>
+							<td><span class="option">deployment_strategy</span></td>
+							<td>no</td>
+							<td>CONFIG</td>
+							<td>Strategy used to start applications on addresses.<br />Value in { <code>CONFIG</code>, <code>LESS_LOADED</code>, <code>MOST_LOADED</code> } <a href="#deployment-note" class="intLink">details</a>.</td>
+						</tr>
+						<tr>
+							<td><span class="option">conciliation_strategy</span></td>
+							<td>no</td>
+							<td>USER</td>
+							<td>Strategy used to solve conflicts when detected when multiple instances of the same program are <code>RUNNING</code>.<br />Value in { <code>SENICIDE</code>, <code>INFANTICIDE</code>, <code>USER</code>, <code>STOP</code>, <code>RESTART</code> } <a href="#conciliation-note" class="intLink">details</a>.</td>
+						</tr>
+						<tr>
+							<td colspan="4" class="tableInfo">Supervisors options for the web page</td>
+						</tr>
+						<tr>
+							<td><span class="option">stats_period</span></td>
+							<td>no</td>
+							<td>10</td>
+							<td>List of periods for which the statistics will be provided in the Supervisors web page.<br />Up to 3 values allowed in [5 ; 3600] seconds, each of them MUST be a multiple of 5.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stats_histo</span></td>
+							<td>no</td>
+							<td>200</td>
+							<td>Depth of statistics history. Value in [10 ; 1500].</td>
+						</tr>
+						<tr>
+							<td colspan="4" class="tableInfo">Logging options, identical to <a href="http://supervisord.org/configuration.html#supervisord-section-values" class="extLink">Supervisor's</a></td>
+						</tr>
+						<tr>
+							<td><span class="option">logfile</span></td>
+							<td>no</td>
+							<td>supervisors.log</td>
+							<td>Absolute or relative path of the Supervisors log file.</td>
+						</tr>
+						<tr>
+							<td><span class="option">logfile_maxbytes</span></td>
+							<td>no</td>
+							<td>50MB</td>
+							<td>Maximum size of the Supervisors log file.</td>
+						</tr>
+						<tr>
+							<td><span class="option">logfile_backups</span></td>
+							<td>no</td>
+							<td>10</td>
+							<td>Number of Supervisors backup log files.</td>
+						</tr>
+						<tr>
+							<td><span class="option">loglevel</span></td>
+							<td>no</td>
+							<td>info</td>
+							<td>Logging level.</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<div class="note" id="deployment-note">
+					<p>Note about the <strong>Deployment Strategy</strong><p>
+					<p>When applying the <code>CONFIG</code> strategy, Supervisors chooses the first address available in the <a href="#deployment-file" class="intLink">addresses</a> list.</p>
+					<p>When applying the <code>LESS_LOADED</code> strategy, Supervisors chooses the address in the <a href="#deployment-file" class="intLink">addresses</a> list having the lowest expected loading.<br />
+					The aim is to distribute the process loading among the available hosts.</p>
+					<p>When applying the <code>MOST_LOADED</code> strategy, with respect of the common rules, Supervisors chooses the address in the <a href="#deployment-file" class="intLink">addresses</a> list having the greatest expected loading.<br />
+				The aim is to maximize the load of a host before starting to load another host. This strategy is more interesting when the resources are limited.</p>
+				</div>
+
+				<div class="note" id="conciliation-note">
+					<p>Note about the <strong>Conciliation Strategy</strong><p>
+					<p>When applying the <code>SENICIDE</code> strategy, Supervisors keeps the <em>youngest</em> process, i.e. tha process that has been started the most recently, and stops all the others.<br />
+					When applying the <code>INFANTICIDE</code> strategy, Supervisors keeps the <em>oldest</em> process and stops all the others.<br />
+					When applying the <code>USER</code> strategy, Supervisors just waits that a user aplication solves the conflicts using <code class="bash">supervisorctl</code>, XML-RPC, process signal, or any other solution.<br />
+					When applying the <code>STOP</code> strategy, Supervisors stops all conflicting processes, which may lead the corresponding applications to a degraded state.<br />
+					When applying the <code>RESTART</code> strategy, Supervisors stops all conflicting processes and restarts a new one.</p>
+				</div>
+
+
+				<h3 id="deployment-file">Deployment File</h3>
+				<p>Basically, the deployment file contains rules that define how applications should be started. It relies on the Supervisor group and program definitions.</p>
+
+				<p>The main entity of the deployment file is the application. It defines the quality of service expected and how its related programs are meant to be started.</p>
+				<table class="xmlTable">
+					<caption>Options for application</caption>
+					<thead>
+						<tr><th>option</th><th>type</th><th>card</th><th>default</th><th>description</th></tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><span class="option">name</span></td>
+							<td>attribute</td>
+							<td>1</td>
+							<td></td>
+							<td>Name of the application. A Supervisor group name is expected.</td>
+						</tr>
+						<tr>
+							<td><span class="option">start_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td>Starting order of the application when automatic deployment is starting.<br />
+							If set to 0, application is not automatically started.<br />
+							When > 0, application is started automatically in the order specified.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stop_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td><span class="not-implemented-yet"></span><br />
+							Stopping order of the application when Supervisors is shutdown.<br />
+							If set to 0, Supervisors does nothing and let Supervisor do the job.<br />
+							When > 0, Supervisors stops the application in the order specified, BEFORE the shutdown of Supervisor is requested.</td>
+						</tr>
+						<tr>
+							<td><span class="option">starting_failure_strategy</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>ABORT</td>
+							<td><span class="not-implemented-yet"></span><br />
+							Strategy applied upon a major failure in the starting phase. Values among:<ul>
+								<li>ABORT: Abort the application starting.</li>
+								<li>STOP: Stop the application.</li>
+								<li>CONTINUE: Skip the failure and continue the application starting.</li></ul>
+							</td>
+						</tr>
+						<tr>
+							<td><span class="option">running_failure_strategy</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>CONTINUE</td>
+							<td><span class="not-implemented-yet"></span><br />
+							Strategy applied upon a major failure in the running phase. Values among:<ul>
+								<li>CONTINUE: Skip the failure. The application stays with the major failure.</li>
+								<li>STOP: Stop the application.</li>
+								<li>RESTART: Restart the application.</li></ul>
+							</td>
+						</tr>
+						<tr>
+							<td><span class="option">program</span></td>
+							<td>element</td>
+							<td>*</td>
+							<td></td>
+							<td>A program definition applicable to the <em>unique</em> program whose name correspond to the name of the definition.</td>
+						</tr>
+						<tr>
+							<td><span class="option">pattern</span></td>
+							<td>element</td>
+							<td>*</td>
+							<td></td>
+							<td>A program definition applicable to all programs whose name matches the name of the pattern.</td>
+						</tr>
+					<tbody>
+				</table>
+
+				<div class="note">
+					<p>Note about the pattern names<p>
+					<p>It may happen that several patterns match the same program name. In this case, Supervisors chooses the pattern with the greatest matching, or the first of them if such a rule does not discrimate enough.</p>
+				</div>
+
+				<p>Here follows the definition of a program or a pattern. This definition has been extended to a generic model, outside the application scope, so that the same definition can be applied to several programs, in any application.</p>
+				<table class="xmlTable">
+					<caption>Options for program, pattern or model</caption>
+					<thead>
+						<tr><th>option</th><th>type</th><th>card</th><th>default</th><th>description</th></tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><span class="option">name</span></td>
+							<td>attribute</td>
+							<td>1</td>
+							<td></td>
+							<td>Name of the program, pattern or model.<br />
+							For a program definition, a Supervisor program name is expected.<br />
+							For a pattern definition, a substring of any Supervisor program name is expected.<br />
+							No particular expectation for a model definition.</td>
+						</tr>
+						<tr><td colspan="5" class="tableInfo">Exclusive contents. Not applicable to model definitions.</td></tr>
+						<tr>
+							<td><span class="option">reference</span></td>
+							<td>element</td>
+							<td>1</td>
+							<td></td>
+							<td>Name of the applicable model.</td>
+						</tr>
+						<tr><td colspan="5" class="tableInfo">Exclusive contents. Applicable to all definitions.</td></tr>
+						<tr>
+							<td><span class="option">addresses</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>*</td>
+							<td>List of host names or IP addresses. Applicable values are:
+							<ul>
+								<li>a subset of <a href="#supervisors-section" class="intLink">addresslist</a>,</li>
+								<li>'*': stands for all values in <a href="#supervisors-section" class="intLink">addresslist</a>.</li>
+								<li>'#': <span class="not-implemented-yet"></span>only applicable to a pattern, intended to a program that is meant to be started on each address in the address list.</li></ul></td>
+						</tr>
+						<tr>
+							<td><span class="option">required</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>false</td>
+							<td>Importance of the program for the application.<br />
+							If true (resp. false), a failure of the program is considered major (resp. minor).<br />
+							This is quite informative and is mainly used to give the operational status of the application.<br />
+							TBC: However, in case of warm restart, it also gives a priority for restarting processes, i.e. required processes are always restarted before 'optional' processes.</td>
+						</tr>
+						<tr>
+							<td><span class="option">start_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td>Starting order of the program when application is starting.<br />
+							If set to 0, program is not automatically started.<br />
+							When > 0, program is started automatically in the order specified.</td>
+						</tr>
+						<tr>
+							<td><span class="option">stop_sequence</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>0</td>
+							<td>Stopping order of the program when application is stopping.<br />
+							If set to 0, program is stopped immediately.<br />
+							When > 0, program is stopped in the order specified.</td>
+						</tr>
+						<tr>
+							<td><span class="option">wait_exit</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>false</td>
+							<td>If true, Supervisors waits for the process to exit before deploying the next sequence.</td>
+						</tr>
+						<tr>
+							<td><span class="option">loading</span></td>
+							<td>element</td>
+							<td>0, 1</td>
+							<td>1</td>
+							<td>Expected percent usage of resources.</td>
+						</tr>
+					<tbody>
+				</table>
+
+				<div class="note">
+					<p>Note about the use of '#' in <span class="option">addresses</span><p>
+					<p>In the program configuration file, it is expected that:</p>
+					<ol>
+						<li>the <code class="ini">numprocs</code> value corresponds to the number of elements in <a href="#supervisors-section" class="intLink">addresslist</a>.</li>
+						<li>the <code class="ini">numprocs_start</code> value is 0 (default value).</li>
+					</ol>
+				</div>
+
+				<p>Here follows an example of model:</p>
+				<pre><code class="xml">&lt;model name="X11_model"&gt;
+	&lt;addresses&gt;192.168.0.10 192.168.0.12 sample03&lt;/addresses&gt;
+	&lt;required&gt;true&lt;/required&gt;
+	&lt;start_sequence&gt;1&lt;/start_sequence&gt;
+	&lt;wait_exit&gt;false&lt;/wait_exit&gt;
+	&lt;loading&gt;3&lt;/loading&gt;
+&lt;/model&gt;</code></pre>
+
+				<p>Here follows an example of a program definition referencing a model:</p>
+				<pre><code class="xml">&lt;program name="xclock"&gt;
+	&lt;reference&gt;X11_model&lt;/reference&gt;
+&lt;/program&gt;</code></pre>
+
+				<p>The XSD contents used to validate the XML can be found in the following module: <code class="python">supervisors.parser</code>.</p>
+
+            </section>
 
 		</div>
 	</div>

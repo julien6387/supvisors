@@ -25,40 +25,14 @@ from supervisors.ttypes import AddressStates, ApplicationStates, DeploymentStrat
 from supervisors.utils import supervisors_short_cuts
 
 
-API_VERSION  = '1.0'
+API_VERSION  = '0.1'
 
 class RPCInterface(object):
 
     def __init__(self, supervisors):
         self.supervisors = supervisors
-        supervisors_short_cuts(self, ['context', 'logger', 'requester'])
+        supervisors_short_cuts(self, ['context', 'info_source', 'logger', 'requester'])
         self.address = supervisors.address_mapper.local_address
-
-    # RPC for Supervisors internal use
-    def internal_start_process(self, namespec, wait):
-        """ Start a process upon request of the Starter of Supervisors.
-        The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL instead of throwing an exception to the RPC client.
-        @param string name\tThe process name
-        @param boolean wait\tWait for process to be fully started
-        @return boolean result\tAlways true unless error
-        """
-        try:
-            self.logger.info('RPC start_process {}'.format(namespec))
-            result = self.requester.start_process(self.address, namespec, wait)
-        except RPCError, why:
-            self.logger.error('start_process {} failed: {}'.format(namespec, why))
-            if why.code in [ Faults.NO_FILE, Faults.NOT_EXECUTABLE ]:
-                self.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
-                try:
-                    self.supervisors.info_source.force_process_fatal(namespec, why.text)
-                    result = True
-                except KeyError:
-                    self.logger.error('could not find {} in supervisord processes'.format(namespec))
-                    result = False
-            else:
-                # process is already started. should not happen because Supervisors checks state before sending the request
-                result = False
-        return result
 
     # RPC Status methods
     def get_api_version(self):
@@ -80,7 +54,7 @@ class RPCInterface(object):
         self.check_operating_conciliation()
         return self.context.master_address
 
-    def get_all_address_info(self):
+    def get_all_addresses_info(self):
         """ Get info about all remote supervisord managed in Supervisors
         @return list result\tA list of structures containing data about all remote supervisord
         """
@@ -98,7 +72,7 @@ class RPCInterface(object):
         return {'address': address, 'state': status.state_string(), 'checked': status.checked,
             'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time), 'loading': status.loading()}
 
-    def get_all_application_info(self):
+    def get_all_applications_info(self):
         """ Get info about all applications managed in Supervisors
         @return list result\tA list of structures containing data about all applications
         """
@@ -248,11 +222,50 @@ class RPCInterface(object):
         onwait.job = self.stop_application(application_name, True)
         return onwait # deferred
 
-    def start_process(self, strategy, namespec, wait=True):
+    def start_args(self, namespec, extra_args=None, wait=True):
+        """ Start a local process.
+        The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
+        instead of throwing an exception to the RPC client.
+        This RPC makes it also possible to pass extra arguments to the program command line.
+        @param string name\tThe process name
+        @param string extra_args\tExtra arguments to be passed to the command line of the program
+        @param boolean wait\tWait for process to be fully started
+        @return boolean result\tAlways true unless error
+        """
+        self.check_from_deployment()
+        # prevent usage of extra_args when required or auto_start
+        application, process = self.get_application_process(namespec)
+        if extra_args and not process.accept_extra_arguments():
+            raise RPCError(Faults.BAD_EXTRA_ARGUMENTS, 'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
+        # update command line in process config with extra_args
+        try:
+            self.info_source.update_extra_args(namespec, extra_args)
+        except KeyError:
+            # process is unknown to the local Supervisor
+            # this should not happen as Supervisors checks the configuration before it sends this request
+            self.logger.error('could not find {} in supervisord processes'.format(namespec))
+            raise RPCError(Faults.BAD_NAME, 'namespec {} unknown in this Supervisor instance'.format(namespec))
+        # start process with Supervisor internal RPC
+        try:
+            cb = self.info_source.supervisor_rpc_interface.startProcess(namespec, wait)
+        except RPCError, why:
+            self.logger.error('start_process {} failed: {}'.format(namespec, why))
+            if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
+                self.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
+                # at this stage, process is known to the local Supervisor
+                self.info_source.force_process_fatal(namespec, why.text)
+            # else process is already started
+            # this should not happen as Supervisors checks the process state before it sends this request
+            # anyway raise exception again
+            raise
+        return cb
+
+    def start_process(self, strategy, namespec, extra_args=None, wait=True):
         """ Start a process named namespec iaw the strategy and some of the rules defined in the deployment file
         WARN; the 'wait_exit' rule is not considered here
         @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
+        @param string extra_args\tExtra arguments to be passed to command line
         @param boolean wait\tWait for process to be fully started
         @return boolean result\tAlways true unless error """
         self.check_operating()
@@ -269,7 +282,7 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= self.supervisors.starter.start_process(strategy, process)
+            done &= self.supervisors.starter.start_process(strategy, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:

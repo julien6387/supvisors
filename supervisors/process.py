@@ -60,7 +60,7 @@ class ProcessRules(object):
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have start_sequence, so force to optional if no start_sequence
-        if self.required and self.start_sequence <= 0:
+        if self.required and self.start_sequence == 0:
             self.logger.warn('required forced to False because no start_sequence defined')
             self.required = False
         # if no addresses, consider all addresses
@@ -88,6 +88,7 @@ class ProcessStatus(object):
     - the list of all addresses where the process is running
     - a Supervisor-like process info dictionary for each address (running or not)
     - the starting rules related to this process
+    - optional extra arguments to be passed to the command line
     - a status telling if the wait_exit rule is applicable (should be temporary). """
 
     def __init__(self, address, info, logger):
@@ -106,6 +107,7 @@ class ProcessStatus(object):
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
+        self.extra_args = None
         self.ignore_wait_exit = False
         # init parameters
         self.add_info(address, info)
@@ -279,3 +281,5 @@ class ProcessStatus(object):
         """ Return the first matching state in RUNNING_STATES """
         return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
 
+    def accept_extra_arguments(self):
+        return not self.rules.required and self.rules.start_sequence == 0
