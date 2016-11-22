@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="css/doc_style.css">
     <link rel="stylesheet" href="css/menu.css">
+    <link rel="stylesheet" href="css/button.css">
     <title>Supervisors: A Control System for Distributed Applications</title>
 </head>
 
@@ -41,7 +42,7 @@
 
 		<div id="right_side">
 			<header>
-				<h2>Documentation &raquo; Dashboard (Under construction)</h2>
+				<h2>Documentation &raquo; Dashboard</h2>
 			</header>
 
 			<section id="doc-contents">
@@ -124,7 +125,7 @@
                 <ul>
                     <li><img src="img/restart_40.png" alt="Restart button"> restarts Supervisors through all Supervisor instances,</li>
                     <li><img src="img/shutdown_40.png" alt="Shutdown button"> shuts down Supervisors through all Supervisor instances,</li>
-                    <li>  <img src="img/reload_30.png" alt="Refresh button"> refreshes the current page.</li>
+                    <li><img src="img/reload_30.png" alt="Refresh button" class="button"> refreshes the current page.</li>
                 </ul>
 
                 <h3>Main page Contents</h3>
@@ -169,7 +170,9 @@
 
 
 				<h2 id="address-page">Address page</h2>
-                <p></p>
+                <p>The Address page of Supervisors is a bit less "sparse" than the web page provided by Supervisor.<br />
+                It shows the status of the address, as seen by the local Supervisors instance, enables the user to command the processes declared on this address
+                and provides statistics that may be useful at software integration time.</p>
 
 				<figure>
 					<img src="img/supervisors_address_page.png" alt="Address page">
@@ -177,14 +180,74 @@
 				</figure>
 
                 <h3>Address page Header</h3>
-                <p></p>
+                <p>The status of the Address is displayed on the left side of the header:</p>
+                <ul>
+                    <li>the name of the address, marked with the &#10026; sign if it corresponds to the "Master",</li>
+                    <li>the current loading of the processes running on this address,</li>
+                    <li>the state of this address,</li>
+                    <li>the date of the last tick received from Supervisor on this address.</li>
+                </ul>
+
+                <p>In the middle of the header, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.<br />
+                The periods can be updated in the <a href="index.html#supervisors-section" class="intLink">Supervisors section</a> of the Supervisor configuration file.</p>
+
+                <p>On the right side, 4 buttons are available:</p>
+                <ul>
+                    <li><img src="img/stop_40.png" alt="Stop button"> stops all processes handled by Supervisor on this address,</li>
+                    <li><img src="img/restart_40.png" alt="Restart button"> restarts Supervisor on this address,</li>
+                    <li><img src="img/shutdown_40.png" alt="Shutdown button"> shuts down Supervisor on this address,</li>
+                    <li><img src="img/reload_30.png" alt="Refresh button" class="button"> refreshes the current page.</li>
+                </ul>
 
                 <h3>Address page Contents</h3>
-                <p></p>
+                <p>The contents of the Address page is divided in two parts.</p>
+
+                <p>The upper part looks like the page provided by Supervisor. Indeed, it lists the programs that are configured in Supervisor,
+                it presents their current state with an associated description and enables the user to perform some actions on them:
+                log tail (with a refresh button, click on the name itself),
+                <span class="button">Start</span>, <span class="button">Stop</span>, <span class="button">Restart</span>,
+                <span class="button">Clear</span> log, <span class="button">Tail</span> log (auto-refreshed).</p>
+                <p>Supervisors shows additional information for each process, such as:</p>
+                <ul>
+                    <li>the loading declared for the process in the <a href="index.html#deployment-file" class="intLink">deployment file</a>,</li>
+                    <li>the CPU usage of the process during the last period (only if the process is <code>RUNNING</code>),</li>
+                    <li>the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is <code>RUNNING</code>),</li>
+                </ul>
+
+                <p>A click on the CPU or RAM measures shows detailed statistics about the process.<br />
+                More particularly, Supervisors shows a graph built from the series of measures taken from the selected resource:</p>
+                <ul>
+                    <li>the history of the values with a plain line,</li>
+                    <li>the mean value with a dashed line and value in the top right corner,</li>
+                    <li>the linear regression with a straight dotted line,</li>
+                    <li>the standard deviation with a colored area around the mean value.</li>
+                </ul>
+
+                <p>Underneath is a table showing for both CPU and Memory:</p>
+                <ul>
+                    <li>the last measure,</li>
+                    <li>the mean value,</li>
+                    <li>the value of the slope of the linear regression,</li>
+                    <li>the value of the standard deviation.</li>
+                </ul>
+
+                <p>A color and a sign are associated to the last value, so that:</p>
+                <ul>
+                    <li>green and &#8599; point out a significant increase of the value since the last measure,</li>
+                    <li>red and &#8600; point out a significant decrease of the value since the last measure,</li>
+                    <li>blue and &#8605; point out the stability of the value since the last measure,</li>
+                </ul>
+
+                <p>The lower part of the page contains CPU, Memory and Network statistics for the considered address.<br />
+                The CPU table shows statistics about the CPU on each core of the processor and about the average CPU of the processor.<br />
+                The Memory table shows statistics about the amount of used (and not available) memory.<br />
+                The Network table shows statistics about the receive and sent flows on each network interface.<br />
+                Clicking on a button associated to the resource displays detailed statistics (graph and table), similarly to the process buttons.</p>
 
                 
 				<h2 id="application-page">Application page</h2>
-                <p></p>
+                <p>The Application page of Supervisors shows the status of the application, as seen by the requested Supervisors instance,
+                enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.</p>
 
 				<figure>
 					<img src="img/supervisors_application_page.png" alt="Application page">
@@ -192,10 +255,49 @@
 				</figure>
 
                 <h3>Application page Header</h3>
-                <p></p>
+                <p>The status of the Address is displayed on the left side of the header:</p>
+                <ul>
+                    <li>the name of the application,</li>
+                    <li>the state of this address,</li>
+                    <li>a led corresponding to the operational status of the application:<ul>
+                        <li>empty if not <code>RUNNING</code>,</li>
+                        <li>red if <code>RUNNING</code> and at least one major failure is detected,</li>
+                        <li>orange if <code>RUNNING</code> and at least one minor failure is detected, and no major failure,</li>
+                        <li>green if <code>RUNNING</code> and no failure is detected.</li>
+                    </ul></li>
+                </ul>
+
+                <p>The second part of the header is the 'Deployment strategy' box that enables the user to choose the strategy to start the application programs listed below.<br />
+                Strategies are detailed <a href="index.html#deployment-note" class="intLink">here</a>.</p>
+
+                <p>The third part of the header is the 'Statistics Period' box that enables the user to choose the period used for the statistics of this page.<br />
+                The periods can be updated in the <a href="index.html#supervisors-section" class="intLink">Supervisors section</a> of the Supervisor configuration file.</p>
+
+                <p>On the right side, 4 buttons are available:</p>
+                <ul>
+                    <li><img src="img/start_40.png" alt="Start button"> starts the application,</li>
+                    <li><img src="img/stop_40.png" alt="Stop button"> stops the application,</li>
+                    <li><img src="img/restart_40.png" alt="Restart button"> restarts the application,</li>
+                    <li><img src="img/reload_30.png" alt="Refresh button" class="button"> refreshes the current page.</li>
+                </ul>
 
                 <h3>Application page Contents</h3>
-                <p></p>
+                <p>The table lists all the programs belonging to the application, and it shows:</p>
+                <ul>
+                    <li>the 'synthetic' state of the process (refer to <a href="design.html#synthetic-state-note" class="intLink">this note</a> for details about the synthesis),</li>
+                    <li>the address where it runs, if appropriate,</li>
+                    <li>the loading declared for the process in the <a href="index.html#deployment-file" class="intLink">deployment file</a>,</li>
+                    <li>the CPU usage of the process during the last period (only if the process is <code>RUNNING</code>),</li>
+                    <li>the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is <code>RUNNING</code>),</li>
+                </ul>
+
+                <p>Like the Address page, the Application page enables the user to perform some actions on programs:
+                <span class="button">Start</span>, <span class="button">Stop</span>, <span class="button">Restart</span>.<br />
+                The difference is that the process is not started necessarily on the address that displays this page.<br />
+                Indeed, Supervisors uses the rules of the program (as defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a>)
+                and the deployment strategy selected in the header part to choose a relevant address.</p>
+
+                <p>As previously, a click on the CPU or RAM measures shows detailed statistics about the process.</p>
 
 			</section>
 
