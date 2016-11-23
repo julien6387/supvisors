@@ -68,7 +68,9 @@ class ConfigStrategy(AbstractDeploymentStrategy):
         self.logger.debug('addresses={} expected_loading={}'.format(addresses, expected_loading))
         # returns the first remote in list that is capable of handling the loading
         loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        return next((address for address, validity in loading_validities.items() if validity[0]),  None)
+        if '*' in addresses:
+            addresses = self.supervisors.address_mapper.addresses
+        return next((address for address in addresses if loading_validities[address][0]),  None)
 
 
 class LessLoadedStrategy(AbstractDeploymentStrategy):

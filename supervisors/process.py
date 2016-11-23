@@ -204,7 +204,8 @@ class ProcessStatus(object):
             # update / check running addresses
             self.update_status(address, new_state, event.get('expected', True))
             self.logger.debug('new processInfo: {}'.format(info))
-        else: self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.process_name, address))
+        else:
+            self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.process_name, address))
 
     def update_times(self, address, remote_time, local_time):
         """ Update the time fields of the internal ProcessInfo when a new tick is received from the remote Supervisors instance """

@@ -188,7 +188,27 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.pid_running_on('10.0.0.2'))
 
     def test_conflicting(self):
-        """ Test . """
+        """ Test the process conflicting rules. """
+        from supervisor.process import ProcessStates
+        from supervisors.process import ProcessStatus
+        # when there is only one STOPPED process info, there is no conflict
+        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.logger)
+        self.assertFalse(process.conflicting())
+        # the addition of one RUNNING process info does not raise any conflict
+        process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.RUNNING))
+        self.assertFalse(process.conflicting())
+        # the addition of one STOPPED process info does not raise any conflict
+        process.add_info('10.0.0.3', any_process_info_by_state(ProcessStates.STOPPED))
+        self.assertFalse(process.conflicting())
+        # the addition of one STARTING process raises a conflict
+        process.add_info('10.0.0.4', any_process_info_by_state(ProcessStates.STARTING))
+        self.assertTrue(process.conflicting())
+        # the replacement of the RUNNING process info by a STOPPED process info solves the conflict
+        process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
+        self.assertFalse(process.conflicting())
+        # the replacement of one STOPPED process info by a RUNNING process info raises the conflict again
+        process.add_info('10.0.0.1', any_process_info_by_state(ProcessStates.RUNNING))
+        self.assertTrue(process.conflicting())
 
     def test_serialization(self):
         """ Test . """

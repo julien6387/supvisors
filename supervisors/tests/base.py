@@ -50,13 +50,43 @@ class DummyLogger:
         self.messages.append(('blather', message))
 
 
+class DummyAddressMapper:
+    """ Simple context. """
+
+    def __init__(self):
+        self.addresses = []
+
+
+class DummyAddressStatus:
+    """ Simple context. """
+
+    def __init__(self, name, state, load):
+        self.name = name
+        self.state = state
+        self.load = load
+
+    def state_string(self):
+        return ""
+
+    def loading(self):
+        return self.load
+
+
+class DummyContext:
+    """ Simple context. """
+
+    def __init__(self):
+        self.addresses = {}
+
+
 class DummySupervisors:
     """ Simple supervisors with all dummies. """
 
     def __init__(self):
         class DummyClass:
             pass
-        self.address_mapper = DummyClass()
+        self.address_mapper = DummyAddressMapper()
+        self.context = DummyContext()
         self.fsm = DummyClass()
         self.statistician = DummyClass()
         self.requester = DummyClass()
