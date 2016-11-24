@@ -24,10 +24,15 @@ import zmq
 from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
 
 
-# class for subscription to Listener events
 class EventSubscriber(object):
+    """ Class for subscription to Listener events.
+
+    Attributes:
+    - supervisors: a reference to the Supervisors context,
+    - socket: the PyZMQ subscriber. """
 
     def __init__(self, supervisors, zmq_context):
+        """ Initialization of the attributes. """
         self.supervisors = supervisors
         self.socket = zmq_context.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
@@ -39,22 +44,34 @@ class EventSubscriber(object):
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
  
     def receive(self):
-        return (self.socket.recv_string(), self.socket.recv_pyobj())
+        """ Reception of one message.
+        First part is the message identifier.
+        Second part is the body of the message, after pyobj unserialization. """
+        return self.socket.recv_string(), self.socket.recv_pyobj()
 
     def disconnect(self, addresses):
+        """ This method disconnects from the PyZMQ socket all addresses passed in parameter. """
         for address in addresses:
             url = 'tcp://{}:{}'.format(address, self.supervisors.options.internal_port)
             self.supervisors.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
     def close(self):
+        """ This method closes the PyZMQ socket. """
         self.socket.close()
 
 
-# class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
+    """ Class for Supervisors main loop. All inputs are sequenced here.
+
+    Attributes:
+    - supervisors: a reference to the Supervisors context,
+    - subscriber: the event subscriber,
+    - loop: the infinite loop flag,
+    - timer_event_time: the date used to trigger the periodic task. """
 
     def __init__(self, supervisors, zmq_context):
+        """ Initialization of the attributes. """
         # thread attributes
         threading.Thread.__init__(self)
         # shortcuts
@@ -65,14 +82,16 @@ class SupervisorsMainLoop(threading.Thread):
         supervisors.publisher.open(zmq_context)
 
     def stop(self):
+        """ Request to stop the infinite loop by resetting its flag. """
         self.logger.info('request to stop main loop')
         self.loop = False
 
     # main loop
     def run(self):
+        """ Contents of the infinite loop. """
         # create poller
         poller = zmq.Poller()
-        # register event publisher
+        # register event subscriber
         poller.register(self.subscriber.socket, zmq.POLLIN) 
         self.timer_event_time = time.time()
         # poll events every seconds
@@ -81,7 +100,7 @@ class SupervisorsMainLoop(threading.Thread):
             socks = dict(poller.poll(1000))
             # check tick and process events
             if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                self.logger.blather('got message on eventSubscriber')
+                self.logger.blather('got message on event subscriber')
                 try:
                     message = self.subscriber.receive()
                 except Exception, e:
@@ -104,6 +123,7 @@ class SupervisorsMainLoop(threading.Thread):
         self.close()
 
     def periodic_task(self):
+        """ Periodic task that mainly checks that addresses are still operating. """
         self.logger.blather('periodic task')
         addresses = self.fsm.on_timer_event()
         # disconnect isolated addresses from sockets
@@ -112,7 +132,7 @@ class SupervisorsMainLoop(threading.Thread):
         self.timer_event_time = time.time()
 
     def close(self):
-        # close zmq sockets
+        """ This method closes the PyZMQ sockets. """
         self.supervisors.publisher.close()
         self.subscriber.close()
 
