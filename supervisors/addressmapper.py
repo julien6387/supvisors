@@ -71,7 +71,8 @@ class AddressMapper(object):
         """ Returns the expected address from a list of names or ip addresses identifying the same location. """
         return next((address for address in address_list if self.valid(address)),  None)
 
-    def ipv4(self):
+    @staticmethod
+    def ipv4():
         """ Get all IPv4 addresses for all interfaces. """
         # remove loopback addresses (no interest here)
         # loopback holds a 'peer' instead of a 'broadcast' address
