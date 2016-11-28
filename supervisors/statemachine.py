@@ -47,7 +47,7 @@ class InitializationState(AbstractState):
     def enter(self):
         self.context.master_address = ''
         self.start_date = int(time())
-        # re-init remotes that are not isolated
+        # re-init addresses that are not isolated
         for status in self.context.addresses.values():
             if not status.in_isolation():
                 # do NOT use state setter as transition may be rejected
@@ -59,9 +59,9 @@ class InitializationState(AbstractState):
         addresses = self.context.running_addresses()
         if self.address in addresses:
             if len(self.context.unknown_addresses()) == 0:
-                # synchro done if the state of all remotes is known
+                # synchro done if the state of all addresses is known
                 return SupervisorsStates.DEPLOYMENT
-            # if synchro timeout reached, stop synchro and work with known remotes
+            # if synchro timeout reached, stop synchro and work with known addresses
             if (time() - self.start_date) > self.supervisors.options.synchro_timeout:
                 self.logger.warn('synchro timed out')
                 return SupervisorsStates.DEPLOYMENT
@@ -73,7 +73,7 @@ class InitializationState(AbstractState):
     def exit(self):
         # force state of missing Supervisors instances
         self.supervisors.context.end_synchro()
-        # arbitrarily choice : master address is the 'lowest' address among running remotes
+        # arbitrarily choice : master address is the 'lowest' address among running addresses
         addresses = self.supervisors.context.running_addresses()
         self.logger.info('working with boards {}'.format(addresses))
         self.context.master_address = min(addresses)
@@ -83,11 +83,11 @@ class DeploymentState(AbstractState):
 
     def enter(self):
         # TODO: make a restriction of addresses in process rules, iaw process location in Supervisor instances
-        # define ordering iaw Remotes
+        # define ordering iaw Addresses
         for application in self.context.applications.values():
             application.update_sequences()
             application.update_status()
-        # only Supervisors master deploys applications
+        # only the Supervisors master deploys applications
         if self.context.master:
             self.supervisors.starter.start_applications(self.context.applications.values())
 
@@ -114,7 +114,7 @@ class OperationState(AbstractState):
 class ConciliationState(AbstractState):
 
     def enter(self):
-        # the Supervisors Master auto-conciliate conflicts
+        # the Supervisors Master auto-conciliates conflicts
         if self.context.master:
             conciliate(self.supervisors, self.supervisors.options.conciliation_strategy, self.context.conflicts())
 
@@ -142,7 +142,7 @@ class FiniteStateMachine:
         self.instance.enter()
 
     def state_string(self):
-        """ Return the application state as a string. """
+        """ Return the supervisors state as a string. """
         return SupervisorsStates._to_string(self.state)
 
     def next(self):
@@ -161,11 +161,11 @@ class FiniteStateMachine:
         The method also triggers the publication of the change. """
         self.state = state
         self.instance = self.__StateInstances[state](self.supervisors)
-        # publish RemoteStatus event
+        # publish SupervisorStatus event
         self.supervisors.publisher.send_supervisors_status(self)
 
     def on_timer_event(self):
-        """ Periodic task used to check if remote Supervisors instance are still active.
+        """ Periodic task used to check if remote Supervisors instances are still active.
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
@@ -178,7 +178,7 @@ class FiniteStateMachine:
     def on_tick_event(self, address, when):
         """ This event is used to refresh the data related to the address. """
         self.context.on_tick_event(address, when)
-        # could call the same behaviour as onTimerEvent if necessary
+        # could call the same behaviour as on_timer_event if necessary
 
     def on_process_event(self, address, event):
         """ This event is used to refresh the process data related to the event and address.
@@ -197,7 +197,7 @@ class FiniteStateMachine:
         """ Return a JSON-serializable form of the SupervisorState """
         return {'state': self.state_string()}
 
-    # Map between state enumeration and class
+    # Map between state enumerations and classes
     __StateInstances = {
         SupervisorsStates.INITIALIZATION: InitializationState,
         SupervisorsStates.DEPLOYMENT: DeploymentState,
