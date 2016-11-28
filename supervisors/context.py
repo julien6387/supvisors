@@ -140,7 +140,7 @@ class Context(object):
                 process = self.process_from_info(info)
             except KeyError:
                 # not found. add new ProcessStatus instance to dictionary and application
-                process = ProcessStatus(address, info, self.logger)
+                process = ProcessStatus(address, info, self.supervisors)
                 self.supervisors.parser.load_process_rules(process)
                 self.processes[process.namespec()] = process
                 self.applications[process.application_name].add_process(process)
@@ -228,7 +228,7 @@ class Context(object):
                 self.supervisors.publisher.send_address_status(status)
 
     def handle_isolation(self):
-        # move ISOLATING addresses to ISOLATED
+        """ Move ISOLATING addresses to ISOLATED and publish related events. """
         addresses = self.isolating_addresses()
         for address in addresses:
             status = self.addresses[address]
