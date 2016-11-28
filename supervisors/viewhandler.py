@@ -22,7 +22,6 @@ import urllib
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
-from supervisors.plot import StatisticsPlot
 from supervisors.ttypes import AddressStates, SupervisorsStates
 from supervisors.utils import get_stats
 from supervisors.viewimage import process_image_contents
@@ -236,12 +235,16 @@ class ViewHandler(object):
                     elt = stats_elt.findmeld('pmemdev_td_mid')
                     elt.content('{:.2f}'.format(dev))
             # write CPU / Memory plot
-            img = StatisticsPlot()
-            if ViewHandler.process_stats_type == 'pcpu':
-                img.addPlot('CPU', '%', proc_stats[0])
-            elif ViewHandler.process_stats_type == 'pmem':
-                img.addPlot('MEM', '%', proc_stats[1])
-            img.exportImage(process_image_contents)
+            try:
+                from supervisors.plot import StatisticsPlot
+                img = StatisticsPlot()
+                if ViewHandler.process_stats_type == 'pcpu':
+                    img.addPlot('CPU', '%', proc_stats[0])
+                elif ViewHandler.process_stats_type == 'pmem':
+                    img.addPlot('MEM', '%', proc_stats[1])
+                img.exportImage(process_image_contents)
+            except ImportError:
+                self.logger.warn("matplotlib module not found")
         else:
             if ViewHandler.namespec_stats :
                 self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
