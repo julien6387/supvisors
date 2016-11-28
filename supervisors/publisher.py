@@ -64,9 +64,3 @@ class EventPublisher(object):
             self.supervisors.logger.debug('send ProcessStatus {}'.format(status))
             self.socket.send_string(PROCESS_STATUS_HEADER, zmq.SNDMORE)
             self.socket.send_json(status.to_json())
-
-    def send_statistics(self, stats):
-        if self.socket:
-            self.supervisors.logger.debug('send Statistics {}'.format(stats))
-            self.socket.send_string(STATISTICS_HEADER, zmq.SNDMORE)
-            self.socket.send_json(status.to_json())
