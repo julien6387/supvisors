@@ -51,14 +51,14 @@ class DummyLogger:
 
 
 class DummyAddressMapper:
-    """ Simple context. """
+    """ Simple address mapper with an empty addresses list. """
 
     def __init__(self):
         self.addresses = []
 
 
 class DummyAddressStatus:
-    """ Simple context. """
+    """ Simple address status with name, state and loading. """
 
     def __init__(self, name, state, load):
         self.name = name
@@ -72,11 +72,40 @@ class DummyAddressStatus:
         return self.load
 
 
+class DummyApplicationStatus:
+    """ Simple ApplicationStatus. """
+
+    def sequence_deployment(self):
+        pass
+
+    def update_status(self):
+        pass
+
+
 class DummyContext:
-    """ Simple context. """
+    """ Simple context with an empty list of AddressStatus. """
 
     def __init__(self):
         self.addresses = {}
+        self.applications = {}
+        self.master_address = ''
+        self.master = True
+
+    # TODO: implement running_addresses, unknown_addresses, conflicting, conflicts, marked_processes,
+    #                 on_timer_event, handle_isolation, on_tick_event, on_process_event
+
+# TEMP
+def read_string(self, s):
+    from StringIO import StringIO
+    s = StringIO(s)
+    return self.readfp(s)
+
+
+class DummyInfoSource:
+    """ Simple info source with dummy methos. """
+
+    def autorestart(self):
+        return True
 
 
 class DummySupervisors:
@@ -87,11 +116,15 @@ class DummySupervisors:
             pass
         self.address_mapper = DummyAddressMapper()
         self.context = DummyContext()
-        self.fsm = DummyClass()
-        self.statistician = DummyClass()
-        self.requester = DummyClass()
         self.deployer = DummyClass()
+        self.fsm = DummyClass()
+        self.info_source = DummyInfoSource()
         self.logger = DummyLogger()
+        self.requester = DummyClass()
+        self.statistician = DummyClass()
+        # TODO: DummyOptions with synchro_timeout, conciliation_strategy
+        # TODO: DummyDeployer with deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
+        # TODO: DummyPublisher with send_supervisors_status
 
 
 class DummySupervisor:
@@ -101,6 +134,7 @@ class DummySupervisor:
         self.supervisors = DummySupervisors()
 
 
+# note that all dates ('now') are different
 ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
         'logfile': './log/late_segv_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888091,
@@ -112,31 +146,31 @@ ProcessInfoDatabase = [
         'group': 'crash', 'name': 'segv', 'statename': 'BACKOFF', 'start': 1473888155, 'state': 30,
         'stdout_logfile': './log/segv_cliche01.log'}, 
     {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473887937,
-        'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888161,
         'group': 'firefox', 'name': 'firefox', 'statename': 'EXITED', 'start': 1473887932, 'state': 100,
         'stdout_logfile': './log/firefox_cliche01.log'},
     {'description': 'pid 80877, uptime 0:01:20', 'pid': 80877, 'stderr_logfile': '', 'stop': 0,
-        'logfile': './log/xclock_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/xclock_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888166,
         'group': 'sample_test_1', 'name': 'xclock', 'statename': 'STOPPING', 'start': 1473888078, 'state': 40,
         'stdout_logfile': './log/xclock_cliche01.log'},
     {'description': 'pid 80879, uptime 0:01:19', 'pid': 80879, 'stderr_logfile': '', 'stop': 0,
-        'logfile': './log/xfontsel_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/xfontsel_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888171,
         'group': 'sample_test_1', 'name': 'xfontsel', 'statename': 'RUNNING', 'start': 1473888079, 'state': 20,
         'stdout_logfile': './log/xfontsel_cliche01.log'},
     {'description': 'Sep 14 05:21 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888104,
-        'logfile': './log/xlogo_cliche01.log', 'exitstatus': -1, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/xlogo_cliche01.log', 'exitstatus': -1, 'spawnerr': '', 'now': 1473888176,
         'group': 'sample_test_1', 'name': 'xlogo', 'statename': 'STOPPED', 'start': 1473888085, 'state': 0,
         'stdout_logfile': './log/xlogo_cliche01.log'},
     {'description': 'No resource available', 'pid': 0, 'stderr_logfile': '', 'stop': 0,
         'logfile': './log/sleep_cliche01.log', 'exitstatus': 0, 'spawnerr': 'No resource available',
-        'now': 1473888158, 'group': 'sample_test_2', 'name': 'sleep', 'statename': 'FATAL', 'start': 0, 'state': 200,
+        'now': 1473888181, 'group': 'sample_test_2', 'name': 'sleep', 'statename': 'FATAL', 'start': 0, 'state': 200,
         'stdout_logfile': './log/sleep_cliche01.log'},
     {'description': 'Sep 14 05:22 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888130,
-        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888186,
         'group': 'sample_test_2', 'name': 'yeux_00', 'statename': 'EXITED', 'start': 1473888086, 'state': 100,
         'stdout_logfile': './log/xeyes_cliche01.log'},
     {'description': 'pid 80882, uptime 0:01:12', 'pid': 80882, 'stderr_logfile': '', 'stop': 0,
-        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888158,
+        'logfile': './log/xeyes_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888196,
         'group': 'sample_test_2', 'name': 'yeux_01', 'statename': 'RUNNING', 'start': 1473888086, 'state': 20,
         'stdout_logfile': './log/xeyes_cliche01.log'}]
 

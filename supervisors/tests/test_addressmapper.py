@@ -119,8 +119,7 @@ class AddressMapperTest(unittest.TestCase):
         # complex to test as it depends on the network configuration of the operating system
         # check that there is at least one entry looking like an IP address
         from supervisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        ip_list = mapper.ipv4()
+        ip_list = AddressMapper.ipv4()
         self.assertIsNotNone(ip_list)
         for ip in ip_list:
             self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')

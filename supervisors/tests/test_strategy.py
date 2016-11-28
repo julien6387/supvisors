@@ -17,7 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-import random
 import sys
 import unittest
 
@@ -31,7 +30,7 @@ class DeploymentStrategyTest(unittest.TestCase):
         """ Create a dummy supervisors. """
         self.supervisors = DummySupervisors()
         # add addresses to context
-        from supervisors.types import AddressStates
+        from supervisors.ttypes import AddressStates
         self.supervisors.context.addresses['10.0.0.0'] = DummyAddressStatus('10.0.0.0', AddressStates.SILENT, 0)
         self.supervisors.context.addresses['10.0.0.1'] = DummyAddressStatus('10.0.0.1', AddressStates.RUNNING, 50)
         self.supervisors.context.addresses['10.0.0.2'] = DummyAddressStatus('10.0.0.2', AddressStates.ISOLATED, 0)
@@ -117,7 +116,7 @@ class DeploymentStrategyTest(unittest.TestCase):
 
     def test_get_address(self):
         """ Test the choice of an address according to a strategy. """
-        from supervisors.types import DeploymentStrategies
+        from supervisors.ttypes import DeploymentStrategies
         from supervisors.strategy import get_address
         # test CONFIG strategy
         self.assertEqual('10.0.0.1', get_address(self.supervisors, DeploymentStrategies.CONFIG, '*', 15))
@@ -159,7 +158,7 @@ class ConciliationStrategyTest(unittest.TestCase):
 
     def test_conciliation(self):
         """ Test the actions on process according to a strategy. """
-        from supervisors.types import ConciliationStrategies
+        from supervisors.ttypes import ConciliationStrategies
         from supervisors.strategy import conciliate
 
 
