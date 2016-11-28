@@ -72,6 +72,13 @@ class SupervisordSource(object):
     @property
     def supervisor_state(self): return self.supervisord.options.mood
 
+    def autorestart(self, namespec):
+        """ This method checks if autorestart is configured on the process. """
+        application_name, process_name = split_namespec(namespec)
+        # WARN: the following line may throw a KeyError exception
+        process = self.supervisord.process_groups[application_name].processes[process_name]
+        return process.config.autorestart is not False
+
     def update_extra_args(self, namespec, extra_args):
         """ This method is used to add extra arguments to the command line. """
         application_name, process_name = split_namespec(namespec)
@@ -106,7 +113,7 @@ class SupervisordSource(object):
         # deal with authentication
         if self.username:
             # wrap the xmlrpc handler and tailhandler in an authentication handler
-            users = { self.username: self.password }
+            users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
             self.supervisord.supervisors.logger.warn('Server running without any HTTP authentication checking')
