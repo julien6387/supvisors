@@ -342,7 +342,7 @@ class Stopper(Commander):
     def store_application_stop_sequence(self, application):
         if application.stop_sequence:
             sequence = self.planned_sequence.setdefault(application.rules.stop_sequence, {})
-            sequence[application.application_name] = application.stop_sequence
+            sequence[application.application_name] = application.stop_sequence.copy()
  
     def process_job(self, process, jobs):
         if process.running():
