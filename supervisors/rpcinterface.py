@@ -164,21 +164,6 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
         application = self.context.applications[application_name]
-        if False:
-            for process in application.processes.values():
-                if process.running():
-                    for address in process.addresses.copy():
-                        self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                        self.supervisors.requester.stop_process(address, process.namespec(), False)
-            # wait until all processes in STOPPED_STATES
-            if wait:
-                def onwait():
-                    for process in application.processes.values():
-                        if not process.stopped():
-                            return NOT_DONE_YET
-                    return True
-                onwait.delay = 0.5
-                return onwait # deferred
         done = self.supervisors.stopper.stop_application(application)
         self.logger.debug('stop_application {} done={}'.format(application_name, done))
         # wait until application fully STOPPED
@@ -205,7 +190,8 @@ class RPCInterface(object):
         def onwait():
             # first wait for application to be stopped
             if onwait.waitstop:
-                value = onwait.job()
+                # job may be a boolean value if stop_application has nothing to do
+                value = type(onwait.job) is bool or onwait.job()
                 if value is True:
                     # done. request start application
                     onwait.waitstop = False
@@ -343,7 +329,7 @@ class RPCInterface(object):
                 if value is True:
                     # done. request start process
                     onwait.waitstop = False
-                    value = self.start_process(strategy, namespec, wait)
+                    value = self.start_process(strategy, namespec, None, wait)
                     if type(value) is bool:
                         return value
                     # deferred job to wait for process to be started
