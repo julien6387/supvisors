@@ -152,9 +152,10 @@ class Starter(Commander):
         if application.stopped():
             self.store_application_start_sequence(application)
             self.logger.info('planned_sequence={}'.format(self.printable_planned_sequence()))
-            # add application immediately to planned jobs
-            self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
-            self.process_application_jobs(application.application_name)
+            if self.planned_sequence:
+                # add application immediately to planned jobs if something in list
+                self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
+                self.process_application_jobs(application.application_name)
         # return True when deployment over
         return not self.in_progress()
 
