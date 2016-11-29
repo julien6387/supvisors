@@ -113,6 +113,24 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.wait_exit)
         self.assertEqual(0, rules.expected_loading)
 
+    def test_accept_extra_arguments(self):
+        """ Test the possibility to add extra arguments when starting the process, iaw the process rules. """
+        from supervisors.process import ProcessRules
+        rules = ProcessRules(self.logger)
+        # test all possibilities
+        rules.required = False
+        rules.start_sequence = 0
+        self.assertTrue(rules.accept_extra_arguments())
+        rules.required = True
+        rules.start_sequence = 0
+        self.assertFalse(rules.accept_extra_arguments())
+        rules.required = False
+        rules.start_sequence = 1
+        self.assertFalse(rules.accept_extra_arguments())
+        rules.required = True
+        rules.start_sequence = 1
+        self.assertFalse(rules.accept_extra_arguments())
+
 
 class ProcessTest(unittest.TestCase):
     """ Test case for the ProcessStatus class of the process module. """

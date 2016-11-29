@@ -102,9 +102,9 @@ def read_string(self, s):
 
 
 class DummyInfoSource:
-    """ Simple info source with dummy methos. """
+    """ Simple info source with dummy methods. """
 
-    def autorestart(self):
+    def autorestart(self, namespec):
         return True
 
 

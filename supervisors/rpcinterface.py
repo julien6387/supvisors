@@ -221,7 +221,7 @@ class RPCInterface(object):
         self.check_from_deployment()
         # prevent usage of extra_args when required or auto_start
         application, process = self.get_application_process(namespec)
-        if extra_args and not process.accept_extra_arguments():
+        if extra_args and not process.rules.accept_extra_arguments():
             raise RPCError(Faults.BAD_EXTRA_ARGUMENTS, 'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
         # update command line in process config with extra_args
         try:

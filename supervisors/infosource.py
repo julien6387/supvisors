@@ -91,7 +91,7 @@ class SupervisordSource(object):
         config.command = config.config_ref
         # apply args to command line
         if extra_args:
-            config.command += ' '+ extra_args
+            config.command += ' ' + extra_args
 
     def force_process_fatal(self, namespec, reason):
         """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """

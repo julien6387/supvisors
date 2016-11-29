@@ -68,6 +68,10 @@ class ProcessRules(object):
             self.addresses = ['*']
             self.logger.warn('no address defined so all Supervisors addresses are applicable')
 
+    def accept_extra_arguments(self):
+        """ Return True if process rules are compatible with extra arguments. """
+        return not self.required and self.start_sequence == 0
+
     def __str__(self):
         """ Contents as string """
         return 'addresses={} start_sequence={} stop_sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
@@ -241,7 +245,7 @@ class ProcessStatus(object):
                 self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # mark process for restart only if autorestart is set in Supervisor's ProcessConfig
-                self.mark_for_restart = self.info_source.autorestart()
+                self.mark_for_restart = self.info_source.autorestart(self.namespec())
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.state = ProcessStates.STOPPED
@@ -292,10 +296,6 @@ class ProcessStatus(object):
     def running_state(states):
         """ Return the first matching state in RUNNING_STATES """
         return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
-
-    def accept_extra_arguments(self):
-        """ Return True if process rules are compatible with extra arguments. """
-        return not self.rules.required and self.rules.start_sequence == 0
 
     # list of removed entries in process info dictionary
     _Filters = ['statename', 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus']
