@@ -56,6 +56,7 @@ if __name__ == "__main__":
     root = ProcessAppTk(args.namespec)
     # create auto-kill task
     if args.xkill is not None:
-        root.after(args.xkill * 1000, win.quit)
+        root.after(args.xkill * 1000, root.quit)
     # start main loop
     root.mainloop()
+
