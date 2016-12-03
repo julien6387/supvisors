@@ -164,7 +164,7 @@ class ControllerPlugin(ControllerPluginBase):
                     for rules in rulesList:
                         required = rules['required']
                         wait_exit = rules['wait_exit']
-                        line = template % {'name': rules['process_name'], 'addr': rules['addresses'],
+                        line = template % {'name': rules['namespec'], 'addr': rules['addresses'],
                             'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'], 
                             'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '',
                             'load': '{}%'.format(rules['expected_loading'])}
