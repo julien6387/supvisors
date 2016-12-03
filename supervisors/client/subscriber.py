@@ -66,6 +66,13 @@ class SupervisorsEventSubscriber(object):
         self.socket.connect(url)
         self.logger.debug('EventSubscriber connected')
 
+    def close(self):
+        """ Close the ZeroMQ socket. """
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+
+    # subscription part
     def subscribe_all(self):
         """ Subscription to all events. """
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
@@ -90,12 +97,32 @@ class SupervisorsEventSubscriber(object):
         """ Subscription to the event named code. """
         self.socket.setsockopt(zmq.SUBSCRIBE, code.encode('utf-8'))
 
-    def close(self):
-        """ Close the ZeroMQ socket. """
-        if self.socket:
-            self.socket.close()
-            self.socket = None
+    # unsubscription part
+    def unsubscribe_all(self):
+        """ Subscription to all events. """
+        self.socket.setsockopt(zmq.UNSUBSCRIBE, '')
 
+    def unsubscribe_supervisors_status(self):
+        """ Subscription to Supervisors status events. """
+        self.unsubscribe(SUPERVISORS_STATUS_HEADER)
+
+    def unsubscribe_address_status(self):
+        """ Subscription to Address status events. """
+        self.unsubscribe(ADDRESS_STATUS_HEADER)
+
+    def unsubscribe_application_status(self):
+        """ Subscription to Application status events. """
+        self.unsubscribe(APPLICATION_STATUS_HEADER)
+
+    def unsubscribe_process_status(self):
+        """ Subscription to Process status events. """
+        self.unsubscribe(PROCESS_STATUS_HEADER)
+
+    def unsubscribe(self, code):
+        """ Remove subscription to the event named code. """
+        self.socket.setsockopt(zmq.UNSUBSCRIBE, code.encode('utf-8'))
+
+    # reception part
     def receive(self):
         """ Reception of two-parts message:
         - header as an unicode string,
