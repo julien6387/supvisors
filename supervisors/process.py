@@ -47,6 +47,9 @@ class ProcessRules(object):
 
     def __init__(self, logger):
         """ Initialization of the attributes. """
+        # TODO: think about adding a period for tasks
+        # period should be greater than startsecs
+        # autorestart should be False
         self.logger = logger
         self.addresses = ['*']
         self.start_sequence = 0
@@ -112,7 +115,7 @@ class ProcessStatus(object):
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
-        self.extra_args = None
+        self.extra_args = ''
         self.ignore_wait_exit = False
         # init parameters
         self.add_info(address, info)
