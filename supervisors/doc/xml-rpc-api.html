@@ -68,7 +68,6 @@
 
 					<dt>get_master_address()</dt>
 					<dd>Return the address of the Supervisors Master</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return string: the IPv4 address or host name</dd>
 
 					<dt>get_address_info(address)</dt>
@@ -94,7 +93,7 @@
 					<dd>Return information about the application named application_name</dd>
 					<dd>@param string application_name: the name of the application</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code></li>
 						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return struct: a structure containing data about the application
@@ -109,7 +108,7 @@
 
 					<dt>get_all_applications_info()</dt>
 					<dd>Return information about all applications managed in Supervisors</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code></dd>
 					<dd>@return list: a list of structures containing data about all applications</dd>
 
 					<dt>get_process_info(namespec)</dt>
@@ -117,7 +116,7 @@
 					It is a complement of supervisor ProcessInfo by telling where the process is running</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code></li>
 						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return list: a list of structures containing data about the processes
@@ -133,10 +132,7 @@
 					<dt>get_process_rules(namespec)</dt>
 					<dd>Return the rules used to deploy the process named namespec</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
-					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></li>
-						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors</li>
-					</ul></dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors</dd>
 					<dd>@return list: a list of structures containing data about the deployment rules
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
@@ -152,7 +148,6 @@
 
 					<dt>get_conflicts()</dt>
 					<dd>Return the conflicting processes</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return list: a list of structures containing data about the conflicting processes
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
@@ -169,14 +164,10 @@
 				<dl>
 					<dt>restart()</dt>
 					<dd>Restart Supervisors through all remote Supervisor instances</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code>
-                    if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return boolean: always True unless error</dd>
 
 					<dt>shutdown()</dt>
 					<dd>Shut down Supervisors through all remote Supervisor instances</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code>
-                    if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></dd>
 					<dd>@return boolean: always True unless error</dd>
 				</dl>
 
@@ -234,8 +225,6 @@
 					<dd>@param string extra_args: the additional arguments to be passed to the command line</dd>
 					<dd>@param boolean wait: wait for the process to be fully started</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code>
-                        if Supervisors is not in state <code>DEPLOYMENT</code>, <code>OPERATION</code> or <code>CONCILIATION</code></li>
 						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to the local Supervisor</li>
 						<li>with code <code>Faults.BAD_EXTRA_ARGUMENTS</code> if program is required or has a start sequence</li>
 						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
@@ -265,7 +254,8 @@
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
 					<dd>@param boolean wait: wait for the process to be fully stopped</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code>
+                        if Supervisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
 						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors</li>
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
