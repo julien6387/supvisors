@@ -51,7 +51,6 @@ class RPCInterface(object):
         """ Get the address of the Supervisors Master used to send requests
         @return string result\tThe IPv4 address or host name
         """
-        self.check_operating_conciliation()
         return self.context.master_address
 
     def get_all_addresses_info(self):
@@ -76,14 +75,14 @@ class RPCInterface(object):
         """ Get info about all applications managed in Supervisors
         @return list result\tA list of structures containing data about all applications
         """
-        self.check_operating_conciliation()
+        self.check_from_deployment()
         return [self.get_application_info(application_name) for application_name in self.context.applications.keys()]
 
     def get_application_info(self, application_name):
         """ Get info about an application named application_name
         @param string application_name\tThe name of the application
         @return struct result\tA structure containing data about the application """
-        self.check_operating_conciliation()
+        self.check_from_deployment()
         application = self.get_application(application_name)
         return {'application_name': application.application_name, 'state': application.state_string(), 
             'major_failure': application.major_failure, 'minor_failure': application.minor_failure}
@@ -93,7 +92,7 @@ class RPCInterface(object):
         It just complements supervisor ProcessInfo by telling where the process is running
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @return list result\tA list of structures containing data about the processes """
-        self.check_operating_conciliation()
+        self.check_from_deployment()
         application, process = self.get_application_process(namespec)
         if process:
             return [self.get_internal_process_info(process)]
@@ -103,7 +102,6 @@ class RPCInterface(object):
         """ Get the rules used to deploy the process named namespec
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
         @return list result\tA list of structures containing data about the deployment rules """
-        self.check_from_deployment()
         application, process = self.get_application_process(namespec)
         if process:
             return [self.get_internal_process_rules(process)]
@@ -112,7 +110,6 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes
         @return list result\t\t\tA list of structures containing data about the conflicting processes """
-        self.check_operating_conciliation()
         return [self.get_internal_process_info(process) for application in self.context.applications.values()
             for process in application.processes.values() if process.conflicting()]
 
@@ -208,7 +205,7 @@ class RPCInterface(object):
         onwait.job = self.stop_application(application_name, True)
         return onwait # deferred
 
-    def start_args(self, namespec, extra_args=None, wait=True):
+    def start_args(self, namespec, extra_args='', wait=True):
         """ Start a local process.
         The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
         instead of throwing an exception to the RPC client.
@@ -218,7 +215,6 @@ class RPCInterface(object):
         @param boolean wait\tWait for process to be fully started
         @return boolean result\tAlways true unless error
         """
-        self.check_from_deployment()
         # prevent usage of extra_args when required or auto_start
         application, process = self.get_application_process(namespec)
         if extra_args and not process.rules.accept_extra_arguments():
@@ -345,13 +341,11 @@ class RPCInterface(object):
     def restart(self):
         """ Restart Supervisors through all remote supervisord
         @return boolean result\tAlways True unless error """
-        self.check_operating_conciliation()
         return self.send_addresses_func(self.supervisors.requester.restart)
 
     def shutdown(self):
         """ Shut down Supervisors through all remote supervisord
         @return boolean result\tAlways True unless error """
-        self.check_from_deployment()
         return self.send_addresses_func(self.supervisors.requester.shutdown)
 
     # utilities
@@ -394,7 +388,7 @@ class RPCInterface(object):
 
     def get_internal_process_rules(self, process):
         rules = process.rules
-        return {'process_name': process.namespec(), 'addresses': rules.addresses,
+        return {'namespec': process.namespec(), 'addresses': rules.addresses,
             'start_sequence': rules.start_sequence, 'stop_sequence': rules.stop_sequence,
             'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading}
 
