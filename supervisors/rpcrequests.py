@@ -31,7 +31,7 @@ class XmlRpcClient(object):
                 serverurl[1] = '//' + address
                 serverurl = ':'.join(serverurl)
                 self.transport = SupervisorTransport(info_source.username, info_source.password, serverurl)
-        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport)
+                self.proxy = xmlrpclib.ServerProxy('http://{}'.format(address), self.transport)
 
 
 class RpcRequester(object):
