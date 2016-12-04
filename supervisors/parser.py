@@ -125,7 +125,7 @@ class Parser(object):
             value = program_elt.findtext('expected_loading')
             process.rules.expected_loading = int(value) if value and 0 <= int(value) <= 100 else 1
             # check that rules are compliant with dependencies
-            process.rules.check_dependencies()
+            process.rules.check_dependencies(process.namespec())
             self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
 
     def get_program_addresses(self, program_elt, rules):
