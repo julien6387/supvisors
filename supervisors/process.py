@@ -58,18 +58,18 @@ class ProcessRules(object):
         self.wait_exit = False
         self.expected_loading = 1
 
-    def check_dependencies(self):
+    def check_dependencies(self, namespec):
         """ Update rules after they have been read from the deployment file
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have start_sequence, so force to optional if no start_sequence
         if self.required and self.start_sequence == 0:
-            self.logger.warn('required forced to False because no start_sequence defined')
+            self.logger.warn('{} - required forced to False because no start_sequence defined'.format(namespec))
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
             self.addresses = ['*']
-            self.logger.warn('no address defined so all Supervisors addresses are applicable')
+            self.logger.warn('{} - no address defined so all Supervisors addresses are applicable'.format(namespec))
 
     def accept_extra_arguments(self):
         """ Return True if process rules are compatible with extra arguments. """
