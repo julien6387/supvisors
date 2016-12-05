@@ -56,7 +56,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 15
         # check dependencies
-        rules.check_dependencies()
+        rules.check_dependencies("dummy")
         # test that there is no difference
         self.assertListEqual(['10.0.0.1', '10.0.0.2'], rules.addresses)
         self.assertEqual(1, rules.start_sequence)
@@ -72,7 +72,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = True
         rules.expected_loading = 50
         # check dependencies
-        rules.check_dependencies()
+        rules.check_dependencies("dummy")
         # test that there is no difference
         self.assertListEqual(['10.0.0.2'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
@@ -88,7 +88,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 5
         # check dependencies
-        rules.check_dependencies()
+        rules.check_dependencies("dummy")
         # test that process is not required anymore
         self.assertListEqual(['10.0.0.1'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
@@ -104,7 +104,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 0
         # check dependencies
-        rules.check_dependencies()
+        rules.check_dependencies("dummy")
         # test that all addresses are applicable
         self.assertListEqual(['*'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
