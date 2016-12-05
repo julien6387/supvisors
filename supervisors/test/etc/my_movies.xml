@@ -23,7 +23,7 @@
 	</model>
 
 	<!-- starter checking application -->
-	<application name="check_sequence">
+	<application name="test">
 		<start_sequence>1</start_sequence>
 		<stop_sequence>0</stop_sequence>
 
