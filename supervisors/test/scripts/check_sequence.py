@@ -339,15 +339,17 @@ class CheckSequenceTest(unittest.TestCase):
     def check_self_starting(self):
         """ Test the events received that corresponds to the starting of this process. """
         try:
-            # it should take less than 10 seconds after the address event is received
-            data = self.process_queue.get(True, 10)
+            # this process has a startsecs of 30 seconds
+            # depending on the active addresses and timing considerations, the 5 notifications can be received between 5 and 25 seconds
+            # so, in the 'worst' case, it may take 25 seconds before the RUNNING event is received
+            data = self.process_queue.get(True, 26)
             # test that this process is RUNNING
-            self.assertDictContainsSubset({'process_name': 'check_sequence', 'state': 'RUNNING', 'application_name': 'check_sequence'}, data)
+            self.assertDictContainsSubset({'process_name': 'check_sequence', 'state': 'RUNNING', 'application_name': 'test'}, data)
             self.assertEqual(1, len(data['addresses']))
             self.assertIn(data['addresses'][0], self.addresses)
             # test that the application related to this process is RUNNING
             data = self.application_queue.get(True, 2)
-            self.assertDictEqual({'application_name': 'check_sequence', 'major_failure': False, 'state': u'RUNNING', 'minor_failure': False}, data)
+            self.assertDictEqual({'application_name': 'test', 'major_failure': False, 'state': u'RUNNING', 'minor_failure': False}, data)
         except Empty:
             self.fail('failed to get the expected events for this process')
 
