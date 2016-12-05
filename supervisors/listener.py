@@ -27,13 +27,23 @@ from supervisor.states import ProcessStates
 from supervisors.mainloop import SupervisorsMainLoop
 from supervisors.process import from_string
 from supervisors.statistics import instant_statistics
-from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
+from supervisors.utils import (EventHeaders, SUPERVISORS_EVENT, 
+    SUPERVISORS_TASK, supervisors_short_cuts)
 
 
-# class for ZMQ publication of event
 class EventPublisher(object):
+    """ This class is the wrapper of the ZeroMQ socket that publishes the events
+    to the Supervisors instances.
+    
+    Attributes are:
+    - supervisors: a reference to the Supervisor context,
+    - address: the address name where this process is running,
+    - socket: the ZeroMQ socket with a PUBLISH pattern, bound on the internal_port defined
+        in the ['supervisors'] section of the Supervisor configuration file.
+    """
 
     def __init__(self, supervisors, zmq_context):
+        """ Initialization of the attributes. """
         # keep a reference to supervisors
         self.supervisors = supervisors
         # shortcuts for source code readability
@@ -46,28 +56,33 @@ class EventPublisher(object):
         self.socket.bind(url)
 
     def send_tick_event(self, payload):
-        # publish ZMQ tick
+        """ Publishes the tick event with ZeroMQ. """
         self.logger.debug('send TickEvent {}'.format(payload))
-        self.socket.send_string(TICK_HEADER, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((EventHeaders.TICK, self.address, payload))
 
     def send_process_event(self, payload):
-        # publish ZMQ process state
+        """ Publishes the process event with ZeroMQ. """
         self.logger.debug('send ProcessEvent {}'.format(payload))
-        self.socket.send_string(PROCESS_HEADER, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((EventHeaders.PROCESS, self.address, payload))
 
     def send_statistics(self, payload):
-        # publish ZMQ process state
+        """ Publishes the statistics with ZeroMQ. """
         self.logger.debug('send Statistics {}'.format(payload))
-        self.socket.send_string(STATISTICS_HEADER, zmq.SNDMORE)
-        self.socket.send_pyobj((self.address, payload))
+        self.socket.send_pyobj((EventHeaders.STATISTICS, self.address, payload))
 
 
-# class for listening Supervisor events
 class SupervisorListener(object):
+    """ This class subscribes directly to the internal Supervisor events.
+    These events are published to all Supervisors instances.
+    
+    Attributes are:
+    - supervisors: a reference to the Supervisors context,
+    - address: the address name where this process is running,
+    - zmq_context: the ZeroMQ context used to create sockets.
+    """
 
     def __init__(self, supervisors):
+        """ Initialization of the attributes. """
         self.supervisors = supervisors
         # shortcuts for source code readability
         supervisors_short_cuts(self, ['logger'])
@@ -77,12 +92,14 @@ class SupervisorListener(object):
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
         events.subscribe(events.ProcessStateEvent, self.on_process)
         events.subscribe(events.Tick5Event, self.on_tick)
+        events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
         # ZMQ context definition
         self.zmq_context = zmq.Context.instance()
         self.zmq_context.setsockopt(zmq.LINGER, 0)
 
     def on_stopping(self, event):
-        # Supervisor is STOPPING: start Supervisors in this supervisord
+        """ Called when Supervisor is STOPPING.
+        This method stops the Supervisors main loop. """
         self.logger.warn('local supervisord is STOPPING')
         # unsubscribe
         events.clear()
@@ -98,15 +115,20 @@ class SupervisorListener(object):
         self.logger.close()
 
     def on_running(self, event):
-        # Supervisor is RUNNING: start Supervisors main loop
-        self.main_loop = SupervisorsMainLoop(self.supervisors, self.zmq_context)
-        self.main_loop.start()
+        """ Called when Supervisor is RUNNING.
+        This method start the Supervisors main loop. """
+        self.logger.info('local supervisord is RUNNING')
         # replace the default handler for web ui
         self.supervisors.info_source.replace_default_handler()
         # create publisher
         self.publisher = EventPublisher(self.supervisors, self.zmq_context)
+        # starts the main loop
+        self.main_loop = SupervisorsMainLoop(self.supervisors, self.zmq_context)
+        self.main_loop.start()
 
     def on_process(self, event):
+        """ Called when a ProcessEvent is sent by the local Supervisor.
+        The event is published to all Supervisors instances. """
         event_name = events.getEventNameByType(event.__class__)
         self.logger.debug('got Process event from supervisord: {} {}'.format(event_name, event))
         # create payload from event
@@ -120,13 +142,26 @@ class SupervisorListener(object):
         self.publisher.send_process_event(payload)
 
     def on_tick(self, event):
+        """ Called when a TickEvent is notified.
+        The event is published to all Supervisors instances.
+        Statistics are also published. """
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
         self.publisher.send_tick_event(event.when)
         # get and publish statistics at tick time
         status = self.supervisors.context.addresses[self.address]
         self.publisher.send_statistics(instant_statistics(status.pid_processes()))
 
+    def on_remote_event(self, event):
+        """ Called when a RemoteCommunicationEvent is notified.
+        This is used to sequence the events received from the Supervisors thread
+        with the other events handled by the local Supervisor."""
+        if event.type == SUPERVISORS_EVENT:
+            self.main_loop.unstack_event()
+        elif event.type == SUPERVISORS_TASK:
+            self.main_loop.periodic_task()
+
     def force_process_fatal(self, namespec):
+        """ Publishes a fake process event showing a FATAL state for the process. """
         application_name, process_name = split_namespec(namespec)
         # create payload from event
         payload = {'processname': process_name,
