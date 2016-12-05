@@ -17,17 +17,24 @@
 # limitations under the License.
 # ======================================================================
 
+import os
+
 from supervisor.http import NOT_DONE_YET
 from supervisor.options import split_namespec
 from supervisor.xmlrpc import capped_int, Faults, RPCError
 
-from supervisors.ttypes import AddressStates, ApplicationStates, DeploymentStrategies, SupervisorsStates
+from supervisors.ttypes import (AddressStates, ApplicationStates,
+    DeploymentStrategies, SupervisorsStates)
 from supervisors.utils import supervisors_short_cuts
 
+# get Supervisors version from file
+here = os.path.abspath(os.path.dirname(__file__))
+version_txt = os.path.join(here, 'version.txt')
+API_VERSION  = open(version_txt).read().strip()
 
-API_VERSION  = '0.1'
 
 class RPCInterface(object):
+    """ This class holds the XML-RPC extension provided by Supervisors. """
 
     def __init__(self, supervisors):
         self.supervisors = supervisors
@@ -36,62 +43,64 @@ class RPCInterface(object):
 
     # RPC Status methods
     def get_api_version(self):
-        """ Return the version of the RPC API used by Supervisors
-        @return string result\tThe version id
+        """ Return the version of the RPC API used by Supervisors.
+        @return string result\tThe version id.
         """
         return API_VERSION
 
     def get_supervisors_state(self):
-        """ Return the state of Supervisors
-        @return string result\tThe state of Supervisors
+        """ Return the state of Supervisors.
+        @return string result\tThe state of Supervisors.
         """
         return SupervisorsStates._to_string(self.supervisors.fsm.state)
 
     def get_master_address(self):
-        """ Get the address of the Supervisors Master used to send requests
-        @return string result\tThe IPv4 address or host name
+        """ Get the address of the Supervisors Master used to send requests.
+        @return string result\tThe IPv4 address or host name.
         """
         return self.context.master_address
 
     def get_all_addresses_info(self):
-        """ Get info about all remote supervisord managed in Supervisors
-        @return list result\tA list of structures containing data about all remote supervisord
+        """ Get info about all remote supervisord managed in Supervisors.
+        @return list result\tA list of structures containing data about all remote supervisord.
         """
         return [self.get_address_info(address) for address in self.context.addresses]
 
     def get_address_info(self, address):
-        """ Get info about a remote supervisord managed in Supervisors and running on address
-        @param string address\tThe address of the supervisord
-        @return struct result\t\tA structure containing data about the remote supervisord
+        """ Get info about a remote supervisord managed in Supervisors and running on address.
+        @param string address\tThe address of the supervisord.
+        @return struct result\t\tA structure containing data about the remote supervisord.
         """
         try:
             status = self.context.addresses[address]
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
-        return {'address': address, 'state': status.state_string(), 'checked': status.checked,
+        return {'address_name': address, 'state': status.state_string(), 'checked': status.checked,
             'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time), 'loading': status.loading()}
 
     def get_all_applications_info(self):
-        """ Get info about all applications managed in Supervisors
-        @return list result\tA list of structures containing data about all applications
+        """ Get info about all applications managed in Supervisors.
+        @return list result\tA list of structures containing data about all applications.
         """
         self.check_from_deployment()
         return [self.get_application_info(application_name) for application_name in self.context.applications.keys()]
 
     def get_application_info(self, application_name):
-        """ Get info about an application named application_name
-        @param string application_name\tThe name of the application
-        @return struct result\tA structure containing data about the application """
+        """ Get info about an application named application_name.
+        @param string application_name\tThe name of the application.
+        @return struct result\tA structure containing data about the application.
+        """
         self.check_from_deployment()
         application = self.get_application(application_name)
         return {'application_name': application.application_name, 'state': application.state_string(), 
             'major_failure': application.major_failure, 'minor_failure': application.minor_failure}
 
     def get_process_info(self, namespec):
-        """ Get info about a process named namespec
-        It just complements supervisor ProcessInfo by telling where the process is running
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @return list result\tA list of structures containing data about the processes """
+        """ Get info about a process named namespec.
+        It just complements supervisor ProcessInfo by telling where the process is running.
+        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
+        @return list result\tA list of structures containing data about the processes.
+        """
         self.check_from_deployment()
         application, process = self.get_application_process(namespec)
         if process:
@@ -99,27 +108,30 @@ class RPCInterface(object):
         return [self.get_internal_process_info(proc) for proc in application.processes.values()]
 
     def get_process_rules(self, namespec):
-        """ Get the rules used to deploy the process named namespec
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @return list result\tA list of structures containing data about the deployment rules """
+        """ Get the rules used to deploy the process named namespec.
+        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
+        @return list result\tA list of structures containing data about the deployment rules.
+        """
         application, process = self.get_application_process(namespec)
         if process:
             return [self.get_internal_process_rules(process)]
         return [self.get_internal_process_rules(proc) for proc in application.processes.values()]
 
     def get_conflicts(self):
-        """ Get the conflicting processes
-        @return list result\t\t\tA list of structures containing data about the conflicting processes """
+        """ Get the conflicting processes.
+        @return list result\t\t\tA list of structures containing data about the conflicting processes.
+        """
         return [self.get_internal_process_info(process) for application in self.context.applications.values()
             for process in application.processes.values() if process.conflicting()]
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules defined in the deployment file.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
-        @param string application_name\tThe name of the application
-        @param boolean wait\tWait for application to be fully started
-        @return boolean result\tAlways True unless error or nothing to start """
+        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
+        @param string application_name\tThe name of the application.
+        @param boolean wait\tWait for application to be fully started.
+        @return boolean result\tAlways True unless error or nothing to start.
+        """
         self.check_operating()
         # check strategy
         if strategy not in DeploymentStrategies._values():
@@ -152,9 +164,10 @@ class RPCInterface(object):
 
     def stop_application(self, application_name, wait=True):
         """ Stop the application named application_name.
-        @param string application_name\tThe name of the application
-        @param boolean wait\tWait for application to be fully stopped
-        @return boolean result\tAlways True unless error """
+        @param string application_name\tThe name of the application.
+        @param boolean wait\tWait for application to be fully stopped.
+        @return boolean result\tAlways True unless error.
+        """
         self.check_operating_conciliation()
         # check application is known
         if application_name not in self.context.applications.keys():
@@ -178,11 +191,12 @@ class RPCInterface(object):
         return not done
 
     def restart_application(self, strategy, application_name, wait=True):
-        """ Retart the application named application_name iaw the strategy and the rules defined in the deployment file.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
-        @param string application_name\tThe name of the application
-        @param boolean wait\tWait for application to be fully stopped
-        @return boolean result\tAlways True unless error """
+        """ Restart the application named application_name iaw the strategy and the rules defined in the deployment file.
+        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
+        @param string application_name\tThe name of the application.
+        @param boolean wait\tWait for application to be fully stopped.
+        @return boolean result\tAlways True unless error.
+        """
         self.check_operating()
         def onwait():
             # first wait for application to be stopped
@@ -210,10 +224,10 @@ class RPCInterface(object):
         The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
         instead of throwing an exception to the RPC client.
         This RPC makes it also possible to pass extra arguments to the program command line.
-        @param string name\tThe process name
-        @param string extra_args\tExtra arguments to be passed to the command line of the program
-        @param boolean wait\tWait for process to be fully started
-        @return boolean result\tAlways true unless error
+        @param string name\tThe process name.
+        @param string extra_args\tExtra arguments to be passed to the command line of the program.
+        @param boolean wait\tWait for process to be fully started.
+        @return boolean result\tAlways true unless error.
         """
         # prevent usage of extra_args when required or auto_start
         application, process = self.get_application_process(namespec)
@@ -242,14 +256,15 @@ class RPCInterface(object):
             raise
         return cb
 
-    def start_process(self, strategy, namespec, extra_args=None, wait=True):
-        """ Start a process named namespec iaw the strategy and some of the rules defined in the deployment file
-        WARN; the 'wait_exit' rule is not considered here
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @param string extra_args\tExtra arguments to be passed to command line
-        @param boolean wait\tWait for process to be fully started
-        @return boolean result\tAlways true unless error """
+    def start_process(self, strategy, namespec, extra_args='', wait=True):
+        """ Start a process named namespec iaw the strategy and some of the rules defined in the deployment file.
+        WARN; the 'wait_exit' rule is not considered here.
+        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
+        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
+        @param string extra_args\tExtra arguments to be passed to command line.
+        @param boolean wait\tWait for process to be fully started.
+        @return boolean result\tAlways true unless error.
+        """
         self.check_operating()
         # check strategy
         if strategy not in DeploymentStrategies._values():
@@ -283,9 +298,10 @@ class RPCInterface(object):
 
     def stop_process(self, namespec, wait=True):
         """ Stop the process named namespec where it is running.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @param boolean wait\tWait for process to be fully stopped
-        @return boolean result\tAlways True unless error """
+        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
+        @param boolean wait\tWait for process to be fully stopped.
+        @return boolean result\tAlways True unless error.
+        """
         self.check_operating_conciliation()
         # check names
         application, process = self.get_application_process(namespec)
@@ -293,8 +309,7 @@ class RPCInterface(object):
         # stop all processes
         for process in processes:
             if process.running():
-                # work on copy as it may change during iteration
-                for address in process.addresses.copy():
+                for address in process.addresses:
                     self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
                     self.supervisors.requester.stop_process(address, process.namespec(), False)
             else:
@@ -311,12 +326,13 @@ class RPCInterface(object):
         return True
 
     def restart_process(self, strategy, namespec, wait=True):
-        """ Restart a process named namespec iaw the strategy and some of the rules defined in the deployment file
-        WARN; the 'wait_exit' rule is not considered here
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``)
-        @param boolean wait\tWait for process to be fully stopped
-        @return boolean result\tAlways True unless error """
+        """ Restart a process named namespec iaw the strategy and some of the rules defined in the deployment file.
+        WARN; the 'wait_exit' rule is not considered here.
+        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
+        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
+        @param boolean wait\tWait for process to be fully stopped.
+        @return boolean result\tAlways True unless error.
+        """
         self.check_operating()
         def onwait():
             # first wait for process to be stopped
@@ -339,13 +355,15 @@ class RPCInterface(object):
         return onwait # deferred
 
     def restart(self):
-        """ Restart Supervisors through all remote supervisord
-        @return boolean result\tAlways True unless error """
+        """ Restart Supervisors through all remote supervisord.
+        @return boolean result\tAlways True unless error.
+        """
         return self.send_addresses_func(self.supervisors.requester.restart)
 
     def shutdown(self):
-        """ Shut down Supervisors through all remote supervisord
-        @return boolean result\tAlways True unless error """
+        """ Shut down Supervisors through all remote supervisord.
+        @return boolean result\tAlways True unless error.
+        """
         return self.send_addresses_func(self.supervisors.requester.shutdown)
 
     # utilities
@@ -384,7 +402,7 @@ class RPCInterface(object):
         return process
 
     def get_internal_process_info(self, process):
-        return {'process_name': process.namespec(), 'state': process.state_string(), 'address': list(process.addresses), 'conflict': process.conflicting()}
+        return {'namespec': process.namespec(), 'state': process.state_string(), 'address': list(process.addresses), 'conflict': process.conflicting()}
 
     def get_internal_process_rules(self, process):
         rules = process.rules
