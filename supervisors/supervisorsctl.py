@@ -85,7 +85,7 @@ class ControllerPlugin(ControllerPluginBase):
     def output_address_info(self, info):
         template = '%(addr)-20s%(state)-12s%(checked)-12s%(load)-8s%(ltime)-12s'
         checked = info['checked']
-        line = template % {'addr': info['address'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
+        line = template % {'addr': info['address_name'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
             'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time']) if checked else ''}
         self.ctl.output(line)
 
@@ -139,7 +139,7 @@ class ControllerPlugin(ControllerPluginBase):
                 else:
                     for info in infoList:
                         conflict = info['conflict']
-                        line = template % {'name': info['process_name'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address']}
+                        line = template % {'name': info['namespec'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address']}
                         self.ctl.output(line)
 
     def help_sstatus(self):
@@ -186,7 +186,7 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 template = '%(name)-30s%(state)-12s%(addresses)s'
                 for conflict in conflicts:
-                    line = template % {'name': conflict['process_name'], 'state': conflict['state'], 'addresses': conflict['address']}
+                    line = template % {'name': conflict['namespec'], 'state': conflict['state'], 'addresses': conflict['address']}
                     self.ctl.output(line)
 
     def help_conflicts(self):
