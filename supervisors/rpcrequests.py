@@ -71,10 +71,6 @@ class RpcRequester(object):
         client, supervisor = self.get_supervisor(address)
         return supervisor.getAllProcessInfo()
 
-    def supervisors_state(self, address):
-        client, supervisors = self.get_supervisors(address)
-        return supervisors.get_supervisors_state()
-
     def internal_start_process(self, address, program, extra_args):
         client, supervisors = self.get_supervisors(address)
         return supervisors.start_args(program, extra_args, False)
