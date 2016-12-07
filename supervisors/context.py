@@ -31,8 +31,9 @@ class Context(object):
     """ The Context class holds the main data of Supervisors:
     - addresses: the dictionary of all AddressStatus (key is address),
     - applications: the dictionary of all ApplicationStatus (key is application name),
+    - processes: the dictionary of all ProcessStatus (key is process namespec),
     - master_address: the address of the Supervisors master,
-    - master:  a boolean telling if the local address is the master address. """
+    - master: a boolean telling if the local address is the master address. """
 
     def __init__(self, supervisors):
         """ Initialization of the attributes. """
