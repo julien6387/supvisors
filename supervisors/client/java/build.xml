@@ -1,0 +1,53 @@
+<project default="compile">
+ 
+    <path id="project.classpath">
+        <fileset dir="/opt/apache-xmlrpc-3.1.3/lib">
+        <!--fileset dir="/home/ssp/T0008999/Private/apache-xmlrpc-3.1.3/lib"-->
+           <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <target name="compile">
+        <mkdir dir="build"/>
+        <javac srcdir="." destdir="build">
+            <classpath refid="project.classpath"/>
+        </javac>
+        <mkdir dir="lib"/>
+        <jar destfile="lib/supervisors-0.1alpha.jar">
+            <fileset dir="build"/>
+            <manifest>
+                <attribute name="Implementation-Vendor" value="Julien LE CLEACH"/>
+                <attribute name="Implementation-Title" value="Supervisors"/>
+                <attribute name="Implementation-Version" value="0.1alpha"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="run_system">
+        <java classname="org.supervisors.SystemXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run_supervisor">
+        <java classname="org.supervisors.SupervisorXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run_supervisors">
+        <java classname="org.supervisors.SupervisorsXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+</project>
