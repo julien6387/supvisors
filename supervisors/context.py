@@ -87,7 +87,6 @@ class Context(object):
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
-            status.checked = False
         # invalidate address in concerned processes
         for process in status.running_processes():
             process.invalidate_address(status.address)
@@ -167,7 +166,6 @@ class Context(object):
                 self.load_processes(status.address, info)
             else:
                 self.invalid(status)
-        status.checked = True
 
     def on_tick_event(self, address, when):
         """ Method called upon reception of a tick event from the remote Supervisors instance, telling that it is active.
@@ -179,7 +177,7 @@ class Context(object):
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
                 self.logger.debug('got tick {} from location={}'.format(when, address))
-                if not status.checked:
+                if status.state != AddressStates.RUNNING:
                     self.check_address(status)
                 # re-test isolation status as it may have been changed by the check_address
                 if not status.in_isolation():
