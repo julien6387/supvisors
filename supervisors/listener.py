@@ -78,7 +78,8 @@ class SupervisorListener(object):
     Attributes are:
     - supervisors: a reference to the Supervisors context,
     - address: the address name where this process is running,
-    - zmq_context: the ZeroMQ context used to create sockets.
+    - main_loop: the Supervisors' event thread,
+    - publisher: the ZeroMQ socket used to publish Supervisor events to all Supervisors threads.
     """
 
     def __init__(self, supervisors):
@@ -93,26 +94,6 @@ class SupervisorListener(object):
         events.subscribe(events.ProcessStateEvent, self.on_process)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
-        # ZMQ context definition
-        self.zmq_context = zmq.Context.instance()
-        self.zmq_context.setsockopt(zmq.LINGER, 0)
-
-    def on_stopping(self, event):
-        """ Called when Supervisor is STOPPING.
-        This method stops the Supervisors main loop. """
-        self.logger.warn('local supervisord is STOPPING')
-        # unsubscribe
-        events.clear()
-        # stop and join main loop
-        self.main_loop.stop()
-        self.main_loop.join()
-        self.logger.warn('cleaning resources')
-       # close zmq sockets
-        self.publisher.socket.close()
-        # close zmq context
-        self.zmq_context.term()
-        # finally, close logger
-        self.logger.close()
 
     def on_running(self, event):
         """ Called when Supervisor is RUNNING.
@@ -120,11 +101,29 @@ class SupervisorListener(object):
         self.logger.info('local supervisord is RUNNING')
         # replace the default handler for web ui
         self.supervisors.info_source.replace_default_handler()
-        # create publisher
-        self.publisher = EventPublisher(self.supervisors, self.zmq_context)
         # starts the main loop
-        self.main_loop = SupervisorsMainLoop(self.supervisors, self.zmq_context)
+        self.main_loop = SupervisorsMainLoop(self.supervisors)
         self.main_loop.start()
+        # create publisher of Supervisor events
+        self.publisher = EventPublisher(self.supervisors, self.main_loop.zmq_context)
+
+    def on_stopping(self, event):
+        """ Called when Supervisor is STOPPING.
+        This method stops the Supervisors main loop. """
+        self.logger.warn('local supervisord is STOPPING')
+        # unsubscribe
+        events.clear()
+        # close zmq socket
+        self.publisher.socket.close()
+        # stop and join the main loop
+        # give 2 seconds to the event thread to end
+        self.main_loop.stop()
+        self.main_loop.join(2)
+        # WARN: if the call to this method is consequent to a RPC, the Supervisors thread may be
+        # still alive due to its use of the sendRemoteCommEvent RPC.
+        # xmlrpclib is synchronous and blocking so the sendRemoteCommEvent cannot be achieved
+        # while this RPC is in progress.
+        # No matter, the thread will end itself once this RPC is over.
 
     def on_process(self, event):
         """ Called when a ProcessEvent is sent by the local Supervisor.
