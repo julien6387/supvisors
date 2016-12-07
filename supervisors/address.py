@@ -26,7 +26,6 @@ class AddressStatus(object):
     Attributes:
     - address: the address where the Supervisor instance is expected to be running,
     - state: the state of the Supervisor instance in AddressStates,
-    - checked: a status telling if Supervisors has already checked that it is allowed to deal with the remote Supervisors in,
     - remote_time: the last date received from the Supervisors instance,
     - local_time: the last date received from the Supervisors instance, in the local reference time,
     - processes: the list of processes that are available on this address. """
@@ -40,7 +39,6 @@ class AddressStatus(object):
         self._state = AddressStates.UNKNOWN
         self.remote_time = 0
         self.local_time = 0
-        self.checked = False
         self.processes = {}
 
     # accessors / mutators
@@ -61,7 +59,7 @@ class AddressStatus(object):
     # serialization
     def to_json(self):
         """ Return a serializable form of the AddressStatus. """
-        return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
+        return {'address': self.address, 'state': self.state_string(),
             'remote_time': self.remote_time, 'local_time': self.local_time }
 
     # methods
