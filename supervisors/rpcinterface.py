@@ -416,7 +416,7 @@ class RPCInterface(object):
 
     def _get_internal_process_info(self, process):
         """ Return a dictionary with the information of the process. """
-        return {'namespec': process.namespec(), 'state': process.state_string(), 'address': list(process.addresses), 'conflict': process.conflicting()}
+        return {'namespec': process.namespec(), 'state': process.state_string(), 'address': list(process.addresses)}
 
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
