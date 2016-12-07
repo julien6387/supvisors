@@ -97,6 +97,13 @@ class RPCInterface(object):
         return {'application_name': application.application_name, 'state': application.state_string(), 
             'major_failure': application.major_failure, 'minor_failure': application.minor_failure}
 
+    def get_all_process_info(self):
+        """ Get info about all processes.
+        @return list result\tA list of structures containing data about the processes.
+        """
+        self._check_from_deployment()
+        return [self._get_internal_process_info(process) for process in self.context.processes.values()]
+
     def get_process_info(self, namespec):
         """ Get info about a process named namespec.
         It just complements supervisor ProcessInfo by telling where the process is running.
