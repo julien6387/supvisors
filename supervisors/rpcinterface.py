@@ -76,7 +76,7 @@ class RPCInterface(object):
             status = self.context.addresses[address]
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
-        return {'address_name': address, 'state': status.state_string(), 'checked': status.checked,
+        return {'address_name': address, 'state': status.state_string(),
             'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time),
             'loading': status.loading()}
 
