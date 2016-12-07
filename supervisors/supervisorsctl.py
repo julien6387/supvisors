@@ -131,7 +131,7 @@ class ControllerPlugin(ControllerPluginBase):
             processes = arg.split()
             if not processes or "all" in processes:
                 processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info()]
-            template = '%(name)-30s%(state)-12s%(conflict)-12s%(addresses)s'
+            template = '%(name)-30s%(state)-12s%(addresses)s'
             for process in processes:
                 try:
                     infoList = self.supervisors().get_process_info(process)
@@ -139,8 +139,7 @@ class ControllerPlugin(ControllerPluginBase):
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
                     for info in infoList:
-                        conflict = info['conflict']
-                        line = template % {'name': info['namespec'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address']}
+                        line = template % {'name': info['namespec'], 'state': info['state'], 'addresses': info['address']}
                         self.ctl.output(line)
 
     def help_sstatus(self):
