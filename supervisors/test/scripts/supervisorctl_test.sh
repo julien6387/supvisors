@@ -51,4 +51,4 @@ sendRequest sreload
 
 # WARN: cannot test anything after sreload because script is being killed
 # so a shell fork is done for this last test
-(sleep 60 ; sendRequest sshutdown) &
+# (sleep 60 ; sendRequest sshutdown) &
