@@ -52,7 +52,6 @@ class InitializationState(AbstractState):
             if not status.in_isolation():
                 # do NOT use state setter as transition may be rejected
                 status._state = AddressStates.UNKNOWN
-                status.checked = False
 
     def next(self):
         # cannot get out of this state without local supervisor RUNNING
