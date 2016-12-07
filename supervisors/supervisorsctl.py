@@ -85,10 +85,9 @@ class ControllerPlugin(ControllerPluginBase):
                         self.output_address_info(info)
 
     def output_address_info(self, info):
-        template = '%(addr)-20s%(state)-12s%(checked)-12s%(load)-8s%(ltime)-12s'
-        checked = info['checked']
-        line = template % {'addr': info['address_name'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
-            'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time']) if checked else ''}
+        template = '%(addr)-20s%(state)-12s%(load)-8s%(ltime)-12s'
+        line = template % {'addr': info['address_name'], 'state': info['state'],
+            'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time'])}
         self.ctl.output(line)
 
     def help_address_status(self):
