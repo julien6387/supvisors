@@ -44,8 +44,8 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
         UNKNOWN;
     }
 
-    /** The process namepec. */
-    private String name;
+    /** The process namespec. */
+    private String namespec;
 
     /** The process state. */
     private State state;
@@ -59,7 +59,7 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
      */
     public SupervisorsProcessInfo(HashMap addressInfo)  {
-        this.name = (String) addressInfo.get("namespec");
+        this.namespec = (String) addressInfo.get("namespec");
         this.state = State.valueOf((String) addressInfo.get("state"));
         this.addresses = (List) addressInfo.get("addresses");
     }
@@ -70,7 +70,7 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      * @return String: The namespec of the application.
      */
     public String getName() {
-        return this.name;
+        return this.namespec;
     }
 
     /**
@@ -97,7 +97,7 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupervisorsProcessInfo(name=" + this.name
+        return "SupervisorsProcessInfo(namespec=" + this.namespec
             + " state=" + this.state + " addresses=" + this.addresses + ")";
     }
 
