@@ -27,16 +27,43 @@ import java.util.List;
  */
 public class SupervisorsProcessRules implements SupervisorsAnyInfo {
 
-    private String name;
+    /** The process namespec. */
+    private String namespec;
+
+    /**
+     * The applicable addresses.
+     * If all known addresses are applicable, '*' is used.
+     */
     private List addresses;
+
+    /** The starting order in the application starting. */
     private Integer startSequence;
+
+    /** The stopping order in the application stopping. */
     private Integer stopSequence;
+
+    /**
+     * A status telling if this process is required in the application.
+     * Impact on the majorFailure / minorFailure of the application.
+     */
     private Boolean required;
+
+    /**
+     * A status telling if the Supervisors starter has to wait for this process to exit
+     * before starting the next process.
+     */
     private Boolean waitExit;
+
+    /** The loading of the process, as declared in the Supervisors deployment file. */
     private Integer expectedLoading;
 
+    /**
+     * The constructor gets all information from an HashMap.
+     *
+     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     */
     public SupervisorsProcessRules(HashMap addressInfo)  {
-        this.name = (String) addressInfo.get("namespec");
+        this.namespec = (String) addressInfo.get("namespec");
         Object[] addresses = (Object[]) addressInfo.get("addresses");
         this.addresses = Arrays.asList(addresses);
         this.startSequence = (Integer) addressInfo.get("start_sequence");
@@ -46,32 +73,80 @@ public class SupervisorsProcessRules implements SupervisorsAnyInfo {
         this.expectedLoading = (Integer) addressInfo.get("expected_loading");
     }
 
-   public String getName() {
-        return this.name;
+    /**
+     * The getName method returns the namespec of the process.
+     *
+     * @return String: The namespec of the application.
+     */
+    public String getName() {
+        return this.namespec;
     }
 
-   public List getAddresses() {
+    /**
+     * The getAddresses method returns the addresses where the process can be started.
+     *
+     * @return List: The list of addresses.
+     */
+    public List getAddresses() {
         return this.addresses;
     }
 
-   public Integer getStartSequence() {
+    /**
+     * The getStartSequence method returns the starting order of the process in the application starting.
+     *
+     * @return Integer: The starting order.
+     */
+    public Integer getStartSequence() {
         return this.startSequence;
     }
 
-   public Integer getStopSequence() {
+    /**
+     * The getStartSequence method returns the stopping order of the process in the application stopping.
+     *
+     * @return Integer: The stopping order.
+     */
+    public Integer getStopSequence() {
         return this.stopSequence;
     }
 
-   public Boolean isRequired() {
+    /**
+     * The isRequired method returns the required status of the process.
+     *
+     * @return Boolean: The required status.
+     */
+    public Boolean isRequired() {
         return this.required;
     }
 
-   public Boolean hasToWaitExit() {
+    /**
+     * The hasToWaitExit method returns True if the Supervisors starter has to wait
+     * for this process to exit before starting the next processes.
+     *
+     * @return Boolean: The wait exit status.
+     */
+    public Boolean hasToWaitExit() {
         return this.waitExit;
     }
 
-   public Integer getExpectedLoading() {
+    /**
+     * The getExpectedLoading method returns the declared loading of the process.
+     *
+     * @return Integer: The loading.
+     */
+    public Integer getExpectedLoading() {
         return this.expectedLoading;
+    }
+
+    /**
+     * The toString method returns a printable form of the contents of the instance.
+     *
+     * @return String: The contents of the instance.
+     */
+    public String toString() {
+        return "SupervisorsProcessrules(namespec=" + this.namespec
+            + " addresses=" + this.addresses + " startSequence=" + this.startSequence
+            + " stopSequence=" + this.stopSequence + " required=" + this.required
+            + " waitExit=" + this.waitExit + " expectedLoading=" + this.expectedLoading + ")";
     }
 
 }
