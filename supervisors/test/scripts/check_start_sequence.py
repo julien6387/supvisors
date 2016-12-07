@@ -344,7 +344,7 @@ class CheckSequenceTest(unittest.TestCase):
             # so, in the 'worst' case, it may take 25 seconds before the RUNNING event is received
             data = self.process_queue.get(True, 26)
             # test that this process is RUNNING
-            self.assertDictContainsSubset({'process_name': 'check_sequence', 'state': 'RUNNING', 'application_name': 'test'}, data)
+            self.assertDictContainsSubset({'process_name': 'check_start_sequence', 'state': 'RUNNING', 'application_name': 'test'}, data)
             self.assertEqual(1, len(data['addresses']))
             self.assertIn(data['addresses'][0], self.addresses)
             # test that the application related to this process is RUNNING
