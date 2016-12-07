@@ -70,10 +70,11 @@ class SupervisorsMainLoop(threading.Thread):
 
     Attributes:
     - supervisors: a reference to the Supervisors context,
+    - zmq_context: the ZeroMQ context used to create sockets,
     - subscriber: the event subscriber,
     - loop: the infinite loop flag. """
 
-    def __init__(self, supervisors, zmq_context):
+    def __init__(self, supervisors):
         """ Initialization of the attributes. """
         # thread attributes
         threading.Thread.__init__(self)
@@ -83,9 +84,22 @@ class SupervisorsMainLoop(threading.Thread):
         # create queues for internal comminucation
         self.event_queue = PriorityQueue()
         self.address_queue = Queue()
+        # ZMQ context definition
+        self.zmq_context = zmq.Context.instance()
+        self.zmq_context.setsockopt(zmq.LINGER, 0)
         # create event sockets
-        self.subscriber = EventSubscriber(supervisors, zmq_context)
-        supervisors.publisher.open(zmq_context)
+        self.subscriber = EventSubscriber(supervisors, self.zmq_context)
+        supervisors.publisher.open(self.zmq_context)
+
+    def close(self):
+        """ This method closes the resources. """
+        # close the ZeroMQ sockets
+        self.supervisors.publisher.close()
+        self.subscriber.close()
+        # close zmq context
+        self.zmq_context.term()
+        # finally, close logger
+        self.logger.close()
 
     def stop(self):
         """ Request to stop the infinite loop by resetting its flag. """
@@ -106,35 +120,45 @@ class SupervisorsMainLoop(threading.Thread):
         self.loop = True
         while self.loop:
             socks = dict(poller.poll(1000))
-            # check tick and process events
-            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                self.logger.blather('got message on event subscriber')
+            # Need to test loop flag again as its value may have changed in the last second.
+            # WARN: there is a risk of deadlock when shutdown is called by XML-RPC.
+            # Upon reception of the SupervisorStoppingEvent, the loop flag is set to False
+            # and the listener waits for this thread to end.
+            # Unfortunately, there is a chance that the flag is set between the test of the
+            # flag and the use of sendRemoteCommEvent, leading to a deadlock in RPC calls.
+            # A timeout has been set on the thread join to avoid the deadlock.
+            if self.loop:
+                # check tick and process events
+                if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
+                    self.logger.blather('got message on event subscriber')
+                    try:
+                        message = self.subscriber.receive()
+                    except Exception, e:
+                        self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    else:
+                        # The events received are not processed directly in this thread because it may conflict
+                        # with the Supervisors functions triggered from the Supervisor thread, as they use the
+                        # same data. So they are pushed into a PriorityQueue (Tick > Process > Statistics) and
+                        # Supervisors uses a RemoteCommunicationEvent to unstack and process the event from
+                        # the context of the Supervisor thread.
+                        self.event_queue.put_nowait(message)
+                        if self.loop:
+                            supervisor.sendRemoteCommEvent(SUPERVISORS_EVENT, '')
+                # check periodic task
+                if timer_event_time + 5 < time.time():
+                    if self.loop:
+                        supervisor.sendRemoteCommEvent(SUPERVISORS_TASK, '')
+                    # set date for next task
+                    timer_event_time = time.time()
+                # check isolation of addresses
                 try:
-                    message = self.subscriber.receive()
-                except Exception, e:
-                    self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    addresses = self.address_queue.get_nowait()
+                except Empty:
+                    # nothing to do
+                    pass
                 else:
-                    # The events received are not processed directly in this thread because it may conflict
-                    # with the Supervisors functions triggered from the Supervisor thread, as they use the
-                    # same data. So they are pushed into a PriorityQueue (Tick > Process > Statistics) and
-                    # Supervisors uses a RemoteCommunicationEvent to unstack and process the event from
-                    # the context of the Supervisor thread.
-                    self.event_queue.put_nowait(message)
-                    supervisor.sendRemoteCommEvent(SUPERVISORS_EVENT, '')
-            # check periodic task
-            if timer_event_time + 5 < time.time():
-                supervisor.sendRemoteCommEvent(SUPERVISORS_TASK, '')
-                # set date for next task
-                timer_event_time = time.time()
-            # check isolation of addresses
-            try:
-                addresses = self.event_queue.get_nowait()
-            except Empty:
-                # nothing to do
-                pass
-            else:
-                # disconnect isolated addresses from sockets
-                self.subscriber.disconnect(addresses)
+                    # disconnect isolated addresses from sockets
+                    self.subscriber.disconnect(addresses)
         self.logger.info('exiting main loop')
         self.close()
 
@@ -157,9 +181,4 @@ class SupervisorsMainLoop(threading.Thread):
         addresses = self.fsm.on_timer_event()
         # pushes isolated addresses to main loop
         self.address_queue.put_nowait(addresses)
-
-    def close(self):
-        """ This method closes the PyZMQ sockets. """
-        self.supervisors.publisher.close()
-        self.subscriber.close()
 
