@@ -78,7 +78,6 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'address'</code></td><td>Name of the address.</td></tr>
 					<tr><td><code>'state'</code></td><td>State of the address, among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }.</td></tr>
-					<tr><td><code>'checked'</code></td><td>True if the local Supervisors instance is allowed to communicate with this address.</td></tr>
 					<tr><td><code>'remote_time'</code></td><td>Date of the last TICK event received from this address.</td></tr>
 					<tr><td><code>'local_time'</code></td><td>Local date of the last TICK event received from this address.</td></tr>
 				</table>
