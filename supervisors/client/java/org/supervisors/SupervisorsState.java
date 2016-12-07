@@ -40,10 +40,12 @@ public class SupervisorsState {
         OPERATION(2),
         CONCILIATION(3);
 
-        private int stateIndex;
+        /** The state code. */
+        private int stateCode;
 
-        private State(int stateIndex) {
-            this.stateIndex = stateIndex;
+        /** The constructor links the state code to the state name. */
+        private State(int stateCode) {
+            this.stateCode = stateCode;
         }
     }
 
