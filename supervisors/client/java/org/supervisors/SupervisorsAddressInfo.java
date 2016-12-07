@@ -53,8 +53,10 @@ public class SupervisorsAddressInfo implements SupervisorsAnyInfo {
     /** The date of the last heartbeat message, in the local reference time. */
     private Integer localTime;
 
-    /** The current declared loading of the address.
-    Note: This is not a measurement. It corresponds to the sum of the declared loading of the running processes*/
+    /**
+     * The current declared loading of the address.
+     * Note: This is not a measurement. It corresponds to the sum of the declared loading of the running processes.
+     */
     private Integer loading;
     
     /**
