@@ -47,12 +47,16 @@ public class SupervisorsApplicationInfo implements SupervisorsAnyInfo {
     /** The application state. */
     private State state;
 
-    /** A status telling if the running application has a major failure,
-    i.e. at least one of its required processes is stopped. */
+    /**
+     * A status telling if the running application has a major failure,
+     * i.e. at least one of its required processes is stopped.
+     */
     private Boolean majorFailure;
 
-    /** A status telling if the running application has a minor failure,
-    i.e. at least one of its optional processes has stopped unexpectantly. */
+    /**
+     * A status telling if the running application has a minor failure,
+     * i.e. at least one of its optional processes has stopped unexpectantly.
+     */
     private Boolean minorFailure;
     
     /**
