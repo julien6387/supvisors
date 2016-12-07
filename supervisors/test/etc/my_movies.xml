@@ -27,7 +27,7 @@
 		<start_sequence>1</start_sequence>
 		<stop_sequence>0</stop_sequence>
 
-		<program name="check_sequence">
+		<program name="check_start_sequence">
 			<addresses>*</addresses>
 			<start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
