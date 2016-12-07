@@ -60,7 +60,9 @@ class ControllerPlugin(ControllerPluginBase):
     def do_sstate(self, arg):
         if self._upcheck():
             state = self.supervisors().get_supervisors_state()
-            self.ctl.output(state)
+            template = '%(code)-3s%(state)-12s'
+            line = template % {'code': state['statecode'], 'state': state['statename']}
+            self.ctl.output(line)
 
     def help_sstate(self):
         self.ctl.output("sstate\t\t\t\t\tGet the Supervisors state.")
