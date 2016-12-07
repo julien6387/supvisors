@@ -130,17 +130,21 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info()]
+                info_list = self.supervisors().get_all_process_info()
+            else:
+                info_list = []
+                for process in processes:
+                    try:
+                        info = self.supervisors().get_process_info(process)
+                    except xmlrpclib.Fault, e:
+                        self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    else:
+                        info_list.append(info)
+            # print results
             template = '%(name)-30s%(state)-12s%(addresses)s'
-            for process in processes:
-                try:
-                    infoList = self.supervisors().get_process_info(process)
-                except xmlrpclib.Fault, e:
-                    self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
-                else:
-                    for info in infoList:
-                        line = template % {'name': info['namespec'], 'state': info['state'], 'addresses': info['address']}
-                        self.ctl.output(line)
+            for info in info_list:
+                line = template % {'name': info['namespec'], 'state': info['state'], 'addresses': info['address']}
+                self.ctl.output(line)
 
     def help_sstatus(self):
         self.ctl.output("sstatus <proc>\t\t\t\tGet the status of the process named proc.")
