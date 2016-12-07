@@ -64,7 +64,14 @@
 
 					<dt>get_supervisors_state()</dt>
 					<dd>Return the state of Supervisors</dd>
-					<dd>@return string: the state of Supervisors, value among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>, <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }</dd>
+					<dd>@return struct: a structure containing data about the Supervisors state
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'statecode'</code></td><td>int</td><td>[0;3]</td><td>The state of Supervisors.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td><code>'INITIALIZATION'</code><br /><code>'DEPLOYMENT'</code><br />
+                                <code>'OPERATION'</code><br /><code>'CONCILIATION'</code></td><td>The string state of Supervisors.</td></tr>
+						</table>
+					</dd>
 
 					<dt>get_master_address()</dt>
 					<dd>Return the address of the Supervisors Master</dd>
@@ -107,19 +114,19 @@
 					</dd>
 
 					<dt>get_all_applications_info()</dt>
-					<dd>Return information about all applications managed in Supervisors</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code></dd>
-					<dd>@return list: a list of structures containing data about all applications</dd>
+					<dd>Return information about all applications managed in Supervisors.</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code>.</dd>
+					<dd>@return list: a list of structures containing data about all applications.</dd>
 
 					<dt>get_process_info(namespec)</dt>
-					<dd>Return information about the process named namespec<br />
-					It is a complement of supervisor ProcessInfo by telling where the process is running</dd>
-					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>Return information about the process named namespec.<br />
+					It is a complement of supervisor ProcessInfo by telling where the process is running.</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*').</dd>
 					<dd>@throws RPCError:<ul>
-						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code></li>
-						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors</li>
+						<li>with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code>,</li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supervisors.</li>
 					</ul></dd>
-					<dd>@return list: a list of structures containing data about the processes
+					<dd>@return list: a list of structures containing data about the processes.
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
 							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Namespec of the process.</td></tr>
@@ -128,6 +135,11 @@
 							If more than one element in list, consider that a conflict is in progress.</td></tr>
 						</table>
 					</dd>
+
+					<dt>get_all_process_info()</dt>
+					<dd>Return information about all processes managed in Supervisors.</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPERVISORS_STATE</code> if Supervisors is still in state <code>INITIALIZATION</code>.</dd>
+					<dd>@return list: a list of structures containing data about all processes.</dd>
 
 					<dt>get_process_rules(namespec)</dt>
 					<dd>Return the rules used to deploy the process named namespec</dd>
