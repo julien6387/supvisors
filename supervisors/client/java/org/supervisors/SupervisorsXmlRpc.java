@@ -131,6 +131,17 @@ public class SupervisorsXmlRpc {
     }
 
     /**
+     * The getAllProcessInfo methods returns information about all processes known in Supervisors.
+     * It just complements the supervisor.getAllProcessInfo by telling where the process is running.
+     *
+     * @return HashMap<String, SupervisorsProcessInfo>: Information about the processes, sorted by namespec.
+     */
+    public HashMap<String, SupervisorsProcessInfo> getAllProcessInfo() {
+        Object[] objectsArray = client.rpcCall(Namespace + "get_all_process_info", null, Object[].class);
+        return XmlRpcConversion.arrayToMap(objectsArray, SupervisorsProcessInfo.class);
+    }
+
+    /**
      * The getProcessInfo methods returns information about processes known in Supervisors.
      * It just complements the supervisor.getProcessInfo by telling where the process is running.
      *
@@ -320,7 +331,9 @@ public class SupervisorsXmlRpc {
             SupervisorsApplicationInfo applicationInfo = supervisors.getApplicationInfo(applicationName);
             System.out.println(applicationInfo);
             // test process status rpc
-            HashMap<String, SupervisorsProcessInfo> processes = supervisors.getProcessInfo(applicationName + ":*");
+            HashMap<String, SupervisorsProcessInfo> processes = supervisors.getAllProcessInfo();
+            System.out.println(processes);
+            processes = supervisors.getProcessInfo(applicationName + ":*");
             System.out.println(processes);
             String processName = processes.entrySet().iterator().next().getValue().getName();
             processes = supervisors.getProcessInfo(processName);
