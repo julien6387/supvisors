@@ -21,7 +21,7 @@ import os
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.options import split_namespec
-from supervisor.xmlrpc import capped_int, Faults, RPCError
+from supervisor.xmlrpc import Faults, RPCError
 
 from supervisors.ttypes import (AddressStates, ApplicationStates,
     DeploymentStrategies, SupervisorsStates)
@@ -76,9 +76,7 @@ class RPCInterface(object):
             status = self.context.addresses[address]
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
-        return {'address_name': address, 'state': status.state_string(),
-            'remote_time': capped_int(status.remote_time), 'local_time': capped_int(status.local_time),
-            'loading': status.loading()}
+        return status.to_json()
 
     def get_all_applications_info(self):
         """ Get info about all applications managed in Supervisors.
@@ -93,16 +91,14 @@ class RPCInterface(object):
         @return struct result\tA structure containing data about the application.
         """
         self._check_from_deployment()
-        application = self._get_application(application_name)
-        return {'application_name': application.application_name, 'state': application.state_string(), 
-            'major_failure': application.major_failure, 'minor_failure': application.minor_failure}
+        return self._get_application(application_name).to_json()
 
     def get_all_process_info(self):
         """ Get info about all processes.
         @return list result\tA list of structures containing data about the processes.
         """
         self._check_from_deployment()
-        return [self._get_internal_process_info(process) for process in self.context.processes.values()]
+        return [process.to_json() for process in self.context.processes.values()]
 
     def get_process_info(self, namespec):
         """ Get info about a process named namespec.
@@ -113,8 +109,8 @@ class RPCInterface(object):
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
         if process:
-            return [self._get_internal_process_info(process)]
-        return [self._get_internal_process_info(proc) for proc in application.processes.values()]
+            return [process.to_json()]
+        return [proc.to_json() for proc in application.processes.values()]
 
     def get_process_rules(self, namespec):
         """ Get the rules used to deploy the process named namespec.
@@ -130,7 +126,7 @@ class RPCInterface(object):
         """ Get the conflicting processes.
         @return list result\t\t\tA list of structures containing data about the conflicting processes.
         """
-        return [self._get_internal_process_info(process) for application in self.context.applications.values()
+        return [process.to_json() for application in self.context.applications.values()
             for process in application.processes.values() if process.conflicting()]
 
     # RPC Command methods
@@ -421,13 +417,10 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, 'process {} unknown in Supervisors'.format(namespec))
         return process
 
-    def _get_internal_process_info(self, process):
-        """ Return a dictionary with the information of the process. """
-        return {'namespec': process.namespec(), 'state': process.state_string(), 'address': list(process.addresses)}
-
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
         rules = process.rules
+        # FIXME: json rules
         return {'namespec': process.namespec(), 'addresses': rules.addresses,
             'start_sequence': rules.start_sequence, 'stop_sequence': rules.stop_sequence,
             'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading}
