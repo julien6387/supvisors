@@ -54,7 +54,7 @@ class AddressStatus(object):
         if self._state != newState:
             if self.check_transition(newState):
                 self._state = newState
-                self.logger.info('Address {} is {}'.format(self.address, self.state_string()))
+                self.logger.info('Address {} is {}'.format(self.address_name, self.state_string()))
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates._to_string(newState)))
 
