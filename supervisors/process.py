@@ -161,8 +161,10 @@ class ProcessStatus(object):
     # serialization
     def to_json(self):
         """ Return a JSON-serializable form of the ProcessStatus """
-        return {'application_name': self.application_name, 'process_name': self.process_name, 'state': self.state_string(),
-            'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time, 'addresses': list(self.addresses)}
+        return {'application_name': self.application_name, 'process_name': self.process_name,
+            'statecode': self.state, 'statename': self.state_string(),
+            'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time,
+            'addresses': list(self.addresses)}
 
     # methods
     def state_string(self):
