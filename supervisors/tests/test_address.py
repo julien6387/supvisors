@@ -43,7 +43,6 @@ class AddressTest(unittest.TestCase):
         self.assertIs(self.supervisors.logger, status.logger)
         self.assertEqual('10.0.0.1', status.address)
         self.assertEqual(AddressStates.UNKNOWN, status.state)
-        self.assertFalse(status.checked)
         self.assertEqual(0, status.remote_time)
         self.assertEqual(0, status.local_time)
         self.assertDictEqual({}, status.processes)
@@ -71,12 +70,8 @@ class AddressTest(unittest.TestCase):
         status.local_time = 60
         # test to_json method
         json = status.to_json()
-        self.assertItemsEqual(['address', 'state', 'checked', 'remote_time', 'local_time'], json.keys())
-        self.assertEqual('10.0.0.1', json['address'])
-        self.assertEqual('RUNNING', json['state'])
-        self.assertTrue(json['checked'])
-        self.assertEqual(50, json['remote_time'])
-        self.assertEqual(60, json['local_time'])
+        self.assertDictEqual(json, {'address_name': '10.0.0.1', 'loading': 0,
+            'statecode': 1, 'statename': 'RUNNING', 'remote_time': 50, 'local_time':60})
         # test that returned structure is serializable using pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
