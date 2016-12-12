@@ -74,7 +74,7 @@ class Context(object):
 
     def addresses_by_states(self, states):
         """ Return the AddressStatus instances sorted by state. """
-        return [status.address for status in self.addresses.values() if status.state in states]
+        return [status.address_name for status in self.addresses.values() if status.state in states]
 
     def end_synchro(self):
         """ Declare as SILENT the AddressStatus that are still not responsive at the end of the INITIALIZATION state of Supervisors """
@@ -84,13 +84,13 @@ class Context(object):
     def invalid(self, status):
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local address is never ISOLATING, whatever the option is set or not. Give it a chance to restart. """
-        if self.supervisors.options.auto_fence and status.address != self.address_mapper.local_address:
+        if self.supervisors.options.auto_fence and status.address_name != self.address_mapper.local_address:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
         # invalidate address in concerned processes
         for process in status.running_processes():
-            process.invalidate_address(status.address)
+            process.invalidate_address(status.address_name)
 
     # methods on applications / processes
     def process_from_info(self, info):
@@ -156,15 +156,15 @@ class Context(object):
         """ Check that the local instance is allowed to deal with the remote instance if auto fencing is activated.
         If authorization is made or auto fencing is not set, information about the processes handled in the remote Supervisor are loaded into the applications. """
         # if auto fencing activated, get authorization from remote Supervisors instance by port-knocking
-        if self.supervisors.options.auto_fence and not self.authorized(status.address):
-            self.logger.warn('local is not authorized to deal with {}'.format(status.address))
+        if self.supervisors.options.auto_fence and not self.authorized(status.address_name):
+            self.logger.warn('local is not authorized to deal with {}'.format(status.address_name))
             self.invalid(status)
         else:
-            self.logger.info('local is authorized to deal with {}'.format(status.address))
+            self.logger.info('local is authorized to deal with {}'.format(status.address_name))
             # refresh supervisor information
-            info = self.all_process_info(status.address)
+            info = self.all_process_info(status.address_name)
             if info:
-                self.load_processes(status.address, info)
+                self.load_processes(status.address_name, info)
             else:
                 self.invalid(status)
 
