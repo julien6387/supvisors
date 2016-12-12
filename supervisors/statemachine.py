@@ -194,7 +194,7 @@ class FiniteStateMachine:
     # serialization
     def to_json(self):
         """ Return a JSON-serializable form of the SupervisorState """
-        return {'state': self.state_string()}
+        return {'statecode': self.state, 'statename': self.state_string()}
 
     # Map between state enumerations and classes
     __StateInstances = {
