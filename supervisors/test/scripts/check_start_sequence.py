@@ -49,8 +49,8 @@ class SupervisorsEventQueues(SupervisorsEventInterface):
     def on_address_status(self, data):
         """ Pushes the AddressStatus message into a queue. """
         self.logger.info('got AddressStatus message: {}'.format(data))
-        if data['state'] == u'RUNNING':
-            self.addresses.add(data['address'])
+        if data['statename'] == 'RUNNING':
+            self.addresses.add(data['address_name'])
         # check the number of notifications
         self.nb_address_notifications += 1
         if self.nb_address_notifications == 5:
@@ -77,7 +77,7 @@ class SupervisorsEventQueues(SupervisorsEventInterface):
 class CheckSequenceTest(unittest.TestCase):
     """ Test case to check the sequencing of the test application. """
 
-    PORT = 65002
+    PORT = 60002
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supervisors events and get the event queues. """
@@ -138,7 +138,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['movie_server_01', 'movie_server_02', 'movie_server_03']
         self.starting_processes = []
         # check processes are STARTING / RUNNING or FATAL
-        self.check_process_starting('database', 'STOPPED')
+        self.check_process_starting('database', 0, 'STOPPED')
         self.check_process_running('database', 2) # startsecs=1
 
     def check_register_movies_starting(self):
@@ -152,7 +152,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['register_movies_01', 'register_movies_02', 'register_movies_03']
         self.starting_processes = []
         # check processes are STARTING / RUNNING or FATAL
-        self.check_process_starting('database', 'RUNNING')
+        self.check_process_starting('database', 2, 'RUNNING')
         # copy starting_processes as the same list is to be used for exited processes
         starting_processes_copy = [process_name for process_name, addresses in self.starting_processes]
         self.check_process_running('database', 2) # startsecs=1
@@ -182,7 +182,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['manager']
         self.starting_processes = []
         # check processes are STARTING / RUNNING
-        self.check_process_starting('my_movies', 'STOPPED')
+        self.check_process_starting('my_movies', 0, 'STOPPED')
         self.check_process_running('my_movies', 1) # startsecs=0
 
     def check_hmi_starting(self):
@@ -194,7 +194,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['hmi']
         self.starting_processes = []
         # check processes are STARTING / RUNNING
-        self.check_process_starting('my_movies', 'RUNNING')
+        self.check_process_starting('my_movies', 2, 'RUNNING')
         self.check_process_running('my_movies', 3) # startsecs=2
 
     def check_web_movies_starting(self):
@@ -220,7 +220,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['web_server']
         self.starting_processes = []
         # check processes are STARTING / RUNNING
-        self.check_process_starting('web_movies', 'STOPPED')
+        self.check_process_starting('web_movies', 0, 'STOPPED')
         self.check_process_running('web_movies', 6) # startsecs=5
 
     def check_web_browser_starting(self):
@@ -232,10 +232,10 @@ class CheckSequenceTest(unittest.TestCase):
         self.process_list = ['web_browser']
         self.starting_processes = []
         # check processes are STARTING / RUNNING
-        self.check_process_starting('web_movies', 'RUNNING')
+        self.check_process_starting('web_movies', 2, 'RUNNING')
         self.check_process_running('web_movies', 1) # startsecs=0
 
-    def check_process_starting(self, application_name, ref_application_state):
+    def check_process_starting(self, application_name, ref_application_statecode, ref_application_statename):
         """ Check that the processes listed in self.process_list become STARTING or FATAL,
         depending on the active addresses.
         The application state becomes STARTING when there is at least one STARTING process. """
@@ -257,13 +257,13 @@ class CheckSequenceTest(unittest.TestCase):
                 applicable_addresses = self.addresses if self.rules[namespec] == ['*'] else set(self.rules[namespec]).intersection(self.addresses)
                 # check that process can be started on an active address
                 if applicable_addresses:
-                    self.assertEqual('STARTING', data['state'])
+                    self.assertEqual('STARTING', data['statename'])
                     self.assertEqual(1, len(data['addresses']))
                     self.assertIn(data['addresses'][0], applicable_addresses)
                     # store in starting processes
                     self.starting_processes.append((process_name, data['addresses']))
                 else:
-                    self.assertEqual('FATAL', data['state'])
+                    self.assertEqual('FATAL', data['statename'])
                     self.assertFalse(data['addresses'])
                     self.minor_failure = True
             # get next application event
@@ -272,11 +272,12 @@ class CheckSequenceTest(unittest.TestCase):
             except Empty:
                 self.fail('failed to get the expected events for this process')
             else:
-                # application is in ref_application_state until one process is STARTING
+                # application is in ref_application_statename until one process is STARTING
                 self.assertEqual(application_name, data['application_name'])
-                self.assertEqual('STARTING' if self.starting_processes else ref_application_state, data['state'])
+                self.assertEqual(1 if self.starting_processes else ref_application_statecode, data['statecode'])
+                self.assertEqual('STARTING' if self.starting_processes else ref_application_statename, data['statename'])
                 self.assertEqual(self.major_failure, data['major_failure'])
-                self.assertEqual(self.minor_failure and data['state'] != 'STOPPED', data['minor_failure'])
+                self.assertEqual(self.minor_failure and data['statename'] != 'STOPPED', data['minor_failure'])
 
     def check_process_running(self, application_name, startsecs):
         """ Check that the processes listed in self.starting_processes become RUNNING.
@@ -294,7 +295,7 @@ class CheckSequenceTest(unittest.TestCase):
                 self.assertIn((process_name, data['addresses']), self.starting_processes)
                 self.starting_processes.remove((process_name, data['addresses']))
                 # build namespec from process and application names
-                self.assertEqual('RUNNING', data['state'])
+                self.assertEqual('RUNNING', data['statename'])
             # get next application event
             try:
                 data = self.application_queue.get(True, 1)
@@ -303,7 +304,8 @@ class CheckSequenceTest(unittest.TestCase):
             else:
                 # application is STARTING until all processes are RUNNING
                 self.assertEqual(application_name, data['application_name'])
-                self.assertEqual('STARTING' if self.starting_processes else 'RUNNING', data['state'])
+                self.assertEqual(1 if self.starting_processes else 2, data['statecode'])
+                self.assertEqual('STARTING' if self.starting_processes else 'RUNNING', data['statename'])
                 self.assertEqual(self.major_failure, data['major_failure'])
                 self.assertEqual(self.minor_failure, data['minor_failure'])
 
@@ -324,7 +326,7 @@ class CheckSequenceTest(unittest.TestCase):
                 self.assertFalse(data['addresses'])
                 self.assertTrue(data['expected_exit'])
                 # build namespec from process and application names
-                self.assertEqual('EXITED', data['state'])
+                self.assertEqual('EXITED', data['statename'])
             # get next application event
             try:
                 data = self.application_queue.get(True, 1)
@@ -332,7 +334,8 @@ class CheckSequenceTest(unittest.TestCase):
                 self.fail('failed to get the expected events for the application {}'.format(application_name))
             else:
                 # application is RUNNING
-                self.assertDictContainsSubset({'application_name': application_name, 'state': 'RUNNING'}, data)
+                self.assertDictContainsSubset({'application_name': application_name,
+                    'statecode': 2, 'statename': 'RUNNING'}, data)
                 self.assertEqual(self.major_failure, data['major_failure'])
                 self.assertEqual(self.minor_failure, data['minor_failure'])
 
@@ -344,12 +347,15 @@ class CheckSequenceTest(unittest.TestCase):
             # so, in the 'worst' case, it may take 25 seconds before the RUNNING event is received
             data = self.process_queue.get(True, 26)
             # test that this process is RUNNING
-            self.assertDictContainsSubset({'process_name': 'check_start_sequence', 'state': 'RUNNING', 'application_name': 'test'}, data)
+            self.assertDictContainsSubset({'process_name': 'check_start_sequence',
+                'statecode': 20, 'statename': 'RUNNING', 'application_name': 'test'}, data)
             self.assertEqual(1, len(data['addresses']))
             self.assertIn(data['addresses'][0], self.addresses)
             # test that the application related to this process is RUNNING
             data = self.application_queue.get(True, 2)
-            self.assertDictEqual({'application_name': 'test', 'major_failure': False, 'state': u'RUNNING', 'minor_failure': False}, data)
+            self.assertDictEqual(data, {'application_name': 'test',
+                'statecode': 2, 'statename': 'RUNNING',
+                'major_failure': False, 'minor_failure': False})
         except Empty:
             self.fail('failed to get the expected events for this process')
 
@@ -369,7 +375,7 @@ if __name__ == '__main__':
     # get arguments
     import argparse
     parser = argparse.ArgumentParser(description='Check the starting sequence using Supervisors events.')
-    parser.add_argument('-p', '--port', type=int, default=65002, help="the event port of Supervisors")
+    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supervisors")
     args = parser.parse_args()
     CheckSequenceTest.PORT = args.port
     # start unittest
