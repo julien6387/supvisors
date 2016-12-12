@@ -97,8 +97,9 @@ class ApplicationTest(unittest.TestCase):
         application.minor_failure = True
         # test to_json method
         json = application.to_json()
-        self.assertDictEqual({'application_name': 'ApplicationTest', 'state': 'RUNNING',
-            'major_failure': False, 'minor_failure':True}, json)
+        self.assertDictEqual(json, {'application_name': 'ApplicationTest',
+            'statecode': 2, 'statename': 'RUNNING',
+            'major_failure': False, 'minor_failure':True})
         # test that returned structure is serializable using pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
