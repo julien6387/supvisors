@@ -430,15 +430,15 @@ class RPCInterface(object):
         The local address is the last to be performed. """
         # send func request to all locals (but self address)
         for status in self.context.addresses.values():
-            if status.address != self.address:
-                if status.state == AddressStates.RUNNING and status.address != self.address:
+            if status.address_name != self.address:
+                if status.state == AddressStates.RUNNING:
                     try:
                         func(status.address)
-                        self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address))
+                        self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
                     except RPCError:
-                        self.logger.error('failed to {} supervisord on {}'.format(func.__name__, status.address))
+                        self.logger.error('failed to {} supervisord on {}'.format(func.__name__, status.address_name))
                 else:
-                    self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, status.address, status.state_string()))
+                    self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, status.address_name, status.state_string()))
         # send request to self supervisord
         return func(self.address)
 
