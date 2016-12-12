@@ -86,7 +86,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def output_address_info(self, info):
         template = '%(addr)-20s%(state)-12s%(load)-8s%(ltime)-12s'
-        line = template % {'addr': info['address_name'], 'state': info['state'],
+        line = template % {'addr': info['address_name'], 'state': info['statename'],
             'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time'])}
         self.ctl.output(line)
 
@@ -116,7 +116,7 @@ class ControllerPlugin(ControllerPluginBase):
         template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
         major_failure = info['major_failure']
         minor_failure = info['minor_failure']
-        line = template % {'name': info['application_name'], 'state': info['state'],
+        line = template % {'name': info['application_name'], 'state': info['statename'],
             'major_failure': 'major_failure' if major_failure else '', 'minor_failure': 'minor_failure' if minor_failure else ''}
         self.ctl.output(line)
 
@@ -143,7 +143,7 @@ class ControllerPlugin(ControllerPluginBase):
             # print results
             template = '%(name)-30s%(state)-12s%(addresses)s'
             for info in info_list:
-                line = template % {'name': info['namespec'], 'state': info['state'], 'addresses': info['address']}
+                line = template % {'name': info['namespec'], 'state': info['statename'], 'addresses': info['address']}
                 self.ctl.output(line)
 
     def help_sstatus(self):
@@ -190,7 +190,7 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 template = '%(name)-30s%(state)-12s%(addresses)s'
                 for conflict in conflicts:
-                    line = template % {'name': conflict['namespec'], 'state': conflict['state'], 'addresses': conflict['address']}
+                    line = template % {'name': conflict['namespec'], 'state': conflict['statename'], 'addresses': conflict['address']}
                     self.ctl.output(line)
 
     def help_conflicts(self):
