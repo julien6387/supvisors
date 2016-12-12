@@ -270,8 +270,9 @@ class ProcessTest(unittest.TestCase):
         info = any_process_info_by_state(ProcessStates.STOPPED)
         process = ProcessStatus('10.0.0.1', info, self.supervisors)
         json = process.to_json()
-        self.assertDictEqual({'application_name': info['group'], 'process_name': info['name'], 'state': 'STOPPED', 
-            'expected_exit': not info['spawnerr'], 'last_event_time': process.last_event_time, 'addresses': []}, json)
+        self.assertDictEqual(json, {'application_name': info['group'], 'process_name': info['name'],
+            'statecode': 0, 'statename': 'STOPPED',
+            'expected_exit': not info['spawnerr'], 'last_event_time': process.last_event_time, 'addresses': []})
         # test that returned structure is serializable using pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
