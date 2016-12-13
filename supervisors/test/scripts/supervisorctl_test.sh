@@ -47,8 +47,7 @@ sendRequest stop_application database
 sendRequest start_application LESS_LOADED database
 
 # command requests on Supervisor
-sendRequest sreload
+# not tested automatically
+# sendRequest sreload
+# sendRequest sshutdown
 
-# WARN: cannot test anything after sreload because script is being killed
-# so a shell fork is done for this last test
-# (sleep 60 ; sendRequest sshutdown) &
