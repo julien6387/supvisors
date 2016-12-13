@@ -67,7 +67,7 @@ public class SupervisorsAddressInfo implements SupervisorsAnyInfo {
      */
     public SupervisorsAddressInfo(HashMap addressInfo)  {
         this.name = (String) addressInfo.get("address_name");
-        this.state = State.valueOf((String) addressInfo.get("state"));
+        this.state = State.valueOf((String) addressInfo.get("statename"));
         this.remoteTime = (Integer) addressInfo.get("remote_time");
         this.localTime = (Integer) addressInfo.get("local_time");
         this.loading = (Integer) addressInfo.get("loading");
@@ -81,7 +81,7 @@ public class SupervisorsAddressInfo implements SupervisorsAnyInfo {
     public SupervisorsAddressInfo(final String json) {
         JSONObject obj = new JSONObject(json);
         this.name = obj.getString("address_name");
-        this.state = State.valueOf(obj.getString("state"));
+        this.state = State.valueOf(obj.getString("statename"));
         this.remoteTime = obj.getInt("remote_time");
         this.localTime = obj.getInt("local_time");
         this.loading = obj.getInt("loading");
