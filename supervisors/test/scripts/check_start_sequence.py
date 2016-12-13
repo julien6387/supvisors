@@ -233,7 +233,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.starting_processes = []
         # check processes are STARTING / RUNNING
         self.check_process_starting('web_movies', 2, 'RUNNING')
-        self.check_process_running('web_movies', 1) # startsecs=0
+        self.check_process_running('web_movies', 6) # startsecs=5
 
     def check_process_starting(self, application_name, ref_application_statecode, ref_application_statename):
         """ Check that the processes listed in self.process_list become STARTING or FATAL,
