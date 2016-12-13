@@ -16,6 +16,7 @@
 
 package org.supervisors.rpc;
 
+import java.net.MalformedURLException;
 import java.util.List;
 import java.util.HashMap;
 import org.supervisors.common.*;
@@ -303,86 +304,87 @@ public class SupervisorsXmlRpc {
      *
      * @param String[] args: The arguments.
      */
-    public static void main (String[] args) {
+    public static void main (String[] args) throws MalformedURLException {
         // TODO: add port in parameter
         // how to do with ant ?
-        SupervisorXmlRpcClient client = null;
-        try {
-            client = new SupervisorXmlRpcClient(60000);
-        } catch(Exception exc) {
-            System.err.println("SupervisorsXmlRpc: " + exc);
-        }
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SupervisorsXmlRpc supervisors = new SupervisorsXmlRpc(client);
 
-        if  (client != null) {
-            SupervisorsXmlRpc supervisors = new SupervisorsXmlRpc(client);
-            // test supervisors status
-            System.out.println("### Testing supervisors.getAPIVersion(...) ###");
-            System.out.println(supervisors.getAPIVersion());
-            System.out.println("### Testing supervisors.getSupervisorsState(...) ###");
-            System.out.println(supervisors.getSupervisorsState());
-            System.out.println("### Testing supervisors.getMasterAddress(...) ###");
-            System.out.println(supervisors.getMasterAddress());
-            // test address status rpc
-            System.out.println("### Testing supervisors.getAllAddressesInfo(...) ###");
-            HashMap<String, SupervisorsAddressInfo> addresses = supervisors.getAllAddressesInfo();
-            System.out.println(addresses);
-            System.out.println("### Testing supervisors.getAddressInfo(...) ###");
-            String addressName = addresses.entrySet().iterator().next().getValue().getName();
-            SupervisorsAddressInfo addressInfo = supervisors.getAddressInfo(addressName);
-            System.out.println(addressInfo);
-            // test application status rpc
-            System.out.println("### Testing supervisors.getAllApplicationInfo(...) ###");
-            HashMap<String, SupervisorsApplicationInfo> applications = supervisors.getAllApplicationInfo();
-            System.out.println(applications);
-            System.out.println("### Testing supervisors.getApplicationInfo(...) ###");
-            String applicationName = applications.entrySet().iterator().next().getValue().getName();
-            SupervisorsApplicationInfo applicationInfo = supervisors.getApplicationInfo(applicationName);
-            System.out.println(applicationInfo);
-            // test process status rpc
-            System.out.println("### Testing supervisors.getAllProcessInfo(...) ###");
-            HashMap<String, SupervisorsProcessInfo> processes = supervisors.getAllProcessInfo();
-            System.out.println(processes);
-            System.out.println("### Testing supervisors.getProcessInfo(...) ###");
-            processes = supervisors.getProcessInfo(applicationName + ":*");
-            System.out.println(processes);
-            String processName = processes.entrySet().iterator().next().getValue().getName();
-            processes = supervisors.getProcessInfo(processName);
-            System.out.println(processes);
-            // test process rules rpc
-            System.out.println("### Testing supervisors.getProcessRules(...) ###");
-            HashMap<String, SupervisorsProcessRules> rules = supervisors.getProcessRules(applicationName + ":*");
-            System.out.println(rules);
-            processName = rules.entrySet().iterator().next().getValue().getName();
-            System.out.println(supervisors.getProcessRules(processName));
-            // test process conflicts rpc
-            System.out.println("### Testing supervisors.getConflicts(...) ###");
-            System.out.println(supervisors.getConflicts());
-            // test application request rpc
-            System.out.println("### Testing supervisors.restartApplication(...) ###");
-            System.out.println(supervisors.restartApplication(DeploymentStrategy.LESS_LOADED, "my_movies", true));
-            System.out.println("### Testing supervisors.stopApplication(...) ###");
-            System.out.println(supervisors.stopApplication("my_movies", true));
-            System.out.println("### Testing supervisors.startApplication(...) ###");
-            System.out.println(supervisors.startApplication(DeploymentStrategy.CONFIG, "my_movies", false));
-            // test process request rpc
-            System.out.println("### Testing supervisors.startArgs(...) ###");
-            System.out.println(supervisors.startArgs("my_movies:converter_01", "-x 3", false));
-            System.out.println("### Testing supervisors.startProcess(...) with no extra args ###");
-            System.out.println(supervisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_02", "", false));
-            System.out.println("### Testing supervisors.restartProcess(...) with no extra args ###");
-            System.out.println(supervisors.restartProcess(DeploymentStrategy.CONFIG, "my_movies:converter_02", "", true));
-            System.out.println("### Testing supervisors.stopProcess(...) ###");
-            System.out.println(supervisors.stopProcess("my_movies:converter_02", false));
-            System.out.println("### Testing supervisors.startProcess(...) ###");
-            System.out.println(supervisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
-            System.out.println("### Testing supervisors.restartProcess(...) ###");
-            System.out.println(supervisors.restartProcess(DeploymentStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
-            System.out.println("### Testing supervisors.restart(...) ###");
-            System.out.println(supervisors.restart());
-            // shutdown is working but not tested automatically
-            System.out.println("### NOT TESTED: supervisors.shutdown(...) ###");
-            // System.out.println(supervisors.shutdown());
-        }
+        // test supervisors status
+        System.out.println("### Testing supervisors.getAPIVersion(...) ###");
+        System.out.println(supervisors.getAPIVersion());
+        System.out.println("### Testing supervisors.getSupervisorsState(...) ###");
+        System.out.println(supervisors.getSupervisorsState());
+        System.out.println("### Testing supervisors.getMasterAddress(...) ###");
+        System.out.println(supervisors.getMasterAddress());
+
+        // test address status rpc
+        System.out.println("### Testing supervisors.getAllAddressesInfo(...) ###");
+        HashMap<String, SupervisorsAddressInfo> addresses = supervisors.getAllAddressesInfo();
+        System.out.println(addresses);
+        System.out.println("### Testing supervisors.getAddressInfo(...) ###");
+        String addressName = addresses.entrySet().iterator().next().getValue().getName();
+        SupervisorsAddressInfo addressInfo = supervisors.getAddressInfo(addressName);
+        System.out.println(addressInfo);
+
+        // test application status rpc
+        System.out.println("### Testing supervisors.getAllApplicationInfo(...) ###");
+        HashMap<String, SupervisorsApplicationInfo> applications = supervisors.getAllApplicationInfo();
+        System.out.println(applications);
+        System.out.println("### Testing supervisors.getApplicationInfo(...) ###");
+        String applicationName = applications.entrySet().iterator().next().getValue().getName();
+        SupervisorsApplicationInfo applicationInfo = supervisors.getApplicationInfo(applicationName);
+        System.out.println(applicationInfo);
+
+        // test process status rpc
+        System.out.println("### Testing supervisors.getAllProcessInfo(...) ###");
+        HashMap<String, SupervisorsProcessInfo> processes = supervisors.getAllProcessInfo();
+        System.out.println(processes);
+        System.out.println("### Testing supervisors.getProcessInfo(...) ###");
+        processes = supervisors.getProcessInfo(applicationName + ":*");
+        System.out.println(processes);
+        String processName = processes.entrySet().iterator().next().getValue().getName();
+        processes = supervisors.getProcessInfo(processName);
+        System.out.println(processes);
+
+        // test process rules rpc
+        System.out.println("### Testing supervisors.getProcessRules(...) ###");
+        HashMap<String, SupervisorsProcessRules> rules = supervisors.getProcessRules(applicationName + ":*");
+        System.out.println(rules);
+        processName = rules.entrySet().iterator().next().getValue().getName();
+        System.out.println(supervisors.getProcessRules(processName));
+
+        // test process conflicts rpc
+        System.out.println("### Testing supervisors.getConflicts(...) ###");
+        System.out.println(supervisors.getConflicts());
+
+        // test application request rpc
+        System.out.println("### Testing supervisors.restartApplication(...) ###");
+        System.out.println(supervisors.restartApplication(DeploymentStrategy.LESS_LOADED, "my_movies", true));
+        System.out.println("### Testing supervisors.stopApplication(...) ###");
+        System.out.println(supervisors.stopApplication("my_movies", true));
+        System.out.println("### Testing supervisors.startApplication(...) ###");
+        System.out.println(supervisors.startApplication(DeploymentStrategy.CONFIG, "my_movies", false));
+
+        // test process request rpc
+        System.out.println("### Testing supervisors.startArgs(...) ###");
+        System.out.println(supervisors.startArgs("my_movies:converter_01", "-x 3", false));
+        System.out.println("### Testing supervisors.startProcess(...) with no extra args ###");
+        System.out.println(supervisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_02", "", false));
+        System.out.println("### Testing supervisors.restartProcess(...) with no extra args ###");
+        System.out.println(supervisors.restartProcess(DeploymentStrategy.CONFIG, "my_movies:converter_02", "", true));
+        System.out.println("### Testing supervisors.stopProcess(...) ###");
+        System.out.println(supervisors.stopProcess("my_movies:converter_02", false));
+        System.out.println("### Testing supervisors.startProcess(...) ###");
+        System.out.println(supervisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
+        System.out.println("### Testing supervisors.restartProcess(...) ###");
+        System.out.println(supervisors.restartProcess(DeploymentStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
+        System.out.println("### Testing supervisors.restart(...) ###");
+        System.out.println(supervisors.restart());
+
+        // shutdown is working but not tested automatically
+        System.out.println("### NOT TESTED: supervisors.shutdown(...) ###");
+        // System.out.println(supervisors.shutdown());
     }
 
 }
