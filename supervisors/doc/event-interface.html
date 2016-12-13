@@ -25,6 +25,11 @@
                		    <li><a href="#protocol">Protocol</a></li>
                		    <li><a href="#msg-header">Message header</a></li>
                		    <li><a href="#msg-data">Message data</a></li>
+                        <li><a href="#clients">Event Clients</a><ul>
+                            <li><a href="#py-client">Python Client</a></li>
+                            <li><a href="#java-client">JAVA Client</a></li>
+                            <li><a href="#cpp-client">C++ Client</a></li>
+                        </ul></li>
                	    </ul></li>
                     <li><a href="dashboard.html">HTTP Dashboard</a></li>
                     <li><a href="design.html">Software Design</a></li>
@@ -109,16 +114,75 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><td><code>'addresses'</code></td><td>List of addresses where the process is running.</td></tr>
 				</table>
 
-				<h3>Python client</h3>
-                <p>TODO</p>
 
-				<h3>JAVA client</h3>
-                <p>TODO</p>
+				<h2 id="clients">Event Clients</h2>
+				<p>This section explains how to use receive the Supervisors Events from a Python, JAVA or C++ client.</p>
 
-                <h3>C++ client</h3>
-                <p>TODO</p>
+				<h3 id="py-client">Python Client</h3>
+                <p>The <code>SupervisorsEventInterface</code> of the <code>supervisors.client.subscriber</code> module is designed to receive the Supervisors events from the local Supervisors instance.<br />
+                The default behaviour is to print the messages received. For any other behaviour, just specialize the methods <code>on_xxx_status</code> of the class <code>SupervisorsEventInterface</code>.<br />
+                No additional third party is required.</p>
 
-                </section>
+                <pre><code class="python">from supervisors.client.subscriber import *
+
+# create the subscriber thread
+subscriber = SupervisorsEventInterface(create_zmq_context(), port, create_logger())
+# subscribe to all messages
+subscriber.subscribe_all()
+# start the thread
+subscriber.start()</code></pre>
+
+				<h3 id="java-client">JAVA Client</h3>
+                <p>Supervisors provides a JAVA client in the <code>client/java</code> directory of the Supervisors installation directory.<br />
+                The <code>SupervisorsEventSubscriber</code> of the <code>org.supervisors.event</code> package is designed to receive the Supervisors events from the local Supervisors instance.<br />
+                A <code>SupervisorsEventListener</code> with a specialization of the methods <code>onXxxStatus</code> must be attached to the <code>SupervisorsEventSubscriber</code> instance to receive the notifications.<br />
+                It requires the following additional dependencies:</p>
+                <ul>
+                    <li><a href="https://github.com/zeromq/jeromq" class="extLink">JeroMQ</a>.</li>
+                    <li><a href="https://github.com/stleary/JSON-java" class="extLink">JSON-java</a>.</li>
+                </ul>
+                <p>The binary JAR of <code>JeroMQ 0.3.6</code> is available in the <a href="https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6" class="extLink">MAVEN repository</a>.</p>
+                <p>The binary JAR of <code>JSON-java 20160810</code> is available in the <a href="https://mvnrepository.com/artifact/org.json/json/20160810" class="extLink">MAVEN repository</a>.</p>
+
+                <pre><code class="JAVA">import org.supervisors.event.*;
+
+// create ZeroMQ context
+Context context = ZMQ.context(1);
+
+// create and configure the subscriber
+SupervisorsEventSubscriber subscriber = new SupervisorsEventSubscriber(60002, context);
+subscriber.subscribeToAll();
+subscriber.setListener(new SupervisorsEventListener() {
+
+    @Override
+    public void onSupervisorsStatus(final SupervisorsStatus status) {
+        System.out.println(status);
+    }
+
+    @Override
+    public void onAddressStatus(final SupervisorsAddressInfo status) {
+        System.out.println(status);
+    }
+
+    @Override
+    public void onApplicationStatus(final SupervisorsApplicationInfo status) {
+        System.out.println(status);
+    }
+
+    @Override
+    public void onProcessStatus(final SupervisorsProcessInfo status) {
+        System.out.println(status);
+    }
+});
+
+// start subscriber in thread
+Thread t = new Thread(subscriber);
+t.start();</code></pre>
+
+                <h3 id="cpp-client">C++ Client</h3>
+                <p><span class="not-implemented-yet"></span></p>
+
+            </section>
 
 		</div>
 	</div>
