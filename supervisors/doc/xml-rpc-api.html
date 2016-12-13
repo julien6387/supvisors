@@ -24,6 +24,11 @@
                	        <li><a href="#supervisors">Supervisors Control</a></li>
                         <li><a href="#application">Application Control</a></li>
                         <li><a href="#process">Process Control</a></li>
+                        <li><a href="#clients">XML-RPC Clients</a><ul>
+                            <li><a href="#py-client">Python Client</a></li>
+                            <li><a href="#java-client">JAVA Client</a></li>
+                            <li><a href="#cpp-client">C++ Client</a></li>
+                        </ul></li>
                     </ul></li>
                     <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
                     <li><a href="event-interface.html">Event Interface</a></li>
@@ -294,6 +299,64 @@
 					</ul></dd>
 					<dd>@return boolean: always True unless error</dd>
 				</dl>
+
+
+				<h2 id="clients">XML-RPC Clients</h2>
+				<p>This section explains how to use the XML-RPC API from a Python, JAVA or C++ client.</p>
+
+				<h3 id="py-client">Python Client</h3>
+                <p>There are two possibilities to perform an XML-RPC from a python client.<br />
+                For both methods, it is assumed that the <code>env</code> parameter contains the relevant HTTP configuration, as it would be set for a process spawed by Supervisor.<br />
+                Both methods don't require any additional third party.</p>
+                <p>The first is to use the <code>getRPCInterface</code> of the <code>supervisor.childutils</code> module.<br />
+                This is available in Supervisor but it works only for the local address.</p>
+
+                <pre><code class="python">import os
+from supervisor.childutils import getRPCInterface
+
+proxy = getRPCInterface(os.environ)
+proxy.supervisor.getState()
+proxy.supervisors.get_supervisors_state()</code></pre>
+
+                <p>The second possibility is to use the <code>getRPCInterface</code> of the <code>supervisors.rpcrequests</code> module.<br />
+                This is available in Supervisors and works for all addresses with a Supervisor daemon running with the same HTTP configuration as the local one.</p>
+
+                <pre><code class="python">import os
+from supervisors.rpcrequests import getRPCInterface
+
+proxy = getRPCInterface(address, os.environ)
+proxy.supervisor.getState()
+proxy.supervisors.get_supervisors_state()</code></pre>
+
+				<h3 id="java-client">JAVA Client</h3>
+                <p>There is JAVA client <em>supervisord4j</em> referenced in the <a href="http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor" class="extLink">Supervisor documentation</a>.<br />
+                However, it comes with the following drawbacks, taken from the <em>README.md</em> of <a href="https://github.com/satifanie/supervisord4j" class="extLink">supervisord4j</a>:</p>
+                <ul>
+                    <li>of course, it doesn't include the Supervisors XML-RPC API,</li>
+                    <li>some XML-RPC are not implemented,</li>
+                    <li>some implemented XML-RPC are not tested.</li>
+                </ul>
+
+                <p>Supervisors provides a JAVA client in the <code>client/java</code> directory of the Supervisors installation directory.<br />
+                This classes of the <code>org.supervisors.rpc</code> package implement all XML-RPC of all interfaces (<code>system</code>, <code>supervisor</code> and <code>supervisors</code>).<br />
+                It requires the following additional dependency: <a href="https://ws.apache.org/xmlrpc" class="extLink">Apache XML-RPC</a>.<br />
+                The binary JAR of <code>Apache XML-RPC 3.1.3</code> is available in the <a href="https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3" class="extLink">MAVEN repository</a>.</p>
+
+                <pre><code class="JAVA">import org.supervisors.rpc.*;
+
+// create proxy
+SupervisorXmlRpcClient client = new SupervisorXmlRpcClient("10.0.0.1", 60000, "toto", "p@$$w0rd");
+
+// Supervisor XML-RPC
+SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
+System.out.println(supervisor.getState());
+
+// Supervisors XML-RPC
+SupervisorsXmlRpc supervisors = new SupervisorXmlRpc(client);
+System.out.println(supervisors.getSupervisorsState());</code></pre>
+
+                <h3 id="cpp-client">C++ Client</h3>
+                <p><span class="not-implemented-yet"></span></p>
 
 			</section>
 
