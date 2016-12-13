@@ -69,17 +69,20 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 				<table>
 					<caption>Supervisors Status Dictionary</caption>
 					<tr><th>Key</th><th>Value</th></tr>
-					<tr><td><code>'state'</code></td><td>the state of Supervisors, among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>, <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }.</td></tr>
+					<tr><td><code>'statecode'</code></td><td>The state of Supervisors, in [0;3].</td></tr>
+					<tr><td><code>'statename'</code></td><td>The state of Supervisors, among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>, <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }.</td></tr>
 				</table>
 
 				<h3>Address status</h3>
 				<table>
 					<caption>Address Status Dictionary</caption>
 					<tr><th>Key</th><th>Value</th></tr>
-					<tr><td><code>'address'</code></td><td>Name of the address.</td></tr>
-					<tr><td><code>'state'</code></td><td>State of the address, among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }.</td></tr>
+					<tr><td><code>'address_name'</code></td><td>Name of the address.</td></tr>
+					<tr><td><code>'statecode'</code></td><td>State of the address, in [0;4].</td></tr>
+					<tr><td><code>'state'name</code></td><td>State of the address, among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }.</td></tr>
 					<tr><td><code>'remote_time'</code></td><td>Date of the last TICK event received from this address.</td></tr>
 					<tr><td><code>'local_time'</code></td><td>Local date of the last TICK event received from this address.</td></tr>
+					<tr><td><code>'loading'</code></td><td>Sum of the expected loading of the processes running on the address.</td></tr>
 				</table>
 
 				<h3>Application status</h3>
@@ -87,7 +90,8 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<caption>Application Status Dictionary</caption>
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'application_name'</code></td><td>Name of the application.</td></tr>
-					<tr><td><code>'state'</code></td><td>State of the application, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'STOPPING'</code> }.</td></tr>
+					<tr><td><code>'statecode'</code></td><td>State of the application, in [0;4].</td></tr>
+					<tr><td><code>'statename'</code></td><td>State of the application, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'STOPPING'</code> }.</td></tr>
 					<tr><td><code>'major_failure'</code></td><td>True if the application is running and at least one required process is not started.</td></tr>
 					<tr><td><code>'minor_failure'</code></td><td>True if the application is running and at least one optional (not required) process is not started.</td></tr>
 				</table>
@@ -98,13 +102,23 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'application_name'</code></td><td>Name of the application.</td></tr>
 					<tr><td><code>'process_name'</code></td><td>Name of the process.</td></tr>
-					<tr><td><code>'state'</code></td><td>State of the process, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'BACKOFF'</code>, <code>'STOPPING'</code>, <code>'EXITED'</code>, <code>'FATAL'</code>, <code>'UNKNOWN'</code> }.</td></tr>
+					<tr><td><code>'statecode'</code></td><td>State of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.</td></tr>
+					<tr><td><code>'statename'</code></td><td>State of the process, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'BACKOFF'</code>, <code>'STOPPING'</code>, <code>'EXITED'</code>, <code>'FATAL'</code>, <code>'UNKNOWN'</code> }.</td></tr>
 					<tr><td><code>'expected_exit'</code></td><td>True if the exit status is expected (only when state is <code>'EXITED'</code>).</td></tr>
 					<tr><td><code>'last_event_time'</code></td><td>Date of the last process event received for this process, regardless of the origin (Supervisor instance).</td></tr>
 					<tr><td><code>'addresses'</code></td><td>List of addresses where the process is running.</td></tr>
 				</table>
 
-			</section>
+				<h3>Python client</h3>
+                <p>TODO</p>
+
+				<h3>JAVA client</h3>
+                <p>TODO</p>
+
+                <h3>C++ client</h3>
+                <p>TODO</p>
+
+                </section>
 
 		</div>
 	</div>
