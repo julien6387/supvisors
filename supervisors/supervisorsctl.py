@@ -139,11 +139,14 @@ class ControllerPlugin(ControllerPluginBase):
                     except xmlrpclib.Fault, e:
                         self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                     else:
-                        info_list.append(info)
+                        info_list.extend(info)
             # print results
-            template = '%(name)-30s%(state)-12s%(addresses)s'
+            max_appli = max(len(info['application_name']) for info in info_list) + 4
+            max_proc = max(len(info['process_name']) for info in info_list) + 4
+            template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
             for info in info_list:
-                line = template % {'name': info['namespec'], 'state': info['statename'], 'addresses': info['address']}
+                line = template % {'appli': info['application_name'], 'proc': info['process_name'],
+                    'state': info['statename'], 'addresses': info['addresses']}
                 self.ctl.output(line)
 
     def help_sstatus(self):
