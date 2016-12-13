@@ -60,17 +60,19 @@ class ControllerPlugin(ControllerPluginBase):
     def do_sstate(self, arg):
         if self._upcheck():
             state = self.supervisors().get_supervisors_state()
-            self.ctl.output(state)
+            template = '%(code)-3s%(state)-12s'
+            line = template % {'code': state['statecode'], 'state': state['statename']}
+            self.ctl.output(line)
 
     def help_sstate(self):
-        self.ctl.output("sstate\t\t\t\tGet the Supervisors state.")
+        self.ctl.output("sstate\t\t\t\t\tGet the Supervisors state.")
 
     # get Supervisors list of addresses
     def do_address_status(self, arg):
         if self._upcheck():
             addresses = arg.split()
             if not addresses or "all" in addresses:
-                infos = self.supervisors().get_all_address_info()
+                infos = self.supervisors().get_all_addresses_info()
                 for info in infos:
                     self.output_address_info(info)
             else:
@@ -83,10 +85,9 @@ class ControllerPlugin(ControllerPluginBase):
                         self.output_address_info(info)
 
     def output_address_info(self, info):
-        template = '%(addr)-20s%(state)-12s%(checked)-12s%(load)-8s%(ltime)-12s'
-        checked = info['checked']
-        line = template % {'addr': info['address'], 'state': info['state'], 'checked': 'checked' if checked else 'unchecked',
-            'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time']) if checked else ''}
+        template = '%(addr)-20s%(state)-12s%(load)-8s%(ltime)-12s'
+        line = template % {'addr': info['address_name'], 'state': info['statename'],
+            'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time'])}
         self.ctl.output(line)
 
     def help_address_status(self):
@@ -99,7 +100,7 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             applications = arg.split()
             if not applications or "all" in applications:
-                infos = self.supervisors().get_all_application_info()
+                infos = self.supervisors().get_all_applications_info()
                 for info in infos:
                     self.output_application_info(info)
             else:
@@ -115,7 +116,7 @@ class ControllerPlugin(ControllerPluginBase):
         template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
         major_failure = info['major_failure']
         minor_failure = info['minor_failure']
-        line = template % {'name': info['application_name'], 'state': info['state'],
+        line = template % {'name': info['application_name'], 'state': info['statename'],
             'major_failure': 'major_failure' if major_failure else '', 'minor_failure': 'minor_failure' if minor_failure else ''}
         self.ctl.output(line)
 
@@ -129,31 +130,37 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info()]
-            template = '%(name)-30s%(state)-12s%(conflict)-12s%(addresses)s'
-            for process in processes:
-                try:
-                    infoList = self.supervisors().get_process_info(process)
-                except xmlrpclib.Fault, e:
-                    self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
-                else:
-                    for info in infoList:
-                        conflict = info['conflict']
-                        line = template % {'name': info['process_name'], 'state': info['state'], 'conflict': 'conflict' if conflict else '', 'addresses': info['address']}
-                        self.ctl.output(line)
+                info_list = self.supervisors().get_all_process_info()
+            else:
+                info_list = []
+                for process in processes:
+                    try:
+                        info = self.supervisors().get_process_info(process)
+                    except xmlrpclib.Fault, e:
+                        self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    else:
+                        info_list.extend(info)
+            # print results
+            max_appli = max(len(info['application_name']) for info in info_list) + 4
+            max_proc = max(len(info['process_name']) for info in info_list) + 4
+            template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
+            for info in info_list:
+                line = template % {'appli': info['application_name'], 'proc': info['process_name'],
+                    'state': info['statename'], 'addresses': info['addresses']}
+                self.ctl.output(line)
 
     def help_sstatus(self):
-        self.ctl.output("sstatus <proc>\t\t\tGet the status of the process named proc.")
+        self.ctl.output("sstatus <proc>\t\t\t\tGet the status of the process named proc.")
         self.ctl.output("sstatus <appli>:*\t\t\tGet the process status of application named appli.")
-        self.ctl.output("sstatus <proc> <proc>\t\tGet the status for multiple named processes")
-        self.ctl.output("sstatus\t\t\t\tGet the status of all processes.")
+        self.ctl.output("sstatus <proc> <proc>\t\t\tGet the status for multiple named processes")
+        self.ctl.output("sstatus\t\t\t\t\tGet the status of all processes.")
 
     # get Supervisors deployment rules for processes
     def do_rules(self, arg):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info()]
+                processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info()]
             template = '%(name)-30s%(start_seq)-12s%(stop_seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'
             for process in processes:
                 try:
@@ -164,17 +171,17 @@ class ControllerPlugin(ControllerPluginBase):
                     for rules in rulesList:
                         required = rules['required']
                         wait_exit = rules['wait_exit']
-                        line = template % {'name': rules['process_name'], 'addr': rules['addresses'],
+                        line = template % {'name': rules['namespec'], 'addr': rules['addresses'],
                             'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'], 
                             'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '',
                             'load': '{}%'.format(rules['expected_loading'])}
                         self.ctl.output(line)
 
     def help_rules(self):
-        self.ctl.output("rules <proc>\t\t\tGet the deployment rules of the process named proc.")
-        self.ctl.output("rules <appli>:*\t\t\tGet the deployment rules of all processes in the application named appli.")
-        self.ctl.output("rules <proc> <proc>\t\tGet the deployment rules for multiple named processes")
-        self.ctl.output("rules\t\t\t\tGet the deployment rules of all processes.")
+        self.ctl.output("rules <proc>\t\t\t\tGet the deployment rules of the process named proc.")
+        self.ctl.output("rules <appli>:*\t\t\t\tGet the deployment rules of all processes in the application named appli.")
+        self.ctl.output("rules <proc> <proc>\t\t\tGet the deployment rules for multiple named processes")
+        self.ctl.output("rules\t\t\t\t\tGet the deployment rules of all processes.")
 
     # get conflicts
     def do_conflicts(self, arg):
@@ -186,7 +193,7 @@ class ControllerPlugin(ControllerPluginBase):
             else:
                 template = '%(name)-30s%(state)-12s%(addresses)s'
                 for conflict in conflicts:
-                    line = template % {'name': conflict['process_name'], 'state': conflict['state'], 'addresses': conflict['address']}
+                    line = template % {'name': conflict['namespec'], 'state': conflict['statename'], 'addresses': conflict['address']}
                     self.ctl.output(line)
 
     def help_conflicts(self):
@@ -200,14 +207,14 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_application requires a strategy and an application name')
                 self.help_start_application()
                 return
-            strategy = DeploymentStrategies._to_string(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_start_application()
                 return
             applications = args[1:]
             if not applications or "all" in applications:
-                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_application_info()]
+                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_applications_info()]
             for application in applications:
                 try:
                     result = self.supervisors().start_application(strategy, application)
@@ -226,7 +233,7 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             applications = arg.split()
             if not applications or "all" in applications:
-                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_application_info()]
+                applications = [application_info['application_name'] for application_info in self.supervisors().get_all_applications_info()]
             for application in applications:
                 try:
                     self.supervisors().stop_application(application)
@@ -248,14 +255,14 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_application requires a strategy and an application name')
                 self.help_restart_application()
                 return
-            strategy = DeploymentStrategies._to_string(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_restart_application()
                 return
             applications = args[1:]
             if not applications or "all" in applications:
-                applications = [ application_info['application_name'] for application_info in self.supervisors().get_all_application_info() ]
+                applications = [ application_info['application_name'] for application_info in self.supervisors().get_all_applications_info() ]
             for application in applications:
                 try:
                     self.supervisors().restart_application(strategy, application)
@@ -287,7 +294,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_args(self):
         self.ctl.output("Start a local process with additional arguments.")
-        self.ctl.output("start_process <proc> <arg_list>\t\tStart the local process named proc with additional arguments arg_list.")
+        self.ctl.output("start_process <proc> <arg_list>\t\t\tStart the local process named proc with additional arguments arg_list.")
 
     # start a process using strategy and rules
     def do_start_process(self, arg):
@@ -304,7 +311,7 @@ class ControllerPlugin(ControllerPluginBase):
                 return
             processes = args[1:]
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info() ]
             for process in processes:
                 try:
                     result = self.supervisors().start_process(strategy, process)
@@ -315,8 +322,8 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_process(self):
         self.ctl.output("Start a process with strategy.")
-        self.ctl.output("start_process <strategy> <proc>\t\tStart the process named proc.")
-        self.ctl.output("start_process <strategy> <proc> <proc>\tStart multiple named processes.")
+        self.ctl.output("start_process <strategy> <proc>\t\t\tStart the process named proc.")
+        self.ctl.output("start_process <strategy> <proc> <proc>\t\tStart multiple named processes.")
         self.ctl.output("start_process <strategy> \t\t\tStart all named processes.")
 
     # start a process using strategy and rules
@@ -327,7 +334,6 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process_args requires a strategy, a program name and extra arguments')
                 self.help_start_process_args()
                 return
-            self.ctl.output(args[0])
             strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'.format(DeploymentStrategies._strings()))
@@ -343,14 +349,14 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_process_args(self):
         self.ctl.output("Start a process with strategy and additional arguments.")
-        self.ctl.output("start_process <strategy> <proc> <arg_list>\t\tStart the process named proc with additional arguments arg_list.")
+        self.ctl.output("start_process <strategy> <proc> <arg_list>\tStart the process named proc with additional arguments arg_list.")
 
     # stop a process
     def do_stop_process(self, arg):
         if self._upcheck():
             processes = arg.split()
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info() ]
             for process in processes:
                 try:
                     self.supervisors().stop_process(process)
@@ -361,8 +367,8 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_stop_process(self):
         self.ctl.output("Stop a process where it is running.")
-        self.ctl.output("stop_process <strategy> <proc>\t\tStop the process named proc.")
-        self.ctl.output("stop_process <strategy> <proc> <proc>\tStop multiple named processes.")
+        self.ctl.output("stop_process <strategy> <proc>\t\t\tStop the process named proc.")
+        self.ctl.output("stop_process <strategy> <proc> <proc>\t\tStop multiple named processes.")
         self.ctl.output("stop_process <strategy> \t\t\tStop all named processes.")
 
     # restart a process using strategy and rules
@@ -373,14 +379,14 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
                 self.help_restart_process()
                 return
-            strategy = DeploymentStrategies._to_string(args[0])
+            strategy = DeploymentStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'.format(DeploymentStrategies._strings()))
                 self.help_restart_process()
                 return
             processes = args[1:]
             if not processes or "all" in processes:
-                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_application_info() ]
+                processes = [ '{}:*'.format(application_info['application_name']) for application_info in self.supervisors().get_all_applications_info() ]
             for process in processes:
                 try:
                     result = self.supervisors().restart_process(strategy, process)
@@ -401,8 +407,8 @@ class ControllerPlugin(ControllerPluginBase):
             self.supervisors().restart()
 
     def help_sreload(self):
-        self.ctl.output("sreload\t\t\t\tRestart Supervisors.")
-        self.ctl.output("\t\t\t\t\tRestart all remote supervisord")
+        self.ctl.output("Restart Supervisors.")
+        self.ctl.output("sreload\t\t\t\t\tRestart all remote supervisord")
 
     # shutdown Supervisors
     def do_sshutdown(self, arg):
@@ -410,8 +416,8 @@ class ControllerPlugin(ControllerPluginBase):
             self.supervisors().shutdown()
 
     def help_sshutdown(self):
-        self.ctl.output("sshutdown\t\t\t\tShutdown Supervisors.")
-        self.ctl.output("\t\t\t\t\tShut all remote supervisord down")
+        self.ctl.output("Shutdown Supervisors.")
+        self.ctl.output("sshutdown\t\t\t\tShut all remote supervisord down")
 
     # checking API versions
     def _upcheck(self):

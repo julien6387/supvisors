@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisor.xmlrpc import capped_int
+
 from supervisors.ttypes import AddressStates, InvalidTransition
 
 
@@ -26,21 +28,19 @@ class AddressStatus(object):
     Attributes:
     - address: the address where the Supervisor instance is expected to be running,
     - state: the state of the Supervisor instance in AddressStates,
-    - checked: a status telling if Supervisors has already checked that it is allowed to deal with the remote Supervisors in,
     - remote_time: the last date received from the Supervisors instance,
     - local_time: the last date received from the Supervisors instance, in the local reference time,
     - processes: the list of processes that are available on this address. """
 
-    def __init__(self, address, logger):
+    def __init__(self, address_name, logger):
         """ Initialization of the attributes. """
         # keep a reference to the common logger
         self.logger = logger
         # attributes
-        self.address = address
+        self.address_name = address_name
         self._state = AddressStates.UNKNOWN
         self.remote_time = 0
         self.local_time = 0
-        self.checked = False
         self.processes = {}
 
     # accessors / mutators
@@ -54,15 +54,16 @@ class AddressStatus(object):
         if self._state != newState:
             if self.check_transition(newState):
                 self._state = newState
-                self.logger.info('Address {} is {}'.format(self.address, self.state_string()))
+                self.logger.info('Address {} is {}'.format(self.address_name, self.state_string()))
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates._to_string(newState)))
 
     # serialization
     def to_json(self):
         """ Return a serializable form of the AddressStatus. """
-        return {'address': self.address, 'state': self.state_string(), 'checked': self.checked,
-            'remote_time': self.remote_time, 'local_time': self.local_time }
+        return {'address_name': self.address_name, 'statecode': self.state, 'statename': self.state_string(),
+            'remote_time': capped_int(self.remote_time), 'local_time': capped_int(self.local_time),
+            'loading': self.loading() }
 
     # methods
     def state_string(self):
@@ -78,7 +79,7 @@ class AddressStatus(object):
         self.remote_time = remote_time
         self.local_time = local_time
         for process in self.processes.values():
-            process.update_times(self.address, remote_time, local_time)
+            process.update_times(self.address_name, remote_time, local_time)
 
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """
@@ -92,18 +93,18 @@ class AddressStatus(object):
     def running_processes(self):
         """ Return the process running on the address.
         Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
-        return [process for process in self.processes.values() if process.running_on(self.address)]
+        return [process for process in self.processes.values() if process.running_on(self.address_name)]
 
     def pid_processes(self):
         """ Return the process running on the address and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF """
-        return [(process.namespec(), process.infos[self.address]['pid'])
-            for process in self.processes.values() if process.pid_running_on(self.address)]
+        return [(process.namespec(), process.infos[self.address_name]['pid'])
+            for process in self.processes.values() if process.pid_running_on(self.address_name)]
 
     def loading(self):
         """ Return the loading of the address, by summing the declared loading of the processes running on that address """
         loading = sum(process.rules.expected_loading for process in self.running_processes())
-        self.logger.debug('address={} loading={}'.format(self.address, loading))
+        self.logger.debug('address={} loading={}'.format(self.address_name, loading))
         return loading
 
     # dictionary for transitions

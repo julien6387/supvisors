@@ -47,6 +47,9 @@ class ProcessRules(object):
 
     def __init__(self, logger):
         """ Initialization of the attributes. """
+        # TODO: think about adding a period for tasks
+        # period should be greater than startsecs
+        # autorestart should be False
         self.logger = logger
         self.addresses = ['*']
         self.start_sequence = 0
@@ -55,18 +58,22 @@ class ProcessRules(object):
         self.wait_exit = False
         self.expected_loading = 1
 
-    def check_dependencies(self):
+    def check_dependencies(self, namespec):
         """ Update rules after they have been read from the deployment file
         a required process that is not in the starting sequence is forced to optional
         If addresses are not defined, all addresses are applicable """
         # required MUST have start_sequence, so force to optional if no start_sequence
         if self.required and self.start_sequence == 0:
-            self.logger.warn('required forced to False because no start_sequence defined')
+            self.logger.warn('{} - required forced to False because no start_sequence defined'.format(namespec))
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
             self.addresses = ['*']
-            self.logger.warn('no address defined so all Supervisors addresses are applicable')
+            self.logger.warn('{} - no address defined so all Supervisors addresses are applicable'.format(namespec))
+
+    def accept_extra_arguments(self):
+        """ Return True if process rules are compatible with extra arguments. """
+        return not self.required and self.start_sequence == 0
 
     def __str__(self):
         """ Contents as string """
@@ -91,11 +98,12 @@ class ProcessStatus(object):
     - optional extra arguments to be passed to the command line
     - a status telling if the wait_exit rule is applicable (should be temporary). """
 
-    def __init__(self, address, info, logger):
+    def __init__(self, address, info, supervisors):
         """ Initialization of the attributes. """
-        self.logger = logger
-        # TODO: do I really need to keep all process info ? requests to Supervisor give the same...
-        # wait for web development to decide
+        # keep a reference of the Supervisors data
+        self.supervisors = supervisors
+        supervisors_short_cuts(self, ['info_source', 'logger'])
+        # attributes
         self.application_name = info['group']
         self.process_name = info['name']
         self._state = ProcessStates.UNKNOWN
@@ -107,7 +115,7 @@ class ProcessStatus(object):
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(self.logger)
-        self.extra_args = None
+        self.extra_args = ''
         self.ignore_wait_exit = False
         # init parameters
         self.add_info(address, info)
@@ -153,8 +161,10 @@ class ProcessStatus(object):
     # serialization
     def to_json(self):
         """ Return a JSON-serializable form of the ProcessStatus """
-        return {'application_name': self.application_name, 'process_name': self.process_name, 'state': self.state_string(),
-            'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time, 'addresses': list(self.addresses)}
+        return {'application_name': self.application_name, 'process_name': self.process_name,
+            'statecode': self.state, 'statename': self.state_string(),
+            'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time,
+            'addresses': list(self.addresses)}
 
     # methods
     def state_string(self):
@@ -163,6 +173,8 @@ class ProcessStatus(object):
 
     def add_info(self, address, info):
         """ Insert a new Supervisor ProcessInfo in internal list """
+        # init expected entry
+        info['expected'] = not info['spawnerr']
         # remove useless fields
         self.filter(info)
         # store time info
@@ -173,7 +185,7 @@ class ProcessStatus(object):
         self.logger.debug('adding {} for {}'.format(info, address))
         self.infos[address] = info
         # update process status
-        self.update_status(address, info['state'], not info['spawnerr']) 
+        self.update_status(address, info['state'], info['expected']) 
 
     def update_info(self, address, event):
         """ Update the internal ProcessInfo from event received """
@@ -183,7 +195,6 @@ class ProcessStatus(object):
             self.logger.trace('inserting {} into {} at {}'.format(event, info, address))
             new_state = event['state']
             info['state'] = new_state
-            info['statename'] = to_string(new_state)
             # manage times and pid
             remote_time = event['now']
             info['event_time'] = remote_time
@@ -191,33 +202,34 @@ class ProcessStatus(object):
             self.update_single_times(info, remote_time, int(time()))
             if new_state == ProcessStates.RUNNING:
                 info['pid'] = event['pid']
+                info['spawnerr'] = ''
             elif new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
                 info['start'] = remote_time
                 info['stop'] = 0
                 info['uptime'] = 0
             elif new_state in STOPPED_STATES:
                 info['stop'] = remote_time
-                info['pid'] = -1
-                if new_state == ProcessStates.EXITED:
-                    # unexpected status is declared in spawnerr
-                    info['spawnerr'] = '' if event['expected'] else 'Bad exit code (unknown)'
+                info['pid'] = 0
+            # update expected entry
+            info['expected'] = event['expected'] if new_state == ProcessStates.EXITED else True
             # update / check running addresses
-            self.update_status(address, new_state, event.get('expected', True))
+            self.update_status(address, new_state, info['expected'])
             self.logger.debug('new processInfo: {}'.format(info))
-        else: self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.process_name, address))
+        else:
+            self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'.format(self.process_name, address))
 
     def update_times(self, address, remote_time, local_time):
-        """ Update the time fields of the internal ProcessInfo when a new tick is received from the remote Supervisors instance """
+        """ Update the time entries of the internal ProcessInfo when a new tick is received from the remote Supervisors instance """
         if address in self.infos:
             processInfo = self.infos[address]
             self.update_single_times(processInfo, remote_time, local_time)
 
-    def update_single_times(self, info, remote_time, local_time):
-        """ Update time fields """
+    @staticmethod
+    def update_single_times(info, remote_time, local_time):
+        """ Update time entries of a Process info. """
         info['now'] = remote_time
         info['local_time'] = local_time
-        if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING]:
-            info['uptime'] = remote_time - info['start']
+        info['uptime'] = (remote_time - info['start']) if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0
 
     def invalidate_address(self, address):
         """ Update status of a process that was running on a lost address """
@@ -225,17 +237,20 @@ class ProcessStatus(object):
         # reassign the difference between current set and parameter
         if address in self.addresses:
             self.addresses.remove(address)
+        if address in self.infos:
+            # force process info to UNKNOWN at address
+            self.infos[address]['state'] = ProcessStates.UNKNOWN
         # check if conflict still applicable
         if not self.evaluate_conflict():
             if len(self.addresses) == 1:
                 # if only one address where process is running, the global state is the state of this process
-                state = next(self.infos[address]['state'] for address in self.addresses)
-                self.state = state
+                self.state = next(self.infos[address]['state'] for address in self.addresses)
             elif self.running():
                 # addresses is empty for a running process. action expected to fix the inconsistency
                 self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
-                self.mark_for_restart = True
+                # mark process for restart only if autorestart is set in Supervisor's ProcessConfig
+                self.mark_for_restart = self.info_source.autorestart(self.namespec())
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.state = ProcessStates.STOPPED
@@ -259,8 +274,12 @@ class ProcessStatus(object):
             # evaluate state iaw running addresses
             if not self.evaluate_conflict():
                 # if zero element, state is the state of the program addressed
-                self.state = new_state if not self.addresses else next(self.infos[address]['state'] for address in self.addresses)
-                self.expected_exit = expected
+                if self.addresses:
+                    self.state = next(self.infos[address]['state'] for address in self.addresses)
+                    self.expected_exit = True
+                else:
+                    self.state = new_state
+                    self.expected_exit = expected
 
     def evaluate_conflict(self):
         """ Gets a synthetic state if several processes are in a RUNNING-like state """
@@ -272,14 +291,16 @@ class ProcessStatus(object):
             self.state = self.running_state(states)
             return True
 
-    def filter(self, info):
+    @staticmethod
+    def filter(info):
         """ Remove from dictionary the fields that are not used in Supervisors and/or not updated through process events """
-        for key in ['description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus']:
+        for key in ProcessStatus._Filters:
             info.pop(key, None)
 
-    def running_state(self, states):
+    @staticmethod
+    def running_state(states):
         """ Return the first matching state in RUNNING_STATES """
         return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
 
-    def accept_extra_arguments(self):
-        return not self.rules.required and self.rules.start_sequence == 0
+    # list of removed entries in process info dictionary
+    _Filters = ['statename', 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus']

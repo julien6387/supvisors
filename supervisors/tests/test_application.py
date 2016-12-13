@@ -21,7 +21,7 @@ import random
 import sys
 import unittest
 
-from supervisors.tests.base import (DummyLogger, ProcessInfoDatabase,
+from supervisors.tests.base import (DummySupervisors, ProcessInfoDatabase,
     any_process_info, any_stopped_process_info, any_running_process_info)
 
 
@@ -30,23 +30,24 @@ class ApplicationTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.logger = DummyLogger()
+        self.supervisors = DummySupervisors()
 
     def test_create(self):
         """ Test the values set at construction. """
         from supervisors.application import ApplicationStatus
         from supervisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # check application default attributes
         self.assertEqual('ApplicationTest', application.application_name)
-        self.assertEqual(ApplicationStates.UNKNOWN, application.state)
+        self.assertEqual(ApplicationStates.STOPPED, application.state)
         self.assertFalse(application.major_failure)
         self.assertFalse(application.minor_failure)
         self.assertFalse(application.processes)
-        self.assertFalse(application.sequence)
+        self.assertFalse(application.start_sequence)
+        self.assertFalse(application.stop_sequence)
         # check application default rules
-        self.assertFalse(application.rules.autostart)
-        self.assertEqual(-1, application.rules.sequence)
+        self.assertEqual(0, application.rules.start_sequence)
+        self.assertEqual(0, application.rules.stop_sequence)
         self.assertEqual(StartingFailureStrategies.ABORT, application.rules.starting_failure_strategy)
         self.assertEqual(RunningFailureStrategies.CONTINUE, application.rules.running_failure_strategy)
 
@@ -54,15 +55,15 @@ class ApplicationTest(unittest.TestCase):
         """ Test the running method. """
         from supervisors.application import ApplicationStatus
         from supervisors.process import ProcessStatus
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         self.assertFalse(application.running())
         # add a stopped process
-        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.logger)
+        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.supervisors)
         application.add_process(process)
         application.update_status()
         self.assertFalse(application.running())
         # add a running process
-        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.logger)
+        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.supervisors)
         application.add_process(process)
         application.update_status()
         self.assertTrue(application.running())
@@ -71,37 +72,35 @@ class ApplicationTest(unittest.TestCase):
         """ Test the stopped method. """
         from supervisors.application import ApplicationStatus
         from supervisors.process import ProcessStatus
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         self.assertTrue(application.stopped())
         # add a stopped process
-        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.logger)
+        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.supervisors)
         application.add_process(process)
         application.update_status()
         self.assertTrue(application.stopped())
         # add a running process
-        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.logger)
+        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.supervisors)
         application.add_process(process)
         application.update_status()
         self.assertFalse(application.stopped())
 
     def test_serialization(self):
         """ Test the to_json method used to get a serializable form of Application. """
+        import pickle
         from supervisors.application import ApplicationStatus
         from supervisors.ttypes import ApplicationStates
         # create address status instance
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         application._state = ApplicationStates.RUNNING
         application.major_failure = False
         application.minor_failure = True
         # test to_json method
         json = application.to_json()
-        self.assertListEqual(sorted(['application_name', 'state', 'major_failure', 'minor_failure']), sorted(json.keys()))
-        self.assertEqual('ApplicationTest', json['application_name'])
-        self.assertEqual('RUNNING', json['state'])
-        self.assertFalse(json['major_failure'])
-        self.assertTrue(json['minor_failure'])
+        self.assertDictEqual(json, {'application_name': 'ApplicationTest',
+            'statecode': 2, 'statename': 'RUNNING',
+            'major_failure': False, 'minor_failure':True})
         # test that returned structure is serializable using pickle
-        import pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)
         self.assertDictEqual(json, after_json)
@@ -110,35 +109,42 @@ class ApplicationTest(unittest.TestCase):
         """ Test the add_process method. """
         from supervisors.application import ApplicationStatus
         from supervisors.process import ProcessStatus
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add a process to the application
-        process = ProcessStatus('10.0.0.1', any_process_info(), self.logger)
+        process = ProcessStatus('10.0.0.1', any_process_info(), self.supervisors)
         application.add_process(process)
         # check that process is stored
         self.assertIn(process.process_name, application.processes.keys())
         self.assertIs(process, application.processes[process.process_name])
 
-    def test_sequence_deployment(self):
+    def test_update_sequences(self):
         """ Test the sequencing of the deployment method. """
         from supervisors.application import ApplicationStatus
         from supervisors.process import ProcessStatus
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add processes to the application
         for info in ProcessInfoDatabase:
-            process = ProcessStatus('10.0.0.1', info.copy(), self.logger)
+            process = ProcessStatus('10.0.0.1', info.copy(), self.supervisors)
             # set random sequence to process
-            process.rules.sequence = random.randint(0, 2)
+            process.rules.start_sequence = random.randint(0, 2)
+            process.rules.stop_sequence = random.randint(0, 2)
             application.add_process(process)
         # call the sequencer
-        application.sequence_deployment()
-        # first, extract all sequence numbers
-        sequences = sorted({process.rules.sequence for process in application.processes.values()})
-        # check the sequencing
+        application.update_sequences()
+        # check the sequencing of the starting
+        sequences = sorted({process.rules.start_sequence for process in application.processes.values()})
         # as key is an integer, the sequence dictionary is sorted
-        for sequence, processes in application.sequence.items():
+        for sequence, processes in application.start_sequence.items():
             self.assertEqual(sequence, sequences.pop(0))
             self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
-                sorted([proc for proc in application.processes.values() if sequence == proc.rules.sequence], key=lambda x: x.process_name))
+                sorted([proc for proc in application.processes.values() if sequence == proc.rules.start_sequence], key=lambda x: x.process_name))
+        # check the sequencing of the stopping
+        sequences = sorted({process.rules.stop_sequence for process in application.processes.values()})
+        # as key is an integer, the sequence dictionary is sorted
+        for sequence, processes in application.stop_sequence.items():
+            self.assertEqual(sequence, sequences.pop(0))
+            self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
+                sorted([proc for proc in application.processes.values() if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name))
 
     def test_update_status(self):
         """ Test the rules to update the status of the application method. """
@@ -146,10 +152,10 @@ class ApplicationTest(unittest.TestCase):
         from supervisors.application import ApplicationStatus
         from supervisors.process import ProcessStatus
         from supervisors.ttypes import ApplicationStates
-        application = ApplicationStatus('ApplicationTest', self.logger)
+        application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add processes to the application
         for info in ProcessInfoDatabase:
-            process = ProcessStatus('10.0.0.1', info.copy(), self.logger)
+            process = ProcessStatus('10.0.0.1', info.copy(), self.supervisors)
             application.add_process(process)
         # init status
         # there are lots of states but the 'strongest' is STARTING
@@ -193,7 +199,7 @@ class ApplicationTest(unittest.TestCase):
         application.update_status()
         self.assertEqual(ApplicationStates.RUNNING, application.state)
         self.assertTrue(application.major_failure)
-        self.assertTrue(application.minor_failure)
+        self.assertFalse(application.minor_failure)
         # set RUNNING processes to STOPPED
         for process in application.processes.values():
             if process.state == ProcessStates.RUNNING:

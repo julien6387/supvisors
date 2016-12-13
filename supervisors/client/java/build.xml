@@ -1,0 +1,64 @@
+<project default="compile">
+ 
+    <path id="project.classpath">
+        <pathelement path="/opt/jeromq-0.3.6/lib/jeromq-0.3.6.jar"/>
+        <pathelement path="/opt/JSON-java-20160810/lib/json-20160810.jar"/>
+        <fileset dir="/opt/apache-xmlrpc-3.1.3/lib">
+           <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <target name="compile">
+        <mkdir dir="build"/>
+        <javac srcdir="." destdir="build">
+            <classpath refid="project.classpath"/>
+            <compilerarg line="-Xlint:deprecation -Xlint:unchecked"/>
+        </javac>
+        <mkdir dir="lib"/>
+        <jar destfile="lib/supervisors-0.1alpha.jar">
+            <fileset dir="build"/>
+            <manifest>
+                <attribute name="Implementation-Vendor" value="Julien LE CLEACH"/>
+                <attribute name="Implementation-Title" value="Supervisors"/>
+                <attribute name="Implementation-Version" value="0.1alpha"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="run_system_rpc">
+        <java classname="org.supervisors.rpc.SystemXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run_supervisor_rpc">
+        <java classname="org.supervisors.rpc.SupervisorXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run_supervisors_rpc">
+        <java classname="org.supervisors.rpc.SupervisorsXmlRpc">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="run_supervisors_evt">
+        <java classname="org.supervisors.event.SupervisorsEventSubscriber">
+            <classpath>
+                <path refid="project.classpath"/>
+                <pathelement path="lib/supervisors-0.1alpha.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+</project>

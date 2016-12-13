@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+
+	<!-- models -->
+	<model name="disk_01">
+		<addresses>cliche01</addresses>
+        <expected_loading>5</expected_loading>
+	</model>
+
+	<model name="disk_02">
+		<addresses>cliche02</addresses>
+        <expected_loading>5</expected_loading>
+	</model>
+
+	<model name="disk_03">
+		<addresses>cliche03</addresses>
+        <expected_loading>5</expected_loading>
+	</model>
+
+	<model name="disk_error">
+		<addresses>*</addresses>
+        <expected_loading>5</expected_loading>
+	</model>
+
+	<!-- starter checking application -->
+	<application name="test">
+		<start_sequence>1</start_sequence>
+		<stop_sequence>0</stop_sequence>
+
+		<program name="check_start_sequence">
+			<addresses>*</addresses>
+			<start_sequence>1</start_sequence>
+            <expected_loading>1</expected_loading>
+        </program>
+
+    </application>
+
+	<!-- movies_database application -->
+	<application name="database">
+		<start_sequence>2</start_sequence>
+		<stop_sequence>3</stop_sequence>
+
+		<program name="movie_server_01">
+			<addresses>cliche01</addresses>
+			<start_sequence>1</start_sequence>
+			<stop_sequence>1</stop_sequence>
+            <expected_loading>5</expected_loading>
+        </program>
+
+		<program name="movie_server_02">
+			<addresses>cliche02</addresses>
+			<start_sequence>1</start_sequence>
+			<stop_sequence>1</stop_sequence>
+            <expected_loading>5</expected_loading>
+        </program>
+
+		<program name="movie_server_03">
+			<addresses>cliche03</addresses>
+			<start_sequence>1</start_sequence>
+			<stop_sequence>1</stop_sequence>
+            <expected_loading>5</expected_loading>
+        </program>
+
+		<program name="register_movies_01">
+			<addresses>cliche01</addresses>
+			<start_sequence>2</start_sequence>
+            <wait_exit>true</wait_exit>
+            <expected_loading>25</expected_loading>
+        </program>
+
+		<program name="register_movies_02">
+			<addresses>cliche02</addresses>
+			<start_sequence>2</start_sequence>
+            <wait_exit>true</wait_exit>
+            <expected_loading>25</expected_loading>
+        </program>
+
+		<program name="register_movies_03">
+			<addresses>cliche03</addresses>
+			<start_sequence>2</start_sequence>
+            <wait_exit>true</wait_exit>
+            <expected_loading>25</expected_loading>
+        </program>
+
+	</application>
+
+	<!-- my_movies application -->
+	<application name="my_movies">
+		<start_sequence>3</start_sequence>
+		<stop_sequence>2</stop_sequence>
+
+		<program name="manager">
+			<addresses>*</addresses>
+			<start_sequence>1</start_sequence>
+			<stop_sequence>2</stop_sequence>
+			<required>true</required>
+            <expected_loading>5</expected_loading>
+		</program>
+
+        <program name="hmi">
+            <!-- no screen on cliche03 -->
+			<addresses>cliche02 cliche01</addresses>
+			<start_sequence>2</start_sequence>
+			<stop_sequence>1</stop_sequence>
+			<required>true</required>
+            <expected_loading>10</expected_loading>
+        </program>
+
+        <program name="disk_01_">
+			<reference>disk_01</reference>
+		</program>
+
+        <program name="disk_02_">
+			<reference>disk_02</reference>
+		</program>
+
+        <program name="disk_03_">
+			<reference>disk_03</reference>
+		</program>
+
+        <pattern name="error_disk_">
+			<reference>disk_error</reference>
+	    </pattern>
+
+        <pattern name="converter_">
+            <expected_loading>25</expected_loading>
+        </pattern>
+
+     </application>
+
+	<!-- web_movies application -->
+	<application name="web_movies">
+		<start_sequence>4</start_sequence>
+		<stop_sequence>1</stop_sequence>
+
+        <program name="web_server">
+            <addresses>*</addresses>
+            <start_sequence>1</start_sequence>
+            <stop_sequence>1</stop_sequence>
+            <required>true</required>
+            <expected_loading>3</expected_loading>
+        </program>
+
+        <program name="web_browser">
+			<addresses>*</addresses>
+            <start_sequence>2</start_sequence>
+            <expected_loading>4</expected_loading>
+		</program>
+
+    </application>
+
+</root>

@@ -21,13 +21,21 @@ import threading
 import time
 import zmq
 
-from supervisors.utils import TICK_HEADER, PROCESS_HEADER, STATISTICS_HEADER, supervisors_short_cuts
+from Queue import Empty, PriorityQueue, Queue
+
+from supervisors.utils import (EventHeaders, SUPERVISORS_EVENT, 
+    SUPERVISORS_TASK, supervisors_short_cuts)
 
 
-# class for subscription to Listener events
 class EventSubscriber(object):
+    """ Class for subscription to Listener events.
+
+    Attributes:
+    - supervisors: a reference to the Supervisors context,
+    - socket: the PyZMQ subscriber. """
 
     def __init__(self, supervisors, zmq_context):
+        """ Initialization of the attributes. """
         self.supervisors = supervisors
         self.socket = zmq_context.socket(zmq.SUB)
         # connect all EventPublisher to Supervisors addresses
@@ -39,80 +47,138 @@ class EventSubscriber(object):
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
  
     def receive(self):
-        return (self.socket.recv_string(), self.socket.recv_pyobj())
+        """ Reception and pyobj unserialization of one message including:
+        - the message header,
+        - the origin,
+        - the body of the message. """
+        return self.socket.recv_pyobj()
 
     def disconnect(self, addresses):
+        """ This method disconnects from the PyZMQ socket all addresses passed in parameter. """
         for address in addresses:
             url = 'tcp://{}:{}'.format(address, self.supervisors.options.internal_port)
             self.supervisors.logger.info('disconnecting EventSubscriber from %s' % url)
             self.socket.disconnect(url)
 
     def close(self):
+        """ This method closes the PyZMQ socket. """
         self.socket.close()
 
 
-# class for Supervisors main loop. all inputs are sequenced here
 class SupervisorsMainLoop(threading.Thread):
+    """ Class for Supervisors main loop. All inputs are sequenced here.
 
-    def __init__(self, supervisors, zmq_context):
+    Attributes:
+    - supervisors: a reference to the Supervisors context,
+    - zmq_context: the ZeroMQ context used to create sockets,
+    - subscriber: the event subscriber,
+    - loop: the infinite loop flag. """
+
+    def __init__(self, supervisors):
+        """ Initialization of the attributes. """
         # thread attributes
         threading.Thread.__init__(self)
         # shortcuts
         self.supervisors = supervisors
         supervisors_short_cuts(self, ['fsm', 'logger', 'statistician'])
+        # create queues for internal comminucation
+        self.event_queue = PriorityQueue()
+        self.address_queue = Queue()
+        # ZMQ context definition
+        self.zmq_context = zmq.Context.instance()
+        self.zmq_context.setsockopt(zmq.LINGER, 0)
         # create event sockets
-        self.subscriber = EventSubscriber(supervisors, zmq_context)
-        supervisors.publisher.open(zmq_context)
+        self.subscriber = EventSubscriber(supervisors, self.zmq_context)
+        supervisors.publisher.open(self.zmq_context)
+
+    def close(self):
+        """ This method closes the resources. """
+        # close the ZeroMQ sockets
+        self.supervisors.publisher.close()
+        self.subscriber.close()
+        # close zmq context
+        self.zmq_context.term()
+        # finally, close logger
+        self.logger.close()
 
     def stop(self):
+        """ Request to stop the infinite loop by resetting its flag. """
         self.logger.info('request to stop main loop')
         self.loop = False
 
     # main loop
     def run(self):
+        """ Contents of the infinite loop. """
         # create poller
         poller = zmq.Poller()
-        # register event publisher
+        # register event subscriber
         poller.register(self.subscriber.socket, zmq.POLLIN) 
-        self.timer_event_time = time.time()
+        timer_event_time = time.time()
+        # get the proxy of the local Supervisor for XML-RPC
+        client, supervisor = self.supervisors.requester.supervisor_proxy("localhost")
         # poll events every seconds
         self.loop = True
         while self.loop:
             socks = dict(poller.poll(1000))
-            # check tick and process events
-            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                self.logger.blather('got message on eventSubscriber')
+            # Need to test loop flag again as its value may have changed in the last second.
+            # WARN: there is a risk of deadlock when shutdown is called by XML-RPC.
+            # Upon reception of the SupervisorStoppingEvent, the loop flag is set to False
+            # and the listener waits for this thread to end.
+            # Unfortunately, there is a chance that the flag is set between the test of the
+            # flag and the use of sendRemoteCommEvent, leading to a deadlock in RPC calls.
+            # A timeout has been set on the thread join to avoid the deadlock.
+            if self.loop:
+                # check tick and process events
+                if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
+                    self.logger.blather('got message on event subscriber')
+                    try:
+                        message = self.subscriber.receive()
+                    except Exception, e:
+                        self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    else:
+                        # The events received are not processed directly in this thread because it may conflict
+                        # with the Supervisors functions triggered from the Supervisor thread, as they use the
+                        # same data. So they are pushed into a PriorityQueue (Tick > Process > Statistics) and
+                        # Supervisors uses a RemoteCommunicationEvent to unstack and process the event from
+                        # the context of the Supervisor thread.
+                        self.event_queue.put_nowait(message)
+                        if self.loop:
+                            supervisor.sendRemoteCommEvent(SUPERVISORS_EVENT, '')
+                # check periodic task
+                if timer_event_time + 5 < time.time():
+                    if self.loop:
+                        supervisor.sendRemoteCommEvent(SUPERVISORS_TASK, '')
+                    # set date for next task
+                    timer_event_time = time.time()
+                # check isolation of addresses
                 try:
-                    message = self.subscriber.receive()
-                except Exception, e:
-                    self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    addresses = self.address_queue.get_nowait()
+                except Empty:
+                    # nothing to do
+                    pass
                 else:
-                    if message[0] == TICK_HEADER:
-                        self.logger.blather('got tick message: {}'.format(message[1]))
-                        self.fsm.on_tick_event(message[1][0], message[1][1])
-                    elif message[0] == PROCESS_HEADER:
-                        self.logger.blather('got process message: {}'.format(message[1]))
-                        self.fsm.on_process_event(message[1][0], message[1][1])
-                    elif message[0] == STATISTICS_HEADER:
-                        self.logger.blather('got statistics message: {}'.format(message[1]))
-                        self.statistician.push_statistics(message[1][0], message[1][1])
-            # check periodic task
-            if self.timer_event_time + 5 < time.time():
-                self.periodic_task()
-            # publish all events from here using pyzmq json
+                    # disconnect isolated addresses from sockets
+                    self.subscriber.disconnect(addresses)
         self.logger.info('exiting main loop')
         self.close()
 
+    def unstack_event(self):
+        """ Unstack and process one event from the PriorityQueue. """
+        event_type, event_address, event_data = self.event_queue.get_nowait()
+        if event_type == EventHeaders.TICK:
+            self.logger.blather('got tick message from {}: {}'.format(event_address, event_data))
+            self.fsm.on_tick_event(event_address, event_data)
+        elif event_type == EventHeaders.PROCESS:
+            self.logger.blather('got process message from {}: {}'.format(event_address, event_data))
+            self.fsm.on_process_event(event_address, event_data)
+        elif event_type == EventHeaders.STATISTICS:
+            self.logger.blather('got statistics message from {}: {}'.format(event_address, event_data))
+            self.statistician.push_statistics(event_address, event_data)
+
     def periodic_task(self):
+        """ Periodic task that mainly checks that addresses are still operating. """
         self.logger.blather('periodic task')
         addresses = self.fsm.on_timer_event()
-        # disconnect isolated addresses from sockets
-        self.subscriber.disconnect(addresses)
-        # set date for next task
-        self.timer_event_time = time.time()
-
-    def close(self):
-        # close zmq sockets
-        self.supervisors.publisher.close()
-        self.subscriber.close()
+        # pushes isolated addresses to main loop
+        self.address_queue.put_nowait(addresses)
 

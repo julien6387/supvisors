@@ -21,10 +21,14 @@ from math import sqrt
 from time import gmtime, localtime, strftime, time
 
 
-# strings used as headers in messages between Listener and MainLoop
-TICK_HEADER = u'tick'
-PROCESS_HEADER = u'process'
-STATISTICS_HEADER = u'statistics'
+class EventHeaders:
+    """ Enumeration class for the headers in messages between Listener and MainLoop.
+    The sequence gives the priority of the event. """
+    TICK, PROCESS, STATISTICS = range(3)
+
+# strings used for remote communication between the Supervisors main loop and the listener
+SUPERVISORS_EVENT = u'event'
+SUPERVISORS_TASK = u'task'
 
 # strings used as headers in messages between EventPublisher and Supervisors' Client
 SUPERVISORS_STATUS_HEADER = u'supervisors'
@@ -35,15 +39,19 @@ PROCESS_STATUS_HEADER = u'process'
 
 # used to convert enumeration-like value to string and vice-versa
 def enum_to_string(dico, idxEnum):
+    """ Convert an enumeration value to a string. """
     return next((name for name, value in dico.items() if value == idxEnum),  None)
 
 def string_to_enum(dico, strEnum):
+    """ Convert a string to an enumeration value. """
     return next((value for name, value in dico.items() if name == strEnum),  None)
 
 def enum_values(dico):
+    """ Get all the values of an enumeration. """
     return [y for x, y in dico.items() if not x.startswith('_')]
 
 def enum_strings(dico):
+    """ Get all the strings of an enumeration. """
     return [x for x in dico.keys() if not x.startswith('_')]
 
 
@@ -75,12 +83,13 @@ def supervisors_short_cuts(instance, lst):
         setattr(instance, attr, getattr(instance.supervisors, attr))
 
 
-# return time without date
 def simple_localtime(now=None):
+    """ Returns the local time as a string, without the date. """
     if now is None: now = time()
     return strftime("%H:%M:%S", localtime(now))
 
 def simple_gmtime(now=None):
+    """ Returns the UTC time as a string, without the date. """
     if now is None: now = time()
     return strftime("%H:%M:%S", gmtime(now))
 
@@ -92,6 +101,8 @@ stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 # linear regression
 def get_linear_regression(xdata, ydata):
+    """ Calculate the coefficients of the linear equation corresponding
+    to the linear regression of a series of points. """
     try:
         import numpy
         return tuple(numpy.polyfit(xdata, ydata, 1))
@@ -108,12 +119,19 @@ def get_linear_regression(xdata, ydata):
         return a, b
 
 def get_simple_linear_regression(lst):
+    """ Calculate the coefficients of the linear equation corresponding
+    to the linear regression of a series of values. """
     # in Supervisors, Y data is periodic
     datasize = len(lst)
     return get_linear_regression( [ i for i in range(datasize) ], lst)
 
 # get statistics from data
 def get_stats(lst):
+    """ Calculate the following statistics from a series of points:
+    - the mean value,
+    - the instant rate between the two last values,
+    - the coefficients of the linear regression,
+    - the standard deviation, """
     rate, a, b, dev = (None, )*4
     # calculate mean value
     avg = mean(lst)

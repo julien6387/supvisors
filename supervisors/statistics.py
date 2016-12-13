@@ -92,13 +92,12 @@ def instant_process_statistics(pid):
     work = memory = 0
     try:
         proc = Process(pid)
-    except (NoSuchProcess, ValueError):
-        # process may have disappeared in the meantime
-        pass
-    else:
         for p in [ proc ] + proc.children(recursive=True):
             work += sum(p.cpu_times())
             memory += p.memory_percent()
+    except (NoSuchProcess, ValueError):
+        # process may have disappeared in the meantime
+        pass
     return work, memory
 
 def cpu_process_statistics(last, ref, total_work):

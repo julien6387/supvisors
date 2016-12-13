@@ -23,7 +23,6 @@ from supervisor.options import make_namespec
 from supervisor.web import StatusView
 from supervisor.xmlrpc import RPCError
 
-from supervisors.plot import StatisticsPlot
 from supervisors.utils import get_stats, simple_localtime, supervisors_short_cuts
 from supervisors.viewhandler import ViewHandler
 from supervisors.viewimage import address_image_contents
@@ -99,16 +98,20 @@ class AddressView(StatusView, ViewHandler):
         self.write_processor_statistics(stats_elt, stats_instance.cpu)
         self.write_network_statistics(stats_elt, stats_instance.io)
         # write CPU / Memory plot
-        img = StatisticsPlot()
-        if AddressView.address_stats_type == 'acpu':
-            img.addPlot('CPU #{}'.format(self.cpu_id_to_string(AddressView.cpu_id_stats)), '%', stats_instance.cpu[AddressView.cpu_id_stats])
-        elif AddressView.address_stats_type == 'amem':
-            img.addPlot('MEM', '%', stats_instance.mem)
-        elif AddressView.address_stats_type == 'io':
-            img.addPlot('{} recv'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][0])
-            img.addPlot('{} sent'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][1])
-        img.exportImage(address_image_contents)
-        # set title
+        try:
+            from supervisors.plot import StatisticsPlot
+            img = StatisticsPlot()
+            if AddressView.address_stats_type == 'acpu':
+                img.addPlot('CPU #{}'.format(self.cpu_id_to_string(AddressView.cpu_id_stats)), '%', stats_instance.cpu[AddressView.cpu_id_stats])
+            elif AddressView.address_stats_type == 'amem':
+                img.addPlot('MEM', '%', stats_instance.mem)
+            elif AddressView.address_stats_type == 'io':
+                img.addPlot('{} recv'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][0])
+                img.addPlot('{} sent'.format(AddressView.interface_stats), 'kbits/s', stats_instance.io[AddressView.interface_stats][1])
+            img.exportImage(address_image_contents)
+        except ImportError:
+            self.logger.warn("matplotlib module not found")
+       # set title
         elt = root.findmeld('address_fig_mid')
         elt.content(self.address)
 

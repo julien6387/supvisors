@@ -22,21 +22,32 @@ import xmlrpclib
 from supervisor.xmlrpc import SupervisorTransport
 
 
-class XmlRpcClient(object):
-
-    def __init__(self, address, info_source):
-        if info_source.serverurl:
-            serverurl = info_source.serverurl.split(':')
-            if len(serverurl) == 3:
-                serverurl[1] = '//' + address
-                serverurl = ':'.join(serverurl)
-                self.transport = SupervisorTransport(info_source.username, info_source.password, serverurl)
-        self.proxy = xmlrpclib.ServerProxy('http://{0}'.format(address), self.transport)
+def getRPCInterface(address, env):
+    """ The getRPCInterface creates a proxy to a supervisor XML-RPC server.
+    Information about the HTTP configuration is required in env. """
+    # get configuration info from env
+    serverurl = env['SUPERVISOR_SERVER_URL']
+    username = env.get('SUPERVISOR_USERNAME', '')
+    password = env.get('SUPERVISOR_PASSWORD', '')
+    # check that Supervisor is configured in HTTP
+    if not serverurl.startswith('http://'):
+        raise ValueError('Incompatible protocol for Supervisors: serverurl={}'.format(serverurl))
+    # replace address in URL
+    serverurl = serverurl.split(':')
+    serverurl[1] = '//' + address
+    serverurl = ':'.join(serverurl)
+    # create transport
+    transport = SupervisorTransport(username, password, serverurl)
+    return xmlrpclib.ServerProxy('http://{}'.format(address), transport)
 
 
 class RpcRequester(object):
+    """ The RpcRequester is used to perform the XML-RPC used internally by Supervisors.
+    It either uses the internal interface or a proxy, depending if the target address
+    is the local address or not."""
 
     def __init__(self, supervisors):
+        """ The constructor keeps a reference to the Supervisors insternal structure. """
         self.supervisors = supervisors
 
     # utilities to determine if using XmlRpcClient or internal handler directly
@@ -44,57 +55,74 @@ class RpcRequester(object):
         """ Return True if RPC address is NOT the local address. """
         return address != self.supervisors.address_mapper.local_address
 
+    def get_proxy(self, address):
+        """ Return the Supervisor XML-RPC general proxy. """
+        env = {'SUPERVISOR_SERVER_URL': self.supervisors.info_source.serverurl,
+            'SUPERVISOR_USERNAME': self.supervisors.info_source.username,
+            'SUPERVISOR_PASSWORD': self.supervisors.info_source.password }
+        return getRPCInterface(address, env)
+
     def supervisor_proxy(self, address):
-        # return client so as is it not destroyed when exiting
-        client = XmlRpcClient(address, self.supervisors.info_source)
-        return client, client.proxy.supervisor
+        """ Return Supervisor interface and proxy (so as is it not destroyed when exiting). """
+        proxy = self.get_proxy(address)
+        return proxy, proxy.supervisor
 
     def supervisors_proxy(self, address):
-        # return client so as is it not destroyed when exiting
-        client = XmlRpcClient(address, self.supervisors.info_source)
-        return client, client.proxy.supervisors
+        """ Return Supervisors interface and proxy (so as is it not destroyed when exiting). """
+        proxy = self.get_proxy(address)
+        return proxy, proxy.supervisors
 
     def internal_supervisor(self):
+        """ Return the supervisor interface, taken directly from the supervisor internal structure. """
         return None, self.supervisors.info_source.supervisor_rpc_interface
 
     def internal_supervisors(self):
+        """ Return the supervisors interface, taken directly from the supervisor internal structure. """
         return None, self.supervisors.info_source.supervisors_rpc_interface
 
     def get_supervisor(self, address):
+        """ Depending if the address is the local address or not,
+        return the Supervisor internal interface or a proxy to the remote Supervisor interface. """
         return self.supervisor_proxy(address) if self.use_proxy(address) else self.internal_supervisor()
 
     def get_supervisors(self, address):
+        """ Depending if the address is the local address or not,
+        return the Supervisors internal interface or a proxy to the remote Supervisors interface. """
         return self.supervisors_proxy(address) if self.use_proxy(address) else self.internal_supervisors()
 
     # Requests
     def all_process_info(self, address):
-        client, supervisor = self.get_supervisor(address)
+        """ Shortcut to the getAllProcessInfo XML-RPC. """
+        proxy, supervisor = self.get_supervisor(address)
         return supervisor.getAllProcessInfo()
 
-    def supervisors_state(self, address):
-        client, supervisors = self.get_supervisors(address)
-        return supervisors.get_supervisors_state()
-
     def internal_start_process(self, address, program, extra_args):
-        client, supervisors = self.get_supervisors(address)
+        """ Shortcut to the start_args XML-RPC. """
+        proxy, supervisors = self.get_supervisors(address)
         return supervisors.start_args(program, extra_args, False)
 
     def address_info(self, address, remote_address):
-        client, supervisors = self.get_supervisors(address)
+        """ Shortcut to the get_address_info XML-RPC. """
+        proxy, supervisors = self.get_supervisors(address)
         return supervisors.get_address_info(remote_address)
 
     def start_process(self, address, program, wait):
-        client, supervisor = self.get_supervisor(address)
+        """ Shortcut to the startProcess XML-RPC. """
+        proxy, supervisor = self.get_supervisor(address)
         return supervisor.startProcess(program, wait)
 
     def stop_process(self, address, program, wait):
-        client, supervisor = self.get_supervisor(address)
+        """ Shortcut to the stopProcess XML-RPC. """
+        proxy, supervisor = self.get_supervisor(address)
         return supervisor.stopProcess(program, wait)
 
     def restart(self, address):
-        client, supervisor = self.get_supervisor(address)
+        """ Shortcut to the restart XML-RPC. """
+        proxy, supervisor = self.get_supervisor(address)
         return supervisor.restart()
 
     def shutdown(self, address):
-        client, supervisor = self.get_supervisor(address)
+        """ Shortcut to the shutdown XML-RPC. """
+        proxy, supervisor = self.get_supervisor(address)
         return supervisor.shutdown()
+

@@ -100,7 +100,8 @@ class ApplicationStatus(object):
     # serialization
     def to_json(self):
         """ Return a JSON-serializable form of the ApplicationStatus. """
-        return { 'application_name': self.application_name, 'state': self.state_string(),
+        return { 'application_name': self.application_name,
+            'statecode': self.state, 'statename': self.state_string(),
             'major_failure': self.major_failure, 'minor_failure': self.minor_failure }
 
     # methods

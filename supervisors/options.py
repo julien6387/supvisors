@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
+import ConfigParser
 from collections import OrderedDict
 from socket import gethostname
 
 from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
-from supervisor.options import Options, UnhosedConfigParser
+from supervisor.options import Options
 
 from supervisors.ttypes import ConciliationStrategies, DeploymentStrategies
 
@@ -30,70 +31,102 @@ from supervisors.ttypes import ConciliationStrategies, DeploymentStrategies
 class SupervisorsOptions(object):
     """ Class used to parse the options of the 'supervisors' section in the supervisor configuration file. """
 
-    def __init__(self):
-        # supervisor Options class used to initialize search paths
-        options = Options(True)
-        # get supervisord.conf file from search paths
-        configfile = options.default_configfile()
-        # parse file
-        parser = UnhosedConfigParser()
-        parser.read(configfile)
+    _Section = 'supervisors'
+
+    def __init__(self, fp=None):
+        self.parser = ConfigParser.RawConfigParser()
+        if fp:
+            # contents provided, parse now
+            self.parse_fp(fp)
+        else:
+            # supervisor Options class used (lazily) to initialize search paths
+            options = Options(True)
+            configfile = options.default_configfile()
+            # parse the contents of the file
+            with open(configfile) as fp:
+                self.parse_fp(fp, configfile)
+
+    def parse_fp(self, fp, filename=None):
+        self.parser.readfp(fp, filename)
         # set section
-        parser.mysection = 'supervisors'
-        if not parser.has_section(parser.mysection):
-            raise ValueError('section [{}] not found in config file {}'.format(parser.mysection, configfile))
+        if not self.parser.has_section(self._Section):
+            raise ValueError('section [{}] not found in config file {}'.format(self._Section, filename))
         # get values
-        self.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))))
-        self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
-        self.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
-        self.event_port = self.to_port_num(parser.getdefault('eventp_ort', '65002'))
-        self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
-        self.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
-        self.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
-        self.deployment_strategy = self.to_deployment_strategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        self.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(self.get_default('address_list', gethostname())))))
+        self.deployment_file = existing_dirpath(self.get_default('deployment_file', ''))
+        self.internal_port = self.to_port_num(self.get_default('internal_port', '65001'))
+        self.event_port = self.to_port_num(self.get_default('event_port', '65002'))
+        self.auto_fence = boolean(self.get_default('auto_fence', 'false'))
+        self.synchro_timeout = self.to_timeout(self.get_default('synchro_timeout', '15'))
+        self.conciliation_strategy = self.to_conciliation_strategy(self.get_default('conciliation_strategy', 'USER'))
+        self.deployment_strategy = self.to_deployment_strategy(self.get_default('deployment_strategy', 'CONFIG'))
         # configure statistics
-        self.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
-        self.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
+        self.stats_periods = self.to_periods(list_of_strings(self.get_default('stats_periods', '10')))
+        self.stats_histo = self.to_histo(self.get_default('stats_histo', 200))
         # configure logger
-        self.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(parser.mysection)))
-        self.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
-        self.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
-        self.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
+        self.logfile = existing_dirpath(self.get_default('logfile', '{}.log'.format(self._Section)))
+        self.logfile_maxbytes = byte_size(self.get_default('logfile_maxbytes', '50MB'))
+        self.logfile_backups = integer(self.get_default('logfile_backups', 10))
+        self.loglevel = logging_level(self.get_default('loglevel', 'info'))
+
+    def get_default(self, option, default_value):
+        try:
+            return self.parser.get(self._Section, option)
+        except ConfigParser.NoOptionError:
+            return default_value
 
     # conversion utils (completion of supervisor.datatypes)
-    def to_port_num(self, value):
+    @staticmethod
+    def to_port_num(value):
+        """ Convert a string into a port number. """
         value = integer(value)
-        if 0 < value <= 65535: return value
+        if 0 < value <= 65535:
+            return value
         raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
 
-    def to_timeout(self, value):
+    @staticmethod
+    def to_timeout(value):
+        """ Convert a string into a timeout value. """
         value = integer(value)
-        if 0 < value <= 1000: return value
+        if 0 < value <= 1000:
+            return value
         raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000] (seconds)' % value)
 
-    def to_conciliation_strategy(self, value):
+    @staticmethod
+    def to_conciliation_strategy(value):
+        """ Convert a string into a ConciliationStrategies enum. """
         strategy = ConciliationStrategies._from_string(value)
         if strategy is None:
             raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, ConciliationStrategies.values()))
         return strategy
 
-    def to_deployment_strategy(self, value):
+    @staticmethod
+    def to_deployment_strategy(value):
+        """ Convert a string into a DeploymentStrategies enum. """
         strategy = DeploymentStrategies._from_string(value)
         if strategy is None:
             raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, DeploymentStrategies.values()))
         return strategy
 
-    def to_periods(self, value):
-        if len(value) > 3: raise ValueError('unexpected number of periods: {}. maximum is 3'.format(value))
+    @staticmethod
+    def to_periods(value):
+        """ Convert a string into a list of period values. """
+        if len(value) > 3:
+            raise ValueError('unexpected number of periods: {}. maximum is 3'.format(value))
         periods = [ ]
         for val in value:
             period = integer(val)
-            if 5 > period or period > 3600: raise ValueError('invalid value for period: {}. expected in [5;3600] (seconds)'.format(val))
-            if period % 5 != 0: raise ValueError('invalid value for period: %d. expected multiple of 5' % period)
+            if 5 > period or period > 3600:
+                raise ValueError('invalid value for period: {}. expected in [5;3600] (seconds)'.format(val))
+            if period % 5 != 0:
+                raise ValueError('invalid value for period: %d. expected multiple of 5' % period)
             periods.append(period)
         return sorted(filter(None, periods))
 
-    def to_histo(self, value):
+    @staticmethod
+    def to_histo(value):
+        """ Convert a string into a value of historic depth. """
         histo = integer(value)
-        if 10 <= histo <= 1500: return histo
+        if 10 <= histo <= 1500:
+            return histo
         raise ValueError('invalid value for histo: {}. expected in [10;1500] (seconds)'.format(value))

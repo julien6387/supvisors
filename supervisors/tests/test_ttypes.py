@@ -36,7 +36,6 @@ class TypesTest(unittest.TestCase):
     def test_ApplicationStates(self):
         """ Test the ApplicationStates enumeration. """
         from supervisors.ttypes import ApplicationStates
-        self.assertEqual('UNKNOWN', ApplicationStates._to_string(ApplicationStates.UNKNOWN))
         self.assertEqual('STOPPED', ApplicationStates._to_string(ApplicationStates.STOPPED))
         self.assertEqual('STARTING', ApplicationStates._to_string(ApplicationStates.STARTING))
         self.assertEqual('RUNNING', ApplicationStates._to_string(ApplicationStates.RUNNING))
@@ -75,7 +74,6 @@ class TypesTest(unittest.TestCase):
         """ Test the SupervisorsStates enumeration. """
         from supervisors.ttypes import SupervisorsStates
         self.assertEqual('INITIALIZATION', SupervisorsStates._to_string(SupervisorsStates.INITIALIZATION))
-        self.assertEqual('ELECTION', SupervisorsStates._to_string(SupervisorsStates.ELECTION))
         self.assertEqual('DEPLOYMENT', SupervisorsStates._to_string(SupervisorsStates.DEPLOYMENT))
         self.assertEqual('OPERATION', SupervisorsStates._to_string(SupervisorsStates.OPERATION))
         self.assertEqual('CONCILIATION', SupervisorsStates._to_string(SupervisorsStates.CONCILIATION))
