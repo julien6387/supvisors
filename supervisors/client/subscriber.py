@@ -217,7 +217,7 @@ if __name__ == '__main__':
     # get arguments
     import argparse, time
     parser = argparse.ArgumentParser(description='Start a subscriber to Supervisors events.')
-    parser.add_argument('-p', '--port', type=int, default=65002, help="the event port of Supervisors")
+    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supervisors")
     parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=10,
         help="the duration of the subscription")
     args = parser.parse_args()
