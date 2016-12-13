@@ -33,26 +33,39 @@ public class SupervisorXmlRpcClient {
     private XmlRpcClient client = new XmlRpcClient();
 
     /**
-     * The constructor performs the connection with the XML-RPC server of Supervisor,
+     * The constructor performs the connection with the XML-RPC server of the local Supervisor,
      * without HTTP authentification.
      *
      * @param int port: The port used to connect the server.
      */
     public SupervisorXmlRpcClient(final int port) throws MalformedURLException {
-        this(port, "", "");
+        this("localhost", port, "", "");
     }
 
     /**
-     * The constructor performs the connection with the XML-RPC server of Supervisor,
+     * The constructor performs the connection with the XML-RPC server of the Supervisor running on address,
+     * without HTTP authentification.
+     *
+     * @param String address: The host name or IP address.
+     * @param int port: The port used to connect the server.
+     */
+    public SupervisorXmlRpcClient(final String address, final int port) throws MalformedURLException {
+        this(address, port, "", "");
+    }
+
+    /**
+     * The constructor performs the connection with the XML-RPC server of the Supervisor running on address,
      * with basic HTTP authentification.
      *
+     * @param String address: The host name or IP address.
      * @param int port: The port used to connect the server.
      * @param String userName: The user name.
      * @param String password: The password of the user.
      */
-    public SupervisorXmlRpcClient(final int port, final String userName, final String password) throws MalformedURLException {
+    public SupervisorXmlRpcClient(final String address, final int port,
+            final String userName, final String password) throws MalformedURLException {
         XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-        config.setServerURL(new URL("http://localhost:" + port + "/RPC2"));
+        config.setServerURL(new URL("http://" + address + ":" + port + "/RPC2"));
         config.setBasicUserName(userName);
         config.setBasicPassword(password);
         client.setConfig(config);
