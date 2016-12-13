@@ -3,7 +3,7 @@
 ANT_FILE=../client/java/build.xml
 
 # test JAVA supervisors events
-ant -f $ANT_FILE run_supervisor_evt
+ant -f $ANT_FILE run_supervisors_evt
 
 # test JAVA system XML-RPC
 ant -f $ANT_FILE run_system_rpc
