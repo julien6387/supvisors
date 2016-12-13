@@ -16,6 +16,9 @@
 
 package org.supervisors.event;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.supervisors.common.*;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Context;
@@ -75,6 +78,15 @@ public class SupervisorsEventSubscriber implements Runnable {
     private void close() {
         this.subscriber.close();
         this.subscriber = null;
+    }
+
+    /**
+     * Set the event listener.
+     *
+     * @param String listener: the instance that will receive notifications.
+     */
+    public void setListener(final SupervisorsEventListener listener) {
+        this.listener = listener;
     }
 
     /**
@@ -185,18 +197,23 @@ public class SupervisorsEventSubscriber implements Runnable {
         // main loop until stop called or thread interrupted
         while (!this.done && !Thread.currentThread().isInterrupted()) {
             poller.poll(1000);
-            // check if something happened
+            // check if something happened on socket
             if (poller.pollin(0)) {
+                // get the data
                 String header = this.subscriber.recvStr();
                 String body = this.subscriber.recvStr();
-                if (SUPERVISORS_STATUS_HEADER.equals(header)) {
-                    onSupervisorsStatus(new SupervisorsState(body));
-                } else if (ADDRESS_STATUS_HEADER.equals(header)) {
-                    onAddressStatus(new SupervisorsAddressInfo(body));
-                } else if (APPLICATION_STATUS_HEADER.equals(header)) {
-                    onApplicationStatus(new SupervisorsApplicationInfo(body));
-                } else if (PROCESS_STATUS_HEADER.equals(header)) {
-                    onProcessStatus(new SupervisorsProcessInfo(body));
+
+                // notify subscribers if any
+                if (listener != null) {
+                    if (SUPERVISORS_STATUS_HEADER.equals(header)) {
+                        listener.onSupervisorsStatus(new SupervisorsStatus(body));
+                    } else if (ADDRESS_STATUS_HEADER.equals(header)) {
+                        listener.onAddressStatus(new SupervisorsAddressInfo(body));
+                    } else if (APPLICATION_STATUS_HEADER.equals(header)) {
+                        listener.onApplicationStatus(new SupervisorsApplicationInfo(body));
+                    } else if (PROCESS_STATUS_HEADER.equals(header)) {
+                        listener.onProcessStatus(new SupervisorsProcessInfo(body));
+                    }
                 }
             }
         }
@@ -205,39 +222,58 @@ public class SupervisorsEventSubscriber implements Runnable {
         this.subscriber.close();
     }
 
-    // FIXME: implement interface
-    public void onSupervisorsStatus(final SupervisorsState status) {
-        System.out.println(status);
-    }
-
-    public void onAddressStatus(final SupervisorsAddressInfo status) {
-        System.out.println(status);
-    }
-
-    public void onApplicationStatus(final SupervisorsApplicationInfo status) {
-        System.out.println(status);
-    }
-
-    public void onProcessStatus(final SupervisorsProcessInfo status) {
-        System.out.println(status);
-    }
 
     /**
      * The main for SupervisorsEventSubscriber self-tests.
      *
      * @param String[] args: The arguments.
      */
-    public static void main(String[] args) {
-        Context context = ZMQ.context(1);
-        SupervisorsEventSubscriber subscriber = new SupervisorsEventSubscriber(60002, context);
+    public static void main(String[] args) throws InterruptedException {
+        // create ZeroMQ context
+        final Context context = ZMQ.context(1);
+
+        // create and configure the subscriber
+        final SupervisorsEventSubscriber subscriber = new SupervisorsEventSubscriber(60002, context);
         subscriber.subscribeToAll();
-        new Thread(subscriber).start();
-        try {
-            Thread.sleep(20000);
-        } catch (Exception e) {
-            
-        }
-        subscriber.stop();
+        subscriber.setListener(new SupervisorsEventListener() {
+
+            @Override
+            public void onSupervisorsStatus(final SupervisorsStatus status) {
+                System.out.println(status);
+            }
+
+            @Override
+            public void onAddressStatus(final SupervisorsAddressInfo status) {
+                System.out.println(status);
+            }
+
+            @Override
+            public void onApplicationStatus(final SupervisorsApplicationInfo status) {
+                System.out.println(status);
+            }
+
+            @Override
+            public void onProcessStatus(final SupervisorsProcessInfo status) {
+                System.out.println(status);
+            }
+        });
+
+        // start subscriber in thread
+        Thread t = new Thread(subscriber);
+        t.start();
+
+        // schedule task to stop the thread
+        new Timer().schedule(new TimerTask() {
+
+            @Override
+            public void run() {
+                subscriber.stop();
+            }
+
+        }, 20000);
+
+        // wait for the thread to end
+        t.join();
     }
 
 }
