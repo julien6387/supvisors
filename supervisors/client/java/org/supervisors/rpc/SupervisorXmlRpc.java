@@ -16,6 +16,7 @@
 
 package org.supervisors.rpc;
 
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
@@ -503,109 +504,115 @@ public class SupervisorXmlRpc {
      *
      * @param String[] args: The arguments.
      */
-    public static void main(String[] args) throws InterruptedException {
-        SupervisorXmlRpcClient client = null;
-        try {
-            client = new SupervisorXmlRpcClient(60000);
-        } catch(Exception exc) {
-            System.err.println("SupervisorsXmlRpc: " + exc);
-        }
+    public static void main(String[] args) throws InterruptedException, MalformedURLException {
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
 
-        if  (client != null) {
-            SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
-            // test supervisor status and control
-            System.out.println("### Testing supervisors.getAPIVersion(...) ###");
-            System.out.println(supervisor.getAPIVersion());
-            System.out.println("### Testing supervisors.getVersion(...) ###");
-            System.out.println(supervisor.getVersion());
-            System.out.println("### Testing supervisors.getSupervisorVersion(...) ###");
-            System.out.println(supervisor.getSupervisorVersion());
-            System.out.println("### Testing supervisors.getIdentification(...) ###");
-            System.out.println(supervisor.getIdentification());
-            System.out.println("### Testing supervisors.getState(...) ###");
-            System.out.println(supervisor.getState());
-            System.out.println("### Testing supervisors.getPID(...) ###");
-            System.out.println(supervisor.getPID());
-            System.out.println("### Testing supervisors.readLog(...) ###");
-            System.out.println(supervisor.readLog(-100, 0));
-            System.out.println("### Testing supervisors.clearLog(...) ###");
-            System.out.println(supervisor.clearLog());
-            System.out.println("### Testing supervisors.readMainLog(...) ###");
-            System.out.println(supervisor.readMainLog(0, 100));
-            // first remove test group, so as it does not interfere with this test
-            System.out.println("### Testing supervisors.removeProcessGroup(...) ###");
-            System.out.println(supervisor.removeProcessGroup("test"));
-            // test supervisor process control
-            System.out.println("### Testing supervisors.getAllProcessInfo(...) ###");
-            HashMap<String, SupervisorProcessInfo> processes = supervisor.getAllProcessInfo();
-            System.out.println(processes);
-            System.out.println("### Testing supervisors.getProcessInfo(...) ###");
-            String namespec = processes.entrySet().iterator().next().getValue().getName();
-            SupervisorProcessInfo processInfo = supervisor.getProcessInfo(namespec);
-            System.out.println(processInfo);
-            System.out.println("### Testing supervisors.startAllProcesses(...) ###");
-            System.out.println(supervisor.startAllProcesses(true));
-            // startAllProcesses is demanding, so let Supervisor breathe
-            Thread.sleep(1000);
-            System.out.println("### Testing supervisors.stopAllProcesses(...) ###");
-            System.out.println(supervisor.stopAllProcesses(true));
-            // startAllProcesses is demanding, so let Supervisor breathe
-            Thread.sleep(1000);
-            System.out.println("### Testing supervisors.startProcessGroup(...) ###");
-            System.out.println(supervisor.startProcessGroup(processInfo.getGroupName(), true));
-            System.out.println("### Testing supervisors.stopProcessGroup(...) ###");
-            System.out.println(supervisor.stopProcessGroup(processInfo.getGroupName(), true));
-            System.out.println("### Testing supervisors.startProcess(...) ###");
-            System.out.println(supervisor.startProcess(namespec, true));
-            System.out.println("### Testing supervisors.stopProcess(...) ###");
-            System.out.println(supervisor.stopProcess(namespec, true));
-            System.out.println("### Testing supervisors.startProcessGroup(...) ###");
-            System.out.println(supervisor.startProcessGroup(processInfo.getGroupName(), true));
-            // test UNIX signal
-            System.out.println("### Testing supervisors.signalProcessGroup(...) ###");
-            System.out.println(supervisor.signalProcessGroup(processInfo.getGroupName(), "STOP"));
-            System.out.println("### Testing supervisors.signalProcess(...) ###");
-            System.out.println(supervisor.signalProcess(namespec, "CONT"));
-            System.out.println("### Testing supervisors.signalAllProcesses(...) ###");
-            System.out.println(supervisor.signalAllProcesses("18"));
-            // test process stdin
-            System.out.println("### Testing supervisors.sendProcessStdin(...) ###");
-            System.out.println(supervisor.sendProcessStdin(namespec, "hello"));
-            // test comm event
-            System.out.println("### Testing supervisors.sendRemoteCommEvent(...) ###");
-            System.out.println(supervisor.sendRemoteCommEvent("hello", "world"));
-            // test process logging
-            System.out.println("### Testing supervisors.readProcessStdoutLog(...) ###");
-            System.out.println(supervisor.readProcessStdoutLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.readProcessLog(...) ###");
-            System.out.println(supervisor.readProcessLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.readProcessStderrLog(...) ###");
-            System.out.println(supervisor.readProcessStderrLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.tailProcessStdoutLog(...) ###");
-            System.out.println(supervisor.tailProcessStdoutLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.tailProcessLog(...) ###");
-            System.out.println(supervisor.tailProcessLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.tailProcessStderrLog(...) ###");
-            System.out.println(supervisor.tailProcessStderrLog(namespec, 0, 100));
-            System.out.println("### Testing supervisors.clearProcessLogs(...) ###");
-            System.out.println(supervisor.clearProcessLogs(namespec));
-            System.out.println("### Testing supervisors.clearProcessLog(...) ###");
-            System.out.println(supervisor.clearProcessLog(namespec));
-            System.out.println("### Testing supervisors.clearAllProcessLogs(...) ###");
-            System.out.println(supervisor.clearAllProcessLogs());
-            // test group config
-            System.out.println("### Testing supervisors.addProcessGroup(...) ###");
-            System.out.println(supervisor.addProcessGroup("test"));
-            System.out.println("### Testing supervisors.getAllConfigInfo(...) ###");
-            System.out.println(supervisor.getAllConfigInfo());
-            System.out.println("### Testing supervisors.reloadConfig(...) ###");
-            System.out.println(supervisor.reloadConfig());
-            // test supervisor control
-            System.out.println("### Testing supervisors.restart(...) ###");
-            System.out.println(supervisor.restart());
-            // the following methods are operational but not tested automatically
-            System.out.println("### NOT TESTED: supervisors.shutdown(...) ###");
-            // System.out.println(supervisor.shutdown());
-        }
+        // test supervisor status and control
+        System.out.println("### Testing supervisors.getAPIVersion(...) ###");
+        System.out.println(supervisor.getAPIVersion());
+        System.out.println("### Testing supervisors.getVersion(...) ###");
+        System.out.println(supervisor.getVersion());
+        System.out.println("### Testing supervisors.getSupervisorVersion(...) ###");
+        System.out.println(supervisor.getSupervisorVersion());
+        System.out.println("### Testing supervisors.getIdentification(...) ###");
+        System.out.println(supervisor.getIdentification());
+        System.out.println("### Testing supervisors.getState(...) ###");
+        System.out.println(supervisor.getState());
+        System.out.println("### Testing supervisors.getPID(...) ###");
+        System.out.println(supervisor.getPID());
+        System.out.println("### Testing supervisors.readLog(...) ###");
+        System.out.println(supervisor.readLog(-100, 0));
+        System.out.println("### Testing supervisors.clearLog(...) ###");
+        System.out.println(supervisor.clearLog());
+        System.out.println("### Testing supervisors.readMainLog(...) ###");
+        System.out.println(supervisor.readMainLog(0, 100));
+
+        // first remove test group, so as it does not interfere with this test
+        System.out.println("### Testing supervisors.removeProcessGroup(...) ###");
+        System.out.println(supervisor.removeProcessGroup("test"));
+
+        // test supervisor process control
+        System.out.println("### Testing supervisors.getAllProcessInfo(...) ###");
+        HashMap<String, SupervisorProcessInfo> processes = supervisor.getAllProcessInfo();
+        System.out.println(processes);
+        System.out.println("### Testing supervisors.getProcessInfo(...) ###");
+        String namespec = processes.entrySet().iterator().next().getValue().getName();
+        SupervisorProcessInfo processInfo = supervisor.getProcessInfo(namespec);
+        System.out.println(processInfo);
+        System.out.println("### Testing supervisors.startAllProcesses(...) ###");
+        System.out.println(supervisor.startAllProcesses(true));
+
+        // startAllProcesses is demanding, so let Supervisor breathe
+        Thread.sleep(1000);
+
+        System.out.println("### Testing supervisors.stopAllProcesses(...) ###");
+        System.out.println(supervisor.stopAllProcesses(true));
+
+        // startAllProcesses is demanding, so let Supervisor breathe
+        Thread.sleep(1000);
+
+        System.out.println("### Testing supervisors.startProcessGroup(...) ###");
+        System.out.println(supervisor.startProcessGroup(processInfo.getGroupName(), true));
+        System.out.println("### Testing supervisors.stopProcessGroup(...) ###");
+        System.out.println(supervisor.stopProcessGroup(processInfo.getGroupName(), true));
+        System.out.println("### Testing supervisors.startProcess(...) ###");
+        System.out.println(supervisor.startProcess(namespec, true));
+        System.out.println("### Testing supervisors.stopProcess(...) ###");
+        System.out.println(supervisor.stopProcess(namespec, true));
+        System.out.println("### Testing supervisors.startProcessGroup(...) ###");
+        System.out.println(supervisor.startProcessGroup(processInfo.getGroupName(), true));
+
+        // test UNIX signal
+        System.out.println("### Testing supervisors.signalProcessGroup(...) ###");
+        System.out.println(supervisor.signalProcessGroup(processInfo.getGroupName(), "STOP"));
+        System.out.println("### Testing supervisors.signalProcess(...) ###");
+        System.out.println(supervisor.signalProcess(namespec, "CONT"));
+        System.out.println("### Testing supervisors.signalAllProcesses(...) ###");
+        System.out.println(supervisor.signalAllProcesses("18"));
+
+        // test process stdin
+        System.out.println("### Testing supervisors.sendProcessStdin(...) ###");
+        System.out.println(supervisor.sendProcessStdin(namespec, "hello"));
+
+        // test comm event
+        System.out.println("### Testing supervisors.sendRemoteCommEvent(...) ###");
+        System.out.println(supervisor.sendRemoteCommEvent("hello", "world"));
+
+        // test process logging
+        System.out.println("### Testing supervisors.readProcessStdoutLog(...) ###");
+        System.out.println(supervisor.readProcessStdoutLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.readProcessLog(...) ###");
+        System.out.println(supervisor.readProcessLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.readProcessStderrLog(...) ###");
+        System.out.println(supervisor.readProcessStderrLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.tailProcessStdoutLog(...) ###");
+        System.out.println(supervisor.tailProcessStdoutLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.tailProcessLog(...) ###");
+        System.out.println(supervisor.tailProcessLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.tailProcessStderrLog(...) ###");
+        System.out.println(supervisor.tailProcessStderrLog(namespec, 0, 100));
+        System.out.println("### Testing supervisors.clearProcessLogs(...) ###");
+        System.out.println(supervisor.clearProcessLogs(namespec));
+        System.out.println("### Testing supervisors.clearProcessLog(...) ###");
+        System.out.println(supervisor.clearProcessLog(namespec));
+        System.out.println("### Testing supervisors.clearAllProcessLogs(...) ###");
+        System.out.println(supervisor.clearAllProcessLogs());
+
+        // test group config
+        System.out.println("### Testing supervisors.addProcessGroup(...) ###");
+        System.out.println(supervisor.addProcessGroup("test"));
+        System.out.println("### Testing supervisors.getAllConfigInfo(...) ###");
+        System.out.println(supervisor.getAllConfigInfo());
+        System.out.println("### Testing supervisors.reloadConfig(...) ###");
+        System.out.println(supervisor.reloadConfig());
+
+        // test supervisor control
+        System.out.println("### Testing supervisors.restart(...) ###");
+        System.out.println(supervisor.restart());
+
+        // the following methods are operational but not tested automatically
+        System.out.println("### NOT TESTED: supervisors.shutdown(...) ###");
+        // System.out.println(supervisor.shutdown());
     }
 }
