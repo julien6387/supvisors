@@ -17,7 +17,9 @@
 package org.supervisors.common;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 
@@ -31,21 +33,37 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
     /** The process namespec. */
     private String namespec;
 
+    /** The name of the process' application. */
+    private String applicationName;
+
+    /** The process name. */
+    private String processName;
+
     /** The process state. */
     private ProcessState state;
 
+    /** A status telling if the process has exited expectantly. */
+    private Boolean expectedExitStatus;
+
+    /** The date of the last event received for this process. */
+    private Integer lastEventTime;
+
     /** The addresses where the process is running. */
-    private List addresses;
+    private List<String> addresses;
     
     /**
      * This constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap processInfo: The untyped structure got from the XML-RPC.
      */
-    public SupervisorsProcessInfo(HashMap addressInfo)  {
-        this.namespec = (String) addressInfo.get("namespec");
-        this.state = ProcessState.valueOf((String) addressInfo.get("state"));
-        this.addresses = (List) addressInfo.get("addresses");
+    public SupervisorsProcessInfo(HashMap processInfo)  {
+        this.processName = (String) processInfo.get("process_name");
+        this.applicationName = (String) processInfo.get("application_name");
+        this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
+        this.state = ProcessState.valueOf((String) processInfo.get("statename"));
+        this.expectedExitStatus = (Boolean) processInfo.get("expected_exit");
+        this.lastEventTime = (Integer) processInfo.get("last_event_time");
+        this.addresses = DataConversion.arrayToStringList((Object[]) processInfo.get("addresses"));
     }
 
     /**
@@ -55,15 +73,42 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      */
     public SupervisorsProcessInfo(final String json) {
         JSONObject obj = new JSONObject(json);
-        this.namespec = obj.getString("namespec");
+        this.processName = obj.getString("process_name");
+        this.applicationName = obj.getString("application_name");
+        this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
         this.state = ProcessState.valueOf(obj.getString("statename"));
-        // FIXME: à continuer
+        this.expectedExitStatus = obj.getBoolean("expected_exit");
+        this.lastEventTime = obj.getInt("last_event_time");
+        // parse addresses
+        JSONArray addresses = obj.getJSONArray("addresses");
+        this.addresses = new ArrayList<String>(addresses.length());
+        for (int i=0 ; i<addresses.length() ; i++) {
+            this.addresses.add(addresses.getString(i));
+        }
+    }
+
+    /**
+     * The getApplicationName method returns the name of the process' application'.
+     *
+     * @return String: The namespec of the application.
+     */
+    public String getApplicationName() {
+        return this.applicationName;
+    }
+
+    /**
+     * The getProcessName method returns the name of the process.
+     *
+     * @return String: The namespec of the application.
+     */
+    public String getProcessName() {
+        return this.processName;
     }
 
     /**
      * The getName method returns the namespec of the process.
      *
-     * @return String: The namespec of the application.
+     * @return String: The namespec of the process.
      */
     public String getName() {
         return this.namespec;
@@ -76,6 +121,25 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      */
     public ProcessState getState() {
         return this.state;
+    }
+
+    /**
+     * The getExpectedExitStatus method returns the exit status of the process.
+     * It only makes sense when the process is in EXITED state.
+     *
+     * @return Boolean: The exit status.
+     */
+    public Boolean getExpectedExitStatus() {
+        return this.expectedExitStatus;
+    }
+
+    /**
+     * The getLastEventTime method returns the date of the last event received for the process.
+     *
+     * @return Integer: The date of the last event received.
+     */
+    public Integer getLastEventTime() {
+        return this.lastEventTime;
     }
 
     /**
@@ -94,7 +158,9 @@ public class SupervisorsProcessInfo implements SupervisorsAnyInfo {
      */
     public String toString() {
         return "SupervisorsProcessInfo(namespec=" + this.namespec
-            + " state=" + this.state + " addresses=" + this.addresses + ")";
+            + " applicationName=" + this.applicationName + " processName=" + this.processName
+            + " state=" + this.state + " expectedExitStatus=" + this.expectedExitStatus
+            + " lastEventTime=" + this.lastEventTime + " addresses=" + this.addresses + ")";
     }
 
 }
