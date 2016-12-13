@@ -16,6 +16,7 @@
 
 package org.supervisors.rpc;
 
+import java.net.MalformedURLException;
 import java.util.List;
 import java.util.HashMap;
 import org.supervisors.common.DataConversion;
@@ -106,7 +107,7 @@ public class SystemXmlRpc {
      * @return HashMap: The call request.
      */
     public static HashMap createCall(final String methodName, final Object[] args) {
-        HashMap call = new HashMap();
+        HashMap<String, Object> call = new HashMap<String, Object>();
         call.put("methodName", methodName);
         if (args != null) {
             call.put("params", args);
@@ -120,40 +121,38 @@ public class SystemXmlRpc {
      *
      * @param String[] args: The arguments.
      */
-    public static void main(String[] args) {
-        SupervisorXmlRpcClient client = null;
-        try {
-            client = new SupervisorXmlRpcClient(60000);
-        } catch(Exception exc) {
-            System.err.println("SystemXmlRpc: " + exc);
-        }
+    public static void main(String[] args) throws MalformedURLException {
+        SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
+        SystemXmlRpc system = new SystemXmlRpc(client);
 
-        if  (client != null) {
-            SystemXmlRpc system = new SystemXmlRpc(client);
-            // test help methods
-            System.out.println("### Testing system.listMethods() ###");
-            System.out.println(system.listMethods());
-            System.out.println("### Testing system.methodHelp(...) ###");
-            System.out.println(system.methodHelp("system.methodSignature"));
-            System.out.println("### Testing system.methodSignature(...) ###");
-            System.out.println(system.methodSignature("system.methodSignature"));
-            // test multiCall
-            System.out.println("### Testing system.multicall(...) ###");
-            HashMap call1 = system.createCall("system.listMethods", null);
-            HashMap call2 = system.createCall("system.methodHelp", new Object[]{"system.methodSignature"});
-            HashMap call3 = system.createCall("system.methodSignature", new Object[]{"system.methodSignature"});
-            HashMap call4 = system.createCall("system.methodHelp", new Object[]{"dummy"});
-            Object[] results = system.multicall(new Object[]{call1, call2, call3, call4});
-            // first result is an Object array made of String objects (see conversion in listMethods)
-            List<String> result = DataConversion.arrayToStringList((Object[]) results[0]);
-            System.out.println(result);
-            // second result is a String
-            System.out.println(results[1]);
-            // third result is an Object array made of String objects (see conversion in methodSignature)
-            result = DataConversion.arrayToStringList((Object[]) results[2]);
-            System.out.println(result);
-            // fourth result should be an error
-            System.out.println((HashMap) results[3]);
-        }
+        // test help methods
+        System.out.println("### Testing system.listMethods() ###");
+        System.out.println(system.listMethods());
+        System.out.println("### Testing system.methodHelp(...) ###");
+        System.out.println(system.methodHelp("system.methodSignature"));
+        System.out.println("### Testing system.methodSignature(...) ###");
+        System.out.println(system.methodSignature("system.methodSignature"));
+
+        // test multiCall
+        System.out.println("### Testing system.multicall(...) ###");
+        HashMap call1 = system.createCall("system.listMethods", null);
+        HashMap call2 = system.createCall("system.methodHelp", new Object[]{"system.methodSignature"});
+        HashMap call3 = system.createCall("system.methodSignature", new Object[]{"system.methodSignature"});
+        HashMap call4 = system.createCall("system.methodHelp", new Object[]{"dummy"});
+        Object[] results = system.multicall(new Object[]{call1, call2, call3, call4});
+
+        // first result is an Object array made of String objects (see conversion in listMethods)
+        List<String> result = DataConversion.arrayToStringList((Object[]) results[0]);
+        System.out.println(result);
+
+        // second result is a String
+        System.out.println(results[1]);
+
+        // third result is an Object array made of String objects (see conversion in methodSignature)
+        result = DataConversion.arrayToStringList((Object[]) results[2]);
+        System.out.println(result);
+
+        // fourth result should be an error
+        System.out.println((HashMap) results[3]);
     }
 }
