@@ -72,6 +72,10 @@ class Context(object):
         """ Return the AddressStatus instances in ISOLATING state. """
         return self.addresses_by_states([AddressStates.ISOLATING])
 
+    def isolation_addresses(self):
+        """ Return the AddressStatus instances in ISOLATING or ISOLATED state. """
+        return self.addresses_by_states([AddressStates.ISOLATING, AddressStates.ISOLATED])
+
     def addresses_by_states(self, states):
         """ Return the AddressStatus instances sorted by state. """
         return [status.address_name for status in self.addresses.values() if status.state in states]
@@ -168,7 +172,7 @@ class Context(object):
             else:
                 self.invalid(status)
 
-    def on_tick_event(self, address, when):
+    def on_tick_event(self, address, event):
         """ Method called upon reception of a tick event from the remote Supervisors instance, telling that it is active.
         Supervisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
@@ -177,13 +181,13 @@ class Context(object):
             status = self.addresses[address]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got tick {} from location={}'.format(when, address))
+                self.logger.debug('got tick {} from location={}'.format(event, address))
                 if status.state != AddressStates.RUNNING:
                     self.check_address(status)
                 # re-test isolation status as it may have been changed by the check_address
                 if not status.in_isolation():
                     status.state = AddressStates.RUNNING
-                    status.update_times(when, int(time()))
+                    status.update_times(event['when'], int(time()))
                     # publish AddressStatus event
                     self.supervisors.publisher.send_address_status(status)
         else:
