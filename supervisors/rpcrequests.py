@@ -36,7 +36,7 @@ def getRPCInterface(address, env):
     serverurl = serverurl.split(':')
     serverurl[1] = '//' + address
     serverurl = ':'.join(serverurl)
-    # create transport
+    # create transport and return proxy
     transport = SupervisorTransport(username, password, serverurl)
     return xmlrpclib.ServerProxy('http://{}'.format(address), transport)
 
@@ -57,10 +57,7 @@ class RpcRequester(object):
 
     def get_proxy(self, address):
         """ Return the Supervisor XML-RPC general proxy. """
-        env = {'SUPERVISOR_SERVER_URL': self.supervisors.info_source.serverurl,
-            'SUPERVISOR_USERNAME': self.supervisors.info_source.username,
-            'SUPERVISOR_PASSWORD': self.supervisors.info_source.password }
-        return getRPCInterface(address, env)
+        return getRPCInterface(address, self.supervisors.info_source.get_env())
 
     def supervisor_proxy(self, address):
         """ Return Supervisor interface and proxy (so as is it not destroyed when exiting). """
