@@ -12,6 +12,8 @@ _ropeproject/
 *.orig
 *.bak
 *.rej
+*.class
+*.jar
 *~
 build/
 dist/

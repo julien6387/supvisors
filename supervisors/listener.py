@@ -145,7 +145,8 @@ class SupervisorListener(object):
         The event is published to all Supervisors instances.
         Statistics are also published. """
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
-        self.publisher.send_tick_event(event.when)
+        payload = {'when': event.when}
+        self.publisher.send_tick_event(payload)
         # get and publish statistics at tick time
         status = self.supervisors.context.addresses[self.address]
         self.publisher.send_statistics(instant_statistics(status.pid_processes()))

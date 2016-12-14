@@ -30,7 +30,7 @@ from supervisors.utils import supervisors_short_cuts
 # get Supervisors version from file
 here = os.path.abspath(os.path.dirname(__file__))
 version_txt = os.path.join(here, 'version.txt')
-API_VERSION  = open(version_txt).read().strip()
+API_VERSION  = open(version_txt).read().split('=')[1].strip()
 
 
 class RPCInterface(object):

@@ -21,8 +21,6 @@ import os
 import sys
 
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-
 
 if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     msg = ("Supervisors requires Python 2.7 or later but does not work on "
@@ -57,7 +55,7 @@ CLASSIFIERS = [
 ]
 
 version_txt = os.path.join(here, 'supervisors/version.txt')
-supervisors_version = open(version_txt).read().strip()
+supervisors_version = open(version_txt).read().split('=')[1].strip()
 
 dist = setup(
     name='supervisors',
