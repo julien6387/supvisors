@@ -72,6 +72,12 @@ class SupervisordSource(object):
     @property
     def supervisor_state(self): return self.supervisord.options.mood
 
+    def get_env(self):
+        """ Return a simple environment that can be used for the configuration of the XML-RPC client. """
+        return {'SUPERVISOR_SERVER_URL': self.serverurl,
+            'SUPERVISOR_USERNAME': self.username,
+            'SUPERVISOR_PASSWORD': self.password }
+
     def autorestart(self, namespec):
         """ This method checks if autorestart is configured on the process. """
         application_name, process_name = split_namespec(namespec)
