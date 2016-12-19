@@ -381,10 +381,14 @@ public class SupervisorsXmlRpc {
         System.out.println(supervisors.restartProcess(DeploymentStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
         System.out.println("### Testing supervisors.restart(...) ###");
         System.out.println(supervisors.restart());
-
-        // shutdown is working but not tested automatically
-        System.out.println("### NOT TESTED: supervisors.shutdown(...) ###");
-        // System.out.println(supervisors.shutdown());
+        // let a little time to restart before shutdown
+        try {
+            Thread.sleep(60000);
+        } catch (InterruptedException e) {
+            // no matter
+        }
+        System.out.println("### Testing supervisors.shutdown(...) ###");
+        System.out.println(supervisors.shutdown());
     }
 
 }

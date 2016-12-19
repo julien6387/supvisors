@@ -28,6 +28,7 @@ class EventHeaders:
 
 # strings used for remote communication between the Supervisors main loop and the listener
 SUPERVISORS_EVENT = u'event'
+SUPERVISORS_INFO = u'info'
 SUPERVISORS_TASK = u'task'
 
 # strings used as headers in messages between EventPublisher and Supervisors' Client

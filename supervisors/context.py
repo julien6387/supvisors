@@ -149,7 +149,7 @@ class Context(object):
                 self.processes[process.namespec()] = process
                 self.applications[process.application_name].add_process(process)
             else:
-                # update current entry
+                # just update the current entry
                 process.add_info(address, info)
             finally:
                 # share the instance to the Supervisor instance that holds it
@@ -166,11 +166,7 @@ class Context(object):
         else:
             self.logger.info('local is authorized to deal with {}'.format(status.address_name))
             # refresh supervisor information
-            info = self.all_process_info(status.address_name)
-            if info:
-                self.load_processes(status.address_name, info)
-            else:
-                self.invalid(status)
+            self.supervisors.pool.async_process_info(status.address_name)
 
     def on_tick_event(self, address, event):
         """ Method called upon reception of a tick event from the remote Supervisors instance, telling that it is active.

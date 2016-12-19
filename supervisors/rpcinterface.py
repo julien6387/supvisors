@@ -65,17 +65,17 @@ class RPCInterface(object):
         """ Get info about all remote supervisord managed in Supervisors.
         @return list result\tA list of structures containing data about all remote supervisord.
         """
-        return [self.get_address_info(address) for address in self.context.addresses]
+        return [self.get_address_info(address_name) for address_name in self.context.addresses.keys()]
 
-    def get_address_info(self, address):
+    def get_address_info(self, address_name):
         """ Get info about a remote supervisord managed in Supervisors and running on address.
-        @param string address\tThe address of the supervisord.
+        @param string address_name\tThe address name of the supervisor daemon.
         @return struct result\t\tA structure containing data about the remote supervisord.
         """
         try:
-            status = self.context.addresses[address]
+            status = self.context.addresses[address_name]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address))
+            raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supervisors'.format(address_name))
         return status.to_json()
 
     def get_all_applications_info(self):
@@ -433,7 +433,7 @@ class RPCInterface(object):
             if status.address_name != self.address:
                 if status.state == AddressStates.RUNNING:
                     try:
-                        func(status.address)
+                        func(status.address_name)
                         self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
                     except RPCError:
                         self.logger.error('failed to {} supervisord on {}'.format(func.__name__, status.address_name))

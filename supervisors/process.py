@@ -269,6 +269,8 @@ class ProcessStatus(object):
                 # replace if current state stopped-like, add otherwise
                 if self.stopped():
                     self.addresses = {address}
+                    # reset autorestart flag as it becomes useless
+                    self.mark_for_restart = False
                 else:
                     self.addresses.add(address)
             # evaluate state iaw running addresses

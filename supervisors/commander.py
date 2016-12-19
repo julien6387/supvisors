@@ -79,16 +79,16 @@ class Commander(object):
 
     def initial_jobs(self):
         """ Initializes the planning of the jobs (start or stop). """
-        self.logger.info('planned_sequence={}'.format(self.printable_planned_sequence()))
+        self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
         # pop lower application group from planned_sequence
         if self.planned_sequence:
             self.planned_jobs = self.planned_sequence.pop(min(self.planned_sequence.keys()))
-            self.logger.info('planned_jobs={}'.format(self.printable_planned_jobs()))
+            self.logger.debug('planned_jobs={}'.format(self.printable_planned_jobs()))
             # iterate on copy to avoid problems with deletions
             for application_name in self.planned_jobs.keys()[:]:
                 self.process_application_jobs(application_name)
         else:
-            self.logger.info('command completed')
+            self.logger.debug('command completed')
 
     def process_application_jobs(self, application_name):
         """ Triggers the starting of a subset of the application. """
@@ -99,18 +99,18 @@ class Commander(object):
             while sequence and not jobs and application_name in self.planned_jobs:
                 # pop lower group from sequence
                 group = sequence.pop(min(sequence.keys()))
-                self.logger.info('application {} - next group: {}'.format(application_name, self.printable_process_list(group)))
+                self.logger.debug('application {} - next group: {}'.format(application_name, self.printable_process_list(group)))
                 for process in group:
                     self.logger.trace('{} - state={}'.format(process.namespec(), process.state_string()))
                     self.process_job(process, jobs)
-            self.logger.info('current_jobs={}'.format(self.printable_current_jobs()))
+            self.logger.debug('current_jobs={}'.format(self.printable_current_jobs()))
             # if nothing in progress when exiting the loop, delete application entry in current_jobs
             if not jobs:
                 self.logger.debug('no more jobs for application {}'.format(application_name))
                 self.current_jobs.pop(application_name, None)
             # clean application job if its sequence is empty
             if not sequence:
-                self.logger.info('all jobs planned for application {}'.format(application_name))
+                self.logger.debug('all jobs planned for application {}'.format(application_name))
                 self.planned_jobs.pop(application_name, None)
         else:
             self.logger.warn('application {} not found in jobs'.format(application_name))
@@ -160,7 +160,7 @@ class Starter(Commander):
         # push program list in todo list and start work
         if application.stopped():
             self.store_application_start_sequence(application)
-            self.logger.info('planned_sequence={}'.format(self.printable_planned_sequence()))
+            self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
             if self.planned_sequence:
                 # add application immediately to planned jobs if something in list
                 self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
@@ -293,6 +293,7 @@ class Starter(Commander):
                     if e.code == Faults.ALREADY_STARTED:
                         # can happen if supervisors has been paused
                         # FIXME: check something before ? mark_for_restart set ? if so, how to remove this flag before coming here ?
+                        # handle something
                         pass
                     else:
                         # this should not happen but log a critical message, just in case...
@@ -355,7 +356,7 @@ class Stopper(Commander):
         # push program list in todo list and start work
         if application.running():
             self.store_application_stop_sequence(application)
-            self.logger.info('planned_sequence={}'.format(self.printable_planned_sequence()))
+            self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
             # add application immediately to planned jobs
             self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
             self.process_application_jobs(application.application_name)
