@@ -101,7 +101,7 @@ class Parser(object):
             value = application_elt.findtext('stop_sequence')
             application.rules.stop_sequence = int(value) if value and int(value)>0 else 0
             # final print
-            self.logger.info('application {} - rules {}'.format(application.application_name, application.rules))
+            self.logger.debug('application {} - rules {}'.format(application.application_name, application.rules))
 
     def load_process_rules(self, process):
         self.logger.trace('searching program element for {}'.format(process.namespec()))

@@ -25,10 +25,11 @@ from supervisor.options import split_namespec
 from supervisor.states import ProcessStates
 
 from supervisors.mainloop import SupervisorsMainLoop
+from supervisors.pool import SupervisorsPool
 from supervisors.process import from_string
 from supervisors.statistics import instant_statistics
-from supervisors.utils import (EventHeaders, SUPERVISORS_EVENT, 
-    SUPERVISORS_TASK, supervisors_short_cuts)
+from supervisors.utils import (EventHeaders, SUPERVISORS_EVENT,
+    SUPERVISORS_INFO, SUPERVISORS_TASK, supervisors_short_cuts)
 
 
 class EventPublisher(object):
@@ -101,6 +102,8 @@ class SupervisorListener(object):
         self.logger.info('local supervisord is RUNNING')
         # replace the default handler for web ui
         self.supervisors.info_source.replace_default_handler()
+        # create pool for asynchronous requests
+        self.supervisors.pool = SupervisorsPool(self.supervisors)
         # starts the main loop
         self.main_loop = SupervisorsMainLoop(self.supervisors)
         self.main_loop.start()
@@ -111,19 +114,15 @@ class SupervisorListener(object):
         """ Called when Supervisor is STOPPING.
         This method stops the Supervisors main loop. """
         self.logger.warn('local supervisord is STOPPING')
-        # unsubscribe
+        # unsubscribe from events
         events.clear()
         # close zmq socket
         self.publisher.socket.close()
         # stop and join the main loop
-        # give 2 seconds to the event thread to end
         self.main_loop.stop()
-        self.main_loop.join(2)
-        # WARN: if the call to this method is consequent to a RPC, the Supervisors thread may be
-        # still alive due to its use of the sendRemoteCommEvent RPC.
-        # xmlrpclib is synchronous and blocking so the sendRemoteCommEvent cannot be achieved
-        # while this RPC is in progress.
-        # No matter, the thread will end itself once this RPC is over.
+        self.main_loop.join()
+        # close the pool
+        self.supervisors.pool.close()
 
     def on_process(self, event):
         """ Called when a ProcessEvent is sent by the local Supervisor.
@@ -157,6 +156,8 @@ class SupervisorListener(object):
         with the other events handled by the local Supervisor."""
         if event.type == SUPERVISORS_EVENT:
             self.main_loop.unstack_event()
+        elif event.type == SUPERVISORS_INFO:
+            self.main_loop.unstack_info()
         elif event.type == SUPERVISORS_TASK:
             self.main_loop.periodic_task()
 

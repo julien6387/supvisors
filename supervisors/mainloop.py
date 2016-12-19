@@ -17,14 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
-import threading
 import time
 import zmq
 
-from Queue import Empty, PriorityQueue, Queue
+from Queue import Empty, Queue
+from threading import Thread
 
-from supervisors.utils import (EventHeaders, SUPERVISORS_EVENT, 
-    SUPERVISORS_TASK, supervisors_short_cuts)
+from supervisors.utils import EventHeaders, supervisors_short_cuts
 
 
 class EventSubscriber(object):
@@ -65,7 +64,7 @@ class EventSubscriber(object):
         self.socket.close()
 
 
-class SupervisorsMainLoop(threading.Thread):
+class SupervisorsMainLoop(Thread):
     """ Class for Supervisors main loop. All inputs are sequenced here.
 
     Attributes:
@@ -77,12 +76,12 @@ class SupervisorsMainLoop(threading.Thread):
     def __init__(self, supervisors):
         """ Initialization of the attributes. """
         # thread attributes
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         # shortcuts
         self.supervisors = supervisors
-        supervisors_short_cuts(self, ['fsm', 'logger', 'statistician'])
+        supervisors_short_cuts(self, ['fsm', 'logger', 'pool', 'statistician'])
         # create queues for internal comminucation
-        self.event_queue = PriorityQueue()
+        self.event_queue = Queue()
         self.address_queue = Queue()
         # ZMQ context definition
         self.zmq_context = zmq.Context.instance()
@@ -114,19 +113,11 @@ class SupervisorsMainLoop(threading.Thread):
         # register event subscriber
         poller.register(self.subscriber.socket, zmq.POLLIN) 
         timer_event_time = time.time()
-        # get the proxy of the local Supervisor for XML-RPC
-        client, supervisor = self.supervisors.requester.supervisor_proxy("localhost")
         # poll events every seconds
         self.loop = True
         while self.loop:
             socks = dict(poller.poll(1000))
             # Need to test loop flag again as its value may have changed in the last second.
-            # WARN: there is a risk of deadlock when shutdown is called by XML-RPC.
-            # Upon reception of the SupervisorStoppingEvent, the loop flag is set to False
-            # and the listener waits for this thread to end.
-            # Unfortunately, there is a chance that the flag is set between the test of the
-            # flag and the use of sendRemoteCommEvent, leading to a deadlock in RPC calls.
-            # A timeout has been set on the thread join to avoid the deadlock.
             if self.loop:
                 # check tick and process events
                 if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
@@ -139,15 +130,13 @@ class SupervisorsMainLoop(threading.Thread):
                         # The events received are not processed directly in this thread because it may conflict
                         # with the Supervisors functions triggered from the Supervisor thread, as they use the
                         # same data. So they are pushed into a PriorityQueue (Tick > Process > Statistics) and
-                        # Supervisors uses a RemoteCommunicationEvent to unstack and process the event from
-                        # the context of the Supervisor thread.
+                        # Supervisors uses an async RemoteCommunicationEvent to unstack and process the event
+                        # from the context of the Supervisor thread.
                         self.event_queue.put_nowait(message)
-                        if self.loop:
-                            supervisor.sendRemoteCommEvent(SUPERVISORS_EVENT, '')
+                        self.pool.async_event()
                 # check periodic task
                 if timer_event_time + 5 < time.time():
-                    if self.loop:
-                        supervisor.sendRemoteCommEvent(SUPERVISORS_TASK, '')
+                    self.pool.async_task()
                     # set date for next task
                     timer_event_time = time.time()
                 # check isolation of addresses
@@ -160,10 +149,11 @@ class SupervisorsMainLoop(threading.Thread):
                     # disconnect isolated addresses from sockets
                     self.subscriber.disconnect(addresses)
         self.logger.info('exiting main loop')
+        # close resources gracefully
         self.close()
 
     def unstack_event(self):
-        """ Unstack and process one event from the PriorityQueue. """
+        """ Unstack and process one event from the event queue. """
         event_type, event_address, event_data = self.event_queue.get_nowait()
         if event_type == EventHeaders.TICK:
             self.logger.blather('got tick message from {}: {}'.format(event_address, event_data))
@@ -174,6 +164,11 @@ class SupervisorsMainLoop(threading.Thread):
         elif event_type == EventHeaders.STATISTICS:
             self.logger.blather('got statistics message from {}: {}'.format(event_address, event_data))
             self.statistician.push_statistics(event_address, event_data)
+
+    def unstack_info(self):
+        """ Unstack the process info received. """
+        address_name, info = self.pool.info_queue.get()
+        self.supervisors.context.load_processes(address_name, info)
 
     def periodic_task(self):
         """ Periodic task that mainly checks that addresses are still operating. """

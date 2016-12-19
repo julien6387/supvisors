@@ -47,7 +47,6 @@ sendRequest stop_application database
 sendRequest start_application LESS_LOADED database
 
 # command requests on Supervisor
-# not tested automatically
-# sendRequest sreload
-# sendRequest sshutdown
-
+sendRequest sreload
+sleep 40
+sendRequest sshutdown
