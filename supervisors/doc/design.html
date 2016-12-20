@@ -386,14 +386,20 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 
 				<h3 id="deployment">Deployment</h3>
-				<p>Once the sequence is determined, Supervisors creates a job list and performs the following loop until the deployment is over:</p>
+				<p>Once that Supervisors is ready to work, the starting and stopping sequences are established.<br />
+                Starting and stopping applications follow the same principle.</p>
+
+                <p>To start applications, Supervisors creates a job list and performs the following loop until there is nothing left to do:</p>
 				<ul>
-					<li>for all applications, pop the head group from their sequence</li>
-					<li>for all processes in this group:<ul>
-						<li>find an address, in accordance with the <a href="index.html#supervisors-section" class="intLink">deployment_strategy</a> option</li>
-						<li>send a <code class="python">supervisor.start</code> XML-RPC to the Supervisor located on that address</li>
+					<li>pop the head group of the applications from the starting sequence</li>
+					<li>for all applications in this group:<ul>
+                        <li>pop the head group of the processes</li>
+                        <li>for all processes in this group:<ul>
+                            <li>find an address, in accordance with the <a href="index.html#supervisors-section" class="intLink">deployment_strategy</a> option</li>
+                            <li>send a <code class="python">supervisors.start_args</code> XML-RPC to the Supervisor located on that address</li>
+                        </ul></li>
+                        <li>wait for the processes to be <code>RUNNING</code></li>
 					</ul></li>
-					<li>wait for the processes to be <code>RUNNING</code></li>
 				</ul>
 
 				<p>Whatever the strategy applied, there are common rules to choose an address to start a process:</p>
@@ -409,6 +415,16 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 				The aim is to distribute the process loading among the available hosts.</p>
 				<p>When applying the <code>MOST_LOADED</code> strategy, with respect of the common rules, Supervisors chooses the address in the <a href="index.html#deployment-file" class="intLink">addresses</a> list having the greatest loading sum.<br />
 				The aim is to maximize the load of a host before starting to load another host. This strategy is more interesting when the resources are limited.</p>
+
+                <p>To stop applications, Supervisors creates a job list and performs the following loop until there is nothing left to do:</p>
+				<ul>
+					<li>pop the head group of the applications from the stopping sequence</li>
+					<li>for all applications in this group:<ul>
+                        <li>pop the head group of the processes</li>
+                        <li>for all processes in this group, send a <code class="python">supervisor.stopProcess</code> XML-RPC to the Supervisor located on that address</li>
+                        <li>wait for the processes to be <code>STOPPED</code></li>
+					</ul></li>
+				</ul>
 
 
 				<h3 id="failure">Process Failure</h3>
