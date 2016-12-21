@@ -13,6 +13,25 @@ Supervisors will not run at all under any version of Windows.
 
 Supervisors is known to work with Python 2.7 or later but will not work under any version of Python 3.
 
+Dependencies
+-------------
+
+Supervisors has dependencies on:
+
++ Supervisor 3.3.0
++ ZeroMQ 4.1.2
++ PyZMQ 15.2.0
++ psutil 4.3.0
++ netifaces 0.10.4
++ matplotlib 1.2.0 (optional)
++ lxml 3.2.1 (optional)
+
+Please note that some of these dependencies may have their own dependencies.
+
+Versions are given for information.
+Although Supervisors has been developed and tested with these releases, the minimal release of each dependency is unknown.
+Other releases are likely working as well.
+
 Installation
 -------------
 
