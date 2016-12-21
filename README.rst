@@ -40,7 +40,7 @@ Get the latest release from `here
 Unzip the archive and enter the directory supervisors-*version*.
 
 Install Supervisors with the following command:
-    *python setup.py install*
+python setup.py install
 
 Documentation
 -------------
