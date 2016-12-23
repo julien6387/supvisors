@@ -18,13 +18,23 @@ Dependencies
 
 Supervisors has dependencies on:
 
-+ Supervisor 3.3.0
-+ ZeroMQ 4.1.2
-+ PyZMQ 15.2.0
-+ psutil 4.3.0
-+ netifaces 0.10.4
-+ matplotlib 1.2.0 (optional)
-+ lxml 3.2.1 (optional)
++------------+------------+------------+
+| Package    | Release    | Optional   |
++============+============+============+
+| Supervisor | 3.3.0      |            |
++------------+------------+------------+
+| ZeroMQ     | 4.1.2      |            |
++------------+------------+------------+
+| PyZMQ      | 15.2.0     |            |
++------------+------------+------------+
+| psutil     | 4.3.0      |            |
++------------+------------+------------+
+| netifaces  | 0.10.4     |            |
++------------+------------+------------+
+| matplotlib | 1.2.0      |     X      |
++------------+------------+------------+
+| lxml       | 3.2.1      |     X      |
++------------+------------+------------+
 
 Please note that some of these dependencies may have their own dependencies.
 
@@ -37,10 +47,11 @@ Installation
 
 Get the latest release from `here
 <https://github.com/julien6387/supervisors/releases>`_.
+
 Unzip the archive and enter the directory supervisors-*version*.
 
 Install Supervisors with the following command:
-python setup.py install
+    ``python setup.py install``
 
 Documentation
 -------------

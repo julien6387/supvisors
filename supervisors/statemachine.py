@@ -91,7 +91,7 @@ class DeploymentState(AbstractState):
             self.supervisors.starter.start_applications(self.context.applications.values())
 
     def next(self):
-        if self.supervisors.starter.check_starting():
+        if not self.context.master or self.supervisors.starter.check_starting():
                 return SupervisorsStates.CONCILIATION if self.context.conflicting() else SupervisorsStates.OPERATION
         return SupervisorsStates.DEPLOYMENT
 

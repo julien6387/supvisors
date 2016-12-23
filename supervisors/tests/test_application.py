@@ -58,12 +58,16 @@ class ApplicationTest(unittest.TestCase):
         application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         self.assertFalse(application.running())
         # add a stopped process
-        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.supervisors)
+        info = any_stopped_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         application.add_process(process)
         application.update_status()
         self.assertFalse(application.running())
         # add a running process
-        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.supervisors)
+        info = any_running_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         application.add_process(process)
         application.update_status()
         self.assertTrue(application.running())
@@ -75,12 +79,16 @@ class ApplicationTest(unittest.TestCase):
         application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         self.assertTrue(application.stopped())
         # add a stopped process
-        process = ProcessStatus('10.0.0.1', any_stopped_process_info(), self.supervisors)
+        info = any_stopped_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         application.add_process(process)
         application.update_status()
         self.assertTrue(application.stopped())
         # add a running process
-        process = ProcessStatus('10.0.0.1', any_running_process_info(), self.supervisors)
+        info = any_running_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         application.add_process(process)
         application.update_status()
         self.assertFalse(application.stopped())
@@ -111,7 +119,9 @@ class ApplicationTest(unittest.TestCase):
         from supervisors.process import ProcessStatus
         application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add a process to the application
-        process = ProcessStatus('10.0.0.1', any_process_info(), self.supervisors)
+        info = any_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         application.add_process(process)
         # check that process is stored
         self.assertIn(process.process_name, application.processes.keys())
@@ -124,7 +134,8 @@ class ApplicationTest(unittest.TestCase):
         application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add processes to the application
         for info in ProcessInfoDatabase:
-            process = ProcessStatus('10.0.0.1', info.copy(), self.supervisors)
+            process = ProcessStatus(info['group'], info['name'], self.supervisors)
+            process.add_info('10.0.0.1', info.copy())
             # set random sequence to process
             process.rules.start_sequence = random.randint(0, 2)
             process.rules.stop_sequence = random.randint(0, 2)
@@ -155,7 +166,8 @@ class ApplicationTest(unittest.TestCase):
         application = ApplicationStatus('ApplicationTest', self.supervisors.logger)
         # add processes to the application
         for info in ProcessInfoDatabase:
-            process = ProcessStatus('10.0.0.1', info.copy(), self.supervisors)
+            process = ProcessStatus(info['group'], info['name'], self.supervisors)
+            process.add_info('10.0.0.1', info.copy())
             application.add_process(process)
         # init status
         # there are lots of states but the 'strongest' is STARTING

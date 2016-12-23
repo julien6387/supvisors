@@ -21,7 +21,7 @@ import sys
 import unittest
 
 from supervisors.tests.base import (DummyLogger, DummySupervisors,
-    any_process_info, any_stopped_process_info, any_running_process_info,
+    any_process_info, any_stopped_process_info,
     process_info_by_name, any_process_info_by_state)
 
 
@@ -143,58 +143,21 @@ class ProcessTest(unittest.TestCase):
         """ Test the values set at construction. """
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessRules, ProcessStatus
-        # test with stopped process
         info = any_stopped_process_info()
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
         # check application default attributes
         self.assertIs(self.supervisors, process.supervisors)
         self.assertEqual(info['group'], process.application_name)
         self.assertEqual(info['name'], process.process_name)
-        self.assertEqual(info['state'], process.state)
-        self.assertEqual(not info['spawnerr'], process.expected_exit)
-        self.assertEqual(info['now'], process.last_event_time)
-        self.assertFalse(process.mark_for_restart)
-        self.assertFalse(process.ignore_wait_exit)
-        self.assertFalse(process.addresses)
-        self.assertListEqual(['10.0.0.1'], process.infos.keys())
-        process_info = process.infos['10.0.0.1']
-        self.assertEqual(process_info['event_time'], process_info['now'])
-        self.assertEqual(0, process_info['pid'])
-        # test with running process
-        info = any_running_process_info()
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
-        # check application default attributes
-        self.assertIs(self.supervisors, process.supervisors)
-        self.assertEqual(info['group'], process.application_name)
-        self.assertEqual(info['name'], process.process_name)
-        self.assertEqual(info['state'], process.state)
+        self.assertEqual(ProcessStates.UNKNOWN, process.state)
         self.assertTrue(process.expected_exit)
-        self.assertEqual(info['now'], process.last_event_time)
+        self.assertIsNone(process.last_event_time)
         self.assertFalse(process.mark_for_restart)
-        self.assertFalse(process.ignore_wait_exit)
-        self.assertSetEqual({'10.0.0.1'}, process.addresses)
-        self.assertListEqual(['10.0.0.1'], process.infos.keys())
-        process_info = process.infos['10.0.0.1']
-        self.assertEqual(process_info['event_time'], process_info['now'])
-        self.assertLessEqual(0, process_info['pid'])
-        # test with one STOPPING
-        info = any_process_info_by_state(ProcessStates.STOPPING)
-        process = ProcessStatus('10.0.0.1', info.copy(), self.supervisors)
-        # check application default attributes
-        self.assertIs(self.supervisors, process.supervisors)
-        self.assertEqual(info['group'], process.application_name)
-        self.assertEqual(info['name'], process.process_name)
-        self.assertEqual(info['state'], process.state)
-        self.assertEqual(not info['spawnerr'], process.expected_exit)
-        self.assertEqual(info['now'], process.last_event_time)
-        self.assertFalse(process.mark_for_restart)
-        self.assertFalse(process.ignore_wait_exit)
         self.assertFalse(process.addresses)
-        self.assertListEqual(['10.0.0.1'], process.infos.keys())
-        process_info = process.infos['10.0.0.1']
-        self.assertEqual(process_info['event_time'], process_info['now'])
-        self.assertLessEqual(0, process_info['pid'])
-        # rules part (independent from state)
+        self.assertFalse(process.infos)
+        self.assertEqual('', process.extra_args)
+        self.assertFalse(process.ignore_wait_exit)
+        # rules part
         self.assertDictEqual(ProcessRules(self.supervisors.logger).__dict__, process.rules.__dict__)
 
     def test_namespec(self):
@@ -202,11 +165,11 @@ class ProcessTest(unittest.TestCase):
         from supervisors.process import ProcessStatus
         # test namespec when group and name are different
         info = process_info_by_name('segv')
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
         self.assertEqual('crash:segv', process.namespec())
         # test namespec when group and name are identical
         info = process_info_by_name('firefox')
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
         self.assertEqual('firefox', process.namespec())
 
     def test_stopped_running(self):
@@ -214,13 +177,17 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # test with STOPPED process
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPED)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertTrue(process.stopped())
         self.assertFalse(process.running())
         self.assertFalse(process.running_on('10.0.0.1'))
         self.assertFalse(process.pid_running_on('10.0.0.1'))
         # test with BACKOFF process
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.BACKOFF), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.BACKOFF)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.stopped())
         self.assertTrue(process.running())
         self.assertTrue(process.running_on('10.0.0.1'))
@@ -228,7 +195,9 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.pid_running_on('10.0.0.1'))
         self.assertFalse(process.pid_running_on('10.0.0.2'))
         # test with RUNNING process
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.RUNNING), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.RUNNING)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.stopped())
         self.assertTrue(process.running())
         self.assertTrue(process.running_on('10.0.0.1'))
@@ -236,7 +205,9 @@ class ProcessTest(unittest.TestCase):
         self.assertTrue(process.pid_running_on('10.0.0.1'))
         self.assertFalse(process.pid_running_on('10.0.0.2'))
         # test with STOPPING process
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPING), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPING)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.stopped())
         self.assertFalse(process.running())
         self.assertFalse(process.running_on('10.0.0.1'))
@@ -249,7 +220,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # when there is only one STOPPED process info, there is no conflict
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPED)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.conflicting())
         # the addition of a running address, still no conflict
         process.addresses.add('10.0.0.2')
@@ -268,7 +241,8 @@ class ProcessTest(unittest.TestCase):
         from supervisors.process import ProcessStatus
         # test with a STOPPED process
         info = any_process_info_by_state(ProcessStates.STOPPED)
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         json = process.to_json()
         self.assertDictEqual(json, {'application_name': info['group'], 'process_name': info['name'],
             'statecode': 0, 'statename': 'STOPPED',
@@ -287,7 +261,8 @@ class ProcessTest(unittest.TestCase):
         self.assertNotIn('event_time', info)
         self.assertNotIn('local_time', info)
         self.assertNotIn('uptime', info)
-        process = ProcessStatus('10.0.0.1', info, self.supervisors)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         # check contents
         self.assertEqual(1, len(process.infos))
         self.assertIs(info, process.infos['10.0.0.1'])
@@ -327,7 +302,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # add a STOPPED process infos into a process status
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPED)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertFalse(process.addresses)
@@ -424,7 +401,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # add 2 process infos into a process status
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPING), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPING)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
         # get their time values
         now_1 = process.infos['10.0.0.1']['now']
@@ -475,7 +454,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # create conflict directly with 3 process info
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.BACKOFF), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.BACKOFF)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.RUNNING))
         process.add_info('10.0.0.3', any_process_info_by_state(ProcessStates.STARTING))
         # check the conflict
@@ -525,7 +506,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # update_status is called in the construction
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPED)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertTrue(process.expected_exit)
@@ -571,7 +554,9 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supervisors.process import ProcessStatus
         # when there is only one STOPPED process info, there is no conflict
-        process = ProcessStatus('10.0.0.1', any_process_info_by_state(ProcessStates.STOPPED), self.supervisors)
+        info = any_process_info_by_state(ProcessStates.STOPPED)
+        process = ProcessStatus(info['group'], info['name'], self.supervisors)
+        process.add_info('10.0.0.1', info)
         self.assertFalse(process.evaluate_conflict())
         self.assertEqual(ProcessStates.STOPPED, process.state)
         # the addition of one RUNNING process info does not raise any conflict

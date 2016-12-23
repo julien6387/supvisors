@@ -46,8 +46,7 @@ def async_remote_comm_event(type_event):
     try:
         SupervisorsPool.proxy.supervisor.sendRemoteCommEvent(type_event, '')
     except:
-        import sys
-        print '### JLC', sys.exc_info()[0]
+        pass
 
 def async_get_all_process_info(address_name, env, queue):
     """ Get all process info asynchronously. """
@@ -56,8 +55,7 @@ def async_get_all_process_info(address_name, env, queue):
         queue.put((address_name, proxy.supervisor.getAllProcessInfo()))
         async_remote_comm_event(SUPERVISORS_INFO)
     except:
-        import sys
-        print '### JLC', sys.exc_info()[0]
+        pass
 
 
 class SupervisorsPool:

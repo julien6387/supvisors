@@ -217,13 +217,13 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td><span class="option">conciliation_strategy</span></td>
 							<td>no</td>
 							<td>USER</td>
-							<td>Strategy used to solve conflicts when detected when multiple instances of the same program are <code>RUNNING</code>.<br />Value in { <code>SENICIDE</code>, <code>INFANTICIDE</code>, <code>USER</code>, <code>STOP</code>, <code>RESTART</code> } <a href="#conciliation-note" class="intLink">details</a>.</td>
+							<td>Strategy used to solve conflicts upon detection that multiple instances of the same program are <code>RUNNING</code>.<br />Value in { <code>SENICIDE</code>, <code>INFANTICIDE</code>, <code>USER</code>, <code>STOP</code>, <code>RESTART</code> } <a href="#conciliation-note" class="intLink">details</a>.</td>
 						</tr>
 						<tr>
 							<td colspan="4" class="tableInfo">Supervisors options for the web page</td>
 						</tr>
 						<tr>
-							<td><span class="option">stats_period</span></td>
+							<td><span class="option">stats_periods</span></td>
 							<td>no</td>
 							<td>10</td>
 							<td>List of periods for which the statistics will be provided in the Supervisors web page.<br />Up to 3 values allowed in [5 ; 3600] seconds, each of them MUST be a multiple of 5.</td>
@@ -400,7 +400,7 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<ul>
 								<li>a subset of <a href="#supervisors-section" class="intLink">addresslist</a>,</li>
 								<li>'*': stands for all values in <a href="#supervisors-section" class="intLink">addresslist</a>.</li>
-								<li>'#': <span class="not-implemented-yet"></span>only applicable to a pattern, intended to a program that is meant to be started on each address in the address list.</li></ul></td>
+								<li>'#': applicable to a pattern, intended to a program that is meant to be started on each address in the address list.</li></ul></td>
 						</tr>
 						<tr>
 							<td><span class="option">required</span></td>
@@ -409,8 +409,7 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 							<td>false</td>
 							<td>Importance of the program for the application.<br />
 							If true (resp. false), a failure of the program is considered major (resp. minor).<br />
-							This is quite informative and is mainly used to give the operational status of the application.<br />
-							TBC: However, in case of warm restart, it also gives a priority for restarting processes, i.e. required processes are always restarted before 'optional' processes.</td>
+							This is quite informative and is mainly used to give the operational status of the application.</td>
 						</tr>
 						<tr>
 							<td><span class="option">start_sequence</span></td>
@@ -449,11 +448,8 @@ supervisor.ctl_factory = supervisors.supervisorsctl:make_supervisors_controller_
 
 				<div class="note">
 					<p>Note about the use of '#' in <span class="option">addresses</span><p>
-					<p>In the program configuration file, it is expected that:</p>
-					<ol>
-						<li>the <code class="ini">numprocs</code> value corresponds to the number of elements in <a href="#supervisors-section" class="intLink">addresslist</a>.</li>
-						<li>the <code class="ini">numprocs_start</code> value is 0 (default value).</li>
-					</ol>
+					<p>In the program configuration file, it is expected that the <code class="ini">numprocs</code> value corresponds
+                    to the number of elements in <a href="#supervisors-section" class="intLink">addresslist</a>.</li>
 				</div>
 
 				<p>Here follows an example of model:</p>
