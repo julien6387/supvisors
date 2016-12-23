@@ -48,7 +48,7 @@ class AbstractDeploymentStrategy(AbstractStrategy):
         """ Return the report of loading capability of all addresses iaw the additional loading required """
         if '*' in addresses:
             addresses = self.supervisors.address_mapper.addresses
-        loading_validities = { address: self.is_loading_valid(address, expected_loading) for address in addresses }
+        loading_validities = {address: self.is_loading_valid(address, expected_loading) for address in addresses}
         self.logger.trace('loading_validities={}'.format(loading_validities))
         return loading_validities
 

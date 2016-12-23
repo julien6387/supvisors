@@ -40,47 +40,19 @@
 		<start_sequence>2</start_sequence>
 		<stop_sequence>3</stop_sequence>
 
-		<program name="movie_server_01">
-			<addresses>cliche01</addresses>
+		<pattern name="movie_server_">
+			<addresses>#</addresses>
 			<start_sequence>1</start_sequence>
 			<stop_sequence>1</stop_sequence>
             <expected_loading>5</expected_loading>
-        </program>
+        </pattern>
 
-		<program name="movie_server_02">
-			<addresses>cliche02</addresses>
-			<start_sequence>1</start_sequence>
-			<stop_sequence>1</stop_sequence>
-            <expected_loading>5</expected_loading>
-        </program>
-
-		<program name="movie_server_03">
-			<addresses>cliche03</addresses>
-			<start_sequence>1</start_sequence>
-			<stop_sequence>1</stop_sequence>
-            <expected_loading>5</expected_loading>
-        </program>
-
-		<program name="register_movies_01">
-			<addresses>cliche01</addresses>
+		<pattern name="register_movies_">
+			<addresses>#</addresses>
 			<start_sequence>2</start_sequence>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>
-        </program>
-
-		<program name="register_movies_02">
-			<addresses>cliche02</addresses>
-			<start_sequence>2</start_sequence>
-            <wait_exit>true</wait_exit>
-            <expected_loading>25</expected_loading>
-        </program>
-
-		<program name="register_movies_03">
-			<addresses>cliche03</addresses>
-			<start_sequence>2</start_sequence>
-            <wait_exit>true</wait_exit>
-            <expected_loading>25</expected_loading>
-        </program>
+        </pattern>
 
 	</application>
 

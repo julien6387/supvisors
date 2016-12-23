@@ -144,16 +144,14 @@ class Context(object):
                 process = self.process_from_info(info)
             except KeyError:
                 # not found. add new ProcessStatus instance to dictionary and application
-                process = ProcessStatus(address, info, self.supervisors)
+                process = ProcessStatus(info['group'], info['name'], self.supervisors)
                 self.supervisors.parser.load_process_rules(process)
                 self.processes[process.namespec()] = process
                 self.applications[process.application_name].add_process(process)
-            else:
-                # just update the current entry
-                process.add_info(address, info)
-            finally:
-                # share the instance to the Supervisor instance that holds it
-                status.add_process(process)
+            # update the current entry
+            process.add_info(address, info)
+            # share the instance to the Supervisor instance that holds it
+            status.add_process(process)
 
     # methods on events
     def check_address(self, status):

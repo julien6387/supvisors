@@ -98,14 +98,14 @@ class ProcessStatus(object):
     - optional extra arguments to be passed to the command line
     - a status telling if the wait_exit rule is applicable (should be temporary). """
 
-    def __init__(self, address, info, supervisors):
+    def __init__(self, application_name, process_name, supervisors):
         """ Initialization of the attributes. """
         # keep a reference of the Supervisors data
         self.supervisors = supervisors
-        supervisors_short_cuts(self, ['info_source', 'logger'])
+        supervisors_short_cuts(self, ['address_mapper', 'info_source', 'logger', 'options'])
         # attributes
-        self.application_name = info['group']
-        self.process_name = info['name']
+        self.application_name = application_name
+        self.process_name = process_name
         self._state = ProcessStates.UNKNOWN
         self.expected_exit = True
         self.last_event_time = None
@@ -117,8 +117,6 @@ class ProcessStatus(object):
         self.rules = ProcessRules(self.logger)
         self.extra_args = ''
         self.ignore_wait_exit = False
-        # init parameters
-        self.add_info(address, info)
 
     # access
     def namespec(self):
@@ -186,7 +184,11 @@ class ProcessStatus(object):
         self.infos[address] = info
         # update process status
         self.update_status(address, info['state'], info['expected']) 
-
+        # fix address rule
+        if self.rules.addresses == ['#']:
+            if self.address_mapper.addresses.index(address) == self.options.procnumbers[self.process_name]:
+                self.rules.addresses = [address]
+ 
     def update_info(self, address, event):
         """ Update the internal ProcessInfo from event received """
         # do not add process in list while not added through tick
@@ -250,7 +252,7 @@ class ProcessStatus(object):
                 self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # mark process for restart only if autorestart is set in Supervisor's ProcessConfig
-                self.mark_for_restart = self.info_source.autorestart(self.namespec())
+                self.mark_for_restart = self.supervisors.info_source.autorestart(self.namespec())
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.state = ProcessStates.STOPPED

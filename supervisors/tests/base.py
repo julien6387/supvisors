@@ -108,6 +108,13 @@ class DummyInfoSource:
         return True
 
 
+class DummyOptions:
+    """ Simple options with dummy attributes. """
+
+    synchro_timeout = 10
+    conciliation_strategy = 0
+
+
 class DummySupervisors:
     """ Simple supervisors with all dummies. """
 
@@ -120,9 +127,9 @@ class DummySupervisors:
         self.fsm = DummyClass()
         self.info_source = DummyInfoSource()
         self.logger = DummyLogger()
+        self.options = DummyOptions()
         self.requester = DummyClass()
         self.statistician = DummyClass()
-        # TODO: DummyOptions with synchro_timeout, conciliation_strategy
         # TODO: DummyDeployer with deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
         # TODO: DummyPublisher with send_supervisors_status
 

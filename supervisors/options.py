@@ -17,63 +17,90 @@
 # limitations under the License.
 # ======================================================================
 
-import ConfigParser
 from collections import OrderedDict
 from socket import gethostname
 
 from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
-from supervisor.options import Options
+from supervisor.options import ServerOptions
 
 from supervisors.ttypes import ConciliationStrategies, DeploymentStrategies
 
 
 # Options of main section
-class SupervisorsOptions(object):
-    """ Class used to parse the options of the 'supervisors' section in the supervisor configuration file. """
+class SupervisorsOptions(ServerOptions):
+    """ Class used to parse the options of the 'supervisors' section in the supervisor configuration file.
+    
+    Attributes are:
+    - address_list: list of host names or IP addresses where supervisors will be running,
+    - deployment_file: absolute or relative path to the XML deployment file,
+    - internal_port: port number used to publish local events to remote Supervisors instances,
+    - event_port: port number used to publish all Supervisors events,
+    - auto_fence: when True, Supervisors won't try to reconnect to a Supervisors instance that has been inactive,
+    - synchro_timeout: time in seconds that Supervisors waits for all expected Supervisors instances to publish,
+    - conciliation_strategy: strategy used to solve conflicts when Supervisors has detected that multiple instances of the same program are running,
+    - deployment_strategy: strategy used to start applications on addresses,
+    - stats_periods: list of periods for which the statistics will be provided in the Supervisors web page,
+    - stats_histo: depth of statistics history,
+    - logfile: absolute or relative path of the Supervisors log file,
+    - logfile_maxbytes: maximum size of the Supervisors log file,
+    - logfile_backups: number of Supervisors backup log files,
+    - loglevel: logging level,
+
+    - procnumbers: a dictionary giving the number of the program in a homogeneous group,
+
+    - _Section: constant for the name of the Supervisors section in the Supervisor configuration file.
+    """
 
     _Section = 'supervisors'
 
-    def __init__(self, fp=None):
-        self.parser = ConfigParser.RawConfigParser()
-        if fp:
-            # contents provided, parse now
-            self.parse_fp(fp)
-        else:
-            # supervisor Options class used (lazily) to initialize search paths
-            options = Options(True)
-            configfile = options.default_configfile()
-            # parse the contents of the file
-            with open(configfile) as fp:
-                self.parse_fp(fp, configfile)
+    def __init__(self):
+        """ Initialization of the attributes. 
+        Default parameters fit, so realize is called directly. """
+        ServerOptions.__init__(self)
+        self.procnumbers = {}
+        self.realize()
 
-    def parse_fp(self, fp, filename=None):
-        self.parser.readfp(fp, filename)
+    def _processes_from_section(self, parser, section, group_name, klass=None):
+        """ This method is overriden to store the program number of a homogeneous program.
+        This is used in Supervisor to set the real program name from the format defined in the ini file.
+        However, Supervisor does not keep this information in its internal structure. """
+        # call super behaviour
+        programs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
+        # store the number of each program
+        for idx, program in enumerate(programs):
+            self.procnumbers[program.name] = idx
+        # return original result
+        return programs
+
+    def server_configs_from_parser(self, parser):
+        """ The following has nothing to deal with Supervisor's server configurations.
+        It gets Supervisors configuration.
+        Supervisor's ServerOptions has not been designed to be specialized.
+        This method is overriden just to have an access point to the Supervisor parser. """
+        configs = ServerOptions.server_configs_from_parser(self, parser)
         # set section
-        if not self.parser.has_section(self._Section):
-            raise ValueError('section [{}] not found in config file {}'.format(self._Section, filename))
+        if not parser.has_section(self._Section):
+            raise ValueError('section [{}] not found in ini file {}'.format(self._Section))
+        parser.mysection = self._Section
         # get values
-        self.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(self.get_default('address_list', gethostname())))))
-        self.deployment_file = existing_dirpath(self.get_default('deployment_file', ''))
-        self.internal_port = self.to_port_num(self.get_default('internal_port', '65001'))
-        self.event_port = self.to_port_num(self.get_default('event_port', '65002'))
-        self.auto_fence = boolean(self.get_default('auto_fence', 'false'))
-        self.synchro_timeout = self.to_timeout(self.get_default('synchro_timeout', '15'))
-        self.conciliation_strategy = self.to_conciliation_strategy(self.get_default('conciliation_strategy', 'USER'))
-        self.deployment_strategy = self.to_deployment_strategy(self.get_default('deployment_strategy', 'CONFIG'))
+        self.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))))
+        self.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
+        self.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
+        self.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
+        self.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
+        self.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
+        self.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
+        self.deployment_strategy = self.to_deployment_strategy(parser.getdefault('deployment_strategy', 'CONFIG'))
         # configure statistics
-        self.stats_periods = self.to_periods(list_of_strings(self.get_default('stats_periods', '10')))
-        self.stats_histo = self.to_histo(self.get_default('stats_histo', 200))
+        self.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
+        self.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
         # configure logger
-        self.logfile = existing_dirpath(self.get_default('logfile', '{}.log'.format(self._Section)))
-        self.logfile_maxbytes = byte_size(self.get_default('logfile_maxbytes', '50MB'))
-        self.logfile_backups = integer(self.get_default('logfile_backups', 10))
-        self.loglevel = logging_level(self.get_default('loglevel', 'info'))
-
-    def get_default(self, option, default_value):
-        try:
-            return self.parser.get(self._Section, option)
-        except ConfigParser.NoOptionError:
-            return default_value
+        self.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(self._Section)))
+        self.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
+        self.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
+        self.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
+        # return original result
+        return configs
 
     # conversion utils (completion of supervisor.datatypes)
     @staticmethod

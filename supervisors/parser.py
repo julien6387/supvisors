@@ -133,7 +133,12 @@ class Parser(object):
         if value:
             # sort and trim
             addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            rules.addresses = [ '*' ] if '*' in addresses else self.supervisors.address_mapper.filter(addresses)
+            if '*' in addresses:
+                rules.addresses = [ '*' ]
+            elif '#' in addresses:
+                rules.addresses = [ '#' ]
+            else:
+                self.supervisors.address_mapper.filter(addresses)
 
     def get_program_element(self, process):
         # try to find program name in file
