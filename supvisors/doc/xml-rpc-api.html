@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/doc_style.css">
+    <link rel="stylesheet" href="css/menu.css">
+    <title>Supvisors: A Control System for Distributed Applications</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+				<h1><a href="https://github.com/julien6387/supvisors" target="_blank">Supvisors</a></h1>
+				<p class="version">0.1beta</p>
+			</header>
+
+			<nav>
+				<ul>
+	 				<li><a href="index.html">Introduction</a></li>
+                    <li><a href="xml-rpc-api.html" class="active">XML-RPC API</a><ul>
+               	        <li><a href="#status">Status</a></li>
+               	        <li><a href="#supvisors">Supvisors Control</a></li>
+                        <li><a href="#application">Application Control</a></li>
+                        <li><a href="#process">Process Control</a></li>
+                        <li><a href="#clients">XML-RPC Clients</a><ul>
+                            <li><a href="#py-client">Python Client</a></li>
+                            <li><a href="#java-client">JAVA Client</a></li>
+                            <li><a href="#cpp-client">C++ Client</a></li>
+                        </ul></li>
+                    </ul></li>
+                    <li><a href="supervisorctl-api.html">supervisorctl API</a></li>
+                    <li><a href="event-interface.html">Event Interface</a></li>
+                    <li><a href="dashboard.html">HTTP Dashboard</a></li>
+                    <li><a href="design.html">Software Design</a></li>
+                </ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&eacute;ach</a></p>
+				<p id="copyright">&copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+				<h2>Documentation &raquo; XML-RPC API</h2>
+			</header>
+
+			<section id="doc-contents">
+				<p>The Supvisors XML-RPC API is an extension of the Supervisor API.<br />
+				Detailed information can be found in the <a href="http://supervisord.org/api.html#xml-rpc-api-documentation" class="extLink">Supervisor XML-RPC API Documentation</a>.</p>
+				<p>The <strong>supvisors</strong> namespace has been added to the supervisord XML-RPC interface.</p>
+				<p>The XML-RPC <code class="python">system.listMethods</code> API now provides the list of methods supported for both Supervisor and Supvisors.<br />
+				An example is provided below.</p>
+				<pre><code class="python">server.supvisors.getState()</code></pre>
+
+				<p>In the following, the <em>namespec</em> refers to the full name of the process, including the application name.<br />
+				For example: <code>X11:xclock</code>, where 'X11' is the name of a Supervisor group and 'xclock' is the name of a Supervisor program that is referenced in the group.<br />
+				In some cases, it can also refer to all the programs of the group: <code>X11:*</code>.</p>
+
+
+				<h2 id="status">Status</h2>
+				<dl>
+					<dt>get_api_version()</dt>
+					<dd>Return the version of the RPC API used by Supvisors</dd>
+					<dd>@return string: the version id</dd>
+
+					<dt>get_supvisors_state()</dt>
+					<dd>Return the state of Supvisors</dd>
+					<dd>@return struct: a structure containing data about the Supvisors state
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'statecode'</code></td><td>int</td><td>[0;3]</td><td>The state of Supvisors.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td><code>'INITIALIZATION'</code><br /><code>'DEPLOYMENT'</code><br />
+                                <code>'OPERATION'</code><br /><code>'CONCILIATION'</code></td><td>The string state of Supvisors.</td></tr>
+						</table>
+					</dd>
+
+					<dt>get_master_address()</dt>
+					<dd>Return the address of the Supvisors Master</dd>
+					<dd>@return string: the IPv4 address or host name</dd>
+
+					<dt>get_address_info(address)</dt>
+					<dd>Return information about a remote supervisord managed in Supvisors and running on address</dd>
+					<dd>@param string address: the address of the Supvisors instance</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_ADDRESS</code> if address is unknown to Supvisors
+					<dd>@return struct: a structure containing data about the Supvisors instances
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'address_name'</code></td><td>str</td><td></td><td></td><td>Address of the Supvisors instance.</td></tr>
+							<tr><td><code>'statecode'</code></td><td>int</td><td></td><td>[0;4]</td><td>State of the Supvisors instance.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'RUNNING'</code><br /><code>'SILENT'</code><br /><code>'ISOLATING'</code><br /><code>'ISOLATED'</code></td><td>State of the Supvisors instance.</td></tr>
+							<tr><td><code>'remote_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supvisors instance, in the remote reference time.</td></tr>
+							<tr><td><code>'local_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supvisors instance, in the local reference time.</td></tr>
+							<tr><td><code>'loading'</code></td><td>int</td><td>%</td><td>[0;100]</td><td>Sum of the expected loading of the processes running on the address.</td></tr>
+						</table>
+					</dd>
+
+					<dt>get_all_addresses_info()</dt>
+					<dd>Return information about all remote supervisord managed in Supvisors</dd>
+					<dd>@return list: a list of structures containing data about all remote Supvisors instances</dd>
+
+					<dt>get_application_info(application_name)</dt>
+					<dd>Return information about the application named application_name</dd>
+					<dd>@param string application_name: the name of the application</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code></li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supvisors</li>
+					</ul></dd>
+					<dd>@return struct: a structure containing data about the application
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'application_name'</code></td><td>str</td><td></td><td></td><td>Name of the application.</td></tr>
+							<tr><td><code>'statecode'</code></td><td>int</td><td></td><td>[0;4]</td><td>State of the application.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'STOPPED'</code><br />
+                                <code>'STARTING'</code><br /><code>'STOPPING'</code><br /><code>'RUNNING'</code></td><td>State of the application, as string.</td></tr>
+							<tr><td><code>'major_failure'</code></td><td>bool</td><td></td><td></td><td>True if at least one required process is not started.</td></tr>
+							<tr><td><code>'minor_failure'</code></td><td>bool</td><td></td><td></td><td>True if at least one optional process could not be started.</td></tr>
+						</table>
+					</dd>
+
+					<dt>get_all_applications_info()</dt>
+					<dd>Return information about all applications managed in Supvisors.</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>.</dd>
+					<dd>@return list: a list of structures containing data about all applications.</dd>
+
+					<dt>get_process_info(namespec)</dt>
+					<dd>Return information about the process named namespec.<br />
+					It is a complement of supervisor ProcessInfo by telling where the process is running.</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*').</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>,</li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors.</li>
+					</ul></dd>
+					<dd>@return list: a list of structures containing data about the processes.
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'application_name'</code></td><td>str</td><td></td><td></td><td>Name of the process' application.</td></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Name of the process.</td></tr>
+							<tr><td><code>'state'code</code></td><td>int</td><td></td><td>{0, 10, 20,<br />30, 40, 100,<br />200, 1000}</td><td>State of the process.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td></td><td><code>'STOPPED'</code><br /><code>'STARTING'</code><br />
+                                <code>'RUNNING'</code><br /><code>'BACKOFF'</code><br /><code>'STOPPING'</code><br /><code>'EXITED'</code><br />
+                                <code>'FATAL'</code><br /><code>'UNKNOWN'</code></td><td>State of the process.</td></tr>
+							<tr><td><code>'addresses'</code></td><td>list(str)</td><td></td><td></td><td>List of all addresses where the process is running.<br />
+							If more than one element in list, consider that a conflict is in progress.</td></tr>
+						</table>
+					</dd>
+
+					<dt>get_all_process_info()</dt>
+					<dd>Return information about all processes managed in Supvisors.</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>.</dd>
+					<dd>@return list: a list of structures containing data about all processes.</dd>
+
+					<dt>get_process_rules(namespec)</dt>
+					<dd>Return the rules used to deploy the process named namespec</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors</dd>
+					<dd>@return list: a list of structures containing data about the deployment rules
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'addresses'</code></td><td>list(str)</td><td></td><td></td><td>List of all addresses where the process can be started.</td></tr>
+							<tr><td><code>'start_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Starting order of the process when starting the related application.</td></tr>
+							<tr><td><code>'stop_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Stopping order of the process when stopping the related application.</td></tr>
+							<tr><td><code>'required'</code></td><td>bool</td><td></td><td></td><td>Importance of the process in the application.</td></tr>
+							<tr><td><code>'wait_exit'</code></td><td>bool</td><td></td><td></td><td>True if Supvisors has to wait for the process to exit before triggering the next deployment phase.</td></tr>
+							<tr><td><code>'loading'</code></td><td>int</td><td></td><td>[0;100]</td><td>Expected loading of the process when <code>RUNNING</code>.</td></tr>
+						</table>
+					</dd>
+
+					<dt>get_conflicts()</dt>
+					<dd>Return the conflicting processes</dd>
+					<dd>@return list: a list of structures containing data about the conflicting processes
+						<table>
+							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'state'</code></td><td>str</td><td>State of the process.</td></tr>
+							<tr><td><code>'address'</code></td><td>list(str)</td><td>List of all addresses where the process is running.<br />
+							If more than one element in list, consider that a conflict is in progress.</td></tr>
+						</table>
+					</dd>
+				</dl>
+
+
+				<h2 id="supvisors">Supvisors Control</h2>
+				<dl>
+					<dt>restart()</dt>
+					<dd>Restart Supvisors through all remote Supervisor instances</dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>shutdown()</dt>
+					<dd>Shut down Supvisors through all remote Supervisor instances</dd>
+					<dd>@return boolean: always True unless error</dd>
+				</dl>
+
+
+				<h2 id="application">Application Control</h2>
+				<dl>
+					<dt>start_application(strategy, application_name, wait=True)</dt>
+					<dd>Start the processes related to the application named application_name in accordance with the strategy and the rules defined in the deployment file</dd>
+					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
+					<dd>@param string application_name: the name of the application</dd>
+					<dd>@param boolean wait: wait for the application to be fully started</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is not in state <code>OPERATION</code></li>
+						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supvisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supvisors</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if application is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if application could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error or nothing to start</dd>
+
+					<dt>stop_application(application_name, wait=True)</dt>
+					<dd>Stop the running processes related to the application named application_name</dd>
+					<dd>@param string application_name: the name of the application</dd>
+					<dd>@param boolean wait: wait for the application to be fully stopped</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code>
+                        if Supvisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supvisors</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>restart_application(strategy, application_name, wait=True)</dt>
+					<dd>Restart the processes related to the application named application_name in accordance with the strategy and the rules defined in the deployment file</dd>
+					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
+					<dd>@param string application_name: the name of the application</dd>
+					<dd>@param boolean wait: wait for the application to be fully restarted</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is not in state <code>OPERATION</code></li>
+						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supvisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if application_name is unknown to Supvisors</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if application is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if application could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+				</dl>
+
+
+				<h2 id="process">Process Control</h2>
+				<dl>
+					<dt>start_args(namespec, extra_args=None, wait=True)</dt>
+					<dd>Start a process upon request of the Deployer of Supvisors<br />
+        			The behaviour is different from <code class="python">supervisor.startProcess</code> as it sets the process state to FATAL instead of throwing an exception to the RPC client<br />
+                    In addition to that, it is possible to pass extra arguments to the command line</dd>
+					<dd>@param string namespec: the process name</dd>
+					<dd>@param string extra_args: the additional arguments to be passed to the command line</dd>
+					<dd>@param boolean wait: wait for the process to be fully started</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to the local Supervisor</li>
+						<li>with code <code>Faults.BAD_EXTRA_ARGUMENTS</code> if program is required or has a start sequence</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if process could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>start_process(strategy, namespec, extra_args=None, wait=True)</dt>
+					<dd>Start the process named namespec in accordance with the strategy and the rules defined in the deployment file<br />
+                    Additional arguments can be passed to the command line using the extra_ags parameter.<br />
+					WARN: the 'wait_exit' rule is not considered here</dd>
+					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>@param string extra_args: the additional arguments to be passed to the command line</dd>
+					<dd>@param boolean wait: wait for the process to be fully started</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is not in state <code>OPERATION</code></li>
+						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supvisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if process could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>stop_process(namespec, wait=True)</dt>
+					<dd>Stop the process named namespec where it is running</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>@param boolean wait: wait for the process to be fully stopped</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code>
+                        if Supvisors is not in state <code>OPERATION</code> or <code>CONCILIATION</code></li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+
+					<dt>restart_process(strategy, namespec, wait=True)</dt>
+					<dd>Stop the process named namespec where it is running and restart it in accordance with the strategy and the rules defined in the deployment file<br />
+					WARN: the 'wait_exit' rule is not considered here</dd>
+					<dd>@param DeploymentStrategies strategy: the strategy to use for choosing an address</dd>
+					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
+					<dd>@param boolean wait: wait for the process to be fully restarted</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is not in state <code>OPERATION</code></li>
+						<li>with code <code>Faults.BAD_STRATEGY</code> if strategy is unknown to Supvisors</li>
+						<li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors</li>
+						<li>with code <code>Faults.ALREADY_STARTED</code> if process is <code>RUNNING</code></li>
+						<li>with code <code>Faults.ABNORMAL_TERMINATION</code> if process could not be started</li>
+					</ul></dd>
+					<dd>@return boolean: always True unless error</dd>
+				</dl>
+
+
+				<h2 id="clients">XML-RPC Clients</h2>
+				<p>This section explains how to use the XML-RPC API from a Python, JAVA or C++ client.</p>
+
+				<h3 id="py-client">Python Client</h3>
+                <p>There are two possibilities to perform an XML-RPC from a python client.<br />
+                For both methods, it is assumed that the <code>env</code> parameter contains the relevant HTTP configuration, as it would be set for a process spawed by Supervisor.<br />
+                Both methods don't require any additional third party.</p>
+                <p>The first is to use the <code>getRPCInterface</code> of the <code>supervisor.childutils</code> module.<br />
+                This is available in Supervisor but it works only for the local address.</p>
+
+                <pre><code class="python">import os
+from supervisor.childutils import getRPCInterface
+
+proxy = getRPCInterface(os.environ)
+proxy.supervisor.getState()
+proxy.supvisors.get_supvisors_state()</code></pre>
+
+                <p>The second possibility is to use the <code>getRPCInterface</code> of the <code>supvisors.rpcrequests</code> module.<br />
+                This is available in Supvisors and works for all addresses with a Supervisor daemon running with the same HTTP configuration as the local one.</p>
+
+                <pre><code class="python">import os
+from supvisors.rpcrequests import getRPCInterface
+
+proxy = getRPCInterface(address, os.environ)
+proxy.supervisor.getState()
+proxy.supvisors.get_supvisors_state()</code></pre>
+
+				<h3 id="java-client">JAVA Client</h3>
+                <p>There is JAVA client <em>supervisord4j</em> referenced in the <a href="http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor" class="extLink">Supervisor documentation</a>.<br />
+                However, it comes with the following drawbacks, taken from the <em>README.md</em> of <a href="https://github.com/satifanie/supervisord4j" class="extLink">supervisord4j</a>:</p>
+                <ul>
+                    <li>of course, it doesn't include the Supvisors XML-RPC API,</li>
+                    <li>some XML-RPC are not implemented,</li>
+                    <li>some implemented XML-RPC are not tested.</li>
+                </ul>
+
+                <p>Supvisors provides a JAVA client in the <code>client/java</code> directory of the Supvisors installation directory.<br />
+                This classes of the <code>org.supvisors.rpc</code> package implement all XML-RPC of all interfaces (<code>system</code>, <code>supervisor</code> and <code>supvisors</code>).<br />
+                It requires the following additional dependency: <a href="https://ws.apache.org/xmlrpc" class="extLink">Apache XML-RPC</a>.<br />
+                The binary JAR of <code>Apache XML-RPC 3.1.3</code> is available in the <a href="https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3" class="extLink">MAVEN repository</a>.</p>
+
+                <pre><code class="JAVA">import org.supvisors.rpc.*;
+
+// create proxy
+SupervisorXmlRpcClient client = new SupervisorXmlRpcClient("10.0.0.1", 60000, "toto", "p@$$w0rd");
+
+// Supervisor XML-RPC
+SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
+System.out.println(supervisor.getState());
+
+// Supvisors XML-RPC
+SupvisorsXmlRpc supvisors = new SupervisorXmlRpc(client);
+System.out.println(supvisors.getSupvisorsState());</code></pre>
+
+                <h3 id="cpp-client">C++ Client</h3>
+                <p><span class="not-implemented-yet"></span></p>
+
+			</section>
+
+		</div>
+	</div>
+</body>
+</html>
+
