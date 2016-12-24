@@ -23,7 +23,7 @@ import sys
 from setuptools import setup, find_packages
 
 if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
-    msg = ("Supervisors requires Python 2.7 or later but does not work on "
+    msg = ("Supvisors requires Python 2.7 or later but does not work on "
            "any version of Python 3.  You are using version %s.  Please "
            "install using a supported version." % sys.version)
     sys.stderr.write(msg)
@@ -37,7 +37,7 @@ try:
     README = open(os.path.join(here, 'README.rst')).read()
     CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 except:
-    README = """Supervisors is a control system for distributed applications over multiple Supervisor instances. """
+    README = """Supvisors is a control system for distributed applications over multiple Supervisor instances. """
     CHANGES = ''
 
 CLASSIFIERS = [
@@ -54,18 +54,18 @@ CLASSIFIERS = [
     "Topic :: System :: Software Distribution"
 ]
 
-version_txt = os.path.join(here, 'supervisors/version.txt')
-supervisors_version = open(version_txt).read().split('=')[1].strip()
+version_txt = os.path.join(here, 'supvisors/version.txt')
+supvisors_version = open(version_txt).read().split('=')[1].strip()
 
 dist = setup(
-    name='supervisors',
-    version=supervisors_version,
+    name='supvisors',
+    version=supvisors_version,
     description="A Control System for Distributed Applications",
     long_description=README + '\n\n' + CHANGES,
     classifiers=CLASSIFIERS,
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
-    url="https://github.com/julien6387/supervisors",
+    url="https://github.com/julien6387/supvisors",
     platforms=[
         "CentOS 7.2"
     ],
@@ -74,7 +74,7 @@ dist = setup(
     extras_require={'parse': ['lxml >= 3.2.1']},
     include_package_data=True,
     zip_safe=False,
-    namespace_packages=['supervisors'],
-    test_suite="supervisors.tests",
+    namespace_packages=['supvisors'],
+    test_suite="supvisors.tests",
 )
 

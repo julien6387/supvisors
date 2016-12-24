@@ -1,7 +1,7 @@
 include CHANGES.txt
 include LICENSE
 include README.rst
-include supervisors/version.txt
-graft supervisors/doc
-graft supervisors/ui
+include supvisors/version.txt
+graft supvisors/doc
+graft supvisors/ui
 
