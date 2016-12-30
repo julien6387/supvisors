@@ -161,7 +161,8 @@
 					<dd>@return list: a list of structures containing data about the deployment rules
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
-							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Namespec of the process.</td></tr>
+							<tr><td><code>'application_name'</code></td><td>str</td><td></td><td></td><td>Name of the process' application.</td></tr>
+							<tr><td><code>'process_name'</code></td><td>str</td><td></td><td></td><td>Name of the process.</td></tr>
 							<tr><td><code>'addresses'</code></td><td>list(str)</td><td></td><td></td><td>List of all addresses where the process can be started.</td></tr>
 							<tr><td><code>'start_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Starting order of the process when starting the related application.</td></tr>
 							<tr><td><code>'stop_sequence'</code></td><td>int</td><td></td><td>[0;127]</td><td>Stopping order of the process when stopping the related application.</td></tr>
