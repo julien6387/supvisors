@@ -38,7 +38,7 @@ class RPCInterface(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'info_source', 'logger', 'requester'])
+        supvisors_short_cuts(self, ['context', 'info_source', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     # RPC Status methods
@@ -151,13 +151,13 @@ class RPCInterface(object):
         # TODO: develop a predictive model to check if deployment can be achieved
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
-        done = self.supvisors.starter.start_application(strategy, application)
+        done = self.starter.start_application(strategy, application)
         self.logger.debug('start_application {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
                 # check starter
-                if self.supvisors.starter.in_progress():
+                if self.starter.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.RUNNING:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
@@ -179,13 +179,13 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
         application = self.context.applications[application_name]
-        done = self.supvisors.stopper.stop_application(application)
+        done = self.stopper.stop_application(application)
         self.logger.debug('stop_application {} done={}'.format(application_name, done))
         # wait until application fully STOPPED
         if wait and not done:
             def onwait():
                 # check stopper
-                if self.supvisors.stopper.in_progress():
+                if self.stopper.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.STOPPED:
                     raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
@@ -284,13 +284,13 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= self.supvisors.starter.start_process(strategy, process, extra_args)
+            done &= self.starter.start_process(strategy, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
                 # check starter
-                if self.supvisors.starter.in_progress():
+                if self.starter.in_progress():
                     return NOT_DONE_YET
                 for process in processes:
                     if process.stopped():
@@ -312,19 +312,19 @@ class RPCInterface(object):
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
         # stop all processes
+        done = True
         for process in processes:
-            if process.running():
-                for address in process.addresses:
-                    self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                    self.supvisors.requester.stop_process(address, process.namespec(), False)
-            else:
-                self.logger.info('process {} already stopped'.format(process.namespec()))
+            self.logger.info('stopping process {}'.format(process.namespec()))
+            done &= self.stopper.stop_process(process)
         # wait until processes are in STOPPED_STATES
-        if wait:
+        if wait and not done:
             def onwait():
+                # check stopper
+                if self.stopper.in_progress():
+                    return NOT_DONE_YET
                 for process in processes:
-                    if not process.stopped():
-                        return NOT_DONE_YET
+                    if process.running():
+                        raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec())
                 return True
             onwait.delay = 0.5
             return onwait # deferred
@@ -364,13 +364,13 @@ class RPCInterface(object):
         """ Restart Supvisors through all remote supervisord.
         @return boolean result\tAlways True unless error.
         """
-        return self._send_addresses_func(self.supvisors.requester.restart)
+        return self._send_addresses_func(self.supvisors.pool.async_restart)
 
     def shutdown(self):
         """ Shut down Supvisors through all remote supervisord.
         @return boolean result\tAlways True unless error.
         """
-        return self._send_addresses_func(self.supvisors.requester.shutdown)
+        return self._send_addresses_func(self.supvisors.pool.async_shutdown)
 
 
     # utilities
@@ -432,13 +432,11 @@ class RPCInterface(object):
         for status in self.context.addresses.values():
             if status.address_name != self.address:
                 if status.state == AddressStates.RUNNING:
-                    try:
-                        func(status.address_name)
-                        self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
-                    except RPCError:
-                        self.logger.error('failed to {} supervisord on {}'.format(func.__name__, status.address_name))
+                    func(status.address_name)
+                    self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
                 else:
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, status.address_name, status.state_string()))
         # send request to self supervisord
-        return func(self.address)
+        func(self.address)
+        return True
 

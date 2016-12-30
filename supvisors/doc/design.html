@@ -159,14 +159,15 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 					<tr><td><code class="attributeName">rules</code></td><td>an <code class="className">ApplicationRules</code> instance containing the deployment model of the application, as defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a></td></tr>
 				</table>
 
-				<h4>RemoteStatus</h4>
-				<p>Each local Supvisors instance has its own perception of other remote Supvisors instance. This perception is stored in a class called <code class="className">RemoteStatus</code>.<br />
+				<h4>AddressStatus</h4>
+				<p>Each local Supvisors instance has its own perception of other remote Supvisors instance. This perception is stored in a class called <code class="className">AddressStatus</code>.<br />
 				More particularly, it contains the following information:</p>
 				<table class="modelTable">
-					<tr><th colspan="2"><code class="className">RemoteStatus</code></th></tr>
-					<tr><td><code class="attributeName">address</code></td><td>address of the Supvisors instance</td></tr>
+					<tr><th colspan="2"><code class="className">AddressStatus</code></th></tr>
+					<tr><td><code class="attributeName">address_name</code></td><td>address of the Supvisors instance</td></tr>
 					<tr><td><code class="attributeName">state</code></td><td>state of the Supvisors instance, among:<ul>
 							<li><code>UNKNOWN</code>: not active yet, no heartbeat received in <code>INITIALIZATION</code> state (default).</li>
+							<li><code>CHECKING</code>: port-knocking in progress.</li>
 							<li><code>RUNNING</code>: active, a heartbeat has been received in the last 10 seconds.</li>
 							<li><code>SILENT</code>: inactive, no heartbeat has been received in the last 10 seconds.</li>
 							<li><code>ISOLATING</code>: inactive Supvisors instance is marked for isolation when <a href="index.html#supvisors-section" class="intLink"><span class="option">auto-fencing</span></a> is activated.</li>
@@ -177,8 +178,8 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 				</table>
 
 				<figure>
-					<img src="violet/RemoteStatus.png" alt="RemoteStatus statechart">
-					<figcaption>RemoteStatus statechart</figcaption>
+					<img src="violet/AddressStatus.png" alt="AddressStatus statechart">
+					<figcaption>AddressStatus statechart</figcaption>
 				</figure>
 
 				<p>Every time that a Supvisors instance becomes <code>RUNNING</code>, the local Supvisors instance gets and stores all process information from the Supervisor daemon using the <code class="python"><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getAllProcessInfo" class="extLink">supervisor.getAllProcessInfo</a></code> XML-RPC.</p>
@@ -255,7 +256,7 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<p>In Supvisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found in <a href="index.html#supvisors-section" class="intLink">address_list</a> on the <a href="index.html#supvisors-section" class="intLink">internal_port</a> defined in the Supervisor configuration file.<br />
 				The Supvisors main loop polls the Supvisors events coming from all addresses through this socket with a timeout of one second.<br />
-				Tick events are used to update the status of the <code class="className">RemoteStatus</code> instances.<br />
+				Tick events are used to update the status of the <code class="className">AddressStatus</code> instances.<br />
 				ProcessState events are used to update the status of the <code class="className">ProcessStatus</code> instances and consequently the related <code class="className">ApplicationStatus</code> instances.</p>
 
 				<p>The timeout of the ZeroMQ poller in the Supvisors main loop is used to trigger a periodic task (every 5 seconds). This task is used to check the activity of the Supvisors instances and to trigger the Supvisors Machine State.</p>
@@ -263,14 +264,14 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<h3 id="inactive-addresses">Inactive Addresses</h3>
 				<p>The periodic task performs a verification over all the heartbeat of every Supvisors intances.<br />
-				When the last heartbeat message received is older than 10 seconds, Supvisors set the state of the <code class="className">RemoteStatus</code> instance to:</p>
+				When the last heartbeat message received is older than 10 seconds, Supvisors set the state of the <code class="className">AddressStatus</code> instance to:</p>
 				<ul>
 					<li><code>SILENT</code> if <a href="index.html#supvisors-section" class="intLink">auto-fencing</a> <strong>is not</strong> activated,</li>
 					<li><code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto-fencing</a> <strong>is</strong> activated,</li>
 				</ul>
 				<p>The corresponding address is then removed from all the <code class="attributeName">addresses</code> sets in the <code class="className">ProcessStatus</code> instances, which leads to a temporary inconsistence as the processes may be declared <code>RUNNING</code> nowhere.</p>
 				<p>The next phase consists in restarting the process somewhere else, if possible, using the <a href="#deployment" class="intLink">deployment</a> function of Supvisors.<br />
-				Finally, if the <code class="className">RemoteStatus</code> instance was marked <code>ISOLATING</code>, Supvisors diconnects the corresponding url from the ZeroMQ SUBSCRIBE socket and sets the state to <code>ISOLATED</code>.<br />
+				Finally, if the <code class="className">AddressStatus</code> instance was marked <code>ISOLATING</code>, Supvisors diconnects the corresponding url from the ZeroMQ SUBSCRIBE socket and sets the state to <code>ISOLATED</code>.<br />
 				If the state is <code>SILENT</code>, Supvisors will accept the remote Supvisors instance to come back.</p>
 
 
@@ -289,13 +290,13 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 					<tr><th colspan="2"><code>INITIALIZATION</code> state</th></tr>
 					<tr>
 						<th><img src="img/arrow-right_30.png" alt="entry"></th>
-						<td>The state of all <code class="className">RemoteStatus</code> instances is reset to <code>UNKNOWN</code>.<br />
-						Exception is made for instances that are in <code>ISOLATED</code> state. Once a <code class="className">RemoteStatus</code> instance has been isolated, it is impossible to come back in any other state, so they remain in this state.</td>
+						<td>The state of all <code class="className">AddressStatus</code> instances is reset to <code>UNKNOWN</code>.<br />
+						Exception is made for instances that are in <code>ISOLATED</code> state. Once a <code class="className">AddressStatus</code> instance has been isolated, it is impossible to come back in any other state, so they remain in this state.</td>
 					</tr>
 					<tr>
 						<th><img src="img/reload_30.png" alt="task"></th>
-						<td>Supvisors waits until <a href="index.html#supvisors-section" class="intLink">synchro_timeout</a> seconds for all Supvisors instances to be active. As soon as the related <code class="className">RemoteStatus</code> instances are all <code>RUNNING</code>, Supvisors transitions to <code>DEPLOYMENT</code> state.<br />
-						If some <code class="className">RemoteStatus</code> instances are still in an <code>UNKNOWN</code> state after that delay, Supvisors declares them <code>SILENT</code> (or <code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto_fencing</a> is activated) and transitions to <code>DEPLOYMENT</code> state with a degraded situation.</td>
+						<td>Supvisors waits until <a href="index.html#supvisors-section" class="intLink">synchro_timeout</a> seconds for all Supvisors instances to be active. As soon as the related <code class="className">AddressStatus</code> instances are all <code>RUNNING</code>, Supvisors transitions to <code>DEPLOYMENT</code> state.<br />
+						If some <code class="className">AddressStatus</code> instances are still in an <code>UNKNOWN</code> state after that delay, Supvisors declares them <code>SILENT</code> (or <code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto_fencing</a> is activated) and transitions to <code>DEPLOYMENT</code> state with a degraded situation.</td>
 					</tr>
 					<tr>
 						<th><img src="img/arrow-left_30.png" alt="exit"></th>
@@ -406,7 +407,7 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 				<ul>
 					<li>the address chosen shall be one of the <a href="index.html#supvisors-section" class="intLink">address_list</a> defined in the Supvisors section of the Supervisor configuration file,</li>
 					<li>the address chosen shall be one of the <a href="index.html#deployment-file" class="intLink">addresses</a> defined in the program section of the XML deployment file,</li>
-					<li>the <code class="className">RemoteStatus</code> representing this address shall be in <code>RUNNING</code>state,</li>
+					<li>the <code class="className">AddressStatus</code> representing this address shall be in <code>RUNNING</code>state,</li>
 					<li>the sum of the <a href="index.html#deployment-file" class="intLink">loading</a> values associated to the program considered and to all processes that are currently running on the address considered shall not exceed 100%.</li>
 				</ul>
 

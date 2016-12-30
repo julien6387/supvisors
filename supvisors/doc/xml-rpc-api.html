@@ -90,8 +90,9 @@
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
 							<tr><td><code>'address_name'</code></td><td>str</td><td></td><td></td><td>Address of the Supvisors instance.</td></tr>
-							<tr><td><code>'statecode'</code></td><td>int</td><td></td><td>[0;4]</td><td>State of the Supvisors instance.</td></tr>
-							<tr><td><code>'statename'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'RUNNING'</code><br /><code>'SILENT'</code><br /><code>'ISOLATING'</code><br /><code>'ISOLATED'</code></td><td>State of the Supvisors instance.</td></tr>
+							<tr><td><code>'statecode'</code></td><td>int</td><td></td><td>[0;5]</td><td>State of the Supvisors instance.</td></tr>
+							<tr><td><code>'statename'</code></td><td>str</td><td></td><td><code>'UNKNOWN'</code><br /><code>'CHECKING'</code><br />
+                                <code>'RUNNING'</code><br /><code>'SILENT'</code><br /><code>'ISOLATING'</code><br /><code>'ISOLATED'</code></td><td>State of the Supvisors instance.</td></tr>
 							<tr><td><code>'remote_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supvisors instance, in the remote reference time.</td></tr>
 							<tr><td><code>'local_time'</code></td><td>int</td><td>ms</td><td></td><td>Date of the last heartbeat received from the Supvisors instance, in the local reference time.</td></tr>
 							<tr><td><code>'loading'</code></td><td>int</td><td>%</td><td>[0;100]</td><td>Sum of the expected loading of the processes running on the address.</td></tr>

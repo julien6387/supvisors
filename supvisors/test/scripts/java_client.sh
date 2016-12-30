@@ -11,7 +11,7 @@ ant -f $ANT_FILE run_system_rpc
 # test JAVA supervisor XML-RPC
 ant -f $ANT_FILE run_supervisor_rpc
 
-sleep 60
+sleep 90
 
 # test JAVA supvisors XML-RPC
 ant -f $ANT_FILE run_supvisors_rpc

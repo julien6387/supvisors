@@ -28,7 +28,6 @@ from supvisors.listener import SupervisorListener
 from supvisors.options import SupvisorsOptions
 from supvisors.parser import Parser
 from supvisors.publisher import EventPublisher
-from supvisors.rpcrequests import RpcRequester
 from supvisors.statemachine import FiniteStateMachine
 from supvisors.statistics import StatisticsCompiler
 
@@ -66,8 +65,6 @@ class Supvisors(object):
         self.stopper = Stopper(self)
         # create statistics handler
         self.statistician = StatisticsCompiler(self)
-        # create RPC requester
-        self.requester = RpcRequester(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
         # check parsing

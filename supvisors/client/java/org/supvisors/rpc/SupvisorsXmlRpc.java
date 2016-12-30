@@ -370,7 +370,7 @@ public class SupvisorsXmlRpc {
         System.out.println("### Testing supvisors.startArgs(...) ###");
         System.out.println(supvisors.startArgs("my_movies:converter_01", "-x 3", false));
         System.out.println("### Testing supvisors.startProcess(...) with no extra args ###");
-        System.out.println(supvisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_02", "", false));
+        System.out.println(supvisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.restartProcess(...) with no extra args ###");
         System.out.println(supvisors.restartProcess(DeploymentStrategy.CONFIG, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.stopProcess(...) ###");

@@ -23,15 +23,17 @@ import zmq
 from Queue import Empty, Queue
 from threading import Thread
 
-from supvisors.utils import EventHeaders, supvisors_short_cuts
-
+from supvisors.rpcrequests import getRPCInterface
+from supvisors.utils import (supvisors_short_cuts,
+    SUPVISORS_EVENT, SUPVISORS_TASK)
 
 class EventSubscriber(object):
     """ Class for subscription to Listener events.
 
     Attributes:
-    - supvisors: a reference to the Supvisors context,
-    - socket: the PyZMQ subscriber. """
+        - supvisors: a reference to the Supvisors context,
+        - socket: the PyZMQ subscriber.
+    """
 
     def __init__(self, supvisors, zmq_context):
         """ Initialization of the attributes. """
@@ -68,10 +70,11 @@ class SupvisorsMainLoop(Thread):
     """ Class for Supvisors main loop. All inputs are sequenced here.
 
     Attributes:
-    - supvisors: a reference to the Supvisors context,
-    - zmq_context: the ZeroMQ context used to create sockets,
-    - subscriber: the event subscriber,
-    - loop: the infinite loop flag. """
+        - supvisors: a reference to the Supvisors context,
+        - zmq_context: the ZeroMQ context used to create sockets,
+        - subscriber: the event subscriber,
+        - loop: the infinite loop flag.
+    """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -79,26 +82,22 @@ class SupvisorsMainLoop(Thread):
         Thread.__init__(self)
         # shortcuts
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['fsm', 'logger', 'pool', 'statistician'])
-        # create queues for internal comminucation
+        supvisors_short_cuts(self, ['info_source', 'logger'])
+        # create queues for internal communication
         self.event_queue = Queue()
         self.address_queue = Queue()
         # ZMQ context definition
-        self.zmq_context = zmq.Context.instance()
+        self.zmq_context = zmq.Context()
         self.zmq_context.setsockopt(zmq.LINGER, 0)
-        # create event sockets
+        # create event socket
         self.subscriber = EventSubscriber(supvisors, self.zmq_context)
-        supvisors.publisher.open(self.zmq_context)
 
     def close(self):
         """ This method closes the resources. """
-        # close the ZeroMQ sockets
-        self.supvisors.publisher.close()
+        # close the event socket
         self.subscriber.close()
-        # close zmq context
+        # close ZMQ context
         self.zmq_context.term()
-        # finally, close logger
-        self.logger.close()
 
     def stop(self):
         """ Request to stop the infinite loop by resetting its flag. """
@@ -107,7 +106,10 @@ class SupvisorsMainLoop(Thread):
 
     # main loop
     def run(self):
-        """ Contents of the infinite loop. """
+        """ Contents of the infinite loop.
+        Do NOT use logger here. """
+        # create a xml-rpc client to the local Supervisor instance
+        proxy = getRPCInterface('localhost', self.info_source.get_env())
         # create poller
         poller = zmq.Poller()
         # register event subscriber
@@ -116,27 +118,34 @@ class SupvisorsMainLoop(Thread):
         # poll events every seconds
         self.loop = True
         while self.loop:
-            socks = dict(poller.poll(1000))
+            socks = dict(poller.poll(500))
             # Need to test loop flag again as its value may have changed in the last second.
             if self.loop:
                 # check tick and process events
                 if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
-                    self.logger.blather('got message on event subscriber')
                     try:
                         message = self.subscriber.receive()
-                    except Exception, e:
-                        self.logger.warn('failed to get data from subscriber: {}'.format(e.message))
+                    except:
+                        # failed to get data from subscriber
+                        pass
                     else:
-                        # The events received are not processed directly in this thread because it may conflict
-                        # with the Supvisors functions triggered from the Supervisor thread, as they use the
-                        # same data. So they are pushed into a PriorityQueue (Tick > Process > Statistics) and
-                        # Supvisors uses an async RemoteCommunicationEvent to unstack and process the event
-                        # from the context of the Supervisor thread.
+                        # The events received are not processed directly in this thread because it may conflict with
+                        # the Supvisors functions triggered from the Supervisor thread, as they use the same data.
+                        # That's why they are pushed into a Queue and Supvisors uses a RemoteCommunicationEvent
+                        # to process the event in the Supervisor thread.
                         self.event_queue.put_nowait(message)
-                        self.pool.async_event()
+                        try:
+                            proxy.supervisor.sendRemoteCommEvent(SUPVISORS_EVENT, '')
+                        except:
+                            # can happen on restart / shutdown. nothing left to do
+                            pass
                 # check periodic task
                 if timer_event_time + 5 < time.time():
-                    self.pool.async_task()
+                    try:
+                        proxy.supervisor.sendRemoteCommEvent(SUPVISORS_TASK, '')
+                    except:
+                        # can happen on restart / shutdown. nothing left to do
+                        pass
                     # set date for next task
                     timer_event_time = time.time()
                 # check isolation of addresses
@@ -148,32 +157,6 @@ class SupvisorsMainLoop(Thread):
                 else:
                     # disconnect isolated addresses from sockets
                     self.subscriber.disconnect(addresses)
-        self.logger.info('exiting main loop')
         # close resources gracefully
+        poller.unregister(self.subscriber.socket)
         self.close()
-
-    def unstack_event(self):
-        """ Unstack and process one event from the event queue. """
-        event_type, event_address, event_data = self.event_queue.get_nowait()
-        if event_type == EventHeaders.TICK:
-            self.logger.blather('got tick message from {}: {}'.format(event_address, event_data))
-            self.fsm.on_tick_event(event_address, event_data)
-        elif event_type == EventHeaders.PROCESS:
-            self.logger.blather('got process message from {}: {}'.format(event_address, event_data))
-            self.fsm.on_process_event(event_address, event_data)
-        elif event_type == EventHeaders.STATISTICS:
-            self.logger.blather('got statistics message from {}: {}'.format(event_address, event_data))
-            self.statistician.push_statistics(event_address, event_data)
-
-    def unstack_info(self):
-        """ Unstack the process info received. """
-        address_name, info = self.pool.info_queue.get()
-        self.supvisors.context.load_processes(address_name, info)
-
-    def periodic_task(self):
-        """ Periodic task that mainly checks that addresses are still operating. """
-        self.logger.blather('periodic task')
-        addresses = self.fsm.on_timer_event()
-        # pushes isolated addresses to main loop
-        self.address_queue.put_nowait(addresses)
-

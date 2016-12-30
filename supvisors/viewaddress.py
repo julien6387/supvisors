@@ -37,7 +37,7 @@ class AddressView(StatusView, ViewHandler):
     def __init__(self, context):
         StatusView.__init__(self, context)
         self.supvisors = self.context.supervisord.supvisors
-        supvisors_short_cuts(self, ['logger', 'requester'])
+        supvisors_short_cuts(self, ['info_source', 'logger'])
         self.address = self.supvisors.address_mapper.local_address
 
     def render(self):
@@ -239,7 +239,7 @@ class AddressView(StatusView, ViewHandler):
         # collect data on processes
         data = [ ]
         try:
-            for info in self.supvisors.requester.all_process_info(self.address):
+            for info in self.info_source.supervisor_rpc_interface.getAllProcessInfo():
                 data.append({'namespec': make_namespec(info['group'], info['name']), 'statename': info['statename'],
                     'state': info['state'], 'desc': info['description'] })
         except RPCError, e:
@@ -284,15 +284,15 @@ class AddressView(StatusView, ViewHandler):
         return StatusView.make_callback(self, namespec, action)
 
     def restart_sup_action(self):
-        """ Restart the local supervisor """
-        self.requester.restart(self.address)
+        """ Restart the local supervisor. """
+        self.supvisors.pool.async_restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
-        """ Shutdown the local supervisor """
-        self.requester.shutdown(self.address)
+        """ Shut down the local supervisor. """
+        self.supvisors.pool.async_shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')
 
