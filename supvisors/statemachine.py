@@ -29,7 +29,7 @@ class AbstractState(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'logger'])
+        supvisors_short_cuts(self, ['context', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
@@ -71,9 +71,9 @@ class InitializationState(AbstractState):
 
     def exit(self):
         # force state of missing Supvisors instances
-        self.supvisors.context.end_synchro()
+        self.context.end_synchro()
         # arbitrarily choice : master address is the 'lowest' address among running addresses
-        addresses = self.supvisors.context.running_addresses()
+        addresses = self.context.running_addresses()
         self.logger.info('working with boards {}'.format(addresses))
         self.context.master_address = min(addresses)
 
@@ -88,10 +88,10 @@ class DeploymentState(AbstractState):
             application.update_status()
         # only the Supvisors master deploys applications
         if self.context.master:
-            self.supvisors.starter.start_applications(self.context.applications.values())
+            self.starter.start_applications(self.context.applications.values())
 
     def next(self):
-        if not self.context.master or self.supvisors.starter.check_starting():
+        if not self.context.master or self.starter.check_starting():
                 return SupvisorsStates.CONCILIATION if self.context.conflicting() else SupvisorsStates.OPERATION
         return SupvisorsStates.DEPLOYMENT
 
@@ -99,14 +99,16 @@ class DeploymentState(AbstractState):
 class OperationState(AbstractState):
 
     def next(self):
-        # check if master and local are still RUNNING
-        if self.context.addresses[self.address].state != AddressStates.RUNNING:
-            return SupvisorsStates.INITIALIZATION
-        if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
-            return SupvisorsStates.INITIALIZATION
-        # check duplicated processes
-        if self.context.conflicting():
-            return SupvisorsStates.CONCILIATION
+        # check eventual jobs in progress
+        if self.starter.check_starting() and self.stopper.check_stopping():
+            # check if master and local are still RUNNING
+            if self.context.addresses[self.address].state != AddressStates.RUNNING:
+                return SupvisorsStates.INITIALIZATION
+            if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
+                return SupvisorsStates.INITIALIZATION
+            # check duplicated processes
+            if self.context.conflicting():
+                return SupvisorsStates.CONCILIATION
         return SupvisorsStates.OPERATION
 
 
@@ -118,14 +120,16 @@ class ConciliationState(AbstractState):
             conciliate(self.supvisors, self.supvisors.options.conciliation_strategy, self.context.conflicts())
 
     def next(self):
-        # check if master and local are still RUNNING
-        if self.context.addresses[self.address].state != AddressStates.RUNNING:
-            return SupvisorsStates.INITIALIZATION
-        if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
-            return SupvisorsStates.INITIALIZATION
-        # check conciliation
-        if not self.context.conflicting():
-            return SupvisorsStates.OPERATION
+        # check eventual jobs in progress
+        if self.starter.check_starting() and self.stopper.check_stopping():
+            # check if master and local are still RUNNING
+            if self.context.addresses[self.address].state != AddressStates.RUNNING:
+                return SupvisorsStates.INITIALIZATION
+            if self.context.addresses[self.context.master_address].state != AddressStates.RUNNING:
+                return SupvisorsStates.INITIALIZATION
+            # check conciliation
+            if not self.context.conflicting():
+                return SupvisorsStates.OPERATION
         return SupvisorsStates.CONCILIATION
 
 
@@ -190,6 +194,14 @@ class FiniteStateMachine:
             # wake up stopper if needed
             if self.stopper.in_progress():
                 self.stopper.on_event(process)
+
+    def on_process_info(self, address_name, info):
+        """ This event is used to fill the internal structures with processes available on address. """
+        self.context.load_processes(address_name, info)
+
+    def on_authorization(self, address_name, authorized):
+        """ This event is used to finalize the port-knocking between Supvisors instances. """
+        self.context.on_authorization(address_name, authorized)
 
     # serialization
     def to_json(self):

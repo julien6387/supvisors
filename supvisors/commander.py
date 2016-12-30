@@ -21,7 +21,6 @@ import time
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
-from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.strategy import get_address
 from supvisors.ttypes import DeploymentStrategies
@@ -30,12 +29,13 @@ from supvisors.utils import supvisors_short_cuts
 
 class Commander(object):
     """ Base class handling the starting / stopping of processes and applications.
+
     Attributes are:
-    - planned_sequence: the applications to be commanded, as a dictionary of processes,
-        grouped by application sequence order, application name and process sequence order,
-    - planned_jobs: the current sequence of applications to be commanded,
-        as a dictionary of processes, grouped by application name and process sequence order,
-    - current_jobs: a dictionary of commanded processes, grouped by application name. """
+        - planned_sequence: the applications to be commanded, as a dictionary of processes,
+            grouped by application sequence order, application name and process sequence order,
+        - planned_jobs: the current sequence of applications to be commanded,
+            as a dictionary of processes, grouped by application name and process sequence order,
+        - current_jobs: a dictionary of commanded processes, grouped by application name. """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -165,7 +165,7 @@ class Starter(Commander):
                 # add application immediately to planned jobs if something in list
                 self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
                 self.process_application_jobs(application.application_name)
-        # return True when deployment over
+        # return True when started
         return not self.in_progress()
 
     def start_process(self, strategy, process, extra_args=''):
@@ -183,7 +183,7 @@ class Starter(Commander):
         # upon failure, remove inProgress entry if empty
         if not job:
             del self.current_jobs[process.application_name]
-        # return True when deployment over
+        # return True when started
         return not self.in_progress()
 
     def start_marked_processes(self, processes):
@@ -286,24 +286,13 @@ class Starter(Commander):
             address = get_address(self.supvisors, self.strategy, process.rules.addresses, process.rules.expected_loading)
             if address:
                 self.logger.info('try to start {} at address={}'.format(namespec, address))
-                # use xml rpc to start program
-                try:
-                    self.supvisors.requester.internal_start_process(address, namespec, process.extra_args)
-                except RPCError as e:
-                    if e.code == Faults.ALREADY_STARTED:
-                        # can happen if supvisors has been paused
-                        # FIXME: check something before ? mark_for_restart set ? if so, how to remove this flag before coming here ?
-                        # handle something
-                        pass
-                    else:
-                        # this should not happen but log a critical message, just in case...
-                        self.logger.critical('[BUG] RPC internal_start_process failed {}'.format(namespec))
-                else:
-                    # push to jobs and timestamp process
-                    process.request_time = time.time()
-                    self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
-                    jobs.append(process)
-                    reset_flag = False
+                # use asynchronous xml rpc to start program
+                self.supvisors.pool.async_start_process(address, namespec, process.extra_args)
+                # push to jobs and timestamp process
+                process.request_time = time.time()
+                self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
+                jobs.append(process)
+                reset_flag = False
                 # reset extra arguments
                 process.extra_args = ''
             else:
@@ -360,7 +349,19 @@ class Stopper(Commander):
             # add application immediately to planned jobs
             self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
             self.process_application_jobs(application.application_name)
-        # return True when deployment over
+        # return True when stopped
+        return not self.in_progress()
+
+    def stop_process(self, process):
+        """ Plan and start the necessary job to stop the process in parameter. """
+        self.logger.info('stop process {}'.format(process.namespec()))
+        # push program list in todo list and start work
+        job = self.current_jobs.setdefault(process.application_name, [])
+        self.process_job(process, job)
+        # upon failure, remove inProgress entry if empty
+        if not job:
+            del self.current_jobs[process.application_name]
+        # return True when stopped
         return not self.in_progress()
 
     def store_application_stop_sequence(self, application):
@@ -372,14 +373,31 @@ class Stopper(Commander):
     def process_job(self, process, jobs):
         """ Stops the process where it is running. """
         if process.running():
-            # use xml rpc to stop program
+            # use asynchronous xml rpc to stop program
             for address in process.addresses:
                 self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                self.supvisors.requester.stop_process(address, process.namespec(), False)
+                self.supvisors.pool.async_stop_process(address, process.namespec())
             # push to jobs and timestamp process
             process.request_time = time.time()
             self.logger.debug('{} requested to stop at {}'.format(process.namespec(), get_asctime(process.request_time)))
             jobs.append(process)
+
+    def check_stopping(self):
+        """ Check the progress of the application stopping. """
+        self.logger.debug('stopping progress: planned_sequence={} planned_jobs={} current_jobs={}'.format(
+            self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
+        # once the stop_process has been called, a STOPPING event is expected in less than 5 seconds
+        now = time.time()
+        processes= [process for process_list in self.current_jobs.values() for process in process_list]
+        self.logger.trace('now={} checking processes={}'.format(now,
+            [(process.process_name, process.state, process.request_time, process.last_event_time) for process in processes]))
+        for process in processes:
+            # depending on ini file, it may take a while before the process enters in STOPPED state
+            # so just test that is in not in a RUNNING-like state 5 seconds after request_time
+            if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
+                self.process_failure(process, 'Still running 5 seconds after stop request', True)
+        # return True when starting is completed
+        return not self.in_progress()
 
     def on_event(self, process):
         """ Triggers the following of the stop sequencing, depending on the new process status. """

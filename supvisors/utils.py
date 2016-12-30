@@ -27,6 +27,7 @@ class EventHeaders:
     TICK, PROCESS, STATISTICS = range(3)
 
 # strings used for remote communication between the Supvisors main loop and the listener
+SUPVISORS_AUTH = u'auth'
 SUPVISORS_EVENT = u'event'
 SUPVISORS_INFO = u'info'
 SUPVISORS_TASK = u'task'

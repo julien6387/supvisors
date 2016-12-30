@@ -109,9 +109,10 @@ class AddressStatus(object):
 
     # dictionary for transitions
     _Transitions = {
-        AddressStates.UNKNOWN: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
+        AddressStates.UNKNOWN: (AddressStates.CHECKING, AddressStates.ISOLATING, AddressStates.SILENT),
+        AddressStates.CHECKING: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
         AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING),
-        AddressStates.SILENT: (AddressStates.RUNNING, ),
+        AddressStates.SILENT: (AddressStates.CHECKING, ),
         AddressStates.ISOLATING: (AddressStates.ISOLATED, ), 
         AddressStates.ISOLATED: ()
     }

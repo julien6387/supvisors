@@ -19,11 +19,10 @@
 
 from time import time
 
-from supervisor.xmlrpc import RPCError
-
 from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
+from supvisors.ttypes import AddressStates
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -154,38 +153,40 @@ class Context(object):
             status.add_process(process)
 
     # methods on events
-    def check_address(self, status):
-        """ Check that the local instance is allowed to deal with the remote instance if auto fencing is activated.
-        If authorization is made or auto fencing is not set, information about the processes handled in the remote Supervisor are loaded into the applications. """
-        # if auto fencing activated, get authorization from remote Supvisors instance by port-knocking
-        if self.supvisors.options.auto_fence and not self.authorized(status.address_name):
-            self.logger.warn('local is not authorized to deal with {}'.format(status.address_name))
-            self.invalid(status)
-        else:
-            self.logger.info('local is authorized to deal with {}'.format(status.address_name))
-            # refresh supervisor information
-            self.supvisors.pool.async_process_info(status.address_name)
+    def on_authorization(self, address_name, authorized):
+        """ Method called upon reception of an authorization event telling if the remote Supvisors instance
+        authorizes the local Supvisors instance to process its events . """
+        if self.address_mapper.valid(address_name):
+            status = self.addresses[address_name]
+            # ISOLATED address is not updated anymore
+            if not status.in_isolation():
+                if authorized:
+                    self.logger.info('local is authorized to deal with {}'.format(address_name))
+                    status.state = AddressStates.RUNNING
+                else:
+                    self.logger.warn('local is not authorized to deal with {}'.format(address_name))
+                    self.invalid(status)
 
-    def on_tick_event(self, address, event):
+    def on_tick_event(self, address_name, event):
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
-        if self.address_mapper.valid(address):
-            status = self.addresses[address]
+        if self.address_mapper.valid(address_name):
+            status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got tick {} from location={}'.format(event, address))
-                if status.state != AddressStates.RUNNING:
-                    self.check_address(status)
-                # re-test isolation status as it may have been changed by the check_address
-                if not status.in_isolation():
-                    status.state = AddressStates.RUNNING
-                    status.update_times(event['when'], int(time()))
-                    # publish AddressStatus event
-                    self.supvisors.publisher.send_address_status(status)
+                self.logger.debug('got tick {} from location={}'.format(event, address_name))
+                # asynchronous port-knocking used to check if remote Supvisors instance considers local instance as isolated
+                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                    status.state = AddressStates.CHECKING
+                    self.supvisors.pool.async_check_address(address_name)
+                # update internal times
+                status.update_times(event['when'], int(time()))
+                # publish AddressStatus event
+                self.supvisors.publisher.send_address_status(status)
         else:
-            self.logger.warn('got tick from unexpected location={}'.format(addresses))
+            self.logger.warn('got tick from unexpected location={}'.format(address_name))
 
     def on_process_event(self, address, event):
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -233,22 +234,3 @@ class Context(object):
             # publish AddressStatus event
             self.supvisors.publisher.send_address_status(status)
         return addresses
-
-    # XML-RPC requets
-    def authorized(self, address):
-        """ Perform a XML-RPC request towards the Supvisors instance located on address to check that local is not ISOLATED. """
-        try:
-            status = self.supvisors.requester.address_info(address, self.address_mapper.local_address)
-        except RPCError:
-            self.logger.critical('[BUG] could not get address info from running remote supervisor {}'.format(address))
-            raise
-        return AddressStates.from_string(status['state']) not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
-
-    def all_process_info(self, address):
-        """ Perform a XML-RPC request to get information about all processes managed by Supervisor on address. """
-        try:
-            info = self.supvisors.requester.all_process_info(address)
-        except RPCError:
-            self.logger.critical('[BUG] could not get all process info from running remote supervisor {}'.format(address))
-            raise
-        return info

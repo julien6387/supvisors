@@ -23,7 +23,7 @@ from supvisors.utils import enumeration_tools
 @enumeration_tools
 class AddressStates:
     """ Enumeration class for the state of remote Supvisors instance """
-    UNKNOWN, RUNNING, SILENT, ISOLATING, ISOLATED = range(5)
+    UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
 
 @enumeration_tools
 class ApplicationStates:

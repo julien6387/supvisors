@@ -178,7 +178,7 @@ class SupvisorsView(MeldView, ViewHandler):
         return delayed_info('Page refreshed')
 
     def sup_restart_action(self):
-        """ Restart all Supervisor instances """
+        """ Restart all Supervisor instances. """
         try:
             self.supvisors.info_source.supvisors_rpc_interface.restart()
         except RPCError, e:
@@ -186,7 +186,7 @@ class SupvisorsView(MeldView, ViewHandler):
         return delayed_info('Supvisors restarted')
 
     def sup_shutdown_action(self):
-        """ Stop all Supervisor instances """
+        """ Stop all Supervisor instances. """
         try:
             self.supvisors.info_source.supvisors_rpc_interface.shutdown()
         except RPCError, e:
@@ -197,10 +197,7 @@ class SupvisorsView(MeldView, ViewHandler):
         """ Stop the conflicting process """
         # get running addresses of process
         addresses = self.supvisors.context.processes[namespec].addresses
-        try:
-            self.supvisors.requester.stop_process(address, namespec, False)
-        except RPCError, e:
-            return delayed_error('stop_process: {}'.format(e.message))
+        self.supvisors.pool.async_stop_process(address, namespec)
         def on_wait():
             if address in addresses:
                 return NOT_DONE_YET
@@ -214,11 +211,8 @@ class SupvisorsView(MeldView, ViewHandler):
         addresses = self.supvisors.context.processes[namespec].addresses
         running_addresses = addresses.copy()
         running_addresses.remove(address)
-        try:
-            for address in running_addresses:
-            	self.supvisors.requester.stop_process(address, namespec, False)
-        except RPCError, e:
-            return delayed_error('stop_process: {}'.format(e.message))
+        for address in running_addresses:
+            self.supvisors.pool.async_stop_process(address, namespec)
         def on_wait():
             if len(addresses) > 1:
                 return NOT_DONE_YET

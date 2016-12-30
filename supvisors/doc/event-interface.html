@@ -50,7 +50,8 @@
 			<section id="doc-contents">
 				<h2 id="protocol">Protocol</h2>
 				<p>The Supvisors Event Interface relies on a <a href="http://zeromq.org" class="extLink">ZeroMQ</a> socket.<br />
-				To receive the Supvisors events, the client application must configure a socket with a <code>SUBSCRIBE</code> pattern and connect it on localhost using the <a href="index.html#supvisors-section" class="intLink">event_port</a> defined in the supvisors section of the Supervisor configuration file.</p>
+				To receive the Supvisors events, the client application must configure a socket with a <code>SUBSCRIBE</code> pattern and connect it
+                on localhost using the <a href="index.html#supvisors-section" class="intLink">event_port</a> defined in the supvisors section of the Supervisor configuration file.</p>
 				<p>Supvisors publishes the events in multi-parts messages.</p>
 
 				<h2 id="msg-header">Message header</h2>
@@ -62,7 +63,8 @@ PROCESS_STATUS_HEADER = u'process'</code></pre>
 
                 <p>ZeroMQ makes it possible to filter the messages received on the client side by subcribing to a part of them.<br />
                 To receive all messages, just subscribe using an empty string.<br />
-                For example, the following lines in python configure the ZMQ socket so as to receive only the <code class="className">SupvisorsStatus</code> and <code class="className">ProcessStatus</code> events:</p>
+                For example, the following lines in python configure the ZMQ socket so as to receive only the <code class="className">SupvisorsStatus</code>
+                and <code class="className">ProcessStatus</code> events:</p>
 				<pre><code class='python'>socket.setsockopt(zmq.SUBSCRIBE, SUPVISORS_STATUS_HEADER.encode('utf-8'))
 socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></pre>
 
@@ -75,7 +77,8 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<caption>Supvisors Status Dictionary</caption>
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'statecode'</code></td><td>The state of Supvisors, in [0;3].</td></tr>
-					<tr><td><code>'statename'</code></td><td>The state of Supvisors, among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>, <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }.</td></tr>
+					<tr><td><code>'statename'</code></td><td>The state of Supvisors, among { <code>'INITIALIZATION'</code>, <code>'DEPLOYMENT'</code>,
+                        <code>'OPERATION'</code>, <code>'CONCILIATION'</code> }.</td></tr>
 				</table>
 
 				<h3>Address status</h3>
@@ -84,7 +87,8 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'address_name'</code></td><td>Name of the address.</td></tr>
 					<tr><td><code>'statecode'</code></td><td>State of the address, in [0;4].</td></tr>
-					<tr><td><code>'state'name</code></td><td>State of the address, among { <code>'UNKNOWN'</code>, <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }.</td></tr>
+					<tr><td><code>'state'name</code></td><td>State of the address, among { <code>'UNKNOWN'</code>, <code>'CHECKING'</code>,
+                        <code>'RUNNING'</code>, <code>'SILENT'</code>, <code>'ISOLATING'</code>, <code>'ISOLATED'</code> }.</td></tr>
 					<tr><td><code>'remote_time'</code></td><td>Date of the last TICK event received from this address.</td></tr>
 					<tr><td><code>'local_time'</code></td><td>Local date of the last TICK event received from this address.</td></tr>
 					<tr><td><code>'loading'</code></td><td>Sum of the expected loading of the processes running on the address.</td></tr>
@@ -96,7 +100,8 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><th>Key</th><th>Value</th></tr>
 					<tr><td><code>'application_name'</code></td><td>Name of the application.</td></tr>
 					<tr><td><code>'statecode'</code></td><td>State of the application, in [0;4].</td></tr>
-					<tr><td><code>'statename'</code></td><td>State of the application, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'STOPPING'</code> }.</td></tr>
+					<tr><td><code>'statename'</code></td><td>State of the application, among { <code>'STOPPED'</code>, <code>'STARTING'</code>,
+                        <code>'RUNNING'</code>, <code>'STOPPING'</code> }.</td></tr>
 					<tr><td><code>'major_failure'</code></td><td>True if the application is running and at least one required process is not started.</td></tr>
 					<tr><td><code>'minor_failure'</code></td><td>True if the application is running and at least one optional (not required) process is not started.</td></tr>
 				</table>
@@ -108,7 +113,8 @@ socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))</code></
 					<tr><td><code>'application_name'</code></td><td>Name of the application.</td></tr>
 					<tr><td><code>'process_name'</code></td><td>Name of the process.</td></tr>
 					<tr><td><code>'statecode'</code></td><td>State of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.</td></tr>
-					<tr><td><code>'statename'</code></td><td>State of the process, among { <code>'STOPPED'</code>, <code>'STARTING'</code>, <code>'RUNNING'</code>, <code>'BACKOFF'</code>, <code>'STOPPING'</code>, <code>'EXITED'</code>, <code>'FATAL'</code>, <code>'UNKNOWN'</code> }.</td></tr>
+					<tr><td><code>'statename'</code></td><td>State of the process, among { <code>'STOPPED'</code>, <code>'STARTING'</code>,
+                        <code>'RUNNING'</code>, <code>'BACKOFF'</code>, <code>'STOPPING'</code>, <code>'EXITED'</code>, <code>'FATAL'</code>, <code>'UNKNOWN'</code> }.</td></tr>
 					<tr><td><code>'expected_exit'</code></td><td>True if the exit status is expected (only when state is <code>'EXITED'</code>).</td></tr>
 					<tr><td><code>'last_event_time'</code></td><td>Date of the last process event received for this process, regardless of the origin (Supervisor instance).</td></tr>
 					<tr><td><code>'addresses'</code></td><td>List of addresses where the process is running.</td></tr>
@@ -135,7 +141,8 @@ subscriber.start()</code></pre>
 				<h3 id="java-client">JAVA Client</h3>
                 <p>Supvisors provides a JAVA client in the <code>client/java</code> directory of the Supvisors installation directory.<br />
                 The <code>SupvisorsEventSubscriber</code> of the <code>org.supvisors.event</code> package is designed to receive the Supvisors events from the local Supvisors instance.<br />
-                A <code>SupvisorsEventListener</code> with a specialization of the methods <code>onXxxStatus</code> must be attached to the <code>SupvisorsEventSubscriber</code> instance to receive the notifications.<br />
+                A <code>SupvisorsEventListener</code> with a specialization of the methods <code>onXxxStatus</code> must be attached to the <code>SupvisorsEventSubscriber</code>
+                instance to receive the notifications.<br />
                 It requires the following additional dependencies:</p>
                 <ul>
                     <li><a href="https://github.com/zeromq/jeromq" class="extLink">JeroMQ</a>.</li>
