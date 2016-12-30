@@ -80,6 +80,13 @@ class ProcessRules(object):
         return 'addresses={} start_sequence={} stop_sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
             self.start_sequence, self.stop_sequence, self.required, self.wait_exit, self.expected_loading)
 
+    # serialization
+    def to_json(self):
+        """ Return a JSON-serializable form of the ProcessRules """
+        return {'addresses': self.addresses,
+            'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
+            'required': self.required, 'wait_exit': self.wait_exit, 'expected_loading': self.expected_loading}
+
 
 # ProcessStatus class
 class ProcessStatus(object):

@@ -419,11 +419,9 @@ class RPCInterface(object):
 
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
-        rules = process.rules
-        # FIXME: json rules
-        return {'namespec': process.namespec(), 'addresses': rules.addresses,
-            'start_sequence': rules.start_sequence, 'stop_sequence': rules.stop_sequence,
-            'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading}
+        result = process.rules.to_json()
+        result.update({'application_name': process.application_name, 'process_name': process.process_name})
+        return result
 
     def _send_addresses_func(self, func):
         """ Perfrom the action func on all addresses.
