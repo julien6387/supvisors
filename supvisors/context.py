@@ -133,7 +133,8 @@ class Context(object):
         for application_name in application_list:
             if application_name not in self.applications.keys():
                 application = ApplicationStatus(application_name, self.logger)
-                self.supvisors.parser.load_application_rules(application)
+                if self.supvisors.parser:
+                    self.supvisors.parser.load_application_rules(application)
                 self.applications[application_name] = application
         # get AddressStatus corresponding to address
         status = self.addresses[address]
@@ -144,7 +145,8 @@ class Context(object):
             except KeyError:
                 # not found. add new ProcessStatus instance to dictionary and application
                 process = ProcessStatus(info['group'], info['name'], self.supvisors)
-                self.supvisors.parser.load_process_rules(process)
+                if self.supvisors.parser:
+                    self.supvisors.parser.load_process_rules(process)
                 self.processes[process.namespec()] = process
                 self.applications[process.application_name].add_process(process)
             # update the current entry
