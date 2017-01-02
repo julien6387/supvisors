@@ -25,7 +25,7 @@ from supvisors.commander import Starter, Stopper
 from supvisors.context import Context
 from supvisors.infosource import SupervisordSource
 from supvisors.listener import SupervisorListener
-from supvisors.options import SupvisorsOptions
+from supvisors.options import SupvisorsServerOptions
 from supvisors.parser import Parser
 from supvisors.publisher import EventPublisher
 from supvisors.statemachine import FiniteStateMachine
@@ -33,7 +33,7 @@ from supvisors.statistics import StatisticsCompiler
 
 
 class Supvisors(object):
-    """ The Supvisors class  """
+    """ The Supvisors class.  """
 
     # logger output
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
@@ -42,7 +42,7 @@ class Supvisors(object):
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
         # get options from config file
-        self.options = SupvisorsOptions()
+        self.options = SupvisorsServerOptions().supvisors_options
         # create logger
         stdout = supervisord.options.nodaemon
         self.logger = getLogger(self.options.logfile, self.options.loglevel,
