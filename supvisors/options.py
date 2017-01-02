@@ -122,7 +122,6 @@ class SupvisorsServerOptions(ServerOptions):
         opt.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
         # reset mysection and return original result
         parser.mysection = temp
-        print opt
         return configs
 
     # conversion utils (completion of supervisor.datatypes)
