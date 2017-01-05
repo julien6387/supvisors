@@ -25,7 +25,7 @@
 	<!-- starter checking application -->
 	<application name="test">
 		<start_sequence>1</start_sequence>
-		<stop_sequence>0</stop_sequence>
+		<stop_sequence>4</stop_sequence>
 
 		<program name="check_start_sequence">
 			<addresses>*</addresses>

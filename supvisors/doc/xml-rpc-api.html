@@ -74,7 +74,8 @@
 							<tr><th>Key</th><th>Type</th><th>Validity</th><th>Description</th></tr>
 							<tr><td><code>'statecode'</code></td><td>int</td><td>[0;3]</td><td>The state of Supvisors.</td></tr>
 							<tr><td><code>'statename'</code></td><td>str</td><td><code>'INITIALIZATION'</code><br /><code>'DEPLOYMENT'</code><br />
-                                <code>'OPERATION'</code><br /><code>'CONCILIATION'</code></td><td>The string state of Supvisors.</td></tr>
+                                <code>'OPERATION'</code><br /><code>'CONCILIATION'</code><br /><code>'RESTARTING'</code><br />
+                               <code>'SHUTTING_DOWN'</code><br /><code>'SHUTDOWN'</code></td><td>The string state of Supvisors.</td></tr>
 						</table>
 					</dd>
 
@@ -157,7 +158,10 @@
 					<dt>get_process_rules(namespec)</dt>
 					<dd>Return the rules used to deploy the process named namespec</dd>
 					<dd>@param string namespec: the process name (or 'group:name', or 'group:*')</dd>
-					<dd>@throws RPCError: with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors</dd>
+					<dd>@throws RPCError:<ul>
+						<li>with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>,</li>
+                        <li>with code <code>Faults.BAD_NAME</code> if namespec is unknown to Supvisors.</li>
+                    </ul></dd>
 					<dd>@return list: a list of structures containing data about the deployment rules
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
@@ -174,6 +178,7 @@
 
 					<dt>get_conflicts()</dt>
 					<dd>Return the conflicting processes</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>.</dd>
 					<dd>@return list: a list of structures containing data about the conflicting processes
 						<table>
 							<tr><th>Key</th><th>Type</th><th>Unit</th><th>Validity</th><th>Description</th></tr>
@@ -190,10 +195,12 @@
 				<dl>
 					<dt>restart()</dt>
 					<dd>Restart Supvisors through all remote Supervisor instances</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>.</dd>
 					<dd>@return boolean: always True unless error</dd>
 
 					<dt>shutdown()</dt>
 					<dd>Shut down Supvisors through all remote Supervisor instances</dd>
+					<dd>@throws RPCError: with code <code>Faults.BAD_SUPVISORS_STATE</code> if Supvisors is still in state <code>INITIALIZATION</code>.</dd>
 					<dd>@return boolean: always True unless error</dd>
 				</dl>
 

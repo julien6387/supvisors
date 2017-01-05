@@ -128,6 +128,7 @@ class DummySupvisors:
         self.info_source = DummyInfoSource()
         self.logger = DummyLogger()
         self.options = DummyOptions()
+        self.pool = DummyClass()
         self.requester = DummyClass()
         self.statistician = DummyClass()
         # TODO: DummyDeployer with deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes

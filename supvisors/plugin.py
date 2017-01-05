@@ -22,7 +22,6 @@ from os import path
 from supervisor.web import VIEWS
 from supervisor.xmlrpc import Faults
 
-from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
 from supvisors.viewaddress import AddressView
 from supvisors.viewapplication import ApplicationView
@@ -59,8 +58,6 @@ def make_supvisors_rpcinterface(supervisord, **config):
             setattr(Faults, x, y + FAULTS_OFFSET)
     # update http web pages
     update_views()
-    # create a new Supvisors instance
-    supvisors = Supvisors(supervisord)
     # create and return handler
-    return RPCInterface(supvisors)
+    return RPCInterface(supervisord)
 

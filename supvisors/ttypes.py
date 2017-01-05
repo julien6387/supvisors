@@ -53,7 +53,7 @@ class RunningFailureStrategies:
 @enumeration_tools
 class SupvisorsStates:
     """ Internal state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION = range(4)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 # Exceptions
