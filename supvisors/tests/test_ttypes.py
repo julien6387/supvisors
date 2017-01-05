@@ -77,6 +77,9 @@ class TypesTest(unittest.TestCase):
         self.assertEqual('DEPLOYMENT', SupvisorsStates._to_string(SupvisorsStates.DEPLOYMENT))
         self.assertEqual('OPERATION', SupvisorsStates._to_string(SupvisorsStates.OPERATION))
         self.assertEqual('CONCILIATION', SupvisorsStates._to_string(SupvisorsStates.CONCILIATION))
+        self.assertEqual('RESTARTING', SupvisorsStates._to_string(SupvisorsStates.RESTARTING))
+        self.assertEqual('SHUTTING_DOWN', SupvisorsStates._to_string(SupvisorsStates.SHUTTING_DOWN))
+        self.assertEqual('SHUTDOWN', SupvisorsStates._to_string(SupvisorsStates.SHUTDOWN))
 
     def test_exception(self):
         """ Test the exception InvalidTransition. """

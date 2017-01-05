@@ -138,14 +138,14 @@ class Starter(Commander):
         self.logger.info('start processes using strategy {}'.format(DeploymentStrategies._to_string(strategy)))
         self._strategy = strategy
 
-    def start_applications(self, applications):
+    def start_applications(self):
         """ Plan and start the necessary jobs to start all the applications having a start_sequence.
         It uses the default strategy, as defined in the Supervisor configuration file. """
         self.logger.info('start all applications')
         # internal call: default strategy always used
         self.strategy = self.supvisors.options.deployment_strategy
         # deployment initialization: push program list in todo list
-        for application in applications:
+        for application in self.supvisors.context.applications.values():
             # do not deploy an application that is not properly STOPPED
             if application.stopped() and application.rules.start_sequence > 0:
                 self.store_application_start_sequence(application)
@@ -325,14 +325,15 @@ class Starter(Commander):
                 # so, publish directly a fake process event
                 self.supvisors.listener.force_process_fatal(process.namespec())
 
+
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
 
-    def stop_applications(self, applications):
+    def stop_applications(self):
         """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
         self.logger.info('stop all applications')
         # deployment initialization: push program list in todo list
-        for application in applications:
+        for application in self.supvisors.context.applications.values():
             # do not deploy an application that is not properly STOPPED
             if application.running() and application.rules.stop_sequence >= 0:
                 self.store_application_stop_sequence(application)
@@ -395,6 +396,7 @@ class Stopper(Commander):
             # depending on ini file, it may take a while before the process enters in STOPPED state
             # so just test that is in not in a RUNNING-like state 5 seconds after request_time
             if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
+                # FIXME: process_failure does not exist for Stopper
                 self.process_failure(process, 'Still running 5 seconds after stop request', True)
         # return True when starting is completed
         return not self.in_progress()

@@ -102,14 +102,20 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 
 				<div class="note">
 					<p>Note about the decision not to use the <code class="className">Subprocess</code> class, available in Supervisor source code</p>
-					<p>First, it may be impossible to point to the <code class="className">Subprocess</code> reference in supervisord config, as it may not exist. Although it is recommended for the usage of Supvisors, nothing forces the user to configure all the Supervisor instances with exactly the same list of programs. So when receiving a process event in the Supvisors instance B (i.e. located on address B), coming from the Supvisors instance A, it may happen that the involved process is unknown to the Supervisor instance hosting B.<br />
-					So, considering that a new instance of a <code class="className">Subprocess</code> could be handled in Supvisors, that raises other problems. For the same reason given above, it may be impossible to assign a config to this instance. In addition to that, as a different instance of the same program may be managed by every Supvisors instances, there is no guarantee that the process state transitions will be fully respected. Supvisors has to juggle with that.<br />
+					<p>First, it may be impossible to point to the <code class="className">Subprocess</code> reference in supervisord config, as it may not exist.
+                    Although it is recommended for the usage of Supvisors, nothing forces the user to configure all the Supervisor instances with exactly the same list of programs.
+                    So when receiving a process event in the Supvisors instance B (i.e. located on address B), coming from the Supvisors instance A,
+                    it may happen that the involved process is unknown to the Supervisor instance hosting B.<br />
+					So, considering that a new instance of a <code class="className">Subprocess</code> could be handled in Supvisors, that raises other problems.
+                    For the same reason given above, it may be impossible to assign a config to this instance. In addition to that, as a different instance of the same program
+                    may be managed by every Supvisors instances, there is no guarantee that the process state transitions will be fully respected. Supvisors has to juggle with that.<br />
 					Finally, <code class="className">Subprocess</code> methods and most of the information held are irrelevant to Supvisors.</p>
 				</div>
 
 				<div class="note">
 					<p>Note about the process information</p>
-					<p>The process information held in Supvisors looks more or less like the dictionary got from the <code><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getProcessInfo" class="extLink">supervisor.getProcessInfo</a></code> XML-RPC.</p>
+					<p>The process information held in Supvisors looks more or less like the dictionary got from
+                    the <code><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getProcessInfo" class="extLink">supervisor.getProcessInfo</a></code> XML-RPC.</p>
 					<p>A few entries are removed from this dictionary, because they are useless in Supvisors and in order to improve performance: <code>description</code>, <code>stderr_logfile</code>, <code>stdout_logfile</code>, <code>logfile</code>, <code>exitstatus</code>.<br />
 					A few entries are added to this dictionary: <code>localTime</code>, <code>eventTime</code>, <code>uptime</code>, <code>expected</code>.</p>
 					<p>The dictionary contents are still subject to modifications.</p>
@@ -156,7 +162,8 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 					this status should not affect the operational status of the application.</td></tr>
 					<tr><td><code class="attributeName">processes</code></td><td>map of <code class="className">ProcessStatus</code> instances.<br />
 					key is <code class="attributeName">process_name</code>.</td></tr>
-					<tr><td><code class="attributeName">rules</code></td><td>an <code class="className">ApplicationRules</code> instance containing the deployment model of the application, as defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a></td></tr>
+					<tr><td><code class="attributeName">rules</code></td><td>an <code class="className">ApplicationRules</code> instance containing
+                        the deployment model of the application, as defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a></td></tr>
 				</table>
 
 				<h4>AddressStatus</h4>
@@ -170,7 +177,8 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 							<li><code>CHECKING</code>: port-knocking in progress.</li>
 							<li><code>RUNNING</code>: active, a heartbeat has been received in the last 10 seconds.</li>
 							<li><code>SILENT</code>: inactive, no heartbeat has been received in the last 10 seconds.</li>
-							<li><code>ISOLATING</code>: inactive Supvisors instance is marked for isolation when <a href="index.html#supvisors-section" class="intLink"><span class="option">auto-fencing</span></a> is activated.</li>
+							<li><code>ISOLATING</code>: inactive Supvisors instance is marked for isolation when
+                                <a href="index.html#supvisors-section" class="intLink"><span class="option">auto-fencing</span></a> is activated.</li>
 							<li><code>ISOLATED</code>: definitely disconnected, no more events expected anymore.</li>
 						</ul></td></tr>
 					<tr><td><code class="attributeName">remote_time</code></td><td>date of the last heartbeart received in remote reference time</td></tr>
@@ -182,7 +190,8 @@ RUNNING_STATES = (ProcessStates.RUNNING,
 					<figcaption>AddressStatus statechart</figcaption>
 				</figure>
 
-				<p>Every time that a Supvisors instance becomes <code>RUNNING</code>, the local Supvisors instance gets and stores all process information from the Supervisor daemon using the <code class="python"><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getAllProcessInfo" class="extLink">supervisor.getAllProcessInfo</a></code> XML-RPC.</p>
+				<p>Every time that a Supvisors instance becomes <code>RUNNING</code>, the local Supvisors instance gets and stores all process information from the Supervisor daemon using
+                the <code class="python"><a href="http://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getAllProcessInfo" class="extLink">supervisor.getAllProcessInfo</a></code> XML-RPC.</p>
 
 
 				<h3 id="parsing">Parsing Files</h3>
@@ -196,10 +205,13 @@ parser = UnhosedConfigParser()
 parser.read(configfile)
 parser.mysection = 'supvisors'</code></pre>
 
-				<p>As Supervisor has a dependency with <code class="python">xml.etree.ElementTree</code>, this module has naturally been used to parse the <a href="index.html#deployment-file" class="intLink">XML deployment file</a>.<br />
-				Unfortunately, this module does not provide any schema validation. So, if the module <code class="python">lxml.etree</code> is available, it is used <em>instead of</em> the ElementTree module to validate and parse the XML deployment.<br />
+				<p>As Supervisor has a dependency with <code class="python">xml.etree.ElementTree</code>, this module has naturally been used
+                to parse the <a href="index.html#deployment-file" class="intLink">XML deployment file</a>.<br />
+				Unfortunately, this module does not provide any schema validation. So, if the module <code class="python">lxml.etree</code> is available,
+                it is used <em>instead of</em> the ElementTree module to validate and parse the XML deployment.<br />
 				More information about the lxml XML toolkit can be found <a href="http://lxml.de" class="extLink">here</a>.</p>
-				<p>The contents of the XSD can be found in the module <code class="python">supvisors.parser</code>. If pushed to a file, it can be used to validate the XML file with such a shell command:</p>
+				<p>The contents of the XSD can be found in the module <code class="python">supvisors.parser</code>.
+                If pushed to a file, it can be used to validate the XML file with such a shell command:</p>
 				<pre><code class="bash">[bash] > xmllint --noout --schema etc/deployment.xsd etc/deployment.xml</code></pre>
 
 
@@ -235,14 +247,18 @@ events.subscribe(events.Tick5Event, self.on_tick)</code></pre>
 					<tr><td><code>'groupname'</code></td><td>name of the group, i.e. name of the application for Supvisors</td></tr>
 					<tr><td><code>'state'</code></td><td>new state of the process, as a <code class="className">ProcessStates</code> value, obtained from the event type</td></tr>
 					<tr><td><code>'now'</code></td><td>reception time of the process event</td></tr>
-					<tr><td><code>'pid'</code></td><td>UNIX process identifier (only when state is <code>RUNNING</code>, <code>STOPPING</code>, <code>STOPPED</code> or <code>EXITED</code>)</td></tr>
+					<tr><td><code>'pid'</code></td><td>UNIX process identifier (only when state is <code>RUNNING</code>, <code>STOPPING</code>,
+                        <code>STOPPED</code> or <code>EXITED</code>)</td></tr>
 					<tr><td><code>'expected'</code></td><td>boolean indicating if the exit status is expected (only when state is <code>EXITED</code>)</td></tr>
 				</table>
 
-				<p>The messages are published using a ZeroMQ PUBLISH socket over a TCP socket bound on the <a href="index.html#supvisors-section" class="intLink"><span class="option">internal_port</span></a> defined in the Supervisor configuration file. They are sent in two parts:</p>
+				<p>The messages are published using a ZeroMQ PUBLISH socket over a TCP socket bound
+                on the <a href="index.html#supvisors-section" class="intLink"><span class="option">internal_port</span></a> defined
+                in the Supervisor configuration file. They are sent in two parts:</p>
 				<ul>
 					<li>the header part, consisting in an unicode string identifying the message type,</li>
-					<li>the body part, consisting of a pair <code class="python">(localAddress, payload)</code>, where payload is the event contents, serialized with <em>pickle</em> (provided by <a href="http://pyzmq.readthedocs.io/en/latest/serialization.html" class="extLink">PyZMQ</a>).</li>
+					<li>the body part, consisting of a pair <code class="python">(localAddress, payload)</code>, where payload is the event contents,
+                    serialized with <em>pickle</em> (provided by <a href="http://pyzmq.readthedocs.io/en/latest/serialization.html" class="extLink">PyZMQ</a>).</li>
 				</ul>
 				<pre><code class="python"># example of sending Tick event
 self.socket.send_string(u'tick', zmq.SNDMORE)
@@ -250,16 +266,24 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<div class="note">
 					<p>Note about the localAddress</p>
-					<p>When starting, the Supvisors instance has to determine its identity. More particularly, it has to find its own address among the list defined in the <a href="index.html#supvisors-section" class="intLink"><span class="option">address_list</span></a> option of the <code class="ini">[supvisors]</code> section in the <a href="index.html#supervisor-config" class="intLink">Supervisor configuration file</a>.<br />
-					So, the Supvisors instance gets the host name and all known IPv4 addresses of the host where it is running, excluding the loopback address. It is expected that one element of this list MUST be an element of the <a href="index.html#supvisors-section" class="intLink"><span class="option">address_list</span></a>. This element becomes the localAddress.</p>
+					<p>When starting, the Supvisors instance has to determine its identity. More particularly, it has to find its own address among the list defined in
+                    the <a href="index.html#supvisors-section" class="intLink"><span class="option">address_list</span></a> option
+                    of the <code class="ini">[supvisors]</code> section in the <a href="index.html#supervisor-config" class="intLink">Supervisor configuration file</a>.<br />
+					So, the Supvisors instance gets the host name and all known IPv4 addresses of the host where it is running, excluding the loopback address.
+                    It is expected that one element of this list MUST be an element of the <a href="index.html#supvisors-section" class="intLink"><span class="option">address_list</span></a>.
+                    This element becomes the localAddress.</p>
 				</div>
 
-				<p>In Supvisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found in <a href="index.html#supvisors-section" class="intLink">address_list</a> on the <a href="index.html#supvisors-section" class="intLink">internal_port</a> defined in the Supervisor configuration file.<br />
+				<p>In Supvisors' main loop, a ZeroMQ SUBSCRIBE socket is built over a TCP socket connected to all addresses found
+                in <a href="index.html#supvisors-section" class="intLink">address_list</a>
+                on the <a href="index.html#supvisors-section" class="intLink">internal_port</a> defined in the Supervisor configuration file.<br />
 				The Supvisors main loop polls the Supvisors events coming from all addresses through this socket with a timeout of one second.<br />
 				Tick events are used to update the status of the <code class="className">AddressStatus</code> instances.<br />
-				ProcessState events are used to update the status of the <code class="className">ProcessStatus</code> instances and consequently the related <code class="className">ApplicationStatus</code> instances.</p>
+				ProcessState events are used to update the status of the <code class="className">ProcessStatus</code> instances and consequently
+                the related <code class="className">ApplicationStatus</code> instances.</p>
 
-				<p>The timeout of the ZeroMQ poller in the Supvisors main loop is used to trigger a periodic task (every 5 seconds). This task is used to check the activity of the Supvisors instances and to trigger the Supvisors Machine State.</p>
+				<p>The timeout of the ZeroMQ poller in the Supvisors main loop is used to trigger a periodic task (every 5 seconds).
+                This task is used to check the activity of the Supvisors instances and to trigger the Supvisors Machine State.</p>
 
 
 				<h3 id="inactive-addresses">Inactive Addresses</h3>
@@ -269,14 +293,18 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 					<li><code>SILENT</code> if <a href="index.html#supvisors-section" class="intLink">auto-fencing</a> <strong>is not</strong> activated,</li>
 					<li><code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto-fencing</a> <strong>is</strong> activated,</li>
 				</ul>
-				<p>The corresponding address is then removed from all the <code class="attributeName">addresses</code> sets in the <code class="className">ProcessStatus</code> instances, which leads to a temporary inconsistence as the processes may be declared <code>RUNNING</code> nowhere.</p>
+				<p>The corresponding address is then removed from all the <code class="attributeName">addresses</code> sets in the <code class="className">ProcessStatus</code> instances,
+                which leads to a temporary inconsistence as the processes may be declared <code>RUNNING</code> nowhere.</p>
 				<p>The next phase consists in restarting the process somewhere else, if possible, using the <a href="#deployment" class="intLink">deployment</a> function of Supvisors.<br />
-				Finally, if the <code class="className">AddressStatus</code> instance was marked <code>ISOLATING</code>, Supvisors diconnects the corresponding url from the ZeroMQ SUBSCRIBE socket and sets the state to <code>ISOLATED</code>.<br />
+				Finally, if the <code class="className">AddressStatus</code> instance was marked <code>ISOLATING</code>,
+                Supvisors diconnects the corresponding url from the ZeroMQ SUBSCRIBE socket and sets the state to <code>ISOLATED</code>.<br />
 				If the state is <code>SILENT</code>, Supvisors will accept the remote Supvisors instance to come back.</p>
 
 
 				<h3 id="state-machine">State Machine</h3>
-				<p>During the periodic task, the context of the Supvisors instance is re-evaluated. The State Machine of the Supvisors instance deals with the following states: <code>INITIALIZATION</code>, <code>DEPLOYMENT</code>, <code>OPERATION</code>, <code>CONCILIATION</code>.</p>
+				<p>During the periodic task, the context of the Supvisors instance is re-evaluated.
+                The State Machine of the Supvisors instance deals with the following states: <code>INITIALIZATION</code>, <code>DEPLOYMENT</code>,
+                <code>OPERATION</code>, <code>CONCILIATION</code>, <code>RESTARTING</code>, <code>SHUTTING_DOWN</code>, <code>SHUTDOWN</code>.</p>
 
 				<figure>
 					<img src="violet/Supvisors.png" alt="Supvisors statechart">
@@ -284,19 +312,23 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 				</figure>
 
 				<h4>INITIALIZATION state</h4>
-				<p>In the <code>INITIALIZATION</code> state, Supvisors waits for all Supvisors instances to be active. More particularly, heartbeat messages (or Tick events) are expected for every entry in the <a href="index.html#supvisors-section" class="intLink">address_list</a>.</p>
+				<p>In the <code>INITIALIZATION</code> state, Supvisors waits for all Supvisors instances to be active.
+                More particularly, heartbeat messages (or Tick events) are expected for every entry in the <a href="index.html#supvisors-section" class="intLink">address_list</a>.</p>
 
 				<table class="stateTable">
 					<tr><th colspan="2"><code>INITIALIZATION</code> state</th></tr>
 					<tr>
 						<th><img src="img/arrow-right_30.png" alt="entry"></th>
 						<td>The state of all <code class="className">AddressStatus</code> instances is reset to <code>UNKNOWN</code>.<br />
-						Exception is made for instances that are in <code>ISOLATED</code> state. Once a <code class="className">AddressStatus</code> instance has been isolated, it is impossible to come back in any other state, so they remain in this state.</td>
+						Exception is made for instances that are in <code>ISOLATED</code> state. Once a <code class="className">AddressStatus</code> instance has been isolated,
+                        it is impossible to come back in any other state, so they remain in this state.</td>
 					</tr>
 					<tr>
 						<th><img src="img/reload_30.png" alt="task"></th>
-						<td>Supvisors waits until <a href="index.html#supvisors-section" class="intLink">synchro_timeout</a> seconds for all Supvisors instances to be active. As soon as the related <code class="className">AddressStatus</code> instances are all <code>RUNNING</code>, Supvisors transitions to <code>DEPLOYMENT</code> state.<br />
-						If some <code class="className">AddressStatus</code> instances are still in an <code>UNKNOWN</code> state after that delay, Supvisors declares them <code>SILENT</code> (or <code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto_fencing</a> is activated) and transitions to <code>DEPLOYMENT</code> state with a degraded situation.</td>
+						<td>Supvisors waits until <a href="index.html#supvisors-section" class="intLink">synchro_timeout</a> seconds for all Supvisors instances to be active.
+                        As soon as the related <code class="className">AddressStatus</code> instances are all <code>RUNNING</code>, Supvisors transitions to <code>DEPLOYMENT</code> state.<br />
+						If some <code class="className">AddressStatus</code> instances are still in an <code>UNKNOWN</code> state after that delay,
+                        Supvisors declares them <code>SILENT</code> (or <code>ISOLATING</code> if <a href="index.html#supvisors-section" class="intLink">auto_fencing</a> is activated) and transitions to <code>DEPLOYMENT</code> state with a degraded situation.</td>
 					</tr>
 					<tr>
 						<th><img src="img/arrow-left_30.png" alt="exit"></th>
@@ -316,19 +348,24 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 				</div>
 
 				<h4>DEPLOYMENT state</h4>
-				<p>In the <code>DEPLOYMENT</code> state, Supvisors performs an automatic deployment of the applications in accordance with the rules defined in the <a href="#deployment-file" class="intLink">deployment file</a> and with the resources available, i.e. the set of addresses having an active Supvisors intance.</p>
+				<p>In the <code>DEPLOYMENT</code> state, Supvisors performs an automatic deployment of the applications in accordance with the rules
+                defined in the <a href="#deployment-file" class="intLink">deployment file</a> and with the resources available, i.e. the set of addresses having an active Supvisors intance.</p>
 
 				<table class="stateTable">
 					<tr><th colspan="2"><code>DEPLOYMENT</code> state</th></tr>
 					<tr>
 						<th><img src="img/arrow-right_30.png" alt="entry"></th>
-						<td>Supvisors plans the sequencing of the deployment, at the application level, in accordance with the process information loaded from the remote Supersivor and the sequencing defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a>. As told before, nothing forces the user to configure Supervisor with the same list of programs on every addresses. The sequencing has thus to take into account the actual list of programs that has been loaded from the active Supvisors instances.<br />
+						<td>Supvisors plans the sequencing of the deployment, at the application level, in accordance with the process information loaded from
+                        the remote Supersivor and the sequencing defined in the <a href="index.html#deployment-file" class="intLink">deployment file</a>.
+                        As told before, nothing forces the user to configure Supervisor with the same list of programs on every addresses.
+                        The sequencing has thus to take into account the actual list of programs that has been loaded from the active Supvisors instances.<br />
 						The deployment starts. The principles of the function are detailed <a href="#deployment" class="intLink">hereafter</a>.</td>
 					</tr>
 					<tr>
 						<th><img src="img/reload_30.png" alt="task"></th>
 						<td>The deployment progress is checked and the next phase is triggered if any.<br />
-						When the job is done, Supvisors transitions to the <code>OPERATION</code> state, unless a conflict is detected. In this case, Supvisors transitions to the <code>CONCILIATION</code> state.</td>
+						When the job is done, Supvisors transitions to the <code>OPERATION</code> state, unless a conflict is detected.
+                        In this case, Supvisors transitions to the <code>CONCILIATION</code> state.</td>
 					</tr>
 					<tr>
 						<th><img src="img/arrow-left_30.png" alt="exit"></th>
@@ -338,9 +375,13 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 
 				<div class="note">
 					<p>Note about the unicity of the processes</p>
-					<p>Although the same program definition may be loaded into the different Supervisor instances, Supvisors ensures that a single process may be running among them at the same time. Of course, as the Supervisor functions are still available (through supervisorctl or ini file definitions), it is easy to trick Supvisors so that multiple processes are running on several addresses.<br />
-					Supvisors considers this situation, that is typically a case of <em>split-brain</em>, as a <strong>conflict</strong> and handles it in the <code>CONCILIATION</code> state.<br />
-					When the user really needs several instances of the same program to be running on different addresses, the solution is to set the Supervisor <code class="ini">numprocs</code> option accordingly in the program definition.</p>
+					<p>Although the same program definition may be loaded into the different Supervisor instances, Supvisors ensures that a single process
+                    may be running among them at the same time. Of course, as the Supervisor functions are still available (through supervisorctl or ini file definitions),
+                    it is easy to trick Supvisors so that multiple processes are running on several addresses.<br />
+					Supvisors considers this situation, that is typically a case of <em>split-brain</em>, as a <strong>conflict</strong> and handles it
+                    in the <code>CONCILIATION</code> state.<br />
+					When the user really needs several instances of the same program to be running on different addresses, the solution is to set
+                    the Supervisor <code class="ini">numprocs</code> option accordingly in the program definition.</p>
 				</div>
 
 				<h4>OPERATION state</h4>
@@ -385,7 +426,56 @@ self.socket.send_pyobj((addressMapper.localAddress, payload))</code></pre>
 					</tr>
 				</table>
 
+				<h4>RESTARTING state</h4>
+				<p>The <code>RESTARTING</code> state can be reached from <code>DEPLOYMENT</code>, <code>OPERATION</code> and <code>CONCILIATION</code> states, using a XML_RPC request.
+                In this state, Supvisors performs an automatic stop of all applications in accordance with the rules defined
+                in the <a href="#deployment-file" class="intLink">deployment file</a> before a full restart.</p>
 
+				<table class="stateTable">
+					<tr><th colspan="2"><code>RESTARTING</code> state</th></tr>
+					<tr>
+						<th><img src="img/arrow-right_30.png" alt="entry"></th>
+						<td>Supvisors plans the stopping of the applications, in accordance with the sequencing defined in
+                            the <a href="index.html#deployment-file" class="intLink">deployment file</a> and starts to stop the running processes.</td>
+					</tr>
+					<tr>
+						<th><img src="img/reload_30.png" alt="task"></th>
+						<td>The stopping progress is checked and the next phase is triggered if any.<br />
+						When the job is done, Supvisors transitions to the <code>SHUTDOWN</code> state.</td>
+					</tr>
+					<tr>
+						<th><img src="img/arrow-left_30.png" alt="exit"></th>
+						<td>Supvisors triggers its full restart through the restart of all Supervisor instances.</td>
+					</tr>
+				</table>
+
+				<h4>SHUTTING_DOWN state</h4>
+				<p>The <code>SHUTTING_DOWN</code> state can be reached from <code>DEPLOYMENT</code>, <code>OPERATION</code> and <code>CONCILIATION</code> states, using a XML_RPC request.
+                In this state, Supvisors performs an automatic stop of all applications in accordance with the rules defined
+                in the <a href="#deployment-file" class="intLink">deployment file</a> before a full shutdown.</p>
+
+				<table class="stateTable">
+					<tr><th colspan="2"><code>SHUTTING_DOWN</code> state</th></tr>
+					<tr>
+						<th><img src="img/arrow-right_30.png" alt="entry"></th>
+						<td>Supvisors plans the stopping of the applications, in accordance with the sequencing defined in
+                            the <a href="index.html#deployment-file" class="intLink">deployment file</a> and starts to stop the running processes.</td>
+					</tr>
+					<tr>
+						<th><img src="img/reload_30.png" alt="task"></th>
+						<td>The stopping progress is checked and the next phase is triggered if any.<br />
+						When the job is done, Supvisors transitions to the <code>SHUTDOWN</code> state.</td>
+					</tr>
+					<tr>
+						<th><img src="img/arrow-left_30.png" alt="exit"></th>
+						<td>Supvisors triggers its full shutdown through the shutdown of all Supervisor instances.</td>
+					</tr>
+				</table>
+
+				<h4>SHUTDOWN state</h4>
+				<p>The <code>SHUTDOWN</code> state is the final state. No action is performed.</p>
+
+                
 				<h3 id="deployment">Deployment</h3>
 				<p>Once that Supvisors is ready to work, the starting and stopping sequences are established.<br />
                 Starting and stopping applications follow the same principle.</p>

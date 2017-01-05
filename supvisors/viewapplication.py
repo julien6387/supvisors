@@ -235,7 +235,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('start_application: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -245,8 +245,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result:
                     return info_message('Application {} started'.format(self.application_name))
                 return warn_message('Application {} NOT started'.format(self.application_name))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         if cb:
             return delayed_info('Application {} started'.format(self.application_name))
         return delayed_warn('Application {} NOT started'.format(self.application_name))
@@ -257,7 +257,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('stopApplication: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -265,8 +265,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('Application {} stopped'.format(self.application_name))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         return delayed_info('Application {} stopped'.format(self.application_name))
  
     def restart_application_action(self, strategy):
@@ -275,7 +275,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('restartApplication: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -285,8 +285,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result:
                     return info_message('Application {} restarted'.format(self.application_name))
                 return warn_message('Application {} NOT restarted'.format(self.application_name))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         if cb:
             return delayed_info('Application {} restarted'.format(self.application_name))
         return delayed_warn('Application {} NOT restarted'.format(self.application_name))
@@ -298,7 +298,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('startProcess: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -308,8 +308,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result:
                     return info_message('Process {} started'.format(namespec))
                 return warn_message('Process {} NOT started'.format(namespec))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         if cb:
             return delayed_info('Process {} started'.format(namespec))
         return delayed_warn('Process {} NOT started'.format(namespec))
@@ -320,7 +320,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('stopProcess: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -328,8 +328,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('process {} stopped'.format(namespec))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         return delayed_info('process {} stopped'.format(namespec))
  
     def restart_process_action(self, strategy, namespec):
@@ -338,7 +338,7 @@ class ApplicationView(MeldView, ViewHandler):
         except RPCError, e:
             return delayed_error('restartProcess: {}'.format(e.text))
         if callable(cb):
-            def on_wait():
+            def onwait():
                 try:
                     result = cb()
                 except RPCError, e:
@@ -348,8 +348,8 @@ class ApplicationView(MeldView, ViewHandler):
                 if result:
                     return info_message('Process {} restarted'.format(namespec))
                 return warn_message('Process {} NOT restarted'.format(namespec))
-            on_wait.delay = 0.1
-            return on_wait
+            onwait.delay = 0.1
+            return onwait
         if cb:
             return delayed_info('Process {} restarted'.format(namespec))
         return delayed_warn('Process {} NOT restarted'.format(namespec))

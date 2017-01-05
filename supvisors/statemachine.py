@@ -28,23 +28,40 @@ class AbstractState(object):
     """ Base class for a state with simple entry / next / exit actions """
 
     def __init__(self, supvisors):
+        """ Initialization of the attributes. """
         self.supvisors = supvisors
         supvisors_short_cuts(self, ['context', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
-        pass
+        """ Actions performed when reaching the state. """
 
     def next(self):
-        pass
+        """ Actions performed upon event. """
 
     def exit(self):
-        pass
+        """ Actions performed when leaving the state. """
+
+    def apply_addresses_func(self, func):
+        """ Perform the action func on all addresses.
+        The local address is the last to be performed. """
+        # send func request to all locals (but self address)
+        for status in self.context.addresses.values():
+            if status.address_name != self.address:
+                if status.state == AddressStates.RUNNING:
+                    func(status.address_name)
+                    self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
+                else:
+                    self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, status.address_name, status.state_string()))
+        # send request to self supervisord
+        func(self.address)
 
 
 class InitializationState(AbstractState):
+    """ In the INITIALIZATION state, Supvisors synchronizes to all known instances. """
 
     def enter(self):
+        """ When entering in the INITIALIZATION state, reset the status of addresses. """
         self.context.master_address = ''
         self.start_date = int(time())
         # re-init addresses that are not isolated
@@ -54,6 +71,7 @@ class InitializationState(AbstractState):
                 status._state = AddressStates.UNKNOWN
 
     def next(self):
+        """ Wait for addresses to publish until all are active or timeout. """
         # cannot get out of this state without local supervisor RUNNING
         addresses = self.context.running_addresses()
         if self.address in addresses:
@@ -70,6 +88,8 @@ class InitializationState(AbstractState):
         return SupvisorsStates.INITIALIZATION
 
     def exit(self):
+        """ When leaving the INITIALIZATION state, the working addresses are defined.
+        One of them is elected as the MASTER. """
         # force state of missing Supvisors instances
         self.context.end_synchro()
         # arbitrarily choice : master address is the 'lowest' address among running addresses
@@ -79,8 +99,11 @@ class InitializationState(AbstractState):
 
 
 class DeploymentState(AbstractState):
+    """ In the DEPLOYMENT state, Supvisors starts automatically the applications having a deployment definition. """
 
     def enter(self):
+        """ When entering in the DEPLOYMENT state, define the start sequencing.
+        Only the MASTER can perform the automatic starting. """
         # TODO: make a restriction of addresses in process rules, iaw process location in Supervisor instances
         # define ordering iaw Addresses
         for application in self.context.applications.values():
@@ -88,17 +111,21 @@ class DeploymentState(AbstractState):
             application.update_status()
         # only the Supvisors master deploys applications
         if self.context.master:
-            self.starter.start_applications(self.context.applications.values())
+            self.starter.start_applications()
 
     def next(self):
+        """ Wait for applications to be started. """
         if not self.context.master or self.starter.check_starting():
                 return SupvisorsStates.CONCILIATION if self.context.conflicting() else SupvisorsStates.OPERATION
         return SupvisorsStates.DEPLOYMENT
 
 
 class OperationState(AbstractState):
+    """ In the OPERATION state, Supvisors is waiting for requests. """
 
     def next(self):
+        """ Check that all addresses are still active.
+        Look after possible conflicts due to multiple running instances of the same program. """
         # check eventual jobs in progress
         if self.starter.check_starting() and self.stopper.check_stopping():
             # check if master and local are still RUNNING
@@ -113,13 +140,17 @@ class OperationState(AbstractState):
 
 
 class ConciliationState(AbstractState):
+    """ In the CONCILIATION state, Supvisors conciliates the conflicts. """
 
     def enter(self):
-        # the Supvisors Master auto-conciliates conflicts
+        """ When entering in the CONCILIATION state, conciliate automatically the conflicts.
+        Only the MASTER can conciliate conflicts. """
         if self.context.master:
             conciliate(self.supvisors, self.supvisors.options.conciliation_strategy, self.context.conflicts())
 
     def next(self):
+        """ Check that all addresses are still active.
+        Wait for all conflicts to be conciliated. """
         # check eventual jobs in progress
         if self.starter.check_starting() and self.stopper.check_stopping():
             # check if master and local are still RUNNING
@@ -131,6 +162,48 @@ class ConciliationState(AbstractState):
             if not self.context.conflicting():
                 return SupvisorsStates.OPERATION
         return SupvisorsStates.CONCILIATION
+
+
+class RestartingState(AbstractState):
+    """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
+
+    def enter(self):
+        """ When entering in the RESTARTING state, stop all applications. """
+        self.stopper.stop_applications()
+
+    def next(self):
+        """ Wait for all processes to be stopped. """
+        # check eventual jobs in progress
+        if self.stopper.check_stopping():
+            return SupvisorsStates.SHUTDOWN
+        return SupvisorsStates.RESTARTING
+
+    def exit(self):
+        """ When leaving the RESTARTING state, request the full restart. """
+        self.apply_addresses_func(self.supvisors.pool.async_restart)
+
+
+class ShuttingDownState(AbstractState):
+    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a full shutdown. """
+
+    def enter(self):
+        """ When entering in the SHUTTING_DOWN state, stop all applications. """
+        self.stopper.stop_applications()
+
+    def next(self):
+        """ Wait for all processes to be stopped. """
+        # check eventual jobs in progress
+        if self.stopper.check_stopping():
+            return SupvisorsStates.SHUTDOWN
+        return SupvisorsStates.SHUTTING_DOWN
+
+    def exit(self):
+        """ When leaving the SHUTTING_DOWN state, request the full shutdown. """
+        self.apply_addresses_func(self.supvisors.pool.async_shutdown)
+
+
+class ShutdownState(AbstractState):
+    """ This is the final state. """
 
 
 class FiniteStateMachine:
@@ -151,7 +224,11 @@ class FiniteStateMachine:
     def next(self):
         """ Send the event to the state and transitions if possible.
         The state machine re-sends the event as long as it transitions. """
-        next_state = self.instance.next()
+        self.set_state(self.instance.next())
+
+    def set_state(self, next_state):
+        """ Send the event to the state and transitions if possible.
+        The state machine re-sends the event as long as it transitions. """
         while next_state != self.state and next_state in self.__Transitions[self.state]:
             self.instance.exit()
             self.update_instance(next_state)
@@ -203,6 +280,14 @@ class FiniteStateMachine:
         """ This event is used to finalize the port-knocking between Supvisors instances. """
         self.context.on_authorization(address_name, authorized)
 
+    def on_restart(self):
+        """ This event is used to transition the state machine to the RESTARTING state. """
+        self.set_state(SupvisorsStates.RESTARTING)
+
+    def on_shutdown(self):
+        """ This event is used to transition the state machine to the SHUTTING_DOWN state. """
+        self.set_state(SupvisorsStates.SHUTTING_DOWN)
+
     # serialization
     def to_json(self):
         """ Return a JSON-serializable form of the SupvisorsState """
@@ -213,13 +298,19 @@ class FiniteStateMachine:
         SupvisorsStates.INITIALIZATION: InitializationState,
         SupvisorsStates.DEPLOYMENT: DeploymentState,
         SupvisorsStates.OPERATION: OperationState,
-        SupvisorsStates.CONCILIATION: ConciliationState
+        SupvisorsStates.CONCILIATION: ConciliationState,
+        SupvisorsStates.RESTARTING: RestartingState,
+        SupvisorsStates.SHUTTING_DOWN: ShuttingDownState,
+        SupvisorsStates.SHUTDOWN: ShutdownState
     }
 
     # Transitions allowed between states
     __Transitions = {
-        SupvisorsStates.INITIALIZATION: [ SupvisorsStates.DEPLOYMENT ],
-        SupvisorsStates.DEPLOYMENT: [ SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION ],
-        SupvisorsStates.OPERATION: [ SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION ],
-        SupvisorsStates.CONCILIATION: [ SupvisorsStates.OPERATION, SupvisorsStates.INITIALIZATION ]
+        SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
+        SupvisorsStates.DEPLOYMENT: [SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION, SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN],
+        SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN],
+        SupvisorsStates.CONCILIATION: [SupvisorsStates.OPERATION, SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN],
+        SupvisorsStates.RESTARTING: [SupvisorsStates.SHUTDOWN],
+        SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
+        SupvisorsStates.SHUTDOWN: []
    }

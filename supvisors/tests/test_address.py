@@ -71,7 +71,7 @@ class AddressTest(unittest.TestCase):
         # test to_json method
         json = status.to_json()
         self.assertDictEqual(json, {'address_name': '10.0.0.1', 'loading': 0,
-            'statecode': 1, 'statename': 'RUNNING', 'remote_time': 50, 'local_time':60})
+            'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time':60})
         # test that returned structure is serializable using pickle
         serial = pickle.dumps(json)
         after_json = pickle.loads(serial)

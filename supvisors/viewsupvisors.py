@@ -180,17 +180,39 @@ class SupvisorsView(MeldView, ViewHandler):
     def sup_restart_action(self):
         """ Restart all Supervisor instances. """
         try:
-            self.supvisors.info_source.supvisors_rpc_interface.restart()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.restart()
         except RPCError, e:
             return delayed_error('restart: {}'.format(e))
+        if callable(cb):
+            def onwait():
+                try:
+                    result = cb()
+                except RPCError, e:
+                    return error_message('restart: {}'.format(e))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                return info_message('Supvisors restarted')
+            onwait.delay = 0.1
+            return onwait
         return delayed_info('Supvisors restarted')
 
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
         try:
-            self.supvisors.info_source.supvisors_rpc_interface.shutdown()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.shutdown()
         except RPCError, e:
             return delayed_error('shutdown: {}'.format(e))
+        if callable(cb):
+            def onwait():
+                try:
+                    result = cb()
+                except RPCError, e:
+                    return error_message('shutdown: {}'.format(e))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                return info_message('Supvisors shut down')
+            onwait.delay = 0.1
+            return onwait
         return delayed_info('Supvisors shut down')
 
     def stop_action(self, namespec, address):

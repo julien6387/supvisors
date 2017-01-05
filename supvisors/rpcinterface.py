@@ -23,8 +23,8 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.ttypes import (AddressStates, ApplicationStates,
-    DeploymentStrategies, SupvisorsStates)
+from supvisors.initializer import Supvisors
+from supvisors.ttypes import ApplicationStates, DeploymentStrategies, SupvisorsStates
 from supvisors.utils import supvisors_short_cuts
 
 # get Supvisors version from file
@@ -36,10 +36,10 @@ API_VERSION = open(version_txt).read().split('=')[1].strip()
 class RPCInterface(object):
     """ This class holds the XML-RPC extension provided by Supvisors. """
 
-    def __init__(self, supvisors):
-        self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'info_source', 'logger', 'starter', 'stopper'])
-        self.address = supvisors.address_mapper.local_address
+    def __init__(self, supervisord):
+        # create a new Supvisors instance
+        self.supvisors = Supvisors(supervisord)
+        supvisors_short_cuts(self, ['context', 'fsm', 'info_source', 'logger', 'starter', 'stopper'])
 
     # RPC Status methods
     def get_api_version(self):
@@ -52,8 +52,7 @@ class RPCInterface(object):
         """ Return the state of Supvisors.
         @return struct result\tThe state of Supvisors as an integer and a string.
         """
-        return {'statecode': self.supvisors.fsm.state,
-            'statename': SupvisorsStates._to_string(self.supvisors.fsm.state)}
+        return self.fsm.to_json()
 
     def get_master_address(self):
         """ Get the address of the Supvisors Master.
@@ -117,6 +116,7 @@ class RPCInterface(object):
         @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
         @return list result\tA list of structures containing data about the deployment rules.
         """
+        self._check_from_deployment()
         application, process = self._get_application_process(namespec)
         if process:
             return [self._get_internal_process_rules(process)]
@@ -126,6 +126,7 @@ class RPCInterface(object):
         """ Get the conflicting processes.
         @return list result\t\t\tA list of structures containing data about the conflicting processes.
         """
+        self._check_from_deployment()
         return [process.to_json() for application in self.context.applications.values()
             for process in application.processes.values() if process.conflicting()]
 
@@ -234,6 +235,7 @@ class RPCInterface(object):
         @param boolean wait\tWait for process to be fully started.
         @return boolean result\tAlways true unless error.
         """
+        # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT)
         # prevent usage of extra_args when required or auto_start
         application, process = self._get_application_process(namespec)
         if extra_args and not process.rules.accept_extra_arguments():
@@ -344,39 +346,40 @@ class RPCInterface(object):
             # first wait for process to be stopped
             if onwait.waitstop:
                 value = onwait.job()
-                if value is True:
-                    # done. request start process
-                    onwait.waitstop = False
-                    value = self.start_process(strategy, namespec, extra_args, wait)
-                    if type(value) is bool:
-                        return value
-                    # deferred job to wait for process to be started
-                    onwait.job = value
-                return NOT_DONE_YET
-            return onwait.job()
-        onwait.delay = 0.5
-        onwait.waitstop = True
+                if value is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                # done, whatever the result is True or False.
+                onwait.waitstop = False
+            # request start process
+            return self.start_process(strategy, namespec, extra_args, wait)
         # request stop process. job is for deferred result
+        onwait.delay = 0.5
         onwait.job = self.stop_process(namespec, True)
+        onwait.waitstop = callable(onwait.job)
         return onwait # deferred
 
     def restart(self):
-        """ Restart Supvisors through all remote supervisord.
+        """ Stops all applications and restart Supvisors through all remote supervisord.
         @return boolean result\tAlways True unless error.
         """
-        return self._send_addresses_func(self.supvisors.pool.async_restart)
+        self._check_from_deployment()
+        self.fsm.on_restart()
+        return True
 
     def shutdown(self):
-        """ Shut down Supvisors through all remote supervisord.
+        """ Stops all applications and shut down Supvisors through all remote supervisord.
         @return boolean result\tAlways True unless error.
         """
-        return self._send_addresses_func(self.supvisors.pool.async_shutdown)
+        self._check_from_deployment()
+        self.fsm.on_shutdown()
+        return True
 
 
     # utilities
     def _check_from_deployment(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
-        self._check_state([SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION])
+        self._check_state([SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
+            SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
 
     def _check_operating_conciliation(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION or CONCILIATION. """
@@ -392,7 +395,6 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_SUPVISORS_STATE, 'Supvisors (state={}) not in state {} to perform request'.
                 format(SupvisorsStates._to_string(self.supvisors.fsm.state), [SupvisorsStates._to_string(state) for state in states]))
 
-    # almost equivalent to the method in supervisor.rpcinterface
     def _get_application_process(self, namespec):
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
@@ -419,24 +421,6 @@ class RPCInterface(object):
 
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
-        rules = process.rules
-        # FIXME: json rules
-        return {'namespec': process.namespec(), 'addresses': rules.addresses,
-            'start_sequence': rules.start_sequence, 'stop_sequence': rules.stop_sequence,
-            'required': rules.required, 'wait_exit': rules.wait_exit, 'expected_loading': rules.expected_loading}
-
-    def _send_addresses_func(self, func):
-        """ Perfrom the action func on all addresses.
-        The local address is the last to be performed. """
-        # send func request to all locals (but self address)
-        for status in self.context.addresses.values():
-            if status.address_name != self.address:
-                if status.state == AddressStates.RUNNING:
-                    func(status.address_name)
-                    self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
-                else:
-                    self.logger.info('cannot {} supervisord on {}: Remote state is {}'.format(func.__name__, status.address_name, status.state_string()))
-        # send request to self supervisord
-        func(self.address)
-        return True
-
+        result = process.rules.to_json()
+        result.update({'application_name': process.application_name, 'process_name': process.process_name})
+        return result

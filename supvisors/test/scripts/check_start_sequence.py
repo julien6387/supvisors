@@ -18,64 +18,19 @@
 # ======================================================================
 
 import os
+import sys
 import unittest
-from Queue import Empty, Queue
+from Queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import make_namespec
 
 from supvisors.client.subscriber import *
+from supvisors.test.scripts.event_queue import *
 
 
-class SupvisorsEventQueues(SupvisorsEventInterface):
-    """ The SupvisorsEventQueues is a python thread that connects to Supvisors
-    and stores the application and process events received into queues. """
-
-    def __init__(self, port, logger):
-        """ Initialization of the attributes. """
-        SupvisorsEventInterface.__init__(self, create_zmq_context(), port, logger)
-        # create a set of addresses
-        self.addresses = set()
-        # create queues to store messages
-        self.event_queues = (Queue(), Queue(), Queue())
-        # subscribe to address status only
-        self.subscriber.subscribe_address_status()
-        # test relies on 3 addresses so theoretically, we only need 3 notifications
-        # to know which address is RUNNING or not
-        # work on 5 notifications, just in case.
-        # the startsecs of the ini file of this program is then set to 30 seconds
-        self.nb_address_notifications = 0
- 
-    def on_address_status(self, data):
-        """ Pushes the AddressStatus message into a queue. """
-        self.logger.info('got AddressStatus message: {}'.format(data))
-        if data['statename'] == 'RUNNING':
-            self.addresses.add(data['address_name'])
-        # check the number of notifications
-        self.nb_address_notifications += 1
-        if self.nb_address_notifications == 5:
-            self.logger.info('addresses: {}'.format(self.addresses))
-            # got all notification, unsubscribe from AddressStatus
-            self.subscriber.unsubscribe_address_status()
-            # subscribe to application and process status
-            self.subscriber.subscribe_application_status()
-            self.subscriber.subscribe_process_status()
-            # notify CheckSequence with an event in start_queue
-            self.event_queues[0].put(self.addresses)
-
-    def on_application_status(self, data):
-        """ Pushes the ApplicationStatus message into a queue. """
-        self.logger.info('got ApplicationStatus message: {}'.format(data))
-        self.event_queues[1].put(data)
-
-    def on_process_status(self, data):
-        """ Pushes the ProcessStatus message into a queue. """
-        self.logger.info('got ProcessStatus message: {}'.format(data))
-        self.event_queues[2].put(data)
-
-
-class CheckSequenceTest(unittest.TestCase):
-    """ Test case to check the sequencing of the test application. """
+class CheckStartSequenceTest(unittest.TestCase):
+    """ Test case to check the sequencing of the starting test application. """
 
     PORT = 60002
 
@@ -101,7 +56,7 @@ class CheckSequenceTest(unittest.TestCase):
         """ Test the whole sequencing of the starting of the test application.
         At this point, Supvisors is in DEPLOYMENT phase.
         This process is the first to be started. """
-        # wait for start_queue to trigger
+        # wait for address_queue to trigger
         self.get_addresses()
         # test the last events received for this process
         self.check_self_starting()
@@ -121,7 +76,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.minor_failure = False
         # get database rules
         rules = getRPCInterface(os.environ).supvisors.get_process_rules('database:*')
-        self.rules = {rule['namespec']: rule['addresses'] for rule in rules}
+        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
         # first group contains the movie_server_xx programs
         self.check_movie_server_starting()
         # second group contains the register_movie_xx programs
@@ -167,7 +122,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.minor_failure = False
         # get database rules
         rules = getRPCInterface(os.environ).supvisors.get_process_rules('my_movies:*')
-        self.rules = {rule['namespec']: rule['addresses'] for rule in rules}
+        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
         # first group contains the manager program
         self.check_manager_starting()
         # second group contains the hmi program
@@ -205,10 +160,10 @@ class CheckSequenceTest(unittest.TestCase):
         self.minor_failure = False
         # get database rules
         rules = getRPCInterface(os.environ).supvisors.get_process_rules('web_movies:*')
-        self.rules = {rule['namespec']: rule['addresses'] for rule in rules}
-        # first group contains the manager program
+        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
+        # first group contains the server program
         self.check_web_server_starting()
-        # second group contains the hmi program
+        # second group contains the browser program
         self.check_web_browser_starting()
 
     def check_web_server_starting(self):
@@ -221,7 +176,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.starting_processes = []
         # check processes are STARTING / RUNNING
         self.check_process_starting('web_movies', 0, 'STOPPED')
-        self.check_process_running('web_movies', 6) # startsecs=5
+        self.check_process_running('web_movies', 7) # startsecs=5
 
     def check_web_browser_starting(self):
         """ Check the starting of the web_browser program.
@@ -257,12 +212,14 @@ class CheckSequenceTest(unittest.TestCase):
                 applicable_addresses = self.addresses if self.rules[namespec] == ['*'] else set(self.rules[namespec]).intersection(self.addresses)
                 # check that process can be started on an active address
                 if applicable_addresses:
+                    self.assertEqual(10, data['statecode'])
                     self.assertEqual('STARTING', data['statename'])
                     self.assertEqual(1, len(data['addresses']))
                     self.assertIn(data['addresses'][0], applicable_addresses)
                     # store in starting processes
                     self.starting_processes.append((process_name, data['addresses']))
                 else:
+                    self.assertEqual(200, data['statecode'])
                     self.assertEqual('FATAL', data['statename'])
                     self.assertFalse(data['addresses'])
                     self.minor_failure = True
@@ -274,8 +231,12 @@ class CheckSequenceTest(unittest.TestCase):
             else:
                 # application is in ref_application_statename until one process is STARTING
                 self.assertEqual(application_name, data['application_name'])
-                self.assertEqual(1 if self.starting_processes else ref_application_statecode, data['statecode'])
-                self.assertEqual('STARTING' if self.starting_processes else ref_application_statename, data['statename'])
+                if self.starting_processes:
+                    self.assertEqual(1, data['statecode'])
+                    self.assertEqual('STARTING', data['statename'])
+                else:
+                    self.assertEqual(ref_application_statecode, data['statecode'])
+                    self.assertEqual(ref_application_statename, data['statename'])
                 self.assertEqual(self.major_failure, data['major_failure'])
                 self.assertEqual(self.minor_failure and data['statename'] != 'STOPPED', data['minor_failure'])
 
@@ -295,6 +256,7 @@ class CheckSequenceTest(unittest.TestCase):
                 self.assertIn((process_name, data['addresses']), self.starting_processes)
                 self.starting_processes.remove((process_name, data['addresses']))
                 # build namespec from process and application names
+                self.assertEqual(20, data['statecode'])
                 self.assertEqual('RUNNING', data['statename'])
             # get next application event
             try:
@@ -304,8 +266,12 @@ class CheckSequenceTest(unittest.TestCase):
             else:
                 # application is STARTING until all processes are RUNNING
                 self.assertEqual(application_name, data['application_name'])
-                self.assertEqual(1 if self.starting_processes else 2, data['statecode'])
-                self.assertEqual('STARTING' if self.starting_processes else 'RUNNING', data['statename'])
+                if self.starting_processes:
+                    self.assertEqual(1, data['statecode'])
+                    self.assertEqual('STARTING', data['statename'])
+                else:
+                    self.assertEqual(2, data['statecode'])
+                    self.assertEqual('RUNNING', data['statename'])
                 self.assertEqual(self.major_failure, data['major_failure'])
                 self.assertEqual(self.minor_failure, data['minor_failure'])
 
@@ -326,6 +292,7 @@ class CheckSequenceTest(unittest.TestCase):
                 self.assertFalse(data['addresses'])
                 self.assertTrue(data['expected_exit'])
                 # build namespec from process and application names
+                self.assertEqual(100, data['statecode'])
                 self.assertEqual('EXITED', data['statename'])
             # get next application event
             try:
@@ -377,7 +344,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Check the starting sequence using Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
     args = parser.parse_args()
-    CheckSequenceTest.PORT = args.port
+    CheckStartSequenceTest.PORT = args.port
     # start unittest
     unittest.main(defaultTest='test_suite')
 

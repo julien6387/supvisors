@@ -161,21 +161,27 @@ class ControllerPlugin(ControllerPluginBase):
             processes = arg.split()
             if not processes or "all" in processes:
                 processes = ['{}:*'.format(application_info['application_name']) for application_info in self.supvisors().get_all_applications_info()]
-            template = '%(name)-30s%(start_seq)-12s%(stop_seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'
+            rules_list = []
             for process in processes:
                 try:
-                    rulesList = self.supvisors().get_process_rules(process)
+                    rules = self.supvisors().get_process_rules(process)
                 except xmlrpclib.Fault, e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
-                    for rules in rulesList:
-                        required = rules['required']
-                        wait_exit = rules['wait_exit']
-                        line = template % {'name': rules['namespec'], 'addr': rules['addresses'],
-                            'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'], 
-                            'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '',
-                            'load': '{}%'.format(rules['expected_loading'])}
-                        self.ctl.output(line)
+                    rules_list.extend(rules)
+            # print results
+            max_appli = max(len(rules['application_name']) for rules in rules_list) + 4
+            max_proc = max(len(rules['process_name']) for rules in rules_list) + 4
+            template = '%(appli)-{}s%(proc)-{}s%(start_seq)-12s%(stop_seq)-12s%(req)-12s%(exit)-12s%(load)-12s%(addr)s'.format(max_appli, max_proc)
+            for rules in rules_list:
+                required = rules['required']
+                wait_exit = rules['wait_exit']
+                line = template % {'appli': rules['application_name'], 'proc': rules['process_name'],
+                    'addr': rules['addresses'],
+                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'], 
+                    'req': 'required' if required else 'optional', 'exit': 'exit' if wait_exit else '',
+                    'load': '{}%'.format(rules['expected_loading'])}
+                self.ctl.output(line)
 
     def help_rules(self):
         self.ctl.output("rules <proc>\t\t\t\tGet the deployment rules of the process named proc.")
