@@ -56,7 +56,10 @@ author = u'Julien Le Cléach'
 # built documents.
 #
 # The short X.Y version.
-version_txt = os.path.join(here, 'supvisors/version.txt')
+parent = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(os.path.abspath(parent))
+
+version_txt = os.path.join(parent, 'supvisors/version.txt')
 supvisors_version = open(version_txt).read().split('=')[1].strip()
 
 version = supvisors_version
