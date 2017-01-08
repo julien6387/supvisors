@@ -15,6 +15,7 @@ This documentation is UNDER CONSTRUCTION.
     xml_rpc.rst
     supervisorctl.rst
     event_interface.rst
+    special.rst
     
 
 Indices and tables

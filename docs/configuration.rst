@@ -3,21 +3,24 @@
 Configuration
 =============
 
+Supervisor's Configuration File
+-------------------------------
+
 This section explains how **Supvisors** uses and complements the
 `Supervisor configuration <http://supervisord.org/configuration.html>`_.
 
 
 Extension points
-----------------
+~~~~~~~~~~~~~~~~
 
-Supvisors extends the `Supervisor's XML-RPC API <http://supervisord.org/xmlrpc.html>`_.
+**Supvisors** extends the `Supervisor's XML-RPC API <http://supervisord.org/xmlrpc.html>`_.
 
 .. code-block:: ini
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.rpcinterface:make_supvisors_rpcinterface
 
-Supvisors extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
+**Supvisors** extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
 This possibility is not documented in Supervisor.
 
 .. code-block:: ini
@@ -27,9 +30,9 @@ This possibility is not documented in Supervisor.
 
 
 ``[supvisors]`` Section Values
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Supvisors uses an additional section ``[supvisors]`` in the Supervisor configuration file.
+The parameters of **Supvisors** are set through an additional section ``[supvisors]`` in the Supervisor configuration file.
 
 ``address_list``
 
@@ -41,7 +44,7 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 
 ``deployment_file``
 
-    The absolute or relative path of the XML rules file. The contents of this file is described in `Rules File``.
+    The absolute or relative path of the XML rules file. The contents of this file is described in `Rules File`_.
 
     *Default*:  None.
 
@@ -50,6 +53,7 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 ``auto_fence``
 
     When true, **Supvisors** won't try to reconnect to a **Supvisors** instance that has been inactive.
+    This functionality is detailed in :ref:`auto_fencing`.
 
     *Default*:  false.
 
@@ -57,7 +61,8 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 
 ``internal_port``
 
-    The internal port number used to publish local events to remote **Supvisors** instances. Events are published through a PyZMQ TCP socket.
+    The internal port number used to publish local events to remote **Supvisors** instances.
+    Events are published through a PyZMQ TCP socket.
 
     *Default*:  65001.
 
@@ -67,7 +72,7 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 ``event_port``
 
     The port number used to publish all **Supvisors** events (Address, Application and Process events).
-    Events are published through a PyZMQ TCP socket.
+    Events are published through a PyZMQ TCP socket. The protocol of this interface is explained in :ref:`event_interface`.
 
     *Default*:  65002.
 
@@ -85,14 +90,7 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 
     The strategy used to start applications on addresses.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
-
-    When applying the ``CONFIG`` strategy, **Supvisors** chooses the first address available in the ``address_list``.
-
-    When applying the ``LESS_LOADED`` strategy, **Supvisors** chooses the address in the ``address_list`` having the lowest expected loading.
-    The aim is to distribute the process loading among the available hosts.
-
-    When applying the ``MOST_LOADED`` strategy, with respect of the common rules, **Supvisors** chooses the address in the ``address_list`` having the greatest expected loading.
-    The aim is to maximize the load of a host before starting to load another host. This strategy is more interesting when the resources are limited.
+    This functionality is detailed in :ref:`start_sequence`.
 
     *Default*:  ``CONFIG``.
 
@@ -102,16 +100,7 @@ Supvisors uses an additional section ``[supvisors]`` in the Supervisor configura
 
     The strategy used to solve conflicts upon detection that multiple instances of the same program are running.
     Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART`` }.
-
-    When applying the ``SENICIDE`` strategy, **Supvisors** keeps the youngest process, i.e. the process that has been started the most recently, and stops all the others.
-
-    When applying the ``INFANTICIDE`` strategy, **Supvisors** keeps the oldest process and stops all the others.
-
-    When applying the ``USER`` strategy, **Supvisors** just waits that a user aplication solves the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
-
-    When applying the ``STOP`` strategy, **Supvisors** stops all conflicting processes, which may lead the corresponding applications to a degraded state.
-
-    When applying the ``RESTART`` strategy, **Supvisors** stops all conflicting processes and restarts a new one.
+    This functionality is detailed in :ref:`conciliation`.
 
     *Default*:  ``USER``.
 
@@ -169,8 +158,8 @@ These options are more detailed in `supervisord Section values <http://superviso
 
     *Required*:  No.
 
-``[supvisors]`` Section Example
--------------------------------
+Configuration File Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: ini
 
@@ -194,6 +183,7 @@ These options are more detailed in `supervisord Section values <http://superviso
     [include]
     files = */*.ini
 
+    # Supvisors dedicated part
     [supvisors]
     address_list=cliche01,cliche03,cliche02,cliche04
     deployment_file=./etc/my_movies.xml
@@ -217,13 +207,26 @@ These options are more detailed in `supervisord Section values <http://superviso
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
 Rules File
----------------
+----------
 
-This part describes the contents of the rules files declared in the ``deployment_file`` option.
+This part describes the contents of the XML rules file declared in the ``deployment_file`` option.
 
 Basically, the rules file contains rules that define how applications and programs should be started.
 It relies on the Supervisor group and program definitions.
 The rules define the quality of service expected and how the programs are meant to be started and sto.
+
+
+If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
+the XML rules file before it is used.
+
+Otherwise, it is still possbile to validate the XML rules file manually.
+The XSD contents used to validate the XML can be found in the module ``supvisors.parser``.
+Once extracted to a file (here :file:`rules.xsd`), just use :command:`xmllint` to validate:
+
+.. code-block:: bash
+
+    [bash] > xmllint --noout --schema rules.xsd user_rules.xml
+
 
 ``program`` Rules
 ~~~~~~~~~~~~~~~~~
@@ -292,7 +295,9 @@ Here follows the definition of the rules applicable to a program.
 
 ``wait_exit``
 
-    If true, Supvisors waits for the process to exit before deploying the next sequence.
+    If the value of this element is set to true, Supvisors waits for the process to exit
+    before deploying the next sequence. This may be useful for scripts used to load a database,
+    to mount disks, to prepare the application working directory, etc.
         
     *Default*:  false.
 
@@ -300,9 +305,22 @@ Here follows the definition of the rules applicable to a program.
 
 ``loading``
 
-    Expected percent usage of resources.
-    TODO: explain.
-        
+    This element gives the expected percent usage of resources. The value is a estimation and the meaning
+    in terms of resources (CPU, memory, network) is in the user's hands.
+    
+    This can be used in **Supvisors** to ensure that a system is not overloaded with greedy processes.
+    When multiple addresses are available, the `` loading`` value helps to distribute processes over
+    the systems available, so that the system remains safe.
+
+    .. note:: *About the choice of a user estimation.*
+
+        Although **Supvisors** is taking measurements on each system where it is running, it has
+        been chosen not to use these figures for the loading purpose. Indeed, the resources consumption
+        of a process may be very variable in time and is not foreseeable.
+
+        It is recommended to give a value based on a average usage of the resources in worst case
+        configuration and to add a margin corresponding to the standard deviation.
+
     *Default*:  1.
 
     *Required*:  No.
@@ -311,7 +329,8 @@ Here follows the definition of the rules applicable to a program.
 
     **Not implemented yet**
     
-    This element gives the strategy applied when the required process is unexpectanly stopped in a running application. Possible values are:
+    This element gives the strategy applied when the required process is unexpectanly stopped in a running application.
+    Possible values are:
 
         * ``CONTINUE``: Skip the failure. The application stays with the major failure.
         * ``STOP``: Stop the application.
@@ -323,8 +342,8 @@ Here follows the definition of the rules applicable to a program.
 
 .. code-block:: xml
 
-    <program name="X11_model">
-        <addresses>192.168.0.10 192.168.0.12 sample03</addresses>
+    <program name="prg_00">
+        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
         <required>true</required>
         <start_sequence>1</start_sequence>
         <stop_sequence>1</stop_sequence>
@@ -336,7 +355,36 @@ Here follows the definition of the rules applicable to a program.
 ``pattern`` Rules
 ~~~~~~~~~~~~~~~~~
 
-For a pattern definition, a substring of any Supervisor program name is expected.
+It may be quite tedious to give these informations to each program, especially if multiple programs use common rules.
+So two mechanisms were put in place to help.
+
+The first is the ``pattern``. It can be used to configure a set of programs in a more flexible way than just
+considering homogeneous programs, like Supervisor does.
+
+Like the ``program`` element, the ``pattern`` must be included in ``application`` rules. The same options are applicable.
+The difference is in the ``name`` usage. For a pattern definition, a substring of any Supervisor program name is expected.
+
+.. code-block:: xml
+
+    <pattern name="prg_">
+        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
+        <start_sequence>2</start_sequence>
+        <required>true</required>
+    </pattern>
+
+.. attention:: *About the pattern names*.
+
+    Precautions must be taken when using a ``pattern`` definition.
+    In the previous example, the rules are applicable to every program names containing the ``"prg_"`` substring,
+    so that it matches ``prg_00``, ``prg_dummy``, but also ``dummy_prg_2``.
+
+    As a general rule, when considering a program name, **Supvisors** applies a ``program`` definition, if found,
+    before trying to associate a ``pattern`` definition.
+
+    It also may happen that several patterns match the same program name. In this case, **Supvisors** chooses the pattern
+    with the greatest matching, or arbitrarily the first of them if such a rule does not discrimate enough. So given two pattern
+    names ``prg`` and ``prg_``, **Supvisors** applies the rules associated to ``prg_`` when consirering the program
+    ``prg_00``.
 
 .. note:: *About the use of ``#`` in ``addresses``.*
 
@@ -388,25 +436,15 @@ For a pattern definition, a substring of any Supervisor program name is expected
         Nevertheless, in this case, it will be still possible to start them with Supervisor.
 
 
-.. code-block:: xml
-
-    <pattern name="X11_model">
-        <addresses>192.168.0.10 192.168.0.12 sample03</addresses>
-        <required>true</required>
-        <start_sequence>1</start_sequence>
-        <stop_sequence>1</stop_sequence>
-        <wait_exit>false</wait_exit>
-        <loading>3</loading>
-    </pattern>
-
-
 ``model`` Rules
 ~~~~~~~~~~~~~~~
 
-This definition has been extended to a generic model, that can be defined outside the application scope,
+The second mechanism is the ``model`` definition.
+The ``program`` definition is extended to a generic model, that can be defined outside the application scope,
 so that the same definition can be applied to multiple programs, in any application.
 
-No particular expectation for the name attribute of a ``model``.
+The same options are applicable, **excepting** the ``reference`` option, which doesn't make sense here.
+There is no particular expectation for the name attribute of a ``model``.
 
 Here follows an example of model:
 
@@ -414,20 +452,22 @@ Here follows an example of model:
 
     <model name="X11_model">
 	    <addresses>192.168.0.10 192.168.0.12 sample03</addresses>
-	    <required>true</required>
-	    <start_sequence>1</start_sequence>
-	    <stop_sequence>1</stop_sequence>
+	    <required>false</required>
 	    <wait_exit>false</wait_exit>
-	    <loading>3</loading>
     </model>
 
-Here follows an example of a program definition referencing a model:
+Here follows examples of program and pattern definitions referencing a model:
 
 .. code-block:: xml
 
     <program name="xclock">
 	    <reference>X11_model</reference>
     </program>
+
+    <pattern name="prg">
+	    <reference>X11_model</reference>
+    </pattern>
+
 
 ``application`` Rules
 ~~~~~~~~~~~~~~~~~~~~~
@@ -444,7 +484,7 @@ Here follows the definition of the rules applicable to an application.
 
 ``start_sequence``
 
-    This element gives the starting rank of the application in the ``DEPLOYMENT`` state, when appplications are started automatically.
+    This element gives the starting rank of the application in the ``DEPLOYMENT`` state, when applications are started automatically.
     When <= 0, the application is not started.
     When > 0, the application is started in the given order.
 
@@ -504,10 +544,136 @@ Here follows the definition of the rules applicable to an application.
 
     *Required*:  No.
 
-    .. note:: *About the pattern names*.
 
-        It may happen that several patterns match the same program name. In this case, Supvisors chooses the pattern with the greatest matching, or the first of them if such a rule does not discrimate enough.
+Rules File Example
+~~~~~~~~~~~~~~~~~~
 
+Here follows a complete example of rules files. It is used in **Supvisors** tests.
 
-The XSD contents used to validate the XML can be found in the following module: supvisors.parser.
+.. code-block:: xml
+
+    ?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <root>
+
+        <!-- models -->
+        <model name="disk_01">
+            <addresses>cliche01</addresses>
+            <expected_loading>5</expected_loading>
+        </model>
+
+        <model name="disk_02">
+            <addresses>cliche02</addresses>
+            <expected_loading>5</expected_loading>
+        </model>
+
+        <model name="disk_03">
+            <addresses>cliche03</addresses>
+            <expected_loading>5</expected_loading>
+        </model>
+
+        <model name="disk_error">
+            <addresses>*</addresses>
+            <expected_loading>5</expected_loading>
+        </model>
+
+        <!-- starter checking application -->
+        <application name="test">
+            <start_sequence>1</start_sequence>
+            <stop_sequence>4</stop_sequence>
+
+            <program name="check_start_sequence">
+                <addresses>*</addresses>
+                <start_sequence>1</start_sequence>
+                <expected_loading>1</expected_loading>
+            </program>
+
+        </application>
+
+        <!-- movies_database application -->
+        <application name="database">
+            <start_sequence>2</start_sequence>
+            <stop_sequence>3</stop_sequence>
+
+            <pattern name="movie_server_">
+                <addresses>#</addresses>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>1</stop_sequence>
+                <expected_loading>5</expected_loading>
+            </pattern>
+
+            <pattern name="register_movies_">
+                <addresses>#</addresses>
+                <start_sequence>2</start_sequence>
+                <wait_exit>true</wait_exit>
+                <expected_loading>25</expected_loading>
+            </pattern>
+
+        </application>
+
+        <!-- my_movies application -->
+        <application name="my_movies">
+            <start_sequence>3</start_sequence>
+            <stop_sequence>2</stop_sequence>
+
+            <program name="manager">
+                <addresses>*</addresses>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>2</stop_sequence>
+                <required>true</required>
+                <expected_loading>5</expected_loading>
+            </program>
+
+            <program name="hmi">
+                <!-- no screen on cliche03 -->
+                <addresses>cliche02 cliche01</addresses>
+                <start_sequence>2</start_sequence>
+                <stop_sequence>1</stop_sequence>
+                <required>true</required>
+                <expected_loading>10</expected_loading>
+            </program>
+
+            <program name="disk_01_">
+                <reference>disk_01</reference>
+            </program>
+
+            <program name="disk_02_">
+                <reference>disk_02</reference>
+            </program>
+
+            <program name="disk_03_">
+                <reference>disk_03</reference>
+            </program>
+
+            <pattern name="error_disk_">
+                <reference>disk_error</reference>
+            </pattern>
+
+            <pattern name="converter_">
+                <expected_loading>25</expected_loading>
+            </pattern>
+
+         </application>
+
+        <!-- web_movies application -->
+        <application name="web_movies">
+            <start_sequence>4</start_sequence>
+            <stop_sequence>1</stop_sequence>
+
+            <program name="web_server">
+                <addresses>*</addresses>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>1</stop_sequence>
+                <required>true</required>
+                <expected_loading>3</expected_loading>
+            </program>
+
+            <program name="web_browser">
+                <addresses>*</addresses>
+                <start_sequence>2</start_sequence>
+                <expected_loading>4</expected_loading>
+            </program>
+
+        </application>
+
+    </root>
 

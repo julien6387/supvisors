@@ -25,7 +25,7 @@ from datetime import date
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.3.5'
+# needs_sphinx = '1.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -48,7 +48,7 @@ master_doc = 'index'
 year = date.today().year
 
 project = u'Supvisors'
-copyright = u'2016-%s, Julien Le Cléach'.format(year)
+copyright = u'2016-{}, Julien Le Cléach'.format(year)
 author = u'Julien Le Cléach'
 
 # The version info for the project you're documenting, acts as replacement for
