@@ -17,6 +17,7 @@ _ropeproject/
 *~
 build/
 .build/
+.eggs/
 dist/
 cur/
 tmp/
