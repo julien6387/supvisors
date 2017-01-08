@@ -1,6 +1,14 @@
 Special Functionalities
 =======================
 
+.. _synchronizing:
+
+Synchronizing **Supvisors** instances
+-------------------------------------
+
+TODO
+
+
 .. _start_sequence:
 
 Start Sequence
@@ -17,6 +25,8 @@ in the ``address_list`` having the greatest expected loading.
 The aim is to maximize the load of a host before starting to load another host.
 This strategy is more interesting when the resources are limited.
 
+
+.. _stop_sequence:
 
 Stop Sequence
 -------------

@@ -29,6 +29,8 @@ This possibility is not documented in Supervisor.
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
 
+.. _supvisors_section:
+
 ``[supvisors]`` Section Values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -81,6 +83,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``synchro_timeout``
 
     The time in seconds that **Supvisors** waits for all expected **Supvisors** instances to publish.
+    This use of this option is detailed in :ref:`synchronizing`.
 
     *Default*:  15.
 
@@ -90,7 +93,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     The strategy used to start applications on addresses.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
-    This functionality is detailed in :ref:`start_sequence`.
+    The use of this option is detailed in :ref:`start_sequence`.
 
     *Default*:  ``CONFIG``.
 
@@ -100,7 +103,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     The strategy used to solve conflicts upon detection that multiple instances of the same program are running.
     Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART`` }.
-    This functionality is detailed in :ref:`conciliation`.
+    The use of this option is detailed in :ref:`conciliation`.
 
     *Default*:  ``USER``.
 
@@ -108,7 +111,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
 ``stats_periods``
 
-    The list of periods for which the statistics will be provided in the **Supvisors** web page, separated by commas.
+    The list of periods for which the statistics will be provided in the **Supvisors** :ref:`dashboard`, separated by commas.
     Up to 3 values are allowed in [5 ; 3600] seconds, each of them MUST be a multiple of 5.
 
     *Default*:  10.
@@ -124,7 +127,8 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     *Required*:  No.
 
 The logging options are strictly identical to Supervisor's. By the way, it is the same logger that is used.
-These options are more detailed in `supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_
+These options are more detailed in
+`supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
 
 ``logfile``
 

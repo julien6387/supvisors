@@ -1,3 +1,5 @@
+.. _xml_rpc:
+
 XML-RPC API
 ===========
 
@@ -17,6 +19,9 @@ In the following, the namespec refers to the full name of the process, including
 In some cases, it can also refer to all the programs of the group: X11:\*.
 
 For example: X11:xclock, where 'X11' is the name of a Supervisor group and 'xclock' is the name of a Supervisor program that is referenced in the group.
+
+
+.. _xml_rpc_status:
 
 Status
 ------
@@ -150,8 +155,11 @@ get_conflicts()
     'address'	list(str)	List of all addresses where the process is running.
     If more than one element in list, consider that a conflict is in progress.
 
-Supvisors Control
------------------
+
+.. _xml_rpc_supvisors:
+
+**Supvisors** Control
+---------------------
 
 restart()
     Restart Supvisors through all remote Supervisor instances
@@ -162,6 +170,9 @@ shutdown()
     Shut down Supvisors through all remote Supervisor instances
     @throws RPCError: with code Faults.BAD_SUPVISORS_STATE if Supvisors is still in state INITIALIZATION.
     @return boolean: always True unless error
+
+
+.. _xml_rpc_application:
 
 Application Control
 -------------------
@@ -206,6 +217,9 @@ restart_application(strategy, application_name, wait=True)
         * with code Faults.ABNORMAL_TERMINATION if application could not be started
 
     @return boolean: always True unless error
+
+
+.. _xml_rpc_process:
 
 Process Control
 ---------------
@@ -270,6 +284,7 @@ restart_process(strategy, namespec, wait=True)
         * with code Faults.ABNORMAL_TERMINATION if process could not be started
 
     @return boolean: always True unless error
+
 
 XML-RPC Clients
 ---------------
