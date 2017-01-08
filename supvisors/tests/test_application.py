@@ -144,15 +144,15 @@ class ApplicationTest(unittest.TestCase):
         application.update_sequences()
         # check the sequencing of the starting
         sequences = sorted({process.rules.start_sequence for process in application.processes.values()})
-        # as key is an integer, the sequence dictionary is sorted
-        for sequence, processes in application.start_sequence.items():
+        # as key is an integer, the sequence dictionary should be sorted but pypy doesn't...
+        for sequence, processes in sorted(application.start_sequence.items()):
             self.assertEqual(sequence, sequences.pop(0))
             self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
                 sorted([proc for proc in application.processes.values() if sequence == proc.rules.start_sequence], key=lambda x: x.process_name))
         # check the sequencing of the stopping
         sequences = sorted({process.rules.stop_sequence for process in application.processes.values()})
-        # as key is an integer, the sequence dictionary is sorted
-        for sequence, processes in application.stop_sequence.items():
+        # as key is an integer, the sequence dictionary should be sorted but pypy doesn't...
+        for sequence, processes in sorted(application.stop_sequence.items()):
             self.assertEqual(sequence, sequences.pop(0))
             self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
                 sorted([proc for proc in application.processes.values() if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name))
