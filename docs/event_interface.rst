@@ -6,84 +6,117 @@ Event interface
 Protocol
 --------
 
-The Supvisors Event Interface relies on a ZeroMQ socket.
-To receive the Supvisors events, the client application must configure a socket with a SUBSCRIBE pattern and connect it on localhost using the event_port defined in the supvisors section of the Supervisor configuration file.
+The **Supvisors** Event Interface relies on a `ZeroMQ <http://zeromq.org>`_ socket.
+To receive the **Supvisors** events, the client application must configure a socket with a ``SUBSCRIBE`` pattern and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section` of the Supervisor configuration file.
 
-Supvisors publishes the events in multi-parts messages.
+**Supvisors** publishes the events in multi-parts messages.
+
 
 Message header
 --------------
 
 The first part is a header that consists in an unicode string. This header identifies the type of the event, defined as follows in the supvisors.utils module:
 
-SUPVISORS_STATUS_HEADER = u'supvisors'
-ADDRESS_STATUS_HEADER = u'address'
-APPLICATION_STATUS_HEADER = u'application'
-PROCESS_STATUS_HEADER = u'process'
+.. code-block:: python
+
+    SUPVISORS_STATUS_HEADER = u'supvisors'
+    ADDRESS_STATUS_HEADER = u'address'
+    APPLICATION_STATUS_HEADER = u'application'
+    PROCESS_STATUS_HEADER = u'process'
 
 ZeroMQ makes it possible to filter the messages received on the client side by subcribing to a part of them.
 To receive all messages, just subscribe using an empty string.
-For example, the following lines in python configure the ZMQ socket so as to receive only the SupvisorsStatus and ProcessStatus events:
+For example, the following lines in python configure the ZMQ socket so as to receive only the ``Supvisors`` and ``Process`` events:
 
-socket.setsockopt(zmq.SUBSCRIBE, SUPVISORS_STATUS_HEADER.encode('utf-8'))
-socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))
+.. code-block:: python
+
+    socket.setsockopt(zmq.SUBSCRIBE, SUPVISORS_STATUS_HEADER.encode('utf-8'))
+    socket.setsockopt(zmq.SUBSCRIBE, PROCESS_STATUS_HEADER.encode('utf-8'))
+
 
 Message data
 ------------
 
 The second part of the message is a dictionary serialized in JSON. Of course, the contents depends on the message type.
 
-Supvisors status
-~~~~~~~~~~~~~~~~
 
-Supvisors Status Dictionary Key	Value
-'statecode'	The state of Supvisors, in [0;3].
-'statename'	The state of Supvisors, among { 'INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION' }.
+**Supvisors** status
+~~~~~~~~~~~~~~~~~~~~
+
+================== ==================
+Key	               Value
+================== ==================
+'statecode'        The state of **Supvisors**, in [0;6].
+'statename'        The string state of **Supvisors**, among { ``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'`` }.
+================== ==================
+
 
 Address status
 ~~~~~~~~~~~~~~
 
-Address Status Dictionary Key	Value
-'address_name'	Name of the address.
-'statecode'	State of the address, in [0;4].
-'state'name	State of the address, among { 'UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED' }.
-'remote_time'	Date of the last TICK event received from this address.
-'local_time'	Local date of the last TICK event received from this address.
-'loading'	Sum of the expected loading of the processes running on the address.
+================== ==================
+Key	               Value
+================== ==================
+'address_name'     The name of the address.
+'statecode'        The state of the address, in [0;5].
+'statename'        The string state of the address, among { ``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
+'remote_time'      The date of the last ``TICK`` event received from this address, in ms.
+'local_time'       The local date of the last ``TICK`` event received from this address, in ms.
+'loading'          The sum of the expected loading of the processes running on the address, in [0;100]%.
+================== ==================
+
 
 Application status
 ~~~~~~~~~~~~~~~~~~
 
-Application Status Dictionary Key	Value
-'application_name'	Name of the application.
-'statecode'	State of the application, in [0;4].
-'statename'	State of the application, among { 'STOPPED', 'STARTING', 'RUNNING', 'STOPPING' }.
-'major_failure'	True if the application is running and at least one required process is not started.
-'minor_failure'	True if the application is running and at least one optional (not required) process is not started.
+================== ==================
+Key	               Value
+================== ==================
+'application_name' The name of the application.
+'statecode'        The state of the application, in [0;3].
+'statename'        The string state of the application, among { ``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'STOPPING'`` }.
+'major_failure'    True if the application is running and at least one required process is not started.
+'minor_failure'    True if the application is running and at least one optional (not required) process is not started.
+================== ==================
+
 
 Process status
 ~~~~~~~~~~~~~~
 
-Process Status Dictionary Key	Value
-'application_name'	Name of the application.
-'process_name'	Name of the process.
-'statecode'	State of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
-'statename'	State of the process, among { 'STOPPED', 'STARTING', 'RUNNING', 'BACKOFF', 'STOPPING', 'EXITED', 'FATAL', 'UNKNOWN' }.
-'expected_exit'	True if the exit status is expected (only when state is 'EXITED').
-'last_event_time'	Date of the last process event received for this process, regardless of the origin (Supervisor instance).
-'addresses'	List of addresses where the process is running.
+================== ==================
+Key	               Value
+================== ==================
+'application_name' The name of the application.
+'process_name'     The name of the process.
+'statecode'        The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+'statename'        The string state of the process, among { ``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'`` }.
+'expected_exit'    True if the exit status is expected (only when state is ``EXITED``).
+'last_event_time'  The date of the last process event received for this process, regardless of the originating **Supvisor** instance.
+'addresses'        The list of addresses where the process is running.
+================== ==================
+
 
 Event Clients
 -------------
 
-This section explains how to use receive the Supvisors Events from a Python, JAVA or C++ client.
+This section explains how to use receive the **Supvisors** Events from a Python, JAVA or C++ client.
+
 
 Python Client
 ~~~~~~~~~~~~~
 
-The SupvisorsEventInterface of the supvisors.client.subscriber module is designed to receive the Supvisors events from the local Supvisors instance.
-The default behaviour is to print the messages received. For any other behaviour, just specialize the methods on_xxx_status of the class SupvisorsEventInterface.
+The *SupvisorsEventInterface* is designed to receive the **Supvisors** events from the local **Supvisors** instance.
 No additional third party is required.
+
+
+.. automodule:: supvisors.client.subscriber
+
+  .. autoclass:: SupvisorsEventInterface
+
+       .. automethod:: on_supvisors_status(data)
+       .. automethod:: on_address_status(data)
+       .. automethod:: on_application_status(data)
+       .. automethod:: on_process_status(data)
 
 .. code-block:: python
 
@@ -96,21 +129,23 @@ No additional third party is required.
     # start the thread
     subscriber.start()
 
+
 JAVA Client
 ~~~~~~~~~~~
 
-Supvisors provides a JAVA client in the client/java directory of the Supvisors installation directory.
+**Supvisors** provides a JAVA client in the :file:`client/java` directory of the **Supvisors** installation directory.
 
-The SupvisorsEventSubscriber of the org.supvisors.event package is designed to receive the Supvisors events from the local Supvisors instance.
-A SupvisorsEventListener with a specialization of the methods onXxxStatus must be attached to the SupvisorsEventSubscriber instance to receive the notifications.
+The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is designed to receive the **Supvisors** events from the local **Supvisors** instance.
+A *SupvisorsEventListener* with a specialization of the methods ``onXxxStatus`` must be attached to the *SupvisorsEventSubscriber* instance to receive the notifications.
+
 It requires the following additional dependencies:
 
-    * JeroMQ.
-    * JSON-java.
+    * `JeroMQ <https://github.com/zeromq/jeromq>`_.
+    * `JSON-java <https://github.com/stleary/JSON-java>`_.
 
-The binary JAR of JeroMQ 0.3.6 is available in the MAVEN repository.
+The binary JAR of `JeroMQ 0.3.6 <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_ is available in the MAVEN repository.
 
-The binary JAR of JSON-java 20160810 is available in the MAVEN repository.
+The binary JAR of `JSON-java 20160810 <https://mvnrepository.com/artifact/org.json/json/20160810>`_ is available in the MAVEN repository.
 
 .. code-block:: java
 
@@ -148,6 +183,7 @@ The binary JAR of JSON-java 20160810 is available in the MAVEN repository.
     // start subscriber in thread
     Thread t = new Thread(subscriber);
     t.start();
+
 
 C++ Client
 ~~~~~~~~~~
