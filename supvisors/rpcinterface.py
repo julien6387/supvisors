@@ -308,7 +308,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local **Supervisor**,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local Supervisor,
             * with code ``Faults.BAD_EXTRA_ARGUMENTS`` if program is required or has a start sequence,
             * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
