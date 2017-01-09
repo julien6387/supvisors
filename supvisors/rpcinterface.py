@@ -34,7 +34,7 @@ API_VERSION = open(version_txt).read().split('=')[1].strip()
 
 
 class RPCInterface(object):
-    """ This class holds the XML-RPC extension provided by Supvisors. """
+    """ This class holds the XML-RPC extension provided by **Supvisors**. """
 
     def __init__(self, supervisord):
         # create a new Supvisors instance
@@ -43,33 +43,41 @@ class RPCInterface(object):
 
     # RPC Status methods
     def get_api_version(self):
-        """ Return the version of the RPC API used by Supvisors.
-        @return string result\tThe version id.
+        """ Return the version of the RPC API used by **Supvisors**.
+
+        *@return* ``str``: the version id.
         """
         return API_VERSION
 
     def get_supvisors_state(self):
-        """ Return the state of Supvisors.
-        @return struct result\tThe state of Supvisors as an integer and a string.
+        """ Return the state of **Supvisors**.
+
+        *@return* ``dict``: the state of **Supvisors** as an integer and a string.
         """
         return self.fsm.to_json()
 
     def get_master_address(self):
-        """ Get the address of the Supvisors Master.
-        @return string result\tThe IPv4 address or host name.
+        """ Get the address of the **Supvisors** Master.
+
+        *@return* ``str``: the IPv4 address or host name.
         """
         return self.context.master_address
 
     def get_all_addresses_info(self):
-        """ Get info about all remote supervisord managed in Supvisors.
-        @return list result\tA list of structures containing data about all remote supervisord.
+        """ Get information about all **Supvisors** instances.
+
+        *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
         return [self.get_address_info(address_name) for address_name in self.context.addresses.keys()]
 
     def get_address_info(self, address_name):
-        """ Get info about a remote supervisord managed in Supvisors and running on address.
-        @param string address_name\tThe address name of the supervisor daemon.
-        @return struct result\t\tA structure containing data about the remote supervisord.
+        """ Get information about the **Supvisors** instance running on the host named address_name.
+
+        *@param* ``str address_name``: the address name where the Supervisor daemon is running.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_ADDRESS`` if address name is unknown to **Supvisors**.
+
+        *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
             status = self.context.addresses[address_name]
@@ -78,32 +86,52 @@ class RPCInterface(object):
         return status.to_json()
 
     def get_all_applications_info(self):
-        """ Get info about all applications managed in Supvisors.
-        @return list result\tA list of structures containing data about all applications.
+        """ Get information about all applications managed in **Supvisors**.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+
+        *@return* ``list(dict)``: a list of structures containing data about all applications.
         """
         self._check_from_deployment()
         return [self.get_application_info(application_name) for application_name in self.context.applications.keys()]
 
     def get_application_info(self, application_name):
-        """ Get info about an application named application_name.
-        @param string application_name\tThe name of the application.
-        @return struct result\tA structure containing data about the application.
+        """ Get information about an application named application_name.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+
+        *@return* ``dict``: a structure containing data about the application.
         """
         self._check_from_deployment()
         return self._get_application(application_name).to_json()
 
     def get_all_process_info(self):
-        """ Get info about all processes.
-        @return list result\tA list of structures containing data about the processes.
+        """ Get information about all processes.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+
+        *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
         return [process.to_json() for process in self.context.processes.values()]
 
     def get_process_info(self, namespec):
-        """ Get info about a process named namespec.
-        It just complements supervisor ProcessInfo by telling where the process is running.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
-        @return list result\tA list of structures containing data about the processes.
+        """ Get information about a process named namespec.
+        It just complements ``supervisor.getProcessInfo`` by telling where the process is running.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
+
+        *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
@@ -112,9 +140,16 @@ class RPCInterface(object):
         return [proc.to_json() for proc in application.processes.values()]
 
     def get_process_rules(self, namespec):
-        """ Get the rules used to deploy the process named namespec.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
-        @return list result\tA list of structures containing data about the deployment rules.
+        """ Get the rules used to start / stop the process named namespec.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
+
+        *@return* ``list(dict)``: a list of structures containing the rules.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
@@ -124,7 +159,10 @@ class RPCInterface(object):
 
     def get_conflicts(self):
         """ Get the conflicting processes.
-        @return list result\t\t\tA list of structures containing data about the conflicting processes.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+
+        *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
         return [process.to_json() for application in self.context.applications.values()
@@ -132,11 +170,23 @@ class RPCInterface(object):
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):
-        """ Start the application named application_name iaw the strategy and the rules defined in the deployment file.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
-        @param string application_name\tThe name of the application.
-        @param boolean wait\tWait for application to be fully started.
-        @return boolean result\tAlways True unless error or nothing to start.
+        """ Start the application named application_name iaw the strategy and the rules file.
+
+        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@param* ``bool wait``: wait for the application to be fully started.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
+            * with code ``Faults.ALREADY_STARTED`` if application is ``RUNNING``,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
+
+        *@return* ``bool``: always ``True`` unless error or nothing to start.
         """
         self._check_operating()
         # check strategy
@@ -170,9 +220,17 @@ class RPCInterface(object):
 
     def stop_application(self, application_name, wait=True):
         """ Stop the application named application_name.
-        @param string application_name\tThe name of the application.
-        @param boolean wait\tWait for application to be fully stopped.
-        @return boolean result\tAlways True unless error.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@param* ``bool wait``: wait for the application to be fully stopped.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating_conciliation()
         # check application is known
@@ -197,11 +255,22 @@ class RPCInterface(object):
         return not done
 
     def restart_application(self, strategy, application_name, wait=True):
-        """ Restart the application named application_name iaw the strategy and the rules defined in the deployment file.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
-        @param string application_name\tThe name of the application.
-        @param boolean wait\tWait for application to be fully stopped.
-        @return boolean result\tAlways True unless error.
+        """ Restart the application named application_name iaw the strategy and the rules file.
+
+        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@param* ``bool wait``: wait for the application to be fully restarted.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
         def onwait():
@@ -227,16 +296,26 @@ class RPCInterface(object):
 
     def start_args(self, namespec, extra_args='', wait=True):
         """ Start a local process.
-        The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
+        The behaviour is different from ``supervisor.startProcess`` as it sets the process state to ``FATAL``
         instead of throwing an exception to the RPC client.
         This RPC makes it also possible to pass extra arguments to the program command line.
-        @param string name\tThe process name.
-        @param string extra_args\tExtra arguments to be passed to the command line of the program.
-        @param boolean wait\tWait for process to be fully started.
-        @return boolean result\tAlways true unless error.
+
+        *@param* ``str namespec``: the process namespec.
+
+        *@param* ``str extra_args``: extra arguments to be passed to the command line of the program.
+
+        *@param* ``bool wait``: wait for the process to be fully started.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local **Supervisor**,
+            * with code ``Faults.BAD_EXTRA_ARGUMENTS`` if program is required or has a start sequence,
+            * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT)
-        # prevent usage of extra_args when required or auto_start
         application, process = self._get_application_process(namespec)
         if extra_args and not process.rules.accept_extra_arguments():
             raise RPCError(Faults.BAD_EXTRA_ARGUMENTS, 'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
@@ -264,13 +343,26 @@ class RPCInterface(object):
         return cb
 
     def start_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Start a process named namespec iaw the strategy and some of the rules defined in the deployment file.
-        WARN; the 'wait_exit' rule is not considered here.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
-        @param string extra_args\tExtra arguments to be passed to command line.
-        @param boolean wait\tWait for process to be fully started.
-        @return boolean result\tAlways true unless error.
+        """ Start a process named namespec iaw the strategy and some of the rules file.
+        WARN: the 'wait_exit' rule is not considered here.
+
+        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+
+        *@param* ``str extra_args``: extra arguments to be passed to command line.
+
+        *@param* ``bool wait``: wait for the process to be fully started.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
+            * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
         # check strategy
@@ -305,9 +397,17 @@ class RPCInterface(object):
 
     def stop_process(self, namespec, wait=True):
         """ Stop the process named namespec where it is running.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
-        @param boolean wait\tWait for process to be fully stopped.
-        @return boolean result\tAlways True unless error.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+
+        *@param* ``bool wait``: wait for process to be fully stopped.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating_conciliation()
         # check names
@@ -334,12 +434,24 @@ class RPCInterface(object):
 
     def restart_process(self, strategy, namespec, extra_args='', wait=True):
         """ Restart a process named namespec iaw the strategy and some of the rules defined in the deployment file.
-        WARN; the 'wait_exit' rule is not considered here.
-        @param DeploymentStrategies strategy\tThe strategy to use for choosing addresses.
-        @param string namespec\tThe process name (or ``group:name``, or ``group:*``).
-        @param string extra_args\tExtra arguments to be passed to command line.
-        @param boolean wait\tWait for process to be fully stopped.
-        @return boolean result\tAlways True unless error.
+        WARN: the 'wait_exit' rule is not considered here.
+
+        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+
+        *@param* ``str extra_args``: extra arguments to be passed to command line.
+
+        *@param* ``bool wait``: wait for process to be fully stopped.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
         def onwait():
@@ -359,16 +471,22 @@ class RPCInterface(object):
         return onwait # deferred
 
     def restart(self):
-        """ Stops all applications and restart Supvisors through all remote supervisord.
-        @return boolean result\tAlways True unless error.
+        """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_from_deployment()
         self.fsm.on_restart()
         return True
 
     def shutdown(self):
-        """ Stops all applications and shut down Supvisors through all remote supervisord.
-        @return boolean result\tAlways True unless error.
+        """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_from_deployment()
         self.fsm.on_shutdown()

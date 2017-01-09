@@ -287,7 +287,7 @@ Application page Header
 The status of the Address is displayed on the left side of the header:
 
     * the name of the application,
-    * the state of this address,
+    * the state of this application,
     * a led corresponding to the operational status of the application:
 
         + empty if not ``RUNNING``,
