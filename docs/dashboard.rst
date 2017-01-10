@@ -86,7 +86,7 @@ The state of **Supvisors** is displayed on the left side of the header:
 ``DEPLOYMENT``
 
     In this state, **Supvisors** is automatically starting applications (here for more details).
-    Refer to the :ref:`start_sequence` section for more details.
+    Refer to the :ref:`starting_strategy` section for more details.
 
     The whole :ref:`xml_rpc_status` part and the :ref:`xml_rpc_supvisors` part of the **Supvisors** :ref:`xml_rpc`
     are available from this state.
@@ -115,14 +115,14 @@ The state of **Supvisors** is displayed on the left side of the header:
 ``RESTARTING``
 
     **Supvisors** is stopping all processes before commanding its own restart, i.e. the restart of all Supervisor instances.
-    Refer to the :ref:`stop_sequence` section for more details.
+    Refer to the :ref:`stopping_strategy` section for more details.
 
     The **Supvisors** :ref:`xml_rpc` is NOT available in this state.
 
 ``SHUTTING_DOWN``
 
     **Supvisors** is stopping all processes before commanding its own shutdown, i.e. the shutdown of all Supervisor instances.
-    Refer to the :ref:`stop_sequence` section for more details.
+    Refer to the :ref:`stopping_strategy` section for more details.
 
 ``SHUTDOWN``
 
@@ -297,7 +297,7 @@ The status of the Address is displayed on the left side of the header:
 
 The second part of the header is the 'Deployment strategy' box that enables the user to choose the strategy to start the application programs listed below.
 
-Strategies are detailed in :ref:`start_sequence`.
+Strategies are detailed in :ref:`starting_strategy`.
 
 The third part of the header is the 'Statistics Period' box that enables the user to choose the period used for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
 

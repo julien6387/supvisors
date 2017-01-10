@@ -93,7 +93,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     The strategy used to start applications on addresses.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
-    The use of this option is detailed in :ref:`start_sequence`.
+    The use of this option is detailed in :ref:`starting_strategy`.
 
     *Default*:  ``CONFIG``.
 

@@ -6,32 +6,250 @@ Special Functionalities
 Synchronizing **Supvisors** instances
 -------------------------------------
 
-TODO
+The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase so that all **Supvisors**
+instances are aware of all of them.
+
+The following options defined in the :ref:`supvisors_section` of the Supervisor configuration file are
+particularly used for synchronizing multiple instances of Supervisor:
+
+    * the ``address_list``,
+    * the ``internal_port``,
+    * the ``synchro_timeout``,
+    * the ``auto_fence``.
+
+Once started, all **Supvisors** instances publish the events received, especially the ``TICK`` events
+that are produced every 5 seconds, on their ``PUBLISH`` ZeroMQ socket bound on the ``internal_port``.
+
+On the other side, all **Supvisors** instances start a thread that subscribes to the internal events through
+an internal ``SUBSCRIBE`` ZeroMQ socket connected to the ``internal_port`` of **all** addresses of the ``address_list``.
+
+At the beginning, all addresses are in an ``UNKNOWN`` state.
+When the first ``TICK`` event is received from a remote **Supvisors** instance, the local **Supvisors** instance:
+
+    * sets the remote address state to ``CHECKING``,
+    * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the remote **Supvisors** instance, in order to know how it is seen by the remote instance.
+    * 2 possibilities:
+
+        + the local **Supvisors** instance is seen as ``ISOLATED`` by the remote instance:
+        
+            - it sets the remote address state to ``ISOLATED``,
+            - ir disconnects the URL of the remote **Supvisors** instance from the ``SUBSCRIBE`` ZeroMQ socket,
+
+        + the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the remote instance:
+
+            - it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the remote instance,
+            - it loads the processes information into the internal data model,
+            - it sets the remote address state to ``RUNNING``.
+
+When all **Supvisors** instances are identified as ``RUNNING`` or ``ISOLATED``, the synchronization is completed.
+**Supvisors** then is able to work with the whole set of addresses declared in ``address_list``.
+
+However, it may happen that some **Supvisors** instances do not publish as expected (very late starting, no starting at all,
+system down, network down, etc). Each **Supvisors** instance waits for ``synchro_timeout`` seconds to give a chance to all
+other instances to publish. When this delay is exceeded, all the **Supvisors** instances that are **not** identified as ``RUNNING``
+or ``ISOLATED`` are set to:
+
+    * ``SILENT`` if `Auto-Fencing`_ is **not** activated,
+    * ``ISOLATED`` if `Auto-Fencing`_ is activated.
+
+In this case, **Supvisors** will work with a sub-set of the addresses declared in ``address_list``.
+
+Whatever the number of available addresses, **Supvisors** elect a Master among the active addresses and enters in the ``DEPLOYMENT``
+phase to start automatically the applications.
 
 
-.. _start_sequence:
+.. _starting_strategy:
 
-Start Sequence
---------------
+Starting strategy
+-----------------
+
+**Supvisors** provides a means to start a process without telling explicitly where it has to be started,
+and in accordance with the rules defined for this program, i.e. the ``address_list``.
+
+
+Choosing an address
+~~~~~~~~~~~~~~~~~~~
+
+Two rules are applicable with all strategies:
+
+    * the chosen address must be ``RUNNING``,
+    * the *loading* of the chosen address must not exceed 100% when adding the ``loading`` of the process to be started.
+
+The *loading* of the chosen address is defined as the sum of the ``loading`` of each process running on this address.
 
 When applying the ``CONFIG`` strategy, **Supvisors** chooses the first address available in the ``address_list``.
 
-When applying the ``LESS_LOADED`` strategy, **Supvisors** chooses the address in the ``address_list``
-having the lowest expected loading.
+When applying the ``LESS_LOADED`` strategy, **Supvisors** chooses the address in the ``address_list`` having the
+lowest expected *loading*.
 The aim is to distribute the process loading among the available hosts.
 
 When applying the ``MOST_LOADED`` strategy, with respect of the common rules, **Supvisors** chooses the address
-in the ``address_list`` having the greatest expected loading.
-The aim is to maximize the load of a host before starting to load another host.
+in the ``address_list`` having the greatest expected *loading*.
+The aim is to maximize the loading of a host before starting to load another host.
 This strategy is more interesting when the resources are limited.
 
 
-.. _stop_sequence:
+Starting a process
+~~~~~~~~~~~~~~~~~~
 
-Stop Sequence
--------------
+The internal *Starter* of **Supervisors** applies the following algorithm to start a process:
 
-TODO
+| if process state is not ``RUNNING``:
+|     choose a starting address for the program in accordance with `Starting strategy`_
+|     perform a ``supvisors.start_args(namespec)`` XML-RPC to the **Supvisors** instance running on the chosen address
+|
+
+This single job is considered completed when:
+
+    * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process,
+    * an ``EXITED`` event with an expected exit code is received and the ``wait_exit`` rule is set for this process,
+    * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code),
+    * no ``STARTING`` event has been received 5 seconds after the XML-RPC.
+
+This principle is used for starting a single process using a ``supvisors.start_process`` XML-RPC,
+
+
+Starting an application
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The application start sequence is defined at the beginning the the ``DEPLOYMENT`` phase of **Supvisors**.
+It corresponds to a dictionary where:
+
+    * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
+    * the value associated to a key is the list of programs having this key as ``start_sequence``.
+
+.. note::
+
+	The programs having a ``start_sequence`` lower or equal to 0 are not considered, as they are not
+	meant to be autostarted.
+
+The internal *Starter* of **Supervisors** applies the following algorithm to start an application:
+
+| while application start sequence is not empty:
+|     pop the process list having the lower (strictly positive) ``start_sequence``
+|
+|     for each process in process list:
+|         apply `Starting a process`_
+|
+|     wait for the jobs to complete
+|
+
+This principle is used for starting a single application using a ``supvisors.start_application`` XML-RPC.
+
+
+Starting all applications
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When entering the ``DEPLOYMENT`` state, each **Supvisors** instance evaluates the global start sequence using
+the ``start_sequence`` rule configured for the applications and processes.
+
+The global start sequence corresponds to a dictionary where:
+
+    * the keys correspond to the list of ``start_sequence`` values defined in the application rules,
+    * the value associated to a key is the list of application start sequences whose applications have this key as ``start_sequence``.
+
+The **Supvisors** Master instance uses the global start sequence to start the applications in the defined order.
+The following pseudo-code explains the algorithm used:
+
+| while global start sequence is not empty:
+|     pop the application start sequences having the lower (strictly positive) ``start_sequence``
+|
+|     while application start sequences are not empty:
+|
+|         for each sequence in application start sequences:
+|             pop the process list having the lower (strictly positive) ``start_sequence``
+|
+|             for each process in process list:
+|                 apply `Starting a process`_
+|
+|         wait for the jobs to complete
+|
+
+.. note::
+
+	The applications having a ``start_sequence`` lower or equal to 0 are not considered, as they are not
+	meant to be autostarted.
+
+
+.. _stopping_strategy:
+
+Stopping strategy
+-----------------
+
+**Supvisors** provides a means to stop a process without telling explicitly where it is running.
+
+
+Stopping a process
+~~~~~~~~~~~~~~~~~~
+
+The internal *Stopper* of **Supervisors** applies the following algorithm to stop a process:
+
+| if process state is ``RUNNING``:
+|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the Supervisor instance where the process is running
+|
+
+This single job is considered completed when:
+
+    * a ``STOPPED`` event is received for this process,
+    * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code),
+    * no ``STOPPING`` event has been received 5 seconds after the XML-RPC.
+
+This principle is used for stopping a single process using a ``supvisors.stop_process`` XML-RPC,
+
+
+Stopping an application
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The application stop sequence is defined at the beginning the the ``DEPLOYMENT`` phase of **Supvisors**.
+It corresponds to a dictionary where:
+
+    * the keys correspond to the list of ``stop_sequence`` values defined in the program rules of the application,
+    * the value associated to a key is the list of programs having this key as ``stop_sequence``.
+
+The internal *Stopper* of **Supervisors** applies the following algorithm to stop an application:
+
+| while application stop sequence is not empty:
+|     pop the process list having the lower ``stop_sequence``
+|
+|     for each process in process list:
+|         apply `Stopping a process`_
+|
+|     wait for the jobs to complete
+|
+
+This principle is used for stopping a single application using a ``supvisors.stop_application`` XML-RPC.
+
+
+Stopping all applications
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The applications are stopped when **Supvisors** is requested to restart ot shut down.
+
+When entering the ``DEPLOYMENT`` state, each **Supvisors** instance evaluates also the global stop sequence using
+the ``stop_sequence`` rule configured for the applications and processes.
+
+The global stop sequence corresponds to a dictionary where:
+
+    * the keys correspond to the list of ``stop_sequence`` values defined in the application rules,
+    * the value associated to a key is the list of application stop sequences whose applications have this key as ``stop_sequence``.
+
+Upon reception of the ``supvisors.restart`` or ``supvisors.shutdown``, the **Supvisors** instance uses the global stop sequence
+to stop all the running applications in the defined order.
+The following pseudo-code explains the algorithm used:
+
+| while global stop sequence is not empty:
+|     pop the application stop sequences having the lower ``stop_sequence``
+|
+|     while application stop sequences are not empty:
+|
+|         for each sequence in application stop sequences:
+|             pop the process list having the lower ``stop_sequence``
+|
+|             for each process in process list:
+|                 apply `Stopping a process`_
+|
+|         wait for the jobs to complete
+|
 
 
 .. _auto_fencing:
@@ -41,13 +259,14 @@ Auto-Fencing
 
 Auto-fencing is applied when one of the **Supvisors** instance is seen as inactive (crash, system power down,
 network failure) from the other **Supvisors** instances.
+
 In this case, the running **Supvisors** instances disconnect the corresponding address from their subscription socket.
 The address is marked as ``ISOLATED`` and, in accordance with the rules defined and the value of the ``autorestart``
-option of the program, **Supvisors** may try to restart somewhere else the processes that were previously running
+option of the program, **Supvisors** may try to restart somewhere else the processes that were eventually running
 on that address.
 
 In the case of a network failure, the same mechanism is of course applied on the other side. Here comes the premices
-of a split-brain syndrome.
+of a split-brain syndrome, as it leads to have 2 separate
 
 If the incriminated system restarts, or network failure is fixed, it receives
 
