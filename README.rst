@@ -10,7 +10,7 @@ Supported Platforms
 **Supvisors** has been tested and is known to run on Linux (CentOS 7.2).
 It will likely work fine on most UNIX systems.
 
-**Supvisors* will not run at all under any version of Windows.
+**Supvisors** will not run at all under any version of Windows.
 
 **Supvisors** is known to work with Python 2.7 or later but will not work under any version of Python 3.
 
@@ -61,7 +61,7 @@ Install **Supvisors** with the following command:
 Documentation
 -------------
 
-You can view the current **Supvisors** documentation in `http://supvisors.readthedocs.io`_
+You can view the current **Supvisors** documentation `here <http://supvisors.readthedocs.io>`_.
 
 You will find detailed installation and configuration documentation.
 
@@ -72,7 +72,7 @@ Reporting Bugs and Viewing the Source Repository
 Please report bugs in the `Github issue tracker
 <https://github.com/julien6387/supvisors/issues>`_.
 
-You can view the source repository for Supvisors via `https://github.com/julien6387/supvisors`_.
+You can view the `source repository <https://github.com/julien6387/supvisors>`_ for Supvisors.
 
 Contributing
 ------------
