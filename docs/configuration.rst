@@ -46,7 +46,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
 ``deployment_file``
 
-    The absolute or relative path of the XML rules file. The contents of this file is described in `Rules File`_.
+    The absolute or relative path of the XML rules file. The contents of this file is described in `Supvisors' Rules File`_.
 
     *Default*:  None.
 
@@ -210,8 +210,11 @@ Configuration File Example
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
-Rules File
-----------
+
+.. _rules_file:
+
+**Supvisors**' Rules File
+--------------------------
 
 This part describes the contents of the XML rules file declared in the ``deployment_file`` option.
 
@@ -223,13 +226,15 @@ The rules define the quality of service expected and how the programs are meant 
 If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
 the XML rules file before it is used.
 
-Otherwise, it is still possbile to validate the XML rules file manually.
-The XSD contents used to validate the XML can be found in the module ``supvisors.parser``.
-Once extracted to a file (here :file:`rules.xsd`), just use :command:`xmllint` to validate:
+.. hint::
 
-.. code-block:: bash
+    It is still possbile to validate the XML rules file manually.
+    The XSD contents used to validate the XML can be found in the module ``supvisors.parser``.
+    Once extracted to a file (here :file:`rules.xsd`), just use :command:`xmllint` to validate:
 
-    [bash] > xmllint --noout --schema rules.xsd user_rules.xml
+    .. code-block:: bash
+
+        [bash] > xmllint --noout --schema rules.xsd user_rules.xml
 
 
 ``program`` Rules
@@ -426,18 +431,18 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
             <addresses>#</addresses>
         </pattern>
 
-    .. attention::
+.. attention::
 
-        Addresses are chosen in accordance with the sequence given in ``address_list``.
-        In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``10.0.0.2`` and ``prg_01`` to ``10.0.0.1``.
+    Addresses are chosen in accordance with the sequence given in ``address_list``.
+    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``10.0.0.2`` and ``prg_01`` to ``10.0.0.1``.
 
-    .. attention::
+.. attention::
 
-        In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in ``address_list``.
-        If the length of ``address_list`` is greater than the ``numprocs`` value, programs will be addressed to the ``numprocs`` first addresses.
-        On the other side, if the length of ``address_list`` is lower than the ``numprocs`` value,
-        the last programs won't be addressed to any address and it won't be possible to start them using **Supvisors**.
-        Nevertheless, in this case, it will be still possible to start them with Supervisor.
+    In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in ``address_list``.
+    If the length of ``address_list`` is greater than the ``numprocs`` value, programs will be addressed to the ``numprocs`` first addresses.
+    On the other side, if the length of ``address_list`` is lower than the ``numprocs`` value,
+    the last programs won't be addressed to any address and it won't be possible to start them using **Supvisors**.
+    Nevertheless, in this case, it will be still possible to start them with Supervisor.
 
 
 ``model`` Rules
@@ -506,9 +511,9 @@ Here follows the definition of the rules applicable to an application.
 
     *Required*:  No.
 
-    .. warning::
+    .. attention::
     
-        The ``stop_sequence`` is NOT taken into account:
+        The ``stop_sequence`` is **not** taken into account:
         
             * when calling Supervisor's ``restart`` or ``shutdown`` XML-RPC,
             * when stopping the :command:`supervisord` daemon.

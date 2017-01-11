@@ -58,6 +58,51 @@ Whatever the number of available addresses, **Supvisors** elect a Master among t
 phase to start automatically the applications.
 
 
+.. _auto_fencing:
+
+Auto-Fencing
+------------
+
+Auto-fencing is applied when the ``auto_fence`` option of the :ref:`supvisors_section` is set.
+It takes place when one of the **Supvisors** instance is seen as inactive (crash, system power down,
+network failure) from the other **Supvisors** instances.
+
+In this case, the running **Supvisors** instances disconnect the corresponding URL from their subscription socket.
+The address is marked as ``ISOLATED`` and, in accordance with the rules defined and the value of the ``autorestart``
+option of the program, **Supvisors** may try to restart somewhere else the processes that were eventually running
+on that address.
+
+If the incriminated system restarts, and the **Supvisors** instance is restarted on that system too, the isolation doesn't
+prevent the new **Supvisors** instance to receive events from the other instances that have isolated it.
+Indeed, it is not possible to filter the subscribers from the ``PUBLISH`` side of a ZeroMQ socket.
+
+That's why a kind of port-knocking is performed in :ref:`synchronizing`. Each newly arrived **Supvisors** instance asks to
+the others if it has been previously isolated before taking into account the incoming events.
+
+In the case of a network failure, the same mechanism is of course applied on the other side. Here comes the premices
+of a *split-brain syndrome*, as it leads to have 2 separate and identical sets of applications.
+
+If the network failure is fixed, both sets of **Supvisors** are still running but do not communicate between them.
+
+.. attention::
+        
+    **Supvisors** does NOT isolate the addresses at the operating system level, so that when the incriminated systems
+    become active again, it is still possible to perform network requests between all systems, despite the
+    **Supvisors** instances do not communicate anymore.
+
+    Similarly, it is outside the scope of **Supvisors** to isolate the address at application level. It is the user's
+    responsibility to isolate his applications.
+
+
+Warm restart
+------------
+
+The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectanly (or not).
+However, when the system itself crashes, the other Supervisor instances cannot do anything about that.
+
+**Supvisors** uses the ``autostart`` option to warm restart a process that was running on a system that has crashed, in accordance with the default ``deployment_strategy`` set in the :ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
+
+
 .. _starting_strategy:
 
 Starting strategy
@@ -107,6 +152,33 @@ This single job is considered completed when:
     * no ``STARTING`` event has been received 5 seconds after the XML-RPC.
 
 This principle is used for starting a single process using a ``supvisors.start_process`` XML-RPC,
+
+
+Extra Arguments
+~~~~~~~~~~~~~~~
+
+When using Supervisor, collegues have often asked if it would be possible to add extra arguments on the command line of a program without declaring them in the ini file. Indeed, the applicative context is evolving at runtime and it may be quite useful to give some information to the new process (options, path, URL of a server, URL of a display, ...), especially when dealing with distributed applications.
+
+With Supervisor, it is possible to inform the process with  a ``supervisor.sendProcessStdin`` XML-RPC.
+The first drawback is that it requires to update the source code of an existing program that is already capable of reading instructions from its command line. That is not always possible.
+On the other hand, collegues found the solution so clumsy that they finally preferred to use a dedicated com to configure the process. Taste and colours...
+
+So, **Supvisors** introduces a ``supvisors.start_args`` XML-RPC that is capable of taking into account extra arguments that are passed to the command line before the process is started.
+
+.. attention:: *There is always a "but".*
+
+    The extra arguments of the program are only known to:
+
+        * the **Supvisors** instance that received the XML-RPC,
+        * the Supervisor instance that received the ``supervisor.startProcess`` XML-RPC to start the process.
+
+    If the ``autorestart`` option is ``true`` or ``unexpected``, the process with extra arguments cannot be warm restarted on a different address when the system crashes. Indeed, only the **Supvisors** Master instance is in charge of restarting the processes in this situation and the extra arguments are likely unknown to it.
+
+    That's why there is *one* restriction to the use of this functionality:
+
+        the ``autorestart`` option of the program shall be set to ``false``.
+
+    Perhaps this restriction can be lifted in a next release.
 
 
 Starting an application
@@ -172,6 +244,7 @@ The following pseudo-code explains the algorithm used:
 
 
 .. _stopping_strategy:
+
 
 Stopping strategy
 -----------------
@@ -252,42 +325,6 @@ The following pseudo-code explains the algorithm used:
 |
 
 
-.. _auto_fencing:
-
-Auto-Fencing
-------------
-
-Auto-fencing is applied when the ``auto_fence`` option of the :ref:`supvisors_section` is set.
-It takes place when one of the **Supvisors** instance is seen as inactive (crash, system power down,
-network failure) from the other **Supvisors** instances.
-
-In this case, the running **Supvisors** instances disconnect the corresponding URL from their subscription socket.
-The address is marked as ``ISOLATED`` and, in accordance with the rules defined and the value of the ``autorestart``
-option of the program, **Supvisors** may try to restart somewhere else the processes that were eventually running
-on that address.
-
-If the incriminated system restarts, and the **Supvisors** instance is restarted on that system too, the isolation doesn't
-prevent the new **Supvisors** instance to receive events from the other instances that have isolated it. Indeed, it is not
-possible to filter the subscribers from the ``PUBLISH``side of a ZeroMQ socket.
-
-That's why a kind of port-knocking is performed in :ref:`synchronizing`. Each newly arrived **Supvisors** instance asks to
-the others if it has been previously isolated before taking into account the incoming events.
-
-In the case of a network failure, the same mechanism is of course applied on the other side. Here comes the premices
-of a *split-brain syndrome*, as it leads to have 2 separate and identical sets of applications.
-
-If the network failure is fixed, both sets of **Supvisors** are still running but do not communicate between them.
-
-.. attention::
-        
-    **Supvisors** does NOT isolate the addresses at the operating system level, so that when the incriminated systems
-    become active again, it is still possible to perform network requests between all systems, despite the
-    **Supvisors** instances do not communicate anymore.
-
-    Similarly, it is outside the scope of **Supvisors** to isolate the address at application level. It is the user's
-    responsibility to isolate his applications.
-
-
 .. _conciliation:
 
 Conciliation
@@ -301,7 +338,7 @@ Nevetheless, it is still likely to happen in a few cases:
     * using a request to Supervisor itself (through web ui, supervisorctl, XML-RPC),
     * upon a network failure.
 
-.. note::
+.. attention::
 
     In the case of a network failure, as described in :ref:`auto_fencing`, and if the ``auto_fence`` option is not set, the address
     is set to ``SILENT`` instead of ``ISOLATED`` and its URL is not disconnected from the ``SUBSCRIBER`` socket.
@@ -322,7 +359,7 @@ set in the :ref:`supvisors_section`, it applies a strategy to be rid of all dupl
 
 ``USER``
 
-    That's the easy one. When applying the ``USER`` strategy, **Supvisors** just waits that a user aplication solves the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
+    That's the easy one. When applying the ``USER`` strategy, **Supvisors** just waits for an user application to solve the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
 
 ``STOP``
 
@@ -334,12 +371,4 @@ set in the :ref:`supvisors_section`, it applies a strategy to be rid of all dupl
     When applying the ``RESTART`` strategy, **Supvisors** stops all conflicting processes and restarts a new one.
 
 **Supvisors** leaves the ``CONCILIATION`` state when all conflicts are conciliated.
-
-
-Extra Arguments
----------------
-
-When using Supervisor, collegues have often asked if it would be possible to add extra arguments on the command line of a program without declaring
-them in the ini file.
-
 
