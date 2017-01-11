@@ -257,24 +257,35 @@ The following pseudo-code explains the algorithm used:
 Auto-Fencing
 ------------
 
-Auto-fencing is applied when one of the **Supvisors** instance is seen as inactive (crash, system power down,
+Auto-fencing is applied when the ``auto_fence`` option of the :ref:`supvisors_section` is set.
+It takes place when one of the **Supvisors** instance is seen as inactive (crash, system power down,
 network failure) from the other **Supvisors** instances.
 
-In this case, the running **Supvisors** instances disconnect the corresponding address from their subscription socket.
+In this case, the running **Supvisors** instances disconnect the corresponding URL from their subscription socket.
 The address is marked as ``ISOLATED`` and, in accordance with the rules defined and the value of the ``autorestart``
 option of the program, **Supvisors** may try to restart somewhere else the processes that were eventually running
 on that address.
 
-In the case of a network failure, the same mechanism is of course applied on the other side. Here comes the premices
-of a split-brain syndrome, as it leads to have 2 separate
+If the incriminated system restarts, and the **Supvisors** instance is restarted on that system too, the isolation doesn't
+prevent the new **Supvisors** instance to receive events from the other instances that have isolated it. Indeed, it is not
+possible to filter the subscribers from the ``PUBLISH``side of a ZeroMQ socket.
 
-If the incriminated system restarts, or network failure is fixed, it receives
+That's why a kind of port-knocking is performed in :ref:`synchronizing`. Each newly arrived **Supvisors** instance asks to
+the others if it has been previously isolated before taking into account the incoming events.
+
+In the case of a network failure, the same mechanism is of course applied on the other side. Here comes the premices
+of a *split-brain syndrome*, as it leads to have 2 separate and identical sets of applications.
+
+If the network failure is fixed, both sets of **Supvisors** are still running but do not communicate between them.
 
 .. attention::
         
-    **Supvisors** does NOT isolate the address at the operating system level, so that when the incriminated system
-    becomes active again, it is still possible to perform network requests between all systems, despite the
+    **Supvisors** does NOT isolate the addresses at the operating system level, so that when the incriminated systems
+    become active again, it is still possible to perform network requests between all systems, despite the
     **Supvisors** instances do not communicate anymore.
+
+    Similarly, it is outside the scope of **Supvisors** to isolate the address at application level. It is the user's
+    responsibility to isolate his applications.
 
 
 .. _conciliation:
@@ -282,20 +293,53 @@ If the incriminated system restarts, or network failure is fixed, it receives
 Conciliation
 ------------
 
-When applying the ``SENICIDE`` strategy, **Supvisors** keeps the youngest process, i.e. the process that has been started the most recently, and stops all the others.
+**Supvisors** is designed so that there should be only one instance of the same program running on a set of systems, although
+all of them may have the capability to start it.
 
-When applying the ``INFANTICIDE`` strategy, **Supvisors** keeps the oldest process and stops all the others.
+Nevetheless, it is still likely to happen in a few cases:
 
-When applying the ``USER`` strategy, **Supvisors** just waits that a user aplication solves the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
+    * using a request to Supervisor itself (through web ui, supervisorctl, XML-RPC),
+    * upon a network failure.
 
-When applying the ``STOP`` strategy, **Supvisors** stops all conflicting processes, which may lead the corresponding applications to a degraded state.
+.. note::
 
-When applying the ``RESTART`` strategy, **Supvisors** stops all conflicting processes and restarts a new one.
+    In the case of a network failure, as described in :ref:`auto_fencing`, and if the ``auto_fence`` option is not set, the address
+    is set to ``SILENT`` instead of ``ISOLATED`` and its URL is not disconnected from the ``SUBSCRIBER`` socket.
+    
+    When the network failure is fixed, **Supvisors** has likely to deal with a duplicated list of applications and processes.
 
+When such a conflict is detected, **Supvisors** enters in a ``CONCILIATION`` phase. Depending on the ``conciliation_strategy`` option
+set in the :ref:`supvisors_section`, it applies a strategy to be rid of all duplicates:
+
+``SENICIDE``
+
+    When applying the ``SENICIDE`` strategy, **Supvisors** keeps the youngest process, i.e. the process that has been started the
+    most recently, and stops all the others.
+
+``INFANTICIDE``
+
+    When applying the ``INFANTICIDE`` strategy, **Supvisors** keeps the oldest process and stops all the others.
+
+``USER``
+
+    That's the easy one. When applying the ``USER`` strategy, **Supvisors** just waits that a user aplication solves the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
+
+``STOP``
+
+    When applying the ``STOP`` strategy, **Supvisors** stops all conflicting processes, which may lead the corresponding applications
+    to a degraded state.
+
+``RESTART``
+
+    When applying the ``RESTART`` strategy, **Supvisors** stops all conflicting processes and restarts a new one.
+
+**Supvisors** leaves the ``CONCILIATION`` state when all conflicts are conciliated.
 
 
 Extra Arguments
 ---------------
 
-TODO
+When using Supervisor, collegues have often asked if it would be possible to add extra arguments on the command line of a program without declaring
+them in the ini file.
+
 
