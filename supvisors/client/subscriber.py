@@ -41,19 +41,22 @@ def create_logger(logfile='subscriber.log', loglevel=LevelsByName.INFO,
 
 
 class SupvisorsEventSubscriber(object):
-    """ The SupvisorsEventSubscriber wraps the ZeroMQ socket that connects to Supvisors.
+    """ The SupvisorsEventSubscriber wraps the ZeroMQ socket that connects to **Supvisors**.
 
-    The TCP socket is configured with a ZeroMQ SUBSCRIBE pattern.
-    It is connected to the Supvisors instance running on the localhost and bound on the event port.
+    The TCP socket is configured with a ZeroMQ ``SUBSCRIBE`` pattern.
+    It is connected to the **Supvisors** instance running on the localhost and bound on the event port.
 
     The SupvisorsEventSubscriber requires:
-    - a ZeroMQ context,
-    - the event port number used by Supvisors to publish its events,
-    - a logger reference to log traces.
+
+        - a ZeroMQ context,
+        - the event port number used by **Supvisors** to publish its events,
+        - a logger reference to log traces.
 
     Attributes:
-    - logger: the reference to the logger,
-    - socket: the ZeroMQ socket connected to Supvisors. """
+
+        - logger: the reference to the logger,
+        - socket: the ZeroMQ socket connected to **Supvisors**.
+    """
 
     def __init__(self, zmq_context, event_port, logger):
         """ Initialization of the attributes. """
@@ -131,25 +134,32 @@ class SupvisorsEventSubscriber(object):
 
 
 class SupvisorsEventInterface(threading.Thread):
-    """ The SupvisorsEventInterface is a python thread that connects to Supvisors
+    """ The SupvisorsEventInterface is a python thread that connects to **Supvisors**
     and receives the events published.
     The subscriber attribute shall be used to define the event types of interest.
 
     The SupvisorsEventInterface requires:
-    - a ZeroMQ context,
-    - the event port number used by Supvisors to publish its events,
-    - a logger reference to log traces.
 
-    This event port number MUST correspond to the event_port value set in the [supvisors]
+        - a ZeroMQ context,
+        - the event port number used by **Supvisors** to publish its events,
+        - a logger reference to log traces.
+
+    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]``
     section of the Supervisor configuration file.
 
+    The default behaviour is to print the messages received.
+    For any other behaviour, just specialize the methods `on_xxx_status`.
+
     Attributes:
-    - logger: the reference to the logger,
-    - subscriber: the wrapper of the ZeroMQ socket connected to Supvisors,
-    - loop: when set to False, breaks the infinite loop of the thread.
+
+        - logger: the reference to the logger,
+        - subscriber: the wrapper of the ZeroMQ socket connected to **Supvisors**,
+        - loop: when set to False, breaks the infinite loop of the thread.
     
     Constants:
-    - _Poll_timeout: duration used to time out the ZeroMQ poller, set to 1000 milli-seconds. """
+
+        - _Poll_timeout: duration used to time out the ZeroMQ poller, set to 1000 milli-seconds.
+    """
 
     _Poll_timeout = 1000
 

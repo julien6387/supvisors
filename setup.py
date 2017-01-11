@@ -30,7 +30,7 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     sys.exit(1)
 
 requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0', 'netifaces >= 0.10.4',
-    'matplotlib >= 1.5.2', 'psutil >= 4.3.0']
+    'psutil >= 4.3.0']
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -71,7 +71,7 @@ dist = setup(
     ],
     packages=find_packages(),
     install_requires=requires,
-    extras_require={'parse': ['lxml >= 3.2.1']},
+    extras_require={'parse': ['matplotlib >= 1.5.2', 'lxml >= 3.2.1']},
     include_package_data=True,
     zip_safe=False,
     namespace_packages=['supvisors'],

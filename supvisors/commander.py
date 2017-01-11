@@ -397,7 +397,9 @@ class Stopper(Commander):
             # so just test that is in not in a RUNNING-like state 5 seconds after request_time
             if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
                 # FIXME: process_failure does not exist for Stopper
-                self.process_failure(process, 'Still running 5 seconds after stop request', True)
+                # TODO: force UNKNOWN
+                # self.process_failure(process, 'Still running 5 seconds after stop request', True)
+                self.logger.critical('Still running 5 seconds after stop request')
         # return True when starting is completed
         return not self.in_progress()
 

@@ -16,6 +16,8 @@ _ropeproject/
 *.jar
 *~
 build/
+.build/
+.eggs/
 dist/
 cur/
 tmp/
