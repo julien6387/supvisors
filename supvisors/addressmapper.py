@@ -20,8 +20,6 @@
 from socket import gethostname
 from collections import OrderedDict
 
-from netifaces import interfaces, ifaddresses, AF_INET
-
 
 class AddressMapper(object):
     """ Class used for storage of the addresses defined in the configuration file.
@@ -74,8 +72,13 @@ class AddressMapper(object):
     @staticmethod
     def ipv4():
         """ Get all IPv4 addresses for all interfaces. """
-        # remove loopback addresses (no interest here)
-        # loopback holds a 'peer' instead of a 'broadcast' address
-        return [link['addr'] for interface in interfaces()
-            for link in ifaddresses(interface)[AF_INET] if 'peer' not in link.keys()]
+        try:
+            from netifaces import interfaces, ifaddresses, AF_INET
+
+            # remove loopback addresses (no interest here)
+            # loopback holds a 'peer' instead of a 'broadcast' address
+            return [link['addr'] for interface in interfaces()
+                for link in ifaddresses(interface)[AF_INET] if 'peer' not in link.keys()]
+        except ImportError:
+            return []
 
