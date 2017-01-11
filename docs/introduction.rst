@@ -74,7 +74,7 @@ The following dependencies are required before you install **Supvisors**:
 +---------------+------------+------------------------------------------------------------+
 | psutil_       | 4.3.0      | Information about running processes and system utilization |
 +---------------+------------+------------------------------------------------------------+
-| netifaces_    | 0.10.4     | IPv4 aliases from host name                                |
+| netifaces_    | 0.10.4     | *IPv4 aliases from host name (optional)*                   |
 +---------------+------------+------------------------------------------------------------+
 | matplotlib_   | 1.2.0      | *Graphs for Dashboard (optional)*                          |
 +---------------+------------+------------------------------------------------------------+

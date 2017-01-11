@@ -1,22 +1,24 @@
-Supvisors
-===========
+**Supvisors**
+=============
 
-Supvisors is a Control System for Distributed Applications, based on multiple instances of Supervisor.
+**Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor.
+
 
 Supported Platforms
 -------------------
 
-Supvisors has been tested and is known to run on Linux (CentOS 7.2).
+**Supvisors** has been tested and is known to run on Linux (CentOS 7.2).
 It will likely work fine on most UNIX systems.
 
-Supvisors will not run at all under any version of Windows.
+**Supvisors** will not run at all under any version of Windows.
 
-Supvisors is known to work with Python 2.7 or later but will not work under any version of Python 3.
+**Supvisors** is known to work with Python 2.7 or later but will not work under any version of Python 3.
+
 
 Dependencies
 -------------
 
-Supvisors has dependencies on:
+**Supvisors** has dependencies on:
 
 +------------+------------+------------+
 | Package    | Release    | Optional   |
@@ -27,7 +29,7 @@ Supvisors has dependencies on:
 +------------+------------+------------+
 | psutil     | 4.3.0      |            |
 +------------+------------+------------+
-| netifaces  | 0.10.4     |            |
+| netifaces  | 0.10.4     |     X       |
 +------------+------------+------------+
 | matplotlib | 1.2.0      |     X      |
 +------------+------------+------------+
@@ -37,8 +39,9 @@ Supvisors has dependencies on:
 Please note that some of these dependencies may have their own dependencies.
 
 Versions are given for information.
-Although Supvisors has been developed and tested with these releases, the minimal release of each dependency is unknown.
+Although **Supvisors** has been developed and tested with these releases, the minimal release of each dependency is unknown.
 Other releases are likely working as well.
+
 
 Installation
 -------------
@@ -48,15 +51,20 @@ Get the latest release from `here
 
 Unzip the archive and enter the directory supvisors-*version*.
 
-Install Supvisors with the following command:
-    ``python setup.py install``
+Install **Supvisors** with the following command:
+
+.. code-block:: bash
+
+    python setup.py install
+
 
 Documentation
 -------------
 
-You can view the current Supvisors documentation in the **supvisors/doc** directory of the installation.
+You can view the current **Supvisors** documentation `here <http://supvisors.readthedocs.io>`_.
+
 You will find detailed installation and configuration documentation.
-For the moment, the CSS is Firefox-compliant only.
+
 
 Reporting Bugs and Viewing the Source Repository
 ---------------------------------------------------------------
@@ -64,9 +72,7 @@ Reporting Bugs and Viewing the Source Repository
 Please report bugs in the `Github issue tracker
 <https://github.com/julien6387/supvisors/issues>`_.
 
-You can view the source repository for Supvisors via
-`https://github.com/julien6387/supvisors
-<https://github.com/julien6387/supvisors>`_.
+You can view the `source repository <https://github.com/julien6387/supvisors>`_ for Supvisors.
 
 Contributing
 ------------

@@ -38,11 +38,25 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
 ``address_list``
 
-    The list of host names or IP addresses where **Supvisors** will be running, separated by commas.
+    The list of host names where **Supvisors** will be running, separated by commas.
 
     *Default*:  None.
 
     *Required*:  Yes.
+
+    .. attention::
+
+        The host names (also called host nodes in Supervisor) are expected to be known to every related systems in the list.
+        If it's not the case, check the network configuration.
+
+    .. hint::
+
+        If the `netifaces <https://pypi.python.org/pypi/netifaces>`_ package is installed, it is possible to use IP addresses
+        in addition to host names.
+
+        Like the host names, the IP addresses are expected to be known to every related systems in the list.
+        If it's not the case, check the network configuration.
+
 
 ``deployment_file``
 
@@ -262,7 +276,7 @@ Here follows the definition of the rules applicable to a program.
 
 ``addresses``
 
-    This element gives the list of host names or IP addresses. Applicable values are:
+    This element gives the list of addresses where the process can be started. Applicable values are:
 
         * a subset of the ``address_list`` defined in `[supvisors] Section Values`_,
         * ``*``: stands for all values in ``address_list``.

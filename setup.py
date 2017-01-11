@@ -29,8 +29,7 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     sys.stderr.write(msg)
     sys.exit(1)
 
-requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0', 'netifaces >= 0.10.4',
-    'psutil >= 4.3.0']
+requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0', 'psutil >= 4.3.0']
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -42,7 +41,7 @@ except:
 
 CLASSIFIERS = [
     "License :: OSI Approved :: Apache Software License",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Natural Language :: English",
@@ -71,7 +70,7 @@ dist = setup(
     ],
     packages=find_packages(),
     install_requires=requires,
-    extras_require={'parse': ['matplotlib >= 1.5.2', 'lxml >= 3.2.1']},
+    extras_require={'parse': ['netifaces >= 0.10.4', 'matplotlib >= 1.5.2', 'lxml >= 3.2.1']},
     include_package_data=True,
     zip_safe=False,
     namespace_packages=['supvisors'],
