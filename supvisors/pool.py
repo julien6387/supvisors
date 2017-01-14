@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
+import json
 import logging
 
-from multiprocessing import Manager, Pool
+from multiprocessing import Pool
 from multiprocessing import util # for logs
 
 from supvisors.rpcrequests import getRPCInterface
@@ -38,7 +39,7 @@ def set_util_logger():
 # set_util_logger()
 
 
-def async_check_address(address_name, env, queue):
+def async_check_address(address_name, env):
     """ Check isolation and get all process info asynchronously. """
     try:
         local_proxy = getRPCInterface("localhost", env)
@@ -46,14 +47,12 @@ def async_check_address(address_name, env, queue):
         # check authorization
         status = remote_proxy.supvisors.get_address_info(address_name)
         authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
+        # get process info if authorized
         if authorized:
-            # get process info if authorized
-            queue.put((address_name, remote_proxy.supervisor.getAllProcessInfo()))
-            # inform local Supvisors that process info is available
-            local_proxy.supervisor.sendRemoteCommEvent(SUPVISORS_INFO, '')
+            all_info = remote_proxy.supervisor.getAllProcessInfo()
+            local_proxy.supervisor.sendRemoteCommEvent(SUPVISORS_INFO, json.dumps((address_name, all_info)))
         # inform local Supvisors that authorization is available
-        local_proxy.supervisor.sendRemoteCommEvent(SUPVISORS_AUTH,
-            'address_name:{} authorized:{}'.format(address_name, authorized))
+        local_proxy.supervisor.sendRemoteCommEvent(SUPVISORS_AUTH, 'address_name:{} authorized:{}'.format(address_name, authorized))
     except:
         pass
 
@@ -89,7 +88,6 @@ def async_shutdown(address_name, env):
     except:
         pass
 
-
 class SupvisorsPool:
     """ Use a pool of one process to perform asynchronous requests.
     
@@ -98,46 +96,36 @@ class SupvisorsPool:
     The problem is that Supvisors sometimes uses XML-RPC towards another supervisor daemon running elsewhere.
     If the Supvisors of the other instance is doing the same at the same time, both are blocking themselves.
 
-    That's why the XML-RPC performed by Supvisors are performed asynchronously when possible.
+    That's why the XML-RPC performed by Supvisors are performed asynchronously.
 
     Attributes are:
         - env: the environment-like Supervisor variables,
-        - pool: the pool of processes that handles the asynchronous calls,
-        - manager: the manager that delivers shared context,
-        - info_queue: the queue for process information.
-
-    The proxy attribute is used to persist the proxy for XML-RPC towards Supervisor.
+        - pool: the pool of processes that handles the asynchronous calls.
     """
-
-    proxy = None
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
+        self.logger = supvisors.logger
         self.env = supvisors.info_source.get_env()
+        # create the pool worker
         self.pool = Pool(1)
-        self.manager = Manager()
-        self.info_queue = self.manager.Queue()
 
     def close(self):
         """ Close the pool gracefully and join it. """
-        self.info_queue = None
-        self.manager.shutdown()
+        self.logger.info('closing pool')
         try:
-            self.pool.terminate()
-        except (EOFError, IOError):
-            # sometimes happens but did not found anything to solve this
-            pass
-        # WARN: do NOT join the pool
-        # XML-RPC is blocking. If one is triggered when supervisor is closing, the join will block forever.
-        # supervisor cannot process the XML-RPC as long as its current action is in progress, i.e. this join.
-        # The Pool terminate does not abort a task in progress and the join cannot be completed as long as
-        # the task in progress is not completed.
-        # self.pool.join()
+            self.pool.close()
+        except (EOFError, IOError) as e:
+            # happened a few times but did not found anything to solve this
+            print '### ERROR when closing Pool:', e
+        # wait for all jobs to terminate
+        self.pool.join()
+        self.logger.info('pool closed')
 
     def async_check_address(self, address_name):
         """ Check isolation and get all process information from address.
         Use an asynchronous remote communication event to inform that information is available. """
-        return self.pool.apply_async(async_check_address, (address_name, self.env, self.info_queue))
+        return self.pool.apply_async(async_check_address, (address_name, self.env))
 
     def async_start_process(self, address_name, namespec, extra_args):
         """ Schedule an asynchronous call to start a process. """
