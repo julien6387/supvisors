@@ -24,9 +24,9 @@ from Queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import make_namespec
-
 from supvisors.client.subscriber import *
-from supvisors.test.scripts.event_queue import *
+
+from scripts.event_queue import *
 
 
 class CheckStartSequenceTest(unittest.TestCase):
@@ -346,5 +346,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     CheckStartSequenceTest.PORT = args.port
     # start unittest
-    unittest.main(defaultTest='test_suite')
+    print __name__
+    #unittest.main(defaultTest='test_suite')
 

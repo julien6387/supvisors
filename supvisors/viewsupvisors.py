@@ -219,7 +219,7 @@ class SupvisorsView(MeldView, ViewHandler):
         """ Stop the conflicting process """
         # get running addresses of process
         addresses = self.supvisors.context.processes[namespec].addresses
-        self.supvisors.pool.async_stop_process(address, namespec)
+        self.supvisors.zmq.pusher.send_stop_process(address, namespec)
         def on_wait():
             if address in addresses:
                 return NOT_DONE_YET
@@ -234,7 +234,7 @@ class SupvisorsView(MeldView, ViewHandler):
         running_addresses = addresses.copy()
         running_addresses.remove(address)
         for address in running_addresses:
-            self.supvisors.pool.async_stop_process(address, namespec)
+            self.supvisors.zmq.pusher.send_stop_process(address, namespec)
         def on_wait():
             if len(addresses) > 1:
                 return NOT_DONE_YET

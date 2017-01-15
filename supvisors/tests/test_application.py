@@ -94,7 +94,7 @@ class ApplicationTest(unittest.TestCase):
         self.assertFalse(application.stopped())
 
     def test_serialization(self):
-        """ Test the to_json method used to get a serializable form of Application. """
+        """ Test the serial method used to get a serializable form of Application. """
         import pickle
         from supvisors.application import ApplicationStatus
         from supvisors.ttypes import ApplicationStates
@@ -104,14 +104,14 @@ class ApplicationTest(unittest.TestCase):
         application.major_failure = False
         application.minor_failure = True
         # test to_json method
-        json = application.to_json()
-        self.assertDictEqual(json, {'application_name': 'ApplicationTest',
+        serialized = application.serial()
+        self.assertDictEqual(serialized, {'application_name': 'ApplicationTest',
             'statecode': 2, 'statename': 'RUNNING',
             'major_failure': False, 'minor_failure':True})
         # test that returned structure is serializable using pickle
-        serial = pickle.dumps(json)
-        after_json = pickle.loads(serial)
-        self.assertDictEqual(json, after_json)
+        dumped = pickle.dumps(serialized)
+        loaded = pickle.loads(dumped)
+        self.assertDictEqual(serialized, loaded)
 
     def test_add_process(self):
         """ Test the add_process method. """

@@ -143,8 +143,7 @@ class ApplicationView(MeldView, ViewHandler):
             address = next(iter(status.infos), None)
             if address:
                 stats = self.supvisors.statistician.data[address][ViewHandler.period_stats]
-                if namespec in stats.proc.keys():
-                    return stats.proc[namespec]
+                return stats.find_process_stats(namespec)
 
     def write_process_table(self, root):
         """ Rendering of the application processes managed through Supervisor """

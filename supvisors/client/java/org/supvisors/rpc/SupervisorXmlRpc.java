@@ -608,6 +608,8 @@ public class SupervisorXmlRpc {
         System.out.println(supervisor.reloadConfig());
 
         // test supervisor control
+        Thread.sleep(2000);
+
         System.out.println("### Testing supvisors.restart(...) ###");
         System.out.println(supervisor.restart());
 

@@ -24,9 +24,9 @@ import unittest
 from Queue import Empty
 
 from supervisor.childutils import getRPCInterface
-
 from supvisors.client.subscriber import *
-from supvisors.test.scripts.event_queue import SupvisorsEventQueues
+
+from scripts.event_queue import SupvisorsEventQueues
 
 
 class CheckStopSequenceTest(unittest.TestCase):

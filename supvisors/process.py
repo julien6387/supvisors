@@ -45,12 +45,15 @@ class ProcessRules(object):
         - a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application
         - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)"""
 
-    def __init__(self, logger):
+    def __init__(self, supvisors):
         """ Initialization of the attributes. """
         # TODO: think about adding a period for tasks
         # period should be greater than startsecs
         # autorestart should be False
-        self.logger = logger
+        # keep a reference of the Supvisors data
+        self.supvisors = supvisors
+        supvisors_short_cuts(self, ['info_source', 'logger'])
+        # attributes
         self.addresses = ['*']
         self.start_sequence = 0
         self.stop_sequence = 0
@@ -71,18 +74,14 @@ class ProcessRules(object):
             self.addresses = ['*']
             self.logger.warn('{} - no address defined so all Supvisors addresses are applicable'.format(namespec))
 
-    def accept_extra_arguments(self):
-        """ Return True if process rules are compatible with extra arguments. """
-        return not self.required and self.start_sequence == 0
-
     def __str__(self):
         """ Contents as string """
         return 'addresses={} start_sequence={} stop_sequence={} required={} wait_exit={} loading={}'.format(self.addresses,
             self.start_sequence, self.stop_sequence, self.required, self.wait_exit, self.expected_loading)
 
     # serialization
-    def to_json(self):
-        """ Return a JSON-serializable form of the ProcessRules """
+    def serial(self):
+        """ Return a serializable form of the ProcessRules """
         return {'addresses': self.addresses,
             'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
             'required': self.required, 'wait_exit': self.wait_exit, 'expected_loading': self.expected_loading}
@@ -121,7 +120,7 @@ class ProcessStatus(object):
         self.addresses = set() # addresses
         self.infos = {} # address: processInfo
         # rules part
-        self.rules = ProcessRules(self.logger)
+        self.rules = ProcessRules(supvisors)
         self.extra_args = ''
         self.ignore_wait_exit = False
 
@@ -148,6 +147,10 @@ class ProcessStatus(object):
         This is used by the statistics module that requires an existing PID """
         return self.state == ProcessStates.RUNNING and address in self.addresses
 
+    def accept_extra_arguments(self):
+        """ Return True if process rules are compatible with extra arguments. """
+        return not self.info_source.autorestart(self.namespec())
+
     # property for state access
     @property
     def state(self):
@@ -164,8 +167,8 @@ class ProcessStatus(object):
         return len(self.addresses) > 1
 
     # serialization
-    def to_json(self):
-        """ Return a JSON-serializable form of the ProcessStatus """
+    def serial(self):
+        """ Return a serializable form of the ProcessStatus """
         return {'application_name': self.application_name, 'process_name': self.process_name,
             'statecode': self.state, 'statename': self.state_string(),
             'expected_exit': self.expected_exit, 'last_event_time': self.last_event_time,
@@ -259,7 +262,7 @@ class ProcessStatus(object):
                 self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # mark process for restart only if autorestart is set in Supervisor's ProcessConfig
-                self.mark_for_restart = self.supvisors.info_source.autorestart(self.namespec())
+                self.mark_for_restart = self.info_source.autorestart(self.namespec())
             elif self.state == ProcessStates.STOPPING:
                 # STOPPING is the last state received before the address is lost. consider STOPPED now
                 self.state = ProcessStates.STOPPED

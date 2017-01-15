@@ -59,7 +59,7 @@ class AddressStatus(object):
                 raise InvalidTransition('Address: transition rejected {} to {}'.format(self.state_string(), AddressStates._to_string(newState)))
 
     # serialization
-    def to_json(self):
+    def serial(self):
         """ Return a serializable form of the AddressStatus. """
         return {'address_name': self.address_name, 'statecode': self.state, 'statename': self.state_string(),
             'remote_time': capped_int(self.remote_time), 'local_time': capped_int(self.local_time),

@@ -105,7 +105,7 @@ class DummyInfoSource:
     """ Simple info source with dummy methods. """
 
     def autorestart(self, namespec):
-        return True
+        return namespec == "test_autorestart"
 
 
 class DummyOptions:

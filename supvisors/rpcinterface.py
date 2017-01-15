@@ -54,7 +54,7 @@ class RPCInterface(object):
 
         *@return* ``dict``: the state of **Supvisors** as an integer and a string.
         """
-        return self.fsm.to_json()
+        return self.fsm.serial()
 
     def get_master_address(self):
         """ Get the address of the **Supvisors** Master.
@@ -83,7 +83,7 @@ class RPCInterface(object):
             status = self.context.addresses[address_name]
         except KeyError:
             raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supvisors'.format(address_name))
-        return status.to_json()
+        return status.serial()
 
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
@@ -108,7 +108,7 @@ class RPCInterface(object):
         *@return* ``dict``: a structure containing data about the application.
         """
         self._check_from_deployment()
-        return self._get_application(application_name).to_json()
+        return self._get_application(application_name).serial()
 
     def get_all_process_info(self):
         """ Get information about all processes.
@@ -118,7 +118,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
-        return [process.to_json() for process in self.context.processes.values()]
+        return [process.serial() for process in self.context.processes.values()]
 
     def get_process_info(self, namespec):
         """ Get information about a process named namespec.
@@ -136,8 +136,8 @@ class RPCInterface(object):
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
         if process:
-            return [process.to_json()]
-        return [proc.to_json() for proc in application.processes.values()]
+            return [process.serial()]
+        return [proc.serial() for proc in application.processes.values()]
 
     def get_process_rules(self, namespec):
         """ Get the rules used to start / stop the process named namespec.
@@ -165,7 +165,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
-        return [process.to_json() for application in self.context.applications.values()
+        return [process.serial() for application in self.context.applications.values()
             for process in application.processes.values() if process.conflicting()]
 
     # RPC Command methods
@@ -317,7 +317,7 @@ class RPCInterface(object):
         """
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT)
         application, process = self._get_application_process(namespec)
-        if extra_args and not process.rules.accept_extra_arguments():
+        if extra_args and not process.accept_extra_arguments():
             raise RPCError(Faults.BAD_EXTRA_ARGUMENTS, 'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
         # update command line in process config with extra_args
         try:
@@ -390,7 +390,7 @@ class RPCInterface(object):
                     if process.stopped():
                         raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec())
                 return True
-            onwait.delay = 0.5
+            onwait.delay = 0.1
             return onwait # deferred
         # if done is True, nothing to do (no deployment or impossible to deploy)
         return not done
@@ -428,7 +428,7 @@ class RPCInterface(object):
                     if process.running():
                         raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec())
                 return True
-            onwait.delay = 0.5
+            onwait.delay = 0.1
             return onwait # deferred
         return True
 
@@ -455,19 +455,25 @@ class RPCInterface(object):
         """
         self._check_operating()
         def onwait():
-            # first wait for process to be stopped
-            if onwait.waitstop:
+           # first wait for process to be stopped
+            if callable(onwait.job):
                 value = onwait.job()
                 if value is NOT_DONE_YET:
                     return NOT_DONE_YET
-                # done, whatever the result is True or False.
-                onwait.waitstop = False
-            # request start process
-            return self.start_process(strategy, namespec, extra_args, wait)
+                if onwait.stopdone:
+                    # the start is completed
+                    return value
+            if not onwait.stopdone:
+                # stop is done, whatever the result is True or False.
+                onwait.stopdone = True
+                # request start process
+                onwait.job = self.start_process(strategy, namespec, extra_args, wait)
+                return NOT_DONE_YET
+            return onwait.job
         # request stop process. job is for deferred result
-        onwait.delay = 0.5
+        onwait.delay = 0.1
         onwait.job = self.stop_process(namespec, True)
-        onwait.waitstop = callable(onwait.job)
+        onwait.stopdone = False
         return onwait # deferred
 
     def restart(self):
@@ -539,6 +545,6 @@ class RPCInterface(object):
 
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
-        result = process.rules.to_json()
+        result = process.rules.serial()
         result.update({'application_name': process.application_name, 'process_name': process.process_name})
         return result

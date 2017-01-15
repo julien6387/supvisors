@@ -74,7 +74,6 @@ class AddressMapper(object):
         """ Get all IPv4 addresses for all interfaces. """
         try:
             from netifaces import interfaces, ifaddresses, AF_INET
-
             # remove loopback addresses (no interest here)
             # loopback holds a 'peer' instead of a 'broadcast' address
             return [link['addr'] for interface in interfaces()
