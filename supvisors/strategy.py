@@ -26,7 +26,7 @@ class AbstractStrategy(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'logger', 'pool'])
+        supvisors_short_cuts(self, ['context', 'logger'])
 
 
 class AbstractDeploymentStrategy(AbstractStrategy):
@@ -124,7 +124,7 @@ class SenicideStrategy(AbstractStrategy):
             addresses.remove(saved_address)
             for address in addresses:
                 self.logger.debug('senicide conciliation: {} running on {}'.format(process.namespec(), address))
-                self.pool.async_stop_process(address, process.namespec())
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
 
 
 class InfanticideStrategy(AbstractStrategy):
@@ -141,7 +141,7 @@ class InfanticideStrategy(AbstractStrategy):
             addresses.remove(saved_address)
             for address in addresses:
                 self.logger.debug('infanticide conciliation: {} running on {}'.format(process.namespec(), address))
-                self.pool.async_stop_process(address, process.namespec())
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
 
 
 class UserStrategy(AbstractStrategy):
@@ -163,7 +163,7 @@ class StopStrategy(AbstractStrategy):
             addresses = process.addresses.copy()
             for address in addresses:
                 self.logger.warn('stop_process requested at {}'.format(address))
-                self.pool.async_stop_process(address, process.namespec())
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
 
 
 class RestartStrategy(AbstractStrategy):
@@ -178,7 +178,7 @@ class RestartStrategy(AbstractStrategy):
             # stop all processes
             for address in addresses:
                 self.logger.warn('stop_process requested at {}'.format(address))
-                self.pool.async_stop_process(address, process.namespec())
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
             # force warm restart
             # WARN: only master can use starter
             # conciliation MUST be triggered from the Supvisors MASTER

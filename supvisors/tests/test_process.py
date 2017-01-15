@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from supvisors.tests.base import (DummyLogger, DummySupvisors,
+from supvisors.tests.base import (DummySupvisors,
     any_process_info, any_stopped_process_info,
     process_info_by_name, any_process_info_by_state)
 
@@ -30,13 +30,13 @@ class ProcessRulesTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.logger = DummyLogger()
+        self.supvisors = DummySupvisors()
 
     def test_create(self):
         """ Test the values set at construction. """
         from supvisors.process import ProcessRules
-        rules = ProcessRules(self.logger)
-        self.assertIs(self.logger, rules.logger)
+        rules = ProcessRules(self.supvisors)
+        self.assertIs(self.supvisors, rules.supvisors)
         self.assertListEqual(['*'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
         self.assertEqual(0, rules.stop_sequence)
@@ -47,7 +47,7 @@ class ProcessRulesTest(unittest.TestCase):
     def test_dependency_rules(self):
         """ Test the dependencies in process rules. """
         from supvisors.process import ProcessRules
-        rules = ProcessRules(self.logger)
+        rules = ProcessRules(self.supvisors)
         # first test with no dependency issue
         rules.addresses = ['10.0.0.1', '10.0.0.2']
         rules.start_sequence = 1
@@ -113,24 +113,6 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.wait_exit)
         self.assertEqual(0, rules.expected_loading)
 
-    def test_accept_extra_arguments(self):
-        """ Test the possibility to add extra arguments when starting the process, iaw the process rules. """
-        from supvisors.process import ProcessRules
-        rules = ProcessRules(self.logger)
-        # test all possibilities
-        rules.required = False
-        rules.start_sequence = 0
-        self.assertTrue(rules.accept_extra_arguments())
-        rules.required = True
-        rules.start_sequence = 0
-        self.assertFalse(rules.accept_extra_arguments())
-        rules.required = False
-        rules.start_sequence = 1
-        self.assertFalse(rules.accept_extra_arguments())
-        rules.required = True
-        rules.start_sequence = 1
-        self.assertFalse(rules.accept_extra_arguments())
-
 
 class ProcessTest(unittest.TestCase):
     """ Test case for the ProcessStatus class of the process module. """
@@ -158,7 +140,7 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual('', process.extra_args)
         self.assertFalse(process.ignore_wait_exit)
         # rules part
-        self.assertDictEqual(ProcessRules(self.supvisors.logger).__dict__, process.rules.__dict__)
+        self.assertDictEqual(ProcessRules(self.supvisors).__dict__, process.rules.__dict__)
 
     def test_namespec(self):
         """ Test of the process namspec. """
@@ -234,6 +216,13 @@ class ProcessTest(unittest.TestCase):
         process.addresses.remove('10.0.0.2')
         self.assertFalse(process.conflicting())
 
+    def test_accept_extra_arguments(self):
+        """ Test the possibility to add extra arguments when starting the process, iaw the process rules. """
+        from supvisors.process import ProcessStatus
+        info = any_process_info()
+        process = ProcessStatus(info['group'], info['name'], self.supvisors)
+        self.assertTrue(process.accept_extra_arguments())
+
     def test_serialization(self):
         """ Test the serialization of the ProcessStatus. """
         import pickle
@@ -243,14 +232,14 @@ class ProcessTest(unittest.TestCase):
         info = any_process_info_by_state(ProcessStates.STOPPED)
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
         process.add_info('10.0.0.1', info)
-        json = process.to_json()
-        self.assertDictEqual(json, {'application_name': info['group'], 'process_name': info['name'],
+        serialized = process.serial()
+        self.assertDictEqual(serialized, {'application_name': info['group'], 'process_name': info['name'],
             'statecode': 0, 'statename': 'STOPPED',
             'expected_exit': not info['spawnerr'], 'last_event_time': process.last_event_time, 'addresses': []})
         # test that returned structure is serializable using pickle
-        serial = pickle.dumps(json)
-        after_json = pickle.loads(serial)
-        self.assertDictEqual(json, after_json)
+        dumped = pickle.dumps(serialized)
+        loaded = pickle.loads(dumped)
+        self.assertDictEqual(serialized, loaded)
 
     def test_add_info(self):
         """ Test the addition of a process info into the ProcessStatus. """
@@ -487,9 +476,7 @@ class ProcessTest(unittest.TestCase):
         # check state FATAL
         self.assertEqual(ProcessStates.FATAL, process.state)
         # check mark_for_restart
-        self.assertTrue(process.mark_for_restart)
-        # unset mark_for_restart
-        process.mark_for_restart = False
+        self.assertFalse(process.mark_for_restart)
         # add one STOPPING
         process.add_info('10.0.0.4', any_process_info_by_state(ProcessStates.STOPPING))
         # check state STOPPING

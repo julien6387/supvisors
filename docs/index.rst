@@ -3,8 +3,6 @@
 
 **Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor.
 
-This documentation is UNDER CONSTRUCTION.
-
 .. toctree::
     :maxdepth: 3
     :caption: Contents:

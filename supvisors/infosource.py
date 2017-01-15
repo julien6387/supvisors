@@ -78,6 +78,13 @@ class SupervisordSource(object):
             'SUPERVISOR_USERNAME': self.username,
             'SUPERVISOR_PASSWORD': self.password }
 
+    def close_httpservers(self):
+        """ Call the close_httpservers of Supervisor.
+        This is called when receiving the Supervisor stopping event in order to force the termination
+        of any asynchronous pob. """
+        self.supervisord.options.close_httpservers()
+        self.supervisord.options.httpservers = ()
+
     def autorestart(self, namespec):
         """ This method checks if autorestart is configured on the process. """
         application_name, process_name = split_namespec(namespec)
@@ -108,6 +115,14 @@ class SupervisordSource(object):
         process.state = ProcessStates.BACKOFF
         process.spawnerr = reason
         process.give_up()
+
+    def force_process_unknown(self, namespec, reason):
+        """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
+        application_name, process_name = split_namespec(namespec)
+        # WARN: the following line may throw a KeyError exception
+        process = self.supervisord.process_groups[application_name].processes[process_name]
+        process.spawnerr = reason
+        process.change_state(ProcessStates.UNKNOWN)
 
     # this method is used to replace Supervisor web ui with Supvisors web ui
     def replace_default_handler(self):

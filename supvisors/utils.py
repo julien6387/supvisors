@@ -22,21 +22,29 @@ from time import gmtime, localtime, strftime, time
 
 
 class EventHeaders:
-    """ Enumeration class for the headers in messages between Listener and MainLoop.
-    The sequence gives the priority of the event. """
+    """ Enumeration class for the headers in messages between Listener and MainLoop. """
     TICK, PROCESS, STATISTICS = range(3)
 
-# strings used for remote communication between the Supvisors main loop and the listener
-SUPVISORS_AUTH = u'auth'
-SUPVISORS_EVENT = u'event'
-SUPVISORS_INFO = u'info'
-SUPVISORS_TASK = u'task'
+class RemoteCommEvents:
+    """ Strings used for remote communication between the Supvisors main loop and the listener. """
+    SUPVISORS_AUTH = u'auth'
+    SUPVISORS_EVENT = u'event'
+    SUPVISORS_INFO = u'info'
+    SUPVISORS_TASK = u'task'
 
 # strings used as headers in messages between EventPublisher and Supvisors' Client
 SUPVISORS_STATUS_HEADER = u'supvisors'
 ADDRESS_STATUS_HEADER = u'address'
 APPLICATION_STATUS_HEADER = u'application'
 PROCESS_STATUS_HEADER = u'process'
+
+
+# for deferred XML-RPC requests
+IPC_NAME = '/tmp/supvisors-ipc'
+
+class RequestHeaders:
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
+    DEF_CHECK_ADDRESS, DEF_ISOLATE_ADDRESSES, DEF_START_PROCESS, DEF_STOP_PROCESS, DEF_RESTART, DEF_SHUTDOWN = range(6)
 
 
 # used to convert enumeration-like value to string and vice-versa

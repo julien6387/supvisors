@@ -182,11 +182,11 @@ class Context(object):
                 # asynchronous port-knocking used to check if remote Supvisors instance considers local instance as isolated
                 if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
                     status.state = AddressStates.CHECKING
-                    self.supvisors.pool.async_check_address(address_name)
+                    self.supvisors.zmq.pusher.send_check_address(address_name)
                 # update internal times
                 status.update_times(event['when'], int(time()))
                 # publish AddressStatus event
-                self.supvisors.publisher.send_address_status(status)
+                self.supvisors.zmq.publisher.send_address_status(status)
         else:
             self.logger.warn('got tick from unexpected location={}'.format(address_name))
 
@@ -212,8 +212,8 @@ class Context(object):
                     application = self.applications[process.application_name]
                     application.update_status()
                     # publish ProcessStatus and ApplicationStatus events
-                    self.supvisors.publisher.send_process_status(process)
-                    self.supvisors.publisher.send_application_status(application)
+                    self.supvisors.zmq.publisher.send_process_status(process)
+                    self.supvisors.zmq.publisher.send_application_status(application)
                     return process
         else:
             self.logger.error('got process event from unexpected location={}'.format(addresses))
@@ -225,7 +225,7 @@ class Context(object):
             if status.state == AddressStates.RUNNING and (time() - status.local_time) > 10:
                 self.invalid(status)
                 # publish AddressStatus event
-                self.supvisors.publisher.send_address_status(status)
+                self.supvisors.zmq.publisher.send_address_status(status)
 
     def handle_isolation(self):
         """ Move ISOLATING addresses to ISOLATED and publish related events. """
@@ -234,5 +234,5 @@ class Context(object):
             status = self.addresses[address]
             status.state = AddressStates.ISOLATED
             # publish AddressStatus event
-            self.supvisors.publisher.send_address_status(status)
+            self.supvisors.zmq.publisher.send_address_status(status)
         return addresses

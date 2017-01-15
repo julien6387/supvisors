@@ -30,6 +30,12 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     /** The process namespec. */
     private String namespec;
 
+    /** The name of the process' application. */
+    private String applicationName;
+
+    /** The process name. */
+    private String processName;
+
     /**
      * The applicable addresses.
      * If all known addresses are applicable, '*' is used.
@@ -62,15 +68,35 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
      *
      * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
      */
-    public SupvisorsProcessRules(HashMap addressInfo)  {
-        this.namespec = (String) addressInfo.get("namespec");
-        Object[] addresses = (Object[]) addressInfo.get("addresses");
+    public SupvisorsProcessRules(HashMap rulesInfo)  {
+        this.processName = (String) rulesInfo.get("process_name");
+        this.applicationName = (String) rulesInfo.get("application_name");
+        this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
+        Object[] addresses = (Object[]) rulesInfo.get("addresses");
         this.addresses = Arrays.asList(addresses);
-        this.startSequence = (Integer) addressInfo.get("start_sequence");
-        this.stopSequence = (Integer) addressInfo.get("stop_sequence");
-        this.required = (Boolean) addressInfo.get("required");
-        this.waitExit = (Boolean) addressInfo.get("wait_exit");
-        this.expectedLoading = (Integer) addressInfo.get("expected_loading");
+        this.startSequence = (Integer) rulesInfo.get("start_sequence");
+        this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
+        this.required = (Boolean) rulesInfo.get("required");
+        this.waitExit = (Boolean) rulesInfo.get("wait_exit");
+        this.expectedLoading = (Integer) rulesInfo.get("expected_loading");
+    }
+
+    /**
+     * The getApplicationName method returns the name of the process' application'.
+     *
+     * @return String: The namespec of the application.
+     */
+    public String getApplicationName() {
+        return this.applicationName;
+    }
+
+    /**
+     * The getProcessName method returns the name of the process.
+     *
+     * @return String: The namespec of the application.
+     */
+    public String getProcessName() {
+        return this.processName;
     }
 
     /**

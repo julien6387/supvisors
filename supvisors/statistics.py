@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
+from psutil import cpu_count, cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
 from time import time
 
 from supvisors.utils import mean
@@ -42,7 +42,7 @@ def instant_cpu_statistics():
 def cpu_statistics(last, ref):
     """ Return the CPU loading for all the processors between last and ref measures.
     The average on all processors is inserted in front of the list. """
-    cpu = [ ]
+    cpu = []
     for unit in zip(last, ref):
         work = unit[0][0] - unit[1][0]
         idle = unit[0][1] - unit[1][1]
@@ -92,25 +92,25 @@ def instant_process_statistics(pid):
     work = memory = 0
     try:
         proc = Process(pid)
-        for p in [ proc ] + proc.children(recursive=True):
+        for p in [proc] + proc.children(recursive=True):
             work += sum(p.cpu_times())
             memory += p.memory_percent()
     except (NoSuchProcess, ValueError):
-        # process may have disappeared in the meantime
+        # process may have disappeared in the interval
         pass
-    return work, memory
+    # take into account the number of processes for the process work 
+    return work / cpu_count(), memory
 
 def cpu_process_statistics(last, ref, total_work):
     """ Return the CPU loading of the process between last and ref measures. """
     # process may have been started between ref and last
-    if ref is None: ref = 0,
-    return 100.0 * (last[0] - ref[0]) / total_work
+    return 100.0 * (last - ref) / total_work
 
 
 # Snapshot of all resources
-def instant_statistics(pid_list):
+def instant_statistics(named_pid_list):
     """ Return a tuple of all measures taken on the CPU, Memory and IO resources. """
-    proc_statistics = {named_pid: instant_process_statistics(named_pid[1]) for named_pid in pid_list}
+    proc_statistics = {process_name: (pid, instant_process_statistics(pid)) for process_name, pid in named_pid_list}
     return time(), instant_cpu_statistics(), instant_memory_statistics(), instant_io_statistics(), proc_statistics
 
 
@@ -125,10 +125,17 @@ def statistics(last, ref):
     # process statistics
     work = cpu_total_work(last[1], ref[1])
     proc = {}
-    for named_pid, stats in last[4].items():
-        # calculation is based on key name+pid, in case of process restart
-        # storage result forget about the pid
-        proc[named_pid[0]] = cpu_process_statistics(stats, ref[4].get(named_pid, None), work), stats[1]
+    # when tuples are unserialized through JSON, they become lists
+    for process_name, last_pid_stats in last[4].items():
+        # find same process in ref
+        ref_pid_stats = ref[4].get(process_name, None)
+        # calculate cpu if ref is found
+        proc_cpu = 0
+        # pid must be identical (in case of process restart in the interval)
+        if ref_pid_stats and last_pid_stats[0] == ref_pid_stats[0]:
+            # need the work jiffies in the interval
+            proc_cpu = cpu_process_statistics(last_pid_stats[1][0], ref_pid_stats[1][0], work)
+        proc[process_name, last_pid_stats[0]] = proc_cpu, last_pid_stats[1][1]
     return last[0], cpu, mem, io, proc
 
 
@@ -146,9 +153,12 @@ class StatisticsInstance(object):
         self.counter = -1
         self.ref_stats = None
         # data structures
-        self.cpu = [ ]
-        self.mem = [ ]
-        self.io = { }
+        self.cpu = []
+        self.mem = []
+        self.io = {}
+
+    def find_process_stats(self, namespec):
+        return next((stats for (process_name, pid), stats in self.proc.items() if process_name == namespec), None)
 
     def push_statistics(self, stats):
         self.counter += 1
@@ -165,35 +175,38 @@ class StatisticsInstance(object):
                 self.trunc_depth(self.mem)
                 # add new IO values to IO list
                 for intf, bytes in self.io.items():
-                	new_bytes = integ_stats[3].pop(intf)
-                	bytes[0].append(new_bytes[0])
-                	bytes[1].append(new_bytes[1])
-                	self.trunc_depth(bytes[0])
-                	self.trunc_depth(bytes[1])
+                    new_bytes = integ_stats[3].pop(intf)
+                    bytes[0].append(new_bytes[0])
+                    bytes[1].append(new_bytes[1])
+                    # remove too old values when max depth is reached
+                    self.trunc_depth(bytes[0])
+                    self.trunc_depth(bytes[1])
                 # add new Process CPU / Mem values to Process list
                 # as process list is dynamic, there are special rules
                 destroy_list = []
-                for named_pid, values in self.proc.items():
-                	new_values = integ_stats[4].pop(named_pid, None)
-                	if new_values is None:
-                		# element is obsolete
-                		destroy_list.append(named_pid)
-                	else:
-                		values[0].append(new_values[0])
-                		values[1].append(new_values[1])
-                		self.trunc_depth(values[0])
-                		self.trunc_depth(values[1])
+                for named_pid, (cpu_stats, mem_stats) in self.proc.items():
+                    new_values = integ_stats[4].pop(named_pid, None)
+                    if new_values is None:
+                        # element is obsolete
+                        destroy_list.append(named_pid)
+                    else:
+                        new_cpu_value, new_mem_value = new_values
+                        cpu_stats.append(new_cpu_value)
+                        mem_stats.append(new_mem_value)
+                        # remove too old values when max depth is reached
+                        self.trunc_depth(cpu_stats)
+                        self.trunc_depth(mem_stats)
                 # destroy obsolete elements
                 for named_pid in destroy_list:
                 	del self.proc[named_pid]
                 # add new elements
-                for named_pid in integ_stats[4].keys():
-                	self.proc[named_pid] = ([], [])
+                for named_pid, (new_cpu_value, new_mem_value) in integ_stats[4].items():
+                	self.proc[named_pid] = [new_cpu_value], [new_mem_value]
             else:
                 # init data structures (mem unchanged)
-                	self.cpu = [[] for _ in stats[1]]
-                	self.io = {intf: ([], []) for intf in stats[3].keys()}
-                	self.proc = {named_pid: ([], []) for named_pid in stats[4].keys()}
+                self.cpu = [[] for _ in stats[1]]
+                self.io = {intf: ([], []) for intf in stats[3].keys()}
+                self.proc = {(process_name, pid_stats[0]): ([], []) for process_name, pid_stats in stats[4].items()}
             self.ref_stats = stats
 
     # remove first data of all lists if size exceeds depth

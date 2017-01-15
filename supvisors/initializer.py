@@ -27,7 +27,6 @@ from supvisors.infosource import SupervisordSource
 from supvisors.listener import SupervisorListener
 from supvisors.options import SupvisorsServerOptions
 from supvisors.parser import Parser
-from supvisors.publisher import EventPublisher
 from supvisors.statemachine import FiniteStateMachine
 from supvisors.statistics import StatisticsCompiler
 
@@ -39,6 +38,7 @@ class Supvisors(object):
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
 
     def __init__(self, supervisord):
+        """ Initialization of the attributes. """
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
         # get options from config file
@@ -58,8 +58,6 @@ class Supvisors(object):
                 'local host unexpected in address list: {}'.format(self.options.address_list))
         # create context data
         self.context = Context(self)
-        # create event publisher
-        self.publisher = EventPublisher(self)
         # create application starter and stopper
         self.starter = Starter(self)
         self.stopper = Stopper(self)

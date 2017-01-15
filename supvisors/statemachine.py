@@ -169,6 +169,7 @@ class RestartingState(AbstractState):
 
     def enter(self):
         """ When entering in the RESTARTING state, stop all applications. """
+        self.starter.abort()
         self.stopper.stop_applications()
 
     def next(self):
@@ -180,7 +181,7 @@ class RestartingState(AbstractState):
 
     def exit(self):
         """ When leaving the RESTARTING state, request the full restart. """
-        self.apply_addresses_func(self.supvisors.pool.async_restart)
+        self.apply_addresses_func(self.supvisors.zmq.pusher.send_restart)
 
 
 class ShuttingDownState(AbstractState):
@@ -188,6 +189,7 @@ class ShuttingDownState(AbstractState):
 
     def enter(self):
         """ When entering in the SHUTTING_DOWN state, stop all applications. """
+        self.starter.abort()
         self.stopper.stop_applications()
 
     def next(self):
@@ -199,7 +201,7 @@ class ShuttingDownState(AbstractState):
 
     def exit(self):
         """ When leaving the SHUTTING_DOWN state, request the full shutdown. """
-        self.apply_addresses_func(self.supvisors.pool.async_shutdown)
+        self.apply_addresses_func(self.supvisors.zmq.pusher.send_shutdown)
 
 
 class ShutdownState(AbstractState):
@@ -242,7 +244,8 @@ class FiniteStateMachine:
         self.state = state
         self.instance = self.__StateInstances[state](self.supvisors)
         # publish SupvisorsStatus event
-        self.supvisors.publisher.send_supvisors_status(self)
+        if hasattr(self.supvisors, 'zmq'):
+            self.supvisors.zmq.publisher.send_supvisors_status(self)
 
     def on_timer_event(self):
         """ Periodic task used to check if remote Supvisors instances are still active.
@@ -289,8 +292,8 @@ class FiniteStateMachine:
         self.set_state(SupvisorsStates.SHUTTING_DOWN)
 
     # serialization
-    def to_json(self):
-        """ Return a JSON-serializable form of the SupvisorsState """
+    def serial(self):
+        """ Return a serializable form of the SupvisorsState """
         return {'statecode': self.state, 'statename': self.state_string()}
 
     # Map between state enumerations and classes

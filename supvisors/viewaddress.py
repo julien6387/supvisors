@@ -84,9 +84,7 @@ class AddressView(StatusView, ViewHandler):
 
     def get_process_stats(self, namespec):
         """ Get the statistics structure related to the local address and the period selected """
-        stats = self.get_address_stats()
-        if namespec in stats.proc.keys():
-            return stats.proc[namespec]
+        return self.get_address_stats().find_process_stats(namespec)
 
     def write_address_statistics(self, root):
         """ Rendering of tables and figures for address statistics """
@@ -285,14 +283,14 @@ class AddressView(StatusView, ViewHandler):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.pool.async_restart(self.address)
+        self.supvisors.zmq.pusher.send_restart(self.address)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.pool.async_shutdown(self.address)
+        self.supvisors.zmq.pusher.send_shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')
 

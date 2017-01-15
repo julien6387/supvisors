@@ -58,7 +58,7 @@ class AddressTest(unittest.TestCase):
                 not status.in_isolation() and state not in [AddressStates.ISOLATING, AddressStates.ISOLATED])
 
     def test_serialization(self):
-        """ Test the to_json method used to get a serializable form of AddressStatus. """
+        """ Test the serial method used to get a serializable form of AddressStatus. """
         import pickle
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
@@ -69,13 +69,13 @@ class AddressTest(unittest.TestCase):
         status.remote_time = 50
         status.local_time = 60
         # test to_json method
-        json = status.to_json()
-        self.assertDictEqual(json, {'address_name': '10.0.0.1', 'loading': 0,
+        serialized = status.serial()
+        self.assertDictEqual(serialized, {'address_name': '10.0.0.1', 'loading': 0,
             'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time':60})
         # test that returned structure is serializable using pickle
-        serial = pickle.dumps(json)
-        after_json = pickle.loads(serial)
-        self.assertDictEqual(json, after_json)
+        dumped = pickle.dumps(serialized)
+        loaded = pickle.loads(dumped)
+        self.assertDictEqual(serialized, loaded)
 
     def test_transitions(self):
         """ Test the state transitions of AddressStatus. """

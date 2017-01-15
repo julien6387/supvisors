@@ -138,6 +138,12 @@ class Starter(Commander):
         self.logger.info('start processes using strategy {}'.format(DeploymentStrategies._to_string(strategy)))
         self._strategy = strategy
 
+    def abort(self):
+        """ Abort all planned and current jobs. """
+        self.planned_sequence = {}
+        self.planned_jobs = {}
+        self.current_jobs = {}
+
     def start_applications(self):
         """ Plan and start the necessary jobs to start all the applications having a start_sequence.
         It uses the default strategy, as defined in the Supervisor configuration file. """
@@ -287,7 +293,7 @@ class Starter(Commander):
             if address:
                 self.logger.info('try to start {} at address={}'.format(namespec, address))
                 # use asynchronous xml rpc to start program
-                self.supvisors.pool.async_start_process(address, namespec, process.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(address, namespec, process.extra_args)
                 # push to jobs and timestamp process
                 process.request_time = time.time()
                 self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
@@ -377,7 +383,7 @@ class Stopper(Commander):
             # use asynchronous xml rpc to stop program
             for address in process.addresses:
                 self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                self.supvisors.pool.async_stop_process(address, process.namespec())
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
             # push to jobs and timestamp process
             process.request_time = time.time()
             self.logger.debug('{} requested to stop at {}'.format(process.namespec(), get_asctime(process.request_time)))
@@ -396,10 +402,7 @@ class Stopper(Commander):
             # depending on ini file, it may take a while before the process enters in STOPPED state
             # so just test that is in not in a RUNNING-like state 5 seconds after request_time
             if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
-                # FIXME: process_failure does not exist for Stopper
-                # TODO: force UNKNOWN
-                # self.process_failure(process, 'Still running 5 seconds after stop request', True)
-                self.logger.critical('Still running 5 seconds after stop request')
+                self.process_failure(process.namespec(), 'Still running 5 seconds after stop request', True)
         # return True when starting is completed
         return not self.in_progress()
 
@@ -432,3 +435,15 @@ class Stopper(Commander):
                             # trigger next sequence of applications
                             self.initial_jobs()
 
+    def process_failure(self, namespec, reason):
+        """ Updates the stop sequencing when a process could not be stopped. """
+        # publish the process state as UNKNOWN to all Supvisors instances
+        self.logger.warn('force {} state to UNKNOWN'.format(namespec))
+        try:
+            self.supvisors.info_source.force_process_unknown(namespec, reason)
+        except KeyError:
+            self.logger.error('impossible to force {} state to UNKNOWN. process unknown in this Supervisor'.format(namespec))
+            # the Supvisors user is not forced to use the same process configuration on all machines,
+            # although it is strongly recommended to avoid troubles.
+            # so, publish directly a fake process event
+            self.supvisors.listener.force_process_unknown(namespec)

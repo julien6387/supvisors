@@ -410,7 +410,12 @@ class ControllerPlugin(ControllerPluginBase):
     # restart Supvisors
     def do_sreload(self, arg):
         if self._upcheck():
-            self.supvisors().restart()
+            try:
+                result = self.supvisors().restart()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Restarted: {}'.format(result))
 
     def help_sreload(self):
         self.ctl.output("Restart Supvisors.")
@@ -419,7 +424,12 @@ class ControllerPlugin(ControllerPluginBase):
     # shutdown Supvisors
     def do_sshutdown(self, arg):
         if self._upcheck():
-            self.supvisors().shutdown()
+            try:
+                result = self.supvisors().shutdown() 
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Shut down: {}'.format(result))
 
     def help_sshutdown(self):
         self.ctl.output("Shutdown Supvisors.")
