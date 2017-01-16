@@ -43,7 +43,7 @@ class ConciliationStrategies:
 @enumeration_tools
 class StartingFailureStrategies:
     """ Applicable strategies that can be applied on a failure of a starting application. """
-    ABORT, CONTINUE = range(2)
+    ABORT, STOP, CONTINUE = range(3)
 
 @enumeration_tools
 class RunningFailureStrategies:
