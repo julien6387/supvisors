@@ -313,12 +313,19 @@ class Starter(Commander):
         application_name = process.application_name
         # impact of failure upon application deployment
         if process.rules.required:
-            failure_strategy = self.context.applications[application_name].rules.starting_failure_strategy
+            # get starting failure strategy of related application
+            application = self.context.applications[application_name]
+            failure_strategy = application.rules.starting_failure_strategy
+            # apply strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
                 self.logger.error('{} for required {}: abort starting of application {}'.format(reason, process.process_name, application_name))
                 # remove failed application from deployment
                 # do not remove application from InProgress as requests have already been sent
                 self.planned_jobs.pop(application_name, None)
+            elif failure_strategy == StartingFailureStrategies.STOP:
+                self.logger.error('{} for required {}: stop application {}'.format(reason, process.process_name, application_name))
+                self.planned_jobs.pop(application_name, None)
+                self.supvisors.stopper.stop_application(application)
             else:
                 self.logger.warn('{} for required {}: continue starting of application {}'.format(reason, process.process_name, application_name))
         else:
