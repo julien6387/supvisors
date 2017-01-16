@@ -37,7 +37,6 @@ class ApplicationRules(object):
         """ Initializes the rules applicable to an application"""
         self.start_sequence = 0
         self.stop_sequence = 0
-        # TODO: implement starting failure strategy
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
         # TODO: implement running failure strategy
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
@@ -85,7 +84,7 @@ class ApplicationStatus(object):
     def stopped(self):
         """ Return True if application is stopped. """
         return self.state == ApplicationStates.STOPPED
- 
+
     @property
     def state(self):
         """ Property for the 'state' attribute. """
