@@ -536,8 +536,6 @@ Here follows the definition of the rules applicable to an application.
 
 ``starting_failure_strategy``
 
-    **Not implemented yet**
-    
     This element gives the strategy applied upon a major failure in the starting phase of an application.
     Possible values are:
 
