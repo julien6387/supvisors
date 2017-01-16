@@ -313,12 +313,16 @@ class Starter(Commander):
         application_name = process.application_name
         # impact of failure upon application deployment
         if process.rules.required:
-            self.logger.error('{} for required {}: halt deployment for application {}'.format(reason, process.process_name, application_name))
-            # remove failed application from deployment
-            # do not remove application from InProgress as requests have already been sent
-            self.planned_jobs.pop(application_name, None)
+            failure_strategy = self.context.applications[application_name].rules.starting_failure_strategy
+            if failure_strategy == StartingFailureStrategies.ABORT:
+                self.logger.error('{} for required {}: abort starting of application {}'.format(reason, process.process_name, application_name))
+                # remove failed application from deployment
+                # do not remove application from InProgress as requests have already been sent
+                self.planned_jobs.pop(application_name, None)
+            else:
+                self.logger.warn('{} for required {}: continue starting of application {}'.format(reason, process.process_name, application_name))
         else:
-            self.logger.info('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
+            self.logger.warn('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
         if force_fatal:
             # publish the process state as FATAL to all Supvisors instances
             self.logger.warn('force {} state to FATAL'.format(process.namespec()))
@@ -376,7 +380,7 @@ class Stopper(Commander):
         if application.stop_sequence:
             sequence = self.planned_sequence.setdefault(application.rules.stop_sequence, {})
             sequence[application.application_name] = application.stop_sequence.copy()
- 
+
     def process_job(self, process, jobs):
         """ Stops the process where it is running. """
         if process.running():
