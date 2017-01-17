@@ -26,7 +26,10 @@ def getRPCInterface(address, env):
     """ The getRPCInterface creates a proxy to a supervisor XML-RPC server.
     Information about the HTTP configuration is required in env. """
     # get configuration info from env
-    serverurl = env['SUPERVISOR_SERVER_URL']
+    try:
+        serverurl = env['SUPERVISOR_SERVER_URL']
+    except KeyError:
+        raise KeyError('SUPERVISOR_SERVER_URL must be set in environment')
     username = env.get('SUPERVISOR_USERNAME', '')
     password = env.get('SUPERVISOR_PASSWORD', '')
     # check that Supervisor is configured in HTTP
