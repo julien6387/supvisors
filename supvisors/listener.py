@@ -23,11 +23,10 @@ import time
 from supervisor import events
 from supervisor.datatypes import boolean
 from supervisor.options import split_namespec
-from supervisor.states import ProcessStates
 
 from supvisors.mainloop import SupvisorsMainLoop
-from supvisors.process import from_string
 from supvisors.statistics import instant_statistics
+from supvisors.ttypes import ProcessStates
 from supvisors.utils import (supvisors_short_cuts, EventHeaders, RemoteCommEvents)
 from supvisors.supvisorszmq import SupvisorsZmq
 
@@ -93,7 +92,7 @@ class SupervisorListener(object):
         # create payload from event
         payload = {'processname': event.process.config.name,
             'groupname': event.process.group.config.name,
-            'state': from_string(event_name.split('_')[-1]),
+            'state': ProcessStates._from_string(event_name.split('_')[-1]),
             'now': int(time.time()), 
             'pid': event.process.pid,
             'expected': event.expected }
