@@ -20,18 +20,10 @@
 from time import time
 
 from supervisor.options import make_namespec
-from supervisor.states import *
+from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
+from supvisors.ttypes import ProcessStates
 from supvisors.utils import *
-
-
-def to_string(strEnum):
-    """ Get a Supervisor ProcessStates enumeration from string"""
-    return getProcessStateDescription(strEnum)
-
-def from_string(strEnum):
-    """ Get a string from Supervisor ProcessStates enumeration """
-    return string_to_enum(ProcessStates.__dict__, strEnum)
 
 
 class ProcessRules(object):
@@ -177,7 +169,7 @@ class ProcessStatus(object):
     # methods
     def state_string(self):
         """ Return the state as a string """
-        return to_string(self.state)
+        return ProcessStates._to_string(self.state)
 
     def add_info(self, address, info):
         """ Insert a new Supervisor ProcessInfo in internal list """
@@ -300,7 +292,8 @@ class ProcessStatus(object):
         if self.conflicting():
             # several processes seems to be in a running state so that becomes tricky
             states = {self.infos[address]['state'] for address in self.addresses}
-            self.logger.debug('{} multiple states {} for addresses {}'.format(self.process_name, [to_string(x) for x in states], list(self.addresses)))
+            self.logger.debug('{} multiple states {} for addresses {}'.format(self.process_name,
+                [ProcessStates._to_string(x) for x in states], list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)
             return True

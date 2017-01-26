@@ -17,40 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import sys
 import unittest
-from Queue import Empty
 
-from supervisor.childutils import getRPCInterface
-from supervisor.options import make_namespec
-from supvisors.client.subscriber import *
-
-from scripts.event_queue import *
+from scripts.expected_events import *
 
 
-class CheckStartSequenceTest(unittest.TestCase):
+class CheckStartSequenceTest(CheckSequenceTest):
     """ Test case to check the sequencing of the starting test application. """
-
-    PORT = 60002
-
-    def setUp(self):
-        """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # create logger using a BoundIO
-        self.logger = create_logger(logfile=None)
-        # create the thread of event subscriber
-        self.event_loop = SupvisorsEventQueues(self.PORT, self.logger)
-        # get the queues
-        self.address_queue = self.event_loop.event_queues[0]
-        self.application_queue = self.event_loop.event_queues[1]
-        self.process_queue = self.event_loop.event_queues[2]
-        # start the thread
-        self.event_loop.start()
-
-    def tearDown(self):
-        """ The tearDown stops the subscriber to the Supvisors events. """
-        self.event_loop.stop()
-        self.event_loop.join()
 
     def test_sequencing(self):
         """ Test the whole sequencing of the starting of the test application.
@@ -60,279 +34,203 @@ class CheckStartSequenceTest(unittest.TestCase):
         self.get_addresses()
         # test the last events received for this process
         self.check_self_starting()
-        # test the starting of database application
+        # test the starting of applications
+        self.check_import_database_starting()
         self.check_database_starting()
-        # test the starting of my_movies application
         self.check_my_movies_starting()
-        # test the starting of web_movies application
+        self.check_player_starting()
         self.check_web_movies_starting()
+        # final test (import database expected to be stopped)
+        self.assertFalse(self.context.has_events())
+
+    def check_self_starting(self):
+        """ Test the events received that corresponds to the starting of this process. """
+        # define 'test' application
+        application = Application('test') 
+        self.context.add_application(application)
+        program = Program('check_start_sequence')
+        # this process 'test:check_start_sequence' is already starting
+        program.state = ProcessStates.STARTING
+        application.add_program(program)
+        # define the expected events for this process
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # test the events received are compliant
+        self.check_events()
+        self.assertFalse(self.context.has_events())
+
+    def check_import_database_starting(self):
+        """ Check the starting of the import_database application.
+        The mount_disk process is started first, then the copy_error (failure expected).
+        The application is configured to be stopped because of the failure. """
+        # define 'import_database' application
+        application = Application('import_database') 
+        self.context.add_application(application)
+        application.add_program(Program('mount_disk', True))
+        application.add_program(Program('copy_error', True))
+        # check events
+        self.check_mount_disk_starting()
+        self.check_copy_error_starting()
+        self.check_mount_disk_stopping()
+
+    def check_mount_disk_starting(self):
+        """ Check the starting of the mount_disk program. """
+        # define the expected events for the mount_disk program
+        program = self.context.get_program('import_database:mount_disk')
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # check that the events received correspond to the expected
+        self.check_events()
+        self.assertFalse(self.context.has_events())
+
+    def check_copy_error_starting(self):
+        """ Check the starting of the copy_error program. """
+        # define the expected events for the mount_disk program
+        program = self.context.get_program('import_database:copy_error')
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+        # test the events received are compliant
+        self.check_events()
+        self.assertFalse(self.context.has_events())
+
+    def check_mount_disk_stopping(self):
+        """ Program the stopping of the program.state program. """
+        # define the expected events for the mount_disk program
+        program = self.context.get_program('import_database:mount_disk')
+        program.add_event(ProcessStateEvent(ProcessStates.STOPPING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # do NOT check the events received at this stage
+        # stopping events will be mixed with the starting events of the following applications
 
     def check_database_starting(self):
         """ Check the starting of the database application.
         The movie_server_xx processes are started first, then the register_movies_xx.
-        In the database application, there should not be any major_failure but the minor_failure is raised
-        if one program is FATAL. """
-        self.major_failure = False
-        self.minor_failure = False
-        # get database rules
-        rules = getRPCInterface(os.environ).supvisors.get_process_rules('database:*')
-        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
-        # first group contains the movie_server_xx programs
+        FATAL process events are expected, according to the test platform. """
+        # define 'import_database' application
+        application = Application('database') 
+        self.context.add_application(application)
+        for program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
+            application.add_program(Program(program_name))
+        for program_name in ['register_movies_01', 'register_movies_02', 'register_movies_03']:
+            application.add_program(Program(program_name, False, True))
+        # check events
         self.check_movie_server_starting()
-        # second group contains the register_movie_xx programs
         self.check_register_movies_starting()
 
     def check_movie_server_starting(self):
-        """ Check the starting of the movie_server programs.
-        The first phase consists in testing that the movie_server_xx processes are STARTING or FATAL,
-        depending on the addresses available.
-        The dabase application should be STOPPED until one process becomes STARTING.
-        The second phase consists in testing that the movie_server_xx processes that were STARTING
-        in the first phase become RUNNING.
-        The dabase application become RUNNING when there is no more STARTING process. """
-        self.process_list = ['movie_server_01', 'movie_server_02', 'movie_server_03']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING or FATAL
-        self.check_process_starting('database', 0, 'STOPPED')
-        self.check_process_running('database', 2) # startsecs=1
+        """ Check the starting of the movie_server programs. """
+        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_02), ('movie_server_03', self.HOST_03)]
+        # define the expected events for the movie_server_xx programs
+        application = self.context.get_application('database')
+        for program_name, address in config:
+            program = application.get_program(program_name)
+            if address in self.addresses:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+            else:
+                program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+        # check that the events received are compliant
+        self.check_events('database')
+        self.assertFalse(self.context.has_events('database'))
 
     def check_register_movies_starting(self):
-        """ Check the starting of the register_movies programs.
-        The first phase consists in testing that the register_movies_xx processes are STARTING or FATAL,
-        depending on the addresses available.
-        The dabase application should transition from RUNNING to STARTING.
-        The second phase consists in testing that the register_movies_xx processes that were STARTING
-        in the first phase become RUNNING.
-        The dabase application should become RUNNING when there is no more STARTING process. """
-        self.process_list = ['register_movies_01', 'register_movies_02', 'register_movies_03']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING or FATAL
-        self.check_process_starting('database', 2, 'RUNNING')
-        # copy starting_processes as the same list is to be used for exited processes
-        starting_processes_copy = [process_name for process_name, addresses in self.starting_processes]
-        self.check_process_running('database', 2) # startsecs=1
-        self.starting_processes = starting_processes_copy
-        self.check_process_exited('database', 5) # -x 5
+        """ Check the starting of the register_movies programs. """
+        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_02), ('register_movies_03', self.HOST_03)]
+        # define the expected events for the register_movies_xx programs
+        application = self.context.get_application('database')
+        for program_name, address in config:
+            program = application.get_program(program_name)
+            if address in self.addresses:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.EXITED))
+            else:
+                program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+        # check that the events received are compliant
+        self.check_events('database')
+        self.assertFalse(self.context.has_events('database'))
 
     def check_my_movies_starting(self):
         """ Check the starting of the my_movies application.
-        The manager process is started first, then the hmi.
-        In the my_movies application, there should be not any major_failure or minor_failure. """
-        self.major_failure = False
-        self.minor_failure = False
-        # get database rules
-        rules = getRPCInterface(os.environ).supvisors.get_process_rules('my_movies:*')
-        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
-        # first group contains the manager program
+        The manager process is started first, then the web_server, finally the hmi.
+        In the my_movies application, there should be a major_failure due to the web_server that is configured not to start. """
+        # define 'my_movies' application
+        application = Application('my_movies') 
+        self.context.add_application(application)
+        application.add_program(Program('manager', True))
+        application.add_program(Program('web_server', True))
+        application.add_program(Program('hmi'))
+        # check events
         self.check_manager_starting()
-        # second group contains the hmi program
+        self.check_web_server_starting()
         self.check_hmi_starting()
 
     def check_manager_starting(self):
-        """ Check the starting of the manager program.
-        The first phase consists in testing that the manager process is STARTING, whatever the active addresses.
-        The my_movies application should become STARTING.
-        The second phase consists in testing that the manager process becomes RUNNING.
-        The my_movies application should become RUNNING. """
-        self.process_list = ['manager']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING
-        self.check_process_starting('my_movies', 0, 'STOPPED')
-        self.check_process_running('my_movies', 1) # startsecs=0
+        """ Check the starting of the manager program. """
+        # define the expected events for the manager program
+        program = self.context.get_program('my_movies:manager')
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # check that the events received are compliant
+        self.check_events('my_movies')
+        self.assertFalse(self.context.has_events('my_movies'))
+
+    def check_web_server_starting(self):
+        """ Check the starting of the web_server program. """
+        # define the expected events for the web_server program
+        program = self.context.get_program('my_movies:web_server')
+        program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+        # check that the events received are compliant
+        self.check_events('my_movies')
+        self.assertFalse(self.context.has_events('my_movies'))
 
     def check_hmi_starting(self):
-        """ Check the starting of the hmi program.
-        The first phase consists in testing that the hmi process is STARTING, whatever the active addresses.
-        The my_movies application should become STARTING.
-        The second phase consists in testing that the hmi process becomes RUNNING.
-        The my_movies application should become RUNNING. """
-        self.process_list = ['hmi']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING
-        self.check_process_starting('my_movies', 2, 'RUNNING')
-        self.check_process_running('my_movies', 3) # startsecs=2
+        """ Check the starting of the hmi program. """
+        # define the expected events for the hmi program
+        program = self.context.get_program('my_movies:hmi')
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # check that the events received are compliant
+        self.check_events('my_movies')
+        self.assertFalse(self.context.has_events('my_movies'))
+
+    def check_player_starting(self):
+        """ Check the starting of the player application.
+        The test_reader process is started first (wrong exit code expected).
+        The starting of the application is configured to be aborted after the failure. """
+        # define 'player' application
+        application = Application('player') 
+        self.context.add_application(application)
+        application.add_program(Program('test_reader', True, True))
+        application.add_program(Program('movie_player'))
+        # check events
+        self.check_test_reader_starting()
+
+    def check_test_reader_starting(self):
+        """ Check the starting of the test_reader program. """
+        # define the expected events for the test_reader program
+        program = self.context.get_program('player:test_reader')
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.EXITED, self.HOST_01))
+        # check that the events received are compliant
+        self.check_events('player')
+        self.assertFalse(self.context.has_events('player'))
 
     def check_web_movies_starting(self):
         """ Check the starting of the web_movies application.
-        The web_server process is started first, then the web_browser.
-        In the web_movies application, there should not be any major_failure or minor_failure. """
-        self.major_failure = False
-        self.minor_failure = False
-        # get database rules
-        rules = getRPCInterface(os.environ).supvisors.get_process_rules('web_movies:*')
-        self.rules = {make_namespec(rule['application_name'], rule['process_name']): rule['addresses'] for rule in rules}
-        # first group contains the server program
-        self.check_web_server_starting()
-        # second group contains the browser program
-        self.check_web_browser_starting()
-
-    def check_web_server_starting(self):
-        """ Check the starting of the web_server program.
-        The first phase consists in testing that the web_server process is STARTING, whatever the active addresses.
-        The web_movies application should become STARTING.
-        The second phase consists in testing that the web_server process becomes RUNNING.
-        The web_movies application should become RUNNING. """
-        self.process_list = ['web_server']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING
-        self.check_process_starting('web_movies', 0, 'STOPPED')
-        self.check_process_running('web_movies', 7) # startsecs=5
-
-    def check_web_browser_starting(self):
-        """ Check the starting of the web_browser program.
-        The first phase consists in testing that the web_browser process is STARTING, whatever the active addresses.
-        The web_movies application should become STARTING.
-        The second phase consists in testing that the web_browser process becomes RUNNING.
-        The web_movies application should become RUNNING. """
-        self.process_list = ['web_browser']
-        self.starting_processes = []
-        # check processes are STARTING / RUNNING
-        self.check_process_starting('web_movies', 2, 'RUNNING')
-        self.check_process_running('web_movies', 6) # startsecs=5
-
-    def check_process_starting(self, application_name, ref_application_statecode, ref_application_statename):
-        """ Check that the processes listed in self.process_list become STARTING or FATAL,
-        depending on the active addresses.
-        The application state becomes STARTING when there is at least one STARTING process. """
-        for _ in range(len(self.process_list)):
-            # get next process event
-            try:
-                data = self.process_queue.get(True, 2)
-            except Empty:
-                self.fail('failed to get the expected events for this process')
-            else:
-                process_name = data['process_name']
-                self.assertEqual(application_name, data['application_name'])
-                # check that process name is in list and remove it from the list
-                self.assertIn(process_name, self.process_list)
-                self.process_list.remove(process_name)
-                # build namespec from process and application names
-                namespec = make_namespec(application_name, process_name)
-                # get intersection between rules and valid addresses
-                applicable_addresses = self.addresses if self.rules[namespec] == ['*'] else set(self.rules[namespec]).intersection(self.addresses)
-                # check that process can be started on an active address
-                if applicable_addresses:
-                    self.assertEqual(10, data['statecode'])
-                    self.assertEqual('STARTING', data['statename'])
-                    self.assertEqual(1, len(data['addresses']))
-                    self.assertIn(data['addresses'][0], applicable_addresses)
-                    # store in starting processes
-                    self.starting_processes.append((process_name, data['addresses']))
-                else:
-                    self.assertEqual(200, data['statecode'])
-                    self.assertEqual('FATAL', data['statename'])
-                    self.assertFalse(data['addresses'])
-                    self.minor_failure = True
-            # get next application event
-            try:
-                data = self.application_queue.get(True, 1)
-            except Empty:
-                self.fail('failed to get the expected events for this process')
-            else:
-                # application is in ref_application_statename until one process is STARTING
-                self.assertEqual(application_name, data['application_name'])
-                if self.starting_processes:
-                    self.assertEqual(1, data['statecode'])
-                    self.assertEqual('STARTING', data['statename'])
-                else:
-                    self.assertEqual(ref_application_statecode, data['statecode'])
-                    self.assertEqual(ref_application_statename, data['statename'])
-                self.assertEqual(self.major_failure, data['major_failure'])
-                self.assertEqual(self.minor_failure and data['statename'] != 'STOPPED', data['minor_failure'])
-
-    def check_process_running(self, application_name, startsecs):
-        """ Check that the processes listed in self.starting_processes become RUNNING.
-        The application state becomes RUNNING when there is no more STARTING process. """
-        for _ in range(len(self.starting_processes)):
-            # get next process event
-            try:
-                data = self.process_queue.get(True, startsecs)
-            except Empty:
-                self.fail('failed to get the expected events for this process')
-            else:
-                process_name = data['process_name']
-                self.assertEqual(application_name, data['application_name'])
-                # check that process name is in list and remove it from the list
-                self.assertIn((process_name, data['addresses']), self.starting_processes)
-                self.starting_processes.remove((process_name, data['addresses']))
-                # build namespec from process and application names
-                self.assertEqual(20, data['statecode'])
-                self.assertEqual('RUNNING', data['statename'])
-            # get next application event
-            try:
-                data = self.application_queue.get(True, 1)
-            except Empty:
-                self.fail('failed to get the expected events for this process')
-            else:
-                # application is STARTING until all processes are RUNNING
-                self.assertEqual(application_name, data['application_name'])
-                if self.starting_processes:
-                    self.assertEqual(1, data['statecode'])
-                    self.assertEqual('STARTING', data['statename'])
-                else:
-                    self.assertEqual(2, data['statecode'])
-                    self.assertEqual('RUNNING', data['statename'])
-                self.assertEqual(self.major_failure, data['major_failure'])
-                self.assertEqual(self.minor_failure, data['minor_failure'])
-
-    def check_process_exited(self, application_name, duration):
-        """ Check that the processes listed in self.starting_processes become EXITED.
-        The application state is always RUNNING. """
-        for _ in range(len(self.starting_processes)):
-            # get next process event
-            try:
-                data = self.process_queue.get(True, duration)
-            except Empty:
-                self.fail('failed to get the expected EXITED events for the processes of the application {}'.format(application_name))
-            else:
-                self.assertEqual(application_name, data['application_name'])
-                # check that process name is in list and remove it from the list
-                self.assertIn(data['process_name'], self.starting_processes)
-                self.starting_processes.remove(data['process_name'])
-                self.assertFalse(data['addresses'])
-                self.assertTrue(data['expected_exit'])
-                # build namespec from process and application names
-                self.assertEqual(100, data['statecode'])
-                self.assertEqual('EXITED', data['statename'])
-            # get next application event
-            try:
-                data = self.application_queue.get(True, 1)
-            except Empty:
-                self.fail('failed to get the expected events for the application {}'.format(application_name))
-            else:
-                # application is RUNNING
-                self.assertDictContainsSubset({'application_name': application_name,
-                    'statecode': 2, 'statename': 'RUNNING'}, data)
-                self.assertEqual(self.major_failure, data['major_failure'])
-                self.assertEqual(self.minor_failure, data['minor_failure'])
-
-    def check_self_starting(self):
-        """ Test the events received that corresponds to the starting of this process. """
-        try:
-            # this process has a startsecs of 30 seconds
-            # depending on the active addresses and timing considerations, the 5 notifications can be received between 5 and 25 seconds
-            # so, in the 'worst' case, it may take 25 seconds before the RUNNING event is received
-            data = self.process_queue.get(True, 26)
-            # test that this process is RUNNING
-            self.assertDictContainsSubset({'process_name': 'check_start_sequence',
-                'statecode': 20, 'statename': 'RUNNING', 'application_name': 'test'}, data)
-            self.assertEqual(1, len(data['addresses']))
-            self.assertIn(data['addresses'][0], self.addresses)
-            # test that the application related to this process is RUNNING
-            data = self.application_queue.get(True, 2)
-            self.assertDictEqual(data, {'application_name': 'test',
-                'statecode': 2, 'statename': 'RUNNING',
-                'major_failure': False, 'minor_failure': False})
-        except Empty:
-            self.fail('failed to get the expected events for this process')
-
-    def get_addresses(self):
-        """ Wait for address_queue to put the list of active addresses. """
-        try:
-            self.addresses = self.address_queue.get(True, 30)
-            self.assertGreater(len(self.addresses), 0)
-        except Empty:
-            self.fail('failed to get the address event in the last 30 seconds')
+        It contains only the web_browser program. """
+        # define 'my_movies' application
+        application = Application('web_movies') 
+        self.context.add_application(application)
+        program = Program('web_browser')
+        application.add_program(program)
+        # define the expected events for the web_browser program
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # check that the events received are compliant
+        self.check_events('web_movies')
+        self.assertFalse(self.context.has_events('web_movies'))
 
 
 def test_suite():
@@ -344,8 +242,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Check the starting sequence using Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
     args = parser.parse_args()
-    CheckStartSequenceTest.PORT = args.port
+    CheckSequenceTest.PORT = args.port
     # start unittest
-    print __name__
-    #unittest.main(defaultTest='test_suite')
-
+    unittest.main(defaultTest='test_suite')

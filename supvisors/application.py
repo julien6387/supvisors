@@ -37,7 +37,6 @@ class ApplicationRules(object):
         """ Initializes the rules applicable to an application"""
         self.start_sequence = 0
         self.stop_sequence = 0
-        # TODO: implement starting failure strategy
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
         # TODO: implement running failure strategy
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
@@ -85,7 +84,7 @@ class ApplicationStatus(object):
     def stopped(self):
         """ Return True if application is stopped. """
         return self.state == ApplicationStates.STOPPED
- 
+
     @property
     def state(self):
         """ Property for the 'state' attribute. """
@@ -137,13 +136,16 @@ class ApplicationStatus(object):
             # STOPPING is not in STOPPED_STATES
             elif process.state == ProcessStates.STOPPING:
                 stopping = True
-            # a FATAL required (resp. optional) process is a major (resp. minor) failure for application
-            # similarly, an EXITED process is a major (resp. minor) failure for application if required (resp. optional) and exit code not expected
-            elif (process.state == ProcessStates.FATAL) or (process.state == ProcessStates.EXITED and not process.expected_exit):
-               if process.rules.required:
-                   major_failure = True
-               else:
-                   minor_failure = True
+            elif process.state in STOPPED_STATES:
+                if process.rules.required:
+                    # any required stopped process is a major failure for a running application
+                    # exception is made for an EXITED process with an expected exit code
+                    if process.state != ProcessStates.EXITED or not process.expected_exit:
+                        major_failure = True
+                else:
+                    # an optional process is a minor failure for a running application when its state is FATAL or unexpectanly EXITED
+                    if (process.state == ProcessStates.FATAL) or (process.state == ProcessStates.EXITED and not process.expected_exit):
+                        minor_failure = True
             # all other STOPPED-like states are considered normal
         self.logger.trace('Application {}: starting={} running={} stopping={} major_failure={} minor_failure={}'.
             format(self.application_name, starting, running, stopping, major_failure, minor_failure))

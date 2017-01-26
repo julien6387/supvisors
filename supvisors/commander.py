@@ -23,7 +23,7 @@ from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
 
 from supvisors.strategy import get_address
-from supvisors.ttypes import DeploymentStrategies
+from supvisors.ttypes import DeploymentStrategies, StartingFailureStrategies
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -118,8 +118,10 @@ class Commander(object):
 
 class Starter(Commander):
     """ Class handling the starting of processes and applications.
+
     Attributes are:
-    - strategy: the deployment strategy applied, defaulted to the value set in the Supervisor configuration file, """
+        - strategy: the deployment strategy applied, defaulted to the value set in the Supervisor configuration file.
+    """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -252,7 +254,7 @@ class Starter(Commander):
                     if process.rules.wait_exit and process.expected_exit:
                         self.logger.info('expected exit for {}'.format(process.namespec()))
                     else:
-                        # missed. decide to continue degraded or to halt
+                        # missed
                         self.process_failure(process, 'unexpected exit')
                 elif process.state == ProcessStates.FATAL:
                     # remove from inProgress
@@ -313,12 +315,23 @@ class Starter(Commander):
         application_name = process.application_name
         # impact of failure upon application deployment
         if process.rules.required:
-            self.logger.error('{} for required {}: halt deployment for application {}'.format(reason, process.process_name, application_name))
-            # remove failed application from deployment
-            # do not remove application from InProgress as requests have already been sent
-            self.planned_jobs.pop(application_name, None)
+            # get starting failure strategy of related application
+            application = self.supvisors.context.applications[application_name]
+            failure_strategy = application.rules.starting_failure_strategy
+            # apply strategy
+            if failure_strategy == StartingFailureStrategies.ABORT:
+                self.logger.error('{} for required {}: abort starting of application {}'.format(reason, process.process_name, application_name))
+                # remove failed application from deployment
+                # do not remove application from current_jobs as requests have already been sent
+                self.planned_jobs.pop(application_name, None)
+            elif failure_strategy == StartingFailureStrategies.STOP:
+                self.logger.error('{} for required {}: stop application {}'.format(reason, process.process_name, application_name))
+                self.planned_jobs.pop(application_name, None)
+                self.supvisors.stopper.stop_application(application)
+            else:
+                self.logger.warn('{} for required {}: continue starting of application {}'.format(reason, process.process_name, application_name))
         else:
-            self.logger.info('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
+            self.logger.warn('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
         if force_fatal:
             # publish the process state as FATAL to all Supvisors instances
             self.logger.warn('force {} state to FATAL'.format(process.namespec()))
@@ -376,7 +389,7 @@ class Stopper(Commander):
         if application.stop_sequence:
             sequence = self.planned_sequence.setdefault(application.rules.stop_sequence, {})
             sequence[application.application_name] = application.stop_sequence.copy()
- 
+
     def process_job(self, process, jobs):
         """ Stops the process where it is running. """
         if process.running():

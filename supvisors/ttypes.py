@@ -17,9 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.utils import enumeration_tools
+import supervisor.states
+
+from supvisors.utils import *
 
 
+# all enumerations
 @enumeration_tools
 class AddressStates:
     """ Enumeration class for the state of remote Supvisors instance """
@@ -29,6 +32,9 @@ class AddressStates:
 class ApplicationStates:
     """ Class holding the possible enumeration values for an application state. """
     STOPPED, STARTING, RUNNING, STOPPING = range(4)
+
+# completion of supervisor ProcessStates definition
+ProcessStates = enumeration_tools(supervisor.states.ProcessStates)
 
 @enumeration_tools
 class DeploymentStrategies:
@@ -43,7 +49,7 @@ class ConciliationStrategies:
 @enumeration_tools
 class StartingFailureStrategies:
     """ Applicable strategies that can be applied on a failure of a starting application. """
-    ABORT, CONTINUE = range(2)
+    ABORT, STOP, CONTINUE = range(3)
 
 @enumeration_tools
 class RunningFailureStrategies:

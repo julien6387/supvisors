@@ -23,6 +23,7 @@ from sys import stderr
 
 from supervisor.datatypes import boolean, list_of_strings
 
+from supvisors.ttypes import StartingFailureStrategies
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -33,6 +34,13 @@ XSDContents = StringIO('''\
         <xs:restriction base="xs:int">
             <xs:minInclusive value="0"/>
             <xs:maxInclusive value="100"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="StartingFailureStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ABORT" />
+            <xs:enumeration value="CONTINUE" />
+            <xs:enumeration value="STOP" />
         </xs:restriction>
     </xs:simpleType>
     <xs:complexType name="ProgramModel">
@@ -53,6 +61,7 @@ XSDContents = StringIO('''\
         <xs:sequence>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
                 <xs:element type="ProgramModel" name="pattern"/>
@@ -100,6 +109,10 @@ class Parser(object):
             # get stop_sequence rule
             value = application_elt.findtext('stop_sequence')
             application.rules.stop_sequence = int(value) if value and int(value)>0 else 0
+            # get starting_failure_strategy rule
+            value = application_elt.findtext('starting_failure_strategy')
+            application.rules.starting_failure_strategy = (StartingFailureStrategies._from_string(value)
+                if value else StartingFailureStrategies.ABORT)
             # final print
             self.logger.debug('application {} - rules {}'.format(application.application_name, application.rules))
 
@@ -126,7 +139,7 @@ class Parser(object):
             process.rules.expected_loading = int(value) if value and 0 <= int(value) <= 100 else 1
             # check that rules are compliant with dependencies
             process.rules.check_dependencies(process.namespec())
-            self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
+            self.logger.info('process {} - rules {}'.format(process.namespec(), process.rules))
 
     def get_program_addresses(self, program_elt, rules):
         value = program_elt.findtext('addresses')
@@ -138,7 +151,7 @@ class Parser(object):
             elif '#' in addresses:
                 rules.addresses = [ '#' ]
             else:
-                self.supvisors.address_mapper.filter(addresses)
+                rules.addresses = self.supvisors.address_mapper.filter(addresses)
 
     def get_program_element(self, process):
         # try to find program name in file

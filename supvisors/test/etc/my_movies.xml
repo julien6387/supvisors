@@ -35,9 +35,33 @@
 
     </application>
 
+	<!-- import application -->
+	<application name="import_database">
+		<start_sequence>2</start_sequence>
+		<starting_failure_strategy>STOP</starting_failure_strategy>
+
+		<program name="mount_disk">
+			<addresses>cliche01</addresses>
+			<start_sequence>1</start_sequence>
+			<stop_sequence>2</stop_sequence>
+			<required>true</required>
+            <expected_loading>0</expected_loading>
+        </program>
+
+		<program name="copy_error">
+			<addresses>cliche01</addresses>
+			<start_sequence>2</start_sequence>
+ 			<stop_sequence>1</stop_sequence>
+			<required>true</required>
+            <wait_exit>true</wait_exit>
+            <expected_loading>25</expected_loading>
+        </program>
+
+	</application>
+
 	<!-- movies_database application -->
 	<application name="database">
-		<start_sequence>2</start_sequence>
+		<start_sequence>3</start_sequence>
 		<stop_sequence>3</stop_sequence>
 
 		<pattern name="movie_server_">
@@ -58,8 +82,9 @@
 
 	<!-- my_movies application -->
 	<application name="my_movies">
-		<start_sequence>3</start_sequence>
+		<start_sequence>4</start_sequence>
 		<stop_sequence>2</stop_sequence>
+		<starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
 		<program name="manager">
 			<addresses>*</addresses>
@@ -69,12 +94,17 @@
             <expected_loading>5</expected_loading>
 		</program>
 
+        <program name="web_server">
+            <addresses>cliche03</addresses>
+            <start_sequence>2</start_sequence>
+            <required>true</required>
+            <expected_loading>3</expected_loading>
+        </program>
+
         <program name="hmi">
-            <!-- no screen on cliche03 -->
-			<addresses>cliche02 cliche01</addresses>
-			<start_sequence>2</start_sequence>
+			<addresses>cliche02, cliche01</addresses>
+			<start_sequence>3</start_sequence>
 			<stop_sequence>1</stop_sequence>
-			<required>true</required>
             <expected_loading>10</expected_loading>
         </program>
 
@@ -100,22 +130,35 @@
 
      </application>
 
+	<!-- player application -->
+	<application name="player">
+		<start_sequence>5</start_sequence>
+		<starting_failure_strategy>ABORT</starting_failure_strategy>
+
+        <program name="test_reader">
+			<addresses>cliche01</addresses>
+            <start_sequence>1</start_sequence>
+			<required>true</required>
+            <wait_exit>true</wait_exit>
+            <expected_loading>2</expected_loading>
+		</program>
+
+        <program name="movie_player">
+			<addresses>cliche01</addresses>
+            <start_sequence>2</start_sequence>
+            <expected_loading>13</expected_loading>
+		</program>
+
+    </application>
+
 	<!-- web_movies application -->
 	<application name="web_movies">
-		<start_sequence>4</start_sequence>
+		<start_sequence>6</start_sequence>
 		<stop_sequence>1</stop_sequence>
-
-        <program name="web_server">
-            <addresses>*</addresses>
-            <start_sequence>1</start_sequence>
-            <stop_sequence>1</stop_sequence>
-            <required>true</required>
-            <expected_loading>3</expected_loading>
-        </program>
 
         <program name="web_browser">
 			<addresses>*</addresses>
-            <start_sequence>2</start_sequence>
+            <start_sequence>1</start_sequence>
             <expected_loading>4</expected_loading>
 		</program>
 
