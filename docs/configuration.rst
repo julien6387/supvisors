@@ -276,7 +276,7 @@ Here follows the definition of the rules applicable to a program.
 
 ``addresses``
 
-    This element gives the list of addresses where the process can be started. Applicable values are:
+    This element gives the list of addresses where the process can be started, separated by commas. Applicable values are:
 
         * a subset of the ``address_list`` defined in `[supvisors] Section Values`_,
         * ``*``: stands for all values in ``address_list``.

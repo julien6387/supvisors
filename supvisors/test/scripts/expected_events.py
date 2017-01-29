@@ -181,9 +181,11 @@ class CheckSequenceTest(unittest.TestCase):
         self.logger = create_logger(logfile=None)
         # get the addresses
         addresses_info = getRPCInterface(os.environ).supvisors.get_all_addresses_info()
+        print addresses_info
         self.HOST_01 = addresses_info[0]['address_name']
         self.HOST_02 = addresses_info[1]['address_name']
         self.HOST_03 = addresses_info[2]['address_name']
+        self.logger.info('working with HOST_01={} HOST_02={} HOST_03={}'.format(self.HOST_01, self.HOST_02, self.HOST_03))
         # create a context
         self.context = Context()
         # create the thread of event subscriber

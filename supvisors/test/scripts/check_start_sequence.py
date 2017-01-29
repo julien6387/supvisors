@@ -119,7 +119,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_movie_server_starting(self):
         """ Check the starting of the movie_server programs. """
-        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_02), ('movie_server_03', self.HOST_03)]
+        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_03), ('movie_server_03', self.HOST_02)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
@@ -135,7 +135,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
-        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_02), ('register_movies_03', self.HOST_03)]
+        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_03), ('register_movies_03', self.HOST_02)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
@@ -188,8 +188,9 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the hmi program. """
         # define the expected events for the hmi program
         program = self.context.get_program('my_movies:hmi')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        address = self.HOST_02 if self.HOST_01 in self.addresses else self.HOST_01
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
         # check that the events received are compliant
         self.check_events('my_movies')
         self.assertFalse(self.context.has_events('my_movies'))

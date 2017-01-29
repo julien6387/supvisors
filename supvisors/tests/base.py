@@ -54,7 +54,7 @@ class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
 
     def __init__(self):
-        self.addresses = []
+        self.addresses = ['10.0.0.0', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
 
 
 class DummyAddressStatus:
@@ -111,8 +111,11 @@ class DummyInfoSource:
 class DummyOptions:
     """ Simple options with dummy attributes. """
 
-    synchro_timeout = 10
-    conciliation_strategy = 0
+    def __init__(self):
+        self.synchro_timeout = 10
+        self.conciliation_strategy = 0
+        self.stats_periods = 5, 15, 60
+        self.stats_histo = 10
 
 
 class DummySupvisors:
