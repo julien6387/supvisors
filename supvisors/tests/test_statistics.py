@@ -91,7 +91,7 @@ class StatisticsTest(unittest.TestCase):
             # two first lines are title
             contents = netfile.readlines()[2:]
         interfaces = [intf.strip().split(':')[0] for intf in contents]
-        self.assertListEqual(interfaces, stats.keys())
+        self.assertItemsEqual(interfaces, stats.keys())
         self.assertIn('lo', stats.keys())
         # test that values are pairs
         for intf, bytes in stats.items():
