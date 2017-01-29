@@ -3,6 +3,15 @@
 
 **Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor.
 
+The main features are:
+
+    - the definition of a rules file to handle the starting and the stopping sequences of the applications,
+    - an extended XML-RPC API to control applications and multiple Supervisor instances,
+    - a new web-based dashboard that replaces the default dashboard of Supervisor.
+
+.. image:: docs/images/supvisors_address_page.png
+   :alt: Supvisors' Dashboard
+   :align: center
 
 Supported Platforms
 -------------------
@@ -29,7 +38,7 @@ Dependencies
 +------------+------------+------------+
 | psutil     | 4.3.0      |            |
 +------------+------------+------------+
-| netifaces  | 0.10.4     |     X       |
+| netifaces  | 0.10.4     |     X      |
 +------------+------------+------------+
 | matplotlib | 1.2.0      |     X      |
 +------------+------------+------------+
