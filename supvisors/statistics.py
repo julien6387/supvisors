@@ -46,7 +46,8 @@ def cpu_statistics(last, ref):
     for unit in zip(last, ref):
         work = unit[0][0] - unit[1][0]
         idle = unit[0][1] - unit[1][1]
-        cpu.append(100.0 * work / (work + idle))
+        total = work + idle
+        cpu.append(100.0 * work / total if total else 0)
     return cpu
 
 def cpu_total_work(last, ref):
@@ -156,6 +157,7 @@ class StatisticsInstance(object):
         self.cpu = []
         self.mem = []
         self.io = {}
+        self.proc = {}
 
     def find_process_stats(self, namespec):
         return next((stats for (process_name, pid), stats in self.proc.items() if process_name == namespec), None)
@@ -164,7 +166,7 @@ class StatisticsInstance(object):
         self.counter += 1
         if self.counter % self.period == 0:
             if self.ref_stats:
-                # rearrange data so that there is less processing when getting them
+                # rearrange data so that there is less processing afterwards
                 integ_stats = statistics(stats, self.ref_stats)
                 # add new CPU values to CPU lists
                 for lst in self.cpu:
