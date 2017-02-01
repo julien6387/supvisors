@@ -81,34 +81,34 @@ class WebUtilsTest(unittest.TestCase):
     def test_info_message(self):
         """ Test the formatting of an information message. """
         from supvisors.webutils import info_message
-        self.message_test(info_message, 'info')
+        self.check_message(info_message, 'info')
 
     def test_warn_message(self):
         """ Test the formatting of a warning message. """
         from supvisors.webutils import warn_message
-        self.message_test(warn_message, 'warn')
+        self.check_message(warn_message, 'warn')
 
     def test_error_message(self):
         """ Test the formatting of an error message. """
         from supvisors.webutils import error_message
-        self.message_test(error_message, 'erro')
+        self.check_message(error_message, 'erro')
 
     def test_delayed_info(self):
         """ Test the callable returned for a delayed information message. """
         from supvisors.webutils import delayed_info
-        self.delayed_message_test(delayed_info, 'info')
+        self.check_delayed_message(delayed_info, 'info')
 
     def test_delayed_warn(self):
         """ Test the callable returned for a delayed warning message. """
         from supvisors.webutils import delayed_warn
-        self.delayed_message_test(delayed_warn, 'warn')
+        self.check_delayed_message(delayed_warn, 'warn')
 
     def test_delayed_error(self):
         """ Test the callable returned for a delayed error message. """
         from supvisors.webutils import delayed_error
-        self.delayed_message_test(delayed_error, 'erro')
+        self.check_delayed_message(delayed_error, 'erro')
 
-    def message_test(self, func, gravity):
+    def check_message(self, func, gravity):
         """ Test the formatting of any message. """
         # test without address
         msg = func('a simple message')
@@ -123,7 +123,7 @@ class WebUtilsTest(unittest.TestCase):
         self.assertEqual(gravity, msg[0])
         self.assertEqual(msg[1], 'another simple message at ' + ctime() + ' on 10.0.0.1')
 
-    def delayed_message_test(self, func, gravity):
+    def check_delayed_message(self, func, gravity):
         """ Test the callable returned for any delayed message. """
         # test without address
         msg_cb = func('a simple message')

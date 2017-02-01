@@ -33,7 +33,7 @@ def format_gravity_message(message):
             gravity = Error
         else:
             gravity = Info
-        return (gravity, message)
+        return gravity, message
     return message
 
 def print_message(root, gravity, message):
@@ -46,13 +46,13 @@ def print_message(root, gravity, message):
         elt.replace('')
 
 def info_message(msg, address=None):
-    return (Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
+    return Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
 
 def warn_message(msg, address=None):
-    return (Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
+    return Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
 
 def error_message(msg, address=None):
-    return (Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else ''))
+    return Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
 
 def delayed_info(msg, address=None):
     def on_wait():
