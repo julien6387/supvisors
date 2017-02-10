@@ -231,7 +231,7 @@ The binary JAR of Apache XML-RPC 3.1.3 is available in the
     System.out.println(supervisor.getState());
 
     // Supvisors XML-RPC
-    SupvisorsXmlRpc supvisors = new SupervisorXmlRpc(client);
+    SupvisorsXmlRpc supvisors = new SupvisorsXmlRpc(client);
     System.out.println(supvisors.getSupvisorsState());
 
 
