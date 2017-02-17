@@ -188,7 +188,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the hmi program. """
         # define the expected events for the hmi program
         program = self.context.get_program('my_movies:hmi')
-        address = self.HOST_02 if self.HOST_01 in self.addresses else self.HOST_01
+        address = self.HOST_02 if self.HOST_02 in self.addresses else self.HOST_01
         program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
         program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
         # check that the events received are compliant

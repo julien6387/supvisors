@@ -22,15 +22,8 @@ import zmq
 
 from supervisor.loggers import LevelsByName, getLogger
 
-from supvisors.utils import *
-
-
-def create_zmq_context():
-    """ Return a new ZeroMQ context.
-    LINGER option is set to force the sockets to close immediately. """
-    zmq_context = zmq.Context.instance()
-    zmq_context.setsockopt(zmq.LINGER, 0)
-    return zmq_context
+from supvisors.supvisorszmq import EventSubscriber, create_zmq_context
+from supvisors.utils import EventHeaders
 
 
 def create_logger(logfile='subscriber.log', loglevel=LevelsByName.INFO,
@@ -38,99 +31,6 @@ def create_logger(logfile='subscriber.log', loglevel=LevelsByName.INFO,
         rotating=True, maxbytes=10*1024*1024, backups=1, stdout=True):
     """ Return a Supervisor logger. """
     return getLogger(logfile, loglevel, format, rotating, maxbytes, backups, stdout)
-
-
-class SupvisorsEventSubscriber(object):
-    """ The SupvisorsEventSubscriber wraps the ZeroMQ socket that connects to **Supvisors**.
-
-    The TCP socket is configured with a ZeroMQ ``SUBSCRIBE`` pattern.
-    It is connected to the **Supvisors** instance running on the localhost and bound on the event port.
-
-    The SupvisorsEventSubscriber requires:
-
-        - a ZeroMQ context,
-        - the event port number used by **Supvisors** to publish its events,
-        - a logger reference to log traces.
-
-    Attributes:
-
-        - logger: the reference to the logger,
-        - socket: the ZeroMQ socket connected to **Supvisors**.
-    """
-
-    def __init__(self, zmq_context, event_port, logger):
-        """ Initialization of the attributes. """
-        self.logger = logger
-        # create ZeroMQ socket
-        self.socket = zmq_context.socket(zmq.SUB)
-        # WARN: this is a local binding, only visible to processes located on the same address
-        url = 'tcp://127.0.0.1:{}'.format(event_port)
-        self.logger.info('connecting EventSubscriber to Supvisors at %s' % url)
-        self.socket.connect(url)
-        self.logger.debug('EventSubscriber connected')
-
-    def close(self):
-        """ Close the ZeroMQ socket. """
-        if self.socket:
-            self.socket.close()
-            self.socket = None
-
-    # subscription part
-    def subscribe_all(self):
-        """ Subscription to all events. """
-        self.socket.setsockopt(zmq.SUBSCRIBE, '')
-
-    def subscribe_supvisors_status(self):
-        """ Subscription to Supvisors status events. """
-        self.subscribe(SUPVISORS_STATUS_HEADER)
-
-    def subscribe_address_status(self):
-        """ Subscription to Address status events. """
-        self.subscribe(ADDRESS_STATUS_HEADER)
-
-    def subscribe_application_status(self):
-        """ Subscription to Application status events. """
-        self.subscribe(APPLICATION_STATUS_HEADER)
-
-    def subscribe_process_status(self):
-        """ Subscription to Process status events. """
-        self.subscribe(PROCESS_STATUS_HEADER)
-
-    def subscribe(self, code):
-        """ Subscription to the event named code. """
-        self.socket.setsockopt(zmq.SUBSCRIBE, code.encode('utf-8'))
-
-    # unsubscription part
-    def unsubscribe_all(self):
-        """ Subscription to all events. """
-        self.socket.setsockopt(zmq.UNSUBSCRIBE, '')
-
-    def unsubscribe_supvisors_status(self):
-        """ Subscription to Supvisors status events. """
-        self.unsubscribe(SUPVISORS_STATUS_HEADER)
-
-    def unsubscribe_address_status(self):
-        """ Subscription to Address status events. """
-        self.unsubscribe(ADDRESS_STATUS_HEADER)
-
-    def unsubscribe_application_status(self):
-        """ Subscription to Application status events. """
-        self.unsubscribe(APPLICATION_STATUS_HEADER)
-
-    def unsubscribe_process_status(self):
-        """ Subscription to Process status events. """
-        self.unsubscribe(PROCESS_STATUS_HEADER)
-
-    def unsubscribe(self, code):
-        """ Remove subscription to the event named code. """
-        self.socket.setsockopt(zmq.UNSUBSCRIBE, code.encode('utf-8'))
-
-    # reception part
-    def receive(self):
-        """ Reception of two-parts message:
-        - header as an unicode string,
-        - data encoded in JSON. """
-        return self.socket.recv_string(), self.socket.recv_json()
 
 
 class SupvisorsEventInterface(threading.Thread):
@@ -170,7 +70,7 @@ class SupvisorsEventInterface(threading.Thread):
         # keep a reference to the logger
         self.logger = logger
         # create event socket
-        self.subscriber = SupvisorsEventSubscriber(zmq_context, event_port, logger)
+        self.subscriber = EventSubscriber(zmq_context, event_port, logger)
 
     def stop(self):
         """ This method stops the main loop of the thread. """
@@ -195,13 +95,13 @@ class SupvisorsEventInterface(threading.Thread):
                 except Exception, e:
                     self.logger.error('failed to get data from subscriber: {}'.format(e.message))
                 else:
-                    if message[0] == SUPVISORS_STATUS_HEADER:
+                    if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
-                    elif message[0] == ADDRESS_STATUS_HEADER:
+                    elif message[0] == EventHeaders.ADDRESS:
                         self.on_address_status(message[1])
-                    elif message[0] == APPLICATION_STATUS_HEADER:
+                    elif message[0] == EventHeaders.APPLICATION:
                         self.on_application_status(message[1])
-                    elif message[0] == PROCESS_STATUS_HEADER:
+                    elif message[0] == EventHeaders.PROCESS:
                         self.on_process_status(message[1])
         self.logger.warn('exiting main loop')
         self.subscriber.close()
