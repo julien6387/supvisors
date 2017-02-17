@@ -25,7 +25,7 @@ from threading import Thread
 
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.ttypes import AddressStates
-from supvisors.utils import (supvisors_short_cuts, RequestHeaders, RemoteCommEvents)
+from supvisors.utils import (supvisors_short_cuts, DeferredRequestHeaders, RemoteCommEvents)
 
 
 class SupvisorsMainLoop(Thread):
@@ -106,21 +106,21 @@ class SupvisorsMainLoop(Thread):
 
     def send_request(self, header, body):
         """ Perform the XML-RPC according to the header. """
-        if header == RequestHeaders.DEF_CHECK_ADDRESS:
+        if header == DeferredRequestHeaders.CHECK_ADDRESS:
             address_name, = body
             self.check_address(address_name)
-        elif header == RequestHeaders.DEF_ISOLATE_ADDRESSES:
+        elif header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
             self.subscriber.disconnect(body)
-        elif header == RequestHeaders.DEF_START_PROCESS:
+        elif header == DeferredRequestHeaders.START_PROCESS:
             address_name, namespec, extra_args = body
             self.start_process(address_name, namespec, extra_args)
-        elif header == RequestHeaders.DEF_STOP_PROCESS:
+        elif header == DeferredRequestHeaders.STOP_PROCESS:
             address_name, namespec = body
             self.stop_process(address_name, namespec)
-        elif header == RequestHeaders.DEF_RESTART:
+        elif header == DeferredRequestHeaders.RESTART:
             address_name, = body
             self.restart(address_name)
-        elif header == RequestHeaders.DEF_SHUTDOWN:
+        elif header == DeferredRequestHeaders.SHUTDOWN:
             address_name, = body
             self.shutdown(address_name)
 
