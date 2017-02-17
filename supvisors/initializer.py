@@ -26,7 +26,7 @@ from supvisors.context import Context
 from supvisors.infosource import SupervisordSource
 from supvisors.listener import SupervisorListener
 from supvisors.options import SupvisorsServerOptions
-from supvisors.parser import Parser
+from supvisors.sparser import Parser
 from supvisors.statemachine import FiniteStateMachine
 from supvisors.statistics import StatisticsCompiler
 
