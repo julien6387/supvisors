@@ -126,6 +126,15 @@ class DummyOptions:
         self.stats_histo = 10
 
 
+class DummyStarter:
+    """ Simple starter. """
+        # TODO: deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
+
+
+class DummyStopper:
+    """ Simple stopper. """
+
+
 class DummySupvisors:
     """ Simple supvisors with all dummies. """
 
@@ -140,12 +149,13 @@ class DummySupvisors:
         self.pool = DummyClass()
         self.requester = DummyClass()
         self.statistician = DummyClass()
-        # TODO: DummyDeployer with deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
+        self.starter = DummyStarter()
+        self.stopper = DummyStopper()
         # TODO: DummyPublisher with send_supvisors_status
 
 
 class DummySupervisor:
-    """ Simple supervisor instance with simple supvisors attribute. """
+    """ Simple supervisor instance with simple attributes. """
 
     def __init__(self):
         self.supvisors = DummySupvisors()
