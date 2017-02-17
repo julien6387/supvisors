@@ -22,6 +22,10 @@ import random
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
 
+class DummyClass:
+    """ Temporary empty class. """
+
+
 class DummyLogger:
     """ Simple logger that stores log traces. """
 
@@ -126,8 +130,6 @@ class DummySupvisors:
     """ Simple supvisors with all dummies. """
 
     def __init__(self):
-        class DummyClass:
-            pass
         self.address_mapper = DummyAddressMapper()
         self.context = DummyContext()
         self.deployer = DummyClass()
@@ -143,10 +145,12 @@ class DummySupvisors:
 
 
 class DummySupervisor:
-    """ Simple supervisor with simple supvisors attribute. """
+    """ Simple supervisor instance with simple supvisors attribute. """
 
     def __init__(self):
         self.supvisors = DummySupvisors()
+        self.options = DummyClass()
+        self.options.server_configs = [{'section': 'inet_http_server'}]
 
 
 # note that all dates ('now') are different
