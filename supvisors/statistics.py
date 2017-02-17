@@ -67,7 +67,7 @@ def instant_memory_statistics():
 # Network statistics
 def instant_io_statistics():
     """ Return the instant values of receive / sent bytes per network interface. """
-    result = { }
+    result = {}
     # IO details
     io_stats = net_io_counters(pernic=True)
     for intf, io_stat in io_stats.items():
@@ -76,14 +76,18 @@ def instant_io_statistics():
 
 def io_statistics(last, ref, duration):
     """ Return the rate of receive / sent bytes per second per network interface. """
-    io_stats = { }
-    for intf, last_io_stat in last.items():
+    io_stats = {}
+    for intf, (last_recv, last_sent) in last.items():
         if intf in ref.keys():
-            ref_io_stat = ref[intf]
-            recv_bytes = last_io_stat[0] - ref_io_stat[0]
-            sent_bytes = last_io_stat[1] - ref_io_stat[1]
-            # result in kilo bits per second (bytes / 1024 * 8)
-            io_stats[intf] = recv_bytes / duration / 128, sent_bytes / duration / 128
+            ref_recv, ref_sent = ref[intf]
+            # Warning taken from psutil documentation (https://pythonhosted.org/psutil/#network)
+            # on some systems such as Linux, on a very busy or long-lived system these numbers may wrap (restart from zero),
+            # see issues #802. Applications should be prepared to deal with that.
+            if ref_recv <= last_recv and ref_sent <= last_sent:
+                recv_bytes = last_recv - ref_recv
+                sent_bytes = last_sent - ref_sent
+                # result in kilo bits per second (bytes / 1024 * 8)
+                io_stats[intf] = recv_bytes / duration / 128, sent_bytes / duration / 128
     return io_stats
 
 
