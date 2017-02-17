@@ -22,6 +22,7 @@ import unittest
 
 from supvisors.tests.base import DummySupvisors
 
+#FIXME: add enum tests
 
 class UtilsTest(unittest.TestCase):
     """ Test case for the utils module. """

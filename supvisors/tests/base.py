@@ -54,7 +54,8 @@ class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
 
     def __init__(self):
-        self.addresses = ['10.0.0.0', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.local_address = '127.0.0.1'
 
 
 class DummyAddressStatus:
@@ -112,6 +113,8 @@ class DummyOptions:
     """ Simple options with dummy attributes. """
 
     def __init__(self):
+        self.internal_port = 65100
+        self.event_port = 65200
         self.synchro_timeout = 10
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
