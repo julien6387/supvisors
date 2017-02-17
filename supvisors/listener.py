@@ -27,7 +27,7 @@ from supervisor.options import split_namespec
 from supvisors.mainloop import SupvisorsMainLoop
 from supvisors.statistics import instant_statistics
 from supvisors.ttypes import ProcessStates
-from supvisors.utils import (supvisors_short_cuts, EventHeaders, RemoteCommEvents)
+from supvisors.utils import (supvisors_short_cuts, InternalEventHeaders, RemoteCommEvents)
 from supvisors.supvisorszmq import SupvisorsZmq
 
 
@@ -126,13 +126,13 @@ class SupervisorListener(object):
     def unstack_event(self, message):
         """ Unstack and process one event from the event queue. """
         event_type, event_address, event_data = json.loads(message)
-        if event_type == EventHeaders.TICK:
+        if event_type == InternalEventHeaders.TICK:
             self.logger.blather('got tick event from {}: {}'.format(event_address, event_data))
             self.fsm.on_tick_event(event_address, event_data)
-        elif event_type == EventHeaders.PROCESS:
+        elif event_type == InternalEventHeaders.PROCESS:
             self.logger.blather('got process event from {}: {}'.format(event_address, event_data))
             self.fsm.on_process_event(event_address, event_data)
-        elif event_type == EventHeaders.STATISTICS:
+        elif event_type == InternalEventHeaders.STATISTICS:
             self.logger.blather('got statistics event from {}: {}'.format(event_address, event_data))
             self.statistician.push_statistics(event_address, event_data)
 
