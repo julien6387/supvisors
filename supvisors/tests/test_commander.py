@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import sys
 import unittest
 
 from supvisors.tests.base import DummySupvisors
