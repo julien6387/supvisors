@@ -20,6 +20,8 @@
 import sys
 import unittest
 
+from supvisors.tests.base import DummyHttpContext
+
 
 class ViewImageTest(unittest.TestCase):
     """ Test case for the viewimage module. """
@@ -33,13 +35,13 @@ class ViewImageTest(unittest.TestCase):
     def test_address_image_view(self):
         """ Test the values set at construction. """
         from supvisors.viewimage import AddressImageView
-        view = AddressImageView()
+        view = AddressImageView(DummyHttpContext('ui/empty.html'))
         self.assertIsNotNone(view)
 
     def test_process_image_view(self):
         """ Test the values set at construction. """
         from supvisors.viewimage import ProcessImageView
-        view = ProcessImageView()
+        view = ProcessImageView(DummyHttpContext('ui/empty.html'))
         self.assertIsNotNone(view)
 
 

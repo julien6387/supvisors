@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 import random
 
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
@@ -163,6 +164,15 @@ class DummySupervisor:
         self.options.server_configs = [{'section': 'inet_http_server'}]
 
 
+class DummyHttpContext:
+    """ Simple HTTP context for web ui views. """
+
+    def __init__(self, template):
+        import supvisors
+        module_path = os.path.dirname(supvisors.__file__)
+        self.template = os.path.join(module_path, template)
+    
+    
 # note that all dates ('now') are different
 ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
