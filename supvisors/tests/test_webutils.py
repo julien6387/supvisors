@@ -58,8 +58,6 @@ class WebUtilsTest(unittest.TestCase):
                 self.attrib = {}
             def content(self, cnt):
                 self.attrib['content'] = cnt
-            def replace(self, cnt):
-                self.attrib['replace'] = cnt
         class DummyRoot:
             def __init__(self):
                 self.elt = DummyElement()
@@ -68,15 +66,13 @@ class WebUtilsTest(unittest.TestCase):
         # test with empty message
         root = DummyRoot()
         print_message(root, 'gravity', None)
-        self.assertNotIn('class', root.elt.attrib)
-        self.assertNotIn('content', root.elt.attrib)
-        self.assertEqual('', root.elt.attrib['replace'])
+        self.assertDictContainsSubset({'class': 'empty'}, root.elt.attrib)
+        self.assertDictContainsSubset({'content': ''}, root.elt.attrib)
         # test with filled message
         root = DummyRoot()
         print_message(root, 'gravity', 'a simple message')
         self.assertDictContainsSubset({'class': 'gravity'}, root.elt.attrib)
         self.assertDictContainsSubset({'content': 'a simple message'}, root.elt.attrib)
-        self.assertNotIn('replace', root.elt.attrib)
 
     def test_info_message(self):
         """ Test the formatting of an information message. """

@@ -20,28 +20,59 @@
 import sys
 import unittest
 
-from supvisors.tests.base import DummyHttpContext
+from supvisors.tests.base import DummyClass, DummyHttpContext
 
 
 class ViewImageTest(unittest.TestCase):
     """ Test case for the viewimage module. """
 
-    def test_stats_images(self):
+    def test_address_stats_images(self):
         """ Test the values set at construction. """
-        from supvisors.viewimage import address_image_contents, process_image_contents
-        self.assertIsNotNone(address_image_contents)
-        self.assertIsNotNone(process_image_contents)
+        from supvisors.viewimage import address_cpu_image, address_mem_image, address_io_image
+        self.assertIsNotNone(address_cpu_image)
+        self.assertIsNotNone(address_mem_image)
+        self.assertIsNotNone(address_io_image)
 
-    def test_address_image_view(self):
+    def test_process_stats_images(self):
         """ Test the values set at construction. """
-        from supvisors.viewimage import AddressImageView
-        view = AddressImageView(DummyHttpContext('ui/empty.html'))
+        from supvisors.viewimage import process_cpu_image, process_mem_image
+        self.assertIsNotNone(process_cpu_image)
+        self.assertIsNotNone(process_mem_image)
+
+    def test_image_view(self):
+        """ Test the values set at construction. """
+        from supvisors.viewimage import ImageView
+        view = ImageView(DummyHttpContext('ui/empty.html'),  DummyClass())
         self.assertIsNotNone(view)
 
-    def test_process_image_view(self):
+    def test_address_cpu_image_view(self):
         """ Test the values set at construction. """
-        from supvisors.viewimage import ProcessImageView
-        view = ProcessImageView(DummyHttpContext('ui/empty.html'))
+        from supvisors.viewimage import AddressCpuImageView
+        view = AddressCpuImageView(DummyHttpContext('ui/empty.html'))
+        self.assertIsNotNone(view)
+
+    def test_address_memory_image_view(self):
+        """ Test the values set at construction. """
+        from supvisors.viewimage import AddressMemoryImageView
+        view = AddressMemoryImageView(DummyHttpContext('ui/empty.html'))
+        self.assertIsNotNone(view)
+
+    def test_address_network_image_view(self):
+        """ Test the values set at construction. """
+        from supvisors.viewimage import AddressNetworkImageView
+        view = AddressNetworkImageView(DummyHttpContext('ui/empty.html'))
+        self.assertIsNotNone(view)
+
+    def test_process_cpu_image_view(self):
+        """ Test the values set at construction. """
+        from supvisors.viewimage import ProcessCpuImageView
+        view = ProcessCpuImageView(DummyHttpContext('ui/empty.html'))
+        self.assertIsNotNone(view)
+
+    def test_process_memory_image_view(self):
+        """ Test the values set at construction. """
+        from supvisors.viewimage import ProcessMemoryImageView
+        view = ProcessMemoryImageView(DummyHttpContext('ui/empty.html'))
         self.assertIsNotNone(view)
 
 

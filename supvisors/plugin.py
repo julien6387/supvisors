@@ -23,9 +23,10 @@ from supervisor.web import VIEWS
 from supervisor.xmlrpc import Faults
 
 from supvisors.rpcinterface import RPCInterface
-from supvisors.viewaddress import AddressView
+from supvisors.viewprocaddress import ProcAddressView
+from supvisors.viewhostaddress import HostAddressView
 from supvisors.viewapplication import ApplicationView
-from supvisors.viewimage import ProcessImageView, AddressImageView
+from supvisors.viewimage import *
 from supvisors.viewsupvisors import SupvisorsView
 
 
@@ -41,14 +42,19 @@ def update_views():
     # replace Supervisor main entry
     here = path.abspath(path.dirname(__file__))
     # set main page
-    VIEWS['index.html'] =  { 'template': path.join(here, 'ui/index.html'), 'view': SupvisorsView }
-    # set address page
-    VIEWS['address.html'] =  { 'template': path.join(here, 'ui/address.html'), 'view': AddressView }
+    VIEWS['index.html'] =  {'template': path.join(here, 'ui/index.html'), 'view': SupvisorsView}
+    # set address /processpage
+    VIEWS['procaddress.html'] =  {'template': path.join(here, 'ui/procaddress.html'), 'view': ProcAddressView}
+    # set address/host page
+    VIEWS['hostaddress.html'] =  {'template': path.join(here, 'ui/hostaddress.html'), 'view': HostAddressView}
     # set application page
-    VIEWS['application.html'] =  { 'template': path.join(here, 'ui/application.html'), 'view': ApplicationView }
+    VIEWS['application.html'] =  {'template': path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set fake page to export images
-    VIEWS['process_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': ProcessImageView }
-    VIEWS['address_stats.png'] =  { 'template': path.join(here, 'ui/empty.html'), 'view': AddressImageView }
+    VIEWS['process_cpu.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': ProcessCpuImageView}
+    VIEWS['process_mem.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': ProcessMemoryImageView}
+    VIEWS['address_cpu.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': AddressCpuImageView}
+    VIEWS['address_mem.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': AddressMemoryImageView}
+    VIEWS['address_io.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': AddressNetworkImageView}
 
 # Supervisor entry point
 def make_supvisors_rpcinterface(supervisord, **config):

@@ -100,68 +100,78 @@ nav {
 	justify-content: space-between;
 }
 
-/* Supvisors page / first row: address boxes */
-#box_part {
-	flex: 1;
+/* Supvisors page: address boxes */
+#index_contents {
     display: flex;
+    flex: 1;
+    overflow: auto;
+    margin-top: 10px;
+}
+ 
+#box_part {
+    display: flex;
+	flex: 1;
 	justify-content: space-around;
     flex-wrap: wrap;
     margin: 5px;
 }
 
-/* Address page / first row: process and statistics */
-#process_part {
+#conflict_part {
     flex: 1;
+}
+
+/* Address page: Process section */
+#process_contents {
     display: flex;
-	justify-content: space-around;
+    flex: 1;
+ 	flex-direction: row;
+    overflow: auto;
     margin: 5px;
 }
  
 #process_left_side {
     display: flex;
-	flex-direction: column;
-    margin-right: 5px;
-}
-
-#messageBox {
-    width: 98%;
-	font-size: 0.9em;
-}
-
-#processes {
-    flex: 1 0 280px;
-    overflow: auto;
+    flex: 1;
 	color: #111;
 	font-family: Verdana, Arial, sans-serif;
 	text-align: justify;
+    margin-right: 5px;
 }
 
 #process_right_side {
     max-width: 500px;
-    display: flex;
-	flex-direction: column;
     align-items: center;
+    margin-right: 10px;
 }
 
-/* second row: address statistics */
-#address_part {
-    min-height: 250px;
-    max-height: 250px;
-    padding-top: 5px;
-    display: flex;
-	justify-content: space-around;
-    margin-top: 5px;
-    border-top: 3px #cc7a00 solid;
-}
 
-#address_part div {
+/* Address page: Host section */
+#address_contents {
     display: flex;
-	flex-direction: column;
+    flex: 1;
+ 	flex-direction: column;
 	justify-content: space-around;
 }
 
-#address_part div:nth-child(1) {
-    margin-bottom: 5px;
+.horizontal_contents {
+    display: flex;
+ 	flex-direction: row;
+	justify-content: space-around;
+}
+
+.vertical_contents {
+    display: flex;
+ 	flex-direction: column;
+	justify-content: space-around;
+}
+
+
+/* Common part: Message box */
+#messageBox {
+    min-height: 25px;
+    max-height: 25px;
+    width: 98%;
+	font-size: 0.9em;
 }
 
 
@@ -177,7 +187,7 @@ header a, footer a {
 	text-decoration: none;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
 	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
 
@@ -188,6 +198,16 @@ h1 {
 h2, h3 {
 	font-size: 1.2em;
     margin: 0 0 8px 0;
+}
+
+h4 {
+	font-weight: bold;
+	text-align: center;
+	font-size: .8em;
+    padding: 5px;
+	color: #e6e6e6;
+	border: 3px ridge black;
+	background: url(../img/texture.jpg);
 }
 
 h3 code {
@@ -213,7 +233,7 @@ nav ul, p {
 }
 
 @keyframes blinker {  
-  50% { opacity: 0.0; }
+    50% { opacity: 0.0; }
 }
 
 
@@ -237,7 +257,6 @@ figcaption {
 	text-align: center;
 	font-size: .8em;
 }
-
 
 /*
  * Style for inline actions
@@ -284,11 +303,16 @@ ul.vertical li {
 /*
  * Style for status message
  */
-.info, .warn, .erro {
+.empty, .info, .warn, .erro {
     color: #eee;
     padding: 5px;
     margin: 5px auto;
     border-radius: 10px;
+}
+
+.empty {
+	background-image: linear-gradient(165deg, silver, #1a1a1a);
+    border: 1px grey inset;
 }
 
 .info {

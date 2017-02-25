@@ -43,7 +43,8 @@ def print_message(root, gravity, message):
         elt.attrib['class'] = gravity
         elt.content(message)
     else:
-        elt.replace('')
+        elt.attrib['class'] = 'empty'
+        elt.content('')
 
 def info_message(msg, address=None):
     return Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')

@@ -23,6 +23,7 @@ from supervisor.web import MeldView
 
 # exchange class for images
 class StatsImage(object):
+    """ Buffer class holding PNG contents. """
 
     def __init__(self):
         self.contents = None
@@ -34,25 +35,67 @@ class StatsImage(object):
         self.contents = BytesIO()
         return self.contents
 
-address_image_contents = StatsImage()
-process_image_contents = StatsImage()
+# instance for image buffers
+address_cpu_image = StatsImage()
+address_mem_image = StatsImage()
+address_io_image = StatsImage()
+
+process_cpu_image = StatsImage()
+process_mem_image = StatsImage()
 
 
 # simple handlers for web images
-class AddressImageView(MeldView):
+class ImageView(MeldView):
+    """ Dummy view holding an image. """
+
+    def __init__(self, context, buffer):
+        """ Storage of the reference to the buffer. """
+        MeldView.__init__(self, context)
+        self.buffer = buffer
 
     def render(self):
-        # export internal memory buffer
-        if address_image_contents.contents:
-            return address_image_contents.contents.getvalue()
+        """ Export the internal memory buffer. """
+        if self.buffer.contents:
+            return self.buffer.contents.getvalue()
         return self.clone().write_xhtmlstring()
 
 
-class ProcessImageView(MeldView):
+class AddressCpuImageView(ImageView):
+    """ Dummy view holding the Address CPU image. """
 
-    def render(self):
-        # export internal memory buffer
-        if process_image_contents.contents:
-            return process_image_contents.contents.getvalue()
-        return self.clone().write_xhtmlstring()
+    def __init__(self, context):
+        """ Link to the Address CPU buffer. """
+        ImageView.__init__(self, context, address_cpu_image)
+
+
+class AddressMemoryImageView(ImageView):
+    """ Dummy view holding the Address Memory image. """
+
+    def __init__(self, context):
+        """ Link to the Address Memory buffer. """
+        ImageView.__init__(self, context, address_mem_image)
+
+
+class AddressNetworkImageView(ImageView):
+    """ Dummy view holding the Address Network image. """
+
+    def __init__(self, context):
+        """ Link to the Address Network buffer. """
+        ImageView.__init__(self, context, address_io_image)
+
+
+class ProcessCpuImageView(ImageView):
+    """ Dummy view holding the Process CPU image. """
+
+    def __init__(self, context):
+        """ Link to the Process CPU buffer. """
+        ImageView.__init__(self, context, process_cpu_image)
+
+
+class ProcessMemoryImageView(ImageView):
+    """ Dummy view holding the Process Memory image. """
+
+    def __init__(self, context):
+        """ Link to the Process Memory buffer. """
+        ImageView.__init__(self, context, process_mem_image)
 
