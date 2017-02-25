@@ -61,16 +61,16 @@ All hyperlinks are active. The browser is redirected to the corresponding `Appli
 The bottom part of the menu contains a contact link and copyright information.
 
 
-Main page
+Main Page
 ---------
 
-The Main page shows a synoptic of the **Supvisors** status.
+The Main Page shows a synoptic of the **Supvisors** status.
 
 .. image:: images/supvisors_main_page.png
     :alt: Supvisors Main page
     :align: center
 
-Main page Header
+Main Page Header
 ~~~~~~~~~~~~~~~~
 
 The state of **Supvisors** is displayed on the left side of the header:
@@ -137,37 +137,37 @@ On the right side, 3 buttons are available:
     * |shutdown| shuts down **Supvisors** through all Supervisor instances,
     * |refresh| refreshes the current page.
 
-Main page Contents
+Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every addresses, a box is displayed in the contents of the **Supvisors** Main page.
+For every addresses, a box is displayed in the contents of the **Supvisors** Main Page.
 Each box contains:
 
-    * the address name, which is a hyperlink to the corresponding `Address page`_ if the Address state is ``RUNNING``,
+    * the address name, which is a hyperlink to the corresponding `Address Page`_ if the Address state is ``RUNNING``,
     * the state of the Address, colored with the same rules used in the `Common Menu`_,
     * the process loading of the Address,
     * the list of all processes that are running on this address.
 
 
-Conciliation page
+Conciliation Page
 -----------------
 
 If the page is refreshed when **Supvisors** is in ``CONCILIATION`` state, the 'Supvisors' label in the top left of the `Common Menu`_ becomes red and blinks.
 This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section` of the Supervisor configuration file is different from ``USER``, as the other values will lead to an immediate conciliation of the conflicts.
 
-The Conciliation page can be reached by clicking on this blinking red label.
+The Conciliation Page can be reached by clicking on this blinking red label.
 
 .. image:: images/supvisors_conciliation_page.png
-    :alt: Supvisors Conciliation page
+    :alt: Supvisors Conciliation Page
     :align: center
 
 
-Conciliation page Header
+Conciliation Page Header
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The header of the Conciliation page has exactly the same contents as the header of the `Main page`_.
+The header of the Conciliation Page has exactly the same contents as the header of the `Main page`_.
 
-Conciliation page Contents
+Conciliation Page Contents
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 On the right side of the page, the list of process conflicts is displayed into a table.
@@ -188,18 +188,14 @@ So the table lists, for each conflict:
 The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts, using one of the automatic strategies.
 
 
-Address page
+Address Page
 ------------
 
-The Address page of **Supvisors** is a bit less "sparse" than the web page provided by Supervisor.
+The Address Page of **Supvisors** is a bit less "sparse" than the web page provided by Supervisor.
 It shows the status of the address, as seen by the local **Supvisors** instance.
 It also enables the user to command the processes declared on this address and provides statistics that may be useful at software integration time.
 
-.. image:: images/supvisors_address_page.png
-    :alt: Supvisors Address page
-    :align: center
-
-Address page Header
+Address Page Header
 ~~~~~~~~~~~~~~~~~~~
 
 The status of the Address is displayed on the left side of the header:
@@ -209,7 +205,10 @@ The status of the Address is displayed on the left side of the header:
     * the state of this address,
     * the date of the last tick received from Supervisor on this address.
 
-In the middle of the header, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
+In the middle of the header, the 'Statistics View' box enables the user to choose the information presented on this page. By default, the `Processes Section`_ is displayed. The other choice is the `Host Section`_.
+The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
+
+Next to it, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
 The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
 
 On the right side, 4 buttons are available:
@@ -219,12 +218,14 @@ On the right side, 4 buttons are available:
     * |shutdown| shuts down Supervisor on this address,
     * |refresh| refreshes the current page.
 
-Address page Contents
-~~~~~~~~~~~~~~~~~~~~~
+Processes Section
+~~~~~~~~~~~~~~~~~
 
-The contents of the Address page is divided in two parts.
+.. image:: images/supvisors_address_processes_section.png
+    :alt: Processes Section of Supvisors Address Page
+    :align: center
 
-The upper part looks like the page provided by Supervisor.
+The Processes Section looks like the page provided by Supervisor.
 Indeed, it lists the programs that are configured in Supervisor, it presents their current state with an associated description and enables the user to perform some actions on them:
 
     * log tail (with a refresh button, click on the name itself),
@@ -241,14 +242,7 @@ Indeed, it lists the programs that are configured in Supervisor, it presents the
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``),
 
 A click on the CPU or RAM measures shows detailed statistics about the process.
-More particularly, **Supvisors** shows a graph built from the series of measures taken from the selected resource:
-
-    * the history of the values with a plain line,
-    * the mean value with a dashed line and value in the top right corner,
-    * the linear regression with a straight dotted line,
-    * the standard deviation with a colored area around the mean value.
-
-Underneath is a table showing for both CPU and Memory:
+More particularly, **Supvisors** displays a table showing for both CPU and Memory:
 
     * the last measure,
     * the mean value,
@@ -261,7 +255,21 @@ A color and a sign are associated to the last value, so that:
     * red and ↘ point out a significant decrease of the value since the last measure,
     * blue and ↝ point out the stability of the value since the last measure,
 
-The lower part of the page contains CPU, Memory and Network statistics for the considered address.
+Underneath, **Supvisors** shows two graphs (CPU and Memory) built from the series of measures taken from the selected process:
+
+    * the history of the values with a plain line,
+    * the mean value with a dashed line and value in the top right corner,
+    * the linear regression with a straight dotted line,
+    * the standard deviation with a colored area around the mean value.
+
+Host Section
+~~~~~~~~~~~~
+
+.. image:: images/supvisors_address_host_section.png
+    :alt: Host Section of Supvisors Address Page
+    :align: center
+
+The Host Section contains CPU, Memory and Network statistics for the considered address.
 
 The CPU table shows statistics about the CPU on each core of the processor and about the average CPU of the processor.
 
@@ -272,16 +280,16 @@ The Network table shows statistics about the receive and sent flows on each netw
 Clicking on a button associated to the resource displays detailed statistics (graph and table), similarly to the process buttons.
 
 
-Application page
+Application Page
 ----------------
 
-The Application page of **Supvisors** shows the status of the application, as seen by the requested **Supvisors** instance, enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.
+The Application Page of **Supvisors** shows the status of the application, as seen by the requested **Supvisors** instance, enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.
 
 .. image:: images/supvisors_application_page.png
     :alt: Supvisors Application page
     :align: center
 
-Application page Header
+Application Page Header
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 The status of the Address is displayed on the left side of the header:
@@ -308,7 +316,7 @@ On the right side, 4 buttons are available:
     * |restart| restarts the application,
     * |refresh| refreshes the current page.
 
-Application page Contents
+Application Page Contents
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The table lists all the programs belonging to the application, and it shows:
@@ -328,7 +336,8 @@ Like the `Address page`_, the Application page enables the user to perform some 
 The difference is that the process is not started necessarily on the address that displays this page.
 Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the deployment strategy selected in the header part to choose a relevant address.
 
-As previously, a click on the CPU or RAM measures shows detailed statistics about the process.
+As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
+
 
 .. |start| image:: images/start_button.png
     :alt: Start button

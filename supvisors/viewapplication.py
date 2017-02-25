@@ -29,12 +29,14 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-# Supvisors application page
 class ApplicationView(MeldView, ViewHandler):
+    """ Supvisors Application page. """
+
     # Name of the HTML page
     page_name = 'application.html'
 
     def __init__(self, context):
+        """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.supvisors = self.context.supervisord.supvisors
         supvisors_short_cuts(self, ['logger'])
@@ -43,21 +45,22 @@ class ApplicationView(MeldView, ViewHandler):
         return 'appli={}&amp;'.format(self.application_name)
 
     def render(self):
-        """ Method called by Supervisor to handle the rendering of the Supvisors Address page """
+        """ Method called by Supervisor to handle the rendering of the Supvisors Application page. """
         self.application_name = self.context.form.get('appli')
-        if self.application_name is None:
+        if not self.application_name:
             self.logger.error('no application')
         elif self.application_name not in self.supvisors.context.applications.keys():
-            self.logger.error('unknown application: %s' % self.application_name)
+            self.logger.error('unknown application: {}'.format(self.application_name))
         else:
-            return self.write_page()
+            # Force the call to the render method of ViewHandler
+            return ViewHandler.render(self)
 
     def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection of the current address """
+        """ Rendering of the navigation menu with selection of the current application. """
         self.write_nav(root, appli=self.application_name)
 
     def write_header(self, root):
-        """ Rendering of the header part of the Supvisors Application page """
+        """ Rendering of the header part of the Supvisors Application page. """
         # set address name
         elt = root.findmeld('application_mid')
         elt.content(self.application_name)
@@ -83,7 +86,7 @@ class ApplicationView(MeldView, ViewHandler):
         self.write_application_actions(root)
 
     def write_deployment_strategy(self, root):
-        """ Write applicable deployment strategies """
+        """ Write applicable deployment strategies. """
         # get the current strategy
         strategy = self.supvisors.starter.strategy
         # set hyperlinks for strategy actions
@@ -108,7 +111,7 @@ class ApplicationView(MeldView, ViewHandler):
 
 
     def write_application_actions(self, root):
-        """ Write actions related to the application """
+        """ Write actions related to the application. """
         # set hyperlinks for global actions
         elt = root.findmeld('refresh_a_mid')
         elt.attributes(href='{}?{}action=refresh'.format(self.page_name, self.url_context()))
@@ -120,12 +123,12 @@ class ApplicationView(MeldView, ViewHandler):
         elt.attributes(href='{}?{}action=restartapp'.format(self.page_name, self.url_context()))
 
     def write_contents(self, root):
-        """ Rendering of the contents part of the page """
+        """ Rendering of the contents part of the page. """
         self.write_process_table(root)
         # check selected Process Statistics
         if ViewHandler.namespec_stats:
             status = self.get_process_status(ViewHandler.namespec_stats)
-            if status is None or status.application_name != self.application_name:
+            if not status or status.application_name != self.application_name:
                 self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
                 ViewHandler.namespec_stats = ''
             else:
@@ -136,17 +139,17 @@ class ApplicationView(MeldView, ViewHandler):
         self.write_process_statistics(root)
 
     def get_process_stats(self, namespec):
-        """ Get the statistics structure related to the period selected and the address where the process named namespec is running """
+        """ Get the statistics structure related to the period selected and the address where the process named namespec is running. """
         status = self.get_process_status(namespec)
         if status:
             # get running address from procStatus
-            address = next(iter(status.infos), None)
+            address = next(iter(status.addresses), None)
             if address:
                 stats = self.supvisors.statistician.data[address][ViewHandler.period_stats]
                 return stats.find_process_stats(namespec)
 
     def write_process_table(self, root):
-        """ Rendering of the application processes managed through Supervisor """
+        """ Rendering of the application processes managed through Supervisor. """
         # collect data on processes
         data = []
         for process in sorted(self.supvisors.context.applications[self.application_name].processes.values(), key=lambda x: x.process_name):
@@ -177,7 +180,7 @@ class ApplicationView(MeldView, ViewHandler):
                     addrIterator = tr_elt.findmeld('running_li_mid').repeat(running_list)
                     for li_elt, address in addrIterator:
                         elt = li_elt.findmeld('running_a_mid')
-                        elt.attributes(href='address.html?address={}'.format(address))
+                        elt.attributes(href='procaddress.html?address={}'.format(address))
                         elt.content(address)
                 else:
                     elt = tr_elt.findmeld('running_ul_mid')
@@ -193,7 +196,7 @@ class ApplicationView(MeldView, ViewHandler):
             table.replace('No programs to manage')
 
     def make_callback(self, namespec, action):
-        """ Triggers processing iaw action requested """
+        """ Triggers processing iaw action requested. """
         if action == 'refresh':
             return self.refresh_action()
         if action == 'config':
@@ -221,14 +224,17 @@ class ApplicationView(MeldView, ViewHandler):
                 return self.restart_process_action(strategy, namespec)
 
     def refresh_action(self):
+        """ Refresh web page. """
         return delayed_info('Page refreshed')
 
     def set_deployment_strategy(self, strategy):
+        """ Update deployment strategy. """
         self.supvisors.starter.strategy = strategy
         return delayed_info('Deployment strategy set to {}'.format(DeploymentStrategies._to_string(strategy)))
 
     # Application actions
     def start_application_action(self, strategy):
+        """ Start the application iaw the strategy. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.start_application(strategy, self.application_name)
         except RPCError, e:
@@ -251,6 +257,7 @@ class ApplicationView(MeldView, ViewHandler):
         return delayed_warn('Application {} NOT started'.format(self.application_name))
  
     def stop_application_action(self):
+        """ Stop the application. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.stop_application(self.application_name)
         except RPCError, e:
@@ -269,6 +276,7 @@ class ApplicationView(MeldView, ViewHandler):
         return delayed_info('Application {} stopped'.format(self.application_name))
  
     def restart_application_action(self, strategy):
+        """ Restart the application iaw the strategy. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.restart_application(strategy, self.application_name)
         except RPCError, e:
@@ -292,6 +300,7 @@ class ApplicationView(MeldView, ViewHandler):
 
     # Process actions
     def start_process_action(self, strategy, namespec):
+        """ Start the process named namespec iaw the strategy. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.start_process(strategy, namespec)
         except RPCError, e:
@@ -314,6 +323,7 @@ class ApplicationView(MeldView, ViewHandler):
         return delayed_warn('Process {} NOT started'.format(namespec))
 
     def stop_process_action(self, namespec):
+        """ Stop the process named namespec. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.stop_process(namespec)
         except RPCError, e:
@@ -332,6 +342,7 @@ class ApplicationView(MeldView, ViewHandler):
         return delayed_info('process {} stopped'.format(namespec))
  
     def restart_process_action(self, strategy, namespec):
+        """ Restart the process named namespec iaw the strategy. """
         try:
             cb = self.supvisors.info_source.supvisors_rpc_interface.restart_process(strategy, namespec)
         except RPCError, e:

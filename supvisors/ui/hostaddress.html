@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"
+    xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:meld="http://www.plope.com/software/meld3">
+
+<head>
+	<meta charset="utf-8" />
+	<link rel="stylesheet" href="css/ui_style.css" />
+	<link rel="stylesheet" href="css/menu.css" />
+	<link rel="stylesheet" href="css/button.css" />
+	<title>Supvisors status</title>
+</head>
+
+<body>
+	<div id="body_block">
+
+		<div id="left_side">
+			<header>
+				<h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
+				<p><span meld:id="version_mid" class="version"></span></p>
+			</header>
+
+			<nav id="address-list">
+				<h2>Addresses</h2>
+				<ul>
+					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+				</ul>
+			</nav>
+
+			<nav id="application-list">
+				<h2>Applications</h2>
+				<ul>
+					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+				</ul>
+			</nav>
+
+			<footer>
+				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+				<p id="copyright">&amp;copy; Copyright 2016 Julien LE CLEACH</p>
+			</footer>
+		</div>
+
+		<div id="right_side">
+			<header>
+                <div>
+                    <h2><span meld:id="address_mid">address</span> - <span meld:id="percent_mid">50%</span></h2>
+                    <h3><code meld:id="state_mid" class="classState">RemoteStates</code> at <span meld:id="date_mid">Time</span></h3>
+                </div>
+
+                <div>
+                    <table class="optionBox">
+                        <tr><th>Statistics View</th></tr>
+                        <tr><td><ul class="linear">
+                            <li><a href="procaddress.html" class="button on ">Processes</a></li>
+                            <li><a href="#" class="button off active">Host</a></li>
+                        </ul></td></tr>
+                    </table>
+                </div>
+
+                <div>
+                    <table class="optionBox">
+                        <tr><th>Statistics Period</th></tr>
+                        <tr><td><ul class="linear">
+                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">5</a></li>
+                        </ul></td></tr>
+                    </table>
+                </div>
+
+				<div>
+                    <ul class="linear">
+                        <li><a href="hostaddress.html?action=stopall"><img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a></li>
+                        <li><a href="hostaddress.html?action=restartsup"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a></li>
+                        <li><a href="hostaddress.html?action=shutdownsup"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a></li>
+                    </ul>
+                    <ul class="linear">
+                        <li><a href="hostaddress.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                    </ul>
+				</div>
+			</header>
+
+			<div id="address_contents" meld:id="stats_div_mid">
+                <div class="horizontal_contents">
+                    <div class="vertical_contents">
+                        <div>
+                            <table>
+                                <caption>Processor Statistics</caption>
+                                <tr>
+                                    <th>#</th><th>Last %</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                </tr>
+                                <tr meld:id="cpu_tr_mid">
+                                    <td><a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a></td>
+                                    <td meld:id="cpuval_td_mid">--</td>
+                                    <td meld:id="cpuavg_td_mid">--</td>
+                                    <td meld:id="cpuslope_td_mid">--</td>
+                                    <td meld:id="cpudev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table>
+                                <caption>Memory Statistics</caption>
+                                <tr>
+                                    <th rowspan="2"><a href="#" class="button off active">mem</a></th>
+                                    <th>Occ %</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                </tr>
+                                <tr>
+                                    <td meld:id="memval_td_mid">--</td>
+                                    <td meld:id="memavg_td_mid">--</td>
+                                    <td meld:id="memslope_td_mid">--</td>
+                                    <td meld:id="memdev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <figure>
+                        <img src="address_cpu.png" alt="Address CPU Graph"/>
+                        <figcaption>CPU loading</figcaption>
+                    </figure>
+
+                    <figure>
+                        <img src="address_mem.png" alt="Address Memory Graph"/>
+                        <figcaption>Memory occupation</figcaption>
+                    </figure>
+                </div>
+
+                <div class="horizontal_contents">
+                    <div class="vertical_contents">
+                        <table>
+                            <caption>Network Statistics</caption>
+                            <tr>
+                                <th>Interface</th><th>Rx/Tx</th><th>Last kbit/s</th><th>Mean kbit/s</th><th>Slope %</th><th>SD kbit/s</th>
+                            </tr>
+                            <tr meld:id="intf_tr_mid">
+                                <td meld:id="intf_td_mid"><a href="#" meld:id="intf_a_mid" class="button on">eth#</a></td>
+                                <td meld:id="intfrxtx_td_mid">--</td>
+                                <td meld:id="intfval_td_mid">--</td>
+                                <td meld:id="intfavg_td_mid">--</td>
+                                <td meld:id="intfslope_td_mid">--</td>
+                                <td meld:id="intfdev_td_mid">--</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <figure>
+                        <img src="address_io.png" alt="Address Network Graph"/>
+                        <figcaption>Network activity</figcaption>
+                    </figure>
+                </div>
+            </div>
+
+            <div id="messageBox" meld:id="message_mid"></div>
+
+        </div>
+	</div>
+</body>
+</html>
+

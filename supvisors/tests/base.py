@@ -17,9 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
+import os
 import random
 
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
+
+
+class DummyClass:
+    """ Temporary empty class. """
 
 
 class DummyLogger:
@@ -116,17 +121,25 @@ class DummyOptions:
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.deployment_strategy = 0
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+
+
+class DummyStarter:
+    """ Simple starter. """
+        # TODO: deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
+
+
+class DummyStopper:
+    """ Simple stopper. """
 
 
 class DummySupvisors:
     """ Simple supvisors with all dummies. """
 
     def __init__(self):
-        class DummyClass:
-            pass
         self.address_mapper = DummyAddressMapper()
         self.context = DummyContext()
         self.deployer = DummyClass()
@@ -137,17 +150,29 @@ class DummySupvisors:
         self.pool = DummyClass()
         self.requester = DummyClass()
         self.statistician = DummyClass()
-        # TODO: DummyDeployer with deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
+        self.starter = DummyStarter()
+        self.stopper = DummyStopper()
         # TODO: DummyPublisher with send_supvisors_status
 
 
 class DummySupervisor:
-    """ Simple supervisor with simple supvisors attribute. """
+    """ Simple supervisor instance with simple attributes. """
 
     def __init__(self):
         self.supvisors = DummySupvisors()
+        self.options = DummyClass()
+        self.options.server_configs = [{'section': 'inet_http_server'}]
 
 
+class DummyHttpContext:
+    """ Simple HTTP context for web ui views. """
+
+    def __init__(self, template):
+        import supvisors
+        module_path = os.path.dirname(supvisors.__file__)
+        self.template = os.path.join(module_path, template)
+    
+    
 # note that all dates ('now') are different
 ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,

@@ -9,7 +9,7 @@ The main features are:
     - an extended XML-RPC API to control applications and multiple Supervisor instances,
     - a new web-based dashboard that replaces the default dashboard of Supervisor.
 
-.. image:: docs/images/supvisors_address_page.png
+.. image:: docs/images/supvisors_address_process_section.png
    :alt: Supvisors' Dashboard
    :align: center
 

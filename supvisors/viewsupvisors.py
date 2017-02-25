@@ -32,11 +32,12 @@ from supvisors.webutils import *
 
 class SupvisorsView(MeldView, ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
-    * a navigation menu towards addresses contents and applications
-    * the state of Supvisors
-    * actions on Supvisors
-    * a synoptic of the processes running on the different addresses
-    * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them """
+
+        * a navigation menu towards addresses contents and applications,
+        * the state of Supvisors,
+        * actions on Supvisors,
+        * a synoptic of the processes running on the different addresses,
+        * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them. """
 
     # Name of the HTML page
     page_name = 'index.html'
@@ -52,10 +53,6 @@ class SupvisorsView(MeldView, ViewHandler):
         self.global_methods = { 'refresh': self.refresh_action, 'sup_restart': self.sup_restart_action, 'sup_shutdown': self.sup_shutdown_action }
         # process actions
         self.process_methods = { 'pstop': self.stop_action, 'pkeep': self.keep_action }
-
-    def render(self):
-        """ Method called by Supervisor to handle the rendering of the Supvisors Address page """
-        return self.write_page()
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu """
@@ -145,7 +142,7 @@ class SupvisorsView(MeldView, ViewHandler):
             # set detailed process action links
             for action in self.process_methods.keys():
                 elt = tr_elt.findmeld(action + '_a_mid')
-                elt.attributes(href='index.html?processname={}&amp;address={}&amp;action={}'.format(urllib.quote(namespec), address, action))
+                elt.attributes(href='index.html?namespec={}&amp;address={}&amp;action={}'.format(urllib.quote(namespec), address, action))
             # set process action links
             td_elt = tr_elt.findmeld('strategy_td_mid')
             if rowspan > 0:
@@ -154,7 +151,7 @@ class SupvisorsView(MeldView, ViewHandler):
                 for li_elt, item in strategy_iterator:
                     elt = li_elt.findmeld('local_strategy_a_mid')
                     # conciliation requests MUST be sent to MASTER
-                    elt.attributes(href='http://{}:{}/index.html?processname={}&amp;action={}'.format(self.supvisors.context.master_address, self.server_port(),
+                    elt.attributes(href='http://{}:{}/index.html?namespec={}&amp;action={}'.format(self.supvisors.context.master_address, self.server_port(),
                         urllib.quote(namespec), item))
                     elt.content(item.title())
             else:
@@ -174,7 +171,7 @@ class SupvisorsView(MeldView, ViewHandler):
             return self.process_methods[action](namespec, address)
 
     def refresh_action(self):
-        """ Refresh web page """
+        """ Refresh web page. """
         return delayed_info('Page refreshed')
 
     def sup_restart_action(self):
