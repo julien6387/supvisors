@@ -110,8 +110,13 @@ def read_string(self, s):
 class DummyInfoSource:
     """ Simple info source with dummy methods. """
 
+    def get_env(self):
+        return {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
+            'SUPERVISOR_USERNAME': '',
+            'SUPERVISOR_PASSWORD': ''}
+
     def autorestart(self, namespec):
-        return namespec == "test_autorestart"
+        return namespec == 'test_autorestart'
 
 
 class DummyOptions:
@@ -136,6 +141,14 @@ class DummyStopper:
     """ Simple stopper. """
 
 
+class DummyZmq:
+    """ Simple Supvisors ZeroMQ behaviour. """
+ 
+    def __init__(self):
+        self.internal_subscriber = None
+        self.puller = None
+
+
 class DummySupvisors:
     """ Simple supvisors with all dummies. """
 
@@ -152,7 +165,7 @@ class DummySupvisors:
         self.statistician = DummyClass()
         self.starter = DummyStarter()
         self.stopper = DummyStopper()
-        # TODO: DummyPublisher with send_supvisors_status
+        self.zmq = DummyZmq()
 
 
 class DummySupervisor:

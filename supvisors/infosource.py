@@ -76,7 +76,7 @@ class SupervisordSource(object):
         """ Return a simple environment that can be used for the configuration of the XML-RPC client. """
         return {'SUPERVISOR_SERVER_URL': self.serverurl,
             'SUPERVISOR_USERNAME': self.username,
-            'SUPERVISOR_PASSWORD': self.password }
+            'SUPERVISOR_PASSWORD': self.password}
 
     def close_httpservers(self):
         """ Call the close_httpservers of Supervisor.
