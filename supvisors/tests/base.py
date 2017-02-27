@@ -126,6 +126,7 @@ class DummyOptions:
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.deployment_file = ''
         self.deployment_strategy = 0
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
