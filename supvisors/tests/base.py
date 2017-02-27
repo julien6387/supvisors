@@ -142,12 +142,20 @@ class DummyStopper:
     """ Simple stopper. """
 
 
+class DummyPublisher:
+    """ Simple Supvisors Publisher behaviour. """
+ 
+    def send_supvisors_status(self, status):
+        pass
+
+
 class DummyZmq:
     """ Simple Supvisors ZeroMQ behaviour. """
  
     def __init__(self):
         self.internal_subscriber = None
         self.puller = None
+        self.publisher = DummyPublisher()
 
 
 class DummySupvisors:
