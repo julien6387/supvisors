@@ -78,7 +78,6 @@ class SupvisorsServerOptions(ServerOptions):
         Default parameters fit, so realize is called directly. """
         ServerOptions.__init__(self)
         self.supvisors_options = SupvisorsOptions()
-        self.realize()
 
     def _processes_from_section(self, parser, section, group_name, klass=None):
         """ This method is overriden to store the program number of a homogeneous program.
