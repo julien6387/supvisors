@@ -42,7 +42,9 @@ class Supvisors(object):
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
         # get options from config file
-        self.options = SupvisorsServerOptions().supvisors_options
+        server_options = SupvisorsServerOptions()
+        server_options.realize()
+        self.options = server_options.supvisors_options
         # create logger
         stdout = supervisord.options.nodaemon
         self.logger = getLogger(self.options.logfile, self.options.loglevel,
