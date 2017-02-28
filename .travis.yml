@@ -5,7 +5,7 @@ sudo: false
 env:
     - TOXENV=cover
     - TOXENV=py27
-    - TOXENV=pypy
+#    - TOXENV=pypy
 
 install:
     - travis_retry pip install tox
