@@ -221,7 +221,7 @@ On the right side, 4 buttons are available:
 Processes Section
 ~~~~~~~~~~~~~~~~~
 
-.. image:: images/supvisors_address_processes_section.png
+.. image:: images/supvisors_address_process_section.png
     :alt: Processes Section of Supvisors Address Page
     :align: center
 
