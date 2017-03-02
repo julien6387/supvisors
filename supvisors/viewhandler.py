@@ -162,7 +162,7 @@ class ViewHandler(object):
             elt = tr_elt.findmeld('pmem_a_mid')
             elt.replace('--')
         # manage actions iaw state
-        process_state = item['state']
+        process_state = item['statecode']
         # start button
         elt = tr_elt.findmeld('start_a_mid')
         if process_state in STOPPED_STATES:
@@ -325,7 +325,30 @@ class ViewHandler(object):
         """ Get the port number of the web server """
         return self.context.form.get('SERVER_PORT')
 
-    def cpu_id_to_string(self, idx):
+    @staticmethod
+    def cpu_id_to_string(idx):
         """ Get a displayable form to cpu index """
-        return idx- 1 if idx > 0 else 'all'
+        return idx - 1 if idx > 0 else 'all'
+
+    def sort_processes_by_config(self, processes):
+        """ This method sorts a process list using the internal configuration of supervisor.
+        The aim is to present processes sorted the same way as they are in group configuration file. """
+        sorted_processes = []
+        if processes:
+            # get the list of applications, sorted alphabetically
+            application_list = sorted({process['application_name'] for process in processes})
+            for application_name in application_list:
+                # get supervisor configuration for application
+                group_config = self.supvisors.info_source.get_group_config(application_name)
+                # get process name ordering in this configuration
+                ordering = [proc.name for proc in group_config.process_configs]
+                # add processes known to supervisor, using the same ordering
+                sorted_processes.extend(sorted([proc for proc in processes
+                    if proc['application_name'] == application_name and proc['process_name'] in ordering],
+                    key=lambda x: ordering.index(x['process_name'])))
+                # add processes unknown to supervisor, using the alphabetical ordering
+                sorted_processes.extend(sorted([proc for proc in processes
+                    if proc['application_name'] == application_name and proc['process_name'] not in ordering],
+                    key=lambda x: x['process_name']))
+        return sorted_processes
 

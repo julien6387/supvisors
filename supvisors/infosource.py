@@ -85,6 +85,11 @@ class SupervisordSource(object):
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
+    def get_group_config(self, application_name):
+        """ This method returns the group configuration related to an application. """
+        # WARN: the following line may throw a KeyError exception
+        return self.supervisord.process_groups[application_name].config
+
     def autorestart(self, namespec):
         """ This method checks if autorestart is configured on the process. """
         application_name, process_name = split_namespec(namespec)
