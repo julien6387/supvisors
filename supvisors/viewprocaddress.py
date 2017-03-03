@@ -77,11 +77,13 @@ class ProcAddressView(StatusView, ViewHandler):
 
     def get_address_stats(self):
         """ Get the statistics structure related to the local address and the period selected """
-        return self.supvisors.statistician.data[self.address][ViewHandler.period_stats]
+        return (self.supvisors.statistician.nbcores[self.address],
+            self.supvisors.statistician.data[self.address][ViewHandler.period_stats])
 
     def get_process_stats(self, namespec):
         """ Get the statistics structure related to the local address and the period selected """
-        return self.get_address_stats().find_process_stats(namespec)
+        nbcores, address_stats = self.get_address_stats()
+        return nbcores, address_stats.find_process_stats(namespec)
 
     def write_process_table(self, root):
         """ Rendering of the processes managed through Supervisor """

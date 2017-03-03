@@ -128,12 +128,15 @@ class ViewHandler(object):
             elt.content('{}%'.format(status.rules.expected_loading))
         # get data from statistics module iaw period selection
         hide_cpu_link, hide_mem_link = (True, )*2
-        proc_stats = self.get_process_stats(namespec)
+        nbcores, proc_stats = self.get_process_stats(namespec)
         if proc_stats:
             if len(proc_stats[0]) > 0:
                 # print last CPU value of process
                 elt = tr_elt.findmeld('pcpu_a_mid')
-                elt.content('{:.2f}%'.format(proc_stats[0][-1]))
+                cpuvalue = proc_stats[0][-1]
+                if not self.supvisors.options.stats_irix_mode:
+                    cpuvalue /= nbcores
+                elt.content('{:.2f}%'.format(cpuvalue))
                 if ViewHandler.namespec_stats == namespec:
                     selected_tr = True
                     elt.attributes(href='#')
@@ -190,67 +193,72 @@ class ViewHandler(object):
         """ Display detailed statistics about the selected process """
         stats_elt = root.findmeld('pstats_div_mid')
         # get data from statistics module iaw period selection
-        proc_stats = self.get_process_stats(ViewHandler.namespec_stats) if ViewHandler.namespec_stats else None
-        if proc_stats and (len(proc_stats[0]) > 0 or len(proc_stats[1]) > 0):
-            # set titles
-            elt = stats_elt.findmeld('process_h_mid')
-            elt.content(ViewHandler.namespec_stats)
-             # set CPU statistics
-            if len(proc_stats[0]) > 0:
-                avg, rate, (a, b), dev = get_stats(proc_stats[0])
-                # print last CPU value of process
-                elt = stats_elt.findmeld('pcpuval_td_mid')
-                if rate is not None:
-                    self.set_slope_class(elt, rate)
-                elt.content('{:.2f}%'.format(proc_stats[0][-1]))
-                # set mean value
-                elt = stats_elt.findmeld('pcpuavg_td_mid')
-                elt.content('{:.2f}'.format(avg))
-                if a is not None:
-                    # set slope value between last 2 values
-                    elt = stats_elt.findmeld('pcpuslope_td_mid')
-                    elt.content('{:.2f}'.format(a))
-                if dev is not None:
-                    # set standard deviation
-                    elt = stats_elt.findmeld('pcpudev_td_mid')
-                    elt.content('{:.2f}'.format(dev))
-            # set MEM statistics
-            if len(proc_stats[1]) > 0:
-                avg, rate, (a, b), dev = get_stats(proc_stats[1])
-                # print last MEM value of process
-                elt = stats_elt.findmeld('pmemval_td_mid')
-                if rate is not None:
-                    self.set_slope_class(elt, rate)
-                elt.content('{:.2f}%'.format(proc_stats[1][-1]))
-                # set mean value
-                elt = stats_elt.findmeld('pmemavg_td_mid')
-                elt.content('{:.2f}'.format(avg))
-                if a is not None:
-                    # set slope value between last 2 values
-                    elt = stats_elt.findmeld('pmemslope_td_mid')
-                    elt.content('{:.2f}'.format(a))
-                if dev is not None:
-                    # set standard deviation
-                    elt = stats_elt.findmeld('pmemdev_td_mid')
-                    elt.content('{:.2f}'.format(dev))
-            # write CPU / Memory plots
-            try:
-                from supvisors.plot import StatisticsPlot
-                # build CPU image
-                cpu_img = StatisticsPlot()
-                cpu_img.addPlot('CPU', '%', proc_stats[0])
-                cpu_img.exportImage(process_cpu_image)
-                # build Memory image
-                mem_img = StatisticsPlot()
-                mem_img.addPlot('MEM', '%', proc_stats[1])
-                mem_img.exportImage(process_mem_image)
-            except ImportError:
-                self.logger.warn("matplotlib module not found")
-        else:
-            if ViewHandler.namespec_stats :
-                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
-                ViewHandler.namespec_stats = ''
-            # remove stats part
+        if ViewHandler.namespec_stats:
+            nbcores, proc_stats = self.get_process_stats(ViewHandler.namespec_stats)
+            if proc_stats and (len(proc_stats[0]) > 0 or len(proc_stats[1]) > 0):
+                # set titles
+                elt = stats_elt.findmeld('process_h_mid')
+                elt.content(ViewHandler.namespec_stats)
+                 # set CPU statistics
+                if len(proc_stats[0]) > 0:
+                    avg, rate, (a, b), dev = get_stats(proc_stats[0])
+                    # print last CPU value of process
+                    elt = stats_elt.findmeld('pcpuval_td_mid')
+                    if rate is not None:
+                        self.set_slope_class(elt, rate)
+                    cpuvalue = proc_stats[0][-1]
+                    if not self.supvisors.options.stats_irix_mode:
+                        cpuvalue /= nbcores
+                    elt.content('{:.2f}%'.format(cpuvalue))
+                    # set mean value
+                    elt = stats_elt.findmeld('pcpuavg_td_mid')
+                    elt.content('{:.2f}'.format(avg))
+                    if a is not None:
+                        # set slope value between last 2 values
+                        elt = stats_elt.findmeld('pcpuslope_td_mid')
+                        elt.content('{:.2f}'.format(a))
+                    if dev is not None:
+                        # set standard deviation
+                        elt = stats_elt.findmeld('pcpudev_td_mid')
+                        elt.content('{:.2f}'.format(dev))
+                # set MEM statistics
+                if len(proc_stats[1]) > 0:
+                    avg, rate, (a, b), dev = get_stats(proc_stats[1])
+                    # print last MEM value of process
+                    elt = stats_elt.findmeld('pmemval_td_mid')
+                    if rate is not None:
+                        self.set_slope_class(elt, rate)
+                    elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+                    # set mean value
+                    elt = stats_elt.findmeld('pmemavg_td_mid')
+                    elt.content('{:.2f}'.format(avg))
+                    if a is not None:
+                        # set slope value between last 2 values
+                        elt = stats_elt.findmeld('pmemslope_td_mid')
+                        elt.content('{:.2f}'.format(a))
+                    if dev is not None:
+                        # set standard deviation
+                        elt = stats_elt.findmeld('pmemdev_td_mid')
+                        elt.content('{:.2f}'.format(dev))
+                # write CPU / Memory plots
+                try:
+                    from supvisors.plot import StatisticsPlot
+                    # build CPU image
+                    cpu_img = StatisticsPlot()
+                    cpu_img.addPlot('CPU', '%', proc_stats[0])
+                    cpu_img.exportImage(process_cpu_image)
+                    # build Memory image
+                    mem_img = StatisticsPlot()
+                    mem_img.addPlot('MEM', '%', proc_stats[1])
+                    mem_img.exportImage(process_mem_image)
+                except ImportError:
+                    self.logger.warn("matplotlib module not found")
+            else:
+                if ViewHandler.namespec_stats:
+                    self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
+                    ViewHandler.namespec_stats = ''
+        # remove stats part if empty
+        if not ViewHandler.namespec_stats:
             stats_elt.replace('')
 
     def handle_parameters(self):
@@ -270,7 +278,7 @@ class ViewHandler(object):
         # update process statistics selection
         process_name = form.get('processname')
         if process_name:
-            proc_stats = self.get_process_stats(process_name)
+            _, proc_stats = self.get_process_stats(process_name)
             if proc_stats:
                 if ViewHandler.namespec_stats != process_name:
                     self.logger.info('select detailed Process statistics for %s' % process_name)

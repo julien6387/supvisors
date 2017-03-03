@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from psutil import cpu_count, cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
+from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
 from time import time
 
 from supvisors.utils import mean
@@ -27,8 +27,8 @@ from supvisors.utils import mean
 def instant_cpu_statistics():
     """ Return the instant work+idle jiffies for all the processors.
     The average on all processors is inserted in front of the list. """
-    work = [ ]
-    idle = [ ]
+    work = []
+    idle = []
     # CPU details
     cpu_stats = cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
@@ -104,7 +104,7 @@ def instant_process_statistics(pid):
         # process may have disappeared in the interval
         pass
     # take into account the number of processes for the process work 
-    return work / cpu_count(), memory
+    return work, memory
 
 def cpu_process_statistics(last, ref, total_work):
     """ Return the CPU loading of the process between last and ref measures. """
@@ -149,12 +149,15 @@ class StatisticsInstance(object):
     """ This class handles resources statistics for a given address and period. """
 
     def __init__(self, period, depth):
-        # as period is a multiple of 5 and a call to pushStatistics is expected every 5 seconds, use period as a simple counter
+        """ Initalization of the attributes.
+        As period is a multiple of 5 and a call to pushStatistics is expected every 5 seconds,
+        period is used as a simple counter. """
         self.period = period / 5
         self.depth = depth
         self.clear()
 
     def clear(self):
+        """ Reset all attributes. """
         self.counter = -1
         self.ref_stats = None
         # data structures
@@ -164,9 +167,11 @@ class StatisticsInstance(object):
         self.proc = {}
 
     def find_process_stats(self, namespec):
+        """ Return the process statistics related to the namespec. """
         return next((stats for (process_name, pid), stats in self.proc.items() if process_name == namespec), None)
 
     def push_statistics(self, stats):
+        """ Calculates new statistics given a new series of measures. """
         self.counter += 1
         if self.counter % self.period == 0:
             if self.ref_stats:
@@ -224,14 +229,20 @@ class StatisticsInstance(object):
 
 # Class used to compile statistics coming from all addresses
 class StatisticsCompiler(object):
-    """ This class handles stores statistics for all addresses and periods. """
+    """ This class handles stores statistics for all addresses and periods.
+    
+    Attributes are:
+    
+        - data: a dictionary containing a StatisticsInstance entry for each pair of address and period,
+        - cores: a dictionary giving the number of processor cores per address.
+        """
 
     def __init__(self, supvisors):
-        """ Initializes the statistics dictionary.
-        The dictionary contains a StatisticsInstance entry for each pair of address and period. """
+        """ Initialization of the attributes. """
         self.data = {address: {period: StatisticsInstance(period, supvisors.options.stats_histo)
             for period in supvisors.options.stats_periods}
             for address in supvisors.address_mapper.addresses}
+        self.nbcores = {address: 1 for address in supvisors.address_mapper.addresses}
 
     def clear(self, address):
         """  For a given address, clear the StatisticsInstance for all periods. """
@@ -242,3 +253,6 @@ class StatisticsCompiler(object):
         """  Insert a new statistics measure for address. """
         for period in self.data[address].values():
             period.push_statistics(stats)
+        # set the number of processor cores
+        nb = len(stats[1])
+        self.nbcores[address] = nb if nb == 1 else nb-1

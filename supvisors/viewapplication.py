@@ -146,7 +146,9 @@ class ApplicationView(MeldView, ViewHandler):
             address = next(iter(status.addresses), None)
             if address:
                 stats = self.supvisors.statistician.data[address][ViewHandler.period_stats]
-                return stats.find_process_stats(namespec)
+                nbcores = self.supvisors.statistician.nbcores[address]
+                return nbcores, stats.find_process_stats(namespec)
+        return 0, None
 
     def write_process_table(self, root):
         """ Rendering of the application processes managed through Supervisor. """

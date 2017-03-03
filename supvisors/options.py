@@ -114,6 +114,7 @@ class SupvisorsServerOptions(ServerOptions):
         # configure statistics
         opt.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
         opt.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
+        opt.stats_irix_mode = boolean(parser.getdefault('stats_irix_mode', 'false'))
         # configure logger
         opt.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(self._Section)))
         opt.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
