@@ -22,6 +22,8 @@ import random
 import socket
 import unittest
 
+from mock import patch
+
 from supvisors.tests.base import DummyLogger
 
 
@@ -36,6 +38,7 @@ class AddressMapperTest(unittest.TestCase):
         """ Test the values set at construction. """
         from supvisors.addressmapper import AddressMapper
         mapper = AddressMapper(self.logger)
+        self.assertIs(self.logger, mapper.logger)
         self.assertFalse(mapper.addresses)
         self.assertIsNone(mapper.local_address)
         # check that hostname is part of the local addresses
@@ -120,9 +123,24 @@ class AddressMapperTest(unittest.TestCase):
         # check that there is at least one entry looking like an IP address
         from supvisors.addressmapper import AddressMapper
         ip_list = AddressMapper.ipv4()
-        self.assertIsNotNone(ip_list)
+        self.assertTrue(ip_list)
         for ip in ip_list:
             self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')
+
+    def test_ipv4_importerror(self):
+        """ Test the ipv4 method with a mocking of import (netifaces not installed). """
+        # store original __import__
+        ref_import = __import__
+        # patch of import
+        def import_mock(name, *args):
+            if name == 'netifaces':
+                raise ImportError
+            return ref_import(name, *args)
+        # test that empty list is returned on import error
+        with patch('__builtin__.__import__', side_effect=import_mock):
+            from supvisors.addressmapper import AddressMapper
+            ip_list = AddressMapper.ipv4()
+            self.assertFalse(ip_list)
 
 
 def test_suite():
