@@ -123,6 +123,7 @@ class DummyOptions:
     """ Simple options with dummy attributes. """
 
     def __init__(self):
+        # configuration options
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
@@ -131,6 +132,8 @@ class DummyOptions:
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+        # additional process configuration
+        self.procnumbers = {'xclock': 2}
 
 
 class DummyStarter:

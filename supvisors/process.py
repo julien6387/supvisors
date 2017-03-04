@@ -29,13 +29,15 @@ from supvisors.utils import *
 class ProcessRules(object):
     """ Defines the rules for starting a process, iaw deployment file.
 
-    Attributes:
-        - the addresses where the process can be started (all by default)
-        - the order in the starting sequence of the application
-        - the order in the stopping sequence of the application (not implemented yet)
-        - a status telling if the process is required within the application
-        - a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application
-        - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc)"""
+    Attributes are:
+
+        - the addresses where the process can be started (all by default),
+        - the order in the starting sequence of the application,
+        - the order in the stopping sequence of the application (not implemented yet),
+        - a status telling if the process is required within the application,
+        - a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application,
+        - the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc).
+    """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -262,33 +264,30 @@ class ProcessStatus(object):
             self.logger.debug('process {} still in conflict after address invalidation'.format(self.namespec()))
 
     def update_status(self, address, new_state, expected):
-        """ Updates the state and list of running address iaw the new event """
-        if new_state == ProcessStates.UNKNOWN:
-            self.logger.warn('unexpected state {} for {} at {}'.format(to_string(newState), self.namespec(), address))
-        else:
-            # update addresses list
-            if new_state in STOPPED_STATES:
-                self.addresses.discard(address)
-            elif new_state in RUNNING_STATES:
-                # replace if current state stopped-like, add otherwise
-                if self.stopped():
-                    self.addresses = {address}
-                    # reset autorestart flag as it becomes useless
-                    self.mark_for_restart = False
-                else:
-                    self.addresses.add(address)
-            # evaluate state iaw running addresses
-            if not self.evaluate_conflict():
-                # if zero element, state is the state of the program addressed
-                if self.addresses:
-                    self.state = next(self.infos[address]['state'] for address in self.addresses)
-                    self.expected_exit = True
-                else:
-                    self.state = new_state
-                    self.expected_exit = expected
+        """ Updates the state and list of running address iaw the new event. """
+        # update addresses list
+        if new_state in STOPPED_STATES:
+            self.addresses.discard(address)
+        elif new_state in RUNNING_STATES:
+            # replace if current state stopped-like, add otherwise
+            if self.stopped():
+                self.addresses = {address}
+                # reset autorestart flag as it becomes useless
+                self.mark_for_restart = False
+            else:
+                self.addresses.add(address)
+        # evaluate state iaw running addresses
+        if not self.evaluate_conflict():
+            # if zero element, state is the state of the program addressed
+            if self.addresses:
+                self.state = next(self.infos[address]['state'] for address in self.addresses)
+                self.expected_exit = True
+            else:
+                self.state = new_state
+                self.expected_exit = expected
 
     def evaluate_conflict(self):
-        """ Gets a synthetic state if several processes are in a RUNNING-like state """
+        """ Gets a synthetic state if several processes are in a RUNNING-like state. """
         if self.conflicting():
             # several processes seems to be in a running state so that becomes tricky
             states = {self.infos[address]['state'] for address in self.addresses}

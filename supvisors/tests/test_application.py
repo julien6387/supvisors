@@ -40,10 +40,9 @@ class ApplicationRulesTest(unittest.TestCase):
         self.assertEqual(RunningFailureStrategies.CONTINUE, rules.running_failure_strategy)
 
     def test_str(self):
-        """ Test the values set at construction. """
+        """ Test the string output. """
         from supvisors.application import ApplicationRules
         rules = ApplicationRules()
-        # check application default rules
         self.assertEqual('start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE', str(rules))
 
 
