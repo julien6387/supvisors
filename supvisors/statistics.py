@@ -140,7 +140,7 @@ def statistics(last, ref):
         if ref_pid_stats and last_pid_stats[0] == ref_pid_stats[0]:
             # need the work jiffies in the interval
             proc_cpu = cpu_process_statistics(last_pid_stats[1][0], ref_pid_stats[1][0], work)
-        proc[process_name, last_pid_stats[0]] = proc_cpu, last_pid_stats[1][1]
+            proc[process_name, last_pid_stats[0]] = proc_cpu, last_pid_stats[1][1]
     return last[0], cpu, mem, io, proc
 
 

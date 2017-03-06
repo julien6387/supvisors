@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from supvisors.tests.base import DummyClass, DummyHttpContext
+from supvisors.tests.base import DummyHttpContext
 
 
 class StatsImageTest(unittest.TestCase):
