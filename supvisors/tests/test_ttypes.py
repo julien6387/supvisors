@@ -87,7 +87,7 @@ class TypesTest(unittest.TestCase):
         # test with unknown attributes
         with self.assertRaises(InvalidTransition) as exc:
             raise InvalidTransition('invalid transition')
-        self.assertEqual('invalid transition', exc.exception.value)
+        self.assertEqual('invalid transition', str(exc.exception))
 
 
 def test_suite():

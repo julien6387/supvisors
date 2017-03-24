@@ -20,6 +20,7 @@
 import os
 import random
 
+from StringIO import StringIO
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
 
@@ -123,6 +124,7 @@ class DummyOptions:
     """ Simple options with dummy attributes. """
 
     def __init__(self):
+        # configuration options
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
@@ -131,6 +133,8 @@ class DummyOptions:
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+        # additional process configuration
+        self.procnumbers = {'xclock': 2}
 
 
 class DummyStarter:
@@ -256,3 +260,40 @@ def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
     return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
 
+
+# Contents of a Supervisor configuration file
+SupervisorTestConfiguration = StringIO("""
+[inet_http_server]
+port=:60000
+
+[supervisord]
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=http://localhost:60000
+
+[supvisors]
+address_list=cliche01,cliche03,cliche02
+deployment_file=my_movies.xml
+auto_fence=false
+internal_port=60001
+event_port=60002
+synchro_timeout=20
+deployment_strategy=CONFIG
+conciliation_strategy=USER
+stats_periods=5,60,600
+stats_histo=100
+stats_irix_mode=false
+logfile=supvisors.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+
+[rpcinterface:supvisors]
+supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+
+[ctlplugin:supvisors]
+supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
+""")

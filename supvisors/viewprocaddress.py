@@ -77,11 +77,13 @@ class ProcAddressView(StatusView, ViewHandler):
 
     def get_address_stats(self):
         """ Get the statistics structure related to the local address and the period selected """
-        return self.supvisors.statistician.data[self.address][ViewHandler.period_stats]
+        return (self.supvisors.statistician.nbcores[self.address],
+            self.supvisors.statistician.data[self.address][ViewHandler.period_stats])
 
     def get_process_stats(self, namespec):
         """ Get the statistics structure related to the local address and the period selected """
-        return self.get_address_stats().find_process_stats(namespec)
+        nbcores, address_stats = self.get_address_stats()
+        return nbcores, address_stats.find_process_stats(namespec)
 
     def write_process_table(self, root):
         """ Rendering of the processes managed through Supervisor """
@@ -89,12 +91,17 @@ class ProcAddressView(StatusView, ViewHandler):
         data = []
         try:
             for info in self.info_source.supervisor_rpc_interface.getAllProcessInfo():
-                data.append({'namespec': make_namespec(info['group'], info['name']), 'statename': info['statename'],
-                    'state': info['state'], 'desc': info['description']})
+                data.append({'application_name': info['group'], 'process_name': info['name'],
+                        'namespec': make_namespec(info['group'], info['name']),
+                        'statename': info['statename'], 'statecode': info['state'],
+                        'desc': info['description']})
         except RPCError, e:
             self.logger.warn('failed to get all process info from {}: {}'.format(self.address, e.text))
         # print processes
         if data:
+            # re-arrange data
+            data = self.sort_processes_by_config(data)
+            # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
             for tr_elt, item in iterator:

@@ -24,17 +24,19 @@ from supvisors.ttypes import ApplicationStates, StartingFailureStrategies, Runni
 
 class ApplicationRules(object):
     """ Definition of the rules for starting an application, iaw deployment file:
-    - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
-        0 means: no automatic start,
-    - stop_sequence: defines the order of this application when stopping all the applications,
-        0 means: immediate stop,
-    - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply
-        when a required process cannot be strated during the starting of the application,
-    - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply
-        when a required process crashes when the application is running. """
+
+        - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
+            0 means: no automatic start,
+        - stop_sequence: defines the order of this application when stopping all the applications,
+            0 means: immediate stop,
+        - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply
+            when a required process cannot be strated during the starting of the application,
+        - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply
+            when a required process crashes when the application is running.
+    """
 
     def __init__(self):
-        """ Initializes the rules applicable to an application"""
+        """ Initialization of the attributes. """
         self.start_sequence = 0
         self.stop_sequence = 0
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
@@ -42,24 +44,29 @@ class ApplicationRules(object):
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def __str__(self):
-        """ Contents as string """
+        """ Contents as string. """
         return 'start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}'.format(
-            self.start_sequence, self.stop_sequence, self.starting_failure_strategy, self.running_failure_strategy)
+            self.start_sequence, self.stop_sequence, StartingFailureStrategies._to_string(self.starting_failure_strategy),
+            RunningFailureStrategies._to_string(self.running_failure_strategy))
 
 
 # ApplicationStatus class
 class ApplicationStatus(object):
-    """ Class defining the status of an application of Supvisors with the following information:
-    - application_name: the name of the application, corresponding to the Supervisor group name,
-    - state: the state of the application in ApplicationStates,
-    - major_failure: a status telling if a required process is stopped while the application is running,
-    - minor_failure: a status telling if an optional process has crashed while the application is running,
-    - processes: the map (key is process name) of the ProcessStatus belonging to the application,
-    - rules: the ApplicationRules instance applicable to the application,
-    - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
-        The value corresponds to a list of processes having the same sequence order, used as key.
-    - stop_sequence: the sequencing to stop the processes belonging to the application, as a dictionary.
-        The value corresponds to a list of processes having the same sequence order, used as key. """
+    """ Class defining the status of an application in Supvisors.
+
+    Attributes are:
+
+        - application_name: the name of the application, corresponding to the Supervisor group name,
+        - state: the state of the application in ApplicationStates,
+        - major_failure: a status telling if a required process is stopped while the application is running,
+        - minor_failure: a status telling if an optional process has crashed while the application is running,
+        - processes: the map (key is process name) of the ProcessStatus belonging to the application,
+        - rules: the ApplicationRules instance applicable to the application,
+        - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
+            The value corresponds to a list of processes having the same sequence order, used as key.
+        - stop_sequence: the sequencing to stop the processes belonging to the application, as a dictionary.
+            The value corresponds to a list of processes having the same sequence order, used as key.
+    """
 
     def __init__(self, application_name, logger):
         """ Initialization of the attributes. """

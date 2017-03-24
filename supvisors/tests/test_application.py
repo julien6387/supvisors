@@ -25,8 +25,29 @@ from supvisors.tests.base import (DummySupvisors, ProcessInfoDatabase,
     any_process_info, any_stopped_process_info, any_running_process_info)
 
 
-class ApplicationTest(unittest.TestCase):
-    """ Test case for the application module. """
+class ApplicationRulesTest(unittest.TestCase):
+    """ Test case for the ApplicationRules class of the application module. """
+
+    def test_create(self):
+        """ Test the values set at construction. """
+        from supvisors.application import ApplicationRules
+        from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
+        rules = ApplicationRules()
+        # check application default rules
+        self.assertEqual(0, rules.start_sequence)
+        self.assertEqual(0, rules.stop_sequence)
+        self.assertEqual(StartingFailureStrategies.ABORT, rules.starting_failure_strategy)
+        self.assertEqual(RunningFailureStrategies.CONTINUE, rules.running_failure_strategy)
+
+    def test_str(self):
+        """ Test the string output. """
+        from supvisors.application import ApplicationRules
+        rules = ApplicationRules()
+        self.assertEqual('start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE', str(rules))
+
+
+class ApplicationStatusTest(unittest.TestCase):
+    """ Test case for the ApplicationStatus class of the application module. """
 
     def setUp(self):
         """ Create a logger that stores log traces. """

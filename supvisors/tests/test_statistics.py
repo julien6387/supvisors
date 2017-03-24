@@ -123,17 +123,21 @@ class StatisticsTest(unittest.TestCase):
         """ Test the instant process statistics. """
         import os
         from supvisors.statistics import instant_process_statistics
-        stats = instant_process_statistics(os.getpid())
+        # check with existing PID
+        work, memory = instant_process_statistics(os.getpid())
         # test that a pair is returned with values in [0;100]
-        self.assertEqual(2, len(stats))
         # test cpu value
-        self.assertIs(float, type(stats[0]))
-        self.assertGreaterEqual(stats[0], 0)
-        self.assertLessEqual(stats[0], 100)
+        self.assertIs(float, type(work))
+        self.assertGreaterEqual(work, 0)
+        self.assertLessEqual(work, 100)
         # test mem value
-        self.assertIs(float, type(stats[1]))
-        self.assertGreaterEqual(stats[1], 0)
-        self.assertLessEqual(stats[1], 100)
+        self.assertIs(float, type(memory))
+        self.assertGreaterEqual(memory, 0)
+        self.assertLessEqual(memory, 100)
+        # check handling of non-existing PID
+        work, memory = instant_process_statistics(-1)
+        self.assertEqual(work, 0)
+        self.assertEqual(memory, 0)
 
     def test_cpu_process_statistics(self):
         """ Test the CPU of the process between 2 dates. """
@@ -293,10 +297,12 @@ class StatisticsInstanceTest(unittest.TestCase):
     def test_push_statistics(self):
         """ Test the storage of the instant statistics. """
         from supvisors.statistics import StatisticsInstance
+        # testing with period 12 and history depth 2
         instance = StatisticsInstance(12, 2)
         # push first set of measures
         stats1 = (8.5, [(25, 400), (25, 125), (15, 150), (40, 400), (20, 200)],
-            76.1, {'eth0': (1024, 2000), 'lo': (500, 500)}, {'myself': (118612, (0.15, 1.85))})
+            76.1, {'eth0': (1024, 2000), 'lo': (500, 500)},
+            {'myself': (118612, (0.15, 1.85)), 'other1': (7754, (0.15, 1.85)), 'other2': (826, (0.15, 1.85))})
         instance.push_statistics(stats1)
         # check evolution of instance
         self.assertEqual(0, instance.counter)
@@ -310,7 +316,7 @@ class StatisticsInstanceTest(unittest.TestCase):
             self.assertFalse(recv)
             self.assertIs(list, type(sent))
             self.assertFalse(sent)
-        self.assertEqual([('myself', 118612)], instance.proc.keys())
+        self.assertItemsEqual([('myself', 118612), ('other1', 7754), ('other2', 826)], instance.proc.keys())
         for cpu_list, mem_list in instance.proc.values():
             self.assertIs(list, type(cpu_list))
             self.assertFalse(cpu_list)
@@ -319,7 +325,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertIs(stats1, instance.ref_stats)
         # push second set of measures
         stats2 = (18.52, [(30, 600), (40, 150), (30, 200), (41, 550), (20, 300)],
-            76.2, {'eth0': (1250, 2200), 'lo': (620, 620)}, {'myself': (118612, (0.16, 1.84))})
+            76.2, {'eth0': (1250, 2200), 'lo': (620, 620)},
+            {'myself': (118612, (0.16, 1.84)), 'other2': (826, (0.16, 1.84))})
         instance.push_statistics(stats2)
         # counter is based a theoretical period of 5 seconds
         # this update is not taken into account
@@ -335,7 +342,7 @@ class StatisticsInstanceTest(unittest.TestCase):
             self.assertFalse(recv)
             self.assertIs(list, type(sent))
             self.assertFalse(sent)
-        self.assertEqual([('myself', 118612)], instance.proc.keys())
+        self.assertItemsEqual([('myself', 118612), ('other1', 7754), ('other2', 826)], instance.proc.keys())
         for cpu_list, mem_list in instance.proc.values():
             self.assertIs(list, type(cpu_list))
             self.assertFalse(cpu_list)
@@ -344,7 +351,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertIs(stats1, instance.ref_stats)
         # push third set of measures
         stats3 = (28.5, [(45, 700), (50, 225), (40, 250), (42, 598), (20, 400)],
-            76.1, {'eth0': (2048, 2512), 'lo': (756, 756)}, {'myself': (118612, (1.75, 1.9))})
+            76.1, {'eth0': (2048, 2512), 'lo': (756, 756)},
+            {'myself': (118612, (1.75, 1.9)), 'other1': (8865, (1.75, 1.9))})
         instance.push_statistics(stats3)
         # this update is taken into account
         # check evolution of instance
@@ -352,7 +360,7 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertListEqual([[6.25], [20.0], [20.0], [1.0], [0.0]], instance.cpu)
         self.assertListEqual([76.1], instance.mem)
         self.assertDictEqual({'eth0': ([0.4], [0.2]), 'lo': ([0.1], [0.1])}, instance.io)
-        self.assertEqual({('myself', 118612): ([0.5], [1.9])}, instance.proc)
+        self.assertDictEqual({('myself', 118612): ([0.5], [1.9])}, instance.proc)
         self.assertIs(stats3, instance.ref_stats)
         # push fourth set of measures (reuse stats2)
         instance.push_statistics(stats2)
@@ -361,7 +369,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertIs(stats3, instance.ref_stats)
         # push fifth set of measures
         stats5 = (38.5, [(80, 985), (89, 386), (48, 292), (42, 635), (32, 468)],
-            75.9, {'eth0': (3072, 2768), 'lo': (1780, 1780)}, {'myself': (118612, (11.75, 1.87))})
+            75.9, {'eth0': (3072, 2768), 'lo': (1780, 1780)},
+            {'myself': (118612, (11.75, 1.87)), 'other1': (8865, (11.75, 1.87))})
         instance.push_statistics(stats5)
         # this update is taken into account
         # check evolution of instance
@@ -369,7 +378,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertListEqual([[6.25, 10.9375], [20.0, 19.5], [20.0, 16.0], [1.0, 0.0], [0.0, 15.0]], instance.cpu)
         self.assertListEqual([76.1, 75.9], instance.mem)
         self.assertDictEqual({'eth0': ([0.4, 0.8], [0.2, 0.2]), 'lo': ([0.1, 0.8], [0.1, 0.8])}, instance.io)
-        self.assertEqual({('myself', 118612): ([0.5, 3.125], [1.9, 1.87])}, instance.proc)
+        self.assertEqual({('myself', 118612): ([0.5, 3.125], [1.9, 1.87]),
+            ('other1', 8865): ([3.125], [1.87])}, instance.proc)
         self.assertIs(stats5, instance.ref_stats)
         # push sixth set of measures (reuse stats2)
         instance.push_statistics(stats2)
@@ -379,7 +389,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertIs(stats5, instance.ref_stats)
         # push seventh set of measures
         stats7 = (48.5, [(84, 1061), (92, 413), (48, 480), (45, 832), (40, 1100)],
-            74.7, {'eth0': (3584, 3792), 'lo': (1812, 1812)}, {'myself': (118612, (40.75, 2.34))})
+            74.7, {'eth0': (3584, 3792), 'lo': (1812, 1812)},
+            {'myself': (118612, (40.75, 2.34)), 'other1': (8865, (40.75, 2.34))})
         instance.push_statistics(stats7)
         # this update is taken into account
         # check evolution of instance. max depth is reached so lists roll
@@ -387,7 +398,8 @@ class StatisticsInstanceTest(unittest.TestCase):
         self.assertListEqual([[ 10.9375, 5.0], [19.5, 10.0], [16.0, 0.0], [0.0, 1.5], [15.0, 1.25]], instance.cpu)
         self.assertListEqual([75.9, 74.7], instance.mem)
         self.assertDictEqual({'eth0': ([0.8, 0.4], [0.2, 0.8]), 'lo': ([0.8, 0.025], [0.8, 0.025])}, instance.io)
-        self.assertEqual({('myself', 118612): ([3.125, 36.25], [1.87, 2.34])}, instance.proc)
+        self.assertEqual({('myself', 118612): ([3.125, 36.25], [1.87, 2.34]),
+            ('other1', 8865): ([3.125, 36.25], [1.87, 2.34])}, instance.proc)
         self.assertIs(stats7, instance.ref_stats)
 
 

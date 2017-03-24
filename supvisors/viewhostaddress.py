@@ -63,7 +63,8 @@ class HostAddressView(StatusView, ViewHandler):
             except ValueError:
                 self.message(error_message('Cpu id is not an integer: {}'.format(cpuid)))
             else:
-                if cpuid < len(self.get_address_stats().cpu):
+                address_stats = self.get_address_stats()
+                if cpuid < len(address_stats.cpu):
                     if HostAddressView.cpu_id_stats != cpuid:
                         self.logger.info('select cpu#{} statistics for address'.format(self.cpu_id_to_string(cpuid)))
                         HostAddressView.cpu_id_stats = cpuid
@@ -73,8 +74,8 @@ class HostAddressView(StatusView, ViewHandler):
         interface = form.get('intf')
         if interface:
             # check if interface requested exists
-            io_stats = self.get_address_stats().io
-            if interface in io_stats.keys():
+            address_stats = self.get_address_stats()
+            if interface in address_stats.io.keys():
                 if HostAddressView.interface_stats != interface:
                     self.logger.info('select Interface graph for {}'.format(interface))
                     HostAddressView.interface_stats = interface
@@ -203,8 +204,10 @@ class HostAddressView(StatusView, ViewHandler):
         """ Rendering of the network statistics. """
         if not HostAddressView.interface_stats:
             # choose first interface name by default
-            io_stats = self.get_address_stats().io
+            address_stats = self.get_address_stats()
+            io_stats = address_stats.io
             HostAddressView.interface_stats = next(iter(io_stats.keys()))
+        # display io statistics
         flatten_io_stats = [(intf, lst) for intf, lsts in io_stats.items() for lst in lsts]
         iterator = root.findmeld('intf_tr_mid').repeat(flatten_io_stats)
         rowspan, shaded_tr = True, False

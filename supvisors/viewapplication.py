@@ -146,24 +146,30 @@ class ApplicationView(MeldView, ViewHandler):
             address = next(iter(status.addresses), None)
             if address:
                 stats = self.supvisors.statistician.data[address][ViewHandler.period_stats]
-                return stats.find_process_stats(namespec)
+                nbcores = self.supvisors.statistician.nbcores[address]
+                return nbcores, stats.find_process_stats(namespec)
+        return 0, None
 
     def write_process_table(self, root):
         """ Rendering of the application processes managed through Supervisor. """
         # collect data on processes
         data = []
-        for process in sorted(self.supvisors.context.applications[self.application_name].processes.values(), key=lambda x: x.process_name):
-            data.append({'process_name': process.process_name, 'namespec': process.namespec(),
-                'statename': process.state_string(), 'state': process.state, 'running_list': list(process.addresses)})
+        for process in self.supvisors.context.applications[self.application_name].processes.values():
+            data.append({'application_name': process.application_name, 'process_name': process.process_name,
+                'namespec': process.namespec(), 'running_list': list(process.addresses),
+                'statename': process.state_string(), 'statecode': process.state})
         # print processes
         if data:
+            # re-arrange data
+            data = self.sort_processes_by_config(data)
+            # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
             for tr_elt, item in iterator:
                 # get first item in running list
                 running_list = item['running_list']
                 address = next(iter(running_list), None)
-                # write common status
+                # write common status(shared between this application view and address view)
                 selected_tr = self.write_common_process_status(tr_elt, item)
                 # print process name (tail NOT allowed if STOPPED)
                 process_name = item['process_name']

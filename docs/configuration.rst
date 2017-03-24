@@ -140,6 +140,16 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     *Required*:  No.
 
+``stats_irix_mode``
+
+    The way of presenting process CPU values.
+    If true, values are displayed in 'IRIX' mode.
+    If false, values are displayed in 'Solaris' mode.
+
+    *Default*:  false.
+
+    *Required*:  No.
+
 The logging options are strictly identical to Supervisor's. By the way, it is the same logger that is used.
 These options are more detailed in
 `supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.

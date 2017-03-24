@@ -44,6 +44,19 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.wait_exit)
         self.assertEqual(1, rules.expected_loading)
 
+    def test_str(self):
+        """ Test the string output. """
+        from supvisors.process import ProcessRules
+        rules = ProcessRules(self.supvisors)
+        self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False wait_exit=False loading=1", str(rules))
+
+    def test_serial(self):
+        """ Test the serialization of the ProcessRules object. """
+        from supvisors.process import ProcessRules
+        rules = ProcessRules(self.supvisors)
+        self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
+            'required': False, 'wait_exit': False, 'expected_loading': 1}, rules.serial())
+
     def test_dependency_rules(self):
         """ Test the dependencies in process rules. """
         from supvisors.process import ProcessRules
@@ -246,7 +259,7 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates
         from supvisors.process import ProcessStatus
         # ProcessStatus constructor uses add_info
-        info = any_process_info_by_state(ProcessStates.STOPPING)
+        info = process_info_by_name('xclock')
         self.assertNotIn('event_time', info)
         self.assertNotIn('local_time', info)
         self.assertNotIn('uptime', info)
@@ -266,6 +279,10 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.STOPPING, process.state)
         self.assertTrue(process.expected_exit)
+        # test that address is unchanged
+        self.assertListEqual(['*'], process.rules.addresses)
+        # update rules to test '#'
+        process.rules.addresses = ['#']
         # replace with an EXITED process info
         info = any_process_info_by_state(ProcessStates.EXITED)
         process.add_info('10.0.0.1', info)
@@ -283,8 +300,26 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.EXITED, process.state)
         self.assertTrue(process.expected_exit)
+        # the firefox process has a procnumber of 0 and address '10.0.0.1' has an index of 1
+        # address rule remains unchanged
+        self.assertListEqual(['#'], process.rules.addresses)
         # add a RUNNING process info
-        process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.RUNNING))
+        info = any_process_info_by_state(ProcessStates.RUNNING)
+        process.add_info('10.0.0.2', info)
+        # check contents
+        self.assertEqual(2, len(process.infos))
+        self.assertIs(info, process.infos['10.0.0.2'])
+        self.assertIsNotNone(process.last_event_time)
+        self.assertNotEqual(last_event_time, process.last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(last_event_time, info['event_time'])
+        self.assertEqual(last_event_time, info['now'])
+        self.assertEqual({'10.0.0.2'}, process.addresses)
+        self.assertEqual(ProcessStates.RUNNING, process.state)
+        self.assertTrue(process.expected_exit)
+        # the xfontsel process has a procnumber of 2 and address '10.0.0.2' has an index of 2
+        # address rule changes to '10.0.0.2'
+        self.assertListEqual(['10.0.0.2'], process.rules.addresses)
 
     def test_update_info(self):
         """ Test the update of the ProcessStatus upon reception of a process event. """
@@ -298,6 +333,13 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertFalse(process.addresses)
         local_time = process.infos['10.0.0.1']['local_time']
+        # update with a STARTING event on an unknown address
+        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 10})
+        # check no change
+        info = process.infos['10.0.0.1']
+        self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
+        self.assertEqual(ProcessStates.STOPPED, process.state)
+        self.assertFalse(process.addresses)
         # update with a STARTING event
         process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'now': 10})
         # check changes

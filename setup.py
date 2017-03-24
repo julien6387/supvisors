@@ -31,6 +31,9 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
 
 requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0', 'psutil >= 4.3.0']
 
+tests_require = ['mock >= 0.5.0']
+testing_extras = tests_require + ['pytest >= 2.5.2', 'pytest-cov']
+
 here = os.path.abspath(os.path.dirname(__file__))
 try:
     README = open(os.path.join(here, 'README.rst')).read()
@@ -70,7 +73,11 @@ dist = setup(
     ],
     packages=find_packages(),
     install_requires=requires,
-    extras_require={'parse': ['netifaces >= 0.10.4', 'matplotlib >= 1.5.2', 'lxml >= 3.2.1']},
+    extras_require={'ip': ['netifaces >= 0.10.4'],
+        'graph': ['matplotlib >= 1.5.2'],
+        'parse': ['lxml >= 3.2.1'],
+        'testing': testing_extras},
+    tests_require=tests_require,
     include_package_data=True,
     zip_safe=False,
     namespace_packages=['supvisors'],
