@@ -31,6 +31,7 @@ class SupvisorsOptions():
     """ Holder of the Supvisors options.
 
     Attributes are:
+
         - address_list: list of host names or IP addresses where supvisors will be running,
         - deployment_file: absolute or relative path to the XML deployment file,
         - internal_port: port number used to publish local events to remote Supvisors instances,
@@ -49,17 +50,25 @@ class SupvisorsOptions():
         - procnumbers: a dictionary giving the number of the program in a homogeneous group.
     """
 
+    _Options = ['address_list', 'deployment_file', 'internal_port', 'event_port', 'auto_fence', 'synchro_timeout',
+            'conciliation_strategy', 'deployment_strategy', 'stats_periods', 'stats_histo', 'stats_irix_mode',
+            'logfile', 'logfile_maxbytes', 'logfile_backups', 'loglevel']
+
     def __init__(self):
         """ Initialization of the attributes. """
+        # option list
+        for option in SupvisorsOptions._Options:
+            setattr(self, option, None)
+        # second parse
         self.procnumbers = {}
 
     def __str__(self):
         """ Contents as string. """
         return ('address_list={} deployment_file={} internal_port={} event_port={} auto_fence={} synchro_timeout={} '
-            'conciliation_strategy={} deployment_strategy={} stats_periods={} stats_histo={} '
+            'conciliation_strategy={} deployment_strategy={} stats_periods={} stats_histo={} stats_irix_mode={} '
             'logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}'.format(self.address_list,
             self.deployment_file, self.internal_port, self.event_port, self.auto_fence, self.synchro_timeout, 
-            self.conciliation_strategy, self.deployment_strategy, self.stats_periods, self.stats_histo,
+            self.conciliation_strategy, self.deployment_strategy, self.stats_periods, self.stats_histo, self.stats_irix_mode,
             self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel))
 
 
@@ -67,6 +76,7 @@ class SupvisorsServerOptions(ServerOptions):
     """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file.
 
     Attributes are:
+
         - supvisors_options: the instance holding all Supvisors options,
         - _Section: constant for the name of the Supvisors section in the Supervisor configuration file.
     """
@@ -74,8 +84,7 @@ class SupvisorsServerOptions(ServerOptions):
     _Section = 'supvisors'
 
     def __init__(self):
-        """ Initialization of the attributes. 
-        Default parameters fit, so realize is called directly. """
+        """ Initialization of the attributes. """
         ServerOptions.__init__(self)
         self.supvisors_options = SupvisorsOptions()
 
@@ -98,13 +107,15 @@ class SupvisorsServerOptions(ServerOptions):
         This method is overriden just to have an access point to the Supervisor parser. """
         configs = ServerOptions.server_configs_from_parser(self, parser)
         # set section
-        if not parser.has_section(self._Section):
-            raise ValueError('section [{}] not found in ini file {}'.format(self._Section))
+        if not parser.has_section(SupvisorsServerOptions._Section):
+            raise ValueError('.ini file ({}) does not include a [{}] section'.format(self.configfile, self._Section))
         temp, parser.mysection = parser.mysection, self._Section
         # get values
         opt = self.supvisors_options
         opt.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))))
-        opt.deployment_file = existing_dirpath(parser.getdefault('deployment_file', ''))
+        opt.deployment_file = parser.getdefault('deployment_file', None)
+        if opt.deployment_file:
+            opt.deployment_file = existing_dirpath(opt.deployment_file)
         opt.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
         opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
@@ -116,7 +127,7 @@ class SupvisorsServerOptions(ServerOptions):
         opt.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
         opt.stats_irix_mode = boolean(parser.getdefault('stats_irix_mode', 'false'))
         # configure logger
-        opt.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(self._Section)))
+        opt.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(SupvisorsServerOptions._Section)))
         opt.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
         opt.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
         opt.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
@@ -146,7 +157,7 @@ class SupvisorsServerOptions(ServerOptions):
         """ Convert a string into a ConciliationStrategies enum. """
         strategy = ConciliationStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, ConciliationStrategies.values()))
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, ConciliationStrategies._strings()))
         return strategy
 
     @staticmethod
@@ -154,21 +165,23 @@ class SupvisorsServerOptions(ServerOptions):
         """ Convert a string into a DeploymentStrategies enum. """
         strategy = DeploymentStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, DeploymentStrategies.values()))
+            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, DeploymentStrategies._strings()))
         return strategy
 
     @staticmethod
     def to_periods(value):
         """ Convert a string into a list of period values. """
+        if len(value) == 0:
+            raise ValueError('unexpected number of stats_periods: {}. minimum is 1'.format(value))
         if len(value) > 3:
-            raise ValueError('unexpected number of periods: {}. maximum is 3'.format(value))
-        periods = [ ]
+            raise ValueError('unexpected number of stats_periods: {}. maximum is 3'.format(value))
+        periods = []
         for val in value:
             period = integer(val)
             if 5 > period or period > 3600:
-                raise ValueError('invalid value for period: {}. expected in [5;3600] (seconds)'.format(val))
+                raise ValueError('invalid value for stats_periods: {}. expected in [5;3600] (seconds)'.format(val))
             if period % 5 != 0:
-                raise ValueError('invalid value for period: %d. expected multiple of 5' % period)
+                raise ValueError('invalid value for stats_periods: %d. expected multiple of 5' % period)
             periods.append(period)
         return sorted(filter(None, periods))
 
@@ -178,4 +191,4 @@ class SupvisorsServerOptions(ServerOptions):
         histo = integer(value)
         if 10 <= histo <= 1500:
             return histo
-        raise ValueError('invalid value for histo: {}. expected in [10;1500] (seconds)'.format(value))
+        raise ValueError('invalid value for stats_histo: {}. expected in [10;1500] (seconds)'.format(value))
