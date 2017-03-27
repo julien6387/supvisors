@@ -20,9 +20,10 @@
 import sys
 import unittest
 
+from mock import patch
+
 from supvisors.tests.base import DummySupvisors
 
-#FIXME: add enum tests
 
 class UtilsTest(unittest.TestCase):
     """ Test case for the utils module. """
@@ -97,7 +98,22 @@ class UtilsTest(unittest.TestCase):
         # test stddev lambda
         self.assertAlmostEqual(math.sqrt(2), stddev([2, 5, 4, 6, 3], 4))
 
-    def test_linear_regression(self):
+    def test_linear_regression_numpy(self):
+        """ Test the values set at construction. """
+        from supvisors.utils import get_linear_regression, get_simple_linear_regression
+        xdata = [2, 4, 6, 8, 10, 12]
+        ydata = [3, 4, 5, 6, 7, 8]
+        # test linear regression
+        a, b = get_linear_regression(xdata, ydata)
+        self.assertAlmostEqual(0.5, a)
+        self.assertAlmostEqual(2.0, b)
+        # test simple linear regression
+        a, b = get_simple_linear_regression(ydata)
+        self.assertAlmostEqual(1.0, a)
+        self.assertAlmostEqual(3.0, b)
+
+    @patch('numpy.polyfit', side_effect=ImportError)
+    def test_linear_regression(self, *args, **keywargs):
         """ Test the values set at construction. """
         from supvisors.utils import get_linear_regression, get_simple_linear_regression
         xdata = [2, 4, 6, 8, 10, 12]
