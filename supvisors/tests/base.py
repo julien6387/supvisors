@@ -63,6 +63,8 @@ class DummyAddressMapper:
         self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
         self.local_address = '127.0.0.1'
 
+    def filter(self, address_list):
+        return address_list
 
 class DummyAddressStatus:
     """ Simple address status with name, state and loading. """

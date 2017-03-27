@@ -124,19 +124,40 @@ class Parser(object):
             self.get_program_addresses(program_elt, process.rules)
             # get start_sequence rule
             value = program_elt.findtext('start_sequence')
-            process.rules.start_sequence = int(value) if value and int(value)>0 else 0
+            try:
+                process.rules.start_sequence = int(value)
+                if process.rules.start_sequence < 0:
+                    raise
+            except:
+                process.rules.start_sequence = 0
             # get stop_sequence rule
             value = program_elt.findtext('stop_sequence')
-            process.rules.stop_sequence = int(value) if value and int(value)>0 else 0
+            try:
+                process.rules.stop_sequence = int(value)
+                if process.rules.stop_sequence < 0:
+                    raise
+            except:
+                process.rules.stop_sequence = 0
             # get required rule
             value = program_elt.findtext('required')
-            process.rules.required = boolean(value) if value else False
+            try:
+                process.rules.required = boolean(value)
+            except:
+                process.rules.required = False
             # get wait_exit rule
             value = program_elt.findtext('wait_exit')
-            process.rules.wait_exit = boolean(value) if value else False
+            try:
+                process.rules.wait_exit = boolean(value)
+            except:
+                process.rules.wait_exit = False
             # get expected_loading rule
             value = program_elt.findtext('expected_loading')
-            process.rules.expected_loading = int(value) if value and 0 <= int(value) <= 100 else 1
+            try:
+                process.rules.expected_loading = int(value)
+                if not 0 <= process.rules.expected_loading <= 100:
+                    raise
+            except:
+                process.rules.expected_loading = 1
             # check that rules are compliant with dependencies
             process.rules.check_dependencies(process.namespec())
             self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
@@ -184,13 +205,11 @@ class Parser(object):
             # get XSD
             schemaDoc = parse(XSDContents)
             schema = XMLSchema(schemaDoc)
-            xml_valid = schema.validate(tree)
-            if xml_valid:
+            if schema.validate(tree):
                 self.logger.info('XML validated')
-            else:
-                self.logger.error('XML NOT validated: {}'.format(filename))
-                print >> stderr,  schema.error_log
-            return tree if xml_valid else None
+                return tree
+            print >> stderr,  schema.error_log
+            raise ValueError('XML NOT validated: {}'.format(filename))
         except ImportError:
             try:
                 from xml.etree.ElementTree import parse

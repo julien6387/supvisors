@@ -127,20 +127,12 @@ class AddressMapperTest(unittest.TestCase):
         for ip in ip_list:
             self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')
 
-    def test_ipv4_importerror(self):
+    @patch('netifaces.interfaces', side_effect=ImportError)
+    def test_ipv4_importerror(self, *args, **keywargs):
         """ Test the ipv4 method with a mocking of import (netifaces not installed). """
-        # store original __import__
-        ref_import = __import__
-        # patch of import
-        def import_mock(name, *args):
-            if name == 'netifaces':
-                raise ImportError
-            return ref_import(name, *args)
-        # test that empty list is returned on import error
-        with patch('__builtin__.__import__', side_effect=import_mock):
-            from supvisors.addressmapper import AddressMapper
-            ip_list = AddressMapper.ipv4()
-            self.assertFalse(ip_list)
+        from supvisors.addressmapper import AddressMapper
+        ip_list = AddressMapper.ipv4()
+        self.assertFalse(ip_list)
 
 
 def test_suite():
