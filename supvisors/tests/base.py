@@ -183,13 +183,74 @@ class DummySupvisors:
         self.zmq = DummyZmq()
 
 
+class DummyRpcHandler:
+    """ Simple supervisord RPC handler with dummy attributes. """
+
+    def __init__(self):
+        self.rpcinterface = DummyClass()
+        self.rpcinterface.supervisor = 'supervisor_RPC'
+        self.rpcinterface.supvisors = 'supvisors_RPC'
+
+
+class DummyHttpServer:
+    """ Simple supervisord RPC handler with dummy attributes. """
+
+    def __init__(self):
+        self.handlers = [DummyRpcHandler(), DummyClass()]
+
+    def install_handler(self, handler, condition):
+        self.handlers.append(handler)
+
+
+class DummyServerOptions:
+    """ Simple supervisord server options with dummy attributes. """
+
+    def __init__(self):
+        # build a fake server config
+        self.server_configs = [{'section': 'inet_http_server', 'port': 1234,
+            'username': 'user', 'password': 'p@$$w0rd'}]
+        self.serverurl = 'url'
+        self.mood = 'mood'
+        # build a fake http config
+        self.httpservers = [[None, DummyHttpServer()]]
+        self.httpserver = self.httpservers[0][1]
+        # prepare storage for close_httpservers test
+        self.storage = None
+
+    def close_httpservers(self):
+        self.storage = self.httpservers
+
+
+class DummyProcess:
+    """ Simple supervisor process with simple attributes. """
+
+    def __init__(self, command, autorestart):
+        self.state = 'STOPPED'
+        self.spawnerr = ''
+        # create dummy config
+        self.config = DummyClass()
+        self.config.command = command
+        self.config.autorestart = autorestart
+
+    def give_up(self):
+       self.state = 'FATAL'
+
+    def change_state(self, state):
+       self.state = state
+
+
 class DummySupervisor:
-    """ Simple supervisor instance with simple attributes. """
+    """ Simple supervisor with simple attributes. """
 
     def __init__(self):
         self.supvisors = DummySupvisors()
-        self.options = DummyClass()
-        self.options.server_configs = [{'section': 'inet_http_server'}]
+        self.configfile = 'supervisord.conf'
+        self.options = DummyServerOptions()
+        self.process_groups = {'dummy_application': DummyClass()}
+        group_config = self.process_groups['dummy_application']
+        group_config.config = 'dummy_application_config'
+        group_config.processes = {'dummy_process_1': DummyProcess('ls', True),
+            'dummy_process_2': DummyProcess('cat', False)}
 
 
 class DummyHttpContext:
@@ -261,41 +322,3 @@ def any_process_info_by_state(state):
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
     return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
-
-
-# Contents of a Supervisor configuration file
-SupervisorTestConfiguration = StringIO("""
-[inet_http_server]
-port=:60000
-
-[supervisord]
-
-[rpcinterface:supervisor]
-supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
-
-[supervisorctl]
-serverurl=http://localhost:60000
-
-[supvisors]
-address_list=cliche01,cliche03,cliche02
-deployment_file=my_movies.xml
-auto_fence=false
-internal_port=60001
-event_port=60002
-synchro_timeout=20
-deployment_strategy=CONFIG
-conciliation_strategy=USER
-stats_periods=5,60,600
-stats_histo=100
-stats_irix_mode=false
-logfile=supvisors.log
-logfile_maxbytes=50MB
-logfile_backups=10
-loglevel=info
-
-[rpcinterface:supvisors]
-supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-
-[ctlplugin:supvisors]
-supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
-""")

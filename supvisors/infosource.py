@@ -30,13 +30,11 @@ class SupervisordSource(object):
 
     def __init__(self, supervisord):
         self.supervisord = supervisord
-        if len(supervisord.options.server_configs) == 0:
-            raise Exception('no server configuration in config file: {}'.format(supervisord.configfile))
-        self.serverConfig = supervisord.options.server_configs[0]
+        self.server_config = supervisord.options.server_configs[0]
         # server MUST be http, not unix
-        serverSection = self.serverConfig['section'] 
+        serverSection = self.server_config['section'] 
         if serverSection != 'inet_http_server':
-            raise Exception('inet_http_server expected in config file: {}'.format(supervisord.configfile))
+            raise ValueError('inet_http_server expected in config file: {}'.format(supervisord.configfile))
         # shortcuts (not available yet)
         self._supervisor_rpc_interface = None
         self._supvisors_rpc_interface = None
@@ -47,28 +45,28 @@ class SupervisordSource(object):
         # XML-RPC call in an other XML-RPC call on the same server is blocking
         # so, not very proud of the following lines but could not access it any other way
         if not self._supervisor_rpc_interface:
-            self._supervisor_rpc_interface = self.httpservers.handlers[0].rpcinterface.supervisor
+            self._supervisor_rpc_interface = self.httpserver.handlers[0].rpcinterface.supervisor
         return self._supervisor_rpc_interface
 
     @property
     def supvisors_rpc_interface(self):
         if not self._supvisors_rpc_interface:
-            self._supvisors_rpc_interface = self.httpservers.handlers[0].rpcinterface.supvisors
+            self._supvisors_rpc_interface = self.httpserver.handlers[0].rpcinterface.supvisors
         return self._supvisors_rpc_interface
 
     @property
-    def httpservers(self):
+    def httpserver(self):
         # ugly but works...
         return self.supervisord.options.httpservers[0][1]
 
     @property
     def serverurl(self): return self.supervisord.options.serverurl
     @property
-    def serverport(self): return self.serverConfig['port']
+    def serverport(self): return self.server_config['port']
     @property
-    def username(self): return self.serverConfig['username']
+    def username(self): return self.server_config['username']
     @property
-    def password(self): return self.serverConfig['password']
+    def password(self): return self.server_config['password']
     @property
     def supervisor_state(self): return self.supervisord.options.mood
 
@@ -90,18 +88,23 @@ class SupervisordSource(object):
         # WARN: the following line may throw a KeyError exception
         return self.supervisord.process_groups[application_name].config
 
+    def get_process(self, namespec):
+        """ This method returns the process configuration related to a namespec. """
+        # WARN: the following line may throw a KeyError exception
+        application_name, process_name = split_namespec(namespec)
+        return self.supervisord.process_groups[application_name].processes[process_name]
+
+    def get_process_config(self, namespec):
+        """ This method returns the process configuration related to a namespec. """
+        return self.get_process(namespec).config
+
     def autorestart(self, namespec):
         """ This method checks if autorestart is configured on the process. """
-        application_name, process_name = split_namespec(namespec)
-        # WARN: the following line may throw a KeyError exception
-        process = self.supervisord.process_groups[application_name].processes[process_name]
-        return process.config.autorestart is not False
+        return self.get_process_config(namespec).autorestart is not False
 
     def update_extra_args(self, namespec, extra_args):
         """ This method is used to add extra arguments to the command line. """
-        application_name, process_name = split_namespec(namespec)
-        # WARN: the following line may throw a KeyError exception
-        config = self.supervisord.process_groups[application_name].processes[process_name].config
+        config = self.get_process_config(namespec)
         # on first time, save the original command line
         if not hasattr(config, 'config_ref'):
             setattr(config, 'config_ref', config.command)
@@ -113,9 +116,7 @@ class SupervisordSource(object):
 
     def force_process_fatal(self, namespec, reason):
         """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
-        application_name, process_name = split_namespec(namespec)
-        # WARN: the following line may throw a KeyError exception
-        process = self.supervisord.process_groups[application_name].processes[process_name]
+        process = self.get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
         process.spawnerr = reason
@@ -123,14 +124,12 @@ class SupervisordSource(object):
 
     def force_process_unknown(self, namespec, reason):
         """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
-        application_name, process_name = split_namespec(namespec)
-        # WARN: the following line may throw a KeyError exception
-        process = self.supervisord.process_groups[application_name].processes[process_name]
+        process = self.get_process(namespec)
         process.spawnerr = reason
         process.change_state(ProcessStates.UNKNOWN)
 
-    # this method is used to replace Supervisor web ui with Supvisors web ui
     def replace_default_handler(self):
+        """ This method is used to replace Supervisor web ui with Supvisors web ui. """
         # create default handler pointing on Supvisors ui directory
         here = os.path.abspath(os.path.dirname(__file__))
         templatedir = os.path.join(here, 'ui')
@@ -144,5 +143,5 @@ class SupervisordSource(object):
         else:
             self.supervisord.supvisors.logger.warn('Server running without any HTTP authentication checking')
         # replace Supervisor default handler at the end of the list
-        self.httpservers.handlers.pop()
-        self.httpservers.install_handler(defaulthandler, True)
+        self.httpserver.handlers.pop()
+        self.httpserver.install_handler(defaulthandler, True)
