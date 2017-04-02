@@ -20,7 +20,6 @@
 import os
 import random
 
-from StringIO import StringIO
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
 
@@ -65,6 +64,9 @@ class DummyAddressMapper:
 
     def filter(self, address_list):
         return address_list
+
+    def valid(self, address):
+        return address in self.addresses
 
 class DummyAddressStatus:
     """ Simple address status with name, state and loading. """
@@ -130,6 +132,7 @@ class DummyOptions:
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.auto_fence = True
         self.deployment_file = ''
         self.deployment_strategy = 0
         self.conciliation_strategy = 0
@@ -137,6 +140,39 @@ class DummyOptions:
         self.stats_histo = 10
         # additional process configuration
         self.procnumbers = {'xclock': 2}
+
+
+class DummyParser:
+    """ Simple Supvisors PArser behaviour. """
+ 
+    def load_application_rules(self, application):
+        pass
+
+    def load_process_rules(self, process):
+        pass
+
+
+class DummyPublisher:
+    """ Simple Supvisors Publisher behaviour. """
+ 
+    def send_supvisors_status(self, status):
+        pass
+
+    def send_address_status(self, status):
+        pass
+
+    def send_application_status(self, status):
+        pass
+
+    def send_process_status(self, status):
+        pass
+
+
+class DummyPusher:
+    """ Simple Supvisors Publisher behaviour. """
+ 
+    def send_check_address(self, status):
+        pass
 
 
 class DummyStarter:
@@ -148,19 +184,13 @@ class DummyStopper:
     """ Simple stopper. """
 
 
-class DummyPublisher:
-    """ Simple Supvisors Publisher behaviour. """
- 
-    def send_supvisors_status(self, status):
-        pass
-
-
 class DummyZmq:
     """ Simple Supvisors ZeroMQ behaviour. """
  
     def __init__(self):
         self.internal_subscriber = None
         self.puller = None
+        self.pusher = DummyPusher()
         self.publisher = DummyPublisher()
 
 
@@ -175,6 +205,7 @@ class DummySupvisors:
         self.info_source = DummyInfoSource()
         self.logger = DummyLogger()
         self.options = DummyOptions()
+        self.parser = DummyParser()
         self.pool = DummyClass()
         self.requester = DummyClass()
         self.statistician = DummyClass()
@@ -302,6 +333,10 @@ ProcessInfoDatabase = [
         'group': 'sample_test_2', 'name': 'yeux_01', 'statename': 'RUNNING', 'start': 1473888086, 'state': 20,
         'stdout_logfile': './log/xeyes_cliche01.log'}]
 
+
+def database_copy():
+    """ Return a copy of the whole database. """
+    return [info.copy() for info in ProcessInfoDatabase]
 
 def any_process_info():
     """ Return a copy of any process in database. """

@@ -151,9 +151,9 @@ class ProcessStatus(object):
         return self._state
 
     @state.setter
-    def state(self, newState):
-        if self._state != newState:
-            self._state = newState
+    def state(self, new_state):
+        if self._state != new_state:
+            self._state = new_state
             self.logger.info('Process {} is {} at {}'.format(self.namespec(), self.state_string(), list(self.addresses)))
 
     def conflicting(self):
