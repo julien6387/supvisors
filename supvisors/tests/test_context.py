@@ -22,7 +22,7 @@ import sys
 import time
 import unittest
 
-from mock import patch
+from mock import call, patch
 
 from supvisors.tests.base import (DummyAddressMapper, DummySupvisors,
     ProcessInfoDatabase, database_copy, any_process_info)
@@ -371,82 +371,69 @@ class ContextTest(unittest.TestCase):
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        # define patch functions
-        def check_address(*args, **keywargs):
-            check_address.called = args[0]
-        def send_address(*args, **keywargs):
-            send_address.called = args[0]
-        with patch.object(self.supvisors.zmq.pusher, 'send_check_address', side_effect=check_address):
-            with patch.object(self.supvisors.zmq.publisher, 'send_address_status', side_effect=send_address):
+        with patch.object(self.supvisors.zmq.pusher, 'send_check_address') as mocked_check:
+            with patch.object(self.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
                 # check no exception with unknown address
-                check_address.called, send_address.called = None, None
                 context.on_tick_event('10.0.0.0', {})
-                self.assertIsNone(check_address.called)
-                self.assertIsNone(send_address.called)
+                self.assertEqual(0, mocked_check.call_count)
+                self.assertEqual(0, mocked_send.call_count)
                 # get address status used for tests
                 address = context.addresses['10.0.0.1']
-                # define check function
-                def check(event, set_state, res_state, check_result, send_result):
-                    check_address.called, send_address.called = None, None
-                    address._state = set_state
-                    context.on_tick_event('10.0.0.1', event)
-                    self.assertEqual(res_state, address.state)
-                    self.assertEqual(check_result, check_address.called)
-                    self.assertIs(send_result, send_address.called)
                 # check no change with known address in isolation
                 for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-                    check({}, state, state, None, None)
+                    address._state = state
+                    context.on_tick_event('10.0.0.1', {})
+                    self.assertEqual(state, address.state)
+                    self.assertEqual(0, mocked_check.call_count)
+                    self.assertEqual(0, mocked_send.call_count)
                 # check that address is CHECKING and check_address is called
                 # before address time is updated and address status is sent
                 for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                    check({'when': 1234}, state, AddressStates.CHECKING, '10.0.0.1', address)
+                    address._state = state
+                    context.on_tick_event('10.0.0.1', {'when': 1234})
+                    self.assertEqual(AddressStates.CHECKING, address.state)
+                    self.assertEqual(call('10.0.0.1'), mocked_check.call_args)
+                    self.assertEqual(call(address), mocked_send.call_args)
                     self.assertEqual(1234, address.remote_time)
                 # check that address time is updated and address status is sent
+                mocked_check.reset_mock()
+                mocked_send.reset_mock()
                 for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
-                    check({'when': 5678}, state, state, None, address)
+                    address._state = state
                     context.on_tick_event('10.0.0.1', {'when': 5678})
+                    self.assertEqual(state, address.state)
+                    self.assertEqual(0, mocked_check.call_count)
+                    self.assertEqual(call(address), mocked_send.call_args)
+                    self.assertEqual(5678, address.remote_time)
 
     def test_process_event(self):
         """ Test the handling of a process event. """
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates, ApplicationStates
         context = Context(self.supvisors)
-        # define patch functions
-        def send_application(*args, **keywargs):
-            send_application.called = args[0]
-        def send_process(*args, **keywargs):
-            send_process.called = args[0]
-        with patch.object(self.supvisors.zmq.publisher, 'send_application_status', side_effect=send_application):
-            with patch.object(self.supvisors.zmq.publisher, 'send_process_status', side_effect=send_process):
+        with patch.object(self.supvisors.zmq.publisher, 'send_application_status') as mocked_appli:
+            with patch.object(self.supvisors.zmq.publisher, 'send_process_status') as mocked_proc:
                 # check no exception with unknown address
-                send_application.called, send_process.called = None, None
                 result = context.on_process_event('10.0.0.0', {})
                 self.assertIsNone(result)
-                self.assertIsNone(send_application.called)
-                self.assertIsNone(send_process.called)
+                self.assertEqual(0, mocked_appli.call_count)
+                self.assertEqual(0, mocked_proc.call_count)
                 # get address status used for tests
                 address = context.addresses['10.0.0.1']
-                # define check function
-                def check(event, state, process, send_application_result):
-                    send_application.called, send_process.called = None, None
-                    address._state = state
-                    result = context.on_process_event('10.0.0.1', event)
-                    self.assertIs(process, result)
-                    if (process):
-                        # test process updated info
-                        self.assertEqual(event['state'], process.state)
-                        self.assertEqual(event['now'], process.last_event_time)
-                        # check application status
-                        self.assertEqual(ApplicationStates.STARTING, application.state)
-                    # test publication of status
-                    self.assertEqual(send_application_result, send_application.called)
-                    self.assertIs(process, send_process.called)
                 # check no change with known address in isolation
                 for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-                    check({}, state, None, None)
+                    address._state = state
+                    result = context.on_process_event('10.0.0.1', {})
+                    self.assertIsNone(result)
+                    self.assertEqual(0, mocked_appli.call_count)
+                    self.assertEqual(0, mocked_proc.call_count)
                 # check no exception with unknown process
                 for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-                    check({'groupname': 'dummy_application', 'processname': 'dummy_process'}, state, None, None)
+                    address._state = state
+                    result = context.on_process_event('10.0.0.1', {'groupname': 'dummy_application', 'processname': 'dummy_process'})
+                    self.assertIsNone(result)
+                    self.assertEqual(0, mocked_appli.call_count)
+                    self.assertEqual(0, mocked_proc.call_count)
                 # fill context with one process
                 dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'spawnerr': '', 'now': 1234, 'state': 0}
                 process = context.setdefault_process(dummy_info)
@@ -456,26 +443,28 @@ class ContextTest(unittest.TestCase):
                 # check normal behaviour with known process
                 dummy_event = {'groupname': 'dummy_application', 'processname': 'dummy_process', 'state': 10, 'now': 2345}
                 for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-                    check(dummy_event, state, process, application)
+                    address._state = state
+                    result = context.on_process_event('10.0.0.1', dummy_event)
+                    self.assertIs(process, result)
+                    self.assertEqual(10, process.state)
+                    self.assertEqual(2345, process.last_event_time)
+                    self.assertEqual(ApplicationStates.STARTING, application.state)
+                    self.assertEqual(call(application), mocked_appli.call_args)
+                    self.assertEqual(call(process), mocked_proc.call_args)
 
     def test_timer_event(self):
         """ Test the handling of a timer event. """
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        # define patch functions
-        def send_address(*args, **keywargs):
-            send_address.called.append(args[0])
-        with patch.object(self.supvisors.zmq.publisher, 'send_address_status', side_effect=send_address):
+        with patch.object(self.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
             # test address states excepting RUNNING: nothing happens
             for state in [x for x in AddressStates._values() if x != AddressStates.RUNNING]:
-                send_address.called = []
                 context.on_timer_event()
                 for address in context.addresses.values():
                     self.assertEqual(AddressStates.UNKNOWN, address.state)
-                self.assertListEqual([], send_address.called)
+                self.assertEqual(0, mocked_send.call_count)
             # test RUNNING address state with recent local_time
-            send_address.called = []
             test_addresses = ['10.0.0.1', '10.0.0.3',  '10.0.0.5']
             for address_name in test_addresses:
                 address = context.addresses[address_name]
@@ -486,9 +475,8 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(AddressStates.RUNNING, context.addresses[address_name].state)
             for address_name in [x for x in context.addresses.keys() if x not in test_addresses]:
                 self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
-            self.assertListEqual([], send_address.called)
+            self.assertEqual(0, mocked_send.call_count)
             # test RUNNING address state with one recent local_time and with auto_fence activated
-            send_address.called = []
             address1 = context.addresses['10.0.0.3']
             address1.local_time = time.time() - 100
             context.on_timer_event()
@@ -497,10 +485,10 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(AddressStates.RUNNING, context.addresses[address_name].state)
             for address_name in [x for x in context.addresses.keys() if x not in test_addresses]:
                 self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
-            self.assertListEqual([address1], send_address.called)
+            self.assertEqual(call(address1), mocked_send.call_args)
             # test with one other recent local_time and with auto_fence deactivated
             with patch.object(self.supvisors.options, 'auto_fence', False):
-                send_address.called = []
+                mocked_send.reset_mock()
                 address2 = context.addresses['10.0.0.5']
                 address2.local_time = time.time() - 100
                 address3 = context.addresses['10.0.0.1']
@@ -511,17 +499,14 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(AddressStates.ISOLATING, address1.state)
                 for address_name in [x for x in context.addresses.keys() if x not in test_addresses]:
                     self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
-                self.assertItemsEqual([address2, address3], send_address.called)
+                self.assertListEqual([call(address2), call(address3)], mocked_send.call_args_list)
 
     def test_handle_isolation(self):
         """ Test the isolation of addresses. """
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        # define patch functions
-        def send_address(*args, **keywargs):
-            send_address.called.append(args[0])
-        with patch.object(self.supvisors.zmq.publisher, 'send_address_status', side_effect=send_address):
+        with patch.object(self.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
             # update address states
             context.addresses['127.0.0.1']._state = AddressStates.CHECKING
             context.addresses['10.0.0.1']._state = AddressStates.RUNNING
@@ -530,7 +515,6 @@ class ContextTest(unittest.TestCase):
             context.addresses['10.0.0.4']._state = AddressStates.ISOLATING
             context.addresses['10.0.0.5']._state = AddressStates.ISOLATING
             # call method and check result
-            send_address.called = []
             result = context.handle_isolation()
             self.assertEqual(AddressStates.CHECKING, context.addresses['127.0.0.1'].state)
             self.assertEqual(AddressStates.RUNNING, context.addresses['10.0.0.1'].state)
@@ -538,8 +522,10 @@ class ContextTest(unittest.TestCase):
             self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.3'].state)
             self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.4'].state)
             self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.5'].state)
-            self.assertItemsEqual([context.addresses['10.0.0.4'], context.addresses['10.0.0.5']], send_address.called)
             self.assertItemsEqual(['10.0.0.4', '10.0.0.5'], result)
+            # check calls to publisher.send_address_status
+            self.assertItemsEqual([call(context.addresses['10.0.0.4']), call(context.addresses['10.0.0.5'])],
+                mocked_send.call_args_list)
 
 
 def test_suite():
