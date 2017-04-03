@@ -132,7 +132,7 @@ class HostAddressView(StatusView, ViewHandler):
             # build Network image
             if HostAddressView.interface_stats:
                 io_img = StatisticsPlot()
-                io_img.addPlot('{} recv'.format(HostAddressView.interface_stats), 'kbits/s',
+                io_img.add_plot('{} recv'.format(HostAddressView.interface_stats), 'kbits/s',
                     stats_instance.io[HostAddressView.interface_stats][0])
                 io_img.add_plot('{} sent'.format(HostAddressView.interface_stats), 'kbits/s',
                     stats_instance.io[HostAddressView.interface_stats][1])

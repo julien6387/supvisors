@@ -18,8 +18,6 @@
 # ======================================================================
 
 import math
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from supvisors.utils import get_stats
@@ -27,16 +25,20 @@ from supvisors.utils import get_stats
 
 # class to create statistics graph using matplotlib 
 class StatisticsPlot(object):
+    """ Class used to export statistics data into a PNG graph. """
 
     def __init__(self):
+        """ Initialization of the plot. """
         plt.figure(figsize=(6, 3))
         self.ydata = {}
 
     def add_plot(self, title, unit, ydata):
+        """ Add a defined series of values to the plot. """
         if len(ydata) > 0:
             self.ydata[title, unit] = ydata
 
     def export_image(self, image_contents):
+        """ Write curves into a PNG image. """
         if self.ydata:
             # calculate and apply max range
             all_ydata = []
@@ -73,7 +75,8 @@ class StatisticsPlot(object):
 
     @staticmethod
     def get_range(lst):
-        # legend need additional space
+        """ Return a custom range from a series of values.
+        Max range is increased to let additional space for legend. """
         min_range = math.floor(min(lst))
         max_range = math.ceil(max(lst))
         range = max_range - min_range

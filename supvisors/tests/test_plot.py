@@ -42,6 +42,19 @@ class StatisticsPlotTest(unittest.TestCase):
         # test that result is a PNG file
         self.assertEqual('png', imghdr.what('', h=contents.contents.getvalue()))
 
+    def test_get_range(self):
+        """ Test a simple plot.
+        Complex to test anything. Just check that there is no exception. """
+        from supvisors.plot import StatisticsPlot
+        # first test
+        min_range, max_range = StatisticsPlot.get_range([10, 50, 30,  90])
+        self.assertAlmostEqual(2.0, min_range)
+        self.assertAlmostEqual(118.0, max_range)
+        # second test
+        min_range, max_range = StatisticsPlot.get_range([0, 100])
+        self.assertAlmostEqual(0.0, min_range)
+        self.assertAlmostEqual(135.0, max_range)
+
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
