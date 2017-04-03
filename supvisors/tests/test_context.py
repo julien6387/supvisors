@@ -499,7 +499,7 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(AddressStates.ISOLATING, address1.state)
                 for address_name in [x for x in context.addresses.keys() if x not in test_addresses]:
                     self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
-                self.assertListEqual([call(address2), call(address3)], mocked_send.call_args_list)
+                self.assertItemsEqual([call(address2), call(address3)], mocked_send.call_args_list)
 
     def test_handle_isolation(self):
         """ Test the isolation of addresses. """

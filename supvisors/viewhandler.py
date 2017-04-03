@@ -245,12 +245,12 @@ class ViewHandler(object):
                     from supvisors.plot import StatisticsPlot
                     # build CPU image
                     cpu_img = StatisticsPlot()
-                    cpu_img.addPlot('CPU', '%', proc_stats[0])
-                    cpu_img.exportImage(process_cpu_image)
+                    cpu_img.add_plot('CPU', '%', proc_stats[0])
+                    cpu_img.export_image(process_cpu_image)
                     # build Memory image
                     mem_img = StatisticsPlot()
-                    mem_img.addPlot('MEM', '%', proc_stats[1])
-                    mem_img.exportImage(process_mem_image)
+                    mem_img.add_plot('MEM', '%', proc_stats[1])
+                    mem_img.export_image(process_mem_image)
                 except ImportError:
                     self.logger.warn("matplotlib module not found")
             else:

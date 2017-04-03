@@ -122,21 +122,21 @@ class HostAddressView(StatusView, ViewHandler):
             from supvisors.plot import StatisticsPlot
             # build CPU image
             cpu_img = StatisticsPlot()
-            cpu_img.addPlot('CPU #{}'.format(self.cpu_id_to_string(HostAddressView.cpu_id_stats)), '%',
+            cpu_img.add_plot('CPU #{}'.format(self.cpu_id_to_string(HostAddressView.cpu_id_stats)), '%',
                 stats_instance.cpu[HostAddressView.cpu_id_stats])
-            cpu_img.exportImage(address_cpu_image)
+            cpu_img.export_image(address_cpu_image)
             # build Memory image
             mem_img = StatisticsPlot()
-            mem_img.addPlot('MEM', '%', stats_instance.mem)
-            mem_img.exportImage(address_mem_image)
+            mem_img.add_plot('MEM', '%', stats_instance.mem)
+            mem_img.export_image(address_mem_image)
             # build Network image
             if HostAddressView.interface_stats:
                 io_img = StatisticsPlot()
                 io_img.addPlot('{} recv'.format(HostAddressView.interface_stats), 'kbits/s',
                     stats_instance.io[HostAddressView.interface_stats][0])
-                io_img.addPlot('{} sent'.format(HostAddressView.interface_stats), 'kbits/s',
+                io_img.add_plot('{} sent'.format(HostAddressView.interface_stats), 'kbits/s',
                     stats_instance.io[HostAddressView.interface_stats][1])
-                io_img.exportImage(address_io_image)
+                io_img.export_image(address_io_image)
         except ImportError:
             self.logger.warn("matplotlib module not found")
 
