@@ -18,6 +18,8 @@
 # ======================================================================
 
 import math
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from supvisors.utils import get_stats
