@@ -146,10 +146,10 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(info['name'], process.process_name)
         self.assertEqual(ProcessStates.UNKNOWN, process.state)
         self.assertTrue(process.expected_exit)
-        self.assertIsNone(process.last_event_time)
+        self.assertEqual(0, process.last_event_time)
         self.assertFalse(process.mark_for_restart)
-        self.assertFalse(process.addresses)
-        self.assertFalse(process.infos)
+        self.assertEqual(set(), process.addresses)
+        self.assertEqual({}, process.infos)
         self.assertEqual('', process.extra_args)
         self.assertFalse(process.ignore_wait_exit)
         # rules part

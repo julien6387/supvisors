@@ -108,7 +108,7 @@ class ProcessStatus(object):
         self.process_name = process_name
         self._state = ProcessStates.UNKNOWN
         self.expected_exit = True
-        self.last_event_time = None
+        self.last_event_time = 0
         self.mark_for_restart = False
         # expected one single applicable address
         self.addresses = set() # addresses

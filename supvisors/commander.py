@@ -59,21 +59,23 @@ class Commander(object):
         """ Simple form of planned_sequence, so that it can be printed. """
         return {application_sequence:
                 {application_name:
-                    {sequence: self.printable_process_list(processes) for sequence, processes in sequences.items()}
+                    {sequence: Commander.printable_process_list(processes) for sequence, processes in sequences.items()}
                 for application_name, sequences in applications.items()}
             for application_sequence, applications in self.planned_sequence.items()}
 
     def printable_planned_jobs(self):
         """ Simple form of planned_jobs, so that it can be printed. """
         return {application_name:
-                {sequence: self.printable_process_list(processes) for sequence, processes in sequences.items()}
+                {sequence: Commander.printable_process_list(processes) for sequence, processes in sequences.items()}
             for application_name, sequences in self.planned_jobs.items()}
 
     def printable_current_jobs(self):
         """ Simple form of current_jobs, so that it can be printed. """
-        return {application_name: self.printable_process_list(processes) for application_name, processes in self.current_jobs.items()}
+        return {application_name: Commander.printable_process_list(processes)
+            for application_name, processes in self.current_jobs.items()}
 
-    def printable_process_list(self, processes):
+    @staticmethod
+    def printable_process_list(processes):
         """ Simple form of process_list, so that it can be printed. """
         return [process.namespec() for process in processes]
 
@@ -114,6 +116,11 @@ class Commander(object):
                 self.planned_jobs.pop(application_name, None)
         else:
             self.logger.warn('application {} not found in jobs'.format(application_name))
+
+    def process_job(self, process, jobs):
+        """ Perform the action on process and push progeess in jobs list.
+        Method must be implemented in subclasses. """
+        raise NotImplementedError
 
 
 class Starter(Commander):
@@ -213,13 +220,14 @@ class Starter(Commander):
             self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
         # once the start_process has been called, a STARTING event is expected in less than 5 seconds
         now = time.time()
-        processes= [process for process_list in self.current_jobs.values() for process in process_list]
+        processes = [process for process_list in self.current_jobs.values() for process in process_list]
         self.logger.trace('now={} checking processes={}'.format(now,
             [(process.process_name, process.state, process.request_time, process.last_event_time) for process in processes]))
         for process in processes:
             # depending on ini file, it may take a while before the process enters in RUNNING state
             # so just test that is in not in a STOPPED-like state 5 seconds after request_time
             if process.stopped() and max(process.last_event_time, process.request_time) + 5 < now:
+                # removal from jobs is not necessary as process_failure will generate a FATAL event for this process
                 self.process_failure(process, 'Still stopped 5 seconds after start request', True)
         # return True when starting is completed
         return not self.in_progress()
@@ -341,7 +349,7 @@ class Starter(Commander):
                 self.logger.error('impossible to force {} state to FATAL. process unknown in this Supervisor'.format(process.namespec()))
                 # the Supvisors user is not forced to use the same process configuration on all machines,
                 # although it is strongly recommended to avoid troubles.
-                # so, publish directly a fake process event
+                # so, publish directly a fake process event to all Supvisors instances
                 self.supvisors.listener.force_process_fatal(process.namespec())
 
 
@@ -458,5 +466,5 @@ class Stopper(Commander):
             self.logger.error('impossible to force {} state to UNKNOWN. process unknown in this Supervisor'.format(namespec))
             # the Supvisors user is not forced to use the same process configuration on all machines,
             # although it is strongly recommended to avoid troubles.
-            # so, publish directly a fake process event
+            # so, publish directly a fake process event to all instances
             self.supvisors.listener.force_process_unknown(namespec)

@@ -123,6 +123,22 @@ class DummyInfoSource:
     def autorestart(self, namespec):
         return namespec == 'test_autorestart'
 
+    def force_process_fatal(self, namespec, reason):
+        pass
+
+    def force_process_unknown(self, namespec, reason):
+        pass
+
+
+class DummyListener:
+    """ Simple listener with dummy methods. """
+
+    def force_process_fatal(self, namespec):
+        pass
+
+    def force_process_unknown(self, namespec):
+        pass
+
 
 class DummyOptions:
     """ Simple options with dummy attributes. """
@@ -174,6 +190,12 @@ class DummyPusher:
     def send_check_address(self, status):
         pass
 
+    def send_start_process(self, address, namespec, extra_args):
+        pass
+
+    def send_stop_process(self, address, namespec):
+        pass
+
 
 class DummyStarter:
     """ Simple starter. """
@@ -182,6 +204,9 @@ class DummyStarter:
 
 class DummyStopper:
     """ Simple stopper. """
+
+    def stop_application(self, application):
+        pass
 
 
 class DummyZmq:
@@ -203,6 +228,7 @@ class DummySupvisors:
         self.deployer = DummyClass()
         self.fsm = DummyClass()
         self.info_source = DummyInfoSource()
+        self.listener = DummyListener()
         self.logger = DummyLogger()
         self.options = DummyOptions()
         self.parser = DummyParser()
