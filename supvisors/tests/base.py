@@ -29,120 +29,112 @@ class DummyClass:
 
 class DummyLogger:
     """ Simple logger that stores log traces. """
-
     def __init__(self):
         self.messages = []
-
     def critical(self, message):
         self.messages.append(('critical', message))
-
     def error(self, message):
         self.messages.append(('error', message))
-
     def warn(self, message):
         self.messages.append(('warn', message))
-
     def info(self, message):
         self.messages.append(('info', message))
-
     def debug(self, message):
         self.messages.append(('debug', message))
-
     def trace(self, message):
         self.messages.append(('trace', message))
-
     def blather(self, message):
         self.messages.append(('blather', message))
 
 
 class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
-
     def __init__(self):
         self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
         self.local_address = '127.0.0.1'
-
     def filter(self, address_list):
         return address_list
-
     def valid(self, address):
         return address in self.addresses
 
+
 class DummyAddressStatus:
     """ Simple address status with name, state and loading. """
-
     def __init__(self, name, state, load):
         self.name = name
         self.state = state
         self.load = load
-
     def state_string(self):
         return ""
-
     def loading(self):
         return self.load
 
 
 class DummyApplicationStatus:
     """ Simple ApplicationStatus. """
-
     def sequence_deployment(self):
         pass
-
     def update_status(self):
         pass
 
 
 class DummyContext:
     """ Simple context with an empty list of AddressStatus. """
-
     def __init__(self):
         self.addresses = {}
         self.applications = {}
         self.master_address = ''
         self.master = True
-
-    # TODO: implement running_addresses, unknown_addresses, conflicting, conflicts, marked_processes,
-    #                 on_timer_event, handle_isolation, on_tick_event, on_process_event
-
-# TEMP
-def read_string(self, s):
-    from StringIO import StringIO
-    s = StringIO(s)
-    return self.readfp(s)
+    def conflicting(self):
+        return False
+    def conflicts(self):
+        pass
+    def end_synchro(self):
+        pass
+    def handle_isolation(self):
+        pass
+    def load_processes(self, address_name, proc_list):
+        pass
+    def marked_processes(self):
+        pass
+    def on_authorization(self, address_name, auth):
+        pass
+    def on_process_event(self, address_name, event):
+        pass
+    def on_tick_event(self, address_name, stamp):
+        pass
+    def on_timer_event(self):
+        pass
+    def running_addresses(self):
+        pass
+    def unknown_addresses(self):
+        pass
 
 
 class DummyInfoSource:
     """ Simple info source with dummy methods. """
-
     def get_env(self):
         return {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
             'SUPERVISOR_USERNAME': '',
             'SUPERVISOR_PASSWORD': ''}
-
     def autorestart(self, namespec):
         return namespec == 'test_autorestart'
-
     def force_process_fatal(self, namespec, reason):
         pass
-
     def force_process_unknown(self, namespec, reason):
         pass
 
 
 class DummyListener:
     """ Simple listener with dummy methods. """
-
     def force_process_fatal(self, namespec):
         pass
-
     def force_process_unknown(self, namespec):
         pass
 
 
 class DummyOptions:
     """ Simple options with dummy attributes. """
-
     def __init__(self):
         # configuration options
         self.internal_port = 65100
@@ -160,58 +152,69 @@ class DummyOptions:
 
 class DummyParser:
     """ Simple Supvisors PArser behaviour. """
- 
     def load_application_rules(self, application):
         pass
-
     def load_process_rules(self, process):
         pass
 
 
 class DummyPublisher:
     """ Simple Supvisors Publisher behaviour. """
- 
     def send_supvisors_status(self, status):
         pass
-
     def send_address_status(self, status):
         pass
-
     def send_application_status(self, status):
         pass
-
     def send_process_status(self, status):
         pass
 
 
 class DummyPusher:
     """ Simple Supvisors Publisher behaviour. """
- 
     def send_check_address(self, status):
         pass
-
     def send_start_process(self, address, namespec, extra_args):
         pass
-
     def send_stop_process(self, address, namespec):
+        pass
+    def send_restart(self, address):
+        pass
+    def send_shutdown(self, address):
         pass
 
 
 class DummyStarter:
     """ Simple starter. """
-        # TODO: deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
-
+    def abort(self):
+        pass
+    def check_starting(self):
+        pass
+    def in_progress(self):
+        pass
+    def on_event(self, event):
+        pass
+    def start_applications(self):
+        pass
+    def start_marked_processes(self):
+        pass
 
 class DummyStopper:
     """ Simple stopper. """
-
+    def check_stopping(self):
+        pass
+    def in_progress(self):
+        pass
+    def on_event(self, event):
+        pass
     def stop_application(self, application):
+        pass
+    def stop_applications(self):
         pass
 
 
 class DummyZmq:
     """ Simple Supvisors ZeroMQ behaviour. """
- 
     def __init__(self):
         self.internal_subscriber = None
         self.puller = None
@@ -221,7 +224,6 @@ class DummyZmq:
 
 class DummySupvisors:
     """ Simple supvisors with all dummies. """
-
     def __init__(self):
         self.address_mapper = DummyAddressMapper()
         self.context = DummyContext()
@@ -242,7 +244,6 @@ class DummySupvisors:
 
 class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
-
     def __init__(self):
         self.rpcinterface = DummyClass()
         self.rpcinterface.supervisor = 'supervisor_RPC'
@@ -251,17 +252,14 @@ class DummyRpcHandler:
 
 class DummyHttpServer:
     """ Simple supervisord RPC handler with dummy attributes. """
-
     def __init__(self):
         self.handlers = [DummyRpcHandler(), DummyClass()]
-
     def install_handler(self, handler, condition):
         self.handlers.append(handler)
 
 
 class DummyServerOptions:
     """ Simple supervisord server options with dummy attributes. """
-
     def __init__(self):
         # build a fake server config
         self.server_configs = [{'section': 'inet_http_server', 'port': 1234,
@@ -273,14 +271,12 @@ class DummyServerOptions:
         self.httpserver = self.httpservers[0][1]
         # prepare storage for close_httpservers test
         self.storage = None
-
     def close_httpservers(self):
         self.storage = self.httpservers
 
 
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
-
     def __init__(self, command, autorestart):
         self.state = 'STOPPED'
         self.spawnerr = ''
@@ -288,17 +284,14 @@ class DummyProcess:
         self.config = DummyClass()
         self.config.command = command
         self.config.autorestart = autorestart
-
     def give_up(self):
        self.state = 'FATAL'
-
     def change_state(self, state):
        self.state = state
 
 
 class DummySupervisor:
     """ Simple supervisor with simple attributes. """
-
     def __init__(self):
         self.supvisors = DummySupvisors()
         self.configfile = 'supervisord.conf'
@@ -312,7 +305,6 @@ class DummySupervisor:
 
 class DummyHttpContext:
     """ Simple HTTP context for web ui views. """
-
     def __init__(self, template):
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
