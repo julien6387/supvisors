@@ -144,10 +144,13 @@ class StateMachinesTest(unittest.TestCase):
         self.assertEqual(ApplicationStates.RUNNING, application.state)
         self.assertTrue(application.minor_failure)
         self.assertFalse(application.major_failure)
-        self.assertDictEqual({0: [application.processes['yeux_01'], application.processes['yeux_00']],
-            1: [application.processes['sleep']]}, application.start_sequence)
-        self.assertDictEqual({1: [application.processes['yeux_01'], application.processes['yeux_00']],
-            2: [application.processes['sleep']]}, application.stop_sequence)
+        # list order may differ, so break down
+        self.assertItemsEqual([0, 1], application.start_sequence.keys())
+        self.assertItemsEqual([application.processes['yeux_01'], application.processes['yeux_00']], application.start_sequence[0])
+        self.assertItemsEqual([application.processes['sleep']], application.start_sequence[1])
+        self.assertItemsEqual([1, 2], application.stop_sequence.keys())
+        self.assertItemsEqual([application.processes['yeux_01'], application.processes['yeux_00']], application.stop_sequence[1])
+        self.assertItemsEqual([application.processes['sleep']], application.stop_sequence[2])
         # test next method
         # stay in DEPLOYMENT if local is master and a deployment is in progress, whatever the conflict status
         with patch.object(self.supvisors.starter, 'check_starting', return_value=False):
