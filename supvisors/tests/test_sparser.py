@@ -23,7 +23,7 @@ import unittest
 from mock import patch
 from StringIO import StringIO
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 from supvisors.tests.configurations import InvalidXmlTest, XmlTest
 
 
@@ -32,7 +32,7 @@ class ParserTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a ldummy supvisors structure. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     @patch('lxml.etree.parse', side_effect=ImportError)
     @patch('xml.etree.ElementTree.parse', side_effect=ImportError)

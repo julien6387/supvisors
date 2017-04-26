@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from supvisors.tests.base import (DummySupvisors,
+from supvisors.tests.base import (MockedSupvisors,
     any_process_info, any_stopped_process_info,
     process_info_by_name, any_process_info_by_state)
 
@@ -30,7 +30,7 @@ class ProcessRulesTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_create(self):
         """ Test the values set at construction. """
@@ -132,7 +132,7 @@ class ProcessTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_create(self):
         """ Test the values set at construction. """
@@ -234,7 +234,10 @@ class ProcessTest(unittest.TestCase):
         from supvisors.process import ProcessStatus
         info = any_process_info()
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
+        self.supvisors.info_source.autorestart.return_value = False
         self.assertTrue(process.accept_extra_arguments())
+        self.supvisors.info_source.autorestart.return_value = True
+        self.assertFalse(process.accept_extra_arguments())
 
     def test_serialization(self):
         """ Test the serialization of the ProcessStatus. """
@@ -510,6 +513,7 @@ class ProcessTest(unittest.TestCase):
         # check state (running process)
         self.assertEqual(ProcessStates.STARTING, process.state)
         # invalidate STARTING one
+        self.supvisors.info_source.autorestart.return_value = False
         process.invalidate_address('10.0.0.3')
         # check UNKNOWN
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.3']['state'])

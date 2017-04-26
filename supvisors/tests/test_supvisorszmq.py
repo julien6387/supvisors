@@ -24,7 +24,7 @@ import time
 import unittest
 import zmq
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 
 
 def get_connections(port):
@@ -67,7 +67,7 @@ class ZmqSocketTest(unittest.TestCase):
         """ Create a dummy supvisors and a ZMQ context. """
         from supvisors.supvisorszmq import create_zmq_context
         # the dummy Supvisors is used for addresses and ports
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         self.zmq_context = create_zmq_context()
 
@@ -200,7 +200,7 @@ class InternalEventTest(unittest.TestCase):
         """ Create a dummy supvisors, ZMQ context and sockets. """
         from supvisors.supvisorszmq import create_zmq_context, InternalEventPublisher, InternalEventSubscriber
         # the dummy Supvisors is used for addresses and ports
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         self.zmq_context = create_zmq_context()
         # create publisher and subscriber
@@ -293,7 +293,7 @@ class RequestTest(unittest.TestCase):
         """ Create a dummy supvisors, ZMQ context and sockets. """
         from supvisors.supvisorszmq import create_zmq_context, RequestPusher, RequestPuller
         # the dummy Supvisors is used for addresses and ports
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         self.zmq_context = create_zmq_context()
         # create pusher and puller
@@ -377,7 +377,7 @@ class EventTest(unittest.TestCase):
         """ Create a dummy supvisors and a ZMQ context. """
         from supvisors.supvisorszmq import create_zmq_context, EventPublisher, EventSubscriber
         # the dummy Supvisors is used for addresses and ports
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         self.zmq_context = create_zmq_context()
         # create publisher and subscriber
@@ -538,7 +538,7 @@ class SupvisorsZmqTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_creation_closure(self):
         """ Test the types of the attributes created. """

@@ -22,9 +22,9 @@ import random
 import socket
 import unittest
 
-from mock import patch
+from mock import patch, Mock
 
-from supvisors.tests.base import DummyLogger
+from supervisor.loggers import Logger
 
 
 class AddressMapperTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class AddressMapperTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.logger = DummyLogger()
+        self.logger = Mock(spec=Logger)
 
     def test_create(self):
         """ Test the values set at construction. """

@@ -20,7 +20,9 @@
 import sys
 import unittest
 
-from supvisors.tests.base import DummyAddressStatus, DummySupvisors
+from mock import Mock
+
+from supvisors.tests.base import MockedSupvisors
 
 
 class DeploymentStrategyTest(unittest.TestCase):
@@ -28,15 +30,21 @@ class DeploymentStrategyTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # add addresses to context
+        from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
-        self.supvisors.context.addresses['10.0.0.0'] = DummyAddressStatus('10.0.0.0', AddressStates.SILENT, 0)
-        self.supvisors.context.addresses['10.0.0.1'] = DummyAddressStatus('10.0.0.1', AddressStates.RUNNING, 50)
-        self.supvisors.context.addresses['10.0.0.2'] = DummyAddressStatus('10.0.0.2', AddressStates.ISOLATED, 0)
-        self.supvisors.context.addresses['10.0.0.3'] = DummyAddressStatus('10.0.0.3', AddressStates.RUNNING, 20)
-        self.supvisors.context.addresses['10.0.0.4'] = DummyAddressStatus('10.0.0.4', AddressStates.UNKNOWN, 0)
-        self.supvisors.context.addresses['10.0.0.5'] = DummyAddressStatus('10.0.0.5', AddressStates.RUNNING, 80)
+        def create_address_status(name, address_state, loading):
+            address_status = Mock(spec=AddressStatus, state=address_state)
+            address_status.address_name = name
+            address_status.loading.return_value = loading
+            return address_status
+        self.supvisors.context.addresses['10.0.0.0'] = create_address_status('10.0.0.0', AddressStates.SILENT, 0)
+        self.supvisors.context.addresses['10.0.0.1'] = create_address_status('10.0.0.1', AddressStates.RUNNING, 50)
+        self.supvisors.context.addresses['10.0.0.2'] = create_address_status('10.0.0.2', AddressStates.ISOLATED, 0)
+        self.supvisors.context.addresses['10.0.0.3'] = create_address_status('10.0.0.3', AddressStates.RUNNING, 20)
+        self.supvisors.context.addresses['10.0.0.4'] = create_address_status('10.0.0.4', AddressStates.UNKNOWN, 0)
+        self.supvisors.context.addresses['10.0.0.5'] = create_address_status('10.0.0.5', AddressStates.RUNNING, 80)
         # initialize dummy address mapper with all address names (keep the alpha order)
         self.supvisors.address_mapper.addresses = sorted(self.supvisors.context.addresses.keys())
 
@@ -137,7 +145,7 @@ class ConciliationStrategyTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # add processes
         # create conflicts
 

@@ -20,12 +20,12 @@
 import sys
 import unittest
 
-from mock import patch
+from mock import patch, Mock
 
 from supervisor.http import supervisor_auth_handler
 from supervisor.medusa import default_handler
 
-from supvisors.tests.base import DummyClass, DummySupervisor
+from supvisors.tests.base import DummySupervisor
 
 
 class InfoSourceTest(unittest.TestCase):
@@ -123,10 +123,12 @@ class InfoSourceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             source.get_process_config('dummy_application:unknown_process')
         # test normal behaviour
-        self.assertDictEqual({'autorestart': True, 'command': 'ls'},
-            source.get_process_config('dummy_application:dummy_process_1').__dict__)
-        self.assertDictEqual({'autorestart': False, 'command': 'cat'},
-            source.get_process_config('dummy_application:dummy_process_2').__dict__)
+        config = source.get_process_config('dummy_application:dummy_process_1')
+        self.assertTrue(config.autorestart)
+        self.assertEqual('ls', config.command)
+        config = source.get_process_config('dummy_application:dummy_process_2')
+        self.assertFalse(config.autorestart)
+        self.assertEqual('cat', config.command)
 
     def test_autostart(self):
         """ Test the autostart value of a process configuration. """
@@ -153,8 +155,7 @@ class InfoSourceTest(unittest.TestCase):
         # test normal behaviour
         config_1 = source.get_process_config('dummy_application:dummy_process_1')
         # check that there is no save of the initial command
-        with self.assertRaises(AttributeError):
-            config_1.config_ref
+        self.assertFalse(hasattr(config_1, 'config_ref'))
         # add extra arguments
         source.update_extra_args('dummy_application:dummy_process_1', '-la')
         self.assertEqual('ls -la', config_1.command)
@@ -211,7 +212,7 @@ class InfoSourceTest(unittest.TestCase):
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
         # keep reference to handler
-        self.assertIsInstance(self.supervisor.options.httpserver.handlers[1], DummyClass)
+        self.assertIsInstance(self.supervisor.options.httpserver.handlers[1], Mock)
         # check method behaviour with authentication server
         source.replace_default_handler()
         # keep reference to handler

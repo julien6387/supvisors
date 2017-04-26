@@ -20,31 +20,11 @@
 import os
 import random
 
+from mock import patch, Mock
+
+from supervisor.loggers import Logger
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
-
-
-class DummyClass:
-    """ Temporary empty class. """
-
-
-class DummyLogger:
-    """ Simple logger that stores log traces. """
-    def __init__(self):
-        self.messages = []
-    def critical(self, message):
-        self.messages.append(('critical', message))
-    def error(self, message):
-        self.messages.append(('error', message))
-    def warn(self, message):
-        self.messages.append(('warn', message))
-    def info(self, message):
-        self.messages.append(('info', message))
-    def debug(self, message):
-        self.messages.append(('debug', message))
-    def trace(self, message):
-        self.messages.append(('trace', message))
-    def blather(self, message):
-        self.messages.append(('blather', message))
 
 
 class DummyAddressMapper:
@@ -56,81 +36,6 @@ class DummyAddressMapper:
         return address_list
     def valid(self, address):
         return address in self.addresses
-
-
-class DummyAddressStatus:
-    """ Simple address status with name, state and loading. """
-    def __init__(self, name, state, load):
-        self.name = name
-        self.state = state
-        self.load = load
-    def state_string(self):
-        return ""
-    def loading(self):
-        return self.load
-
-
-class DummyApplicationStatus:
-    """ Simple ApplicationStatus. """
-    def sequence_deployment(self):
-        pass
-    def update_status(self):
-        pass
-
-
-class DummyContext:
-    """ Simple context with an empty list of AddressStatus. """
-    def __init__(self):
-        self.addresses = {}
-        self.applications = {}
-        self.master_address = ''
-        self.master = True
-    def conflicting(self):
-        return False
-    def conflicts(self):
-        pass
-    def end_synchro(self):
-        pass
-    def handle_isolation(self):
-        pass
-    def load_processes(self, address_name, proc_list):
-        pass
-    def marked_processes(self):
-        pass
-    def on_authorization(self, address_name, auth):
-        pass
-    def on_process_event(self, address_name, event):
-        pass
-    def on_tick_event(self, address_name, stamp):
-        pass
-    def on_timer_event(self):
-        pass
-    def running_addresses(self):
-        pass
-    def unknown_addresses(self):
-        pass
-
-
-class DummyInfoSource:
-    """ Simple info source with dummy methods. """
-    def get_env(self):
-        return {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
-            'SUPERVISOR_USERNAME': '',
-            'SUPERVISOR_PASSWORD': ''}
-    def autorestart(self, namespec):
-        return namespec == 'test_autorestart'
-    def force_process_fatal(self, namespec, reason):
-        pass
-    def force_process_unknown(self, namespec, reason):
-        pass
-
-
-class DummyListener:
-    """ Simple listener with dummy methods. """
-    def force_process_fatal(self, namespec):
-        pass
-    def force_process_unknown(self, namespec):
-        pass
 
 
 class DummyOptions:
@@ -150,110 +55,67 @@ class DummyOptions:
         self.procnumbers = {'xclock': 2}
 
 
-class DummyParser:
-    """ Simple Supvisors PArser behaviour. """
-    def load_application_rules(self, application):
-        pass
-    def load_process_rules(self, process):
-        pass
-
-
-class DummyPublisher:
-    """ Simple Supvisors Publisher behaviour. """
-    def send_supvisors_status(self, status):
-        pass
-    def send_address_status(self, status):
-        pass
-    def send_application_status(self, status):
-        pass
-    def send_process_status(self, status):
-        pass
-
-
-class DummyPusher:
-    """ Simple Supvisors Publisher behaviour. """
-    def send_check_address(self, status):
-        pass
-    def send_start_process(self, address, namespec, extra_args):
-        pass
-    def send_stop_process(self, address, namespec):
-        pass
-    def send_restart(self, address):
-        pass
-    def send_shutdown(self, address):
-        pass
-
-
-class DummyStarter:
-    """ Simple starter. """
-    def abort(self):
-        pass
-    def check_starting(self):
-        pass
-    def in_progress(self):
-        pass
-    def on_event(self, event):
-        pass
-    def start_applications(self):
-        pass
-    def start_marked_processes(self):
-        pass
-
-class DummyStopper:
-    """ Simple stopper. """
-    def check_stopping(self):
-        pass
-    def in_progress(self):
-        pass
-    def on_event(self, event):
-        pass
-    def stop_application(self, application):
-        pass
-    def stop_applications(self):
-        pass
-
-
-class DummyZmq:
-    """ Simple Supvisors ZeroMQ behaviour. """
-    def __init__(self):
-        self.internal_subscriber = None
-        self.puller = None
-        self.pusher = DummyPusher()
-        self.publisher = DummyPublisher()
-
-
-class DummySupvisors:
+class MockedSupvisors:
     """ Simple supvisors with all dummies. """
     def __init__(self):
+        # use a dummy address mapper and options
         self.address_mapper = DummyAddressMapper()
-        self.context = DummyContext()
-        self.deployer = DummyClass()
-        self.fsm = DummyClass()
-        self.info_source = DummyInfoSource()
-        self.listener = DummyListener()
-        self.logger = DummyLogger()
         self.options = DummyOptions()
-        self.parser = DummyParser()
-        self.pool = DummyClass()
-        self.requester = DummyClass()
-        self.statistician = DummyClass()
-        self.starter = DummyStarter()
-        self.stopper = DummyStopper()
-        self.zmq = DummyZmq()
+        # mock the context
+        from supvisors.context import Context
+        self.context = Mock(spec=Context)
+        self.context.__init__()
+        self.context.addresses = {}
+        self.context.applications = {}
+        # simple mocks
+        self.deployer = Mock()
+        self.fsm = Mock()
+        self.pool = Mock()
+        self.requester = Mock()
+        self.statistician = Mock()        # mock the supervisord source
+        from supvisors.infosource import SupervisordSource
+        self.info_source = Mock(spec=SupervisordSource)
+        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
+            'SUPERVISOR_USERNAME': '', 'SUPERVISOR_PASSWORD': ''}
+        # mock by spec
+        from supvisors.listener import SupervisorListener
+        self.listener = Mock(spec=SupervisorListener)
+        self.logger = Mock(spec=Logger)
+        from supvisors.sparser import Parser
+        self.parser = Mock(spec=Parser)
+        from supvisors.commander import Starter, Stopper
+        self.starter = Mock(spec=Starter)
+        self.stopper = Mock(spec=Stopper)
+        from supvisors.supvisorszmq import SupvisorsZmq
+        self.zmq = Mock(spec=SupvisorsZmq)
+        self.zmq.__init__()
 
 
 class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
     def __init__(self):
-        self.rpcinterface = DummyClass()
-        self.rpcinterface.supervisor = 'supervisor_RPC'
-        self.rpcinterface.supvisors = 'supvisors_RPC'
+        self.rpcinterface = Mock(supervisor='supervisor_RPC', supvisors='supvisors_RPC')
+
+
+class DummyRpcInterface:
+    """ Simple RPC proxy. """
+    def __init__(self):
+        from supvisors.rpcinterface import RPCInterface
+        supervisord = DummySupervisor()
+        # cretae rpc interfaces to have a skeleton
+        # create a Supervisor RPC interface
+        self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
+        # create a mocked Supvisors RPC interface 
+        def create_supvisors(*args, **kwargs):
+            return MockedSupvisors()
+        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
+            self.supvisors = RPCInterface(supervisord)
 
 
 class DummyHttpServer:
     """ Simple supervisord RPC handler with dummy attributes. """
     def __init__(self):
-        self.handlers = [DummyRpcHandler(), DummyClass()]
+        self.handlers = [DummyRpcHandler(), Mock()]
     def install_handler(self, handler, condition):
         self.handlers.append(handler)
 
@@ -281,7 +143,8 @@ class DummyProcess:
         self.state = 'STOPPED'
         self.spawnerr = ''
         # create dummy config
-        self.config = DummyClass()
+        class DummyObject: pass
+        self.config = DummyObject()
         self.config.command = command
         self.config.autorestart = autorestart
     def give_up(self):
@@ -289,18 +152,16 @@ class DummyProcess:
     def change_state(self, state):
        self.state = state
 
-
 class DummySupervisor:
     """ Simple supervisor with simple attributes. """
     def __init__(self):
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
-        self.process_groups = {'dummy_application': DummyClass()}
-        group_config = self.process_groups['dummy_application']
-        group_config.config = 'dummy_application_config'
-        group_config.processes = {'dummy_process_1': DummyProcess('ls', True),
-            'dummy_process_2': DummyProcess('cat', False)}
+        self.process_groups = {'dummy_application':
+            Mock(config='dummy_application_config', 
+                processes={'dummy_process_1': DummyProcess('ls', True),
+                    'dummy_process_2': DummyProcess('cat', False)})}
 
 
 class DummyHttpContext:

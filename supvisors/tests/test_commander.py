@@ -23,7 +23,7 @@ import unittest
 
 from mock import call, patch
 
-from supvisors.tests.base import DummySupvisors, database_copy
+from supvisors.tests.base import MockedSupvisors, database_copy
 
 
 class CommanderTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class CommanderTest(unittest.TestCase):
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
         from supvisors.process import ProcessStatus
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # store lists for tests
         self.process_list_1 = [ProcessStatus('appli_A', 'dummy_A1', self.supvisors),
             ProcessStatus('appli_A', 'dummy_A2', self.supvisors),
@@ -185,7 +185,7 @@ class StarterTest(unittest.TestCase):
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
         from supvisors.process import ProcessStatus
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # store list for tests
         self.process_list = []
         for info in database_copy():
@@ -258,57 +258,58 @@ class StarterTest(unittest.TestCase):
         process = next(iter(self.process_list))
         # test force_fatal with a process not required (no link between them)
         process.rules.required = False
-        with patch.object(self.supvisors.listener, 'force_process_fatal') as mocked_listener:
-            with patch.object(self.supvisors.info_source, 'force_process_fatal', side_effect=KeyError) as mocked_source:
-                # test not required and not force_process_fatal: nothing happens
-                starter.process_failure(process, '')
-                self.assertEqual(0, mocked_source.call_count)
-                self.assertEqual(0, mocked_listener.call_count)
-                # test not required force_process_fatal with info_source KeyError
-                starter.process_failure(process, 'dummy reason', True)
-                self.assertEqual(1, mocked_source.call_count)
-                self.assertEqual(call(process.namespec(), 'dummy reason'), mocked_source.call_args)
-                self.assertEqual(1, mocked_listener.call_count)
-                self.assertEqual(call(process.namespec()), mocked_listener.call_args)
-            # test not required force_fatal with no info_source KeyError
-            mocked_source.reset_mock()
-            mocked_listener.reset_mock()
-            with patch.object(self.supvisors.info_source, 'force_process_fatal') as mocked_source:
-                starter.process_failure(process, 'dummy reason', True)
-                self.assertEqual(1, mocked_source.call_count)
-                self.assertEqual(call(process.namespec(), 'dummy reason'), mocked_source.call_args)
-                self.assertEqual(0, mocked_listener.call_count)
+        mocked_listener = self.supvisors.listener.force_process_fatal
+        mocked_source = self.supvisors.info_source.force_process_fatal
+        mocked_source.side_effect = KeyError
+        # test not required and not force_process_fatal: nothing happens
+        starter.process_failure(process, '')
+        self.assertEqual(0, mocked_source.call_count)
+        self.assertEqual(0, mocked_listener.call_count)
+        # test not required force_process_fatal with info_source KeyError
+        starter.process_failure(process, 'dummy reason', True)
+        self.assertEqual(1, mocked_source.call_count)
+        self.assertEqual(call(process.namespec(), 'dummy reason'), mocked_source.call_args)
+        self.assertEqual(1, mocked_listener.call_count)
+        self.assertEqual(call(process.namespec()), mocked_listener.call_args)
+        # test not required force_fatal with no info_source KeyError
+        mocked_listener.reset_mock()
+        mocked_source.reset_mock()
+        mocked_source.side_effect = None
+        starter.process_failure(process, 'dummy reason', True)
+        self.assertEqual(1, mocked_source.call_count)
+        self.assertEqual(call(process.namespec(), 'dummy reason'), mocked_source.call_args)
+        self.assertEqual(0, mocked_listener.call_count)
         # test a process required without force_fatal (no link between them)
         # prepare context
         process.rules.required = True
         application = ApplicationStatus(process.application_name, self.supvisors)
         self.supvisors.context.applications[process.application_name] = application
         test_planned_jobs = {process.application_name: {0: ['dummy_process']}, 'dummy_application': {1: ['dumb_process']}}
-        # patch the stopper / stop_application
-        with patch.object(self.supvisors.stopper, 'stop_application') as mocked_stopper:
-            # test ABORT starting strategy
-            starter.planned_jobs = test_planned_jobs.copy()
-            application.rules.starting_failure_strategy = StartingFailureStrategies.ABORT
-            starter.process_failure(process, '')
-            # check that application has been removed from planned jobs and stopper wasn't called
-            self.assertDictEqual({'dummy_application': {1: ['dumb_process']}}, starter.planned_jobs)
-            self.assertEqual(0, mocked_stopper.call_count)
-            # test CONTINUE starting strategy
-            starter.planned_jobs = test_planned_jobs.copy()
-            application.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
-            starter.process_failure(process, '')
-            # check that application has NOT been removed from planned jobs and stopper wasn't called
-            self.assertDictEqual({process.application_name: {0: ['dummy_process']}, 'dummy_application': {1: ['dumb_process']}},
-                starter.planned_jobs)
-            self.assertEqual(0, mocked_stopper.call_count)
-            # test STOP starting strategy
-            starter.planned_jobs = test_planned_jobs.copy()
-            application.rules.starting_failure_strategy = StartingFailureStrategies.STOP
-            starter.process_failure(process, '')
-            # check that application has been removed from planned jobs and stopper has been called
-            self.assertDictEqual({'dummy_application': {1: ['dumb_process']}}, starter.planned_jobs)
-            self.assertEqual(1, mocked_stopper.call_count)
-            self.assertEqual(call(application), mocked_stopper.call_args)
+        # get the patch the stopper / stop_application
+        mocked_stopper = self.supvisors.stopper.stop_application
+        # test ABORT starting strategy
+        starter.planned_jobs = test_planned_jobs.copy()
+        application.rules.starting_failure_strategy = StartingFailureStrategies.ABORT
+        starter.process_failure(process, '')
+        # check that application has been removed from planned jobs and stopper wasn't called
+        self.assertDictEqual({'dummy_application': {1: ['dumb_process']}}, starter.planned_jobs)
+        self.assertEqual(0, mocked_stopper.call_count)
+        # test CONTINUE starting strategy
+        starter.planned_jobs = test_planned_jobs.copy()
+        application.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
+        starter.process_failure(process, '')
+        # check that application has NOT been removed from planned jobs and stopper wasn't called
+        self.assertDictEqual({process.application_name: {0: ['dummy_process']}, 'dummy_application': {1: ['dumb_process']}},
+            starter.planned_jobs)
+        self.assertEqual(0, mocked_stopper.call_count)
+        # test STOP starting strategy
+        starter.planned_jobs = test_planned_jobs.copy()
+        application.rules.starting_failure_strategy = StartingFailureStrategies.STOP
+        starter.process_failure(process, '')
+        # check that application has been removed from planned jobs and stopper has been called
+        self.assertDictEqual({'dummy_application': {1: ['dumb_process']}}, starter.planned_jobs)
+        self.assertEqual(1, mocked_stopper.call_count)
+        self.assertEqual(call(application), mocked_stopper.call_args)
 
     def test_on_event(self):
         """ Test the on_event method. """
@@ -632,7 +633,7 @@ class StopperTest(unittest.TestCase):
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
         from supvisors.process import ProcessStatus
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # store list for tests
         self.process_list = []
         for info in database_copy():

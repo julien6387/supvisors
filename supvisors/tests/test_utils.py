@@ -22,7 +22,7 @@ import unittest
 
 from mock import patch
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 
 
 class UtilsTest(unittest.TestCase):
@@ -30,7 +30,7 @@ class UtilsTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_enum(self):
         """ Test the values set at construction. """

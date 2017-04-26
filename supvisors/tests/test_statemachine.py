@@ -23,7 +23,7 @@ import unittest
 
 from mock import call, patch, Mock
 
-from supvisors.tests.base import DummySupvisors, database_copy
+from supvisors.tests.base import MockedSupvisors, database_copy
 
 
 class StateMachinesTest(unittest.TestCase):
@@ -33,7 +33,7 @@ class StateMachinesTest(unittest.TestCase):
         """ Create a Supvisors-like structure. """
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         # assign addresses in context
         for address_name in self.supvisors.address_mapper.addresses:
             self.supvisors.context.addresses[address_name] = AddressStatus(address_name,  self.supvisors.logger)
@@ -360,7 +360,7 @@ class FiniteStateMachineTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a Supvisors-like structure. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_creation(self):
         """ Test the values set at construction. """

@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 
 
 class StatisticsTest(unittest.TestCase):
@@ -45,12 +45,11 @@ class StatisticsTest(unittest.TestCase):
 
     def test_cpu_statistics(self):
         """ Test the CPU statistics between 2 dates. """
-        import multiprocessing, time
-        from supvisors.statistics import instant_cpu_statistics, cpu_statistics
+        import multiprocessing
+        from supvisors.statistics import cpu_statistics
         # take 2 spaced instant cpu statistics
-        ref_stats = instant_cpu_statistics()
-        time.sleep(1)
-        last_stats = instant_cpu_statistics()
+        ref_stats = [(83.31, 305.4)] * (multiprocessing.cpu_count() + 1)
+        last_stats = [(83.32, 306.4)] * (multiprocessing.cpu_count() + 1)
         stats = cpu_statistics(last_stats, ref_stats)
         # test number of results (number of cores + average)
         self.assertEqual(multiprocessing.cpu_count() + 1, len(stats))
@@ -63,14 +62,12 @@ class StatisticsTest(unittest.TestCase):
 
     def test_cpu_total_work(self):
         """ Test the CPU total work between 2 dates. """
-        import time
-        from supvisors.statistics import instant_cpu_statistics, cpu_total_work
+        from supvisors.statistics import cpu_total_work
         # take 2 spaced instant cpu statistics
-        ref_stats = instant_cpu_statistics()
-        time.sleep(1)
-        last_stats = instant_cpu_statistics()
+        ref_stats = [(83.31, 305.4)] * 2
+        last_stats = [(83.41, 306.3)] * 2
         total_work = cpu_total_work(last_stats, ref_stats)
-        # total work should be quite close to sleeping time
+        # total work is the sum of jiffies spent on cpu all
         self.assertAlmostEqual(1, total_work, 1)
 
     def test_instant_memory_statistics(self):
@@ -106,6 +103,7 @@ class StatisticsTest(unittest.TestCase):
         import time
         from supvisors.statistics import instant_io_statistics, io_statistics
         # take 2 spaced instant cpu statistics
+        # FIXME: remove sleep
         ref_stats = instant_io_statistics()
         time.sleep(1)
         last_stats = instant_io_statistics()
@@ -408,7 +406,7 @@ class StatisticsCompilerTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_create(self):
         """ Test the initialization for statistics of all addresses. """

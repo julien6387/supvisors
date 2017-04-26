@@ -44,6 +44,8 @@ class SupvisorsMainLoop(Thread):
         # shortcuts
         self.supvisors = supvisors
         supvisors_short_cuts(self, ['info_source', 'logger'])
+        # init loop value
+        self.loop = False
         # keep a reference of zmq sockets
         self.subscriber = supvisors.zmq.internal_subscriber
         self.puller = supvisors.zmq.puller
@@ -51,6 +53,10 @@ class SupvisorsMainLoop(Thread):
         self.env = self.info_source.get_env()
         # create a xml-rpc client to the local Supervisor instance
         self.proxy = getRPCInterface('localhost', self.env)
+
+    def get_loop(self):
+        """ Access to the loop attribute (used to drive tests on run method). """
+        return self.loop
 
     def stop(self):
         """ Request to stop the infinite loop by resetting its flag. """
@@ -70,9 +76,9 @@ class SupvisorsMainLoop(Thread):
         timer_event_time = time.time()
         # poll events every seconds
         self.loop = True
-        while self.loop:
+        while self.get_loop():
             socks = dict(poller.poll(500))
-            # Need to test loop flag again as its value may have changed in the last second.
+            # Need to test loop flag again as its value may have changed in the gap
             if self.loop:
                 # check tick and process events
                 if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
@@ -102,6 +108,7 @@ class SupvisorsMainLoop(Thread):
                     timer_event_time = time.time()
         # close resources gracefully
         self.logger.info('end of main loop')
+        poller.unregister(self.puller.socket)
         poller.unregister(self.subscriber.socket)
 
     def send_request(self, header, body):

@@ -24,7 +24,7 @@ import unittest
 
 from mock import call, patch
 
-from supvisors.tests.base import (DummyAddressMapper, DummySupvisors,
+from supvisors.tests.base import (DummyAddressMapper, MockedSupvisors,
     ProcessInfoDatabase, database_copy, any_process_info)
 
 
@@ -33,7 +33,7 @@ class ContextTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_creation(self):
         """ Test the values set at construction. """
