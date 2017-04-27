@@ -63,7 +63,7 @@ class StatisticsTest(unittest.TestCase):
     def test_cpu_total_work(self):
         """ Test the CPU total work between 2 dates. """
         from supvisors.statistics import cpu_total_work
-        # take 2 spaced instant cpu statistics
+        # take 2 instant cpu statistics
         ref_stats = [(83.31, 305.4)] * 2
         last_stats = [(83.41, 306.3)] * 2
         total_work = cpu_total_work(last_stats, ref_stats)
@@ -100,22 +100,16 @@ class StatisticsTest(unittest.TestCase):
 
     def test_io_statistics(self):
         """ Test the I/O statistics between 2 dates. """
-        import time
-        from supvisors.statistics import instant_io_statistics, io_statistics
-        # take 2 spaced instant cpu statistics
-        # FIXME: remove sleep
-        ref_stats = instant_io_statistics()
-        time.sleep(1)
-        last_stats = instant_io_statistics()
+        from supvisors.statistics import io_statistics
+        # take 2 instant cpu statistics
+        ref_stats = {'eth0': (2000, 200), 'lo': (5000, 5000)}
+        last_stats = {'eth0': (2896, 328), 'lo': (6024, 6024)}
         stats = io_statistics(last_stats, ref_stats, 1)
         # test keys
         self.assertListEqual(ref_stats.keys(), stats.keys())
         self.assertListEqual(last_stats.keys(), stats.keys())
-        # test that values are pairs
-        for intf, bytes in stats.items():
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(int, type(value))
+        # test that values
+        self.assertDictEqual({'lo': (8, 8), 'eth0': (7, 1)},stats)
  
     def test_instant_process_statistics(self):
         """ Test the instant process statistics. """
@@ -183,41 +177,25 @@ class StatisticsTest(unittest.TestCase):
 
     def test_statistics(self):
         """ Test the global statistics between 2 dates. """
-        import multiprocessing, os, time
-        from supvisors.statistics import instant_statistics, statistics
-        named_pid = 'myself', os.getpid()
-        ref_stats = instant_statistics([named_pid])
-        time.sleep(2)
-        last_stats = instant_statistics([named_pid])
+        from supvisors.statistics import statistics
+        ref_stats = (1000, [(25, 400), (25, 125), (15, 150)], 65, {'eth0': (2000, 200), 'lo': (5000, 5000)},
+            {'myself': (26088, (0.15, 1.85))})
+        last_stats = (1002, [(45, 700), (50, 225), (40, 250)], 67.7, {'eth0': (2768, 456), 'lo': (6024, 6024)},
+            {'myself': (26088, (1.75, 1.9))})
         stats = statistics(last_stats, ref_stats)
         # check result
         self.assertEqual(5, len(stats))
         date, cpu_stats, mem_stats, io_stats, proc_stats = stats
         # check date
-        self.assertEqual(last_stats[0], date)
+        self.assertEqual(1002, date)
         # check cpu
-        self.assertEqual(multiprocessing.cpu_count() + 1, len(cpu_stats))
-        for cpu in cpu_stats:
-            self.assertIs(float, type(cpu))
-            self.assertGreaterEqual(cpu, 0)
-            self.assertLessEqual(cpu, 100)
+        self.assertListEqual([6.25, 20.0, 20.0], cpu_stats)
         # check memory
-        self.assertIs(float, type(mem_stats))
-        self.assertEqual(last_stats[2], mem_stats)
+        self.assertEqual(67.7, mem_stats)
         # check io
-        for intf, bytes in io_stats.items():
-            self.assertIs(str, type(intf))
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(float, type(value))
+        self.assertDictEqual({'lo': (4, 4), 'eth0': (3, 1)}, io_stats)
         # check process stats
-        self.assertListEqual([named_pid], proc_stats.keys())
-        values = proc_stats[named_pid]
-        self.assertEqual(2, len(values))
-        for value in values:
-            self.assertIs(float, type(value))
-            self.assertGreaterEqual(value, 0)
-            self.assertLessEqual(value, 100)
+        self.assertDictEqual({('myself', 26088): (0.5, 1.9)}, proc_stats)
 
 
 class StatisticsInstanceTest(unittest.TestCase):
