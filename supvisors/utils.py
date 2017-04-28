@@ -30,7 +30,6 @@ class RemoteCommEvents:
     SUPVISORS_AUTH = u'auth'
     SUPVISORS_EVENT = u'event'
     SUPVISORS_INFO = u'info'
-    SUPVISORS_TASK = u'task'
 
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """

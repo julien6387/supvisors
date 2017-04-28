@@ -36,6 +36,7 @@ class SupervisorListener(object):
     These events are published to all Supvisors instances.
     
     Attributes are:
+
         - supvisors: a reference to the Supvisors context,
         - address: the address name where this process is running,
         - main_loop: the Supvisors' event thread,
@@ -47,7 +48,10 @@ class SupervisorListener(object):
         self.supvisors = supvisors
         # shortcuts for source code readability
         supvisors_short_cuts(self, ['fsm', 'info_source', 'logger', 'statistician'])
+        # other attributes
         self.address = self.supvisors.address_mapper.local_address
+        self.publisher = None
+        self.main_loop = None
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self.on_running)
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
@@ -95,20 +99,24 @@ class SupervisorListener(object):
             'state': ProcessStates._from_string(event_name.split('_')[-1]),
             'now': int(time.time()), 
             'pid': event.process.pid,
-            'expected': event.expected }
+            'expected': event.expected}
         self.logger.debug('payload={}'.format(payload))
         self.publisher.send_process_event(payload)
 
     def on_tick(self, event):
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
-        Statistics are also published. """
+        Then statistics are published and periodic task is triggered. """
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
         payload = {'when': event.when}
         self.publisher.send_tick_event(payload)
         # get and publish statistics at tick time
         status = self.supvisors.context.addresses[self.address]
         self.publisher.send_statistics(instant_statistics(status.pid_processes()))
+        # periodic task
+        addresses = self.fsm.on_timer_event()
+        # pushes isolated addresses to main loop
+        self.supvisors.zmq.pusher.send_isolate_addresses(addresses)
 
     def on_remote_event(self, event):
         """ Called when a RemoteCommunicationEvent is notified.
@@ -120,8 +128,6 @@ class SupervisorListener(object):
             self.unstack_event(event.data)
         elif event.type == RemoteCommEvents.SUPVISORS_INFO:
             self.unstack_info(event.data)
-        elif event.type == RemoteCommEvents.SUPVISORS_TASK:
-            self.periodic_task()
 
     def unstack_event(self, message):
         """ Unstack and process one event from the event queue. """
@@ -150,20 +156,13 @@ class SupervisorListener(object):
         address_name, authorized = tuple(x.split(':')[1] for x in data.split())
         self.fsm.on_authorization(address_name, boolean(authorized))
 
-    def periodic_task(self):
-        """ Periodic task that mainly checks that addresses are still operating. """
-        self.logger.blather('got periodic task event')
-        addresses = self.fsm.on_timer_event()
-        # pushes isolated addresses to main loop
-        self.supvisors.zmq.pusher.send_isolate_addresses(addresses)
-
     def force_process_fatal(self, namespec):
         """ Publishes a fake process event showing a FATAL state for the process. """
-        self.force_process_state(ProcessStates.FATAL)
+        self.force_process_state(namespec, ProcessStates.FATAL)
 
     def force_process_unknown(self, namespec):
         """ Publishes a fake process event showing an UNKNOWN state for the process. """
-        self.force_process_state(ProcessStates.UNKNOWN)
+        self.force_process_state(namespec, ProcessStates.UNKNOWN)
 
     def force_process_state(self, namespec, state):
         """ Publishes a fake process event showing a state for the process. """

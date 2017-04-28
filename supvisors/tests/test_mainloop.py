@@ -75,9 +75,8 @@ class MainLoopTest(unittest.TestCase):
             self.assertFalse(main_loop.loop)
             self.assertEqual(1, mocked_join.call_count)
 
-    @patch('supvisors.mainloop.time.time', side_effect=[0, 2, 4, 6, 8, 10])
     @patch.multiple('supvisors.mainloop.zmq.Poller', register=DEFAULT, unregister=DEFAULT, poll=DEFAULT)
-    def test_run(self, mock_time, poll, unregister, register):
+    def test_run(self, register, unregister, poll):
         """ Test the running of the main loop thread. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -97,11 +96,8 @@ class MainLoopTest(unittest.TestCase):
                 self.assertEqual([call(main_loop.subscriber.socket, 1), call(main_loop.puller.socket, 1)], register.call_args_list)
                 # test that unregister was called twice
                 self.assertEqual([call(main_loop.puller.socket), call(main_loop.subscriber.socket)], unregister.call_args_list)
-                # test that send_remote_comm_event was called twice:
-                # first time for SUPVISORS_EVENT
-                # second time for SUPVISORS_TASK
-                self.assertEqual([call(u'event', '"subscription"'), call(u'task', '')],
-                    mocked_loop['send_remote_comm_event'].call_args_list)
+                # test that send_remote_comm_event was called once
+                self.assertEqual([call(u'event', '"subscription"')], mocked_loop['send_remote_comm_event'].call_args_list)
                 # test that send_request was called once
                 self.assertEqual([call('pull', 'data')], mocked_loop['send_request'].call_args_list)
 

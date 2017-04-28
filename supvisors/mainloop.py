@@ -18,7 +18,6 @@
 # ======================================================================
 
 import json
-import time
 import zmq
 
 from threading import Thread
@@ -73,7 +72,6 @@ class SupvisorsMainLoop(Thread):
         # register sockets
         poller.register(self.subscriber.socket, zmq.POLLIN) 
         poller.register(self.puller.socket, zmq.POLLIN) 
-        timer_event_time = time.time()
         # poll events every seconds
         self.loop = True
         while self.get_loop():
@@ -101,11 +99,6 @@ class SupvisorsMainLoop(Thread):
                         pass
                     else:
                         self.send_request(header, body)
-                # check periodic task
-                if timer_event_time + 5 < time.time():
-                    self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_TASK, '')
-                    # set date for next task
-                    timer_event_time = time.time()
         # close resources gracefully
         self.logger.info('end of main loop')
         poller.unregister(self.puller.socket)
