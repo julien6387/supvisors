@@ -128,6 +128,7 @@ class DummyServerOptions:
             'username': 'user', 'password': 'p@$$w0rd'}]
         self.serverurl = 'url'
         self.mood = 'mood'
+        self.nodaemon = True
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]
