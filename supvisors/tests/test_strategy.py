@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import Mock
+from mock import Mock, call, patch
 
 from supvisors.tests.base import MockedSupvisors
 
@@ -35,8 +35,7 @@ class DeploymentStrategyTest(unittest.TestCase):
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
         def create_address_status(name, address_state, loading):
-            address_status = Mock(spec=AddressStatus, state=address_state)
-            address_status.address_name = name
+            address_status = Mock(spec=AddressStatus, address_name=name, state=address_state)
             address_status.loading.return_value = loading
             return address_status
         self.supvisors.context.addresses['10.0.0.0'] = create_address_status('10.0.0.0', AddressStates.SILENT, 0)
@@ -144,30 +143,132 @@ class ConciliationStrategyTest(unittest.TestCase):
     """ Test case for the conciliation strategies of the strategy module. """
 
     def setUp(self):
-        """ Create a dummy supvisors. """
+        """ Create a Supvisors-like structure and conflicting processes. """
+        from supvisors.process import ProcessStatus
         self.supvisors = MockedSupvisors()
-        # add processes
-        # create conflicts
+        # create conflicting processes
+        def create_process_status(name, timed_addresses):
+            process_status = Mock(spec=ProcessStatus, process_name=name,
+                addresses=set(timed_addresses.keys()),
+                infos={address_name: {'uptime': time} for address_name, time in timed_addresses.items()},
+                mark_for_restart=False)
+            process_status.namespec.return_value = name
+            return process_status
+        self.conflicts = [create_process_status('conflict_1', {'10.0.0.1': 5, '10.0.0.2': 10, '10.0.0.3': 15}),
+            create_process_status('conflict_2', {'10.0.0.4': 6, '10.0.0.2': 5, '10.0.0.0': 4})]
 
     def test_senicide_strategy(self):
         """ Test the strategy that consists in stopping the oldest processes. """
+        from supvisors.strategy import SenicideStrategy
+        strategy = SenicideStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that the oldest processes are requested to stop on the relevant addresses
+        self.assertItemsEqual([call('10.0.0.2', 'conflict_1'), call('10.0.0.3', 'conflict_1'),
+            call('10.0.0.4', 'conflict_2'), call('10.0.0.2', 'conflict_2')],
+            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
+        # check that all processes are not marked for a restart
+        for process in self.conflicts:
+            self.assertFalse(process.mark_for_restart)
 
     def test_infanticide_strategy(self):
         """ Test the strategy that consists in stopping the youngest processes. """
+        from supvisors.strategy import InfanticideStrategy
+        strategy = InfanticideStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that the youngest processes are requested to stop on the relevant addresses
+        self.assertItemsEqual([call('10.0.0.1', 'conflict_1'), call('10.0.0.2', 'conflict_1'),
+            call('10.0.0.2', 'conflict_2'), call('10.0.0.0', 'conflict_2')],
+            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
+        # check that all processes are not marked for a restart
+        for process in self.conflicts:
+            self.assertFalse(process.mark_for_restart)
 
     def test_user_strategy(self):
         """ Test the strategy that consists in doing nothing (trivial). """
+        from supvisors.strategy import UserStrategy
+        strategy = UserStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that no processes are requested to stop
+        self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
+    # check that all processes are not marked for a restart
+        for process in self.conflicts:
+            self.assertFalse(process.mark_for_restart)
 
     def test_stop_strategy(self):
         """ Test the strategy that consists in stopping all processes. """
+        from supvisors.strategy import StopStrategy
+        strategy = StopStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that all processes are requested to stop on the relevant addresses
+        self.assertItemsEqual([call('10.0.0.1', 'conflict_1'), call('10.0.0.2', 'conflict_1'), call('10.0.0.3', 'conflict_1'),
+            call('10.0.0.4', 'conflict_2'), call('10.0.0.2', 'conflict_2'), call('10.0.0.0', 'conflict_2')],
+            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
+        # check that all processes are not marked for a restart
+        for process in self.conflicts:
+            self.assertFalse(process.mark_for_restart)
 
     def test_restart_strategy(self):
         """ Test the strategy that consists in stopping all processes and restart a single one. """
+        from supvisors.strategy import RestartStrategy
+        strategy = RestartStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that all processes are requested to stop on the relevant addresses
+        self.assertItemsEqual([call('10.0.0.1', 'conflict_1'), call('10.0.0.2', 'conflict_1'), call('10.0.0.3', 'conflict_1'),
+            call('10.0.0.4', 'conflict_2'), call('10.0.0.2', 'conflict_2'), call('10.0.0.0', 'conflict_2')],
+            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
+        # check that all processes are marked for a restart
+        for process in self.conflicts:
+            self.assertTrue(process.mark_for_restart)
 
-    def test_conciliation(self):
+    @patch('supvisors.strategy.SenicideStrategy.conciliate')
+    @patch('supvisors.strategy.InfanticideStrategy.conciliate')
+    @patch('supvisors.strategy.UserStrategy.conciliate')
+    @patch('supvisors.strategy.StopStrategy.conciliate')
+    @patch('supvisors.strategy.RestartStrategy.conciliate')
+    def test_conciliation(self, mocked_restart, mocked_stop, mocked_user,
+        mocked_infanticide, mocked_senicide):
         """ Test the actions on process according to a strategy. """
         from supvisors.ttypes import ConciliationStrategies
         from supvisors.strategy import conciliate
+        # test senicide conciliation
+        conciliate(self.supvisors, ConciliationStrategies.SENICIDE, self.conflicts)
+        self.assertEqual([call(self.conflicts)], mocked_senicide.call_args_list)
+        self.assertEqual(0, mocked_infanticide.call_count)
+        self.assertEqual(0, mocked_user.call_count)
+        self.assertEqual(0, mocked_stop.call_count)
+        self.assertEqual(0, mocked_restart.call_count)
+        mocked_senicide.reset_mock()
+        # test infanticide conciliation
+        conciliate(self.supvisors, ConciliationStrategies.INFANTICIDE, self.conflicts)
+        self.assertEqual(0, mocked_senicide.call_count)
+        self.assertEqual([call(self.conflicts)], mocked_infanticide.call_args_list)
+        self.assertEqual(0, mocked_user.call_count)
+        self.assertEqual(0, mocked_stop.call_count)
+        self.assertEqual(0, mocked_restart.call_count)
+        mocked_infanticide.reset_mock()
+        # test user conciliation
+        conciliate(self.supvisors, ConciliationStrategies.USER, self.conflicts)
+        self.assertEqual(0, mocked_senicide.call_count)
+        self.assertEqual(0, mocked_infanticide.call_count)
+        self.assertEqual([call(self.conflicts)], mocked_user.call_args_list)
+        self.assertEqual(0, mocked_stop.call_count)
+        self.assertEqual(0, mocked_restart.call_count)
+        mocked_user.reset_mock()
+        # test stop conciliation
+        conciliate(self.supvisors, ConciliationStrategies.STOP, self.conflicts)
+        self.assertEqual(0, mocked_senicide.call_count)
+        self.assertEqual(0, mocked_infanticide.call_count)
+        self.assertEqual(0, mocked_user.call_count)
+        self.assertEqual([call(self.conflicts)], mocked_stop.call_args_list)
+        self.assertEqual(0, mocked_restart.call_count)
+        mocked_stop.reset_mock()
+        # test restart conciliation
+        conciliate(self.supvisors, ConciliationStrategies.RESTART, self.conflicts)
+        self.assertEqual(0, mocked_senicide.call_count)
+        self.assertEqual(0, mocked_infanticide.call_count)
+        self.assertEqual(0, mocked_user.call_count)
+        self.assertEqual(0, mocked_stop.call_count)
+        self.assertEqual([call(self.conflicts)], mocked_restart.call_args_list)
 
 
 def test_suite():
