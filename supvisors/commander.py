@@ -184,13 +184,16 @@ class Starter(Commander):
         return not self.in_progress()
 
     def start_process(self, strategy, process, extra_args=''):
-        """ Plan and start the necessary job to start the process in parameter, with the strategy requested. """
+        """ Plan and start the necessary job to start the process in parameter,
+        with the strategy requested.
+        Return False when starting not completed. """
         self.logger.info('start process {}'.format(process.namespec()))
         # called from rpcinterface: strategy is a user choice
         self.strategy = strategy
         # store extra arguments to be passed to the command line
         process.extra_args = extra_args
-        # WARN: when deploying a single process (outside the scope of an application deployment), do NOT consider the 'wait_exit' rule
+        # WARN: when deploying a single process (outside the scope of an
+        # application deployment), do NOT consider the 'wait_exit' rule
         process.ignore_wait_exit = True
         # push program list in todo list and start work
         job = self.current_jobs.setdefault(process.application_name, [])

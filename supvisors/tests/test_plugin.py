@@ -22,12 +22,23 @@ import unittest
 
 from mock import call, patch
 from supervisor.web import VIEWS, OKView, TailView
+from supervisor.xmlrpc import Faults
 
 from supvisors.tests.base import DummySupervisor
 
 
 class PluginTest(unittest.TestCase):
     """ Test case for the plugin module. """
+
+    def test_codes(self):
+        """ Test the addition of Supvisors fault codes to Supervisor's. """
+        from supvisors.plugin import SupvisorsFaults, expand_faults
+        from supvisors.utils import enum_strings
+        # update Supervisor faults
+        expand_faults()
+        # test that enumerations are in Supervisor
+        for enum in enum_strings(SupvisorsFaults.__dict__):
+            self.assertTrue(hasattr(Faults, enum))
 
     def test_update_views(self):
         """ Test the values set at construction. """
@@ -75,14 +86,17 @@ class PluginTest(unittest.TestCase):
         self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], AddressNetworkImageView)
 
+    @patch('supvisors.plugin.update_views')
+    @patch('supvisors.plugin.expand_faults')
     @patch('supvisors.plugin.RPCInterface')
-    def test_make_rpc(self, mocked_rpc):
+    def test_make_rpc(self, mocked_rpc, mocked_expand, mocked_views):
         """ Test the values set at construction. """
         from supvisors.plugin import make_supvisors_rpcinterface
-        # check views before and after
         supervisord = DummySupervisor
         make_supvisors_rpcinterface(supervisord)
         self.assertEqual([call(supervisord)], mocked_rpc.call_args_list)
+        self.assertEqual([call()], mocked_expand.call_args_list)
+        self.assertEqual([call()], mocked_views.call_args_list)
 
 
 def test_suite():

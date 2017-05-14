@@ -72,7 +72,8 @@ class MockedSupvisors:
         self.fsm = Mock()
         self.pool = Mock()
         self.requester = Mock()
-        self.statistician = Mock()        # mock the supervisord source
+        self.statistician = Mock()
+        # mock the supervisord source
         from supvisors.infosource import SupervisordSource
         self.info_source = Mock(spec=SupervisordSource)
         self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
