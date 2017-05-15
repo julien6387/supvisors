@@ -103,7 +103,7 @@ class RpcInterfaceTest(unittest.TestCase):
             '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
-        self.assertEqual(['address_info_1', 'address_info_2'],
+        self.assertItemsEqual(['address_info_1', 'address_info_2'],
             rpc.get_all_addresses_info())
 
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')

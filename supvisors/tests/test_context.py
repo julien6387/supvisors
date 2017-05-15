@@ -22,7 +22,7 @@ import sys
 import time
 import unittest
 
-from mock import call, patch
+from mock import call, patch, Mock
 
 from supvisors.tests.base import (DummyAddressMapper, MockedSupvisors,
     ProcessInfoDatabase, database_copy, any_process_info)
@@ -108,24 +108,25 @@ class ContextTest(unittest.TestCase):
     def test_invalid(self):
         """ Test the invalidation of an address. """
         from supvisors.context import Context
-        from supvisors.ttypes import AddressStates, ProcessStates
+        from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        # add processes to context
-        self.random_fill_processes(context)
         def check_address_status(address_name, new_state):
             # get address status
             address_status = context.addresses[address_name]
             # check initial state
             self.assertEqual(AddressStates.UNKNOWN, address_status.state)
-            # keep a reference to running processes
-            running_processes = address_status.running_processes()
             # invalidate address
-            context.invalid(address_status)
+            proc_1 = Mock(**{'invalidate_address.return_value': None})
+            proc_2 = Mock(**{'invalidate_address.return_value': None})
+            with patch.object(address_status, 'running_processes',
+                    return_value=[proc_1, proc_2]) as mocked_running:
+                context.invalid(address_status)
             # check new state
             self.assertEqual(new_state, address_status.state)
-            # check that running processes become FATAL
-            for process_status in running_processes:
-                self.assertEqual(ProcessStates.FATAL, process_status.state)
+            # test calls to process methods
+            self.assertEqual([call()], mocked_running.call_args_list)
+            self.assertEqual([call(address_name)], proc_1.invalidate_address.call_args_list)
+            self.assertEqual([call(address_name)], proc_2.invalidate_address.call_args_list)
             # restore address state
             address_status._state = AddressStates.UNKNOWN
         # test address state with auto_fence and local_address

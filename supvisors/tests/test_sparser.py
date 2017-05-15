@@ -49,7 +49,8 @@ class ParserTest(unittest.TestCase):
             parser = Parser(self.supvisors)
         self.check_valid(parser)
 
-    def test_invalid_lxml(self):
+    @patch('supvisors.sparser.stderr')
+    def test_invalid_lxml(self, mocked_print):
         """ Test the parsing of an invalid XML using lxml (optional dependency). """
         from supvisors.sparser import Parser
         with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
