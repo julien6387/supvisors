@@ -125,8 +125,8 @@ class ContextTest(unittest.TestCase):
             self.assertEqual(new_state, address_status.state)
             # test calls to process methods
             self.assertEqual([call()], mocked_running.call_args_list)
-            self.assertEqual([call(address_name)], proc_1.invalidate_address.call_args_list)
-            self.assertEqual([call(address_name)], proc_2.invalidate_address.call_args_list)
+            self.assertEqual([call(address_name, False)], proc_1.invalidate_address.call_args_list)
+            self.assertEqual([call(address_name, False)], proc_2.invalidate_address.call_args_list)
             # restore address state
             address_status._state = AddressStates.UNKNOWN
         # test address state with auto_fence and local_address
