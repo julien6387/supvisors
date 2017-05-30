@@ -25,7 +25,6 @@ from supervisor.datatypes import boolean
 from supervisor.options import split_namespec
 
 from supvisors.mainloop import SupvisorsMainLoop
-from supvisors.statistics import instant_statistics
 from supvisors.ttypes import ProcessStates
 from supvisors.utils import (supvisors_short_cuts, InternalEventHeaders, RemoteCommEvents)
 from supvisors.supvisorszmq import SupvisorsZmq
@@ -48,6 +47,13 @@ class SupervisorListener(object):
         self.supvisors = supvisors
         # shortcuts for source code readability
         supvisors_short_cuts(self, ['fsm', 'info_source', 'logger', 'statistician'])
+        # test if statistics collector can be created for local host
+        try:
+            from supvisors.statscollector import instant_statistics
+            self.collector = instant_statistics
+        except ImportError:
+            self.logger.warn('psutil not installed. this Supvisors will not publish statistics')
+            self.collector = None
         # other attributes
         self.address = self.supvisors.address_mapper.local_address
         self.publisher = None
@@ -110,9 +116,10 @@ class SupervisorListener(object):
         self.logger.debug('got Tick event from supervisord: {}'.format(event))
         payload = {'when': event.when}
         self.publisher.send_tick_event(payload)
-        # get and publish statistics at tick time
-        status = self.supvisors.context.addresses[self.address]
-        self.publisher.send_statistics(instant_statistics(status.pid_processes()))
+        # get and publish statistics at tick time (optional)
+        if self.collector:
+            status = self.supvisors.context.addresses[self.address]
+            self.publisher.send_statistics(self.collector(status.pid_processes()))
         # periodic task
         addresses = self.fsm.on_timer_event()
         # pushes isolated addresses to main loop
@@ -139,6 +146,7 @@ class SupervisorListener(object):
             self.logger.blather('got process event from {}: {}'.format(event_address, event_data))
             self.fsm.on_process_event(event_address, event_data)
         elif event_type == InternalEventHeaders.STATISTICS:
+            # this Supvisors could handle statistics even if psutil is not installed
             self.logger.blather('got statistics event from {}: {}'.format(event_address, event_data))
             self.statistician.push_statistics(event_address, event_data)
 
