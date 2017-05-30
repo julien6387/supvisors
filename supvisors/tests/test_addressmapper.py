@@ -122,12 +122,19 @@ class AddressMapperTest(unittest.TestCase):
         # complex to test as it depends on the network configuration of the operating system
         # check that there is at least one entry looking like an IP address
         from supvisors.addressmapper import AddressMapper
+        # test that netifaces is installed
+        try:
+            import netifaces
+            netifaces.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional netifaces is not installed')
+        # test function
         ip_list = AddressMapper.ipv4()
         self.assertTrue(ip_list)
         for ip in ip_list:
             self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')
 
-    @patch('netifaces.interfaces', side_effect=ImportError)
+    @patch.dict('sys.modules', {'netifaces': None})
     def test_ipv4_importerror(self, *args, **keywargs):
         """ Test the ipv4 method with a mocking of import (netifaces not installed). """
         from supvisors.addressmapper import AddressMapper
