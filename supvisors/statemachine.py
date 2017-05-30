@@ -252,9 +252,10 @@ class FiniteStateMachine:
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
-        # master can fix inconsistencies if any
-        if self.context.master:
-            self.starter.start_marked_processes(self.context.marked_processes())
+        # fix inconsistencies if any
+        # processes can be marked by the Supvisors master after an address is invalidated
+        # or by any instance upon request from ui
+        self.starter.start_marked_processes(self.context.marked_processes())
         # check if new isolating remotes and return the list of newly isolated addresses
         return self.context.handle_isolation()
 
@@ -268,12 +269,41 @@ class FiniteStateMachine:
         This event also triggers the application starter. """
         process = self.context.on_process_event(address, event)
         if process:
+            starting_application = self.starter.has_application(process.application_name)
+            stopping_application = self.stopper.has_application(process.application_name)
             # wake up starter if needed
-            if self.starter.in_progress():
+            if starting_application:
                 self.starter.on_event(process)
             # wake up stopper if needed
-            if self.stopper.in_progress():
+            if stopping_application:
                 self.stopper.on_event(process)
+            # TODO: on_xxx
+
+    def on_xxx(self, address, event):
+        """ TODO. """
+        # FIXME: this is not the right place
+        # if event FATAL or EXIT unexpected and process required
+        # use running failure strategy
+        if not starting_application and not stopping_application:
+            from supvisors.ttypes import RunningFailureStrategies
+            # add mark_for_restart to application ?
+            application_name = process.application_name
+            # impact of failure upon application deployment
+            if process.rules.required:
+                # get starting failure strategy of related application
+                application = self.context.applications[application_name]
+                running_strategy = application.rules.running_failure_strategy
+                # apply strategy
+                if running_strategy == RunningFailureStrategies.STOP:
+                    self.logger.error('failure with running failed required {}: stop application {}'.format(process.process_name, application_name))
+                    self.supvisors.stopper.stop_application(application)
+                elif running_strategy == RunningFailureStrategies.RESTART:
+                    self.logger.error('failure with running failed required {}: restart application {}'.format(process.process_name, application_name))
+                    # remove failed application from deployment
+                    # do not remove application from current_jobs as requests have already been sent
+                    self.planned_jobs.pop(application_name, None)
+                elif running_strategy == RunningFailureStrategies.CONTINUE:
+                    self.logger.warn('failure with running failed for required {}: continue application {}'.format(process.process_name, application_name))
 
     def on_process_info(self, address_name, info):
         """ This event is used to fill the internal structures with processes available on address. """
