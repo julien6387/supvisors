@@ -18,30 +18,12 @@
 # ======================================================================
 
 import os
-import psutil
 import sys
 import time
 import unittest
 import zmq
 
 from supvisors.tests.base import MockedSupvisors
-
-
-def get_connections(port):
-    """ Find the network connections related to port. """
-    listen = []
-    laddr = []
-    raddr = []
-    for conn in psutil.net_connections():
-        if conn.status == 'LISTEN':
-            if conn.laddr[1] == port:
-                listen.append(conn)
-        elif conn.status in ['ESTABLISHED', 'SYN_SENT']:
-            if conn.laddr[1] == port:
-                laddr.append(conn)
-            elif conn.raddr[1] == port:
-                raddr.append(conn)
-    return listen, laddr, raddr
 
 
 class ZmqContextTest(unittest.TestCase):
@@ -78,52 +60,18 @@ class ZmqSocketTest(unittest.TestCase):
     def test_internal_publish_subscribe(self):
         """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
         from supvisors.supvisorszmq import InternalEventPublisher, InternalEventSubscriber
-        # get internal port
-        port = self.supvisors.options.internal_port
         # create publisher and subscriber
         publisher = InternalEventPublisher(self.zmq_context, self.supvisors)
         subscriber = InternalEventSubscriber(self.zmq_context, self.supvisors)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
-        # keep pid
-        pid = os.getpid()
-        # check the TCP connections
-        listen, laddr, raddr = get_connections(port)
-        # check the listen connection
-        self.assertEqual(1, len(listen))
-        self.assertEqual(pid, listen[0].pid)
-        self.assertEqual('0.0.0.0', listen[0].laddr[0])
-        # check the established connection on subscriber side
-        self.assertEqual(1, len(laddr))
-        self.assertEqual(pid, laddr[0].pid)
-        self.assertEqual('ESTABLISHED', laddr[0].status)
-        self.assertTupleEqual(('127.0.0.1', port), laddr[0].laddr)
-        dyn_port = laddr[0].raddr[1]
-        # check the connections on publisher side
-        addresses = [conn.raddr[0] for conn in raddr]
-        self.assertItemsEqual(self.supvisors.address_mapper.addresses, addresses)
-        for conn in raddr:
-            self.assertEqual(pid, conn.pid)
-            if conn.raddr[0] == '127.0.0.1':
-                self.assertEqual('ESTABLISHED', conn.status)
-                self.assertEqual(dyn_port, conn.laddr[1])
-            else:
-                self.assertEqual('SYN_SENT', conn.status)
-        # disconnection cannot be tested here
-        # ZeroMQ keeps the connection ESTABLISHED for a while
-        # however, it can be tested that messages are not received anymore
         # close the sockets
         publisher.close()
         subscriber.close()
         # check that the ZMQ socket are closed
         self.assertTrue(publisher.socket.closed)
         self.assertTrue(subscriber.socket.closed)
-        # check that the TCP socket is closed
-        listen, laddr, raddr = get_connections(port)
-        self.assertFalse(listen)
-        self.assertFalse(laddr)
-        self.assertFalse(raddr)
 
     def test_external_publish_subscribe(self):
         """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
@@ -136,37 +84,12 @@ class ZmqSocketTest(unittest.TestCase):
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
-        # keep pid
-        pid = os.getpid()
-        # check the TCP connections
-        listen, laddr, raddr = get_connections(port)
-        # check the listen connection
-        self.assertEqual(1, len(listen))
-        self.assertEqual(pid, listen[0].pid)
-        self.assertEqual('127.0.0.1', listen[0].laddr[0])
-        # check the established connection on subscriber side
-        self.assertEqual(1, len(laddr))
-        self.assertEqual(pid, laddr[0].pid)
-        self.assertEqual('ESTABLISHED', laddr[0].status)
-        self.assertTupleEqual(('127.0.0.1', port), laddr[0].laddr)
-        dyn_port = laddr[0].raddr[1]
-        # check the connections on publisher side
-        self.assertEqual(1, len(raddr))
-        self.assertEqual(pid, raddr[0].pid)
-        self.assertEqual('ESTABLISHED', raddr[0].status)
-        self.assertTupleEqual(('127.0.0.1', port), raddr[0].raddr)
-        self.assertEqual(dyn_port, raddr[0].laddr[1])
         # close the sockets
         publisher.close()
         subscriber.close()
         # check that the ZMQ socket are closed
         self.assertTrue(publisher.socket.closed)
         self.assertTrue(subscriber.socket.closed)
-        # check that the TCP socket is closed
-        listen, laddr, raddr = get_connections(port)
-        self.assertFalse(listen)
-        self.assertFalse(laddr)
-        self.assertFalse(raddr)
 
     def test_internal_pusher_puller(self):
         """ Test the ZeroMQ push-pull sockets used internally in Supvisors. """
