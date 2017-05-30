@@ -25,8 +25,8 @@ from mock import Mock, call, patch
 from supvisors.tests.base import MockedSupvisors
 
 
-class DeploymentStrategyTest(unittest.TestCase):
-    """ Test case for the deployment strategies of the strategy module. """
+class StartingStrategyTest(unittest.TestCase):
+    """ Test case for the starting strategies of the strategy module. """
 
     def setUp(self):
         """ Create a Supvisors-like structure and addresses. """
@@ -51,8 +51,8 @@ class DeploymentStrategyTest(unittest.TestCase):
 
     def test_is_loading_valid(self):
         """ Test the validity of an address with an additional loading. """
-        from supvisors.strategy import AbstractDeploymentStrategy
-        strategy = AbstractDeploymentStrategy(self.supvisors)
+        from supvisors.strategy import AbstractStartingStrategy
+        strategy = AbstractStartingStrategy(self.supvisors)
         # test unknown address
         self.assertTupleEqual((False, 0), strategy.is_loading_valid('10.0.0.10', 1))
         # test not RUNNING address
@@ -70,8 +70,8 @@ class DeploymentStrategyTest(unittest.TestCase):
 
     def test_get_loading_and_validity(self):
         """ Test the determination of the valid addresses with an additional loading. """
-        from supvisors.strategy import AbstractDeploymentStrategy
-        strategy = AbstractDeploymentStrategy(self.supvisors)
+        from supvisors.strategy import AbstractStartingStrategy
+        strategy = AbstractStartingStrategy(self.supvisors)
         # test valid addresses with different additional loadings
         self.assertDictEqual({'10.0.0.0': (False, 0), '10.0.0.1': (True, 50),
             '10.0.0.2': (False, 0), '10.0.0.3': (True, 20), '10.0.0.4': (False, 0),
@@ -90,8 +90,8 @@ class DeploymentStrategyTest(unittest.TestCase):
 
     def test_sort_valid_by_loading(self):
         """ Test the sorting of the validities of the addresses. """
-        from supvisors.strategy import AbstractDeploymentStrategy
-        strategy = AbstractDeploymentStrategy(self.supvisors)
+        from supvisors.strategy import AbstractStartingStrategy
+        strategy = AbstractStartingStrategy(self.supvisors)
         self.assertListEqual([('10.0.0.3', 20), ('10.0.0.1', 50), ('10.0.0.5', 80)],
             strategy.sort_valid_by_loading({'10.0.0.0': (False, 0), '10.0.0.1': (True, 50),
                 '10.0.0.2': (False, 0), '10.0.0.3': (True, 20), '10.0.0.4': (False, 0),
