@@ -497,7 +497,7 @@ class ProcessTest(unittest.TestCase):
         self.assertTrue(process.conflicting())
         self.assertEqual(ProcessStates.RUNNING, process.state)
         # invalidate RUNNING one
-        process.invalidate_address('10.0.0.2')
+        process.invalidate_address('10.0.0.2', False)
         # check UNKNOWN
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.2']['state'])
         # check the conflict
@@ -505,7 +505,7 @@ class ProcessTest(unittest.TestCase):
         # check new synthetic state
         self.assertEqual(ProcessStates.BACKOFF, process.state)
         # invalidate BACKOFF one
-        process.invalidate_address('10.0.0.1')
+        process.invalidate_address('10.0.0.1', False)
         # check UNKNOWN
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.1']['state'])
         # check 1 address: no conflict
@@ -514,7 +514,7 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.STARTING, process.state)
         # invalidate STARTING one
         self.supvisors.info_source.autorestart.return_value = False
-        process.invalidate_address('10.0.0.3')
+        process.invalidate_address('10.0.0.3', True)
         # check UNKNOWN
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.3']['state'])
         # check 0 address: no conflict
@@ -528,7 +528,7 @@ class ProcessTest(unittest.TestCase):
         # check state STOPPING
         self.assertEqual(ProcessStates.STOPPING, process.state)
         # invalidate STOPPING one
-        process.invalidate_address('10.0.0.4')
+        process.invalidate_address('10.0.0.4', False)
         # check UNKNOWN
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.4']['state'])
         # check state STOPPED
