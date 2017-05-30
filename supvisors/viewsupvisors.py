@@ -59,13 +59,13 @@ class SupvisorsView(MeldView, ViewHandler):
         self.write_nav(root)
 
     def write_header(self, root):
-        """ Rendering of the header part of the Supvisors main page """
+        """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
         root.findmeld('state_mid').content(self.supvisors.fsm.state_string())
 
     def write_contents(self, root):
-        """ Rendering of the contents of the Supvisors main page
-        This builds either a synoptic of the processes running on the addresses or the table of conflicts if any """
+        """ Rendering of the contents of the Supvisors main page.
+        This builds either a synoptic of the processes running on the addresses or the table of conflicts if any. """
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.supvisors.context.conflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
