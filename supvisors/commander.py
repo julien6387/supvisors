@@ -31,11 +31,13 @@ class Commander(object):
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
+
         - planned_sequence: the applications to be commanded, as a dictionary of processes,
             grouped by application sequence order, application name and process sequence order,
         - planned_jobs: the current sequence of applications to be commanded,
             as a dictionary of processes, grouped by application name and process sequence order,
-        - current_jobs: a dictionary of commanded processes, grouped by application name. """
+        - current_jobs: a dictionary of commanded processes, grouped by application name.
+    """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -53,6 +55,16 @@ class Commander(object):
         self.logger.debug('progress: planned_sequence={} planned_jobs={} current_jobs={}'.format(
             self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
         return len(self.planned_sequence) or len(self.planned_jobs) or len(self.current_jobs)
+
+    def has_application(self, application_name):
+        """ Return True if application is in jobs. """
+        # get planned applications
+        planned_applications = [app_name for jobs in self.planned_sequence.values()
+            for app_name in jobs.keys()]
+        # search for application name in internal structures
+        return application_name in planned_applications \
+            or application_name in self.planned_jobs \
+            or application_name in self.current_jobs
 
     # log facilities
     def printable_planned_sequence(self):
@@ -205,17 +217,16 @@ class Starter(Commander):
         return not self.in_progress()
 
     def start_marked_processes(self, processes):
-        """ Plan and start the necessary job to start the processes in parameter, with the default strategy. """
+        """ Plan and start the necessary job to start the processes in parameter,
+        with the default strategy. """
         # restart required processes first
         for process in processes:
             if process.rules.required:
                 self.start_process(self.supvisors.options.deployment_strategy, process)
-                process.mark_for_restart = False
         # restart optional processes
         for process in processes:
             if not process.rules.required:
                 self.start_process(self.supvisors.options.deployment_strategy, process)
-                process.mark_for_restart = False
 
     def check_starting(self):
         """ Check the progress of the application starting. """
@@ -230,8 +241,8 @@ class Starter(Commander):
             # depending on ini file, it may take a while before the process enters in RUNNING state
             # so just test that is in not in a STOPPED-like state 5 seconds after request_time
             if process.stopped() and max(process.last_event_time, process.request_time) + 5 < now:
-                # removal from jobs is not necessary as process_failure will generate a FATAL event for this process
-                self.process_failure(process, 'Still stopped 5 seconds after start request', True)
+                # generate a FATAL event for this process
+                self.force_process_fatal(process.namespec(), 'Still stopped 5 seconds after start request')
         # return True when starting is completed
         return not self.in_progress()
 
@@ -246,7 +257,7 @@ class Starter(Commander):
                     process.ignore_wait_exit = False
                     jobs.remove(process)
                     # decide to continue deployment or not
-                    self.process_failure(process, 'unexpected event when starting')
+                    self.process_failure(process)
                 elif process.state == ProcessStates.STARTING:
                     # on the way
                     pass
@@ -266,13 +277,13 @@ class Starter(Commander):
                         self.logger.info('expected exit for {}'.format(process.namespec()))
                     else:
                         # missed
-                        self.process_failure(process, 'unexpected exit')
+                        self.process_failure(process)
                 elif process.state == ProcessStates.FATAL:
                     # remove from inProgress
                     process.ignore_wait_exit = False
                     jobs.remove(process)
                     # decide to continue deployment or not
-                    self.process_failure(process, 'unexpected crash')
+                    self.process_failure(process)
                 # check if there are remaining jobs in progress for this application
                 if not jobs:
                     # remove application entry from current_jobs
@@ -299,29 +310,35 @@ class Starter(Commander):
     def process_job(self, process, jobs):
         """ Start the process on the relevant address. """
         reset_flag = True
-        # process is either stopped, or was running on a lost board
-        if process.stopped() or process.mark_for_restart:
+        # process must be stopped
+        if process.stopped():
             namespec = process.namespec()
-            address = get_address(self.supvisors, self.strategy, process.rules.addresses, process.rules.expected_loading)
+            address = get_address(self.supvisors, self.strategy,
+                process.rules.addresses, process.rules.expected_loading)
             if address:
-                self.logger.info('try to start {} at address={}'.format(namespec, address))
+                self.logger.info('try to start {} at address={}'.format(
+                    namespec, address))
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(address, namespec, process.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(address,
+                    namespec, process.extra_args)
                 # push to jobs and timestamp process
                 process.request_time = time.time()
-                self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(process.request_time)))
+                self.logger.debug('{} requested to start at {}'.format(
+                    namespec, get_asctime(process.request_time)))
                 jobs.append(process)
                 reset_flag = False
                 # reset extra arguments
                 process.extra_args = ''
             else:
                 self.logger.warn('no resource available to start {}'.format(namespec))
-                self.process_failure(process, 'no resource available', True)
+                self.force_process_fatal(namespec, 'no resource available')
+            # remove the restart mark if any
+            process.mark_for_restart = False
         # due to failure, reset ignore_wait_exit flag
         if reset_flag:
             process.ignore_wait_exit = False
 
-    def process_failure(self, process, reason, force_fatal=None):
+    def process_failure(self, process):
         """ Updates the start sequencing when a process could not be started. """
         application_name = process.application_name
         # impact of failure upon application deployment
@@ -331,29 +348,31 @@ class Starter(Commander):
             failure_strategy = application.rules.starting_failure_strategy
             # apply strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
-                self.logger.error('{} for required {}: abort starting of application {}'.format(reason, process.process_name, application_name))
+                self.logger.error('starting failed required {}: abort starting of application {}'.format(process.process_name, application_name))
                 # remove failed application from deployment
                 # do not remove application from current_jobs as requests have already been sent
                 self.planned_jobs.pop(application_name, None)
             elif failure_strategy == StartingFailureStrategies.STOP:
-                self.logger.error('{} for required {}: stop application {}'.format(reason, process.process_name, application_name))
+                self.logger.error('starting failed required {}: stop application {}'.format(process.process_name, application_name))
                 self.planned_jobs.pop(application_name, None)
                 self.supvisors.stopper.stop_application(application)
             else:
-                self.logger.warn('{} for required {}: continue starting of application {}'.format(reason, process.process_name, application_name))
+                self.logger.warn('starting failed for required {}: continue starting of application {}'.format(process.process_name, application_name))
         else:
-            self.logger.warn('{} for optional {}: continue starting of application {}'.format(reason, process.process_name, application_name))
-        if force_fatal:
-            # publish the process state as FATAL to all Supvisors instances
-            self.logger.warn('force {} state to FATAL'.format(process.namespec()))
-            try:
-                self.supvisors.info_source.force_process_fatal(process.namespec(), reason)
-            except KeyError:
-                self.logger.error('impossible to force {} state to FATAL. process unknown in this Supervisor'.format(process.namespec()))
-                # the Supvisors user is not forced to use the same process configuration on all machines,
-                # although it is strongly recommended to avoid troubles.
-                # so, publish directly a fake process event to all Supvisors instances
-                self.supvisors.listener.force_process_fatal(process.namespec())
+            self.logger.warn('starting failed for optional {}: continue starting of application {}'.format(process.process_name, application_name))
+
+    def force_process_fatal(self, namespec, reason):
+        """ Publish the process state as FATAL to all Supvisors instances. """
+        self.logger.warn('force {} state to FATAL'.format(namespec))
+        try:
+            # this call updates the Supervisor data model
+            self.supvisors.info_source.force_process_fatal(namespec, reason)
+        except KeyError:
+            self.logger.error('process {} unknown to this Supervisor.'.format(namespec))
+            # the Supvisors user is not forced to use the same process configuration on all machines,
+            # although it is strongly recommended to avoid troubles.
+            # so, publish directly a fake process event to all Supvisors instances
+            self.supvisors.listener.force_process_fatal(namespec)
 
 
 class Stopper(Commander):
@@ -426,7 +445,7 @@ class Stopper(Commander):
             # depending on ini file, it may take a while before the process enters in STOPPED state
             # so just test that is in not in a RUNNING-like state 5 seconds after request_time
             if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
-                self.process_failure(process.namespec(), 'Still running 5 seconds after stop request', True)
+                self.force_process_unknown(process.namespec(), 'Still running 5 seconds after stop request')
         # return True when starting is completed
         return not self.in_progress()
 
@@ -459,7 +478,7 @@ class Stopper(Commander):
                             # trigger next sequence of applications
                             self.initial_jobs()
 
-    def process_failure(self, namespec, reason):
+    def force_process_unknown(self, namespec, reason):
         """ Updates the stop sequencing when a process could not be stopped. """
         # publish the process state as UNKNOWN to all Supvisors instances
         self.logger.warn('force {} state to UNKNOWN'.format(namespec))
