@@ -20,99 +20,19 @@
 import sys
 import unittest
 
-from mock import patch, Mock
+from mock import patch
 from StringIO import StringIO
 
 from supvisors.tests.base import MockedSupvisors
 from supvisors.tests.configurations import InvalidXmlTest, XmlTest
 
 
-class ParserTest(unittest.TestCase):
-    """ Test case for the sparser module. """
+class CommonParserTest(unittest.TestCase):
+    """ Common check for the sparser module. """
 
     def setUp(self):
         """ Create a dummy supvisors structure. """
         self.supvisors = MockedSupvisors()
-
-    @patch('xml.etree.ElementTree.parse', side_effect=ImportError)
-    def test_no_parser(self, *args, **keywargs):
-        """ Test the exception when no parser is available. """
-        from supvisors.sparser import Parser
-        # patch optional lxml
-        try:
-            lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
-            lxml_patch.start()
-            self.addCleanup(lxml_patch.stop)
-        except ImportError:
-            # no need to patch: lxml not installed
-            pass
-        # create Parser instance
-        with self.assertRaises(ImportError):
-            Parser(self.supvisors)
-
-    def test_valid_lxml(self):
-        """ Test the parsing using lxml (optional dependency). """
-        # test import of optional lxml
-        try: 
-            import lxml
-            lxml.__name__ # just to avoid warning
-        except ImportError:
-            # lxml not installed. nothing to test
-            pass
-        else:
-            # perform the test
-            from supvisors.sparser import Parser
-            with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
-                parser = Parser(self.supvisors)
-            self.check_valid(parser)
-
-    @patch('supvisors.sparser.stderr')
-    def test_invalid_lxml(self, mocked_print):
-        """ Test the parsing of an invalid XML using lxml (optional dependency). """
-        try: 
-            import lxml
-            lxml.__name__ # just to avoid warning
-        except ImportError:
-            # lxml not installed. nothing to test
-            pass
-        else:
-            # perform the test
-            from supvisors.sparser import Parser
-            with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
-                with self.assertRaises(ValueError):
-                    Parser(self.supvisors)
-
-    def test_valid_element_tree(self, *args, **keywargs):
-        """ Test the parsing of a valid XML using ElementTree (Supervisor dependency). """
-        from supvisors.sparser import Parser
-        # patch optional lxml
-        try:
-            lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
-            lxml_patch.start()
-            self.addCleanup(lxml_patch.stop)
-        except ImportError:
-            # no need to patch: lxml not installed
-            pass
-        # create Parser instance
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
-            parser = Parser(self.supvisors)
-        self.check_valid(parser)
-
-    def test_invalid_element_tree(self, *args, **keywargs):
-        """ Test the parsing of an invalid XML using ElementTree (Supervisor dependency). """
-        from supvisors.sparser import Parser
-        # patch optional lxml
-        try:
-            lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
-            lxml_patch.start()
-            self.addCleanup(lxml_patch.stop)
-        except ImportError:
-            # no need to patch: lxml not installed
-            pass
-        # create Parser instance
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
-            parser = Parser(self.supvisors)
-        self.check_invalid(parser)
 
     def check_valid(self, parser):
         """ Test the parsing of a valid XML. """
@@ -203,6 +123,103 @@ class ParserTest(unittest.TestCase):
         process = ProcessStatus('dummy_application_D', 'any_dummies_02_', self.supvisors)
         parser.load_process_rules(process)
         self.assert_default_process_rules(process.rules)
+
+    def assert_default_application_rules(self, rules):
+        """ Check that rules contains default values. """
+        from supvisors.ttypes import StartingFailureStrategies
+        self.assert_application_rules(rules, 0, 0, StartingFailureStrategies.ABORT)
+
+    def assert_application_rules(self, rules, start, stop, strategy):
+        """ Test the application rules. """
+        self.assertEqual(start, rules.start_sequence)
+        self.assertEqual(stop, rules.stop_sequence)
+        self.assertEqual(strategy, rules.starting_failure_strategy)
+
+    def assert_default_process_rules(self, rules):
+        """ Check that rules contains default values. """
+        self.assert_process_rules(rules, ['*'], 0, 0, False, False, 1)
+
+    def assert_process_rules(self, rules, addresses, start, stop, required, wait, loading):
+        """ Test the process rules. """
+        self.assertListEqual(addresses, rules.addresses)
+        self.assertEqual(start, rules.start_sequence)
+        self.assertEqual(stop, rules.stop_sequence)
+        self.assertEqual(required, rules.required)
+        self.assertEqual(wait, rules.wait_exit)
+        self.assertEqual(loading, rules.expected_loading)
+
+
+class LxmlParserTest(CommonParserTest):
+    """ Test case for the lxml part of the sparser module. """
+
+    def setUp(self):
+        """ Skip the test if lxml is not installed. """
+        try:
+            import lxml
+            lxml.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional lxml is not installed')
+        # else call parent setup
+        CommonParserTest.setUp(self)
+
+    def test_valid_lxml(self):
+        """ Test the parsing using lxml (optional dependency). """
+        # perform the test
+        from supvisors.sparser import Parser
+        with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
+            parser = Parser(self.supvisors)
+        self.check_valid(parser)
+
+    @patch('supvisors.sparser.stderr')
+    def test_invalid_lxml(self, mocked_print):
+        """ Test the parsing of an invalid XML using lxml (optional dependency). """
+        # perform the test
+        from supvisors.sparser import Parser
+        with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
+            with self.assertRaises(ValueError):
+                Parser(self.supvisors)
+
+
+class ElementTreeParserTest(CommonParserTest):
+    """ Test case for the ElementTree part of the sparser module.
+    ElementTree is a Supervisor dependency, so it is expected to be installed. """
+
+    def setUp(self):
+        """ Ensure that lxml is not imported. """
+        # patch optional lxml
+        try:
+            lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
+            lxml_patch.start()
+            self.addCleanup(lxml_patch.stop)
+        except ImportError:
+            # no need to patch: lxml not installed
+            pass
+        # else call parent setup
+        CommonParserTest.setUp(self)
+
+    @patch('xml.etree.ElementTree.parse', side_effect=ImportError)
+    def test_no_parser(self, *args, **keywargs):
+        """ Test the exception when no parser is available. """
+        from supvisors.sparser import Parser
+        # create Parser instance
+        with self.assertRaises(ImportError):
+            Parser(self.supvisors)
+
+    def test_valid_element_tree(self, *args, **keywargs):
+        """ Test the parsing of a valid XML using ElementTree. """
+        from supvisors.sparser import Parser
+        # create Parser instance
+        with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
+            parser = Parser(self.supvisors)
+        self.check_valid(parser)
+
+    def test_invalid_element_tree(self, *args, **keywargs):
+        """ Test the parsing of an invalid XML using ElementTree. """
+        from supvisors.sparser import Parser
+        # create Parser instance
+        with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
+            parser = Parser(self.supvisors)
+        self.check_invalid(parser)
 
     def check_invalid(self, parser):
         """ Test the parsing of an invalid XML. """
@@ -301,30 +318,6 @@ class ParserTest(unittest.TestCase):
         process = ProcessStatus('dummy_application_D', 'any_dummies_02_', self.supvisors)
         parser.load_process_rules(process)
         self.assert_default_process_rules(process.rules)
-
-    def assert_default_application_rules(self, rules):
-        """ Check that rules contains default values. """
-        from supvisors.ttypes import StartingFailureStrategies
-        self.assert_application_rules(rules, 0, 0, StartingFailureStrategies.ABORT)
-
-    def assert_application_rules(self, rules, start, stop, strategy):
-        """ Test the application rules. """
-        self.assertEqual(start, rules.start_sequence)
-        self.assertEqual(stop, rules.stop_sequence)
-        self.assertEqual(strategy, rules.starting_failure_strategy)
-
-    def assert_default_process_rules(self, rules):
-        """ Check that rules contains default values. """
-        self.assert_process_rules(rules, ['*'], 0, 0, False, False, 1)
-
-    def assert_process_rules(self, rules, addresses, start, stop, required, wait, loading):
-        """ Test the process rules. """
-        self.assertListEqual(addresses, rules.addresses)
-        self.assertEqual(start, rules.start_sequence)
-        self.assertEqual(stop, rules.stop_sequence)
-        self.assertEqual(required, rules.required)
-        self.assertEqual(wait, rules.wait_exit)
-        self.assertEqual(loading, rules.expected_loading)
 
 
 def test_suite():
