@@ -17,7 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.ttypes import AddressStates, ConciliationStrategies, DeploymentStrategies
+from supvisors.ttypes import (AddressStates, ConciliationStrategies,
+    DeploymentStrategies, RunningFailureStrategies)
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -29,7 +30,8 @@ class AbstractStrategy(object):
         supvisors_short_cuts(self, ['context', 'logger'])
 
 
-class AbstractDeploymentStrategy(AbstractStrategy):
+# Strategy management for Starting
+class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a deployment strategy. """
 
     def is_loading_valid(self, address, expected_loading):
@@ -60,7 +62,7 @@ class AbstractDeploymentStrategy(AbstractStrategy):
         return sorted_addresses
 
 
-class ConfigStrategy(AbstractDeploymentStrategy):
+class ConfigStrategy(AbstractStartingStrategy):
     """ Strategy designed to choose the address using the order defined in the configuration file. """
 
     def get_address(self, addresses, expected_loading):
@@ -73,7 +75,7 @@ class ConfigStrategy(AbstractDeploymentStrategy):
         return next((address for address in addresses if loading_validities[address][0]),  None)
 
 
-class LessLoadedStrategy(AbstractDeploymentStrategy):
+class LessLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to share the loading among all the addresses. """
 
     def get_address(self, addresses, expected_loading):
@@ -85,7 +87,7 @@ class LessLoadedStrategy(AbstractDeploymentStrategy):
         return sorted_addresses[0][0]  if sorted_addresses else None
 
 
-class MostLoadedStrategy(AbstractDeploymentStrategy):
+class MostLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to maximize the loading of an address. """
 
     def get_address(self, addresses, expected_loading):
@@ -167,14 +169,14 @@ class StopStrategy(AbstractStrategy):
 
 
 class RestartStrategy(StopStrategy):
-    """ Strategy designed to stop all conflicting processes and to re-deploy a single instance. """
+    """ Strategy designed to stop all conflicting processes
+    and to re-deploy a single instance. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by stopping all processes and mark the process so that the Supervisor starter restarts it. """
+        """ Conciliate the conflicts by stopping all processes
+        and mark the program so that the Supvisors Starter restarts it. """
         StopStrategy.conciliate(self, conflicts)
-        # force warm restart
-        # WARN: only master can use starter
-        # conciliation MUST be triggered from the Supvisors MASTER
+        # mark the processes to be restarted
         for process in conflicts:
             process.mark_for_restart = True
 
@@ -193,3 +195,25 @@ def conciliate(supvisors, strategy, conflicts):
         instance = RestartStrategy(supvisors)
     # apply strategy to conflicts
     instance.conciliate(conflicts)
+
+
+# Strategy management for Running Failure
+class AbstractRunningFailureStrategy(AbstractStrategy):
+    """ Base class for a deployment strategy. """
+
+    def __init__(self, supvisors):
+        AbstractStrategy.__init__(self, supvisors)
+        supvisors_short_cuts(self, ['starter', 'stopper'])
+
+
+def on_running_failure(supvisors, strategy, application):
+    """ Creates a strategy and let it conciliate the conflicts. """
+    if strategy == RunningFailureStrategies.CONTINUE:
+        instance = SenicideStrategy(supvisors)
+    elif strategy == RunningFailureStrategies.STOP:
+        instance = StopStrategy(supvisors)
+    elif strategy == RunningFailureStrategies.RESTART:
+        instance = UserStrategy(supvisors)
+    # apply strategy to application
+    instance.on_running_failure(application)
+
