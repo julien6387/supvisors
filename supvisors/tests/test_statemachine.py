@@ -613,37 +613,26 @@ class FiniteStateMachineTest(unittest.TestCase):
         from supvisors.statemachine import FiniteStateMachine
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
-        ctx = self.supvisors.context
-        starter = self.supvisors.starter
+        # apply patches
+        mocked_marked = self.supvisors.context.marked_processes
+        mocked_marked.return_value = [1, 2, 3, 4]
+        mocked_isolation = self.supvisors.context.handle_isolation
+        mocked_isolation.return_value = [2, 3]
+        mocked_event = self.supvisors.context.on_timer_event
+        mocked_starter = self.supvisors.starter.start_marked_processes
         # test that context on_timer_event is always called
         # test that fsm next is always called
         # test that result of context handle_isolation is always returned
-        with patch.object(ctx, 'marked_processes', return_value=[1, 2, 3, 4]) as mocked_marked:
-            with patch.object(ctx, 'handle_isolation', return_value=[2, 3]) as mocked_isolation:
-                with patch.object(ctx, 'on_timer_event') as mocked_event:
-                    with patch.object(starter, 'start_marked_processes') as mocked_starter:
-                        with patch.object(fsm, 'next') as mocked_next:
-                            # inject timer event with local address not master
-                            self.supvisors.context.master = False
-                            result = fsm.on_timer_event()
-                            # check result: marked processes are not started
-                            self.assertEqual([2, 3], result)
-                            self.assertEqual(1, mocked_next.call_count)
-                            self.assertEqual(1, mocked_event.call_count)
-                            self.assertEqual(0, mocked_marked.call_count)
-                            self.assertEqual(0, mocked_starter.call_count)
-                            self.assertEqual(1, mocked_isolation.call_count)
-                            # inject timer event with local address master
-                            self.supvisors.context.master = True
-                            result = fsm.on_timer_event()
-                            # check result: marked processes are started
-                            self.assertEqual([2, 3], result)
-                            self.assertEqual(2, mocked_next.call_count)
-                            self.assertEqual(2, mocked_event.call_count)
-                            self.assertEqual(1, mocked_marked.call_count)
-                            self.assertEqual(1, mocked_starter.call_count)
-                            self.assertEqual(call([1, 2, 3, 4]), mocked_starter.call_args)
-                            self.assertEqual(2, mocked_isolation.call_count)
+        with patch.object(fsm, 'next') as mocked_next:
+            result = fsm.on_timer_event()
+            # check result: marked processes are started
+            self.assertEqual([2, 3], result)
+            self.assertEqual(1, mocked_next.call_count)
+            self.assertEqual(1, mocked_event.call_count)
+            self.assertEqual(1, mocked_marked.call_count)
+            self.assertEqual(1, mocked_starter.call_count)
+            self.assertEqual([call([1, 2, 3, 4])], mocked_starter.call_args_list)
+            self.assertEqual(1, mocked_isolation.call_count)
 
     def test_tick_event(self):
         """ Test the actions triggered in state machine upon reception of a tick event. """
@@ -661,49 +650,51 @@ class FiniteStateMachineTest(unittest.TestCase):
         from supvisors.statemachine import FiniteStateMachine
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
-        ctx = self.supvisors.context
-        starter = self.supvisors.starter
-        stopper = self.supvisors.stopper
+        # prepare context
+        process = Mock(application_name='appli')
+        # get patches
+        mocked_start_evt = self.supvisors.starter.on_event
+        mocked_stop_evt = self.supvisors.stopper.on_event
+        mocked_ctx = self.supvisors.context.on_process_event
+        mocked_start_has = self.supvisors.starter.has_application
+        mocked_stop_has = self.supvisors.stopper.has_application
         # inject process event
-        with patch.object(starter, 'on_event') as mocked_start_evt:
-            with patch.object(stopper, 'on_event') as mocked_stop_evt:
-                with patch.object(ctx, 'on_process_event', return_value=None) as mocked_evt:
-                    with patch.object(starter, 'in_progress', return_value=False) as mocked_start_prog:
-                        with patch.object(stopper, 'in_progress', return_value=False) as mocked_stop_prog:
-                            # test that context on_process_event is always called
-                            # test that starter and stopper are not involved when corresponding process is not found
-                            fsm.on_process_event('10.0.0.1', ['dummy_event'])
-                            self.assertEqual(1, mocked_evt.call_count)
-                            self.assertEqual(call('10.0.0.1', ['dummy_event']), mocked_evt.call_args)
-                            self.assertEqual(0, mocked_start_prog.call_count)
-                            self.assertEqual(0, mocked_stop_prog.call_count)
-                            self.assertEqual(0, mocked_start_evt.call_count)
-                            self.assertEqual(0, mocked_stop_evt.call_count)
-                with patch.object(ctx, 'on_process_event', return_value={'name': 'dummy_process'}) as mocked_evt:
-                    with patch.object(starter, 'in_progress', return_value=False) as mocked_start_prog:
-                        with patch.object(stopper, 'in_progress', return_value=False) as mocked_stop_prog:
-                            # test that context on_process_event is always called
-                            # test that event is not pushed to starter and stopper when a starting or stopping is not in progress
-                            fsm.on_process_event('10.0.0.1', ['dummy_event'])
-                            self.assertEqual(1, mocked_evt.call_count)
-                            self.assertEqual(call('10.0.0.1', ['dummy_event']), mocked_evt.call_args)
-                            self.assertEqual(1, mocked_start_prog.call_count)
-                            self.assertEqual(1, mocked_stop_prog.call_count)
-                            self.assertEqual(0, mocked_start_evt.call_count)
-                            self.assertEqual(0, mocked_stop_evt.call_count)
-                    with patch.object(starter, 'in_progress', return_value=True) as mocked_start_prog:
-                        with patch.object(stopper, 'in_progress', return_value=True) as mocked_stop_prog:
-                            # test that context on_process_event is always called
-                            # test that event is pushed to starter and stopper when a starting or stopping is in progress
-                            fsm.on_process_event('10.0.0.1', ['dummy_event'])
-                            self.assertEqual(2, mocked_evt.call_count)
-                            self.assertEqual(call('10.0.0.1', ['dummy_event']), mocked_evt.call_args)
-                            self.assertEqual(1, mocked_start_prog.call_count)
-                            self.assertEqual(1, mocked_stop_prog.call_count)
-                            self.assertEqual(1, mocked_start_evt.call_count)
-                            self.assertEqual(call({'name': 'dummy_process'}), mocked_start_evt.call_args)
-                            self.assertEqual(1, mocked_stop_evt.call_count)
-                            self.assertEqual(call({'name': 'dummy_process'}), mocked_stop_evt.call_args)
+        mocked_ctx.return_value = None
+        mocked_start_has.return_value = False
+        mocked_stop_has.return_value = False
+        # test that context on_process_event is always called
+        # test that starter and stopper are not involved when corresponding process is not found
+        fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        self.assertEqual(call('10.0.0.1', ['dummy_event']), mocked_ctx.call_args)
+        self.assertEqual(0, mocked_start_has.call_count)
+        self.assertEqual(0, mocked_stop_has.call_count)
+        self.assertEqual(0, mocked_start_evt.call_count)
+        self.assertEqual(0, mocked_stop_evt.call_count)
+        # inject process event
+        mocked_ctx.return_value = process
+        mocked_ctx.reset_mock()
+        # test that context on_process_event is always called
+        # test that event is not pushed to starter and stopper when a starting or stopping is not in progress
+        fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
+        self.assertEqual([call('appli')], mocked_start_has.call_args_list)
+        self.assertEqual([call('appli')], mocked_stop_has.call_args_list)
+        self.assertEqual(0, mocked_start_evt.call_count)
+        self.assertEqual(0, mocked_stop_evt.call_count)
+        # inject process event
+        mocked_start_has.reset_mock()
+        mocked_start_has.return_value = True
+        mocked_stop_has.reset_mock()
+        mocked_stop_has.return_value = True
+        mocked_ctx.reset_mock()
+        # test that context on_process_event is always called
+        # test that event is pushed to starter and stopper when a starting or stopping is in progress
+        fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
+        self.assertEqual([call('appli')], mocked_start_has.call_args_list)
+        self.assertEqual([call('appli')], mocked_stop_has.call_args_list)
+        self.assertEqual([call(process)], mocked_start_evt.call_args_list)
+        self.assertEqual([call(process)], mocked_stop_evt.call_args_list)
 
     def test_process_info(self):
         """ Test the actions triggered in state machine upon reception of a process information. """
