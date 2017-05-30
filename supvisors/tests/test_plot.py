@@ -25,6 +25,14 @@ import unittest
 class StatisticsPlotTest(unittest.TestCase):
     """ Test case for the plot module. """
 
+    def setUp(self):
+        """ Skip the test if matplotlib is not installed. """
+        try:
+            import matplotlib
+            matplotlib.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional matplotlib is not installed')
+
     def test_plot(self):
         """ Test a simple plot.
         Complex to test anything. Just check that there is no exception. """
