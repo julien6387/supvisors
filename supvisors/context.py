@@ -87,8 +87,9 @@ class Context(object):
         else:
             status.state = AddressStates.SILENT
         # invalidate address in concerned processes
+        # processes running  on this address may be marked for restart if local Supvisors is master
         for process in status.running_processes():
-            process.invalidate_address(status.address_name)
+            process.invalidate_address(status.address_name, self.master)
 
     def end_synchro(self):
         """ Declare as SILENT the AddressStatus that are still not responsive at the end of the INITIALIZATION state of Supvisors. """
@@ -115,23 +116,27 @@ class Context(object):
         """ Return the application corresponding to application_name if found.
         Otherwise return a new application for application_name.
         Related application rules are loaded from the rules file. """
-        def create_application(application_name):
+        try:
+            application = self.applications[application_name]
+        except KeyError:
             application = ApplicationStatus(application_name, self.logger)
             self.supvisors.parser.load_application_rules(application)
-            return application
-        return self.applications.setdefault(application_name, create_application(application_name))
+            self.applications[application_name] = application
+        return application
 
     def setdefault_process(self, info):
         """ Return the process corresponding to info if found.
         Otherwise return a new process for group name and process name.
         Related process rules are loaded from the rules file. """
-        def create_process(info):
+        namespec = make_namespec(info['group'], info['name'])
+        try:
+            process = self.processes[namespec]
+        except KeyError:
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
             self.supvisors.parser.load_process_rules(process)
             self.setdefault_application(process.application_name).add_process(process)
-            return process
-        namespec = make_namespec(info['group'], info['name'])
-        return self.processes.setdefault(namespec, create_process(info))
+            self.processes[namespec] = process
+        return process
 
     def load_processes(self, address, all_info):
         """ Load application dictionary from process info got from Supervisor on address. """
