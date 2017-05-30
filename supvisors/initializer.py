@@ -28,11 +28,11 @@ from supvisors.listener import SupervisorListener
 from supvisors.options import SupvisorsServerOptions
 from supvisors.sparser import Parser
 from supvisors.statemachine import FiniteStateMachine
-from supvisors.statistics import StatisticsCompiler
+from supvisors.statscompiler import StatisticsCompiler
 
 
 class Supvisors(object):
-    """ The Supvisors class.  """
+    """ The Supvisors class. """
 
     # logger output
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
