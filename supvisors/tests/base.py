@@ -73,6 +73,7 @@ class MockedSupvisors:
         self.pool = Mock()
         self.requester = Mock()
         self.statistician = Mock()
+        self.failure_handler = Mock()
         # mock the supervisord source
         from supvisors.infosource import SupervisordSource
         self.info_source = Mock(spec=SupervisordSource)

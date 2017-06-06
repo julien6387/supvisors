@@ -44,7 +44,8 @@ class DeploymentStrategies:
 @enumeration_tools
 class ConciliationStrategies:
     """ Applicable strategies that can be applied during a conciliation. """
-    SENICIDE, INFANTICIDE, USER, STOP, RESTART = range(5)
+    SENICIDE, INFANTICIDE, USER, STOP, RESTART, RUNNING_FAILURE = range(6)
+    # TODO: change to STOP+RESTART PROCESS and add STOP+RESTART APPLICATION ?
 
 @enumeration_tools
 class StartingFailureStrategies:
@@ -54,7 +55,7 @@ class StartingFailureStrategies:
 @enumeration_tools
 class RunningFailureStrategies:
     """ Applicable strategies that can be applied on a failure of a running application. """
-    CONTINUE, STOP, RESTART = range(3)
+    CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
 @enumeration_tools
 class SupvisorsStates:

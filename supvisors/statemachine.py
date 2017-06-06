@@ -30,7 +30,7 @@ class AbstractState(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'logger', 'starter', 'stopper'])
+        supvisors_short_cuts(self, ['context', 'failure_handler', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
@@ -64,6 +64,8 @@ class InitializationState(AbstractState):
         """ When entering in the INITIALIZATION state, reset the status of addresses. """
         self.context.master_address = ''
         self.start_date = int(time())
+        # clear any existing job
+        self.failure_handler.clear_jobs()
         # re-init addresses that are not isolated
         for status in self.context.addresses.values():
             if not status.in_isolation():
@@ -169,6 +171,7 @@ class RestartingState(AbstractState):
 
     def enter(self):
         """ When entering in the RESTARTING state, stop all applications. """
+        self.failure_handler.clear_jobs()
         self.starter.abort()
         self.stopper.stop_applications()
 
@@ -189,6 +192,7 @@ class ShuttingDownState(AbstractState):
 
     def enter(self):
         """ When entering in the SHUTTING_DOWN state, stop all applications. """
+        self.failure_handler.clear_jobs()
         self.starter.abort()
         self.stopper.stop_applications()
 
@@ -215,7 +219,7 @@ class FiniteStateMachine:
     def __init__(self, supvisors):
         """ Reset the state machine and the associated context """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'starter', 'stopper', 'logger'])
+        supvisors_short_cuts(self, ['context', 'failure_handler', 'starter', 'stopper', 'logger'])
         self.update_instance(SupvisorsStates.INITIALIZATION)
         self.instance.enter()
 
@@ -252,10 +256,9 @@ class FiniteStateMachine:
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
-        # fix inconsistencies if any
-        # processes can be marked by the Supvisors master after an address is invalidated
-        # or by any instance upon request from ui
-        self.starter.start_marked_processes(self.context.marked_processes())
+        # fix failures if any (can happen after an address has been invalidated,
+        # a process crash or a conciliation request)
+        self.failure_handler.trigger_jobs()
         # check if new isolating remotes and return the list of newly isolated addresses
         return self.context.handle_isolation()
 
@@ -266,44 +269,21 @@ class FiniteStateMachine:
 
     def on_process_event(self, address, event):
         """ This event is used to refresh the process data related to the event and address.
-        This event also triggers the application starter. """
+        This event also triggers the application starter and/or stopper. """
         process = self.context.on_process_event(address, event)
         if process:
-            starting_application = self.starter.has_application(process.application_name)
-            stopping_application = self.stopper.has_application(process.application_name)
-            # wake up starter if needed
-            if starting_application:
-                self.starter.on_event(process)
-            # wake up stopper if needed
-            if stopping_application:
-                self.stopper.on_event(process)
-            # TODO: on_xxx
-
-    def on_xxx(self, address, event):
-        """ TODO. """
-        # FIXME: this is not the right place
-        # if event FATAL or EXIT unexpected and process required
-        # use running failure strategy
-        if not starting_application and not stopping_application:
-            from supvisors.ttypes import RunningFailureStrategies
-            # add mark_for_restart to application ?
-            application_name = process.application_name
-            # impact of failure upon application deployment
-            if process.rules.required:
-                # get starting failure strategy of related application
-                application = self.context.applications[application_name]
-                running_strategy = application.rules.running_failure_strategy
-                # apply strategy
-                if running_strategy == RunningFailureStrategies.STOP:
-                    self.logger.error('failure with running failed required {}: stop application {}'.format(process.process_name, application_name))
-                    self.supvisors.stopper.stop_application(application)
-                elif running_strategy == RunningFailureStrategies.RESTART:
-                    self.logger.error('failure with running failed required {}: restart application {}'.format(process.process_name, application_name))
-                    # remove failed application from deployment
-                    # do not remove application from current_jobs as requests have already been sent
-                    self.planned_jobs.pop(application_name, None)
-                elif running_strategy == RunningFailureStrategies.CONTINUE:
-                    self.logger.warn('failure with running failed for required {}: continue application {}'.format(process.process_name, application_name))
+            # check if event is related to a starting or stopping application
+            starting = self.starter.has_application(process.application_name)
+            stopping = self.stopper.has_application(process.application_name)
+            # feed starter with event
+            self.starter.on_event(process)
+            # feed stopper with event
+            self.stopper.on_event(process)
+            # only the master is allowed to trigger an automatic behaviour
+            # for a running failure
+            if self.context.master and process.crashed() and not (starting or stopping):
+                self.failure_handler.add_default_job(process)
+                self.failure_handler.trigger_jobs()
 
     def on_process_info(self, address_name, info):
         """ This event is used to fill the internal structures with processes available on address. """

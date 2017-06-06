@@ -102,6 +102,10 @@ class SupervisordSource(object):
         """ This method checks if autorestart is configured on the process. """
         return self.get_process_config(namespec).autorestart is not False
 
+    def disable_autorestart(self, namespec):
+        """ This method forces the autorestart to False in Supervisor internal data. """
+        self.get_process_config(namespec).autorestart = False
+
     def update_extra_args(self, namespec, extra_args):
         """ This method is used to add extra arguments to the command line. """
         config = self.get_process_config(namespec)
@@ -115,7 +119,8 @@ class SupervisordSource(object):
             config.command += ' ' + extra_args
 
     def force_process_fatal(self, namespec, reason):
-        """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
+        """ This method forces the FATAL process state into Supervisor internal data
+        and dispatches process event to event listeners. """
         process = self.get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
@@ -123,13 +128,14 @@ class SupervisordSource(object):
         process.give_up()
 
     def force_process_unknown(self, namespec, reason):
-        """ This method is used to force a process state into supervisord and to dispatch process event to event listeners. """
+        """ This method forces the UNKNOWN process state into Supervisor internal data
+        and dispatches process event to event listeners. """
         process = self.get_process(namespec)
         process.spawnerr = reason
         process.change_state(ProcessStates.UNKNOWN)
 
     def replace_default_handler(self):
-        """ This method is used to replace Supervisor web ui with Supvisors web ui. """
+        """ This method replaces Supervisor web ui with Supvisors web ui. """
         # create default handler pointing on Supvisors ui directory
         here = os.path.abspath(os.path.dirname(__file__))
         templatedir = os.path.join(here, 'ui')

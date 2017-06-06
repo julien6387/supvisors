@@ -201,12 +201,14 @@ class ControllerPluginTest(unittest.TestCase):
                 'addresses': ['10.0.0.1', '10.0.0.2'],
                 'start_sequence': 2, 'stop_sequence': 3,
                 'required': True, 'wait_exit': False,
-                'expected_loading': 50}], 
+                'expected_loading': 50,
+                'running_failure_strategy': 1}], 
             [{'application_name': 'appli_2', 'process_name': 'proc_3',
                 'addresses': ['*'],
                 'start_sequence': 1, 'stop_sequence': 0,
                 'required': False, 'wait_exit': True,
-                'expected_loading': 15}]]
+                'expected_loading': 15,
+                'running_failure_strategy': 2}]]
         # first possiblity: no argument
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,

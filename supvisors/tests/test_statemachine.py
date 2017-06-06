@@ -607,19 +607,16 @@ class FiniteStateMachineTest(unittest.TestCase):
             compare_state(SupvisorsStates.SHUTTING_DOWN, ShuttingDownState)
             compare_state(SupvisorsStates.SHUTDOWN, ShutdownState)
 
-    @patch('supvisors.commander.Starter.start_marked_processes')
-    def test_timer_event(self, *args, **kwargs):
+    def test_timer_event(self):
         """ Test the actions triggered in state machine upon reception of a timer event. """
         from supvisors.statemachine import FiniteStateMachine
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         # apply patches
-        mocked_marked = self.supvisors.context.marked_processes
-        mocked_marked.return_value = [1, 2, 3, 4]
         mocked_isolation = self.supvisors.context.handle_isolation
         mocked_isolation.return_value = [2, 3]
         mocked_event = self.supvisors.context.on_timer_event
-        mocked_starter = self.supvisors.starter.start_marked_processes
+        mocked_failure = self.supvisors.failure_handler.trigger_jobs
         # test that context on_timer_event is always called
         # test that fsm next is always called
         # test that result of context handle_isolation is always returned
@@ -629,9 +626,7 @@ class FiniteStateMachineTest(unittest.TestCase):
             self.assertEqual([2, 3], result)
             self.assertEqual(1, mocked_next.call_count)
             self.assertEqual(1, mocked_event.call_count)
-            self.assertEqual(1, mocked_marked.call_count)
-            self.assertEqual(1, mocked_starter.call_count)
-            self.assertEqual([call([1, 2, 3, 4])], mocked_starter.call_args_list)
+            self.assertEqual(1, mocked_failure.call_count)
             self.assertEqual(1, mocked_isolation.call_count)
 
     def test_tick_event(self):
@@ -645,6 +640,7 @@ class FiniteStateMachineTest(unittest.TestCase):
             self.assertEqual(1, mocked_evt.call_count)
             self.assertEqual(call('10.0.0.1', 1234), mocked_evt.call_args)
 
+    # FIWME: test calls to failure_handler + master + crashed
     def test_process_event(self):
         """ Test the actions triggered in state machine upon reception of a process event. """
         from supvisors.statemachine import FiniteStateMachine
@@ -665,7 +661,7 @@ class FiniteStateMachineTest(unittest.TestCase):
         # test that context on_process_event is always called
         # test that starter and stopper are not involved when corresponding process is not found
         fsm.on_process_event('10.0.0.1', ['dummy_event'])
-        self.assertEqual(call('10.0.0.1', ['dummy_event']), mocked_ctx.call_args)
+        self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
         self.assertEqual(0, mocked_start_has.call_count)
         self.assertEqual(0, mocked_stop_has.call_count)
         self.assertEqual(0, mocked_start_evt.call_count)
@@ -679,14 +675,16 @@ class FiniteStateMachineTest(unittest.TestCase):
         self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
         self.assertEqual([call('appli')], mocked_start_has.call_args_list)
         self.assertEqual([call('appli')], mocked_stop_has.call_args_list)
-        self.assertEqual(0, mocked_start_evt.call_count)
-        self.assertEqual(0, mocked_stop_evt.call_count)
+        self.assertEqual([call(process)], mocked_start_evt.call_args_list)
+        self.assertEqual([call(process)], mocked_stop_evt.call_args_list)
         # inject process event
         mocked_start_has.reset_mock()
         mocked_start_has.return_value = True
         mocked_stop_has.reset_mock()
         mocked_stop_has.return_value = True
         mocked_ctx.reset_mock()
+        mocked_start_evt.reset_mock()
+        mocked_stop_evt.reset_mock()
         # test that context on_process_event is always called
         # test that event is pushed to starter and stopper when a starting or stopping is in progress
         fsm.on_process_event('10.0.0.1', ['dummy_event'])

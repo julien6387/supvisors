@@ -23,7 +23,7 @@ from sys import stderr
 
 from supervisor.datatypes import boolean, list_of_strings
 
-from supvisors.ttypes import StartingFailureStrategies
+from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -43,6 +43,14 @@ XSDContents = StringIO('''\
             <xs:enumeration value="STOP" />
         </xs:restriction>
     </xs:simpleType>
+    <xs:simpleType name="RunningFailureStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="CONTINUE" />
+            <xs:enumeration value="RESTART_PROCESS" />
+            <xs:enumeration value="STOP_APPLICATION" />
+            <xs:enumeration value="RESTART_APPLICATION" />
+        </xs:restriction>
+    </xs:simpleType>
     <xs:complexType name="ProgramModel">
         <xs:choice>
             <xs:element type="xs:string" name="reference"/>
@@ -53,6 +61,7 @@ XSDContents = StringIO('''\
                 <xs:element type="xs:boolean" name="required" minOccurs="0" maxOccurs="1"/>
                 <xs:element type="xs:boolean" name="wait_exit" minOccurs="0" maxOccurs="1"/>
                 <xs:element type="Loading" name="expected_loading" minOccurs="0" maxOccurs="1"/>
+                <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:choice>
         <xs:attribute type="xs:string" name="name" use="required"/>
@@ -62,6 +71,7 @@ XSDContents = StringIO('''\
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
                 <xs:element type="ProgramModel" name="pattern"/>
@@ -111,56 +121,71 @@ class Parser(object):
             application.rules.stop_sequence = int(value) if value and int(value)>0 else 0
             # get starting_failure_strategy rule
             value = application_elt.findtext('starting_failure_strategy')
-            application.rules.starting_failure_strategy = (StartingFailureStrategies._from_string(value)
-                if value else StartingFailureStrategies.ABORT)
+            if value:
+                strategy = StartingFailureStrategies._from_string(value)
+                if strategy:
+                    application.rules.starting_failure_strategy = strategy
+            # get running_failure_strategy rule
+            value = application_elt.findtext('running_failure_strategy')
+            if value:
+                strategy = RunningFailureStrategies._from_string(value)
+                if strategy:
+                    application.rules.running_failure_strategy = strategy
             # final print
             self.logger.debug('application {} - rules {}'.format(application.application_name, application.rules))
 
     def load_process_rules(self, process):
         self.logger.trace('searching program element for {}'.format(process.namespec()))
         program_elt = self.get_program_element(process)
+        rules = process.rules
         if program_elt is not None:
             # get addresses rule
-            self.get_program_addresses(program_elt, process.rules)
+            self.get_program_addresses(program_elt, rules)
             # get start_sequence rule
             value = program_elt.findtext('start_sequence')
             try:
-                process.rules.start_sequence = int(value)
-                if process.rules.start_sequence < 0:
+                rules.start_sequence = int(value)
+                if rules.start_sequence < 0:
                     raise
             except:
-                process.rules.start_sequence = 0
+                rules.start_sequence = 0
             # get stop_sequence rule
             value = program_elt.findtext('stop_sequence')
             try:
-                process.rules.stop_sequence = int(value)
-                if process.rules.stop_sequence < 0:
+                rules.stop_sequence = int(value)
+                if rules.stop_sequence < 0:
                     raise
             except:
-                process.rules.stop_sequence = 0
+                rules.stop_sequence = 0
             # get required rule
             value = program_elt.findtext('required')
             try:
-                process.rules.required = boolean(value)
+                rules.required = boolean(value)
             except:
-                process.rules.required = False
+                rules.required = False
             # get wait_exit rule
             value = program_elt.findtext('wait_exit')
             try:
-                process.rules.wait_exit = boolean(value)
+                rules.wait_exit = boolean(value)
             except:
-                process.rules.wait_exit = False
+                rules.wait_exit = False
             # get expected_loading rule
             value = program_elt.findtext('expected_loading')
             try:
-                process.rules.expected_loading = int(value)
-                if not 0 <= process.rules.expected_loading <= 100:
+                rules.expected_loading = int(value)
+                if not 0 <= rules.expected_loading <= 100:
                     raise
             except:
-                process.rules.expected_loading = 1
+                rules.expected_loading = 1
+            # get running_failure_strategy rule
+            value = program_elt.findtext('running_failure_strategy')
+            if value:
+                strategy = RunningFailureStrategies._from_string(value)
+                if strategy:
+                    rules.running_failure_strategy = strategy
             # check that rules are compliant with dependencies
-            process.rules.check_dependencies(process.namespec())
-            self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
+            rules.check_dependencies(process.namespec())
+            self.logger.debug('process {} - rules {}'.format(process.namespec(), rules))
 
     def get_program_addresses(self, program_elt, rules):
         value = program_elt.findtext('addresses')

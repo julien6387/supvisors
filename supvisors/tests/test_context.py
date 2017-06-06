@@ -169,25 +169,6 @@ class ContextTest(unittest.TestCase):
         self.assertEqual(AddressStates.SILENT, context.addresses['10.0.0.3'].state)
         self.assertEqual(AddressStates.SILENT, context.addresses['10.0.0.5'].state)
 
-    def test_marked_processes(self):
-        """ Test the access to marked processes. """
-        from supvisors.context import Context
-        context = Context(self.supvisors)
-        # add processes to context
-        self.random_fill_processes(context)
-        # check that there is no marked process
-        for process in context.processes.values():
-            self.assertFalse(process.mark_for_restart)
-        self.assertListEqual([], context.marked_processes())
-        # mark one process
-        process = random.choice(context.processes.values())
-        process.mark_for_restart = True
-        self.assertListEqual([process], context.marked_processes())
-        # mark all processes
-        for process in context.processes.values():
-            process.mark_for_restart = True
-        self.assertItemsEqual(context.processes.values(), context.marked_processes())
-
     def test_conflicts(self):
         """ Test the detection of conflicting processes. """
         from supvisors.context import Context

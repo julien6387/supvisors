@@ -32,7 +32,6 @@ class HostAddressView(StatusView, ViewHandler):
     page_name = 'hostaddress.html'
 
     # static attributes for statistics selection
-    # TODO: find short and discriminating code for URL
     cpu_id_stats = 0
     interface_stats = ''
 

@@ -172,8 +172,7 @@ class ConciliationStrategyTest(unittest.TestCase):
             process_status = Mock(spec=ProcessStatus, process_name=name,
                 addresses=set(timed_addresses.keys()),
                 infos={address_name: {'uptime': time}
-                    for address_name, time in timed_addresses.items()},
-                mark_for_restart=False)
+                    for address_name, time in timed_addresses.items()})
             process_status.namespec.return_value = name
             return process_status
         self.conflicts = [create_process_status('conflict_1',
@@ -192,9 +191,6 @@ class ConciliationStrategyTest(unittest.TestCase):
             call('10.0.0.4', 'conflict_2'),
             call('10.0.0.2', 'conflict_2')],
             self.supvisors.zmq.pusher.send_stop_process.call_args_list)
-        # check that all processes are not marked for a restart
-        for process in self.conflicts:
-            self.assertFalse(process.mark_for_restart)
 
     def test_infanticide_strategy(self):
         """ Test the strategy that consists in stopping the youngest processes. """
@@ -207,62 +203,69 @@ class ConciliationStrategyTest(unittest.TestCase):
             call('10.0.0.2', 'conflict_2'),
             call('10.0.0.0', 'conflict_2')],
             self.supvisors.zmq.pusher.send_stop_process.call_args_list)
-        # check that all processes are not marked for a restart
-        for process in self.conflicts:
-            self.assertFalse(process.mark_for_restart)
 
     def test_user_strategy(self):
         """ Test the strategy that consists in doing nothing (trivial). """
         from supvisors.strategy import UserStrategy
         strategy = UserStrategy(self.supvisors)
         strategy.conciliate(self.conflicts)
-        # check that no processes are requested to stop
+        # check that processes are NOT requested to stop
+        self.assertEqual(0, self.supvisors.stopper.stop_process.call_count)
         self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
-    # check that all processes are not marked for a restart
-        for process in self.conflicts:
-            self.assertFalse(process.mark_for_restart)
 
     def test_stop_strategy(self):
         """ Test the strategy that consists in stopping all processes. """
         from supvisors.strategy import StopStrategy
         strategy = StopStrategy(self.supvisors)
         strategy.conciliate(self.conflicts)
-        # check that all processes are requested to stop on the relevant addresses
-        self.assertItemsEqual([call('10.0.0.1', 'conflict_1'),
-            call('10.0.0.2', 'conflict_1'),
-            call('10.0.0.3', 'conflict_1'),
-            call('10.0.0.4', 'conflict_2'),
-            call('10.0.0.2', 'conflict_2'),
-            call('10.0.0.0', 'conflict_2')],
-            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
-        # check that all processes are not marked for a restart
-        for process in self.conflicts:
-            self.assertFalse(process.mark_for_restart)
+        # check that all processes are requested to stop through the Stopper
+        self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
+        self.assertItemsEqual([call(self.conflicts[0]), call(self.conflicts[1])],
+            self.supvisors.stopper.stop_process.call_args_list)
 
     def test_restart_strategy(self):
         """ Test the strategy that consists in stopping all processes and restart a single one. """
         from supvisors.strategy import RestartStrategy
+        # get patches
+        mocked_add = self.supvisors.failure_handler.add_job
+        mocked_trigger = self.supvisors.failure_handler.trigger_jobs
+        # call the conciliation
         strategy = RestartStrategy(self.supvisors)
         strategy.conciliate(self.conflicts)
-        # check that all processes are requested to stop on the relevant addresses
-        self.assertItemsEqual([call('10.0.0.1', 'conflict_1'),
-            call('10.0.0.2', 'conflict_1'),
-            call('10.0.0.3', 'conflict_1'),
-            call('10.0.0.4', 'conflict_2'),
-            call('10.0.0.2', 'conflict_2'),
-            call('10.0.0.0', 'conflict_2')],
-            self.supvisors.zmq.pusher.send_stop_process.call_args_list)
-        # check that all processes are marked for a restart
-        for process in self.conflicts:
-            self.assertTrue(process.mark_for_restart)
+        # check that all processes are NOT requested to stop directly
+        self.assertEqual(0, self.supvisors.stopper.stop_process.call_count)
+        self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
+        # test failure_handler call
+        self.assertEqual([call(1, self.conflicts[0]), call(1, self.conflicts[1])],
+            mocked_add.call_args_list)
+        self.assertEqual(1, mocked_trigger.call_count)
+
+    def test_failure_strategy(self):
+        """ Test the strategy that consists in stopping all processes and restart a single one. """
+        from supvisors.strategy import FailureStrategy
+        # get patches
+        mocked_add = self.supvisors.failure_handler.add_default_job
+        mocked_trigger = self.supvisors.failure_handler.trigger_jobs
+        # call the conciliation
+        strategy = FailureStrategy(self.supvisors)
+        strategy.conciliate(self.conflicts)
+        # check that all processes are requested to stop through the Stopper
+        self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
+        self.assertEqual([call(self.conflicts[0]), call(self.conflicts[1])],
+            self.supvisors.stopper.stop_process.call_args_list)
+        # test failure_handler call
+        self.assertEqual([call(self.conflicts[0]), call(self.conflicts[1])],
+            mocked_add.call_args_list)
+        self.assertEqual(1, mocked_trigger.call_count)
 
     @patch('supvisors.strategy.SenicideStrategy.conciliate')
     @patch('supvisors.strategy.InfanticideStrategy.conciliate')
     @patch('supvisors.strategy.UserStrategy.conciliate')
     @patch('supvisors.strategy.StopStrategy.conciliate')
     @patch('supvisors.strategy.RestartStrategy.conciliate')
-    def test_conciliation(self, mocked_restart, mocked_stop, mocked_user,
-        mocked_infanticide, mocked_senicide):
+    @patch('supvisors.strategy.FailureStrategy.conciliate')
+    def test_conciliation(self, mocked_failure, mocked_restart, mocked_stop,
+        mocked_user, mocked_infanticide, mocked_senicide):
         """ Test the actions on process according to a strategy. """
         from supvisors.ttypes import ConciliationStrategies
         from supvisors.strategy import conciliate
@@ -275,6 +278,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_user.call_count)
         self.assertEqual(0, mocked_stop.call_count)
         self.assertEqual(0, mocked_restart.call_count)
+        self.assertEqual(0, mocked_failure.call_count)
         mocked_senicide.reset_mock()
         # test infanticide conciliation
         conciliate(self.supvisors, ConciliationStrategies.INFANTICIDE,
@@ -285,6 +289,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_user.call_count)
         self.assertEqual(0, mocked_stop.call_count)
         self.assertEqual(0, mocked_restart.call_count)
+        self.assertEqual(0, mocked_failure.call_count)
         mocked_infanticide.reset_mock()
         # test user conciliation
         conciliate(self.supvisors, ConciliationStrategies.USER,
@@ -294,6 +299,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual([call(self.conflicts)], mocked_user.call_args_list)
         self.assertEqual(0, mocked_stop.call_count)
         self.assertEqual(0, mocked_restart.call_count)
+        self.assertEqual(0, mocked_failure.call_count)
         mocked_user.reset_mock()
         # test stop conciliation
         conciliate(self.supvisors, ConciliationStrategies.STOP,
@@ -303,6 +309,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_user.call_count)
         self.assertEqual([call(self.conflicts)], mocked_stop.call_args_list)
         self.assertEqual(0, mocked_restart.call_count)
+        self.assertEqual(0, mocked_failure.call_count)
         mocked_stop.reset_mock()
         # test restart conciliation
         conciliate(self.supvisors, ConciliationStrategies.RESTART,
@@ -312,6 +319,167 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_user.call_count)
         self.assertEqual(0, mocked_stop.call_count)
         self.assertEqual([call(self.conflicts)], mocked_restart.call_args_list)
+        self.assertEqual(0, mocked_failure.call_count)
+        mocked_restart.reset_mock()
+        # test restart conciliation
+        conciliate(self.supvisors, ConciliationStrategies.RUNNING_FAILURE,
+            self.conflicts)
+        self.assertEqual(0, mocked_senicide.call_count)
+        self.assertEqual(0, mocked_infanticide.call_count)
+        self.assertEqual(0, mocked_user.call_count)
+        self.assertEqual(0, mocked_stop.call_count)
+        self.assertEqual(0, mocked_restart.call_count)
+        self.assertEqual([call(self.conflicts)], mocked_failure.call_args_list)
+
+
+class RunningFailureHandlerTest(unittest.TestCase):
+    """ Test case for the running failure strategies of the strategy module. """
+
+    def setUp(self):
+        """ Create a Supvisors-like structure. """
+        self.supvisors = MockedSupvisors()
+
+    def test_create(self):
+        """ Test the values set at construction. """
+        from supvisors.strategy import RunningFailureHandler
+        handler = RunningFailureHandler(self.supvisors)
+        # test empty structures
+        self.assertEqual(set(), handler.stop_application_jobs)
+        self.assertEqual(set(), handler.restart_application_jobs)
+        self.assertEqual(set(), handler.restart_process_jobs)
+        self.assertEqual(set(), handler.continue_process_jobs)
+        self.assertEqual(set(), handler.start_application_jobs)
+        self.assertEqual(set(), handler.start_process_jobs)
+
+    def test_clear_jobs(self):
+        """ Test the clearance of internal structures. """
+        from supvisors.strategy import RunningFailureHandler
+        handler = RunningFailureHandler(self.supvisors)
+        # add data to sets
+        self.stop_application_jobs = {1, 2}
+        self.restart_application_jobs = {'a', 'b'}
+        self.restart_process_jobs = {1, 0, 'bcd'}
+        self.continue_process_jobs = {'aka', 2}
+        self.start_application_jobs = {1, None}
+        self.start_process_jobs = {0}
+        # clear all
+        handler.clear_jobs()
+        # test empty structures
+        self.assertEqual(set(), handler.stop_application_jobs)
+        self.assertEqual(set(), handler.restart_application_jobs)
+        self.assertEqual(set(), handler.restart_process_jobs)
+        self.assertEqual(set(), handler.continue_process_jobs)
+        self.assertEqual(set(), handler.start_application_jobs)
+        self.assertEqual(set(), handler.start_process_jobs)
+
+    def test_add_job(self):
+        """ Test the addition of a new job using a strategy. """
+        from supvisors.strategy import RunningFailureHandler
+        from supvisors.ttypes import RunningFailureStrategies
+        handler = RunningFailureHandler(self.supvisors)
+        # create a dummy process
+        process_1 = Mock(application_name='dummy_application_A')
+        process_2 = Mock(application_name='dummy_application_A')
+        process_3 = Mock(application_name='dummy_application_B')
+        # define compare function
+        def compare_sets(stop_app=set(), restart_app=set(), restart_proc=set(),
+            continue_proc=set(), start_app=set(), start_proc=set()):
+            self.assertSetEqual(stop_app, handler.stop_application_jobs)
+            self.assertSetEqual(restart_app, handler.restart_application_jobs)
+            self.assertSetEqual(restart_proc, handler.restart_process_jobs)
+            self.assertSetEqual(continue_proc, handler.continue_process_jobs)
+            self.assertSetEqual(start_app, handler.start_application_jobs)
+            self.assertSetEqual(start_proc, handler.start_process_jobs)
+        # add a series of jobs
+        handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
+        compare_sets(continue_proc={process_1})
+        handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
+        compare_sets(restart_proc={process_2}, continue_proc={process_1})
+        handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_1)
+        compare_sets(restart_proc={process_2, process_1})
+        handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
+        compare_sets(restart_proc={process_2, process_1, process_3})
+        handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
+        compare_sets(restart_proc={process_2, process_1, process_3})
+        handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_1)
+        compare_sets(restart_app={'dummy_application_A'}, restart_proc={process_3})
+        handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_2)
+        compare_sets(stop_app={'dummy_application_A'}, restart_proc={process_3})
+        handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_2)
+        compare_sets(stop_app={'dummy_application_A'}, restart_proc={process_3})
+        handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_1)
+        compare_sets(stop_app={'dummy_application_A'}, restart_proc={process_3})
+
+    def test_add_default_job(self):
+        """ Test the addition of a new job using the strategy configured. """
+        from supvisors.strategy import RunningFailureHandler
+        handler = RunningFailureHandler(self.supvisors)
+        # create a dummy process
+        process = Mock()
+        process.rules = Mock(running_failure_strategy=2)
+        # add a series of jobs
+        with patch.object(handler, 'add_job') as mocked_add:
+            handler.add_default_job(process)
+            self.assertEqual([call(2, process)], mocked_add.call_args_list)
+
+    def test_trigger_jobs(self):
+        """ Test the processing of jobs. """
+        from supvisors.strategy import RunningFailureHandler
+        handler = RunningFailureHandler(self.supvisors)
+        # create mocked applications
+        def mocked_application(appli_name, stopped):
+            application = Mock(aplication_name=appli_name,
+                **{'stopped.side_effect': [stopped, True]})
+            self.supvisors.context.applications[appli_name] = application
+            return application
+        stop_appli_A = mocked_application('stop_application_A', False)
+        stop_appli_B = mocked_application('stop_application_B', False)
+        restart_appli_A = mocked_application('restart_application_A', False)
+        restart_appli_B = mocked_application('restart_application_B', False)
+        start_appli_A = mocked_application('start_application_A', True)
+        start_appli_B = mocked_application('start_application_B', True)
+        # create mocked processes
+        def mocked_process(namespec, stopped):
+            return Mock(**{'namespec.return_value': namespec,
+                'stopped.side_effect': [stopped, True]})
+        restart_process_1 = mocked_process('restart_process_1', False)
+        restart_process_2 = mocked_process('restart_process_2', False)
+        start_process_1 = mocked_process('start_process_1', True)
+        start_process_2 = mocked_process('start_process_2', True)
+        continue_process = mocked_process('continue_process', False)
+        # pre-fill sets
+        handler.stop_application_jobs = {'stop_application_A', 'stop_application_B'}
+        handler.restart_application_jobs = {'restart_application_A', 'restart_application_B'}
+        handler.restart_process_jobs = {restart_process_1, restart_process_2}
+        handler.continue_process_jobs = {continue_process}
+        handler.start_application_jobs = {start_appli_A, start_appli_B}
+        handler.start_process_jobs = {start_process_1, start_process_2}
+        # get patches to starter and stopper
+        mocked_stop_app = self.supvisors.stopper.stop_application
+        mocked_start_app = self.supvisors.starter.default_start_application
+        mocked_stop_proc = self.supvisors.stopper.stop_process
+        mocked_start_proc = self.supvisors.starter.default_start_process
+        # test jobs trigger
+        handler.trigger_jobs()
+        # check called patches
+        self.assertItemsEqual([call(stop_appli_A), call(stop_appli_B),
+            call(restart_appli_A), call(restart_appli_B)],
+            mocked_stop_app.call_args_list)
+        self.assertItemsEqual([call(start_appli_A), call(start_appli_B)],
+            mocked_start_app.call_args_list)
+        self.assertItemsEqual([call(restart_process_1), call(restart_process_2)],
+            mocked_stop_proc.call_args_list)
+        self.assertItemsEqual([call(start_process_1), call(start_process_2)],
+            mocked_start_proc.call_args_list)
+        # check impact on sets
+        self.assertEqual(set(), handler.stop_application_jobs)
+        self.assertEqual(set(), handler.restart_application_jobs)
+        self.assertEqual(set(), handler.restart_process_jobs)
+        self.assertEqual(set(), handler.continue_process_jobs)
+        self.assertEqual({restart_appli_A, restart_appli_B},
+            handler.start_application_jobs)
+        self.assertEqual({restart_process_1, restart_process_2},
+            handler.start_process_jobs)
 
 
 def test_suite():

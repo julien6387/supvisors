@@ -87,7 +87,8 @@ class Context(object):
         else:
             status.state = AddressStates.SILENT
         # invalidate address in concerned processes
-        # processes running  on this address may be marked for restart if local Supvisors is master
+        # if local Supvisors is master, failure handler will be notified
+        # for processes running on this address
         for process in status.running_processes():
             process.invalidate_address(status.address_name, self.master)
 
@@ -97,13 +98,6 @@ class Context(object):
         map(self.invalid, filter(lambda x: x.state == AddressStates.UNKNOWN, self.addresses.values()))
 
     # methods on applications / processes
-    def marked_processes(self):
-        """ Return all the ProcessStatus instances having their mark_for_restart attribute set to True.
-        This mark is used to restart:
-        - a process that was running on a lost address,
-        - a conflicting process, i.e. more than one instance of the same process is running on different addresses. """
-        return [process for process in self.processes.values() if process.mark_for_restart]
-
     def conflicting(self):
         """ Return True if any conflicting ProcessStatus is detected. """
         return next((True for process in self.processes.values() if process.conflicting()), False)
@@ -117,10 +111,14 @@ class Context(object):
         Otherwise return a new application for application_name.
         Related application rules are loaded from the rules file. """
         try:
+            # find existing application
             application = self.applications[application_name]
         except KeyError:
+            # create new instance
             application = ApplicationStatus(application_name, self.logger)
+            # load rules from rules file
             self.supvisors.parser.load_application_rules(application)
+            # add new application to context
             self.applications[application_name] = application
         return application
 
@@ -128,13 +126,21 @@ class Context(object):
         """ Return the process corresponding to info if found.
         Otherwise return a new process for group name and process name.
         Related process rules are loaded from the rules file. """
-        namespec = make_namespec(info['group'], info['name'])
+        application_name = info['group']
+        namespec = make_namespec(application_name, info['name'])
         try:
+            # find existing process
             process = self.processes[namespec]
         except KeyError:
-            process = ProcessStatus(info['group'], info['name'], self.supvisors)
+            # create new instance
+            process = ProcessStatus(application_name, info['name'], self.supvisors)
+            # apply default running failure strategy
+            application = self.setdefault_application(process.application_name)
+            process.rules.running_failure_strategy = application.rules.running_failure_strategy
+            # load rules from rules file
             self.supvisors.parser.load_process_rules(process)
-            self.setdefault_application(process.application_name).add_process(process)
+            # add new process to context
+            application.add_process(process)
             self.processes[namespec] = process
         return process
 
@@ -154,7 +160,7 @@ class Context(object):
     # methods on events
     def on_authorization(self, address_name, authorized):
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
-        authorizes the local Supvisors instance to process its events . """
+        authorizes the local Supvisors instance to process its events. """
         if self.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore

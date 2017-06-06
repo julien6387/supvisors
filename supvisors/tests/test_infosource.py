@@ -130,7 +130,7 @@ class InfoSourceTest(unittest.TestCase):
         self.assertFalse(config.autorestart)
         self.assertEqual('cat', config.command)
 
-    def test_autostart(self):
+    def test_autoreqtart(self):
         """ Test the autostart value of a process configuration. """
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
@@ -142,6 +142,20 @@ class InfoSourceTest(unittest.TestCase):
         # test normal behaviour
         self.assertTrue(source.autorestart('dummy_application:dummy_process_1'))
         self.assertFalse(source.autorestart('dummy_application:dummy_process_2'))
+
+    def test_disable_autorestart(self):
+        """ Test the disable of the autostart of a process configuration. """
+        from supvisors.infosource import SupervisordSource
+        source = SupervisordSource(self.supervisor)
+        # test unknown application and process
+        with self.assertRaises(KeyError):
+            source.disable_autorestart('unknown_application:unknown_process')
+        with self.assertRaises(KeyError):
+            source.disable_autorestart('dummy_application:unknown_process')
+        # test normal behaviour
+        self.assertTrue(source.autorestart('dummy_application:dummy_process_1'))
+        source.disable_autorestart('dummy_application:dummy_process_1')
+        self.assertFalse(source.autorestart('dummy_application:dummy_process_1'))
 
     def test_extra_args(self):
         """ Test the possibility to add extra arguments to default command line. """

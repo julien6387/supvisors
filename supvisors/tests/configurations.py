@@ -100,6 +100,7 @@ InvalidXmlTest = '''\
         <required>false</required>
         <wait_exit>false</wait_exit>
         <expected_loading>25</expected_loading>
+        <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
     </model>
 
     <model name="dummy_model_02">
@@ -126,6 +127,7 @@ InvalidXmlTest = '''\
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
+        <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
         <program name="dummy_program_B0">
         </program>
@@ -137,18 +139,21 @@ InvalidXmlTest = '''\
             <required>true</required>
             <wait_exit>false</wait_exit>
             <expected_loading>5</expected_loading>
+            <running_failure_strategy>CONTINUE</running_failure_strategy>
          </program>
 
         <program name="dummy_program_B2">
             <addresses>10.0.0.3</addresses>
             <required>true</required>
             <expected_loading>-1</expected_loading>
+            <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
         </program>
 
         <program name="dummy_program_B3">
             <addresses>*</addresses>
             <required>false</required>
             <expected_loading>100</expected_loading>
+            <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
         </program>
 
         <program name="dummy_program_B4">
@@ -158,6 +163,7 @@ InvalidXmlTest = '''\
             <required>28</required>
             <wait_exit>77</wait_exit>
             <expected_loading>-1</expected_loading>
+            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
         </program>
 
         <program name="dummy_program_B5">
@@ -167,6 +173,7 @@ InvalidXmlTest = '''\
             <required>req</required>
             <wait_exit>wait</wait_exit>
             <expected_loading>fifty</expected_loading>
+            <running_failure_strategy>BACK</running_failure_strategy>
         </program>
 
     </application>
@@ -175,6 +182,7 @@ InvalidXmlTest = '''\
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
+        <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
 
         <program name="dummy_program_C0">
             <reference></reference>
@@ -208,6 +216,7 @@ InvalidXmlTest = '''\
         <start_sequence>-1</start_sequence>
         <stop_sequence>100</stop_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
         <pattern name="dummies_">
             <reference>dummy_model_03</reference>
@@ -240,6 +249,7 @@ XmlTest = '''\
         <required>false</required>
         <wait_exit>false</wait_exit>
         <expected_loading>25</expected_loading>
+        <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
     </model>
 
     <model name="dummy_model_02">
@@ -266,6 +276,7 @@ XmlTest = '''\
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
+        <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
         <program name="dummy_program_B0">
         </program>
@@ -277,21 +288,25 @@ XmlTest = '''\
             <required>true</required>
             <wait_exit>false</wait_exit>
             <expected_loading>5</expected_loading>
+            <running_failure_strategy>CONTINUE</running_failure_strategy>
          </program>
 
         <program name="dummy_program_B2">
             <addresses>10.0.0.3</addresses>
             <required>true</required>
+            <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
         </program>
 
         <program name="dummy_program_B3">
             <addresses>*</addresses>
             <required>false</required>
             <expected_loading>100</expected_loading>
+            <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
         </program>
 
         <program name="dummy_program_B4">
             <addresses>10.0.0.3, 10.0.0.1, 10.0.0.5</addresses>
+            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
         </program>
 
     </application>
@@ -300,6 +315,7 @@ XmlTest = '''\
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
+        <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
 
         <program name="dummy_program_C0">
             <reference></reference>
@@ -323,6 +339,7 @@ XmlTest = '''\
         <start_sequence>-1</start_sequence>
         <stop_sequence>100</stop_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
         <pattern name="dummies_">
             <reference>dummy_model_03</reference>

@@ -227,7 +227,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_proc = max(len(rules['process_name'])
                     for rules in rules_list) + 4
                 template = '%(appli)-{}s%(proc)-{}s%(start_seq)-12s%(stop_seq)-12s'\
-                    '%(req)-12s%(exit)-12s%(load)-12s%(addr)s'.format(max_appli, max_proc)
+                    '%(req)-12s%(exit)-12s%(load)-22s%(strategy)s-12s%(addr)s'.format(max_appli, max_proc)
                 for rules in rules_list:
                     required = rules['required']
                     wait_exit = rules['wait_exit']
@@ -238,7 +238,8 @@ class ControllerPlugin(ControllerPluginBase):
                         'stop_seq': rules['stop_sequence'], 
                         'req': 'required' if required else 'optional',
                         'exit': 'exit' if wait_exit else '',
-                        'load': '{}%'.format(rules['expected_loading'])}
+                        'load': '{}%'.format(rules['expected_loading']),
+                        'strategy': rules['running_failure_strategy']}
                     self.ctl.output(line)
 
     def help_rules(self):

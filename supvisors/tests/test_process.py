@@ -20,6 +20,8 @@
 import sys
 import unittest
 
+from mock import call
+
 from supvisors.tests.base import (MockedSupvisors,
     any_process_info, any_stopped_process_info,
     process_info_by_name, any_process_info_by_state)
@@ -43,19 +45,22 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.required)
         self.assertFalse(rules.wait_exit)
         self.assertEqual(1, rules.expected_loading)
+        self.assertEqual(0, rules.running_failure_strategy)
 
     def test_str(self):
         """ Test the string output. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False wait_exit=False loading=1", str(rules))
+        self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False"
+            " wait_exit=False expected_loading=1 running_failure_strategy=CONTINUE", str(rules))
 
     def test_serial(self):
         """ Test the serialization of the ProcessRules object. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
         self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
-            'required': False, 'wait_exit': False, 'expected_loading': 1}, rules.serial())
+            'required': False, 'wait_exit': False, 'expected_loading': 1,
+            'running_failure_strategy': 0}, rules.serial())
 
     def test_dependency_rules(self):
         """ Test the dependencies in process rules. """
@@ -69,7 +74,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 15
         # check dependencies
-        rules.check_dependencies("dummy")
+        rules.check_dependencies('dummy')
         # test that there is no difference
         self.assertListEqual(['10.0.0.1', '10.0.0.2'], rules.addresses)
         self.assertEqual(1, rules.start_sequence)
@@ -85,7 +90,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = True
         rules.expected_loading = 50
         # check dependencies
-        rules.check_dependencies("dummy")
+        rules.check_dependencies('dummy')
         # test that there is no difference
         self.assertListEqual(['10.0.0.2'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
@@ -101,7 +106,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 5
         # check dependencies
-        rules.check_dependencies("dummy")
+        rules.check_dependencies('dummy')
         # test that process is not required anymore
         self.assertListEqual(['10.0.0.1'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
@@ -117,7 +122,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules.wait_exit = False
         rules.expected_loading = 0
         # check dependencies
-        rules.check_dependencies("dummy")
+        rules.check_dependencies('dummy')
         # test that all addresses are applicable
         self.assertListEqual(['*'], rules.addresses)
         self.assertEqual(0, rules.start_sequence)
@@ -125,6 +130,23 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.required)
         self.assertFalse(rules.wait_exit)
         self.assertEqual(0, rules.expected_loading)
+
+    def test_dependency_rules_running_failure(self):
+        """ Test the dependency related to running failure strategy in process rules.
+        Done in a separate test as it impacts the supervisor internal model. """
+        from supvisors.process import ProcessRules
+        from supvisors.ttypes import RunningFailureStrategies
+        rules = ProcessRules(self.supvisors)
+        # test that only the CONTINUE strategy keeps the autorestart
+        mocked_disable = self.supvisors.info_source.disable_autorestart
+        for strategy in RunningFailureStrategies._values():
+            rules.running_failure_strategy = strategy
+            rules.check_dependencies('dummy_process_1')
+            if strategy == RunningFailureStrategies.CONTINUE:
+                self.assertEqual(0, mocked_disable.call_count)
+            else:
+                self.assertEqual([call('dummy_process_1')], mocked_disable.call_args_list)
+                mocked_disable.reset_mock()
 
 
 class ProcessTest(unittest.TestCase):
@@ -147,7 +169,6 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.UNKNOWN, process.state)
         self.assertTrue(process.expected_exit)
         self.assertEqual(0, process.last_event_time)
-        self.assertFalse(process.mark_for_restart)
         self.assertEqual(set(), process.addresses)
         self.assertEqual({}, process.infos)
         self.assertEqual('', process.extra_args)
@@ -498,7 +519,7 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.RUNNING, process.state)
         # invalidate RUNNING one
         process.invalidate_address('10.0.0.2', False)
-        # check UNKNOWN
+        # check state became UNKNOWN on invalidated address
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.2']['state'])
         # check the conflict
         self.assertTrue(process.conflicting())
@@ -506,32 +527,31 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.BACKOFF, process.state)
         # invalidate BACKOFF one
         process.invalidate_address('10.0.0.1', False)
-        # check UNKNOWN
+        # check state became UNKNOWN on invalidated address
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.1']['state'])
         # check 1 address: no conflict
         self.assertFalse(process.conflicting())
-        # check state (running process)
+        # check synthetic state (running process)
         self.assertEqual(ProcessStates.STARTING, process.state)
         # invalidate STARTING one
-        self.supvisors.info_source.autorestart.return_value = False
         process.invalidate_address('10.0.0.3', True)
-        # check UNKNOWN
+        # check state became UNKNOWN on invalidated address
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.3']['state'])
         # check 0 address: no conflict
         self.assertFalse(process.conflicting())
-        # check state FATAL
+        # check that synthetic state became FATAL
         self.assertEqual(ProcessStates.FATAL, process.state)
-        # check mark_for_restart
-        self.assertFalse(process.mark_for_restart)
+        # check that failure_handler is notified
+        self.assertEqual([call(process)], self.supvisors.failure_handler.add_default_job.call_args_list)
         # add one STOPPING
         process.add_info('10.0.0.4', any_process_info_by_state(ProcessStates.STOPPING))
         # check state STOPPING
         self.assertEqual(ProcessStates.STOPPING, process.state)
         # invalidate STOPPING one
         process.invalidate_address('10.0.0.4', False)
-        # check UNKNOWN
+        # check state became UNKNOWN on invalidated address
         self.assertEqual(ProcessStates.UNKNOWN, process.infos['10.0.0.4']['state'])
-        # check state STOPPED
+        # check that synthetic state became STOPPED
         self.assertEqual(ProcessStates.STOPPED, process.state)
 
     def test_update_status(self):

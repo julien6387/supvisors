@@ -37,7 +37,6 @@ class ViewHandler(object):
     An change may be done later to use a short code that would be discriminating """
 
     # static attributes for statistics selection
-    # TODO: find short and discriminating code for URL
     period_stats = None
     namespec_stats = ''
 

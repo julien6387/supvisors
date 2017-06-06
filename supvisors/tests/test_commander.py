@@ -225,6 +225,7 @@ class StarterTest(unittest.TestCase):
             self.process_list.append(proc_status)
 
     def _get_test_process(self, process_name):
+        """ Return the process in databse corresponding to process_name. """
         return next(process for process in self.process_list if process.process_name == process_name)
 
     def test_creation(self):
@@ -355,9 +356,40 @@ class StarterTest(unittest.TestCase):
 
     def test_on_event(self):
         """ Test the on_event method. """
+        from supvisors.commander import Starter
+        starter = Starter(self.supvisors)
+        # apply patches
+        with patch.object(starter, 'on_event_in_sequence') as mocked_in:
+            with patch.object(starter, 'on_event_out_of_sequence') as mocked_out:
+                # set test current_jobs
+                for process in self.process_list:
+                    starter.current_jobs.setdefault(process.application_name, []).append(process)
+                self.assertIn('sample_test_1', starter.current_jobs)
+                # test that on_event_out_of_sequence is called when process is not in current jobs
+                # due to unknown application
+                process = Mock(application_name='unknown_application')
+                starter.on_event(process)
+                self.assertEqual(0, mocked_in.call_count)
+                self.assertEqual([(call(process))], mocked_out.call_args_list)
+                mocked_out.reset_mock()
+                # test that on_event_out_of_sequence is called when process is not in current jobs
+                # due to unknown process
+                process = Mock(application_name='sample_test_1')
+                starter.on_event(process)
+                self.assertEqual(0, mocked_in.call_count)
+                self.assertEqual([(call(process))], mocked_out.call_args_list)
+                mocked_out.reset_mock()
+                # test that on_event_in_sequence is called when process is in list
+                jobs = starter.current_jobs['sample_test_1']
+                process = next(iter(jobs))
+                starter.on_event(process)
+                self.assertEqual(0, mocked_out.call_count)
+                self.assertEqual([(call(process, jobs))], mocked_in.call_args_list)
+
+    def test_on_event_in_sequence(self):
+        """ Test the on_event_in_sequence method. """
         from supvisors.application import ApplicationStatus
         from supvisors.commander import Starter
-        from supvisors.process import ProcessStatus
         from supvisors.ttypes import StartingFailureStrategies
         starter = Starter(self.supvisors)
         # set test planned_jobs and current_jobs
@@ -374,34 +406,30 @@ class StarterTest(unittest.TestCase):
         # add patches to simplify test
         with patch.object(starter, 'process_application_jobs') as mocked_process_jobs:
             with patch.object(starter, 'initial_jobs') as mocked_init_jobs:
-                # try with unknown process
-                process = ProcessStatus('dummy_application', 'dummy_process', self.supvisors)
-                starter.on_event(process)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
                 # with sample_test_1 application
                 # test STOPPED process
                 process = self._get_test_process('xlogo')
-                self.assertIn(process, starter.current_jobs['sample_test_1'])
-                starter.on_event(process)
+                jobs = starter.current_jobs['sample_test_1']
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn(process, starter.current_jobs['sample_test_1'])
+                self.assertNotIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # test STOPPING process: xclock
                 process = self._get_test_process('xclock')
-                self.assertIn(process, starter.current_jobs['sample_test_1'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn(process, starter.current_jobs['sample_test_1'])
+                self.assertNotIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # test RUNNING process: xfontsel (last process of this application)
                 process = self._get_test_process('xfontsel')
-                self.assertIn(process, starter.current_jobs['sample_test_1'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn('sample_test_1', starter.current_jobs.keys())
+                self.assertNotIn('sample_test_1', starter.current_jobs)
                 self.assertEqual(1, mocked_process_jobs.call_count)
                 self.assertEqual(call('sample_test_1'), mocked_process_jobs.call_args)
                 self.assertEqual(0, mocked_init_jobs.call_count)
@@ -410,45 +438,47 @@ class StarterTest(unittest.TestCase):
                 # with sample_test_2 application
                 # test RUNNING process: yeux_01
                 process = self._get_test_process('yeux_01')
+                jobs = starter.current_jobs['sample_test_2']
                 process.rules.wait_exit = True
                 process.ignore_wait_exit = True
-                self.assertIn(process, starter.current_jobs['sample_test_2'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn(process, starter.current_jobs['sample_test_2'])
+                self.assertNotIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # test EXITED / expected process: yeux_00
                 process = self._get_test_process('yeux_00')
                 process.rules.wait_exit = True
                 process.expected_exit = True
-                self.assertIn(process, starter.current_jobs['sample_test_2'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn(process, starter.current_jobs['sample_test_2'])
+                self.assertNotIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # test FATAL process: sleep (last process of this application)
                 process = self._get_test_process('sleep')
-                self.assertIn(process, starter.current_jobs['sample_test_2'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn('sample_test_2', starter.current_jobs.keys())
+                self.assertNotIn('sample_test_2', starter.current_jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # with crash application
                 # test STARTING process: late_segv
                 process = self._get_test_process('late_segv')
-                self.assertIn(process, starter.current_jobs['crash'])
-                starter.on_event(process)
-                self.assertIn(process, starter.current_jobs['crash'])
+                jobs = starter.current_jobs['crash']
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
+                self.assertIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # test BACKOFF process: segv (last process of this application)
                 process = self._get_test_process('segv')
-                self.assertIn(process, starter.current_jobs['crash'])
-                starter.on_event(process)
-                self.assertIn(process, starter.current_jobs['crash'])
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
+                self.assertIn(process, jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(0, mocked_init_jobs.call_count)
                 # with firefox application
@@ -456,14 +486,46 @@ class StarterTest(unittest.TestCase):
                 starter.planned_jobs = {}
                 # test EXITED / unexpected process: firefox
                 process = self._get_test_process('firefox')
+                jobs = starter.current_jobs['firefox']
                 process.rules.wait_exit = True
                 process.expected_exit = False
-                self.assertIn(process, starter.current_jobs['firefox'])
-                starter.on_event(process)
+                self.assertIn(process, jobs)
+                starter.on_event_in_sequence(process, jobs)
                 self.assertFalse(process.ignore_wait_exit)
-                self.assertNotIn('firefox', starter.current_jobs.keys())
+                self.assertNotIn('firefox', starter.current_jobs)
                 self.assertEqual(0, mocked_process_jobs.call_count)
                 self.assertEqual(1, mocked_init_jobs.call_count)
+
+    def test_on_event_out_of_sequence(self):
+        """ Test how failure are raised in on_event_out_of_sequence method. """
+        from supvisors.commander import Starter
+        starter = Starter(self.supvisors)
+        # set test planned_jobs and current_jobs
+        starter.planned_jobs = {'sample_test_2': {1: []}}
+        for process in self.process_list:
+            starter.current_jobs.setdefault(process.application_name, []).append(process)
+        # apply patch
+        with patch.object(starter, 'process_failure') as mocked_failure:
+            # test that process_failure is not called if process is not crashed
+            process = next(proc for proc in self.process_list if not proc.crashed())
+            starter.on_event_out_of_sequence(process)
+            self.assertEqual(0, mocked_failure.call_count)
+            # test that process_failure is not called if process is not in planned jobs
+            process = next(proc for proc in self.process_list
+                if proc.application_name == 'sample_test_1')
+            starter.on_event_out_of_sequence(process)
+            self.assertEqual(0, mocked_failure.call_count)
+            # get a process crashed and in planned jobs
+            process = next(proc for proc in self.process_list
+                if proc.crashed() and proc.application_name == 'sample_test_2')
+            # test that process_failure is called if process' starting is not planned
+            starter.on_event_out_of_sequence(process)
+            self.assertEqual([(call(process))], mocked_failure.call_args_list)
+            mocked_failure.reset_mock()
+            # test that process_failure is not called if process' starting is still planned
+            starter.planned_jobs = {'sample_test_2': {1: [process]}}
+            starter.on_event_out_of_sequence(process)
+            self.assertEqual(0, mocked_failure.call_count)
 
     def test_check_starting(self):
         """ Test the check_starting method. """
@@ -513,14 +575,11 @@ class StarterTest(unittest.TestCase):
             # test with running process
             process = self._get_test_process('xfontsel')
             process.ignore_wait_exit = True
-            process.mark_for_restart = True
             jobs = []
             # call the process_jobs
             starter.process_job(process, jobs)
             # process cannot be started, reset its config
             self.assertFalse(process.ignore_wait_exit)
-            # keep it as to be restarted when requested
-            self.assertTrue(process.mark_for_restart)
             # starting methods are not called
             self.assertListEqual([], jobs)
             self.assertEqual(0, mocked_address.call_count)
@@ -530,14 +589,11 @@ class StarterTest(unittest.TestCase):
             # test with stopped process
             process = self._get_test_process('xlogo')
             process.ignore_wait_exit = True
-            process.mark_for_restart = True
             jobs = []
             # call the process_jobs
             starter.process_job(process, jobs)
             # process can be started, config unchanged
             self.assertTrue(process.ignore_wait_exit)
-            # restart request is reset
-            self.assertFalse(process.mark_for_restart)
             # starting methods are called
             self.assertListEqual([process], jobs)
             self.assertEqual(1, mocked_address.call_count)
@@ -551,14 +607,11 @@ class StarterTest(unittest.TestCase):
             # test with stopped process
             process = self._get_test_process('xlogo')
             process.ignore_wait_exit = True
-            process.mark_for_restart = True
             jobs = []
             # call the process_jobs
             starter.process_job(process, jobs)
             # process cannot be started, reset its config
             self.assertFalse(process.ignore_wait_exit)
-            # restart has failed, no need to keep the request
-            self.assertFalse(process.mark_for_restart)
             # starting methods are not called
             self.assertListEqual([], jobs)
             self.assertEqual(0, mocked_pusher.call_count)
@@ -604,25 +657,18 @@ class StarterTest(unittest.TestCase):
             self.assertEqual(2, mocked_jobs.call_count)
             self.assertFalse(start_result)
 
-    def test_start_marked_process(self):
-        """ Test the start_marked_process method. """
+    def test_default_start_process(self):
+        """ Test the default_start_process method. """
         from supvisors.commander import Starter
         starter = Starter(self.supvisors)
-        # keep only sample_tes_1 and sample_test_2 from process_list
-        process_list = [process for process in self.process_list
-            if process.application_name in ['sample_test_1', 'sample_test_2']]
-        # set sample_test_2 required and sample_test_1 optional
-        for process in process_list:
-            if process.application_name == 'sample_test_2':
-                process.rules.required = True
-            process.mark_for_restart = True
-        # test that call to start_marked_process gives priority to required processes
-        with patch.object(starter, 'start_process') as mocked_start:
-            starter.start_marked_processes(process_list)
-            self.assertItemsEqual([call(0, self._get_test_process('sleep')), call(0, self._get_test_process('yeux_00')), 
-                call(0, self._get_test_process('yeux_01')), call(0, self._get_test_process('xclock')),
-                call(0, self._get_test_process('xfontsel')), call(0, self._get_test_process('xlogo'))],
-                mocked_start.call_args_list)
+        with patch.object(starter, 'start_process', return_value=True) as mocked_start:
+            # test that default_start_process just calls start_process
+            # with the default strategy
+            process = Mock()
+            result = starter.default_start_process(process)
+            self.assertTrue(result)
+            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+                process)], mocked_start.call_args_list)
 
     def test_start_application(self):
         """ Test the start_application method. """
@@ -658,6 +704,19 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': {2: ['sample_test_1:xclock']}}, starter.printable_planned_jobs())
             self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo']}, starter.printable_current_jobs())
             self.assertEqual(2, mocked_jobs.call_count)
+
+    def test_default_start_application(self):
+        """ Test the default_start_application method. """
+        from supvisors.commander import Starter
+        starter = Starter(self.supvisors)
+        with patch.object(starter, 'start_application', return_value=True) as mocked_start:
+            # test that default_start_application just calls start_application
+            # with the default strategy
+            application = Mock()
+            result = starter.default_start_application(application)
+            self.assertTrue(result)
+            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+                application)], mocked_start.call_args_list)
 
     def test_start_applications(self):
         """ Test the start_applications method. """

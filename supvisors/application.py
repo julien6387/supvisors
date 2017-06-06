@@ -31,7 +31,7 @@ class ApplicationRules(object):
             0 means: immediate stop,
         - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply
             when a required process cannot be strated during the starting of the application,
-        - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply
+        - running_failure_strategy: defines the default strategy (in RunningFailureStrategies) to apply
             when a required process crashes when the application is running.
     """
 
@@ -155,7 +155,7 @@ class ApplicationStatus(object):
                         major_failure = True
                 else:
                     # an optional process is a minor failure for a running application
-                    # when its state is FATAL or unexpectanly EXITED
+                    # when its state is FATAL or unexpectedly EXITED
                     if (process.state == ProcessStates.FATAL) or \
                             (process.state == ProcessStates.EXITED and not process.expected_exit):
                         minor_failure = True

@@ -29,6 +29,7 @@ from supvisors.options import SupvisorsServerOptions
 from supvisors.sparser import Parser
 from supvisors.statemachine import FiniteStateMachine
 from supvisors.statscompiler import StatisticsCompiler
+from supvisors.strategy import RunningFailureHandler
 
 
 class Supvisors(object):
@@ -65,6 +66,8 @@ class Supvisors(object):
         self.stopper = Stopper(self)
         # create statistics handler
         self.statistician = StatisticsCompiler(self)
+        # create the failure handler of crashing processes
+        self.failure_handler = RunningFailureHandler(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
         # check parsing
