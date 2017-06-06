@@ -24,7 +24,8 @@ from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
-from supvisors.ttypes import ApplicationStates, DeploymentStrategies, SupvisorsStates
+from supvisors.ttypes import (ApplicationStates, DeploymentStrategies,
+    SupvisorsStates)
 from supvisors.utils import supvisors_short_cuts
 
 # get Supvisors version from file
@@ -39,7 +40,8 @@ class RPCInterface(object):
     def __init__(self, supervisord):
         # create a new Supvisors instance
         self.supvisors = Supvisors(supervisord)
-        supvisors_short_cuts(self, ['context', 'fsm', 'info_source', 'logger', 'starter', 'stopper'])
+        supvisors_short_cuts(self, ['context', 'fsm', 'info_source',
+            'logger', 'starter', 'stopper'])
 
     # RPC Status methods
     def get_api_version(self):
@@ -68,7 +70,8 @@ class RPCInterface(object):
 
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
-        return [self.get_address_info(address_name) for address_name in self.context.addresses.keys()]
+        return [self.get_address_info(address_name)
+            for address_name in self.context.addresses.keys()]
 
     def get_address_info(self, address_name):
         """ Get information about the **Supvisors** instance running on the host named address_name.
@@ -82,7 +85,8 @@ class RPCInterface(object):
         try:
             status = self.context.addresses[address_name]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supvisors'.format(address_name))
+            raise RPCError(Faults.BAD_ADDRESS,
+                'address {} unknown in Supvisors'.format(address_name))
         return status.serial()
 
     def get_all_applications_info(self):
@@ -93,7 +97,8 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about all applications.
         """
         self._check_from_deployment()
-        return [self.get_application_info(application_name) for application_name in self.context.applications.keys()]
+        return [self.get_application_info(application_name)
+            for application_name in self.context.applications.keys()]
 
     def get_application_info(self, application_name):
         """ Get information about an application named application_name.
@@ -118,7 +123,8 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
-        return [process.serial() for process in self.context.processes.values()]
+        return [process.serial()
+            for process in self.context.processes.values()]
 
     def get_process_info(self, namespec):
         """ Get information about a process named namespec.
@@ -155,7 +161,8 @@ class RPCInterface(object):
         application, process = self._get_application_process(namespec)
         if process:
             return [self._get_internal_process_rules(process)]
-        return [self._get_internal_process_rules(proc) for proc in application.processes.values()]
+        return [self._get_internal_process_rules(proc)
+            for proc in application.processes.values()]
 
     def get_conflicts(self):
         """ Get the conflicting processes.
@@ -165,8 +172,10 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
-        return [process.serial() for application in self.context.applications.values()
-            for process in application.processes.values() if process.conflicting()]
+        return [process.serial()
+            for application in self.context.applications.values()
+                for process in application.processes.values()
+                    if process.conflicting()]
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):
@@ -183,7 +192,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if application is ``RUNNING``,
+            * with code ``Faults.ALREADY_STARTED`` if application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
             * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
 
         *@return* ``bool``: always ``True`` unless error or nothing to start.
@@ -197,7 +206,7 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # check application is not already RUNNING
         application = self.context.applications[application_name]
-        if application.state == ApplicationStates.RUNNING:
+        if application.state != ApplicationStates.STOPPED:
             raise RPCError(Faults.ALREADY_STARTED, application_name)
         # TODO: develop a predictive model to check if deployment can be achieved
         # if impossible due to a lack of resources, second try without optionals
@@ -229,6 +238,7 @@ class RPCInterface(object):
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+            * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -236,8 +246,11 @@ class RPCInterface(object):
         # check application is known
         if application_name not in self.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, application_name)
-        # do NOT check application state as there may be processes RUNNING although the application is declared STOPPED
+        # check application is not already STOPPED
         application = self.context.applications[application_name]
+        if application.state == ApplicationStates.STOPPED:
+            raise RPCError(Faults.NOT_RUNNING, application_name)
+        # stop the application
         done = self.stopper.stop_application(application)
         self.logger.debug('stop_application {} done={}'.format(application_name, done))
         # wait until application fully STOPPED
@@ -318,7 +331,8 @@ class RPCInterface(object):
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT)
         application, process = self._get_application_process(namespec)
         if extra_args and not process.accept_extra_arguments():
-            raise RPCError(Faults.BAD_EXTRA_ARGUMENTS, 'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
+            raise RPCError(Faults.BAD_EXTRA_ARGUMENTS,
+                'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
         # update command line in process config with extra_args
         try:
             self.info_source.update_extra_args(namespec, extra_args)
@@ -359,7 +373,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
+            * with code ``Faults.ALREADY_STARTED`` if process is in a running state,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
         *@return* ``bool``: always ``True`` unless error.
@@ -371,7 +385,7 @@ class RPCInterface(object):
         # check names
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
-        # check processes are not already RUNNING
+        # check processes are not already running
         for process in processes:
             if process.running():
                 raise RPCError(Faults.ALREADY_STARTED, process.namespec())
@@ -392,8 +406,7 @@ class RPCInterface(object):
                 return True
             onwait.delay = 0.1
             return onwait # deferred
-        # if done is True, nothing to do (no deployment or impossible to deploy)
-        return not done
+        return True
 
     def stop_process(self, namespec, wait=True):
         """ Stop the process named namespec where it is running.
@@ -406,6 +419,7 @@ class RPCInterface(object):
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
+            * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -413,6 +427,10 @@ class RPCInterface(object):
         # check names
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
+        # check processes are not already running
+        for process in processes:
+            if process.stopped():
+                raise RPCError(Faults.NOT_RUNNING, process.namespec())
         # stop all processes
         done = True
         for process in processes:
@@ -455,25 +473,24 @@ class RPCInterface(object):
         """
         self._check_operating()
         def onwait():
-           # first wait for process to be stopped
-            if callable(onwait.job):
-                value = onwait.job()
-                if value is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if onwait.stopdone:
-                    # the start is completed
-                    return value
-            if not onwait.stopdone:
-                # stop is done, whatever the result is True or False.
-                onwait.stopdone = True
-                # request start process
-                onwait.job = self.start_process(strategy, namespec, extra_args, wait)
+            # first wait for process to be stopped
+            if onwait.waitstop:
+                # job may be a boolean value if stop_process has nothing to do
+                value = type(onwait.job) is bool or onwait.job()
+                if value is True:
+                    # done. request start application
+                    onwait.waitstop = False
+                    value = self.start_process(strategy, namespec, extra_args, wait)
+                    if type(value) is bool:
+                        return value
+                    # deferred job to wait for application to be started
+                    onwait.job = value
                 return NOT_DONE_YET
-            return onwait.job
-        # request stop process. job is for deferred result
-        onwait.delay = 0.1
+            return onwait.job()
+        onwait.delay = 0.5
+        onwait.waitstop = True
+        # request stop application. job is for deferred result
         onwait.job = self.stop_process(namespec, True)
-        onwait.stopdone = False
         return onwait # deferred
 
     def restart(self):
@@ -502,12 +519,14 @@ class RPCInterface(object):
     # utilities
     def _check_from_deployment(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
-        self._check_state([SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
+        self._check_state([SupvisorsStates.DEPLOYMENT,
+            SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
             SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
 
     def _check_operating_conciliation(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION or CONCILIATION. """
-        self._check_state([SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION])
+        self._check_state([SupvisorsStates.OPERATION,
+            SupvisorsStates.CONCILIATION])
 
     def _check_operating(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
@@ -516,14 +535,17 @@ class RPCInterface(object):
     def _check_state(self, states):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
         if self.supvisors.fsm.state not in states:
-            raise RPCError(Faults.BAD_SUPVISORS_STATE, 'Supvisors (state={}) not in state {} to perform request'.
-                format(SupvisorsStates._to_string(self.supvisors.fsm.state), [SupvisorsStates._to_string(state) for state in states]))
+            raise RPCError(Faults.BAD_SUPVISORS_STATE,
+                'Supvisors (state={}) not in state {} to perform request'.
+                format(SupvisorsStates._to_string(self.supvisors.fsm.state),
+                    [SupvisorsStates._to_string(state) for state in states]))
 
     def _get_application_process(self, namespec):
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
         application_name, process_name = split_namespec(namespec)
-        return self._get_application(application_name), self._get_process(namespec) if process_name else None
+        return (self._get_application(application_name),
+            self._get_process(namespec) if process_name else None)
 
     def _get_application(self, application_name):
         """ Return the ApplicationStatus corresponding to the application name.
@@ -531,7 +553,8 @@ class RPCInterface(object):
         try:
             application = self.context.applications[application_name]
         except KeyError:
-            raise RPCError(Faults.BAD_NAME, 'application {} unknown in Supvisors'.format(application_name))
+            raise RPCError(Faults.BAD_NAME,
+                'application {} unknown in Supvisors'.format(application_name))
         return application
 
     def _get_process(self, namespec):
@@ -540,11 +563,13 @@ class RPCInterface(object):
         try:
             process = self.context.processes[namespec]
         except KeyError:
-            raise RPCError(Faults.BAD_NAME, 'process {} unknown in Supvisors'.format(namespec))
+            raise RPCError(Faults.BAD_NAME,
+                'process {} unknown in Supvisors'.format(namespec))
         return process
 
     def _get_internal_process_rules(self, process):
         """ Return a dictionary with the rules of the process. """
         result = process.rules.serial()
-        result.update({'application_name': process.application_name, 'process_name': process.process_name})
+        result.update({'application_name': process.application_name,
+            'process_name': process.process_name})
         return result

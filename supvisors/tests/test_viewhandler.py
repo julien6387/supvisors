@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 
 
 class ViewHandlerTest(unittest.TestCase):

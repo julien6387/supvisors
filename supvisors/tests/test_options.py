@@ -56,20 +56,24 @@ class SupvisorsOptionsTest(unittest.TestCase):
         """ Test the string output. """
         from supvisors.options import SupvisorsOptions
         opt = SupvisorsOptions()
-        self.assertEqual('address_list=None deployment_file=None internal_port=None event_port=None auto_fence=None synchro_timeout=None '
-            'conciliation_strategy=None deployment_strategy=None stats_periods=None stats_histo=None stats_irix_mode=None '
-            'logfile=None logfile_maxbytes=None logfile_backups=None loglevel=None', str(opt))
+        self.assertEqual('address_list=None deployment_file=None '
+            'internal_port=None event_port=None auto_fence=None '
+            'synchro_timeout=None conciliation_strategy=None '
+            'deployment_strategy=None stats_periods=None stats_histo=None '
+            'stats_irix_mode=None logfile=None logfile_maxbytes=None '
+            'logfile_backups=None loglevel=None', str(opt))
 
 
 class SupvisorsServerOptionsTest(unittest.TestCase):
-    """ Test case for the SupvisorsServerOptionsTest class of the options module. """
+    """ Test case for the SupvisorsServerOptionsTest class
+    of the options module. """
 
     common_error_message = 'invalid value for {}'
 
     def test_port_num(self):
         """ Test the conversion into to a port number. """
         from supvisors.options import SupvisorsServerOptions
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('port')
+        error_message = self.common_error_message.format('port')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_port_num('-1')
@@ -84,7 +88,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
     def test_timeout(self):
         """ Test the conversion of a string to a timeout value. """
         from supvisors.options import SupvisorsServerOptions
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('synchro_timeout')
+        error_message = self.common_error_message.format('synchro_timeout')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_timeout('-1')
@@ -100,7 +104,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         """ Test the conversion of a string to a conciliation strategy. """
         from supvisors.options import SupvisorsServerOptions
         from supvisors.ttypes import ConciliationStrategies
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('conciliation_strategy')
+        error_message = self.common_error_message.format('conciliation_strategy')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_conciliation_strategy('123456')
@@ -119,7 +123,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         """ Test the conversion of a string to a deployment strategy. """
         from supvisors.options import SupvisorsServerOptions
         from supvisors.ttypes import DeploymentStrategies
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('deployment_strategy')
+        error_message = self.common_error_message.format('deployment_strategy')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_deployment_strategy('123456')
@@ -135,7 +139,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
     def test_periods(self):
         """ Test the conversion of a string to a list of periods. """
         from supvisors.options import SupvisorsServerOptions
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('stats_periods')
+        error_message = self.common_error_message.format('stats_periods')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, 'unexpected number of stats_periods'):
             SupvisorsServerOptions.to_periods([])
@@ -155,7 +159,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
     def test_histo(self):
         """ Test the conversion of a string to a history depth. """
         from supvisors.options import SupvisorsServerOptions
-        error_message = SupvisorsServerOptionsTest.common_error_message.format('stats_histo')
+        error_message = self.common_error_message.format('stats_histo')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_histo('-1')

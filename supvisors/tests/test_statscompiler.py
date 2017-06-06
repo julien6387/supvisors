@@ -17,40 +17,22 @@
 # limitations under the License.
 # ======================================================================
 
+import multiprocessing
 import sys
 import unittest
 
-from supvisors.tests.base import DummySupvisors
+from supvisors.tests.base import MockedSupvisors
 
 
 class StatisticsTest(unittest.TestCase):
-    """ Test case for the functions of the statistics module. """
-
-    def test_instant_cpu_statistics(self):
-        """ Test the instant CPU statistics. """
-        import multiprocessing
-        from supvisors.statistics import instant_cpu_statistics
-        stats = instant_cpu_statistics()
-        # test number of results (number of cores + average)
-        self.assertEqual(multiprocessing.cpu_count() + 1, len(stats))
-        # test average value
-        total_work = total_idle = 0
-        for cpu in stats[1:]:
-            self.assertEqual(2, len(cpu))
-            work, idle = cpu
-            total_work += work
-            total_idle += idle
-        self.assertAlmostEqual(stats[0][0], total_work / multiprocessing.cpu_count())
-        self.assertAlmostEqual(stats[0][1], total_idle / multiprocessing.cpu_count())
+    """ Test case for the functions of the statscompiler module. """
 
     def test_cpu_statistics(self):
         """ Test the CPU statistics between 2 dates. """
-        import multiprocessing, time
-        from supvisors.statistics import instant_cpu_statistics, cpu_statistics
+        from supvisors.statscompiler import cpu_statistics
         # take 2 spaced instant cpu statistics
-        ref_stats = instant_cpu_statistics()
-        time.sleep(1)
-        last_stats = instant_cpu_statistics()
+        ref_stats = [(83.31, 305.4)] * (multiprocessing.cpu_count() + 1)
+        last_stats = [(83.32, 306.4)] * (multiprocessing.cpu_count() + 1)
         stats = cpu_statistics(last_stats, ref_stats)
         # test number of results (number of cores + average)
         self.assertEqual(multiprocessing.cpu_count() + 1, len(stats))
@@ -63,171 +45,63 @@ class StatisticsTest(unittest.TestCase):
 
     def test_cpu_total_work(self):
         """ Test the CPU total work between 2 dates. """
-        import time
-        from supvisors.statistics import instant_cpu_statistics, cpu_total_work
-        # take 2 spaced instant cpu statistics
-        ref_stats = instant_cpu_statistics()
-        time.sleep(1)
-        last_stats = instant_cpu_statistics()
+        from supvisors.statscompiler import cpu_total_work
+        # take 2 instant cpu statistics
+        ref_stats = [(83.31, 305.4)] * 2
+        last_stats = [(83.41, 306.3)] * 2
         total_work = cpu_total_work(last_stats, ref_stats)
-        # total work should be quite close to sleeping time
+        # total work is the sum of jiffies spent on cpu all
         self.assertAlmostEqual(1, total_work, 1)
-
-    def test_instant_memory_statistics(self):
-        """ Test the instant memory statistics. """
-        from supvisors.statistics import instant_memory_statistics
-        stats = instant_memory_statistics()
-        # test bounds (percent)
-        self.assertIs(float, type(stats))
-        self.assertGreaterEqual(stats, 0)
-        self.assertLessEqual(stats, 100)
-
-    def test_instant_io_statistics(self):
-        """ Test the instant I/O statistics. """
-        from supvisors.statistics import instant_io_statistics
-        stats = instant_io_statistics()
-        # test interface names
-        with open('/proc/net/dev') as netfile:
-            # two first lines are title
-            contents = netfile.readlines()[2:]
-        interfaces = [intf.strip().split(':')[0] for intf in contents]
-        self.assertItemsEqual(interfaces, stats.keys())
-        self.assertIn('lo', stats.keys())
-        # test that values are pairs
-        for intf, bytes in stats.items():
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(int, type(value))
-        # for loopback address, recv bytes equals sent bytes
-        self.assertEqual(stats['lo'][0], stats['lo'][1])
 
     def test_io_statistics(self):
         """ Test the I/O statistics between 2 dates. """
-        import time
-        from supvisors.statistics import instant_io_statistics, io_statistics
-        # take 2 spaced instant cpu statistics
-        ref_stats = instant_io_statistics()
-        time.sleep(1)
-        last_stats = instant_io_statistics()
+        from supvisors.statscompiler import io_statistics
+        # take 2 instant cpu statistics
+        ref_stats = {'eth0': (2000, 200), 'lo': (5000, 5000)}
+        last_stats = {'eth0': (2896, 328), 'lo': (6024, 6024)}
         stats = io_statistics(last_stats, ref_stats, 1)
         # test keys
         self.assertListEqual(ref_stats.keys(), stats.keys())
         self.assertListEqual(last_stats.keys(), stats.keys())
-        # test that values are pairs
-        for intf, bytes in stats.items():
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(int, type(value))
+        # test that values
+        self.assertDictEqual({'lo': (8, 8), 'eth0': (7, 1)},stats)
  
-    def test_instant_process_statistics(self):
-        """ Test the instant process statistics. """
-        import os
-        from supvisors.statistics import instant_process_statistics
-        # check with existing PID
-        work, memory = instant_process_statistics(os.getpid())
-        # test that a pair is returned with values in [0;100]
-        # test cpu value
-        self.assertIs(float, type(work))
-        self.assertGreaterEqual(work, 0)
-        self.assertLessEqual(work, 100)
-        # test mem value
-        self.assertIs(float, type(memory))
-        self.assertGreaterEqual(memory, 0)
-        self.assertLessEqual(memory, 100)
-        # check handling of non-existing PID
-        work, memory = instant_process_statistics(-1)
-        self.assertEqual(work, 0)
-        self.assertEqual(memory, 0)
-
     def test_cpu_process_statistics(self):
         """ Test the CPU of the process between 2 dates. """
-        from supvisors.statistics import cpu_process_statistics
+        from supvisors.statscompiler import cpu_process_statistics
         stats = cpu_process_statistics(50, 20, 100)
         self.assertIs(float, type(stats))
         self.assertEqual(30, stats)
 
-    def test_instant_statistics(self):
-        """ Test the instant global statistics. """
-        import multiprocessing, os, time
-        from supvisors.statistics import instant_statistics
-        stats = instant_statistics([('myself', os.getpid())])
-        # check result
-        self.assertEqual(5, len(stats))
-        date, cpu_stats, mem_stats, io_stats, proc_stats = stats
-        #  check time (current is greater)
-        self.assertGreater(time.time(), date)
-        # check cpu jiffies
-        self.assertEqual(multiprocessing.cpu_count() + 1, len(cpu_stats))
-        for cpu in cpu_stats:
-            self.assertEqual(2, len(cpu))
-            for value in cpu:
-                self.assertIs(float, type(value))
-        # check memory
-        self.assertIs(float, type(mem_stats))
-        self.assertGreaterEqual(mem_stats, 0)
-        self.assertLessEqual(mem_stats, 100)
-        # check io
-        for intf, bytes in io_stats.items():
-            self.assertIs(str, type(intf))
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(int, type(value))
-        # check process stats
-        self.assertListEqual(['myself'], proc_stats.keys())
-        values = proc_stats['myself']
-        self.assertEqual(2, len(values))
-        self.assertEqual(os.getpid(), values[0])
-        self.assertEqual(2, len(values[1]))
-        for value in values[1]:
-            self.assertIs(float, type(value))
-            self.assertGreaterEqual(value, 0)
-            self.assertLessEqual(value, 100)
-
     def test_statistics(self):
         """ Test the global statistics between 2 dates. """
-        import multiprocessing, os, time
-        from supvisors.statistics import instant_statistics, statistics
-        named_pid = 'myself', os.getpid()
-        ref_stats = instant_statistics([named_pid])
-        time.sleep(2)
-        last_stats = instant_statistics([named_pid])
+        from supvisors.statscompiler import statistics
+        ref_stats = (1000, [(25, 400), (25, 125), (15, 150)], 65, {'eth0': (2000, 200), 'lo': (5000, 5000)},
+            {'myself': (26088, (0.15, 1.85))})
+        last_stats = (1002, [(45, 700), (50, 225), (40, 250)], 67.7, {'eth0': (2768, 456), 'lo': (6024, 6024)},
+            {'myself': (26088, (1.75, 1.9))})
         stats = statistics(last_stats, ref_stats)
         # check result
         self.assertEqual(5, len(stats))
         date, cpu_stats, mem_stats, io_stats, proc_stats = stats
         # check date
-        self.assertEqual(last_stats[0], date)
+        self.assertEqual(1002, date)
         # check cpu
-        self.assertEqual(multiprocessing.cpu_count() + 1, len(cpu_stats))
-        for cpu in cpu_stats:
-            self.assertIs(float, type(cpu))
-            self.assertGreaterEqual(cpu, 0)
-            self.assertLessEqual(cpu, 100)
+        self.assertListEqual([6.25, 20.0, 20.0], cpu_stats)
         # check memory
-        self.assertIs(float, type(mem_stats))
-        self.assertEqual(last_stats[2], mem_stats)
+        self.assertEqual(67.7, mem_stats)
         # check io
-        for intf, bytes in io_stats.items():
-            self.assertIs(str, type(intf))
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
-                self.assertIs(float, type(value))
+        self.assertDictEqual({'lo': (4, 4), 'eth0': (3, 1)}, io_stats)
         # check process stats
-        self.assertListEqual([named_pid], proc_stats.keys())
-        values = proc_stats[named_pid]
-        self.assertEqual(2, len(values))
-        for value in values:
-            self.assertIs(float, type(value))
-            self.assertGreaterEqual(value, 0)
-            self.assertLessEqual(value, 100)
+        self.assertDictEqual({('myself', 26088): (0.5, 1.9)}, proc_stats)
 
 
 class StatisticsInstanceTest(unittest.TestCase):
-    """ Test case for the StatisticsInstance class of the statistics module. """
+    """ Test case for the StatisticsInstance class of the statscompiler module. """
 
     def test_create(self):
         """ Test the initialization of an instance. """
-        from supvisors.statistics import StatisticsInstance
+        from supvisors.statscompiler import StatisticsInstance
         instance = StatisticsInstance(17, 10)
         # check attributes
         self.assertEqual(3, instance.period)
@@ -245,7 +119,7 @@ class StatisticsInstanceTest(unittest.TestCase):
 
     def test_clear(self):
         """ Test the clearance of an instance. """
-        from supvisors.statistics import StatisticsInstance
+        from supvisors.statscompiler import StatisticsInstance
         instance = StatisticsInstance(17, 10)
         # change values
         instance.counter = 28
@@ -271,7 +145,7 @@ class StatisticsInstanceTest(unittest.TestCase):
 
     def test_find_process_stats(self):
         """ Test the search method for process statistics. """
-        from supvisors.statistics import StatisticsInstance
+        from supvisors.statscompiler import StatisticsInstance
         instance = StatisticsInstance(17, 10)
         # change values
         instance.proc = {('the_other', 1234): (1.5, 2.4), ('myself', 5888): (25.0, 12.5)}
@@ -283,7 +157,7 @@ class StatisticsInstanceTest(unittest.TestCase):
 
     def test_trunc_depth(self):
         """ Test the history depth. """
-        from supvisors.statistics import StatisticsInstance
+        from supvisors.statscompiler import StatisticsInstance
         instance = StatisticsInstance(12, 5)
         # test that the truc_depth method does nothing when less than 5 elements in list
         test_list = [1, 2, 3, 4]
@@ -296,7 +170,7 @@ class StatisticsInstanceTest(unittest.TestCase):
 
     def test_push_statistics(self):
         """ Test the storage of the instant statistics. """
-        from supvisors.statistics import StatisticsInstance
+        from supvisors.statscompiler import StatisticsInstance
         # testing with period 12 and history depth 2
         instance = StatisticsInstance(12, 2)
         # push first set of measures
@@ -404,15 +278,15 @@ class StatisticsInstanceTest(unittest.TestCase):
 
 
 class StatisticsCompilerTest(unittest.TestCase):
-    """ Test case for the StatisticsCompiler class of the statistics module. """
+    """ Test case for the StatisticsCompiler class of the statscompiler module. """
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_create(self):
         """ Test the initialization for statistics of all addresses. """
-        from supvisors.statistics import StatisticsCompiler, StatisticsInstance
+        from supvisors.statscompiler import StatisticsCompiler, StatisticsInstance
         compiler = StatisticsCompiler(self.supvisors)
         # check compiler contents at initialisation
         self.assertItemsEqual(self.supvisors.address_mapper.addresses, compiler.data.keys())
@@ -425,7 +299,7 @@ class StatisticsCompilerTest(unittest.TestCase):
 
     def test_clear(self):
         """ Test the clearance for statistics of all addresses. """
-        from supvisors.statistics import StatisticsCompiler
+        from supvisors.statscompiler import StatisticsCompiler
         compiler = StatisticsCompiler(self.supvisors)
         # set data to a given address
         for address, period_instance in compiler.data.items():
@@ -466,7 +340,7 @@ class StatisticsCompilerTest(unittest.TestCase):
 
     def test_push_statistics(self):
         """ Test the storage of the instant statistics of an address. """
-        from supvisors.statistics import StatisticsCompiler
+        from supvisors.statscompiler import StatisticsCompiler
         compiler = StatisticsCompiler(self.supvisors)
         # push statistics to a given address
         stats1 = (8.5, [(25, 400), (25, 125), (15, 150), (40, 400), (20, 200)],

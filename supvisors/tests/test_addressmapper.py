@@ -22,9 +22,9 @@ import random
 import socket
 import unittest
 
-from mock import patch
+from mock import patch, Mock
 
-from supvisors.tests.base import DummyLogger
+from supervisor.loggers import Logger
 
 
 class AddressMapperTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class AddressMapperTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.logger = DummyLogger()
+        self.logger = Mock(spec=Logger)
 
     def test_create(self):
         """ Test the values set at construction. """
@@ -122,25 +122,24 @@ class AddressMapperTest(unittest.TestCase):
         # complex to test as it depends on the network configuration of the operating system
         # check that there is at least one entry looking like an IP address
         from supvisors.addressmapper import AddressMapper
+        # test that netifaces is installed
+        try:
+            import netifaces
+            netifaces.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional netifaces is not installed')
+        # test function
         ip_list = AddressMapper.ipv4()
         self.assertTrue(ip_list)
         for ip in ip_list:
             self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')
 
-    def test_ipv4_importerror(self):
+    @patch.dict('sys.modules', {'netifaces': None})
+    def test_ipv4_importerror(self, *args, **keywargs):
         """ Test the ipv4 method with a mocking of import (netifaces not installed). """
-        # store original __import__
-        ref_import = __import__
-        # patch of import
-        def import_mock(name, *args):
-            if name == 'netifaces':
-                raise ImportError
-            return ref_import(name, *args)
-        # test that empty list is returned on import error
-        with patch('__builtin__.__import__', side_effect=import_mock):
-            from supvisors.addressmapper import AddressMapper
-            ip_list = AddressMapper.ipv4()
-            self.assertFalse(ip_list)
+        from supvisors.addressmapper import AddressMapper
+        ip_list = AddressMapper.ipv4()
+        self.assertFalse(ip_list)
 
 
 def test_suite():

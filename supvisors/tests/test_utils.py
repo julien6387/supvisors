@@ -17,22 +17,24 @@
 # limitations under the License.
 # ======================================================================
 
+import math
 import sys
 import unittest
 
-from supvisors.tests.base import DummySupvisors
+from mock import patch
 
-#FIXME: add enum tests
+from supvisors.tests.base import MockedSupvisors
+
 
 class UtilsTest(unittest.TestCase):
     """ Test case for the utils module. """
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_enum(self):
-        """ Test the values set at construction. """
+        """ Test the enumeration tools. """
         from supvisors.utils import enumeration_tools
         @enumeration_tools
         class DummyEnum:
@@ -56,7 +58,7 @@ class UtilsTest(unittest.TestCase):
         self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'], sorted(DummyEnum._strings()))
 
     def test_shortcut(self):
-        """ Test the values set at construction. """
+        """ Test the shortcuts to supvisors data. """
         from supvisors.utils import supvisors_short_cuts
         # test with existing attributes
         supvisors_short_cuts(self, ['address_mapper', 'deployer', 'fsm', 'logger', 'requester', 'statistician'])
@@ -71,20 +73,19 @@ class UtilsTest(unittest.TestCase):
             supvisors_short_cuts(self, ['addresser', 'logging'])
 
     def test_localtime(self):
-        """ Test the values set at construction. """
+        """ Test the display of local time. """
         import time
         from supvisors.utils import simple_localtime
         time_shift = time.timezone if time.gmtime().tm_isdst else time.altzone
         self.assertEqual('07:07:00', simple_localtime(1476947220.416198 + time_shift))
 
     def test_gmtime(self):
-        """ Test the values set at construction. """
+        """ Test the display of gm time. """
         from supvisors.utils import simple_gmtime
         self.assertEqual('07:07:00', simple_gmtime(1476947220.416198))
 
     def test_statistics_functions(self):
-        """ Test the values set at construction. """
-        import math
+        """ Test the simple statistics. """
         from supvisors.utils import mean, srate, stddev
         # test mean lambda
         self.assertAlmostEqual(4, mean([2, 5, 5]))
@@ -97,8 +98,30 @@ class UtilsTest(unittest.TestCase):
         # test stddev lambda
         self.assertAlmostEqual(math.sqrt(2), stddev([2, 5, 4, 6, 3], 4))
 
-    def test_linear_regression(self):
-        """ Test the values set at construction. """
+    def test_linear_regression_numpy(self):
+        """ Test the linear regression using numpy (if installed). """
+        # test that numpy is installed
+        try:
+            import numpy
+            numpy.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional numpy is not installed')
+        # perform the test with numpy
+        from supvisors.utils import get_linear_regression, get_simple_linear_regression
+        xdata = [2, 4, 6, 8, 10, 12]
+        ydata = [3, 4, 5, 6, 7, 8]
+        # test linear regression
+        a, b = get_linear_regression(xdata, ydata)
+        self.assertAlmostEqual(0.5, a)
+        self.assertAlmostEqual(2.0, b)
+        # test simple linear regression
+        a, b = get_simple_linear_regression(ydata)
+        self.assertAlmostEqual(1.0, a)
+        self.assertAlmostEqual(3.0, b)
+
+    @patch.dict('sys.modules', {'numpy': None})
+    def test_linear_regression(self, *args, **keywargs):
+        """ Test the linear regression without using numpy. """
         from supvisors.utils import get_linear_regression, get_simple_linear_regression
         xdata = [2, 4, 6, 8, 10, 12]
         ydata = [3, 4, 5, 6, 7, 8]
@@ -112,8 +135,7 @@ class UtilsTest(unittest.TestCase):
         self.assertAlmostEqual(3.0, b)
 
     def test_statistics(self):
-        """ Test the values set at construction. """
-        import math
+        """ Test the statistics function. """
         from supvisors.utils import get_stats
         ydata = [2, 3, 4, 5, 6]
         avg, rate, (a,  b), dev = get_stats(ydata)

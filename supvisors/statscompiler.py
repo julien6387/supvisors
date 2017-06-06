@@ -17,28 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from psutil import cpu_times, net_io_counters, virtual_memory, Process, NoSuchProcess
-from time import time
-
-from supvisors.utils import mean
-
 
 # CPU statistics
-def instant_cpu_statistics():
-    """ Return the instant work+idle jiffies for all the processors.
-    The average on all processors is inserted in front of the list. """
-    work = []
-    idle = []
-    # CPU details
-    cpu_stats = cpu_times(percpu=True)
-    for cpu_stat in cpu_stats:
-        work.append(cpu_stat.user + cpu_stat.nice + cpu_stat.system + cpu_stat.irq + cpu_stat.softirq + cpu_stat.steal + cpu_stat.guest)
-        idle.append(cpu_stat.idle + cpu_stat.iowait)
-    # return adding CPU average in front of lists
-    work.insert(0, mean(work))
-    idle.insert(0, mean(idle))
-    return zip(work, idle)
-
 def cpu_statistics(last, ref):
     """ Return the CPU loading for all the processors between last and ref measures.
     The average on all processors is inserted in front of the list. """
@@ -57,23 +37,7 @@ def cpu_total_work(last, ref):
     return work + idle
 
 
-# Memory statistics
-def instant_memory_statistics():
-    """ Return the instant value of the memory reserved.
-    This is different from the memory used as it does not include the percent of memory that is available (in cache or swap). """
-    return virtual_memory().percent
-
-
 # Network statistics
-def instant_io_statistics():
-    """ Return the instant values of receive / sent bytes per network interface. """
-    result = {}
-    # IO details
-    io_stats = net_io_counters(pernic=True)
-    for intf, io_stat in io_stats.items():
-        result[intf] = io_stat.bytes_recv, io_stat.bytes_sent
-    return result
-
 def io_statistics(last, ref, duration):
     """ Return the rate of receive / sent bytes per second per network interface. """
     io_stats = {}
@@ -92,31 +56,10 @@ def io_statistics(last, ref, duration):
 
 
 # Process statistics
-def instant_process_statistics(pid):
-    """ Return the instant jiffies and memory values for the process identified by pid. """
-    work = memory = 0
-    try:
-        proc = Process(pid)
-        for p in [proc] + proc.children(recursive=True):
-            work += sum(p.cpu_times())
-            memory += p.memory_percent()
-    except (NoSuchProcess, ValueError):
-        # process may have disappeared in the interval
-        pass
-    # take into account the number of processes for the process work 
-    return work, memory
-
 def cpu_process_statistics(last, ref, total_work):
     """ Return the CPU loading of the process between last and ref measures. """
     # process may have been started between ref and last
     return 100.0 * (last - ref) / total_work
-
-
-# Snapshot of all resources
-def instant_statistics(named_pid_list):
-    """ Return a tuple of all measures taken on the CPU, Memory and IO resources. """
-    proc_statistics = {process_name: (pid, instant_process_statistics(pid)) for process_name, pid in named_pid_list}
-    return time(), instant_cpu_statistics(), instant_memory_statistics(), instant_io_statistics(), proc_statistics
 
 
 # Calculate resources taken between two snapshots
@@ -245,12 +188,12 @@ class StatisticsCompiler(object):
         self.nbcores = {address: 1 for address in supvisors.address_mapper.addresses}
 
     def clear(self, address):
-        """  For a given address, clear the StatisticsInstance for all periods. """
+        """ For a given address, clear the StatisticsInstance for all periods. """
         for period in self.data[address].values():
             period.clear()
 
     def push_statistics(self, address, stats):
-        """  Insert a new statistics measure for address. """
+        """ Insert a new statistics measure for address. """
         for period in self.data[address].values():
             period.push_statistics(stats)
         # set the number of processor cores

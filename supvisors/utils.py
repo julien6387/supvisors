@@ -30,7 +30,6 @@ class RemoteCommEvents:
     SUPVISORS_AUTH = u'auth'
     SUPVISORS_EVENT = u'event'
     SUPVISORS_INFO = u'info'
-    SUPVISORS_TASK = u'task'
 
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
@@ -51,11 +50,11 @@ class DeferredRequestHeaders:
 # used to convert enumeration-like value to string and vice-versa
 def enum_to_string(dico, idxEnum):
     """ Convert an enumeration value to a string. """
-    return next((name for name, value in dico.items() if value == idxEnum),  None)
+    return next((name for name, value in dico.items() if value == idxEnum), None)
 
 def string_to_enum(dico, strEnum):
     """ Convert a string to an enumeration value. """
-    return next((value for name, value in dico.items() if name == strEnum),  None)
+    return next((value for name, value in dico.items() if name == strEnum), None)
 
 def enum_values(dico):
     """ Get all the values of an enumeration. """

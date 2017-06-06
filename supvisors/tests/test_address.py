@@ -22,7 +22,7 @@ import sys
 import time
 import unittest
 
-from supvisors.tests.base import DummySupvisors, ProcessInfoDatabase, any_process_info
+from supvisors.tests.base import MockedSupvisors, ProcessInfoDatabase, any_process_info
 
 
 class AddressTest(unittest.TestCase):
@@ -30,7 +30,7 @@ class AddressTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
         from supvisors.ttypes import AddressStates
         self.all_states = AddressStates._values()
 
@@ -90,8 +90,6 @@ class AddressTest(unittest.TestCase):
                     status.state = state2
                     self.assertEqual(state2, status.state)
                     self.assertEqual(AddressStates._to_string(state2), status.state_string())
-                    self.assertTrue(len(self.supvisors.logger.messages) == 1)
-                    self.assertTrue(self.supvisors.logger.messages.pop()[0] == 'info')
                 elif state1 == state2:
                     self.assertEqual(state1, status.state)
                 else:

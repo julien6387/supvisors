@@ -20,114 +20,32 @@
 import os
 import random
 
-from StringIO import StringIO
+from mock import patch, Mock
+
+from supervisor.loggers import Logger
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
-
-
-class DummyClass:
-    """ Temporary empty class. """
-
-
-class DummyLogger:
-    """ Simple logger that stores log traces. """
-
-    def __init__(self):
-        self.messages = []
-
-    def critical(self, message):
-        self.messages.append(('critical', message))
-
-    def error(self, message):
-        self.messages.append(('error', message))
-
-    def warn(self, message):
-        self.messages.append(('warn', message))
-
-    def info(self, message):
-        self.messages.append(('info', message))
-
-    def debug(self, message):
-        self.messages.append(('debug', message))
-
-    def trace(self, message):
-        self.messages.append(('trace', message))
-
-    def blather(self, message):
-        self.messages.append(('blather', message))
 
 
 class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
-
     def __init__(self):
         self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
         self.local_address = '127.0.0.1'
-
-
-class DummyAddressStatus:
-    """ Simple address status with name, state and loading. """
-
-    def __init__(self, name, state, load):
-        self.name = name
-        self.state = state
-        self.load = load
-
-    def state_string(self):
-        return ""
-
-    def loading(self):
-        return self.load
-
-
-class DummyApplicationStatus:
-    """ Simple ApplicationStatus. """
-
-    def sequence_deployment(self):
-        pass
-
-    def update_status(self):
-        pass
-
-
-class DummyContext:
-    """ Simple context with an empty list of AddressStatus. """
-
-    def __init__(self):
-        self.addresses = {}
-        self.applications = {}
-        self.master_address = ''
-        self.master = True
-
-    # TODO: implement running_addresses, unknown_addresses, conflicting, conflicts, marked_processes,
-    #                 on_timer_event, handle_isolation, on_tick_event, on_process_event
-
-# TEMP
-def read_string(self, s):
-    from StringIO import StringIO
-    s = StringIO(s)
-    return self.readfp(s)
-
-
-class DummyInfoSource:
-    """ Simple info source with dummy methods. """
-
-    def get_env(self):
-        return {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
-            'SUPERVISOR_USERNAME': '',
-            'SUPERVISOR_PASSWORD': ''}
-
-    def autorestart(self, namespec):
-        return namespec == 'test_autorestart'
+    def filter(self, address_list):
+        return address_list
+    def valid(self, address):
+        return address in self.addresses
 
 
 class DummyOptions:
     """ Simple options with dummy attributes. """
-
     def __init__(self):
         # configuration options
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.auto_fence = True
         self.deployment_file = ''
         self.deployment_strategy = 0
         self.conciliation_strategy = 0
@@ -137,62 +55,120 @@ class DummyOptions:
         self.procnumbers = {'xclock': 2}
 
 
-class DummyStarter:
-    """ Simple starter. """
-        # TODO: deploy_applications, check_deployment, in_progress, deploy_on_event, deploy_marked_processes
-
-
-class DummyStopper:
-    """ Simple stopper. """
-
-
-class DummyPublisher:
-    """ Simple Supvisors Publisher behaviour. """
- 
-    def send_supvisors_status(self, status):
-        pass
-
-
-class DummyZmq:
-    """ Simple Supvisors ZeroMQ behaviour. """
- 
-    def __init__(self):
-        self.internal_subscriber = None
-        self.puller = None
-        self.publisher = DummyPublisher()
-
-
-class DummySupvisors:
+class MockedSupvisors:
     """ Simple supvisors with all dummies. """
-
     def __init__(self):
+        # use a dummy address mapper and options
         self.address_mapper = DummyAddressMapper()
-        self.context = DummyContext()
-        self.deployer = DummyClass()
-        self.fsm = DummyClass()
-        self.info_source = DummyInfoSource()
-        self.logger = DummyLogger()
         self.options = DummyOptions()
-        self.pool = DummyClass()
-        self.requester = DummyClass()
-        self.statistician = DummyClass()
-        self.starter = DummyStarter()
-        self.stopper = DummyStopper()
-        self.zmq = DummyZmq()
+        # mock the context
+        from supvisors.context import Context
+        self.context = Mock(spec=Context)
+        self.context.__init__()
+        self.context.addresses = {}
+        self.context.applications = {}
+        # simple mocks
+        self.deployer = Mock()
+        self.fsm = Mock()
+        self.pool = Mock()
+        self.requester = Mock()
+        self.statistician = Mock()
+        self.failure_handler = Mock()
+        # mock the supervisord source
+        from supvisors.infosource import SupervisordSource
+        self.info_source = Mock(spec=SupervisordSource)
+        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
+            'SUPERVISOR_USERNAME': '', 'SUPERVISOR_PASSWORD': ''}
+        # mock by spec
+        from supvisors.listener import SupervisorListener
+        self.listener = Mock(spec=SupervisorListener)
+        self.logger = Mock(spec=Logger)
+        from supvisors.sparser import Parser
+        self.parser = Mock(spec=Parser)
+        from supvisors.commander import Starter, Stopper
+        self.starter = Mock(spec=Starter)
+        self.stopper = Mock(spec=Stopper)
+        from supvisors.supvisorszmq import SupvisorsZmq
+        self.zmq = Mock(spec=SupvisorsZmq)
+        self.zmq.__init__()
 
+
+class DummyRpcHandler:
+    """ Simple supervisord RPC handler with dummy attributes. """
+    def __init__(self):
+        self.rpcinterface = Mock(supervisor='supervisor_RPC', supvisors='supvisors_RPC')
+
+
+class DummyRpcInterface:
+    """ Simple RPC proxy. """
+    def __init__(self):
+        from supvisors.rpcinterface import RPCInterface
+        supervisord = DummySupervisor()
+        # cretae rpc interfaces to have a skeleton
+        # create a Supervisor RPC interface
+        self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
+        # create a mocked Supvisors RPC interface 
+        def create_supvisors(*args, **kwargs):
+            return MockedSupvisors()
+        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
+            self.supvisors = RPCInterface(supervisord)
+
+
+class DummyHttpServer:
+    """ Simple supervisord RPC handler with dummy attributes. """
+    def __init__(self):
+        self.handlers = [DummyRpcHandler(), Mock()]
+    def install_handler(self, handler, condition):
+        self.handlers.append(handler)
+
+
+class DummyServerOptions:
+    """ Simple supervisord server options with dummy attributes. """
+    def __init__(self):
+        # build a fake server config
+        self.server_configs = [{'section': 'inet_http_server', 'port': 1234,
+            'username': 'user', 'password': 'p@$$w0rd'}]
+        self.serverurl = 'url'
+        self.mood = 'mood'
+        self.nodaemon = True
+        # build a fake http config
+        self.httpservers = [[None, DummyHttpServer()]]
+        self.httpserver = self.httpservers[0][1]
+        # prepare storage for close_httpservers test
+        self.storage = None
+    def close_httpservers(self):
+        self.storage = self.httpservers
+
+
+class DummyProcess:
+    """ Simple supervisor process with simple attributes. """
+    def __init__(self, command, autorestart):
+        self.state = 'STOPPED'
+        self.spawnerr = ''
+        # create dummy config
+        class DummyObject: pass
+        self.config = DummyObject()
+        self.config.command = command
+        self.config.autorestart = autorestart
+    def give_up(self):
+       self.state = 'FATAL'
+    def change_state(self, state):
+       self.state = state
 
 class DummySupervisor:
-    """ Simple supervisor instance with simple attributes. """
-
+    """ Simple supervisor with simple attributes. """
     def __init__(self):
-        self.supvisors = DummySupvisors()
-        self.options = DummyClass()
-        self.options.server_configs = [{'section': 'inet_http_server'}]
+        self.supvisors = MockedSupvisors()
+        self.configfile = 'supervisord.conf'
+        self.options = DummyServerOptions()
+        self.process_groups = {'dummy_application':
+            Mock(config='dummy_application_config', 
+                processes={'dummy_process_1': DummyProcess('ls', True),
+                    'dummy_process_2': DummyProcess('cat', False)})}
 
 
 class DummyHttpContext:
     """ Simple HTTP context for web ui views. """
-
     def __init__(self, template):
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
@@ -240,6 +216,10 @@ ProcessInfoDatabase = [
         'stdout_logfile': './log/xeyes_cliche01.log'}]
 
 
+def database_copy():
+    """ Return a copy of the whole database. """
+    return [info.copy() for info in ProcessInfoDatabase]
+
 def any_process_info():
     """ Return a copy of any process in database. """
     return random.choice(ProcessInfoDatabase).copy()
@@ -259,41 +239,3 @@ def any_process_info_by_state(state):
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
     return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
-
-
-# Contents of a Supervisor configuration file
-SupervisorTestConfiguration = StringIO("""
-[inet_http_server]
-port=:60000
-
-[supervisord]
-
-[rpcinterface:supervisor]
-supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
-
-[supervisorctl]
-serverurl=http://localhost:60000
-
-[supvisors]
-address_list=cliche01,cliche03,cliche02
-deployment_file=my_movies.xml
-auto_fence=false
-internal_port=60001
-event_port=60002
-synchro_timeout=20
-deployment_strategy=CONFIG
-conciliation_strategy=USER
-stats_periods=5,60,600
-stats_histo=100
-stats_irix_mode=false
-logfile=supvisors.log
-logfile_maxbytes=50MB
-logfile_backups=10
-loglevel=info
-
-[rpcinterface:supvisors]
-supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
-
-[ctlplugin:supvisors]
-supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
-""")

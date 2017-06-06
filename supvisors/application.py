@@ -31,7 +31,7 @@ class ApplicationRules(object):
             0 means: immediate stop,
         - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply
             when a required process cannot be strated during the starting of the application,
-        - running_failure_strategy: defines the strategy (in RunningFailureStrategies) to apply
+        - running_failure_strategy: defines the default strategy (in RunningFailureStrategies) to apply
             when a required process crashes when the application is running.
     """
 
@@ -40,14 +40,15 @@ class ApplicationRules(object):
         self.start_sequence = 0
         self.stop_sequence = 0
         self.starting_failure_strategy = StartingFailureStrategies.ABORT
-        # TODO: implement running failure strategy
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def __str__(self):
         """ Contents as string. """
-        return 'start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}'.format(
-            self.start_sequence, self.stop_sequence, StartingFailureStrategies._to_string(self.starting_failure_strategy),
-            RunningFailureStrategies._to_string(self.running_failure_strategy))
+        return 'start_sequence={} stop_sequence={} starting_failure_strategy={}'\
+            ' running_failure_strategy={}'.format(
+                self.start_sequence, self.stop_sequence,
+                StartingFailureStrategies._to_string(self.starting_failure_strategy),
+                RunningFailureStrategies._to_string(self.running_failure_strategy))
 
 
 # ApplicationStatus class
@@ -101,14 +102,16 @@ class ApplicationStatus(object):
     def state(self, newState):
         if self._state != newState:
             self._state = newState
-            self.logger.info('Application {} is {}'.format(self.application_name, self.state_string()))
+            self.logger.info('Application {} is {}'.format(
+                self.application_name, self.state_string()))
 
     # serialization
     def serial(self):
         """ Return a serializable form of the ApplicationStatus. """
         return { 'application_name': self.application_name,
             'statecode': self.state, 'statename': self.state_string(),
-            'major_failure': self.major_failure, 'minor_failure': self.minor_failure }
+            'major_failure': self.major_failure,
+            'minor_failure': self.minor_failure }
 
     # methods
     def state_string(self):
@@ -135,7 +138,8 @@ class ApplicationStatus(object):
         starting, running, stopping, major_failure, minor_failure = (False, )*5
         for process in self.processes.values():
             self.logger.trace('Process {}: state={} required={} exit_expected={}'.
-                format(process.namespec(), process.state_string(), process.rules.required, process.expected_exit))
+                format(process.namespec(), process.state_string(),
+                    process.rules.required, process.expected_exit))
             if process.state == ProcessStates.RUNNING:
                 running = True
             elif process.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
@@ -150,12 +154,16 @@ class ApplicationStatus(object):
                     if process.state != ProcessStates.EXITED or not process.expected_exit:
                         major_failure = True
                 else:
-                    # an optional process is a minor failure for a running application when its state is FATAL or unexpectanly EXITED
-                    if (process.state == ProcessStates.FATAL) or (process.state == ProcessStates.EXITED and not process.expected_exit):
+                    # an optional process is a minor failure for a running application
+                    # when its state is FATAL or unexpectedly EXITED
+                    if (process.state == ProcessStates.FATAL) or \
+                            (process.state == ProcessStates.EXITED and not process.expected_exit):
                         minor_failure = True
             # all other STOPPED-like states are considered normal
-        self.logger.trace('Application {}: starting={} running={} stopping={} major_failure={} minor_failure={}'.
-            format(self.application_name, starting, running, stopping, major_failure, minor_failure))
+        self.logger.trace('Application {}: starting={} running={} stopping={} '
+            'major_failure={} minor_failure={}'.
+            format(self.application_name, starting, running, stopping,
+                major_failure, minor_failure))
         # apply rules for state
         if starting:
             self.state = ApplicationStates.STARTING

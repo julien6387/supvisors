@@ -21,7 +21,7 @@ import random
 import sys
 import unittest
 
-from supvisors.tests.base import (DummySupvisors, ProcessInfoDatabase,
+from supvisors.tests.base import (MockedSupvisors, ProcessInfoDatabase,
     any_process_info, any_stopped_process_info, any_running_process_info)
 
 
@@ -51,7 +51,7 @@ class ApplicationStatusTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.supvisors = DummySupvisors()
+        self.supvisors = MockedSupvisors()
 
     def test_create(self):
         """ Test the values set at construction. """

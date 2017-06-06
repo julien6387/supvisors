@@ -56,6 +56,7 @@ class TypesTest(unittest.TestCase):
         self.assertEqual('USER', ConciliationStrategies._to_string(ConciliationStrategies.USER))
         self.assertEqual('STOP', ConciliationStrategies._to_string(ConciliationStrategies.STOP))
         self.assertEqual('RESTART', ConciliationStrategies._to_string(ConciliationStrategies.RESTART))
+        self.assertEqual('RUNNING_FAILURE', ConciliationStrategies._to_string(ConciliationStrategies.RUNNING_FAILURE))
 
     def test_StartingFailureStrategies(self):
         """ Test the StartingFailureStrategies enumeration. """
@@ -67,8 +68,9 @@ class TypesTest(unittest.TestCase):
         """ Test the RunningFailureStrategies enumeration. """
         from supvisors.ttypes import RunningFailureStrategies
         self.assertEqual('CONTINUE', RunningFailureStrategies._to_string(RunningFailureStrategies.CONTINUE))
-        self.assertEqual('STOP', RunningFailureStrategies._to_string(RunningFailureStrategies.STOP))
-        self.assertEqual('RESTART', RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART))
+        self.assertEqual('RESTART_PROCESS', RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_PROCESS))
+        self.assertEqual('STOP_APPLICATION', RunningFailureStrategies._to_string(RunningFailureStrategies.STOP_APPLICATION))
+        self.assertEqual('RESTART_APPLICATION', RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_APPLICATION))
 
     def test_SupvisorsStates(self):
         """ Test the SupvisorsStates enumeration. """

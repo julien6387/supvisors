@@ -28,11 +28,12 @@ from supvisors.listener import SupervisorListener
 from supvisors.options import SupvisorsServerOptions
 from supvisors.sparser import Parser
 from supvisors.statemachine import FiniteStateMachine
-from supvisors.statistics import StatisticsCompiler
+from supvisors.statscompiler import StatisticsCompiler
+from supvisors.strategy import RunningFailureHandler
 
 
 class Supvisors(object):
-    """ The Supvisors class.  """
+    """ The Supvisors class. """
 
     # logger output
     LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
@@ -65,6 +66,8 @@ class Supvisors(object):
         self.stopper = Stopper(self)
         # create statistics handler
         self.statistician = StatisticsCompiler(self)
+        # create the failure handler of crashing processes
+        self.failure_handler = RunningFailureHandler(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)
         # check parsing

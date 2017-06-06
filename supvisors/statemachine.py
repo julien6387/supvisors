@@ -30,7 +30,7 @@ class AbstractState(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'logger', 'starter', 'stopper'])
+        supvisors_short_cuts(self, ['context', 'failure_handler', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
@@ -64,6 +64,8 @@ class InitializationState(AbstractState):
         """ When entering in the INITIALIZATION state, reset the status of addresses. """
         self.context.master_address = ''
         self.start_date = int(time())
+        # clear any existing job
+        self.failure_handler.clear_jobs()
         # re-init addresses that are not isolated
         for status in self.context.addresses.values():
             if not status.in_isolation():
@@ -169,6 +171,7 @@ class RestartingState(AbstractState):
 
     def enter(self):
         """ When entering in the RESTARTING state, stop all applications. """
+        self.failure_handler.clear_jobs()
         self.starter.abort()
         self.stopper.stop_applications()
 
@@ -189,6 +192,7 @@ class ShuttingDownState(AbstractState):
 
     def enter(self):
         """ When entering in the SHUTTING_DOWN state, stop all applications. """
+        self.failure_handler.clear_jobs()
         self.starter.abort()
         self.stopper.stop_applications()
 
@@ -215,7 +219,7 @@ class FiniteStateMachine:
     def __init__(self, supvisors):
         """ Reset the state machine and the associated context """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'starter', 'stopper', 'logger'])
+        supvisors_short_cuts(self, ['context', 'failure_handler', 'starter', 'stopper', 'logger'])
         self.update_instance(SupvisorsStates.INITIALIZATION)
         self.instance.enter()
 
@@ -252,9 +256,9 @@ class FiniteStateMachine:
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
-        # master can fix inconsistencies if any
-        if self.context.master:
-            self.starter.start_marked_processes(self.context.marked_processes())
+        # fix failures if any (can happen after an address has been invalidated,
+        # a process crash or a conciliation request)
+        self.failure_handler.trigger_jobs()
         # check if new isolating remotes and return the list of newly isolated addresses
         return self.context.handle_isolation()
 
@@ -265,15 +269,21 @@ class FiniteStateMachine:
 
     def on_process_event(self, address, event):
         """ This event is used to refresh the process data related to the event and address.
-        This event also triggers the application starter. """
+        This event also triggers the application starter and/or stopper. """
         process = self.context.on_process_event(address, event)
         if process:
-            # wake up starter if needed
-            if self.starter.in_progress():
-                self.starter.on_event(process)
-            # wake up stopper if needed
-            if self.stopper.in_progress():
-                self.stopper.on_event(process)
+            # check if event is related to a starting or stopping application
+            starting = self.starter.has_application(process.application_name)
+            stopping = self.stopper.has_application(process.application_name)
+            # feed starter with event
+            self.starter.on_event(process)
+            # feed stopper with event
+            self.stopper.on_event(process)
+            # only the master is allowed to trigger an automatic behaviour
+            # for a running failure
+            if self.context.master and process.crashed() and not (starting or stopping):
+                self.failure_handler.add_default_job(process)
+                self.failure_handler.trigger_jobs()
 
     def on_process_info(self, address_name, info):
         """ This event is used to fill the internal structures with processes available on address. """

@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+from io import BytesIO
 
 from supervisor.web import MeldView
 
@@ -31,7 +32,6 @@ class StatsImage(object):
     def new_image(self):
         if self.contents:
             self.contents.close()
-        from io import BytesIO
         self.contents = BytesIO()
         return self.contents
 

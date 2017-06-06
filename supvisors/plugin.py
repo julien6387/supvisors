@@ -36,9 +36,15 @@ class SupvisorsFaults:
 
 FAULTS_OFFSET = 100
 
+def expand_faults():
+    """ Expand supervisord Fault definition. """
+    for (x, y) in SupvisorsFaults.__dict__.items():
+        if not x.startswith('__'):
+            setattr(Faults, x, y + FAULTS_OFFSET)
 
-# Trick to replace Supervisor main page
+
 def update_views():
+    """ Trick to replace Supervisor main page. """
     # replace Supervisor main entry
     here = path.abspath(path.dirname(__file__))
     # set main page
@@ -56,12 +62,11 @@ def update_views():
     VIEWS['address_mem.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': AddressMemoryImageView}
     VIEWS['address_io.png'] =  {'template': path.join(here, 'ui/empty.html'), 'view': AddressNetworkImageView}
 
-# Supervisor entry point
+
 def make_supvisors_rpcinterface(supervisord, **config):
-    # expand supervisord Fault definition (no matter if done several times)
-    for (x, y) in SupvisorsFaults.__dict__.items():
-        if not x.startswith('__'):
-            setattr(Faults, x, y + FAULTS_OFFSET)
+    """ Supervisor entry point. """
+    # update supervisord Fault definition
+    expand_faults()
     # update http web pages
     update_views()
     # create and return handler

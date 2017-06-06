@@ -116,7 +116,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``conciliation_strategy``
 
     The strategy used to solve conflicts upon detection that multiple instances of the same program are running.
-    Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART`` }.
+    Possible values are in { ``SENICIDE``, ``INFANTICIDE``, ``USER``, ``STOP``, ``RESTART``, ``RUNNING_FAILURE`` }.
     The use of this option is detailed in :ref:`conciliation`.
 
     *Default*:  ``USER``.
@@ -242,9 +242,9 @@ Configuration File Example
 
 This part describes the contents of the XML rules file declared in the ``deployment_file`` option.
 
-Basically, the rules file contains rules that define how applications and programs should be started.
+Basically, the rules file contains rules that define how applications and programs should be started and stopped,
+and the quality of service expected.
 It relies on the Supervisor group and program definitions.
-The rules define the quality of service expected and how the programs are meant to be started and sto.
 
 
 If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
@@ -359,19 +359,34 @@ Here follows the definition of the rules applicable to a program.
     *Required*:  No.
 
 ``running_failure_strategy``
-
-    **Not implemented yet**
     
-    This element gives the strategy applied when the required process is unexpectanly stopped in a running application.
+    This element gives the strategy applied when the required process is unexpectedly stopped in a running application.
+    This value supersedes the value set at application level.
     Possible values are:
 
         * ``CONTINUE``: Skip the failure. The application stays with the major failure.
-        * ``STOP``: Stop the application.
-        * ``RESTART``: Restart the application.
+        * ``RESTART_PROCESS``: Restart the process.
+        * ``STOP_APPLICATION``: Stop the application.
+        * ``RESTART_APPLICATION``: Restart the application.
 
     *Default*:  ``CONTINUE``.
 
     *Required*:  No.
+
+.. attention:: *About the running failure strategy*.
+
+    This functionality is NOT compatible with the ``autostart`` parameter of the program configuration in Supervisor.
+    It is undesirable that Supervisor and **Supvisors** trigger a different behaviour for the same event.
+    So, unless the value of the running failure strategy is set to ``CONTINUE`` (default value), **Supvisors** forces
+    ``autostart=False`` in Supervisor internal model.
+
+    ``RESTART_PROCESS`` is almost equivalent to ``autorestart=unexpected``, except that **Supvisors** may restart
+    the crashed program somewhere else, in accordance with the starting rules defined, instead of just restarting it
+    at the same location.
+
+    There is no equivalent in **Supvisors** for ``autorestart=True``. Although there are workarounds for that,
+    it might be a future improvement.
+
 
 .. code-block:: xml
 
@@ -382,6 +397,7 @@ Here follows the definition of the rules applicable to a program.
         <stop_sequence>1</stop_sequence>
         <wait_exit>false</wait_exit>
         <loading>3</loading>
+        <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
     </program>
 
 
@@ -554,6 +570,21 @@ Here follows the definition of the rules applicable to an application.
         * ``CONTINUE``: Skip the failure and continue the application starting.
 
     *Default*:  ABORT.
+
+    *Required*:  No.
+
+``running_failure_strategy``
+    
+    This element gives the strategy applied when any process of the application is unexpectedly stopped when the application is running.
+    This value can be superseded by the value set at program level.
+    Possible values are:
+
+        * ``CONTINUE``: Skip the failure. The application stays with the major failure.
+        * ``RESTART_PROCESS``: Restart the process (almost equivalent to ``autorestart=unexpected`` in the program configuration of Supervisor).
+        * ``STOP_APPLICATION``: Stop the application.
+        * ``RESTART_APPLICATION``: Restart the application.
+
+    *Default*:  ``CONTINUE``.
 
     *Required*:  No.
 

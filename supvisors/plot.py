@@ -27,16 +27,20 @@ from supvisors.utils import get_stats
 
 # class to create statistics graph using matplotlib 
 class StatisticsPlot(object):
+    """ Class used to export statistics data into a PNG graph. """
 
     def __init__(self):
+        """ Initialization of the plot. """
         plt.figure(figsize=(6, 3))
         self.ydata = {}
 
-    def addPlot(self, title, unit, ydata):
+    def add_plot(self, title, unit, ydata):
+        """ Add a defined series of values to the plot. """
         if len(ydata) > 0:
-            self.ydata[(title, unit)] = ydata
+            self.ydata[title, unit] = ydata
 
-    def exportImage(self, image_contents):
+    def export_image(self, image_contents):
+        """ Write curves into a PNG image. """
         if self.ydata:
             # calculate and apply max range
             all_ydata = []
@@ -67,12 +71,14 @@ class StatisticsPlot(object):
             # save image to internal memory buffer
             plt.savefig(image_contents.new_image(), dpi=80, bbox_inches='tight', format='png')
             # reset yData
-            self.ydata = { }
+            self.ydata = {}
         # close plot
         plt.close()
 
-    def get_range(self, lst):
-        # legend need additional space
+    @staticmethod
+    def get_range(lst):
+        """ Return a custom range from a series of values.
+        Max range is increased to let additional space for legend. """
         min_range = math.floor(min(lst))
         max_range = math.ceil(max(lst))
         range = max_range - min_range

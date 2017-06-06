@@ -20,13 +20,13 @@
 import sys
 import unittest
 
+from xmlrpclib import ServerProxy
 
 class RpcRequestsTest(unittest.TestCase):
     """ Test case for the rpcrequests module. """
 
     def test_getRPCInterface(self):
         """ Test the values set at construction. """
-        from xmlrpclib import ServerProxy
         from supvisors.rpcrequests import getRPCInterface
         address = '10.0.0.1'
         # test with empty environment

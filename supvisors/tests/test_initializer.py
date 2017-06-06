@@ -20,19 +20,70 @@
 import sys
 import unittest
 
+from mock import patch
+from supervisor.xmlrpc import Faults, RPCError
+
 from supvisors.tests.base import DummySupervisor
 
 
 class InitializerTest(unittest.TestCase):
     """ Test case for the initializer module. """
 
-    def test_TODO(self):
+    @patch('supvisors.initializer.Parser')
+    @patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
+    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.SupvisorsServerOptions')
+    def test_creation(self, *args, **kwargs):
         """ Test the values set at construction. """
         from supvisors.initializer import Supvisors
-        # TODO: fix options reading before
-        #supv = Supvisors(DummySupervisor())
-        #self.assertIsNotNone(supv)
+        # create Supvisors instance
+        supervisord = DummySupervisor()
+        supvisors = Supvisors(supervisord)
+        # test inclusion of Supvisors into Supervisor
+        self.assertIs(supvisors, supervisord.supvisors)
+        # test calls
+        self.assertTrue(args[0].called)
+        self.assertTrue(args[1].called)
+        self.assertTrue(args[2].called)
+        self.assertTrue(args[3].called)
+        # test instances
+        self.assertIsNotNone(supvisors.options)
+        self.assertIsNotNone(supvisors.logger)
+        self.assertIsNotNone(supvisors.info_source)
+        self.assertIsNotNone(supvisors.address_mapper)
+        self.assertIsNotNone(supvisors.context)
+        self.assertIsNotNone(supvisors.starter)
+        self.assertIsNotNone(supvisors.stopper)
+        self.assertIsNotNone(supvisors.statistician)
+        self.assertIsNotNone(supvisors.fsm)
+        self.assertIsNotNone(supvisors.parser)
+        self.assertIsNotNone(supvisors.listener)
 
+    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.SupvisorsServerOptions')
+    def test_address_exception(self, *args, **kwargs):
+        """ Test the values set at construction. """
+        from supvisors.initializer import Supvisors
+        # create Supvisors instance
+        supervisord = DummySupervisor()
+        # patches Faults codes
+        setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
+        # test that local address exception raises a failure to Supervisor
+        with self.assertRaises(RPCError):
+            Supvisors(supervisord)
+
+    @patch('supvisors.initializer.Parser', side_effect=Exception)
+    @patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
+    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.SupvisorsServerOptions')
+    def test_parser_exception(self, *args, **kwargs):
+        """ Test the values set at construction. """
+        from supvisors.initializer import Supvisors
+        # create Supvisors instance
+        supervisord = DummySupervisor()
+        supvisors = Supvisors(supervisord)
+        # test that parser exception is accepted
+        self.assertIsNone(supvisors.parser)
 
 
 def test_suite():
