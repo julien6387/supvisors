@@ -60,8 +60,11 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
      */
     private Boolean waitExit;
 
-    /** The loading of the process, as declared in the Supvisors deployment file. */
+    /** The loading of the process, as declared in the Supvisors rules file. */
     private Integer expectedLoading;
+
+    /** The strategy applied when the process crashes. */
+    private RunningFailureStrategy runningFailureStrategy;
 
     /**
      * The constructor gets all information from an HashMap.
@@ -79,6 +82,7 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
         this.required = (Boolean) rulesInfo.get("required");
         this.waitExit = (Boolean) rulesInfo.get("wait_exit");
         this.expectedLoading = (Integer) rulesInfo.get("expected_loading");
+        this.runningFailureStrategy = RunningFailureStrategy.valueOf((String) rulesInfo.get("running_failure_strategy"));
     }
 
     /**
@@ -164,6 +168,15 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getRunningFailureStrategy method returns the strategy applied when the process crashes.
+     *
+     * @return RunningFailureStrategy: The strategy.
+     */
+    public RunningFailureStrategy getRunningFailureStrategy() {
+        return this.runningFailureStrategy;
+    }
+
+    /**
      * The toString method returns a printable form of the contents of the instance.
      *
      * @return String: The contents of the instance.
@@ -172,7 +185,8 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
         return "SupvisorsProcessrules(namespec=" + this.namespec
             + " addresses=" + this.addresses + " startSequence=" + this.startSequence
             + " stopSequence=" + this.stopSequence + " required=" + this.required
-            + " waitExit=" + this.waitExit + " expectedLoading=" + this.expectedLoading + ")";
+            + " waitExit=" + this.waitExit + " expectedLoading=" + this.expectedLoading
+            + " runningFailureStrategy=" + this.runningFailureStrategy + ")";
     }
 
 }

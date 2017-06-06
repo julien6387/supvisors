@@ -102,7 +102,8 @@ class ProcessRules(object):
             'required': self.required,
             'wait_exit': self.wait_exit,
             'expected_loading': self.expected_loading,
-            'running_failure_strategy': self.running_failure_strategy}
+            'running_failure_strategy':
+                RunningFailureStrategies._to_string(self.running_failure_strategy)}
 
 
 # ProcessStatus class

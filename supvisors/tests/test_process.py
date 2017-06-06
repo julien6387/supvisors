@@ -60,7 +60,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules = ProcessRules(self.supvisors)
         self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
             'required': False, 'wait_exit': False, 'expected_loading': 1,
-            'running_failure_strategy': 0}, rules.serial())
+            'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
     def test_dependency_rules(self):
         """ Test the dependencies in process rules. """
