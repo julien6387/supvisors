@@ -97,7 +97,7 @@ If the network failure is fixed, both sets of **Supvisors** are still running bu
 Warm restart
 ------------
 
-The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectanly (or not).
+The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectedly (or not).
 However, when the system itself crashes, the other Supervisor instances cannot do anything about that.
 
 **Supvisors** uses the ``autostart`` option to warm restart a process that was running on a system that has crashed, in accordance with the default ``deployment_strategy`` set in the :ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
@@ -359,16 +359,23 @@ set in the :ref:`supvisors_section`, it applies a strategy to be rid of all dupl
 
 ``USER``
 
-    That's the easy one. When applying the ``USER`` strategy, **Supvisors** just waits for an user application to solve the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
+    That's the easy one. When applying the ``USER`` strategy, **Supvisors** just waits for an user application to solve
+    the conflicts using :command:`supervisorctl`, XML-RPC, process signals, or any other solution.
 
 ``STOP``
 
-    When applying the ``STOP`` strategy, **Supvisors** stops all conflicting processes, which may lead the corresponding applications
-    to a degraded state.
+    When applying the ``STOP`` strategy, **Supvisors** stops all conflicting processes, which may lead the corresponding
+    applications to a degraded state.
 
 ``RESTART``
 
     When applying the ``RESTART`` strategy, **Supvisors** stops all conflicting processes and restarts a new one.
 
-**Supvisors** leaves the ``CONCILIATION`` state when all conflicts are conciliated.
+``RUNNING_FAILURE``
 
+    When applying the ``RUNNING_FAILURE`` strategy, **Supvisors** stops all conflicting processes and deals with the conflict
+    as it would deal with a running failure, depending on the strategy defined for the process.
+    So, after the conflicting processes are all stopped,  **Supvisors** may restart the process, stop the application,
+    restart the application or do nothing at all.
+
+**Supvisors** leaves the ``CONCILIATION`` state when all conflicts are conciliated.
