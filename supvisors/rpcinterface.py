@@ -24,7 +24,7 @@ from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
-from supvisors.ttypes import (ApplicationStates, DeploymentStrategies,
+from supvisors.ttypes import (ApplicationStates, StartingStrategies,
     SupvisorsStates)
 from supvisors.utils import supvisors_short_cuts
 
@@ -197,7 +197,7 @@ class RPCInterface(object):
     def start_application(self, strategy, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -215,7 +215,7 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in DeploymentStrategies._values():
+        if strategy not in StartingStrategies._values():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check application is known
         if application_name not in self.context.applications.keys():
@@ -224,7 +224,7 @@ class RPCInterface(object):
         application = self.context.applications[application_name]
         if application.state != ApplicationStates.STOPPED:
             raise RPCError(Faults.ALREADY_STARTED, application_name)
-        # TODO: develop a predictive model to check if deployment can be achieved
+        # TODO: develop a predictive model to check if starting can be achieved
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
         done = self.starter.start_application(strategy, application)
@@ -240,7 +240,7 @@ class RPCInterface(object):
                 return True
             onwait.delay = 0.5
             return onwait # deferred
-        # if done is True, nothing to do (no deployment or impossible to deploy)
+        # if done is True, nothing to do (no starting or impossible to start)
         return not done
 
     def stop_application(self, application_name, wait=True):
@@ -286,7 +286,7 @@ class RPCInterface(object):
     def restart_application(self, strategy, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -376,7 +376,7 @@ class RPCInterface(object):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -396,7 +396,7 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in DeploymentStrategies._values():
+        if strategy not in StartingStrategies._values():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check names
         application, process = self._get_application_process(namespec)
@@ -467,10 +467,10 @@ class RPCInterface(object):
         return True
 
     def restart_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Restart a process named namespec iaw the strategy and some of the rules defined in the deployment file.
+        """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 

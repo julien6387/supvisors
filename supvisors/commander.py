@@ -23,7 +23,7 @@ from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
 
 from supvisors.strategy import get_address
-from supvisors.ttypes import DeploymentStrategies, StartingFailureStrategies
+from supvisors.ttypes import StartingStrategies, StartingFailureStrategies
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -139,14 +139,15 @@ class Starter(Commander):
     """ Class handling the starting of processes and applications.
 
     Attributes are:
-        - strategy: the deployment strategy applied, defaulted to the value set in the Supervisor configuration file.
+        - strategy: the starting strategy applied, defaulted to the value
+        set in the Supervisor configuration file.
     """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         Commander.__init__(self, supvisors)
         #attributes
-        self._strategy = supvisors.options.deployment_strategy
+        self._strategy = supvisors.options.starting_strategy
 
     @property
     def strategy(self):
@@ -156,7 +157,7 @@ class Starter(Commander):
 
     @strategy.setter
     def strategy(self, strategy):
-        self.logger.info('start processes using strategy {}'.format(DeploymentStrategies._to_string(strategy)))
+        self.logger.info('start processes using strategy {}'.format(StartingStrategies._to_string(strategy)))
         self._strategy = strategy
 
     def abort(self):
@@ -170,10 +171,10 @@ class Starter(Commander):
         It uses the default strategy, as defined in the Supervisor configuration file. """
         self.logger.info('start all applications')
         # internal call: default strategy always used
-        self.strategy = self.supvisors.options.deployment_strategy
-        # deployment initialization: push program list in todo list
+        self.strategy = self.supvisors.options.starting_strategy
+        # starting initialization: push program list in todo list
         for application in self.supvisors.context.applications.values():
-            # do not deploy an application that is not properly STOPPED
+            # do not start an application that is not properly STOPPED
             if application.stopped() and application.rules.start_sequence > 0:
                 self.store_application_start_sequence(application)
         # start work
@@ -182,7 +183,7 @@ class Starter(Commander):
     def default_start_application(self, application):
         """ Plan and start the necessary jobs to start the application in parameter,
         with the default strategy. """
-        return self.start_application(self.supvisors.options.deployment_strategy, application)
+        return self.start_application(self.supvisors.options.starting_strategy, application)
 
     def start_application(self, strategy, application):
         """ Plan and start the necessary jobs to start the application in parameter,
@@ -205,7 +206,7 @@ class Starter(Commander):
         """ Plan and start the necessary job to start the process in parameter,
         with the default strategy.
         Return False when starting not completed. """
-        return self.start_process(self.supvisors.options.deployment_strategy, process)
+        return self.start_process(self.supvisors.options.starting_strategy, process)
 
     def start_process(self, strategy, process, extra_args=''):
         """ Plan and start the necessary job to start the process in parameter,
@@ -216,8 +217,8 @@ class Starter(Commander):
         self.strategy = strategy
         # store extra arguments to be passed to the command line
         process.extra_args = extra_args
-        # WARN: when deploying a single process (outside the scope of an
-        # application deployment), do NOT consider the 'wait_exit' rule
+        # WARN: when starting a single process (outside the scope of an
+        # application starting), do NOT consider the 'wait_exit' rule
         process.ignore_wait_exit = True
         # push program list in todo list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
@@ -265,7 +266,7 @@ class Starter(Commander):
             # remove from inProgress
             process.ignore_wait_exit = False
             jobs.remove(process)
-            # decide to continue deployment or not
+            # decide to continue starting or not
             self.process_failure(process)
         elif process.state == ProcessStates.STARTING:
             # on the way
@@ -291,7 +292,7 @@ class Starter(Commander):
             # remove from inProgress
             process.ignore_wait_exit = False
             jobs.remove(process)
-            # decide to continue deployment or not
+            # decide to continue starting or not
             self.process_failure(process)
         # check if there are remaining jobs in progress for this application
         if not jobs:
@@ -382,7 +383,7 @@ class Starter(Commander):
             # apply strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
                 self.logger.error('abort starting of application {}'.format(application_name))
-                # remove failed application from deployment
+                # remove failed application from starting
                 # do not remove application from current_jobs as requests have already been sent
                 self.planned_jobs.pop(application_name, None)
             elif failure_strategy == StartingFailureStrategies.STOP:
@@ -415,9 +416,9 @@ class Stopper(Commander):
     def stop_applications(self):
         """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
         self.logger.info('stop all applications')
-        # deployment initialization: push program list in todo list
+        # stopping initialization: push program list in todo list
         for application in self.supvisors.context.applications.values():
-            # do not deploy an application that is not properly STOPPED
+            # do not stop an application that is not running
             if application.running() and application.rules.stop_sequence >= 0:
                 self.store_application_stop_sequence(application)
         # start work

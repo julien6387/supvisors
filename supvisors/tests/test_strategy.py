@@ -135,29 +135,29 @@ class StartingStrategyTest(unittest.TestCase):
 
     def test_get_address(self):
         """ Test the choice of an address according to a strategy. """
-        from supvisors.ttypes import DeploymentStrategies
+        from supvisors.ttypes import StartingStrategies
         from supvisors.strategy import get_address
         # test CONFIG strategy
         self.assertEqual('10.0.0.1', get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 15))
+            StartingStrategies.CONFIG, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 75))
+            StartingStrategies.CONFIG, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 85))
+            StartingStrategies.CONFIG, '*', 85))
         # test LESS_LOADED strategy
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 15))
+            StartingStrategies.LESS_LOADED, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 75))
+            StartingStrategies.LESS_LOADED, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 85))
+            StartingStrategies.LESS_LOADED, '*', 85))
         # test MOST_LOADED strategy
         self.assertEqual('10.0.0.5', get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 15))
+            StartingStrategies.MOST_LOADED, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 75))
+            StartingStrategies.MOST_LOADED, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 85))
+            StartingStrategies.MOST_LOADED, '*', 85))
 
 
 class ConciliationStrategyTest(unittest.TestCase):

@@ -157,7 +157,7 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertIs(process, application.processes[process.process_name])
 
     def test_update_sequences(self):
-        """ Test the sequencing of the deployment method. """
+        """ Test the sequencing of the update_sequences method. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
         application = ApplicationStatus('ApplicationTest', self.supvisors.logger)

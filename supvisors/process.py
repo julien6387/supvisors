@@ -27,7 +27,7 @@ from supvisors.utils import *
 
 
 class ProcessRules(object):
-    """ Defines the rules for starting a process, iaw deployment file.
+    """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
 
@@ -61,7 +61,8 @@ class ProcessRules(object):
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def check_dependencies(self, namespec):
-        """ Update rules after they have been read from the deployment file.
+        """ Update rules after they have been read from the rules file.
+
         A required process that is not in the starting sequence is forced to optional.
         If addresses are not defined, all addresses are applicable.
         Supervisor autorestart is not compatible with RunningFailureStrategy STOP / RESTART.

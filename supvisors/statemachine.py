@@ -101,7 +101,7 @@ class InitializationState(AbstractState):
 
 
 class DeploymentState(AbstractState):
-    """ In the DEPLOYMENT state, Supvisors starts automatically the applications having a deployment definition. """
+    """ In the DEPLOYMENT state, Supvisors starts automatically the applications having a starting model. """
 
     def enter(self):
         """ When entering in the DEPLOYMENT state, define the start sequencing.
@@ -111,7 +111,7 @@ class DeploymentState(AbstractState):
         for application in self.context.applications.values():
             application.update_sequences()
             application.update_status()
-        # only the Supvisors master deploys applications
+        # only the Supvisors master starts applications
         if self.context.master:
             self.starter.start_applications()
 

@@ -46,8 +46,8 @@ class DummyOptions:
         self.event_port = 65200
         self.synchro_timeout = 10
         self.auto_fence = True
-        self.deployment_file = ''
-        self.deployment_strategy = 0
+        self.rules_file = ''
+        self.starting_strategy = 0
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
@@ -68,7 +68,6 @@ class MockedSupvisors:
         self.context.addresses = {}
         self.context.applications = {}
         # simple mocks
-        self.deployer = Mock()
         self.fsm = Mock()
         self.pool = Mock()
         self.requester = Mock()

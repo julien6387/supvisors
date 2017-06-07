@@ -25,7 +25,7 @@ from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import DeploymentStrategies
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import simple_localtime
 
 
@@ -329,10 +329,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_application requires at least a strategy')
                 self.help_start_application()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_application.'
-                    'use one of {}'.format(DeploymentStrategies._strings()))
+                    'use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_application()
                 return
             applications = args[1:]
@@ -397,10 +397,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_application requires at least a strategy')
                 self.help_restart_application()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_application.'
-                    ' use one of {}'.format(DeploymentStrategies._strings()))
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_restart_application()
                 return
             applications = args[1:]
@@ -458,9 +458,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires at least a strategy')
                 self.help_start_process()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(DeploymentStrategies._strings()))
+                self.ctl.output('ERROR: unknown strategy for start_process.'
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -500,10 +501,10 @@ class ControllerPlugin(ControllerPluginBase):
                     'a program name and extra arguments')
                 self.help_start_process_args()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_process_args.'
-                    ' use one of {}'.format(DeploymentStrategies._strings()))
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_process_args()
                 return
             namespec = args[1]
@@ -558,10 +559,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
                 self.help_restart_process()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_process. '
-                    'use one of {}'.format(DeploymentStrategies._strings()))
+                    'use one of {}'.format(StartingStrategies._strings()))
                 self.help_restart_process()
                 return
             processes = args[1:]

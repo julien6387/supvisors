@@ -61,12 +61,11 @@ class UtilsTest(unittest.TestCase):
         """ Test the shortcuts to supvisors data. """
         from supvisors.utils import supvisors_short_cuts
         # test with existing attributes
-        supvisors_short_cuts(self, ['address_mapper', 'deployer', 'fsm', 'logger', 'requester', 'statistician'])
+        supvisors_short_cuts(self, ['address_mapper', 'fsm', 'logger', 'requester', 'statistician'])
         self.assertIs(self.address_mapper, self.supvisors.address_mapper)
         self.assertIs(self.fsm, self.supvisors.fsm)
         self.assertIs(self.statistician, self.supvisors.statistician)
         self.assertIs(self.requester, self.supvisors.requester)
-        self.assertIs(self.deployer, self.supvisors.deployer)
         self.assertIs(self.logger, self.supvisors.logger)
         # test with unknown attributes
         with self.assertRaises(AttributeError):

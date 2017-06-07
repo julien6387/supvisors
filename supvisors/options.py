@@ -20,10 +20,11 @@
 from collections import OrderedDict
 from socket import gethostname
 
-from supervisor.datatypes import boolean, integer, existing_dirpath, byte_size, logging_level, list_of_strings
+from supervisor.datatypes import (boolean, integer, existing_dirpath,
+    byte_size, logging_level, list_of_strings)
 from supervisor.options import ServerOptions
 
-from supvisors.ttypes import ConciliationStrategies, DeploymentStrategies
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
 
 # Options of main section
@@ -33,13 +34,13 @@ class SupvisorsOptions():
     Attributes are:
 
         - address_list: list of host names or IP addresses where supvisors will be running,
-        - deployment_file: absolute or relative path to the XML deployment file,
+        - rules_file: absolute or relative path to the XML rules file,
         - internal_port: port number used to publish local events to remote Supvisors instances,
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected that multiple instances of the same program are running,
-        - deployment_strategy: strategy used to start applications on addresses,
+        - starting_strategy: strategy used to start processes on addresses,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
         - stats_histo: depth of statistics history,
         - logfile: absolute or relative path of the Supvisors log file,
@@ -50,8 +51,8 @@ class SupvisorsOptions():
         - procnumbers: a dictionary giving the number of the program in a homogeneous group.
     """
 
-    _Options = ['address_list', 'deployment_file', 'internal_port', 'event_port', 'auto_fence', 'synchro_timeout',
-            'conciliation_strategy', 'deployment_strategy', 'stats_periods', 'stats_histo', 'stats_irix_mode',
+    _Options = ['address_list', 'rules_file', 'internal_port', 'event_port', 'auto_fence', 'synchro_timeout',
+            'conciliation_strategy', 'starting_strategy', 'stats_periods', 'stats_histo', 'stats_irix_mode',
             'logfile', 'logfile_maxbytes', 'logfile_backups', 'loglevel']
 
     def __init__(self):
@@ -64,11 +65,11 @@ class SupvisorsOptions():
 
     def __str__(self):
         """ Contents as string. """
-        return ('address_list={} deployment_file={} internal_port={} event_port={} auto_fence={} synchro_timeout={} '
-            'conciliation_strategy={} deployment_strategy={} stats_periods={} stats_histo={} stats_irix_mode={} '
+        return ('address_list={} rules_file={} internal_port={} event_port={} auto_fence={} synchro_timeout={} '
+            'conciliation_strategy={} starting_strategy={} stats_periods={} stats_histo={} stats_irix_mode={} '
             'logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}'.format(self.address_list,
-            self.deployment_file, self.internal_port, self.event_port, self.auto_fence, self.synchro_timeout, 
-            self.conciliation_strategy, self.deployment_strategy, self.stats_periods, self.stats_histo, self.stats_irix_mode,
+            self.rules_file, self.internal_port, self.event_port, self.auto_fence, self.synchro_timeout, 
+            self.conciliation_strategy, self.starting_strategy, self.stats_periods, self.stats_histo, self.stats_irix_mode,
             self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel))
 
 
@@ -113,15 +114,15 @@ class SupvisorsServerOptions(ServerOptions):
         # get values
         opt = self.supvisors_options
         opt.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))))
-        opt.deployment_file = parser.getdefault('deployment_file', None)
-        if opt.deployment_file:
-            opt.deployment_file = existing_dirpath(opt.deployment_file)
+        opt.rules_file = parser.getdefault('rules_file', None)
+        if opt.rules_file:
+            opt.rules_file = existing_dirpath(opt.rules_file)
         opt.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
         opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
         opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
         opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
-        opt.deployment_strategy = self.to_deployment_strategy(parser.getdefault('deployment_strategy', 'CONFIG'))
+        opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
         # configure statistics
         opt.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
         opt.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
@@ -157,15 +158,17 @@ class SupvisorsServerOptions(ServerOptions):
         """ Convert a string into a ConciliationStrategies enum. """
         strategy = ConciliationStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(value, ConciliationStrategies._strings()))
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'.format(
+                value, ConciliationStrategies._strings()))
         return strategy
 
     @staticmethod
-    def to_deployment_strategy(value):
-        """ Convert a string into a DeploymentStrategies enum. """
-        strategy = DeploymentStrategies._from_string(value)
+    def to_starting_strategy(value):
+        """ Convert a string into a StartingStrategies enum. """
+        strategy = StartingStrategies._from_string(value)
         if strategy is None:
-            raise ValueError('invalid value for deployment_strategy: {}. expected in {}'.format(value, DeploymentStrategies._strings()))
+            raise ValueError('invalid value for starting_strategy: {}. expected in {}'.format(
+                value, StartingStrategies._strings()))
         return strategy
 
     @staticmethod

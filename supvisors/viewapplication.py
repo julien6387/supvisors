@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import DeploymentStrategies
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import supvisors_short_cuts
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
@@ -80,31 +80,31 @@ class ApplicationView(MeldView, ViewHandler):
         else:
             elt.attrib['class'] = 'status_empty'
         # write periods of statistics
-        self.write_deployment_strategy(root)
+        self.write_starting_strategy(root)
         self.write_periods(root)
         # write actions related to application
         self.write_application_actions(root)
 
-    def write_deployment_strategy(self, root):
-        """ Write applicable deployment strategies. """
+    def write_starting_strategy(self, root):
+        """ Write applicable starting strategies. """
         # get the current strategy
         strategy = self.supvisors.starter.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
-        if strategy == DeploymentStrategies.CONFIG:
+        if strategy == StartingStrategies.CONFIG:
             elt.attrib['class'] = "button off active"
         else:
             elt.attributes(href='{}?{}&action=config'.format(self.page_name, self.url_context()))
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
-        if strategy == DeploymentStrategies.MOST_LOADED:
+        if strategy == StartingStrategies.MOST_LOADED:
             elt.attrib['class'] = "button off active"
         else:
             elt.attributes(href='{}?{}action=most'.format(self.page_name, self.url_context()))
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
-        if strategy == DeploymentStrategies.LESS_LOADED:
+        if strategy == StartingStrategies.LESS_LOADED:
             elt.attrib['class'] = "button off active"
         else:
             elt.attributes(href='{}?{}&action=less'.format(self.page_name, self.url_context()))
@@ -206,11 +206,11 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'refresh':
             return self.refresh_action()
         if action == 'config':
-            return self.set_deployment_strategy(DeploymentStrategies.CONFIG)
+            return self.set_starting_strategy(StartingStrategies.CONFIG)
         if action == 'most':
-            return self.set_deployment_strategy(DeploymentStrategies.MOST_LOADED)
+            return self.set_starting_strategy(StartingStrategies.MOST_LOADED)
         if action == 'less':
-            return self.set_deployment_strategy(DeploymentStrategies.LESS_LOADED)
+            return self.set_starting_strategy(StartingStrategies.LESS_LOADED)
         # get current strategy
         strategy = self.supvisors.starter.strategy
         if action == 'startapp':
@@ -233,10 +233,10 @@ class ApplicationView(MeldView, ViewHandler):
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
-    def set_deployment_strategy(self, strategy):
-        """ Update deployment strategy. """
+    def set_starting_strategy(self, strategy):
+        """ Update starting strategy. """
         self.supvisors.starter.strategy = strategy
-        return delayed_info('Deployment strategy set to {}'.format(DeploymentStrategies._to_string(strategy)))
+        return delayed_info('Starting strategy set to {}'.format(StartingStrategies._to_string(strategy)))
 
     # Application actions
     def start_application_action(self, strategy):

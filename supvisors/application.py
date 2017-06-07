@@ -23,7 +23,7 @@ from supvisors.ttypes import ApplicationStates, StartingFailureStrategies, Runni
 
 
 class ApplicationRules(object):
-    """ Definition of the rules for starting an application, iaw deployment file:
+    """ Definition of the rules for starting an application, iaw rules file:
 
         - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
             0 means: no automatic start,

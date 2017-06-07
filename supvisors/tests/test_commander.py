@@ -231,12 +231,12 @@ class StarterTest(unittest.TestCase):
     def test_creation(self):
         """ Test the values set at construction. """
         from supvisors.commander import Commander, Starter
-        from supvisors.ttypes import DeploymentStrategies
+        from supvisors.ttypes import StartingStrategies
         starter = Starter(self.supvisors)
         self.assertIsInstance(starter, Commander)
-        self.assertEqual(DeploymentStrategies.CONFIG, starter._strategy)
-        starter.strategy = DeploymentStrategies.LESS_LOADED
-        self.assertEqual(DeploymentStrategies.LESS_LOADED, starter.strategy)
+        self.assertEqual(StartingStrategies.CONFIG, starter._strategy)
+        starter.strategy = StartingStrategies.LESS_LOADED
+        self.assertEqual(StartingStrategies.LESS_LOADED, starter.strategy)
 
     def test_abort(self):
         """ Test the abort method. """
@@ -667,7 +667,7 @@ class StarterTest(unittest.TestCase):
             process = Mock()
             result = starter.default_start_process(process)
             self.assertTrue(result)
-            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+            self.assertEqual([call(self.supvisors.options.starting_strategy,
                 process)], mocked_start.call_args_list)
 
     def test_start_application(self):
@@ -715,7 +715,7 @@ class StarterTest(unittest.TestCase):
             application = Mock()
             result = starter.default_start_application(application)
             self.assertTrue(result)
-            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+            self.assertEqual([call(self.supvisors.options.starting_strategy,
                 application)], mocked_start.call_args_list)
 
     def test_start_applications(self):

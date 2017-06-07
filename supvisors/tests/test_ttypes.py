@@ -41,12 +41,12 @@ class TypesTest(unittest.TestCase):
         self.assertEqual('RUNNING', ApplicationStates._to_string(ApplicationStates.RUNNING))
         self.assertEqual('STOPPING', ApplicationStates._to_string(ApplicationStates.STOPPING))
 
-    def test_DeploymentStrategies(self):
-        """ Test the DeploymentStrategies enumeration. """
-        from supvisors.ttypes import DeploymentStrategies
-        self.assertEqual('CONFIG', DeploymentStrategies._to_string(DeploymentStrategies.CONFIG))
-        self.assertEqual('LESS_LOADED', DeploymentStrategies._to_string(DeploymentStrategies.LESS_LOADED))
-        self.assertEqual('MOST_LOADED', DeploymentStrategies._to_string(DeploymentStrategies.MOST_LOADED))
+    def test_StartingStrategies(self):
+        """ Test the StartingStrategies enumeration. """
+        from supvisors.ttypes import StartingStrategies
+        self.assertEqual('CONFIG', StartingStrategies._to_string(StartingStrategies.CONFIG))
+        self.assertEqual('LESS_LOADED', StartingStrategies._to_string(StartingStrategies.LESS_LOADED))
+        self.assertEqual('MOST_LOADED', StartingStrategies._to_string(StartingStrategies.MOST_LOADED))
 
     def test_ConciliationStrategies(self):
         """ Test the ConciliationStrategies enumeration. """
