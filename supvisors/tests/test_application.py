@@ -45,6 +45,14 @@ class ApplicationRulesTest(unittest.TestCase):
         rules = ApplicationRules()
         self.assertEqual('start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE', str(rules))
 
+    def test_serial(self):
+        """ Test the serialization of the ApplicationRules object. """
+        from supvisors.application import ApplicationRules
+        rules = ApplicationRules()
+        self.assertDictEqual({'start_sequence': 0, 'stop_sequence': 0,
+            'starting_failure_strategy': 'ABORT',
+            'running_failure_strategy': 'CONTINUE'}, rules.serial())
+
 
 class ApplicationStatusTest(unittest.TestCase):
     """ Test case for the ApplicationStatus class of the application module. """

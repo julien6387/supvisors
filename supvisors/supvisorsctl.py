@@ -161,6 +161,48 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("application_info\t\t\t"
             "Get the status of all applications.")
 
+    def do_application_rules(self, arg):
+        """ Command to get the application rules handled by Supvisors. """
+        if self._upcheck():
+            applications = arg.split()
+            if not applications or "all" in applications:
+                try:
+                    applications = [application_info['application_name']
+                        for application_info in self.supvisors().get_all_applications_info()]
+                except xmlrpclib.Fault, e:
+                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    applications = []
+            rules_list = []
+            for application in applications:
+                try:
+                    rules = self.supvisors().get_application_rules(application)
+                except xmlrpclib.Fault, e:
+                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                else:
+                    rules_list.append(rules)
+            # print results
+            if rules_list:
+                max_appli = max(len(rules['application_name'])
+                    for rules in rules_list) + 4
+                template = '%(appli)-{}s%(start_seq)-5s%(stop_seq)-5s'\
+                    '%(starting_strategy)-12s%(running_strategy)-12s'.format(max_appli)
+                for rules in rules_list:
+                    line = template % {'appli': rules['application_name'],
+                        'start_seq': rules['start_sequence'],
+                        'stop_seq': rules['stop_sequence'], 
+                        'starting_strategy': rules['starting_failure_strategy'], 
+                        'running_strategy': rules['running_failure_strategy']}
+                    self.ctl.output(line)
+
+    def help_application_rules(self):
+        """ Print the help of the application_rules command."""
+        self.ctl.output("application_rules <appli>\t\t\t\t"
+            "Get the rules of the application named appli.")
+        self.ctl.output("application_rules <appli> <appli>\t\t\t"
+            "Get the rules for multiple named applications")
+        self.ctl.output("application_rules\t\t\t\t\t"
+            "Get the rules of all applications.")
+
     def do_sstatus(self, arg):
         """ Command to get information about processes known to Supvisors. """
         if self._upcheck():
@@ -201,7 +243,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sstatus\t\t\t\t\t"
             "Get the status of all processes.")
 
-    def do_rules(self, arg):
+    def do_process_rules(self, arg):
         """ Command to get the process rules handled by Supvisors. """
         if self._upcheck():
             processes = arg.split()
@@ -226,7 +268,7 @@ class ControllerPlugin(ControllerPluginBase):
                     for rules in rules_list) + 4
                 max_proc = max(len(rules['process_name'])
                     for rules in rules_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(start_seq)-12s%(stop_seq)-12s'\
+                template = '%(appli)-{}s%(proc)-{}s%(start_seq)-5s%(stop_seq)-5s'\
                     '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-12s%(addr)s'.format(max_appli, max_proc)
                 for rules in rules_list:
                     required = rules['required']
@@ -242,15 +284,15 @@ class ControllerPlugin(ControllerPluginBase):
                         'strategy': rules['running_failure_strategy']}
                     self.ctl.output(line)
 
-    def help_rules(self):
-        """ Print the help of the rules command."""
-        self.ctl.output("rules <proc>\t\t\t\t"
+    def help_process_rules(self):
+        """ Print the help of the process rules command."""
+        self.ctl.output("process_rules <proc>\t\t\t\t"
             "Get the rules of the process named proc.")
-        self.ctl.output("rules <appli>:*\t\t\t\t"
+        self.ctl.output("process_rules <appli>:*\t\t\t\t"
             "Get the rules of all processes in the application named appli.")
-        self.ctl.output("rules <proc> <proc>\t\t\t"
+        self.ctl.output("process_rules <proc> <proc>\t\t\t"
             "Get the rules for multiple named processes")
-        self.ctl.output("rules\t\t\t\t\t"
+        self.ctl.output("process_rules\t\t\t\t\t"
             "Get the rules of all processes.")
 
     def do_conflicts(self, arg):

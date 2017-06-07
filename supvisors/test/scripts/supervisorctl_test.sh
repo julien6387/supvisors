@@ -27,8 +27,12 @@ sendRequest sstatus
 sendRequest sstatus database:*
 sendRequest sstatus database:movie_server_01 database:movie_server_02 database:movie_server_03
 sendRequest conflicts
-sendRequest rules
-sendRequest rules database:movie_server_02
+sendRequest application_rules
+sendRequest application_rules database
+sendRequest application_rules database player
+sendRequest process_rules
+sendRequest process_rules database:movie_server_02
+sendRequest process_rules database:movie_server_02 player:movie_player
 
 # command requests on processes
 sendRequest start_process CONFIG my_movies:converter_01

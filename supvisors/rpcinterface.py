@@ -115,6 +115,23 @@ class RPCInterface(object):
         self._check_from_deployment()
         return self._get_application(application_name).serial()
 
+    def get_application_rules(self, application_name):
+        """ Get the rules used to start / stop the application named application_name.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+
+        *@return* ``list(dict)``: a list of structures containing the rules.
+        """
+        self._check_from_deployment()
+        result = self._get_application(application_name).rules.serial()
+        result.update({'application_name': application_name})
+        return result
+
     def get_all_process_info(self):
         """ Get information about all processes.
 
@@ -173,9 +190,8 @@ class RPCInterface(object):
         """
         self._check_from_deployment()
         return [process.serial()
-            for application in self.context.applications.values()
-                for process in application.processes.values()
-                    if process.conflicting()]
+            for process in self.context.processes.values()
+                if process.conflicting()]
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):

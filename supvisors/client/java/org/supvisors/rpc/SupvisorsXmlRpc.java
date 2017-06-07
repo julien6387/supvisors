@@ -157,6 +157,18 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getApplicationRules methods returns rules used to start/stop applications known in Supvisors.
+     *
+     * @param String applicationName: The name of the application.
+     * @return SupvisorsApplicationRules: The rules of the application.
+     */
+    public SupvisorsApplicationRules getApplicationRules(final String applicationName) {
+        Object[] params = new Object[]{applicationName};
+        HashMap result = client.rpcCall(Namespace + "get_application_rules", params, HashMap.class);
+        return new SupvisorsApplicationRules(result);
+    }
+
+    /**
      * The getProcessRules methods returns rules used to start/stop processes known in Supvisors.
      *
      * @param String namespec: The name of the process (or "applicationName:processName", or "applicationName:*").
@@ -347,11 +359,16 @@ public class SupvisorsXmlRpc {
         processes = supvisors.getProcessInfo(processName);
         System.out.println(processes);
 
+        // test application rules rpc
+        System.out.println("### Testing supvisors.getApplicationRules(...) ###");
+        SupvisorsApplicationRules applicationRules = supvisors.getApplicationRules(applicationName);
+        System.out.println(applicationRules);
+
         // test process rules rpc
         System.out.println("### Testing supvisors.getProcessRules(...) ###");
-        HashMap<String, SupvisorsProcessRules> rules = supvisors.getProcessRules(applicationName + ":*");
-        System.out.println(rules);
-        processName = rules.entrySet().iterator().next().getValue().getName();
+        HashMap<String, SupvisorsProcessRules> processRules = supvisors.getProcessRules(applicationName + ":*");
+        System.out.println(processRules);
+        processName = processRules.entrySet().iterator().next().getValue().getName();
         System.out.println(supvisors.getProcessRules(processName));
 
         // test process conflicts rpc

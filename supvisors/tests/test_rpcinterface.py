@@ -177,6 +177,21 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual([call()], mocked_check.call_args_list)
 
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    @patch('supvisors.rpcinterface.RPCInterface._get_application',
+        return_value=Mock(**{'rules.serial.return_value':
+            {'start': 1, 'stop': 2, 'required': True}}))
+    def test_application_rules(self, mocked_get, mocked_check):
+        """ Test the get_application_rules RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        # test RPC call with aplpication name
+        self.assertDictEqual(rpc.get_application_rules('appli'), 
+            {'application_name': 'appli','start': 1, 'stop': 2, 'required': True})
+        self.assertEqual([call()], mocked_check.call_args_list)
+        self.assertEqual([call('appli')], mocked_get.call_args_list)
+
+    @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     @patch('supvisors.rpcinterface.RPCInterface._get_application_process',
         side_effect=[(None, '1'),
             (Mock(**{'processes.values.return_value': ['1', '2']}), None)])
@@ -208,18 +223,17 @@ class RpcInterfaceTest(unittest.TestCase):
         """ Test the get_conflicts RPC. """
         from supvisors.rpcinterface import RPCInterface
         # prepare context
-        self.supervisor.supvisors.context.applications = {
-            'appli_1': Mock(**{'processes.values.return_value': [
-                Mock(**{'conflicting.return_value': True,
-                    'serial.return_value': {'name': 'proc_1'}}),
-                Mock(**{'conflicting.return_value': False,
-                    'serial.return_value': {'name': 'proc_2'}}),
-                Mock(**{'conflicting.return_value': True,
-                    'serial.return_value': {'name': 'proc_3'}})]})}
+        self.supervisor.supvisors.context.processes = {
+            'proc_1': Mock(**{'conflicting.return_value': True,
+                'serial.return_value': {'name': 'proc_1'}}),
+            'proc_2': Mock(**{'conflicting.return_value': False,
+                'serial.return_value': {'name': 'proc_2'}}),
+            'proc_3': Mock(**{'conflicting.return_value': True,
+                'serial.return_value': {'name': 'proc_3'}})}
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test RPC call
-        self.assertEqual([{'name': 'proc_1'}, {'name': 'proc_3'}],
+        self.assertItemsEqual([{'name': 'proc_1'}, {'name': 'proc_3'}],
             rpc.get_conflicts())
         self.assertEqual([call()], mocked_check.call_args_list)
 
