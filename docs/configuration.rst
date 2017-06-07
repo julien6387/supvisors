@@ -391,7 +391,7 @@ Here follows the definition of the rules applicable to a program.
 .. code-block:: xml
 
     <program name="prg_00">
-        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
+        <addresses>cliche01,cliche03,cliche02</addresses>
         <required>true</required>
         <start_sequence>1</start_sequence>
         <stop_sequence>1</stop_sequence>
@@ -416,7 +416,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 .. code-block:: xml
 
     <pattern name="prg_">
-        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
+        <addresses>cliche01,cliche03,cliche02</addresses>
         <start_sequence>2</start_sequence>
         <required>true</required>
     </pattern>
@@ -443,7 +443,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     .. code-block:: ini
 
         [supvisors]
-        address_list=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5
+        address_list=cliche01,cliche02,cliche03,cliche04,cliche05
 
         [program:prg]
         process_name=prg_%(process_num)02d
@@ -454,13 +454,13 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     .. code-block:: xml
 
         <program name="prg_00">
-            <addresses>10.0.0.1</addresses>
+            <addresses>cliche01</addresses>
         </program>
 
         <!-- definitions for prg_01, prg_02, prg_03 -->
  
         <program name="prg_04">
-            <addresses>10.0.0.5</addresses>
+            <addresses>cliche05</addresses>
         </program>
 
     Now with this option, the program definition is more simple.
@@ -474,7 +474,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 .. attention::
 
     Addresses are chosen in accordance with the sequence given in ``address_list``.
-    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``10.0.0.2`` and ``prg_01`` to ``10.0.0.1``.
+    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``cliche02`` and ``prg_01`` to ``cliche01``.
 
 .. attention::
 
@@ -500,7 +500,7 @@ Here follows an example of model:
 .. code-block:: xml
 
     <model name="X11_model">
-	    <addresses>192.168.0.10 192.168.0.12 sample03</addresses>
+	    <addresses>cliche01,cliche02,cliche03</addresses>
 	    <required>false</required>
 	    <wait_exit>false</wait_exit>
     </model>

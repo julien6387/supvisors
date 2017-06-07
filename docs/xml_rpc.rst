@@ -94,6 +94,18 @@ Status
 
         .. automethod:: get_all_process_info()
 
+        .. automethod:: get_application_rules(application_name)
+
+            =========================== =============== ===========
+            Key                         Type            Description
+            =========================== =============== ===========
+            'application_name'          ``str``        The name of the application.
+            'start_sequence'            ``int``        The starting rank of the application when starting all applications, in [0;127].
+            'stop_sequence'             ``int``        The stopping rank of the application when stopping all applications, in [0;127].
+            'starting_failure_strategy' ``str``        The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
+            'running_failure_strategy'  ``str``        The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+            =========================== =============== ===========
+
         .. automethod:: get_process_rules(namespec)
 
             ========================== =============== ===========

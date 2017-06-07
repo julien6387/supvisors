@@ -16,12 +16,12 @@ The additional commands provided by **Supvisors** are available by typing :comma
 
 
     supvisors commands (type help <topic>):
-    =========================================
-    address_status       restart_process  sstatus             stop_application
-    application_info     rules            start_application   stop_process    
-    conflicts            sreload          start_args          sversion        
-    master               sshutdown        start_process     
-    restart_application  sstate           start_process_args
+    =======================================
+    address_status     process_rules        sstate             start_process_args
+    application_info   restart_application  sstatus            stop_application  
+    application_rules  restart_process      start_application  stop_process      
+    conflicts          sreload              start_args         sversion          
+    master             sshutdown            start_process    
 
 Status
 ------
@@ -78,21 +78,33 @@ Status
 
     Get the status for multiple named processes.
 
-``rules``
+``application_rules``
 
-    Get the deployment rules of all processes.
+    Get the rules of all processes.
 
-``rules proc``
+``application_rules appli``
 
-    Get the deployment rules of the process named proc.
+    Get the rules of the applications named appli.
 
-``rules appli:*``
+``application_rules appli1 appli2``
 
-    Get the deployment rules of all processes in the application named appli.
+    Get the rules for multiple named applications.
 
-``rules proc1 proc2``
+``application_rules``
 
-    Get the deployment rules for multiple named processes.
+    Get the rules of all applications.
+
+``process_rules proc``
+
+    Get the rules of the process named proc.
+
+``process_rules appli:*``
+
+    Get the rules of all processes in the application named appli.
+
+``process_rules proc1 proc2``
+
+    Get the rules for multiple named processes.
 
 ``conflicts``
 
