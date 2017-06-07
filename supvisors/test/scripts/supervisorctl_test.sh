@@ -19,6 +19,7 @@ sendRequest help
 sendRequest sversion
 sendRequest sstate
 sendRequest master
+sendRequest strategies
 sendRequest address_status
 sendRequest address_status $HOSTNAME
 sendRequest application_info

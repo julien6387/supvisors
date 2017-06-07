@@ -24,8 +24,8 @@ from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
-from supvisors.ttypes import (ApplicationStates, StartingStrategies,
-    SupvisorsStates)
+from supvisors.ttypes import (ApplicationStates, ConciliationStrategies,
+    StartingStrategies, SupvisorsStates)
 from supvisors.utils import supvisors_short_cuts
 
 # get Supvisors version from file
@@ -64,6 +64,20 @@ class RPCInterface(object):
         *@return* ``str``: the IPv4 address or host name.
         """
         return self.context.master_address
+
+    def get_strategies(self):
+        """ Get the strategies applied by **Supvisors**:
+        
+            * auto-fencing, when an address becomes inactive,
+            * in the ``DEPLOYMENT`` state, to start applications,
+            * in the ``CONCILIATION`` state, to conciliate conflicts.
+
+        *@return* ``dict``: a structure containing data about the strategies applied.
+        """
+        options = self.supvisors.options
+        return {'auto-fencing': options.auto_fence,
+            'starting': StartingStrategies._to_string(options.starting_strategy),
+            'conciliation': ConciliationStrategies._to_string(options.conciliation_strategy)}
 
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
@@ -122,7 +136,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
@@ -135,7 +149,7 @@ class RPCInterface(object):
     def get_all_process_info(self):
         """ Get information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -151,7 +165,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
@@ -169,7 +183,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
@@ -184,7 +198,7 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
@@ -512,7 +526,7 @@ class RPCInterface(object):
     def restart(self):
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -523,7 +537,7 @@ class RPCInterface(object):
     def shutdown(self):
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """

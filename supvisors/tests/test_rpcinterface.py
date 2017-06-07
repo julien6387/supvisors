@@ -77,6 +77,18 @@ class RpcInterfaceTest(unittest.TestCase):
         rpc = RPCInterface(self.supervisor)
         self.assertEqual('10.0.0.1', rpc.get_master_address())
 
+    def test_strategies(self):
+        """ Test the get_strategies RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # prepare context
+        self.supervisor.supvisors.options.auto_fence = True
+        self.supervisor.supvisors.options.conciliation_strategy = 1
+        self.supervisor.supvisors.options.starting_strategy = 2
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        self.assertDictEqual({'auto-fencing': True, 'starting': 'MOST_LOADED',
+            'conciliation': 'INFANTICIDE'}, rpc.get_strategies())
+
     def test_address_info(self):
         """ Test the get_address_info RPC. """
         from supvisors.rpcinterface import RPCInterface

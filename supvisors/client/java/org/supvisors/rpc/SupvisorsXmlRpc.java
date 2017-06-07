@@ -29,22 +29,6 @@ import org.supvisors.common.*;
  */
 public class SupvisorsXmlRpc {
 
-    /**
-     * The DeploymentStrategy enumeration.
-     *
-     * CONFIG strategy takes the first address that can handle the new process,
-     *     keeping the ordering set in the deployment file.
-     * LESS_LOADED takes among all the addresses that can handle the new process,
-     *     the one having the lower expected loading.
-     * MOST_LOADED takes among all the addresses that can handle the new process,
-     *     the one having the highest expected loading.
-     */
-    public enum DeploymentStrategy {
-        CONFIG,
-        LESS_LOADED,
-        MOST_LOADED;
-    }
-
     /** The namespace of System requests in Supervisor. */
     private static final String Namespace = "supvisors.";
 
@@ -86,6 +70,16 @@ public class SupvisorsXmlRpc {
      */
     public String getMasterAddress() {
         return client.rpcCall(Namespace + "get_master_address", null, String.class);
+    }
+
+    /**
+     * The getStrategies methods returns the strategies applied in Supvisors.
+     *
+     * @return SupvisorsStrategies: Information about the strategies.
+     */
+    public SupvisorsStrategies getStrategies() {
+        HashMap result = client.rpcCall(Namespace + "get_strategies", null, HashMap.class);
+        return new SupvisorsStrategies(result);
     }
 
     /**
@@ -194,12 +188,12 @@ public class SupvisorsXmlRpc {
      * The startApplication methods starts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
-     * @param DeploymentStrategy strategy: The strategy used for choosing addresses.
+     * @param StartingStrategy strategy: The strategy used for choosing addresses.
      * @param String applicationName: The name of the application to start.
      * @param Boolean wait: If true, the RPC returns only when the application is fully started.
      * @return Boolean: Always True unless error or nothing to start.
      */
-    public Boolean startApplication(final DeploymentStrategy strategy, final String applicationName, final Boolean wait) {
+    public Boolean startApplication(final StartingStrategy strategy, final String applicationName, final Boolean wait) {
         Object[] params = new Object[]{strategy.ordinal(), applicationName, wait};
         return client.rpcCall(Namespace + "start_application", params, Boolean.class);
     }
@@ -221,12 +215,12 @@ public class SupvisorsXmlRpc {
      * The restartApplication methods restarts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
-     * @param DeploymentStrategy strategy: The strategy used for choosing addresses.
+     * @param StartingStrategy strategy: The strategy used for choosing addresses.
      * @param String applicationName: The name of the application to restart.
      * @param Boolean wait: If true, the RPC returns only when the application is fully restarted.
      * @return Boolean: Always True unless error or nothing to start.
      */
-    public Boolean restartApplication(final DeploymentStrategy strategy, final String applicationName, final Boolean wait) {
+    public Boolean restartApplication(final StartingStrategy strategy, final String applicationName, final Boolean wait) {
         Object[] params = new Object[]{strategy.ordinal(), applicationName, wait};
         return client.rpcCall(Namespace + "restart_application", params, Boolean.class);
     }
@@ -252,13 +246,13 @@ public class SupvisorsXmlRpc {
      * configured in the deployment file for the application and its processes.
      * This method makes it also possible to pass extra arguments to the program command line.
      *
-     * @param DeploymentStrategy strategy: The strategy used for choosing addresses.
+     * @param StartingStrategy strategy: The strategy used for choosing addresses.
      * @param String namespec: The name of the process to start.
      * @param String extraArgs: The extra arguments to be passed to the command line of the program.
      * @param Boolean wait: If true, the RPC returns only when the process is fully started.
      * @return Boolean: Always True unless error or nothing to start.
      */
-    public Boolean startProcess(final DeploymentStrategy strategy, final String namespec,
+    public Boolean startProcess(final StartingStrategy strategy, final String namespec,
             final String extraArgs, final Boolean wait) {
         Object[] params = new Object[]{strategy.ordinal(), namespec, extraArgs, wait};
         return client.rpcCall(Namespace + "start_process", params, Boolean.class);
@@ -280,13 +274,13 @@ public class SupvisorsXmlRpc {
      * The restartProcess methods restarts a process, in accordance with the rules ('wait_exit' excepted)
      * configured in the deployment file for the application and its processes.
      *
-     * @param DeploymentStrategy strategy: The strategy used for choosing addresses.
+     * @param StartingStrategy strategy: The strategy used for choosing addresses.
      * @param String namespec: The name of the process to restart.
      * @param String extraArgs: The extra arguments to be passed to the command line of the program.
      * @param Boolean wait: If true, the RPC returns only when the process is fully restarted.
      * @return Boolean: Always True unless error or nothing to start.
      */
-    public Boolean restartProcess(final DeploymentStrategy strategy, final String namespec,
+    public Boolean restartProcess(final StartingStrategy strategy, final String namespec,
             final String extraArgs, final Boolean wait) {
         Object[] params = new Object[]{strategy.ordinal(), namespec, extraArgs, wait};
         return client.rpcCall(Namespace + "restart_process", params, Boolean.class);
@@ -329,6 +323,8 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.getSupvisorsState());
         System.out.println("### Testing supvisors.getMasterAddress(...) ###");
         System.out.println(supvisors.getMasterAddress());
+        System.out.println("### Testing supvisors.getStrategies(...) ###");
+        System.out.println(supvisors.getStrategies());
 
         // test address status rpc
         System.out.println("### Testing supvisors.getAllAddressesInfo(...) ###");
@@ -377,25 +373,25 @@ public class SupvisorsXmlRpc {
 
         // test application request rpc
         System.out.println("### Testing supvisors.restartApplication(...) ###");
-        System.out.println(supvisors.restartApplication(DeploymentStrategy.LESS_LOADED, "my_movies", true));
+        System.out.println(supvisors.restartApplication(StartingStrategy.LESS_LOADED, "my_movies", true));
         System.out.println("### Testing supvisors.stopApplication(...) ###");
         System.out.println(supvisors.stopApplication("my_movies", true));
         System.out.println("### Testing supvisors.startApplication(...) ###");
-        System.out.println(supvisors.startApplication(DeploymentStrategy.CONFIG, "my_movies", false));
+        System.out.println(supvisors.startApplication(StartingStrategy.CONFIG, "my_movies", false));
 
         // test process request rpc
         System.out.println("### Testing supvisors.startArgs(...) ###");
         System.out.println(supvisors.startArgs("my_movies:converter_01", "-x 3", false));
         System.out.println("### Testing supvisors.startProcess(...) with no extra args ###");
-        System.out.println(supvisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_02", "", true));
+        System.out.println(supvisors.startProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.restartProcess(...) with no extra args ###");
-        System.out.println(supvisors.restartProcess(DeploymentStrategy.CONFIG, "my_movies:converter_02", "", true));
+        System.out.println(supvisors.restartProcess(StartingStrategy.CONFIG, "my_movies:converter_02", "", true));
         System.out.println("### Testing supvisors.stopProcess(...) ###");
         System.out.println(supvisors.stopProcess("my_movies:converter_02", false));
         System.out.println("### Testing supvisors.startProcess(...) ###");
-        System.out.println(supvisors.startProcess(DeploymentStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
+        System.out.println(supvisors.startProcess(StartingStrategy.MOST_LOADED, "my_movies:converter_03", "-x 8", true));
         System.out.println("### Testing supvisors.restartProcess(...) ###");
-        System.out.println(supvisors.restartProcess(DeploymentStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
+        System.out.println(supvisors.restartProcess(StartingStrategy.LESS_LOADED, "my_movies:converter_03", "-x 4", true));
         System.out.println("### Testing supvisors.restart(...) ###");
         System.out.println(supvisors.restart());
         // let a little time to restart before shutdown

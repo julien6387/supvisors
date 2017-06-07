@@ -74,6 +74,18 @@ class ControllerPluginTest(unittest.TestCase):
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
         return_value=True)
+    def test_strategies(self, mocked_check):
+        """ Test the master request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test help and request
+        self._check_call(mocked_check, plugin.supvisors().get_strategies,
+            plugin.help_strategies, plugin.do_strategies, '',
+            [call()])
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sstate(self, mocked_check):
         """ Test the sstate request. """
         from supvisors.supvisorsctl import ControllerPlugin

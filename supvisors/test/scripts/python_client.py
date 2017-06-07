@@ -62,7 +62,7 @@ class SupvisorsTest(unittest.TestCase):
 
 class ConciliationTest(SupvisorsTest):
     """ Test case to check the conciliation of Supvisors.
-    TODO: add RPC for get/set conciliation strategy.
+    TODO: add RPC for set conciliation strategy.
         => impact on rpcinterface, supvisorsctl, client java, docs.
     The aim is to test user and auto conciliation.
     """

@@ -52,21 +52,6 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sversion\t\t\t\t"
             "Get the API version of Supvisors.")
 
-    def do_master(self, arg):
-        """ Command to get the Supvisors master address. """
-        if self._upcheck():
-            try:
-                address = self.supvisors().get_master_address()
-            except xmlrpclib.Fault, e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
-            else:
-                self.ctl.output(address)
-
-    def help_master(self):
-        """ Print the help of the master command."""
-        self.ctl.output("master\t\t\t\t\t"
-            "Get the Supvisors master address.")
-
     def do_sstate(self, arg):
         """ Command to get the Supvisors state. """
         if self._upcheck():
@@ -83,6 +68,41 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sstate command."""
         self.ctl.output("sstate\t\t\t\t\t"
             "Get the Supvisors state.")
+
+    def do_master(self, arg):
+        """ Command to get the Supvisors master address. """
+        if self._upcheck():
+            try:
+                address = self.supvisors().get_master_address()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output(address)
+
+    def help_master(self):
+        """ Print the help of the master command."""
+        self.ctl.output("master\t\t\t\t\t"
+            "Get the Supvisors master address.")
+
+    def do_strategies(self, arg):
+        """ Command to get the Supvisors strategies. """
+        if self._upcheck():
+            try:
+                strategies = self.supvisors().get_strategies()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                line = 'Auto-fencing: {}'.format(strategies['auto-fencing'])
+                self.ctl.output(line)
+                line = 'Conciliation: {}'.format(strategies['conciliation'])
+                self.ctl.output(line)
+                line = 'Starting:     {}'.format(strategies['starting'])
+                self.ctl.output(line)
+
+    def help_strategies(self):
+        """ Print the help of the strategies command."""
+        self.ctl.output("strategies\t\t\t\t\t"
+            "Get the Supvisors strategies.")
 
     def do_address_status(self, arg):
         """ Command to get the status of addresses known to Supvisors. """
