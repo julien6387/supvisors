@@ -20,8 +20,8 @@ The additional commands provided by **Supvisors** are available by typing :comma
     address_status     process_rules        sstate             start_process_args
     application_info   restart_application  sstatus            stop_application  
     application_rules  restart_process      start_application  stop_process      
-    conflicts          sreload              start_args         sversion          
-    master             sshutdown            start_process    
+    conflicts          sreload              start_args         strategies        
+    master             sshutdown            start_process      sversion          
 
 Status
 ------
@@ -30,13 +30,17 @@ Status
 
     Get the API version of **Supvisors**.
 
+``sstate``
+
+    Get the **Supvisors** state.
+
 ``master``
 
     Get the **Supvisors** master address.
 
-``sstate``
+``strategies``
 
-    Get the **Supvisors** state.
+    Get the strategies applied in **Supvisors**.
 
 ``address_status``
 

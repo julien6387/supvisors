@@ -44,9 +44,19 @@ Status
             'statename'        ``str``   The string state of **Supvisors**, in [``'INITIALIZATION'``, ``'DEPLOYMENT'``, ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
             ================== ========= ===========
 
-       .. automethod:: get_master_address()
+        .. automethod:: get_master_address()
 
-       .. automethod:: get_address_info(address_name)
+        .. automethod:: get_strategies()
+
+            ================== ========= ===========
+            Key                Type      Description
+            ================== ========= ===========
+            'auto-fencing'     ``bool`` The application status of the auto-fencing in **Supvisors**.
+            'conciliation'     ``str``  The conciliation strategy applied when **Supvisors** is in the ``CONCILIATION`` state.
+            'starting'         ``str``  The starting strategy applied when **Supvisors** is in the ``DEPLOYMENT`` state.
+            ================== ========= ===========
+
+        .. automethod:: get_address_info(address_name)
 
             ================== ========= ===========
             Key                Type      Description
