@@ -303,7 +303,7 @@ The status of the Address is displayed on the left side of the header:
         + orange if ``RUNNING`` and at least one minor failure is detected, and no major failure,
         + green if ``RUNNING`` and no failure is detected.
 
-The second part of the header is the 'Deployment strategy' box that enables the user to choose the strategy to start the application programs listed below.
+The second part of the header is the 'Starting strategy' box that enables the user to choose the strategy to start the application programs listed below.
 
 Strategies are detailed in :ref:`starting_strategy`.
 
@@ -323,7 +323,7 @@ The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis),
     * the address where it runs, if appropriate,
-    * the loading declared for the process in the deployment file,
+    * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``).
 
@@ -334,7 +334,7 @@ Like the `Address page`_, the Application page enables the user to perform some 
     * Restart.
 
 The difference is that the process is not started necessarily on the address that displays this page.
-Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the deployment strategy selected in the header part to choose a relevant address.
+Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected in the header part to choose a relevant address.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 

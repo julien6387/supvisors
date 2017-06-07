@@ -58,7 +58,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
         If it's not the case, check the network configuration.
 
 
-``deployment_file``
+``rules_file``
 
     The absolute or relative path of the XML rules file. The contents of this file is described in `Supvisors' Rules File`_.
 
@@ -103,7 +103,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     *Required*:  No.
 
-``deployment_strategy``
+``starting_strategy``
 
     The strategy used to start applications on addresses.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
@@ -214,12 +214,12 @@ Configuration File Example
     # Supvisors dedicated part
     [supvisors]
     address_list=cliche01,cliche03,cliche02,cliche04
-    deployment_file=./etc/my_movies.xml
+    rules_file=./etc/my_movies.xml
     auto_fence=false
     internal_port=60001
     event_port=60002
     synchro_timeout=20
-    deployment_strategy=LESS_LOADED
+    starting_strategy=LESS_LOADED
     conciliation_strategy=INFANTICIDE
     stats_periods=5,60,600
     stats_histo=100
@@ -240,7 +240,7 @@ Configuration File Example
 **Supvisors**' Rules File
 --------------------------
 
-This part describes the contents of the XML rules file declared in the ``deployment_file`` option.
+This part describes the contents of the XML rules file declared in the ``rules_file`` option.
 
 Basically, the rules file contains rules that define how applications and programs should be started and stopped,
 and the quality of service expected.
@@ -329,7 +329,7 @@ Here follows the definition of the rules applicable to a program.
 ``wait_exit``
 
     If the value of this element is set to true, Supvisors waits for the process to exit
-    before deploying the next sequence. This may be useful for scripts used to load a database,
+    before starting the next sequence. This may be useful for scripts used to load a database,
     to mount disks, to prepare the application working directory, etc.
         
     *Default*:  false.

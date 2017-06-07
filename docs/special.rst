@@ -101,7 +101,7 @@ The ``autorestart`` option of Supervisor may be used to restart automatically a 
 However, when the system itself crashes, the other Supervisor instances cannot do anything about that.
 
 **Supvisors** uses the ``running_failure_strategy`` option to warm restart a process that was running on a system that has crashed,
-in accordance with the default ``deployment_strategy`` set in the :ref:`supvisors_section` and with the ``address_list`` program rules
+in accordance with the default ``starting_strategy`` set in the :ref:`supvisors_section` and with the ``address_list`` program rules
 set in the :ref:`rules_file`.
 
 This option can be also used to stop or restart the whole application after a process crash.

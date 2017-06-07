@@ -117,7 +117,7 @@ Status
             'start_sequence'           ``int``        The starting rank of the process when starting the related application, in [0;127].
             'stop_sequence'            ``int``        The stopping rank of the process when stopping the related application, in [0;127].
             'required'                 ``bool``       The importance of the process in the application.
-            'wait_exit'                ``bool``       ``True`` if **Supvisors** has to wait for the process to exit before triggering the next deployment phase.
+            'wait_exit'                ``bool``       ``True`` if **Supvisors** has to wait for the process to exit before triggering the next starting phase.
             'loading'                  ``int``        The expected loading of the process when ``RUNNING``, in [0;100]%.
             'running_failure_strategy' ``str``        The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             ========================== =============== ===========
