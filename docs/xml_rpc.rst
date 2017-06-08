@@ -33,9 +33,9 @@ Status
 
   .. autoclass:: RPCInterface
 
-       .. automethod:: get_api_version()
+        .. automethod:: get_api_version()
 
-       .. automethod:: get_supvisors_state()
+        .. automethod:: get_supvisors_state()
 
             ================== ========= ===========
             Key                Type      Description
@@ -69,9 +69,9 @@ Status
             'loading'          ``int``   The sum of the expected loading of the processes running on the address, in [0;100]%.
             ================== ========= ===========
 
-       .. automethod:: get_all_addresses_info()
+        .. automethod:: get_all_addresses_info()
 
-       .. automethod:: get_application_info(application_name)
+        .. automethod:: get_application_info(application_name)
 
             ================== ========= ===========
             Key                Type      Description
