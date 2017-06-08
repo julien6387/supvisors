@@ -80,6 +80,8 @@ class ControllerPluginTest(unittest.TestCase):
         # create the instance
         plugin = ControllerPlugin(self.controller)
         # test help and request
+        mocked_rpc = plugin.supvisors().get_strategies
+        mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True}
         self._check_call(mocked_check, plugin.supvisors().get_strategies,
             plugin.help_strategies, plugin.do_strategies, '',
             [call()])
