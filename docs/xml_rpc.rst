@@ -51,9 +51,9 @@ Status
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'auto-fencing'     ``bool`` The application status of the auto-fencing in **Supvisors**.
-            'conciliation'     ``str``  The conciliation strategy applied when **Supvisors** is in the ``CONCILIATION`` state.
-            'starting'         ``str``  The starting strategy applied when **Supvisors** is in the ``DEPLOYMENT`` state.
+            'auto-fencing'     ``bool``  The application status of the auto-fencing in **Supvisors**.
+            'conciliation'     ``str``   The conciliation strategy applied when **Supvisors** is in the ``CONCILIATION`` state.
+            'starting'         ``str``   The starting strategy applied when **Supvisors** is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
         .. automethod:: get_address_info(address_name)
@@ -87,15 +87,15 @@ Status
 
         .. automethod:: get_process_info(namespec)
 
-            ================== ============= ===========
-            Key                Type          Description
-            ================== ============= ===========
-            'application_name' ``str``       The name of the process' application.
-            'process_name'     ``str``       The name of the process.
-            'statecode'        ``int``       The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
-            'statename'        ``str``       The string state of the process, in [``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'``].
-            'addresses'        ``list(str)`` The list of all addresses where the process is running.
-            ================== ============= ===========
+            ================== =============== ===========
+            Key                Type            Description
+            ================== =============== ===========
+            'application_name' ``str``         The name of the process' application.
+            'process_name'     ``str``         The name of the process.
+            'statecode'        ``int``         The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+            'statename'        ``str``         The string state of the process, in [``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'``].
+            'addresses'        ``list(str)``   The list of all addresses where the process is running.
+            ================== =============== ===========
 
             .. note::
 
@@ -109,11 +109,11 @@ Status
             =========================== =============== ===========
             Key                         Type            Description
             =========================== =============== ===========
-            'application_name'          ``str``        The name of the application.
-            'start_sequence'            ``int``        The starting rank of the application when starting all applications, in [0;127].
-            'stop_sequence'             ``int``        The stopping rank of the application when stopping all applications, in [0;127].
-            'starting_failure_strategy' ``str``        The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
-            'running_failure_strategy'  ``str``        The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+            'application_name'          ``str``         The name of the application.
+            'start_sequence'            ``int``         The starting rank of the application when starting all applications, in [0;127].
+            'stop_sequence'             ``int``         The stopping rank of the application when stopping all applications, in [0;127].
+            'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
+            'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             =========================== =============== ===========
 
         .. automethod:: get_process_rules(namespec)
@@ -121,15 +121,15 @@ Status
             ========================== =============== ===========
             Key                        Type            Description
             ========================== =============== ===========
-            'application_name'         ``str``        The name of the process' application.
-            'process_name'             ``str``        The name of the process.
-            'addresses'                ``list(str)`` The list of all addresses where the process can be started.
-            'start_sequence'           ``int``        The starting rank of the process when starting the related application, in [0;127].
-            'stop_sequence'            ``int``        The stopping rank of the process when stopping the related application, in [0;127].
-            'required'                 ``bool``       The importance of the process in the application.
-            'wait_exit'                ``bool``       ``True`` if **Supvisors** has to wait for the process to exit before triggering the next starting phase.
-            'loading'                  ``int``        The expected loading of the process when ``RUNNING``, in [0;100]%.
-            'running_failure_strategy' ``str``        The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+            'application_name'         ``str``         The name of the process' application.
+            'process_name'             ``str``         The name of the process.
+            'addresses'                ``list(str)``   The list of all addresses where the process can be started.
+            'start_sequence'           ``int``         The starting rank of the process when starting the related application, in [0;127].
+            'stop_sequence'            ``int``         The stopping rank of the process when stopping the related application, in [0;127].
+            'required'                 ``bool``        The importance of the process in the application.
+            'wait_exit'                ``bool``        ``True`` if **Supvisors** has to wait for the process to exit before triggering the next starting phase.
+            'loading'                  ``int``         The expected loading of the process when ``RUNNING``, in [0;100]%.
+            'running_failure_strategy' ``str``         The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             ========================== =============== ===========
 
         .. automethod:: get_conflicts()
