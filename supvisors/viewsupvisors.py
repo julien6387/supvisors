@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.strategy import conciliate
+from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
 from supvisors.utils import simple_gmtime
 from supvisors.viewhandler import ViewHandler
@@ -246,9 +246,11 @@ class SupvisorsView(MeldView, ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
-            conciliate(self.supvisors, ConciliationStrategies._from_string(action), [self.supvisors.context.processes[namespec]])
+            conciliate_conflicts(self.supvisors, ConciliationStrategies._from_string(action),
+                [self.supvisors.context.processes[namespec]])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate(self.supvisors, ConciliationStrategies._from_string(action), self.supvisors.context.conflicts())
+            conciliate_conflicts(self.supvisors, ConciliationStrategies._from_string(action),
+                self.supvisors.context.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

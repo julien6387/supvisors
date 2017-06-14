@@ -19,6 +19,7 @@ package org.supvisors.rpc;
 import java.net.MalformedURLException;
 import java.util.List;
 import java.util.HashMap;
+import org.apache.xmlrpc.XmlRpcException;
 import org.supvisors.common.DataConversion;
 
 /**
@@ -52,7 +53,7 @@ public class SystemXmlRpc {
      *
      * @return List<String>: the names of the methods available.
      */
-    public List<String> listMethods() {
+    public List<String> listMethods() throws XmlRpcException {
         Object[] objectArray = client.rpcCall(Namespace + "listMethods", null, Object[].class);
         return DataConversion.arrayToStringList(objectArray);
     }
@@ -63,7 +64,7 @@ public class SystemXmlRpc {
      * @param String methodName: The name of the method.
      * @return String: The documentation for the method name.
      */
-    public String methodHelp(final String methodName) {
+    public String methodHelp(final String methodName) throws XmlRpcException {
         Object[] params = new Object[]{methodName};
         return client.rpcCall(Namespace + "methodHelp", params, String.class);
     }
@@ -76,7 +77,7 @@ public class SystemXmlRpc {
      * @param String methodName: The name of the method.
      * @return List<String>: The signature of the method, as a list of strings.
      */
-    public List<String> methodSignature(final String methodName) {
+    public List<String> methodSignature(final String methodName) throws XmlRpcException {
         Object[] params = new Object[]{methodName};
         Object[] objectArray = client.rpcCall(Namespace + "methodSignature", params, Object[].class);
         return DataConversion.arrayToStringList(objectArray);
@@ -94,7 +95,7 @@ public class SystemXmlRpc {
      * @param Object[] arrayCalls: An array of call requests.
      * @return Object[]: An array of results.
      */
-    public Object[] multicall(final Object[] arrayCalls) {
+    public Object[] multicall(final Object[] arrayCalls) throws XmlRpcException {
         Object[] params = new Object[]{arrayCalls};
         return client.rpcCall(Namespace + "multicall", params, Object[].class);
     }
@@ -121,7 +122,7 @@ public class SystemXmlRpc {
      *
      * @param String[] args: The arguments.
      */
-    public static void main(String[] args) throws MalformedURLException {
+    public static void main(String[] args) throws MalformedURLException, XmlRpcException {
         SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
         SystemXmlRpc system = new SystemXmlRpc(client);
 

@@ -52,6 +52,7 @@ sendRequest stop_application database
 sendRequest start_application LESS_LOADED database
 
 # command requests on Supervisor
+sendRequest conciliate INFANTICIDE
 sendRequest sreload
 sleep 40
 sendRequest sshutdown

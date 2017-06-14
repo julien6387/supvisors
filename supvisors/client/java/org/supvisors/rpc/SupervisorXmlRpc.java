@@ -20,6 +20,7 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import org.apache.xmlrpc.XmlRpcException;
 import org.supvisors.common.*;
 
 /**
@@ -52,7 +53,7 @@ public class SupervisorXmlRpc {
      *
      * @return String: The version.
      */
-    private String getAPIVersion() {
+    private String getAPIVersion() throws XmlRpcException {
         return client.rpcCall(Namespace + "getAPIVersion", null, String.class);
     }
 
@@ -64,7 +65,7 @@ public class SupervisorXmlRpc {
      * @return String: The version.
      */
     @Deprecated
-    private String getVersion() {
+    private String getVersion() throws XmlRpcException {
         return client.rpcCall(Namespace + "getVersion", null, String.class);
     }
 
@@ -73,7 +74,7 @@ public class SupervisorXmlRpc {
      *
      * @return String: The version.
      */
-    private String getSupervisorVersion() {
+    private String getSupervisorVersion() throws XmlRpcException {
         return client.rpcCall(Namespace + "getSupervisorVersion", null, String.class);
     }
 
@@ -82,7 +83,7 @@ public class SupervisorXmlRpc {
      *
      * @return String: The id.
      */
-    private String getIdentification() {
+    private String getIdentification() throws XmlRpcException {
         return client.rpcCall(Namespace + "getIdentification", null, String.class);
     }
 
@@ -91,7 +92,7 @@ public class SupervisorXmlRpc {
      *
      * @return SupervisorState: The current state of supervisord.
      */
-    private SupervisorState getState() {
+    private SupervisorState getState() throws XmlRpcException {
         HashMap result = client.rpcCall(Namespace + "getState", null, HashMap.class);
         return new SupervisorState(result);
     }
@@ -101,7 +102,7 @@ public class SupervisorXmlRpc {
      *
      * @return String: The documentation for the method name.
      */
-    private Integer getPID() {
+    private Integer getPID() throws XmlRpcException {
         return client.rpcCall(Namespace + "getPID", null, Integer.class);
     }
 
@@ -112,7 +113,7 @@ public class SupervisorXmlRpc {
      * @param Integer length: The number of bytes to read from the log.
      * @return String: Bytes of log.
      */
-    private String readLog(Integer offset, Integer length) {
+    private String readLog(Integer offset, Integer length) throws XmlRpcException {
         Object[] params = new Object[]{offset, length};
         return client.rpcCall(Namespace + "readLog", params, String.class);
     }
@@ -127,7 +128,7 @@ public class SupervisorXmlRpc {
      * @return String: Bytes of log.
      */
      @Deprecated
-    private String readMainLog(Integer offset, Integer length) {
+    private String readMainLog(Integer offset, Integer length) throws XmlRpcException {
         Object[] params = new Object[]{offset, length};
         return client.rpcCall(Namespace + "readMainLog", params, String.class);
     }
@@ -137,7 +138,7 @@ public class SupervisorXmlRpc {
      *
      * @return Boolean: Always true unless error.
      */
-    private Boolean clearLog() {
+    private Boolean clearLog() throws XmlRpcException {
         return client.rpcCall(Namespace + "clearLog", null, Boolean.class);
     }
 
@@ -146,7 +147,7 @@ public class SupervisorXmlRpc {
      *
      * @return Boolean: Always true unless error.
      */
-    private Boolean shutdown() {
+    private Boolean shutdown() throws XmlRpcException {
         return client.rpcCall(Namespace + "shutdown", null, Boolean.class);
     }
 
@@ -155,7 +156,7 @@ public class SupervisorXmlRpc {
      *
      * @return Boolean: Always true unless error.
      */
-    private Boolean restart() {
+    private Boolean restart() throws XmlRpcException {
         return client.rpcCall(Namespace + "restart", null, Boolean.class);
     }
 
@@ -165,7 +166,7 @@ public class SupervisorXmlRpc {
      * @param String namespec: The namespec of the process.
      * @return SupervisorProcessInfo: Information about the process.
      */
-    private SupervisorProcessInfo getProcessInfo(final String namespec) {
+    private SupervisorProcessInfo getProcessInfo(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         HashMap result = client.rpcCall(Namespace + "getProcessInfo", params, HashMap.class);
         return new SupervisorProcessInfo(result);
@@ -176,7 +177,7 @@ public class SupervisorXmlRpc {
      *
      * @return HashMap<String, SupervisorProcessInfo>: Information about all processes, sorted by namespec.
      */
-    private HashMap<String, SupervisorProcessInfo> getAllProcessInfo() {
+    private HashMap<String, SupervisorProcessInfo> getAllProcessInfo() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "getAllProcessInfo", null, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorProcessInfo.class);
     }
@@ -191,7 +192,8 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for process to be fully started.
      * @return Boolean: Always true unless error.
      */
-    private Boolean startProcess(final String namespec, final Boolean wait)  throws IllegalArgumentException {
+    private Boolean startProcess(final String namespec, final Boolean wait)
+            throws IllegalArgumentException, XmlRpcException {
         String[] names = DataConversion.namespecToStrings(namespec);
         if (names[1] == null) {
             throw new IllegalArgumentException("The namespec " + namespec + " is forbidden here, use startProcessGroup.");
@@ -206,7 +208,8 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for processes to be fully started.
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> startAllProcesses(final Boolean wait) {
+    private HashMap<String, SupervisorExecutionStatus> startAllProcesses(final Boolean wait)
+            throws XmlRpcException {
         Object[] params = new Object[]{wait};
         Object[] objectsArray = client.rpcCall(Namespace + "startAllProcesses", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -219,7 +222,8 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for processes to be fully started.
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> startProcessGroup(final String groupName, final Boolean wait) {
+    private HashMap<String, SupervisorExecutionStatus> startProcessGroup(final String groupName,
+            final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{groupName, wait};
         Object[] objectsArray = client.rpcCall(Namespace + "startProcessGroup", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -235,7 +239,7 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for process to be fully stopped.
      * @return Boolean: Always true unless error.
      */
-    private Boolean stopProcess(final String namespec, final Boolean wait) {
+    private Boolean stopProcess(final String namespec, final Boolean wait) throws XmlRpcException {
         String[] names = DataConversion.namespecToStrings(namespec);
         if (names[1] == null) {
             throw new IllegalArgumentException("The namespec " + namespec + " is forbidden here, use startProcessGroup.");
@@ -251,7 +255,8 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for processes to be fully stopped.
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> stopProcessGroup(final String groupName, final Boolean wait) {
+    private HashMap<String, SupervisorExecutionStatus> stopProcessGroup(final String groupName,
+            final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{groupName, wait};
         Object[] objectsArray = client.rpcCall(Namespace + "stopProcessGroup", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -263,7 +268,7 @@ public class SupervisorXmlRpc {
      * @param Boolean wait: If true, wait for processes to be fully stopped.
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> stopAllProcesses(final Boolean wait) {
+    private HashMap<String, SupervisorExecutionStatus> stopAllProcesses(final Boolean wait) throws XmlRpcException {
         Object[] params = new Object[]{wait};
         Object[] objectsArray = client.rpcCall(Namespace + "stopAllProcesses", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -276,7 +281,7 @@ public class SupervisorXmlRpc {
      * @param String signal: The signal to send, as name ('HUP') or number ('1')
      * @return Boolean: Always true unless error.
      */
-    private Boolean signalProcess(final String namespec, final String signal) {
+    private Boolean signalProcess(final String namespec, final String signal) throws XmlRpcException {
         Object[] params = new Object[]{namespec, signal};
         return client.rpcCall(Namespace + "signalProcess", params, Boolean.class);
     }
@@ -288,7 +293,8 @@ public class SupervisorXmlRpc {
      * @param String signal: The signal to send, as name ('HUP') or number ('1')
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> signalProcessGroup(final String groupName, final String signal) {
+    private HashMap<String, SupervisorExecutionStatus> signalProcessGroup(final String groupName,
+            final String signal) throws XmlRpcException {
         Object[] params = new Object[]{groupName, signal};
         Object[] objectsArray = client.rpcCall(Namespace + "signalProcessGroup", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -301,7 +307,7 @@ public class SupervisorXmlRpc {
      * @param String signal: The signal to send, as name ('HUP') or number ('1')
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> signalAllProcesses(final String signal) {
+    private HashMap<String, SupervisorExecutionStatus> signalAllProcesses(final String signal) throws XmlRpcException {
         Object[] params = new Object[]{signal};
         Object[] objectsArray = client.rpcCall(Namespace + "signalAllProcesses", params, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
@@ -314,7 +320,7 @@ public class SupervisorXmlRpc {
      * @param String chars: The character data to send to the process.
      * @return Boolean: Always true unless error.
      */
-    private Boolean sendProcessStdin(final String namespec, final String chars) {
+    private Boolean sendProcessStdin(final String namespec, final String chars) throws XmlRpcException {
         Object[] params = new Object[]{namespec, chars};
         return client.rpcCall(Namespace + "sendProcessStdin", params, Boolean.class);
     }
@@ -327,7 +333,7 @@ public class SupervisorXmlRpc {
      * @param String event_data: The data for the event body.
      * @return Boolean: Always true unless error.
      */
-    private Boolean sendRemoteCommEvent(final String event_type, final String event_data) {
+    private Boolean sendRemoteCommEvent(final String event_type, final String event_data) throws XmlRpcException {
         Object[] params = new Object[]{event_type, event_data};
         return client.rpcCall(Namespace + "sendRemoteCommEvent", params, Boolean.class);
     }
@@ -338,7 +344,7 @@ public class SupervisorXmlRpc {
      *
      * @return HashMap<String, SupervisorConfigInfo>: The configurations, sorted by namespec.
      */
-    private HashMap<String, SupervisorConfigInfo> getAllConfigInfo() {
+    private HashMap<String, SupervisorConfigInfo> getAllConfigInfo() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "getAllConfigInfo", null, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorConfigInfo.class);
     }
@@ -348,7 +354,7 @@ public class SupervisorXmlRpc {
      *
      * @return SupervisorConfigUpdates: The lists of added, modified, removed configurations.
      */
-    private SupervisorConfigUpdates reloadConfig() {
+    private SupervisorConfigUpdates reloadConfig() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "reloadConfig", null, Object[].class);
         return new SupervisorConfigUpdates(objectsArray);
     }
@@ -359,7 +365,7 @@ public class SupervisorXmlRpc {
      * @param String namespec: The name of the process group to add.
      * @return Boolean: The status indicating whether successful.
      */
-    private Boolean addProcessGroup(final String namespec) {
+    private Boolean addProcessGroup(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         return client.rpcCall(Namespace + "addProcessGroup", params, Boolean.class);
     }
@@ -370,7 +376,7 @@ public class SupervisorXmlRpc {
      * @param String namespec: The name of the process group to remove.
      * @return Boolean: The status indicating whether the removal was successful.
      */
-    private Boolean removeProcessGroup(final String namespec) {
+    private Boolean removeProcessGroup(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         return client.rpcCall(Namespace + "removeProcessGroup", params, Boolean.class);
     }
@@ -383,7 +389,8 @@ public class SupervisorXmlRpc {
      * @param Integer length: The number of bytes to read from the log.
      * @return String: Bytes of log.
      */
-    private String readProcessStdoutLog(final String namespec, final Integer offset, final Integer length) {
+    private String readProcessStdoutLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         return client.rpcCall(Namespace + "readProcessStdoutLog", params, String.class);
     }
@@ -399,7 +406,8 @@ public class SupervisorXmlRpc {
      * @return String: Bytes of log.
      */
     @Deprecated
-    private String readProcessLog(final String namespec, final Integer offset, final Integer length) {
+    private String readProcessLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         return client.rpcCall(Namespace + "readProcessLog", params, String.class);
     }
@@ -412,7 +420,8 @@ public class SupervisorXmlRpc {
      * @param Integer length: The number of bytes to read from the log.
      * @return String: Bytes of log.
      */
-    private String readProcessStderrLog(final String namespec, final Integer offset, final Integer length) {
+    private String readProcessStderrLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         return client.rpcCall(Namespace + "readProcessStderrLog", params, String.class);
     }
@@ -425,7 +434,8 @@ public class SupervisorXmlRpc {
      * @param Integer length: The maximum number of bytes to return.
      * @return SupervisorLogResult: Structure including the bytes of log.
      */
-    private SupervisorLogResult tailProcessStdoutLog(final String namespec, final Integer offset, final Integer length) {
+    private SupervisorLogResult tailProcessStdoutLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         Object[] objectsArray = client.rpcCall(Namespace + "tailProcessStdoutLog", params, Object[].class);
         return new SupervisorLogResult(objectsArray);
@@ -442,7 +452,8 @@ public class SupervisorXmlRpc {
      * @return SupervisorLogResult: Structure including the bytes of log.
      */
     @Deprecated
-    private SupervisorLogResult tailProcessLog(final String namespec, final Integer offset, final Integer length) {
+    private SupervisorLogResult tailProcessLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         Object[] objectsArray = client.rpcCall(Namespace + "tailProcessLog", params, Object[].class);
         return new SupervisorLogResult(objectsArray);
@@ -456,7 +467,8 @@ public class SupervisorXmlRpc {
      * @param Integer length: The maximum number of bytes to return.
      * @return SupervisorLogResult: Structure including the bytes of log.
      */
-    private SupervisorLogResult tailProcessStderrLog(final String namespec, final Integer offset, final Integer length) {
+    private SupervisorLogResult tailProcessStderrLog(final String namespec, final Integer offset,
+            final Integer length) throws XmlRpcException {
         Object[] params = new Object[]{namespec, offset, length};
         Object[] objectsArray = client.rpcCall(Namespace + "tailProcessStderrLog", params, Object[].class);
         return new SupervisorLogResult(objectsArray);
@@ -469,7 +481,7 @@ public class SupervisorXmlRpc {
      * @param String namespec: The namespec of the process.
      * @return Boolean: Always True unless error.
      */
-    private Boolean clearProcessLogs(final String namespec) {
+    private Boolean clearProcessLogs(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         return client.rpcCall(Namespace + "clearProcessLogs", params, Boolean.class);
     }
@@ -483,7 +495,7 @@ public class SupervisorXmlRpc {
      * @return Boolean: Always True unless error.
      */
     @Deprecated
-    private Boolean clearProcessLog(final String namespec) {
+    private Boolean clearProcessLog(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
         return client.rpcCall(Namespace + "clearProcessLog", params, Boolean.class);
     }
@@ -493,7 +505,7 @@ public class SupervisorXmlRpc {
      *
      * @return HashMap<String, SupervisorExecutionStatus>: The execution status of the commands, sorted by namespec.
      */
-    private HashMap<String, SupervisorExecutionStatus> clearAllProcessLogs() {
+    private HashMap<String, SupervisorExecutionStatus> clearAllProcessLogs() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "clearAllProcessLogs", null, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupervisorExecutionStatus.class);
     }
@@ -504,7 +516,7 @@ public class SupervisorXmlRpc {
      *
      * @param String[] args: The arguments.
      */
-    public static void main(String[] args) throws InterruptedException, MalformedURLException {
+    public static void main(String[] args) throws InterruptedException, MalformedURLException, XmlRpcException {
         SupervisorXmlRpcClient client = new SupervisorXmlRpcClient(60000);
         SupervisorXmlRpc supervisor = new SupervisorXmlRpc(client);
 

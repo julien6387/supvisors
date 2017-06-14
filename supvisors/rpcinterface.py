@@ -24,6 +24,7 @@ from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
+from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies,
     StartingStrategies, SupvisorsStates)
 from supvisors.utils import supvisors_short_cuts
@@ -311,7 +312,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -523,6 +524,29 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait # deferred
 
+    def conciliate(self, strategy):
+        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
+        with a USER strategy.
+
+        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
+
+        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
+        """
+        self._check_conciliation()
+        # check strategy
+        if strategy not in ConciliationStrategies._values():
+            raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+        # trigger conciliation
+        if strategy != ConciliationStrategies.USER:
+            conciliate_conflicts(self.supvisors, strategy, self.context.conflicts())
+            return True
+        return False
+
     def restart(self):
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
@@ -562,9 +586,13 @@ class RPCInterface(object):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.OPERATION])
 
+    def _check_conciliation(self):
+        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
+        self._check_state([SupvisorsStates.CONCILIATION])
+
     def _check_state(self, states):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
-        if self.supvisors.fsm.state not in states:
+        if self.fsm.state not in states:
             raise RPCError(Faults.BAD_SUPVISORS_STATE,
                 'Supvisors (state={}) not in state {} to perform request'.
                 format(SupvisorsStates._to_string(self.supvisors.fsm.state),

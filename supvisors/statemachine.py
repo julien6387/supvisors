@@ -19,7 +19,7 @@
 
 from time import time
 
-from supvisors.strategy import conciliate
+from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import AddressStates, SupvisorsStates
 from supvisors.utils import supvisors_short_cuts
 
@@ -148,7 +148,7 @@ class ConciliationState(AbstractState):
         """ When entering in the CONCILIATION state, conciliate automatically the conflicts.
         Only the MASTER can conciliate conflicts. """
         if self.context.master:
-            conciliate(self.supvisors, self.supvisors.options.conciliation_strategy, self.context.conflicts())
+            conciliate_conflicts(self.supvisors, self.supvisors.options.conciliation_strategy, self.context.conflicts())
 
     def next(self):
         """ Check that all addresses are still active.

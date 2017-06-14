@@ -461,7 +461,31 @@ class ControllerPluginTest(unittest.TestCase):
             ('appli_1:*', 'appli_2:*'),
             'appli_2:proc_3 appli_1:proc_1', ('appli_2:proc_3', 'appli_1:proc_1'))
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
+    def test_conciliate(self, mocked_check):
+        """ Test the conciliate request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test the request using no strategy
+        plugin.do_conciliate('')
+        self.check_output_error(True)
+        self.assertEqual([call()], mocked_check.call_args_list)
+        mocked_check.reset_mock()
+        # test the request using unknown strategy
+        plugin.do_conciliate('strategy')
+        self.check_output_error(True)
+        self.assertEqual([call()], mocked_check.call_args_list)
+        mocked_check.reset_mock()
+        # test help and request
+        mocked_rpc = plugin.supvisors().conciliate
+        self._check_call(mocked_check, mocked_rpc,
+            plugin.help_conciliate, plugin.do_conciliate,
+            'SENICIDE', [call(0)])
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sreload(self, mocked_check):
         """ Test the sreload request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -473,7 +497,8 @@ class ControllerPluginTest(unittest.TestCase):
             plugin.help_sreload, plugin.do_sreload, '',
             [call()])
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sshutdown(self, mocked_check):
         """ Test the sshutdown request. """
         from supvisors.supvisorsctl import ControllerPlugin

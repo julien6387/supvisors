@@ -64,8 +64,19 @@ class ConciliationTest(SupvisorsTest):
     """ Test case to check the conciliation of Supvisors.
     TODO: add RPC for set conciliation strategy.
         => impact on rpcinterface, supvisorsctl, client java, docs.
-    The aim is to test user and auto conciliation.
+    The aim is to test user and auto conciliation, depending on the configuration.
     """
+
+    def setUp(self):
+        """ Test the conciliation after creating conflicts. """
+        # TODO: install listener
+        # check that there is no conflict before to start testing
+        self._check_no_conflict()
+        # create the conflicts
+        self._create_database_conflicts()
+
+    def test_conciliation(self):
+        """ Check depending on the configuration. """
 
     def test_conciliation_senicide(self):
         """ Test the conciliation after creating conflicts. """
@@ -74,7 +85,7 @@ class ConciliationTest(SupvisorsTest):
 
     def test_conciliation_infanticide(self):
         """ Test the conciliation after creating conflicts. """
-        # TODO: set the strategy to INFANTICIDE
+        # TODO: set the strategy to INFANTICIDE (how ???)
         # create the conflicts
         self._create_database_conflicts()
         # check the Supvisors state transitions

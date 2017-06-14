@@ -25,7 +25,7 @@ from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import StartingStrategies
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 from supvisors.utils import simple_localtime
 
 
@@ -605,11 +605,38 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the restart_process command."""
         self.ctl.output("Restart a process with strategy and rules.")
         self.ctl.output("restart_process <strategy> <proc>\t\t"
-            "Restart the process named proc.")
+            "Restart the process named proc using strategy.")
         self.ctl.output("restart_process <strategy> <proc> <proc>\t"
-            "Restart multiple named processes.")
+            "Restart multiple named processes using strategy.")
         self.ctl.output("restart_process <strategy> \t\t\t"
-            "Restart all processes.")
+            "Restart all processes using strategy.")
+
+    def do_conciliate(self, arg):
+        """ Command to conciliate conflicts (applicable with default USER strategy). """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: conciliate requires a strategy')
+                self.help_conciliate()
+                return
+            strategy = ConciliationStrategies._from_string(args[0])
+            if strategy is None:
+                self.ctl.output('ERROR: unknown strategy for conciliate. '
+                    'use one of {}'.format(ConciliationStrategies._strings()))
+                self.help_conciliate()
+                return
+            try:
+                result = self.supvisors().conciliate(strategy)
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Conciliated: {}'.format(result))
+
+    def help_conciliate(self):
+        """ Print the help of the conciliate command. """
+        self.ctl.output("Conciliate Supvisors conflicts.")
+        self.ctl.output("conciliate strategy\t\t\t\t\t"
+            "Conciliate process conflicts using strategy")
 
     def do_sreload(self, arg):
         """ Command to restart Supvisors on all addresses. """

@@ -246,7 +246,7 @@ class StateMachinesTest(unittest.TestCase):
         self.assertIsInstance(state, AbstractState)
         # test enter method
         with patch.object(self.supvisors.context, 'conflicts', return_value=[1, 2, 3]):
-            with patch('supvisors.statemachine.conciliate') as mocked_conciliate:
+            with patch('supvisors.statemachine.conciliate_conflicts') as mocked_conciliate:
                 # nothing done if local is not master
                 self.supvisors.context.master = False
                 state.enter()

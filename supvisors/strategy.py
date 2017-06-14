@@ -198,7 +198,7 @@ class FailureStrategy(AbstractStrategy):
         self.supvisors.failure_handler.trigger_jobs()
 
 
-def conciliate(supvisors, strategy, conflicts):
+def conciliate_conflicts(supvisors, strategy, conflicts):
     """ Creates a strategy and let it conciliate the conflicts. """
     if strategy == ConciliationStrategies.SENICIDE:
         instance = SenicideStrategy(supvisors)
