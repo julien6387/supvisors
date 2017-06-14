@@ -144,6 +144,8 @@ Status
 
   .. autoclass:: RPCInterface
 
+        .. automethod:: conciliate(strategy)
+
         .. automethod:: restart()
 
         .. automethod:: shutdown()

@@ -379,7 +379,7 @@ set in the :ref:`supvisors_section`, it applies a strategy to be rid of all dupl
 
     When applying the ``RUNNING_FAILURE`` strategy, **Supvisors** stops all conflicting processes and deals with the conflict
     as it would deal with a running failure, depending on the strategy defined for the process.
-    So, after the conflicting processes are all stopped,  **Supvisors** may restart the process, stop the application,
+    So, after the conflicting processes are all stopped, **Supvisors** may restart the process, stop the application,
     restart the application or do nothing at all.
 
 **Supvisors** leaves the ``CONCILIATION`` state when all conflicts are conciliated.

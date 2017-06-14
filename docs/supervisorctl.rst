@@ -17,11 +17,13 @@ The additional commands provided by **Supvisors** are available by typing :comma
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     process_rules        sstate             start_process_args
-    application_info   restart_application  sstatus            stop_application  
-    application_rules  restart_process      start_application  stop_process      
-    conflicts          sreload              start_args         strategies        
-    master             sshutdown            start_process      sversion          
+    address_status     process_rules        sstatus             stop_process
+    application_info   restart_application  start_application   strategies  
+    application_rules  restart_process      start_args          sversion    
+    conciliate         sreload              start_process     
+    conflicts          sshutdown            start_process_args
+    master             sstate               stop_application  
+
 
 Status
 ------
@@ -117,6 +119,10 @@ Status
 
 **Supvisors** Control
 ---------------------
+
+``conciliate strategy``
+
+    Conciliate the conflicts detected by **Supvisors** if default strategy is ``USER`` and **Supvisors** is in ``CONCILIATION``` state.
 
 ``sreload``
 
