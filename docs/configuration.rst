@@ -18,7 +18,7 @@ Extension points
 .. code-block:: ini
 
     [rpcinterface:supvisors]
-    supervisor.rpcinterface_factory = supvisors.rpcinterface:make_supvisors_rpcinterface
+    supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
 
 **Supvisors** extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
 This possibility is not documented in Supervisor.
