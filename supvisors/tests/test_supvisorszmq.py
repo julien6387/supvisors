@@ -366,94 +366,116 @@ class EventTest(unittest.TestCase):
         else:
             self.check_reception()
 
+    def check_process_event(self, subscribed):
+        """ The method tests the emission and reception of a Process status,
+        depending on the subscription status. """
+        from supvisors.utils import EventHeaders
+        self.publisher.send_process_event(self.process_payload.serial())
+        if subscribed:
+            self.check_reception(EventHeaders.PROCESS_EVENT, self.process_payload.data)
+        else:
+            self.check_reception()
+
     def check_process_status(self, subscribed):
         """ The method tests the emission and reception of a Process status,
         depending on the subscription status. """
         from supvisors.utils import EventHeaders
         self.publisher.send_process_status(self.process_payload)
         if subscribed:
-            self.check_reception(EventHeaders.PROCESS, self.process_payload.data)
+            self.check_reception(EventHeaders.PROCESS_STATUS, self.process_payload.data)
         else:
             self.check_reception()
 
     def check_subscription(self, supvisors_subscribed, address_subscribed,
-            application_subscribed, process_subscribed):
+            application_subscribed, event_subscribed, process_subscribed):
         """ The method tests the emission and reception of all status,
         depending on their subscription status. """
         time.sleep(1)
         self.check_supvisors_status(supvisors_subscribed)
         self.check_address_status(address_subscribed)
         self.check_application_status(application_subscribed)
+        self.check_process_event(event_subscribed)
         self.check_process_status(process_subscribed)
 
     def test_no_subscription(self):
         """ Test the non-reception of messages when subscription is not set. """
         # at this stage, no subscription has been set so nothing should be received
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_supvisors_status(self):
         """ Test the reception of Supvisors status messages when related subscription is set. """
         # subscribe to Supvisors status only
         self.subscriber.subscribe_supvisors_status()
-        self.check_subscription(True, False, False, False)
+        self.check_subscription(True, False, False, False, False)
         # unsubscribe from Supvisors status
         self.subscriber.unsubscribe_supvisors_status()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_address_status(self):
         """ Test the reception of Address status messages when related subscription is set. """
         # subscribe to Address status only
         self.subscriber.subscribe_address_status()
-        self.check_subscription(False, True, False, False)
+        self.check_subscription(False, True, False, False, False)
         # unsubscribe from Address status
         self.subscriber.unsubscribe_address_status()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_application_status(self):
         """ Test the reception of Application status messages when related subscription is set. """
         # subscribe to Application status only
         self.subscriber.subscribe_application_status()
-        self.check_subscription(False, False, True, False)
+        self.check_subscription(False, False, True, False, False)
         # unsubscribe from Application status
         self.subscriber.unsubscribe_application_status()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
+
+    def test_subscription_process_event(self):
+        """ Test the reception of Process event messages when related subscription is set. """
+        # subscribe to Process event only
+        self.subscriber.subscribe_process_event()
+        self.check_subscription(False, False, False, True, False)
+        # unsubscribe from Process event
+        self.subscriber.unsubscribe_process_event()
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_process_status(self):
         """ Test the reception of Process status messages when related subscription is set. """
         # subscribe to Process status only
         self.subscriber.subscribe_process_status()
-        self.check_subscription(False, False, False, True)
+        self.check_subscription(False, False, False, False, True)
         # unsubscribe from Process status
         self.subscriber.unsubscribe_process_status()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_all_status(self):
         """ Test the reception of all status messages when related subscription is set. """
         # subscribe to every status
         self.subscriber.subscribe_all()
-        self.check_subscription(True, True, True, True)
+        self.check_subscription(True, True, True, True, True)
         # unsubscribe all
         self.subscriber.unsubscribe_all()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
     def test_subscription_multiple_status(self):
         """ Test the reception of multiple status messages when related subscription is set. """
-        # subscribe to Application and Process status
+        # subscribe to Application and Process Event
         self.subscriber.subscribe_application_status()
-        self.subscriber.subscribe_process_status()
-        self.check_subscription(False, False, True, True)
+        self.subscriber.subscribe_process_event()
+        self.check_subscription(False, False, True, True, False)
         # set subscription to Address and Process Status
         self.subscriber.unsubscribe_application_status()
+        self.subscriber.unsubscribe_process_event()
+        self.subscriber.subscribe_process_status()
         self.subscriber.subscribe_address_status()
-        self.check_subscription(False, True, False, True)
+        self.check_subscription(False, True, False, False, True)
         # add subscription to Supvisors Status
         self.subscriber.subscribe_supvisors_status()
-        self.check_subscription(True, True, False, True)
+        self.check_subscription(True, True, False, False, True)
         # unsubscribe all
         self.subscriber.unsubscribe_supvisors_status()
         self.subscriber.unsubscribe_address_status()
         self.subscriber.unsubscribe_process_status()
-        self.check_subscription(False, False, False, False)
+        self.check_subscription(False, False, False, False, False)
 
 
 class SupvisorsZmqTest(unittest.TestCase):

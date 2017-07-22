@@ -116,7 +116,7 @@ class ListenerTest(unittest.TestCase):
         process = Mock(pid=1234, **{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
         event = ProcessStateFatalEvent(process, '')
         listener.on_process(event)
-        self.assertEqual([call({'processname': 'dummy_process', 'groupname': 'dummy_group',
+        self.assertEqual([call({'name': 'dummy_process', 'group': 'dummy_group',
             'state': 200, 'now': 77, 'pid': 1234, 'expected': True})],
             listener.publisher.send_process_event.call_args_list)
 

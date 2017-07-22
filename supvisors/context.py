@@ -207,7 +207,7 @@ class Context(object):
                 self.logger.debug('got event {} from location={}'.format(event, address_name))
                 try:
                     # refresh process info from process event
-                    process = self.applications[event['groupname']].processes[event['processname']]
+                    process = self.applications[event['group']].processes[event['name']]
                 except KeyError:
                     # process not found. normal when no tick yet received from this address
                     self.logger.debug('reject event {} from location={}'.format(event, address_name))
@@ -216,7 +216,8 @@ class Context(object):
                     # refresh application status
                     application = self.applications[process.application_name]
                     application.update_status()
-                    # publish ProcessStatus and ApplicationStatus events
+                    # publish process event, status and application status
+                    self.supvisors.zmq.publisher.send_process_event((address_name, event))
                     self.supvisors.zmq.publisher.send_process_status(process)
                     self.supvisors.zmq.publisher.send_application_status(application)
                     return process

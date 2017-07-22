@@ -101,26 +101,32 @@ class SupvisorsEventInterface(threading.Thread):
                         self.on_address_status(message[1])
                     elif message[0] == EventHeaders.APPLICATION:
                         self.on_application_status(message[1])
-                    elif message[0] == EventHeaders.PROCESS:
+                    elif message[0] == EventHeaders.PROCESS_EVENT:
+                        self.on_process_event(message[1])
+                    elif message[0] == EventHeaders.PROCESS_STATUS:
                         self.on_process_status(message[1])
         self.logger.warn('exiting main loop')
         self.subscriber.close()
 
     def on_supvisors_status(self, data):
-        """ Just logs the contents of the SupvisorsStatus message. """
-        self.logger.info('got SupvisorsStatus message: {}'.format(data))
+        """ Just logs the contents of the Supvisors Status message. """
+        self.logger.info('got Supvisors Status message: {}'.format(data))
 
     def on_address_status(self, data):
-        """ Just logs the contents of the AddressStatus message. """
-        self.logger.info('got AddressStatus message: {}'.format(data))
+        """ Just logs the contents of the Address Status message. """
+        self.logger.info('got Address Status message: {}'.format(data))
 
     def on_application_status(self, data):
-        """ Just logs the contents of the ApplicationStatus message. """
-        self.logger.info('got ApplicationStatus message: {}'.format(data))
+        """ Just logs the contents of the Application Status message. """
+        self.logger.info('got Application Status message: {}'.format(data))
+
+    def on_process_event(self, data):
+        """ Just logs the contents of the Process Event message. """
+        self.logger.info('got Process Event message: {}'.format(data))
 
     def on_process_status(self, data):
-        """ Just logs the contents of the ProcessStatus message. """
-        self.logger.info('got ApplicationStatus message: {}'.format(data))
+        """ Just logs the contents of the Process Status message. """
+        self.logger.info('got Process Status message: {}'.format(data))
 
 
 if __name__ == '__main__':

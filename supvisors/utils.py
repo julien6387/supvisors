@@ -36,7 +36,8 @@ class EventHeaders:
     SUPVISORS = u'supvisors'
     ADDRESS = u'address'
     APPLICATION = u'application'
-    PROCESS = u'process'
+    PROCESS_EVENT = u'event'
+    PROCESS_STATUS = u'process'
 
 
 # for deferred XML-RPC requests
@@ -102,6 +103,17 @@ def simple_gmtime(now=None):
     """ Returns the UTC time as a string, without the date. """
     if now is None: now = time()
     return strftime("%H:%M:%S", gmtime(now))
+
+
+# Keys of information kept from Supervisor
+__Payload_Keys = ('name', 'group', 'state', 'start', 'now', 'pid')
+
+def extract_process_info(info):
+    """ Returns a subset of Supervisor process information. """
+    payload = {key: info[key] for key in __Payload_Keys}
+    # expand information with 'expected' (deduced from spawnerr)
+    payload['expected'] = not info['spawnerr']
+    return payload
 
 
 # simple lambda functions

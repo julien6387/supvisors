@@ -149,10 +149,16 @@ class EventPublisher(object):
         self.socket.send_string(EventHeaders.APPLICATION, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
+    def send_process_event(self, event):
+        """ This method sends a process event through the socket. """
+        self.supvisors.logger.debug('send Process Event {}'.format(event))
+        self.socket.send_string(EventHeaders.PROCESS_EVENT, zmq.SNDMORE)
+        self.socket.send_json(event)
+
     def send_process_status(self, status):
         """ This method sends a serialized form of the process status through the socket. """
-        self.supvisors.logger.debug('send ProcessStatus {}'.format(status))
-        self.socket.send_string(EventHeaders.PROCESS, zmq.SNDMORE)
+        self.supvisors.logger.debug('send Process Status {}'.format(status))
+        self.socket.send_string(EventHeaders.PROCESS_STATUS, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
 
@@ -195,20 +201,24 @@ class EventSubscriber(object):
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
 
     def subscribe_supvisors_status(self):
-        """ Subscription to Supvisors status events. """
+        """ Subscription to Supvisors Status messages. """
         self.subscribe(EventHeaders.SUPVISORS)
 
     def subscribe_address_status(self):
-        """ Subscription to Address status events. """
+        """ Subscription to Address Status messages. """
         self.subscribe(EventHeaders.ADDRESS)
 
     def subscribe_application_status(self):
-        """ Subscription to Application status events. """
+        """ Subscription to Application Status messages. """
         self.subscribe(EventHeaders.APPLICATION)
 
+    def subscribe_process_event(self):
+        """ Subscription to Process Event messages. """
+        self.subscribe(EventHeaders.PROCESS_EVENT)
+
     def subscribe_process_status(self):
-        """ Subscription to Process status events. """
-        self.subscribe(EventHeaders.PROCESS)
+        """ Subscription to Process Status messages. """
+        self.subscribe(EventHeaders.PROCESS_STATUS)
 
     def subscribe(self, code):
         """ Subscription to the event named code. """
@@ -220,20 +230,24 @@ class EventSubscriber(object):
         self.socket.setsockopt(zmq.UNSUBSCRIBE, '')
 
     def unsubscribe_supvisors_status(self):
-        """ Subscription to Supvisors status events. """
+        """ Subscription to Supvisors Status messages. """
         self.unsubscribe(EventHeaders.SUPVISORS)
 
     def unsubscribe_address_status(self):
-        """ Subscription to Address status events. """
+        """ Subscription to Address Status messages. """
         self.unsubscribe(EventHeaders.ADDRESS)
 
     def unsubscribe_application_status(self):
-        """ Subscription to Application status events. """
+        """ Subscription to Application Status messages. """
         self.unsubscribe(EventHeaders.APPLICATION)
 
+    def unsubscribe_process_event(self):
+        """ Subscription to Process Event messages. """
+        self.unsubscribe(EventHeaders.PROCESS_EVENT)
+
     def unsubscribe_process_status(self):
-        """ Subscription to Process status events. """
-        self.unsubscribe(EventHeaders.PROCESS)
+        """ Subscription to Process Status messages. """
+        self.unsubscribe(EventHeaders.PROCESS_STATUS)
 
     def unsubscribe(self, code):
         """ Remove subscription to the event named code. """

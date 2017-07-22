@@ -100,10 +100,10 @@ class SupervisorListener(object):
         event_name = events.getEventNameByType(event.__class__)
         self.logger.debug('got Process event from supervisord: {} {}'.format(event_name, event))
         # create payload from event
-        payload = {'processname': event.process.config.name,
-            'groupname': event.process.group.config.name,
+        payload = {'name': event.process.config.name,
+            'group': event.process.group.config.name,
             'state': ProcessStates._from_string(event_name.split('_')[-1]),
-            'now': int(time.time()), 
+            'now': int(time.time()),
             'pid': event.process.pid,
             'expected': event.expected}
         self.logger.debug('payload={}'.format(payload))

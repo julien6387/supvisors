@@ -22,7 +22,7 @@ import sys
 import time
 import unittest
 
-from supvisors.tests.base import MockedSupvisors, ProcessInfoDatabase, any_process_info
+from supvisors.tests.base import (MockedSupvisors, any_process_info, database_copy)
 
 
 class AddressTest(unittest.TestCase):
@@ -115,39 +115,40 @@ class AddressTest(unittest.TestCase):
         from supvisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
         # add processes
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             status.add_process(process)
         # get current process times
-        ref_data = {process.namespec(): (process.state, info['now'], info['local_time'], info.get('uptime', None))
-            for process in status.processes.values() for info in [process.infos['10.0.0.1']]}
+        ref_data = {process.namespec(): (process.state, info['now'], info['uptime'])
+            for process in status.processes.values()
+                for info in [process.infos['10.0.0.1']]}
         # update times and check
-        now = time.time()
+        now = int(time.time())
         status.update_times(now + 10, now)
         self.assertEqual(now + 10, status.remote_time)
         self.assertEqual(now, status.local_time)
-        # test process times: only RUNNING has an uptime
-        new_data = {process.namespec(): (process.state, info['now'], info['local_time'], info.get('uptime', None))
-            for process in status.processes.values() for info in [process.infos['10.0.0.1']]}
+        # test process times: only RUNNING and STOPPING have a positive uptime
+        new_data = {process.namespec(): (process.state, info['now'], info['uptime'])
+            for process in status.processes.values()
+                for info in [process.infos['10.0.0.1']]}
         for namespec, new_info in new_data.items():
             ref_info = ref_data[namespec]
             self.assertEqual(new_info[0], ref_info[0])
             self.assertGreater(new_info[1], ref_info[1])
-            self.assertGreater(new_info[2], ref_info[2])
             if new_info[0] in [ProcessStates.RUNNING, ProcessStates.STOPPING]:
-                self.assertGreater(new_info[3], ref_info[3])
+                self.assertGreater(new_info[2], ref_info[2])
             else:
-                self.assertEqual(new_info[3], ref_info[3])
+                self.assertEqual(new_info[2], ref_info[2])
 
     def test_running_process(self):
         """ Test the running_process method. """
         from supvisors.address import AddressStatus
         from supvisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the name of the running processes
         self.assertItemsEqual(['late_segv','segv', 'xfontsel', 'yeux_01'],
@@ -158,9 +159,9 @@ class AddressTest(unittest.TestCase):
         from supvisors.address import AddressStatus
         from supvisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the namespec and pid of the running processes
         self.assertItemsEqual([('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)], status.pid_processes())
@@ -170,9 +171,9 @@ class AddressTest(unittest.TestCase):
         from supvisors.address import AddressStatus
         from supvisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the loading of the address: gives 5 (1 per running process) by default because no rule has been loaded
         self.assertEqual(4, status.loading())

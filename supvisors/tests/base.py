@@ -26,6 +26,8 @@ from supervisor.loggers import Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
+from supvisors.utils import extract_process_info
+
 
 class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
@@ -217,24 +219,29 @@ ProcessInfoDatabase = [
 
 def database_copy():
     """ Return a copy of the whole database. """
-    return [info.copy() for info in ProcessInfoDatabase]
+    return [extract_process_info(info) for info in ProcessInfoDatabase]
 
 def any_process_info():
     """ Return a copy of any process in database. """
-    return random.choice(ProcessInfoDatabase).copy()
+    info = random.choice(ProcessInfoDatabase)
+    return extract_process_info(info)
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
-    return random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES]).copy()
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
+    return extract_process_info(info)
 
 def any_running_process_info():
     """ Return a copy of any running process in database. """
-    return random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES]).copy()
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES])
+    return extract_process_info(info)
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
-    return random.choice([info for info in ProcessInfoDatabase if info['state'] == state]).copy()
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
+    return extract_process_info(info)
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+    info = next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+    return extract_process_info(info)

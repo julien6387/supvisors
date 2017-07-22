@@ -83,6 +83,21 @@ class UtilsTest(unittest.TestCase):
         from supvisors.utils import simple_gmtime
         self.assertEqual('07:07:00', simple_gmtime(1476947220.416198))
 
+    def test_extract_process_info(self):
+        """ Test the extraction of useful data from process info. """
+        from supvisors.utils import extract_process_info
+        # test with no spawn error
+        dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data'}
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'expected': True},
+            extract_process_info(dummy_info))
+        # test with spawn error
+        dummy_info['spawnerr'] = 'something'
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'expected': False},
+            extract_process_info(dummy_info))
+
     def test_statistics_functions(self):
         """ Test the simple statistics. """
         from supvisors.utils import mean, srate, stddev

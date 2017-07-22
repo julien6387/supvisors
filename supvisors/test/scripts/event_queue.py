@@ -36,11 +36,16 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         # create a set of addresses
         self.addresses = set()
         # create queues to store messages
-        self.event_queues = (Queue(), Queue(), Queue())
+        self.event_queues = (Queue(), Queue(), Queue(), Queue())
         # subscribe to address status only
         self.subscriber.subscribe_address_status()
         self.nb_address_notifications = 0
  
+    def on_supvisors_status(self, data):
+        """ Just logs the contents of the SupvisorsStatus message. """
+        self.logger.info('got SupvisorsStatus message: {}'.format(data))
+        self.event_queues[0].put(data)
+
     def on_address_status(self, data):
         """ Pushes the AddressStatus message into a queue. """
         self.logger.info('got AddressStatus message: {}'.format(data))
@@ -56,14 +61,14 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
             self.subscriber.subscribe_application_status()
             self.subscriber.subscribe_process_status()
             # notify CheckSequence with an event in start_queue
-            self.event_queues[0].put(self.addresses)
+            self.event_queues[1].put(self.addresses)
 
     def on_application_status(self, data):
         """ Pushes the ApplicationStatus message into a queue. """
         self.logger.info('got ApplicationStatus message: {}'.format(data))
-        self.event_queues[1].put(data)
+        self.event_queues[2].put(data)
 
     def on_process_status(self, data):
         """ Pushes the ProcessStatus message into a queue. """
         self.logger.info('got ProcessStatus message: {}'.format(data))
-        self.event_queues[2].put(data)
+        self.event_queues[3].put(data)

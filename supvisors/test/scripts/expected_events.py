@@ -177,7 +177,7 @@ class CheckSequenceTest(unittest.TestCase):
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # create logger using a BoundIO)
+        # create logger using a BoundIO
         self.logger = create_logger(logfile=None)
         # get the addresses
         addresses_info = getRPCInterface(os.environ).supvisors.get_all_addresses_info()
@@ -191,9 +191,9 @@ class CheckSequenceTest(unittest.TestCase):
         # create the thread of event subscriber
         self.event_loop = SupvisorsEventQueues(self.PORT, self.logger)
         # get the queues
-        self.address_queue = self.event_loop.event_queues[0]
-        self.application_queue = self.event_loop.event_queues[1]
-        self.process_queue = self.event_loop.event_queues[2]
+        self.address_queue = self.event_loop.event_queues[1]
+        self.application_queue = self.event_loop.event_queues[2]
+        self.process_queue = self.event_loop.event_queues[3]
         # start the thread
         self.event_loop.start()
 

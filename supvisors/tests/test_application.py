@@ -21,7 +21,7 @@ import random
 import sys
 import unittest
 
-from supvisors.tests.base import (MockedSupvisors, ProcessInfoDatabase,
+from supvisors.tests.base import (MockedSupvisors, database_copy,
     any_process_info, any_stopped_process_info, any_running_process_info)
 
 
@@ -162,9 +162,9 @@ class ApplicationStatusTest(unittest.TestCase):
         from supvisors.process import ProcessStatus
         application = ApplicationStatus('ApplicationTest', self.supvisors.logger)
         # add processes to the application
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             # set random sequence to process
             process.rules.start_sequence = random.randint(0, 2)
             process.rules.stop_sequence = random.randint(0, 2)
@@ -194,9 +194,9 @@ class ApplicationStatusTest(unittest.TestCase):
         from supvisors.ttypes import ApplicationStates
         application = ApplicationStatus('ApplicationTest', self.supvisors.logger)
         # add processes to the application
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             application.add_process(process)
         # init status
         # there are lots of states but the 'strongest' is STARTING

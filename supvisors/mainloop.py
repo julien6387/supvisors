@@ -24,7 +24,8 @@ from threading import Thread
 
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.ttypes import AddressStates
-from supvisors.utils import (supvisors_short_cuts, DeferredRequestHeaders, RemoteCommEvents)
+from supvisors.utils import (supvisors_short_cuts, extract_process_info,
+    DeferredRequestHeaders, RemoteCommEvents)
 
 
 class SupvisorsMainLoop(Thread):
@@ -133,8 +134,12 @@ class SupvisorsMainLoop(Thread):
             authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
+                # get information about all processes handled by Supervisor
                 all_info = remote_proxy.supervisor.getAllProcessInfo()
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((address_name, all_info)))
+                # create a payload from Supervisor process info
+                payload = [extract_process_info(info) for info in all_info]
+                # post the payload internally
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((address_name, payload)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, 'address_name:{} authorized:{}'.format(address_name, authorized))
         except:

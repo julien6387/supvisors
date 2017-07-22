@@ -235,9 +235,11 @@ class Starter(Commander):
             self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
         # once the start_process has been called, a STARTING event is expected in less than 5 seconds
         now = time.time()
-        processes = [process for process_list in self.current_jobs.values() for process in process_list]
+        processes = [process for process_list in self.current_jobs.values()
+            for process in process_list]
         self.logger.trace('now={} checking processes={}'.format(now,
-            [(process.process_name, process.state, process.request_time, process.last_event_time) for process in processes]))
+            [(process.process_name, process.state, process.request_time, process.last_event_time)
+                for process in processes]))
         for process in processes:
             # depending on ini file, it may take a while before the process enters in RUNNING state
             # so just test that is in not in a STOPPED-like state 5 seconds after request_time

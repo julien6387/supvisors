@@ -549,9 +549,10 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                 'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']}, starter.printable_current_jobs())
             self.assertEqual(0, mocked_force.call_count)
-        # re-assign request_time to processes in current_jobs
+        # re-assign last_event_time and request_time to processes in current_jobs
         for process_list in starter.current_jobs.values():
             for process in process_list:
+                process.last_event_time = 0
                 process.request_time = 0
         # stopped processes have an old request time: process_failure called
         with patch.object(starter, 'force_process_fatal') as mocked_force:
@@ -801,6 +802,7 @@ class StopperTest(unittest.TestCase):
         # re-assign request_time to processes in current_jobs
         for process_list in stopper.current_jobs.values():
             for process in process_list:
+                process.last_event_time = 0
                 process.request_time = 0
         # processes have an old request time: process_failure called
         completed = stopper.check_stopping()

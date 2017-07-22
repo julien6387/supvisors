@@ -123,25 +123,33 @@ class MainLoopTest(unittest.TestCase):
             # test with address in isolation
             with patch.object(rpc_intf.supervisor, 'getAllProcessInfo') as mocked_supervisor:
                 for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-                    with patch.object(rpc_intf.supvisors, 'get_address_info', return_value={'statecode': state}):
+                    with patch.object(rpc_intf.supvisors, 'get_address_info',
+                        return_value={'statecode': state}):
                         main_loop.check_address('10.0.0.1')
                         self.assertEqual(1, self.mocked_rpc.call_count)
                         self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
                         self.assertEqual(1, mocked_evt.call_count)
-                        self.assertEqual(call('auth', 'address_name:10.0.0.1 authorized:False'), mocked_evt.call_args)
+                        self.assertEqual(call('auth', 'address_name:10.0.0.1 authorized:False'),
+                            mocked_evt.call_args)
                         self.assertEqual(0, mocked_supervisor.call_count)
                         # reset counters
                         mocked_evt.reset_mock()
                         self.mocked_rpc.reset_mock()
             # test with address not in isolation
-            with patch.object(rpc_intf.supervisor, 'getAllProcessInfo', return_value=['dummy_list']) as mocked_supervisor:
-                for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING, AddressStates.SILENT]:
-                    with patch.object(rpc_intf.supvisors, 'get_address_info', return_value={'statecode': state}):
+            dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+                'now': 10, 'pid': 1234, 'spawnerr': ''}]
+            with patch.object(rpc_intf.supervisor, 'getAllProcessInfo',
+                return_value=dummy_info) as mocked_supervisor:
+                for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
+                    AddressStates.RUNNING, AddressStates.SILENT]:
+                    with patch.object(rpc_intf.supvisors, 'get_address_info',
+                        return_value={'statecode': state}):
                         main_loop.check_address('10.0.0.1')
                         self.assertEqual(1, self.mocked_rpc.call_count)
                         self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
                         self.assertEqual(2, mocked_evt.call_count)
-                        self.assertEqual([call('info', '["10.0.0.1", ["dummy_list"]]'),
+                        self.assertEqual([call('info', '["10.0.0.1", [{"group": "appli", "name": "proc", '\
+                            '"pid": 1234, "start": 5, "state": 10, "expected": true, "now": 10}]]'),
                             call('auth', 'address_name:10.0.0.1 authorized:True')], mocked_evt.call_args_list)
                         self.assertEqual(1, mocked_supervisor.call_count)
                         # reset counters

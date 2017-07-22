@@ -79,7 +79,7 @@ class AddressStatus(object):
         self.remote_time = remote_time
         self.local_time = local_time
         for process in self.processes.values():
-            process.update_times(self.address_name, remote_time, local_time)
+            process.update_times(self.address_name, remote_time)
 
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """
