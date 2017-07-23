@@ -135,29 +135,29 @@ class StartingStrategyTest(unittest.TestCase):
 
     def test_get_address(self):
         """ Test the choice of an address according to a strategy. """
-        from supvisors.ttypes import DeploymentStrategies
+        from supvisors.ttypes import StartingStrategies
         from supvisors.strategy import get_address
         # test CONFIG strategy
         self.assertEqual('10.0.0.1', get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 15))
+            StartingStrategies.CONFIG, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 75))
+            StartingStrategies.CONFIG, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.CONFIG, '*', 85))
+            StartingStrategies.CONFIG, '*', 85))
         # test LESS_LOADED strategy
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 15))
+            StartingStrategies.LESS_LOADED, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 75))
+            StartingStrategies.LESS_LOADED, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.LESS_LOADED, '*', 85))
+            StartingStrategies.LESS_LOADED, '*', 85))
         # test MOST_LOADED strategy
         self.assertEqual('10.0.0.5', get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 15))
+            StartingStrategies.MOST_LOADED, '*', 15))
         self.assertEqual('10.0.0.3', get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 75))
+            StartingStrategies.MOST_LOADED, '*', 75))
         self.assertIsNone(get_address(self.supvisors,
-            DeploymentStrategies.MOST_LOADED, '*', 85))
+            StartingStrategies.MOST_LOADED, '*', 85))
 
 
 class ConciliationStrategyTest(unittest.TestCase):
@@ -264,13 +264,13 @@ class ConciliationStrategyTest(unittest.TestCase):
     @patch('supvisors.strategy.StopStrategy.conciliate')
     @patch('supvisors.strategy.RestartStrategy.conciliate')
     @patch('supvisors.strategy.FailureStrategy.conciliate')
-    def test_conciliation(self, mocked_failure, mocked_restart, mocked_stop,
+    def test_conciliate_conflicts(self, mocked_failure, mocked_restart, mocked_stop,
         mocked_user, mocked_infanticide, mocked_senicide):
         """ Test the actions on process according to a strategy. """
         from supvisors.ttypes import ConciliationStrategies
-        from supvisors.strategy import conciliate
+        from supvisors.strategy import conciliate_conflicts
         # test senicide conciliation
-        conciliate(self.supvisors, ConciliationStrategies.SENICIDE,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.SENICIDE,
             self.conflicts)
         self.assertEqual([call(self.conflicts)],
             mocked_senicide.call_args_list)
@@ -281,7 +281,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_failure.call_count)
         mocked_senicide.reset_mock()
         # test infanticide conciliation
-        conciliate(self.supvisors, ConciliationStrategies.INFANTICIDE,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.INFANTICIDE,
             self.conflicts)
         self.assertEqual(0, mocked_senicide.call_count)
         self.assertEqual([call(self.conflicts)],
@@ -292,7 +292,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_failure.call_count)
         mocked_infanticide.reset_mock()
         # test user conciliation
-        conciliate(self.supvisors, ConciliationStrategies.USER,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.USER,
             self.conflicts)
         self.assertEqual(0, mocked_senicide.call_count)
         self.assertEqual(0, mocked_infanticide.call_count)
@@ -302,7 +302,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_failure.call_count)
         mocked_user.reset_mock()
         # test stop conciliation
-        conciliate(self.supvisors, ConciliationStrategies.STOP,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.STOP,
             self.conflicts)
         self.assertEqual(0, mocked_senicide.call_count)
         self.assertEqual(0, mocked_infanticide.call_count)
@@ -312,7 +312,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_failure.call_count)
         mocked_stop.reset_mock()
         # test restart conciliation
-        conciliate(self.supvisors, ConciliationStrategies.RESTART,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.RESTART,
             self.conflicts)
         self.assertEqual(0, mocked_senicide.call_count)
         self.assertEqual(0, mocked_infanticide.call_count)
@@ -322,7 +322,7 @@ class ConciliationStrategyTest(unittest.TestCase):
         self.assertEqual(0, mocked_failure.call_count)
         mocked_restart.reset_mock()
         # test restart conciliation
-        conciliate(self.supvisors, ConciliationStrategies.RUNNING_FAILURE,
+        conciliate_conflicts(self.supvisors, ConciliationStrategies.RUNNING_FAILURE,
             self.conflicts)
         self.assertEqual(0, mocked_senicide.call_count)
         self.assertEqual(0, mocked_infanticide.call_count)

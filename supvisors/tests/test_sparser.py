@@ -184,7 +184,7 @@ class LxmlParserTest(CommonParserTest):
         """ Test the parsing using lxml (optional dependency). """
         # perform the test
         from supvisors.sparser import Parser
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', StringIO(XmlTest)):
             parser = Parser(self.supvisors)
         self.check_valid(parser)
 
@@ -193,7 +193,7 @@ class LxmlParserTest(CommonParserTest):
         """ Test the parsing of an invalid XML using lxml (optional dependency). """
         # perform the test
         from supvisors.sparser import Parser
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', StringIO(InvalidXmlTest)):
             with self.assertRaises(ValueError):
                 Parser(self.supvisors)
 
@@ -227,7 +227,7 @@ class ElementTreeParserTest(CommonParserTest):
         """ Test the parsing of a valid XML using ElementTree. """
         from supvisors.sparser import Parser
         # create Parser instance
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(XmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', StringIO(XmlTest)):
             parser = Parser(self.supvisors)
         self.check_valid(parser)
 
@@ -235,7 +235,7 @@ class ElementTreeParserTest(CommonParserTest):
         """ Test the parsing of an invalid XML using ElementTree. """
         from supvisors.sparser import Parser
         # create Parser instance
-        with patch.object(self.supvisors.options, 'deployment_file', StringIO(InvalidXmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', StringIO(InvalidXmlTest)):
             parser = Parser(self.supvisors)
         self.check_invalid(parser)
 

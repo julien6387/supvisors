@@ -81,7 +81,7 @@ The following dependencies are required before you install **Supvisors**:
 | lxml_         | 3.2.1      | *XSD validation of the XML rules file (optional)*               |
 +---------------+------------+-----------------------------------------------------------------+
 
-Get the latest release from `here <https://github.com/julien6387/supvisors/releases>`_,
+Get the latest release from `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_,
 unzip the archive and enter the directory :command:`supvisors-version`.
 
 Install **Supvisors** with the following command:

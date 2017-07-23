@@ -21,7 +21,7 @@ import random
 import sys
 import unittest
 
-from supvisors.tests.base import (MockedSupvisors, ProcessInfoDatabase,
+from supvisors.tests.base import (MockedSupvisors, database_copy,
     any_process_info, any_stopped_process_info, any_running_process_info)
 
 
@@ -44,6 +44,14 @@ class ApplicationRulesTest(unittest.TestCase):
         from supvisors.application import ApplicationRules
         rules = ApplicationRules()
         self.assertEqual('start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE', str(rules))
+
+    def test_serial(self):
+        """ Test the serialization of the ApplicationRules object. """
+        from supvisors.application import ApplicationRules
+        rules = ApplicationRules()
+        self.assertDictEqual({'start_sequence': 0, 'stop_sequence': 0,
+            'starting_failure_strategy': 'ABORT',
+            'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
 
 class ApplicationStatusTest(unittest.TestCase):
@@ -149,14 +157,14 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertIs(process, application.processes[process.process_name])
 
     def test_update_sequences(self):
-        """ Test the sequencing of the deployment method. """
+        """ Test the sequencing of the update_sequences method. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
         application = ApplicationStatus('ApplicationTest', self.supvisors.logger)
         # add processes to the application
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             # set random sequence to process
             process.rules.start_sequence = random.randint(0, 2)
             process.rules.stop_sequence = random.randint(0, 2)
@@ -186,9 +194,9 @@ class ApplicationStatusTest(unittest.TestCase):
         from supvisors.ttypes import ApplicationStates
         application = ApplicationStatus('ApplicationTest', self.supvisors.logger)
         # add processes to the application
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = ProcessStatus(info['group'], info['name'], self.supvisors)
-            process.add_info('10.0.0.1', info.copy())
+            process.add_info('10.0.0.1', info)
             application.add_process(process)
         # init status
         # there are lots of states but the 'strongest' is STARTING

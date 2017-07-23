@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import DeploymentStrategies
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import supvisors_short_cuts
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
@@ -45,7 +45,8 @@ class ApplicationView(MeldView, ViewHandler):
         return 'appli={}&amp;'.format(self.application_name)
 
     def render(self):
-        """ Method called by Supervisor to handle the rendering of the Supvisors Application page. """
+        """ Method called by Supervisor to handle the rendering
+        of the Supvisors Application page. """
         self.application_name = self.context.form.get('appli')
         if not self.application_name:
             self.logger.error('no application')
@@ -56,7 +57,8 @@ class ApplicationView(MeldView, ViewHandler):
             return ViewHandler.render(self)
 
     def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection of the current application. """
+        """ Rendering of the navigation menu with selection
+        of the current application. """
         self.write_nav(root, appli=self.application_name)
 
     def write_header(self, root):
@@ -80,47 +82,54 @@ class ApplicationView(MeldView, ViewHandler):
         else:
             elt.attrib['class'] = 'status_empty'
         # write periods of statistics
-        self.write_deployment_strategy(root)
+        self.write_starting_strategy(root)
         self.write_periods(root)
         # write actions related to application
         self.write_application_actions(root)
 
-    def write_deployment_strategy(self, root):
-        """ Write applicable deployment strategies. """
+    def write_starting_strategy(self, root):
+        """ Write applicable starting strategies. """
         # get the current strategy
         strategy = self.supvisors.starter.strategy
         # set hyperlinks for strategy actions
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
-        if strategy == DeploymentStrategies.CONFIG:
+        if strategy == StartingStrategies.CONFIG:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=config'.format(self.page_name, self.url_context()))
+            elt.attributes(href='{}?{}&action=config'
+                           .format(self.page_name, self.url_context()))
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
-        if strategy == DeploymentStrategies.MOST_LOADED:
+        if strategy == StartingStrategies.MOST_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}action=most'.format(self.page_name, self.url_context()))
+            elt.attributes(href='{}?{}action=most'
+                           .format(self.page_name, self.url_context()))
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
-        if strategy == DeploymentStrategies.LESS_LOADED:
+        if strategy == StartingStrategies.LESS_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=less'.format(self.page_name, self.url_context()))
+            elt.attributes(href='{}?{}&action=less'
+                           .format(self.page_name, self.url_context()))
 
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
         # set hyperlinks for global actions
         elt = root.findmeld('refresh_a_mid')
-        elt.attributes(href='{}?{}action=refresh'.format(self.page_name, self.url_context()))
+        elt.attributes(href='{}?{}action=refresh'
+                       .format(self.page_name, self.url_context()))
         elt = root.findmeld('startapp_a_mid')
-        elt.attributes(href='{}?{}action=startapp'.format(self.page_name, self.url_context()))
+        elt.attributes(href='{}?{}action=startapp'
+                       .format(self.page_name, self.url_context()))
         elt = root.findmeld('stopapp_a_mid')
-        elt.attributes(href='{}?{}action=stopapp'.format(self.page_name, self.url_context()))
+        elt.attributes(href='{}?{}action=stopapp'.
+                       format(self.page_name, self.url_context()))
         elt = root.findmeld('restartapp_a_mid')
-        elt.attributes(href='{}?{}action=restartapp'.format(self.page_name, self.url_context()))
+        elt.attributes(href='{}?{}action=restartapp'
+                       .format(self.page_name, self.url_context()))
 
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
@@ -129,7 +138,8 @@ class ApplicationView(MeldView, ViewHandler):
         if ViewHandler.namespec_stats:
             status = self.get_process_status(ViewHandler.namespec_stats)
             if not status or status.application_name != self.application_name:
-                self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
+                self.logger.warn('unselect Process Statistics for {}'
+                                 .format(ViewHandler.namespec_stats))
                 ViewHandler.namespec_stats = ''
             else:
                 # addtional information for title
@@ -139,7 +149,8 @@ class ApplicationView(MeldView, ViewHandler):
         self.write_process_statistics(root)
 
     def get_process_stats(self, namespec):
-        """ Get the statistics structure related to the period selected and the address where the process named namespec is running. """
+        """ Get the statistics structure related to the period selected
+        and the address where the process named namespec is running. """
         status = self.get_process_status(namespec)
         if status:
             # get running address from procStatus
@@ -154,10 +165,14 @@ class ApplicationView(MeldView, ViewHandler):
         """ Rendering of the application processes managed through Supervisor. """
         # collect data on processes
         data = []
-        for process in self.supvisors.context.applications[self.application_name].processes.values():
-            data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                'namespec': process.namespec(), 'running_list': list(process.addresses),
-                'statename': process.state_string(), 'statecode': process.state})
+        application = self.supvisors.context.applications[self.application_name]
+        for process in application.processes.values():
+            data.append({'application_name': process.application_name,
+                         'process_name': process.process_name,
+                         'namespec': process.namespec(),
+                         'running_list': list(process.addresses),
+                         'statename': process.state_string(),
+                         'statecode': process.state})
         # print processes
         if data:
             # re-arrange data
@@ -206,11 +221,11 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'refresh':
             return self.refresh_action()
         if action == 'config':
-            return self.set_deployment_strategy(DeploymentStrategies.CONFIG)
+            return self.set_starting_strategy(StartingStrategies.CONFIG)
         if action == 'most':
-            return self.set_deployment_strategy(DeploymentStrategies.MOST_LOADED)
+            return self.set_starting_strategy(StartingStrategies.MOST_LOADED)
         if action == 'less':
-            return self.set_deployment_strategy(DeploymentStrategies.LESS_LOADED)
+            return self.set_starting_strategy(StartingStrategies.LESS_LOADED)
         # get current strategy
         strategy = self.supvisors.starter.strategy
         if action == 'startapp':
@@ -233,10 +248,10 @@ class ApplicationView(MeldView, ViewHandler):
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
-    def set_deployment_strategy(self, strategy):
-        """ Update deployment strategy. """
+    def set_starting_strategy(self, strategy):
+        """ Update starting strategy. """
         self.supvisors.starter.strategy = strategy
-        return delayed_info('Deployment strategy set to {}'.format(DeploymentStrategies._to_string(strategy)))
+        return delayed_info('Starting strategy set to {}'.format(StartingStrategies._to_string(strategy)))
 
     # Application actions
     def start_application_action(self, strategy):
@@ -261,7 +276,7 @@ class ApplicationView(MeldView, ViewHandler):
         if cb:
             return delayed_info('Application {} started'.format(self.application_name))
         return delayed_warn('Application {} NOT started'.format(self.application_name))
- 
+
     def stop_application_action(self):
         """ Stop the application. """
         try:
@@ -280,7 +295,7 @@ class ApplicationView(MeldView, ViewHandler):
             onwait.delay = 0.1
             return onwait
         return delayed_info('Application {} stopped'.format(self.application_name))
- 
+
     def restart_application_action(self, strategy):
         """ Restart the application iaw the strategy. """
         try:
@@ -346,7 +361,7 @@ class ApplicationView(MeldView, ViewHandler):
             onwait.delay = 0.1
             return onwait
         return delayed_info('process {} stopped'.format(namespec))
- 
+
     def restart_process_action(self, strategy, namespec):
         """ Restart the process named namespec iaw the strategy. """
         try:

@@ -23,7 +23,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.strategy import conciliate
+from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
 from supvisors.utils import simple_gmtime
 from supvisors.viewhandler import ViewHandler
@@ -43,19 +43,20 @@ class SupvisorsView(MeldView, ViewHandler):
     page_name = 'index.html'
 
     def __init__(self, context):
-        """ Constructor stores actions for easy access """
+        """ Constructor stores actions for easy access. """
         MeldView.__init__(self, context)
         self.supvisors = self.context.supervisord.supvisors
         # get applicable conciliation strategies
         self.strategies = map(str.lower, ConciliationStrategies._strings())
         self.strategies.remove(ConciliationStrategies._to_string(ConciliationStrategies.USER).lower())
         # global actions (no parameter)
-        self.global_methods = { 'refresh': self.refresh_action, 'sup_restart': self.sup_restart_action, 'sup_shutdown': self.sup_shutdown_action }
+        self.global_methods = {'refresh': self.refresh_action,
+            'sup_restart': self.sup_restart_action, 'sup_shutdown': self.sup_shutdown_action}
         # process actions
-        self.process_methods = { 'pstop': self.stop_action, 'pkeep': self.keep_action }
+        self.process_methods = {'pstop': self.stop_action, 'pkeep': self.keep_action}
 
     def write_navigation(self, root):
-        """ Rendering of the navigation menu """
+        """ Rendering of the navigation menu. """
         self.write_nav(root)
 
     def write_header(self, root):
@@ -65,8 +66,10 @@ class SupvisorsView(MeldView, ViewHandler):
 
     def write_contents(self, root):
         """ Rendering of the contents of the Supvisors main page.
-        This builds either a synoptic of the processes running on the addresses or the table of conflicts if any. """
-        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.supvisors.context.conflicts():
+        This builds either a synoptic of the processes running on the addresses
+        or the table of conflicts if any. """
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and \
+                self.supvisors.context.conflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
@@ -79,7 +82,7 @@ class SupvisorsView(MeldView, ViewHandler):
             self.write_address_boxes(root)
 
     def write_address_boxes(self, root):
-        """ Rendering of the addresses boxes """
+        """ Rendering of the addresses boxes. """
         address_iterator = root.findmeld('address_div_mid').repeat(self.supvisors.address_mapper.addresses)
         for div_elt, address in address_iterator:
             status = self.supvisors.context.addresses[address]
@@ -104,7 +107,7 @@ class SupvisorsView(MeldView, ViewHandler):
                 li_elt.content(process.namespec())
 
     def write_conciliation_strategies(self, root):
-        """ Rendering of the global conciliation actions """
+        """ Rendering of the global conciliation actions. """
         div_elt = root.findmeld('conflicts_div_mid')
         strategy_iterator = div_elt.findmeld('global_strategy_li_mid').repeat(self.strategies)
         for li_elt, item in strategy_iterator:
@@ -114,7 +117,7 @@ class SupvisorsView(MeldView, ViewHandler):
            elt.content(item.title())
 
     def write_conciliation_table(self, root):
-        """ Rendering of the conflicts table """
+        """ Rendering of the conflicts table. """
         div_elt = root.findmeld('conflicts_div_mid')
         # get data for table
         data = [{'namespec': process.namespec(), 'rowspan': len(process.addresses) if idx == 0 else 0,
@@ -158,7 +161,7 @@ class SupvisorsView(MeldView, ViewHandler):
                 td_elt.replace('')
 
     def make_callback(self, namespec, action):
-        """ Triggers processing iaw action requested """
+        """ Triggers processing iaw action requested. """
         # global actions (no parameter)
         if action in self.global_methods.keys():
             return self.global_methods[action]()
@@ -213,7 +216,7 @@ class SupvisorsView(MeldView, ViewHandler):
         return delayed_info('Supvisors shut down')
 
     def stop_action(self, namespec, address):
-        """ Stop the conflicting process """
+        """ Stop the conflicting process. """
         # get running addresses of process
         addresses = self.supvisors.context.processes[namespec].addresses
         self.supvisors.zmq.pusher.send_stop_process(address, namespec)
@@ -225,7 +228,7 @@ class SupvisorsView(MeldView, ViewHandler):
         return on_wait
 
     def keep_action(self, namespec, address):
-        """ Stop the conflicting processes excepted the one running on address """
+        """ Stop the conflicting processes excepted the one running on address. """
         # get running addresses of process
         addresses = self.supvisors.context.processes[namespec].addresses
         running_addresses = addresses.copy()
@@ -240,12 +243,14 @@ class SupvisorsView(MeldView, ViewHandler):
         return on_wait
 
     def conciliation_action(self, namespec, action):
-        """ Performs the automatic conciliation to solve the conflicts """
+        """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
-            conciliate(self.supvisors, ConciliationStrategies._from_string(action), [self.supvisors.context.processes[namespec]])
+            conciliate_conflicts(self.supvisors, ConciliationStrategies._from_string(action),
+                [self.supvisors.context.processes[namespec]])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate(self.supvisors, ConciliationStrategies._from_string(action), self.supvisors.context.conflicts())
+            conciliate_conflicts(self.supvisors, ConciliationStrategies._from_string(action),
+                self.supvisors.context.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

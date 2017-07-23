@@ -74,12 +74,12 @@ port=:60000
 
 [supvisors]
 address_list=cliche01,cliche03,cliche02
-deployment_file=my_movies.xml
+rules_file=my_movies.xml
 auto_fence=true
 internal_port=60001
 event_port=60002
 synchro_timeout=20
-deployment_strategy=MOST_LOADED
+starting_strategy=MOST_LOADED
 conciliation_strategy=SENICIDE
 stats_periods=5,60,600
 stats_histo=100

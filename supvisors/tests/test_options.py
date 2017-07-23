@@ -37,13 +37,13 @@ class SupvisorsOptionsTest(unittest.TestCase):
         opt = SupvisorsOptions()
         # all attributes are None
         self.assertIsNone(opt.address_list)
-        self.assertIsNone(opt.deployment_file)
+        self.assertIsNone(opt.rules_file)
         self.assertIsNone(opt.internal_port)
         self.assertIsNone(opt.event_port)
         self.assertIsNone(opt.auto_fence)
         self.assertIsNone(opt.synchro_timeout)
         self.assertIsNone(opt.conciliation_strategy)
-        self.assertIsNone(opt.deployment_strategy)
+        self.assertIsNone(opt.starting_strategy)
         self.assertIsNone(opt.stats_periods)
         self.assertIsNone(opt.stats_histo)
         self.assertIsNone(opt.stats_irix_mode)
@@ -56,10 +56,10 @@ class SupvisorsOptionsTest(unittest.TestCase):
         """ Test the string output. """
         from supvisors.options import SupvisorsOptions
         opt = SupvisorsOptions()
-        self.assertEqual('address_list=None deployment_file=None '
+        self.assertEqual('address_list=None rules_file=None '
             'internal_port=None event_port=None auto_fence=None '
             'synchro_timeout=None conciliation_strategy=None '
-            'deployment_strategy=None stats_periods=None stats_histo=None '
+            'starting_strategy=None stats_periods=None stats_histo=None '
             'stats_irix_mode=None logfile=None logfile_maxbytes=None '
             'logfile_backups=None loglevel=None', str(opt))
 
@@ -113,28 +113,36 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         with self.assertRaisesRegexp(ValueError, error_message):
             SupvisorsServerOptions.to_conciliation_strategy('user')
         # test valid values
-        self.assertEqual(ConciliationStrategies.SENICIDE, SupvisorsServerOptions.to_conciliation_strategy('SENICIDE'))
-        self.assertEqual(ConciliationStrategies.INFANTICIDE, SupvisorsServerOptions.to_conciliation_strategy('INFANTICIDE'))
-        self.assertEqual(ConciliationStrategies.USER, SupvisorsServerOptions.to_conciliation_strategy('USER'))
-        self.assertEqual(ConciliationStrategies.STOP, SupvisorsServerOptions.to_conciliation_strategy('STOP'))
-        self.assertEqual(ConciliationStrategies.RESTART, SupvisorsServerOptions.to_conciliation_strategy('RESTART'))
+        self.assertEqual(ConciliationStrategies.SENICIDE,
+            SupvisorsServerOptions.to_conciliation_strategy('SENICIDE'))
+        self.assertEqual(ConciliationStrategies.INFANTICIDE,
+            SupvisorsServerOptions.to_conciliation_strategy('INFANTICIDE'))
+        self.assertEqual(ConciliationStrategies.USER,
+            SupvisorsServerOptions.to_conciliation_strategy('USER'))
+        self.assertEqual(ConciliationStrategies.STOP,
+            SupvisorsServerOptions.to_conciliation_strategy('STOP'))
+        self.assertEqual(ConciliationStrategies.RESTART,
+            SupvisorsServerOptions.to_conciliation_strategy('RESTART'))
 
-    def test_deployment_strategy(self):
-        """ Test the conversion of a string to a deployment strategy. """
+    def test_starting_strategy(self):
+        """ Test the conversion of a string to a starting strategy. """
         from supvisors.options import SupvisorsServerOptions
-        from supvisors.ttypes import DeploymentStrategies
-        error_message = self.common_error_message.format('deployment_strategy')
+        from supvisors.ttypes import StartingStrategies
+        error_message = self.common_error_message.format('starting_strategy')
         # test invalid values
         with self.assertRaisesRegexp(ValueError, error_message):
-            SupvisorsServerOptions.to_deployment_strategy('123456')
+            SupvisorsServerOptions.to_starting_strategy('123456')
         with self.assertRaisesRegexp(ValueError, error_message):
-            SupvisorsServerOptions.to_deployment_strategy('dummy')
+            SupvisorsServerOptions.to_starting_strategy('dummy')
         with self.assertRaisesRegexp(ValueError, error_message):
-            SupvisorsServerOptions.to_deployment_strategy('config')
+            SupvisorsServerOptions.to_starting_strategy('config')
         # test valid values
-        self.assertEqual(DeploymentStrategies.CONFIG, SupvisorsServerOptions.to_deployment_strategy('CONFIG'))
-        self.assertEqual(DeploymentStrategies.LESS_LOADED, SupvisorsServerOptions.to_deployment_strategy('LESS_LOADED'))
-        self.assertEqual(DeploymentStrategies.MOST_LOADED, SupvisorsServerOptions.to_deployment_strategy('MOST_LOADED'))
+        self.assertEqual(StartingStrategies.CONFIG,
+            SupvisorsServerOptions.to_starting_strategy('CONFIG'))
+        self.assertEqual(StartingStrategies.LESS_LOADED,
+            SupvisorsServerOptions.to_starting_strategy('LESS_LOADED'))
+        self.assertEqual(StartingStrategies.MOST_LOADED,
+            SupvisorsServerOptions.to_starting_strategy('MOST_LOADED'))
 
     def test_periods(self):
         """ Test the conversion of a string to a list of periods. """
@@ -184,17 +192,17 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
 
     def test_default_options(self):
         """ Test the default values of options with empty Supvisors configuration. """
-        from supvisors.ttypes import ConciliationStrategies, DeploymentStrategies
+        from supvisors.ttypes import ConciliationStrategies, StartingStrategies
         server = self.create_server(DefaultOptionConfiguration)
         opt = server.supvisors_options
         self.assertListEqual([gethostname()], opt.address_list)
-        self.assertIsNone(opt.deployment_file)
+        self.assertIsNone(opt.rules_file)
         self.assertEqual(65001, opt.internal_port)
         self.assertEqual(65002, opt.event_port)
         self.assertFalse(opt.auto_fence)
         self.assertEqual(15, opt.synchro_timeout)
         self.assertEqual(ConciliationStrategies.USER, opt.conciliation_strategy)
-        self.assertEqual(DeploymentStrategies.CONFIG, opt.deployment_strategy)
+        self.assertEqual(StartingStrategies.CONFIG, opt.starting_strategy)
         self.assertListEqual([10], opt.stats_periods)
         self.assertEqual(200, opt.stats_histo)
         self.assertFalse(opt.stats_irix_mode)
@@ -205,17 +213,17 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
 
     def test_defined_options(self):
         """ Test the values of options with defined Supvisors configuration. """
-        from supvisors.ttypes import ConciliationStrategies, DeploymentStrategies
+        from supvisors.ttypes import ConciliationStrategies, StartingStrategies
         server = self.create_server(DefinedOptionConfiguration)
         opt = server.supvisors_options
         self.assertListEqual(['cliche01', 'cliche03', 'cliche02'], opt.address_list)
-        self.assertEqual('my_movies.xml', opt.deployment_file)
+        self.assertEqual('my_movies.xml', opt.rules_file)
         self.assertEqual(60001, opt.internal_port)
         self.assertEqual(60002, opt.event_port)
         self.assertTrue(opt.auto_fence)
         self.assertEqual(20, opt.synchro_timeout)
         self.assertEqual(ConciliationStrategies.SENICIDE, opt.conciliation_strategy)
-        self.assertEqual(DeploymentStrategies.MOST_LOADED, opt.deployment_strategy)
+        self.assertEqual(StartingStrategies.MOST_LOADED, opt.starting_strategy)
         self.assertListEqual([5, 60, 600], opt.stats_periods)
         self.assertEqual(100, opt.stats_histo)
         self.assertTrue(opt.stats_irix_mode)

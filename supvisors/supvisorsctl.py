@@ -25,7 +25,7 @@ from supervisor import xmlrpc
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import DeploymentStrategies
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 from supvisors.utils import simple_localtime
 
 
@@ -52,21 +52,6 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sversion\t\t\t\t"
             "Get the API version of Supvisors.")
 
-    def do_master(self, arg):
-        """ Command to get the Supvisors master address. """
-        if self._upcheck():
-            try:
-                address = self.supvisors().get_master_address()
-            except xmlrpclib.Fault, e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
-            else:
-                self.ctl.output(address)
-
-    def help_master(self):
-        """ Print the help of the master command."""
-        self.ctl.output("master\t\t\t\t\t"
-            "Get the Supvisors master address.")
-
     def do_sstate(self, arg):
         """ Command to get the Supvisors state. """
         if self._upcheck():
@@ -83,6 +68,41 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the sstate command."""
         self.ctl.output("sstate\t\t\t\t\t"
             "Get the Supvisors state.")
+
+    def do_master(self, arg):
+        """ Command to get the Supvisors master address. """
+        if self._upcheck():
+            try:
+                address = self.supvisors().get_master_address()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output(address)
+
+    def help_master(self):
+        """ Print the help of the master command."""
+        self.ctl.output("master\t\t\t\t\t"
+            "Get the Supvisors master address.")
+
+    def do_strategies(self, arg):
+        """ Command to get the Supvisors strategies. """
+        if self._upcheck():
+            try:
+                strategies = self.supvisors().get_strategies()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                line = 'Auto-fencing: {}'.format(strategies['auto-fencing'])
+                self.ctl.output(line)
+                line = 'Conciliation: {}'.format(strategies['conciliation'])
+                self.ctl.output(line)
+                line = 'Starting:     {}'.format(strategies['starting'])
+                self.ctl.output(line)
+
+    def help_strategies(self):
+        """ Print the help of the strategies command."""
+        self.ctl.output("strategies\t\t\t\t\t"
+            "Get the Supvisors strategies.")
 
     def do_address_status(self, arg):
         """ Command to get the status of addresses known to Supvisors. """
@@ -161,6 +181,48 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("application_info\t\t\t"
             "Get the status of all applications.")
 
+    def do_application_rules(self, arg):
+        """ Command to get the application rules handled by Supvisors. """
+        if self._upcheck():
+            applications = arg.split()
+            if not applications or "all" in applications:
+                try:
+                    applications = [application_info['application_name']
+                        for application_info in self.supvisors().get_all_applications_info()]
+                except xmlrpclib.Fault, e:
+                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    applications = []
+            rules_list = []
+            for application in applications:
+                try:
+                    rules = self.supvisors().get_application_rules(application)
+                except xmlrpclib.Fault, e:
+                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                else:
+                    rules_list.append(rules)
+            # print results
+            if rules_list:
+                max_appli = max(len(rules['application_name'])
+                    for rules in rules_list) + 4
+                template = '%(appli)-{}s%(start_seq)-5s%(stop_seq)-5s'\
+                    '%(starting_strategy)-12s%(running_strategy)-12s'.format(max_appli)
+                for rules in rules_list:
+                    line = template % {'appli': rules['application_name'],
+                        'start_seq': rules['start_sequence'],
+                        'stop_seq': rules['stop_sequence'], 
+                        'starting_strategy': rules['starting_failure_strategy'], 
+                        'running_strategy': rules['running_failure_strategy']}
+                    self.ctl.output(line)
+
+    def help_application_rules(self):
+        """ Print the help of the application_rules command."""
+        self.ctl.output("application_rules <appli>\t\t\t\t"
+            "Get the rules of the application named appli.")
+        self.ctl.output("application_rules <appli> <appli>\t\t\t"
+            "Get the rules for multiple named applications")
+        self.ctl.output("application_rules\t\t\t\t\t"
+            "Get the rules of all applications.")
+
     def do_sstatus(self, arg):
         """ Command to get information about processes known to Supvisors. """
         if self._upcheck():
@@ -201,7 +263,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sstatus\t\t\t\t\t"
             "Get the status of all processes.")
 
-    def do_rules(self, arg):
+    def do_process_rules(self, arg):
         """ Command to get the process rules handled by Supvisors. """
         if self._upcheck():
             processes = arg.split()
@@ -226,7 +288,7 @@ class ControllerPlugin(ControllerPluginBase):
                     for rules in rules_list) + 4
                 max_proc = max(len(rules['process_name'])
                     for rules in rules_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(start_seq)-12s%(stop_seq)-12s'\
+                template = '%(appli)-{}s%(proc)-{}s%(start_seq)-5s%(stop_seq)-5s'\
                     '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-12s%(addr)s'.format(max_appli, max_proc)
                 for rules in rules_list:
                     required = rules['required']
@@ -242,15 +304,15 @@ class ControllerPlugin(ControllerPluginBase):
                         'strategy': rules['running_failure_strategy']}
                     self.ctl.output(line)
 
-    def help_rules(self):
-        """ Print the help of the rules command."""
-        self.ctl.output("rules <proc>\t\t\t\t"
+    def help_process_rules(self):
+        """ Print the help of the process rules command."""
+        self.ctl.output("process_rules <proc>\t\t\t\t"
             "Get the rules of the process named proc.")
-        self.ctl.output("rules <appli>:*\t\t\t\t"
+        self.ctl.output("process_rules <appli>:*\t\t\t\t"
             "Get the rules of all processes in the application named appli.")
-        self.ctl.output("rules <proc> <proc>\t\t\t"
+        self.ctl.output("process_rules <proc> <proc>\t\t\t"
             "Get the rules for multiple named processes")
-        self.ctl.output("rules\t\t\t\t\t"
+        self.ctl.output("process_rules\t\t\t\t\t"
             "Get the rules of all processes.")
 
     def do_conflicts(self, arg):
@@ -287,10 +349,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_application requires at least a strategy')
                 self.help_start_application()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_application.'
-                    'use one of {}'.format(DeploymentStrategies._strings()))
+                    'use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_application()
                 return
             applications = args[1:]
@@ -355,10 +417,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_application requires at least a strategy')
                 self.help_restart_application()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_application.'
-                    ' use one of {}'.format(DeploymentStrategies._strings()))
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_restart_application()
                 return
             applications = args[1:]
@@ -416,9 +478,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires at least a strategy')
                 self.help_start_process()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'.format(DeploymentStrategies._strings()))
+                self.ctl.output('ERROR: unknown strategy for start_process.'
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -458,10 +521,10 @@ class ControllerPlugin(ControllerPluginBase):
                     'a program name and extra arguments')
                 self.help_start_process_args()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for start_process_args.'
-                    ' use one of {}'.format(DeploymentStrategies._strings()))
+                    ' use one of {}'.format(StartingStrategies._strings()))
                 self.help_start_process_args()
                 return
             namespec = args[1]
@@ -516,10 +579,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
                 self.help_restart_process()
                 return
-            strategy = DeploymentStrategies._from_string(args[0])
+            strategy = StartingStrategies._from_string(args[0])
             if strategy is None:
                 self.ctl.output('ERROR: unknown strategy for restart_process. '
-                    'use one of {}'.format(DeploymentStrategies._strings()))
+                    'use one of {}'.format(StartingStrategies._strings()))
                 self.help_restart_process()
                 return
             processes = args[1:]
@@ -542,11 +605,38 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the restart_process command."""
         self.ctl.output("Restart a process with strategy and rules.")
         self.ctl.output("restart_process <strategy> <proc>\t\t"
-            "Restart the process named proc.")
+            "Restart the process named proc using strategy.")
         self.ctl.output("restart_process <strategy> <proc> <proc>\t"
-            "Restart multiple named processes.")
+            "Restart multiple named processes using strategy.")
         self.ctl.output("restart_process <strategy> \t\t\t"
-            "Restart all processes.")
+            "Restart all processes using strategy.")
+
+    def do_conciliate(self, arg):
+        """ Command to conciliate conflicts (applicable with default USER strategy). """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: conciliate requires a strategy')
+                self.help_conciliate()
+                return
+            strategy = ConciliationStrategies._from_string(args[0])
+            if strategy is None:
+                self.ctl.output('ERROR: unknown strategy for conciliate. '
+                    'use one of {}'.format(ConciliationStrategies._strings()))
+                self.help_conciliate()
+                return
+            try:
+                result = self.supvisors().conciliate(strategy)
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Conciliated: {}'.format(result))
+
+    def help_conciliate(self):
+        """ Print the help of the conciliate command. """
+        self.ctl.output("Conciliate Supvisors conflicts.")
+        self.ctl.output("conciliate strategy\t\t\t\t\t"
+            "Conciliate process conflicts using strategy")
 
     def do_sreload(self, arg):
         """ Command to restart Supvisors on all addresses. """

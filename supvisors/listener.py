@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,33 +26,38 @@ from supervisor.options import split_namespec
 
 from supvisors.mainloop import SupvisorsMainLoop
 from supvisors.ttypes import ProcessStates
-from supvisors.utils import (supvisors_short_cuts, InternalEventHeaders, RemoteCommEvents)
-from supvisors.supvisorszmq import SupvisorsZmq
+from supvisors.utils import (supvisors_short_cuts,
+                             InternalEventHeaders,
+                             RemoteCommEvents)
+from supvisors.supvisorszmq import SupervisorZmq
 
 
 class SupervisorListener(object):
     """ This class subscribes directly to the internal Supervisor events.
     These events are published to all Supvisors instances.
-    
+
     Attributes are:
 
         - supvisors: a reference to the Supvisors context,
         - address: the address name where this process is running,
         - main_loop: the Supvisors' event thread,
-        - publisher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads.
+        - publisher: the ZeroMQ socket used to publish Supervisor events
+        to all Supvisors threads.
     """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         # shortcuts for source code readability
-        supvisors_short_cuts(self, ['fsm', 'info_source', 'logger', 'statistician'])
+        supvisors_short_cuts(self, ['fsm', 'info_source',
+                                    'logger', 'statistician'])
         # test if statistics collector can be created for local host
         try:
             from supvisors.statscollector import instant_statistics
             self.collector = instant_statistics
         except ImportError:
-            self.logger.warn('psutil not installed. this Supvisors will not publish statistics')
+            self.logger.warn('psutil not installed')
+            self.logger.warn('this Supvisors will not publish statistics')
             self.collector = None
         # other attributes
         self.address = self.supvisors.address_mapper.local_address
@@ -72,7 +77,7 @@ class SupervisorListener(object):
         # replace the default handler for web ui
         self.info_source.replace_default_handler()
         # create zmq sockets
-        self.supvisors.zmq = SupvisorsZmq(self.supvisors)
+        self.supvisors.zmq = SupervisorZmq(self.supvisors)
         # keep a reference to the internal events publisher
         self.publisher = self.supvisors.zmq.internal_publisher
         # start the main loop
@@ -98,12 +103,13 @@ class SupervisorListener(object):
         """ Called when a ProcessEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        self.logger.debug('got Process event from supervisord: {} {}'.format(event_name, event))
+        self.logger.debug('got Process event from supervisord: {} {}'
+                          .format(event_name, event))
         # create payload from event
-        payload = {'processname': event.process.config.name,
-            'groupname': event.process.group.config.name,
+        payload = {'name': event.process.config.name,
+            'group': event.process.group.config.name,
             'state': ProcessStates._from_string(event_name.split('_')[-1]),
-            'now': int(time.time()), 
+            'now': int(time.time()),
             'pid': event.process.pid,
             'expected': event.expected}
         self.logger.debug('payload={}'.format(payload))
@@ -179,7 +185,7 @@ class SupervisorListener(object):
         payload = {'processname': process_name,
             'groupname': application_name,
             'state': state,
-            'now': int(time.time()), 
+            'now': int(time.time()),
             'pid': 0,
             'expected': False}
         self.logger.debug('payload={}'.format(payload))

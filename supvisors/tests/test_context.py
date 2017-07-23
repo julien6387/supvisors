@@ -25,7 +25,7 @@ import unittest
 from mock import call, patch, Mock
 
 from supvisors.tests.base import (DummyAddressMapper, MockedSupvisors,
-    ProcessInfoDatabase, database_copy, any_process_info)
+    database_copy, any_process_info)
 
 
 class ContextTest(unittest.TestCase):
@@ -99,10 +99,10 @@ class ContextTest(unittest.TestCase):
 
     def random_fill_processes(self, context):
         """ Pushes ProcessInfoDatabase process info in AddressStatus. """
-        for info in ProcessInfoDatabase:
+        for info in database_copy():
             process = context.setdefault_process(info)
             address_name = random.choice(context.addresses.keys())
-            process.add_info(address_name, info.copy())
+            process.add_info(address_name, info)
             context.addresses[address_name].add_process(process)
 
     def test_invalid(self):
@@ -417,19 +417,18 @@ class ContextTest(unittest.TestCase):
                     self.assertEqual(0, mocked_appli.call_count)
                     self.assertEqual(0, mocked_proc.call_count)
                 # fill context with one process
-                dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'spawnerr': '', 'now': 1234, 'state': 0}
+                dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'now': 1234, 'state': 0}
                 process = context.setdefault_process(dummy_info)
                 process.add_info('10.0.0.1', dummy_info)
                 application = context.applications['dummy_application']
                 self.assertEqual(ApplicationStates.STOPPED, application.state)
                 # check normal behaviour with known process
-                dummy_event = {'groupname': 'dummy_application', 'processname': 'dummy_process', 'state': 10, 'now': 2345}
+                dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'now': 2345}
                 for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
                     address._state = state
                     result = context.on_process_event('10.0.0.1', dummy_event)
                     self.assertIs(process, result)
                     self.assertEqual(10, process.state)
-                    self.assertEqual(2345, process.last_event_time)
                     self.assertEqual(ApplicationStates.STARTING, application.state)
                     self.assertEqual(call(application), mocked_appli.call_args)
                     self.assertEqual(call(process), mocked_proc.call_args)

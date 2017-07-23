@@ -24,7 +24,8 @@ from supvisors.tests.base import MockedSupvisors
 
 
 class ViewHandlerTest(unittest.TestCase):
-    """ Test case for the viewhandler module. """
+    """ Test case for the viewhandler module.
+    This will be painful to test... """
 
     def test_TODO(self):
         """ Test the values set at construction. """

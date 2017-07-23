@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -46,7 +46,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_self_starting(self):
         """ Test the events received that corresponds to the starting of this process. """
         # define 'test' application
-        application = Application('test') 
+        application = Application('test')
         self.context.add_application(application)
         program = Program('check_start_sequence')
         # this process 'test:check_start_sequence' is already starting
@@ -63,7 +63,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         The mount_disk process is started first, then the copy_error (failure expected).
         The application is configured to be stopped because of the failure. """
         # define 'import_database' application
-        application = Application('import_database') 
+        application = Application('import_database')
         self.context.add_application(application)
         application.add_program(Program('mount_disk', True))
         application.add_program(Program('copy_error', True))
@@ -100,18 +100,24 @@ class CheckStartSequenceTest(CheckSequenceTest):
         program.add_event(ProcessStateEvent(ProcessStates.STOPPING, self.HOST_01))
         program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # do NOT check the events received at this stage
-        # stopping events will be mixed with the starting events of the following applications
+        # stopping events will be mixed with the starting events
+        # of the following applications
 
     def check_database_starting(self):
         """ Check the starting of the database application.
-        The movie_server_xx processes are started first, then the register_movies_xx.
+        The movie_server_xx processes are started first,
+        then the register_movies_xx.
         FATAL process events are expected, according to the test platform. """
         # define 'import_database' application
-        application = Application('database') 
+        application = Application('database')
         self.context.add_application(application)
-        for program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
+        for program_name in ['movie_server_01',
+                             'movie_server_02',
+                             'movie_server_03']:
             application.add_program(Program(program_name))
-        for program_name in ['register_movies_01', 'register_movies_02', 'register_movies_03']:
+        for program_name in ['register_movies_01',
+                             'register_movies_02',
+                             'register_movies_03']:
             application.add_program(Program(program_name, False, True))
         # check events
         self.check_movie_server_starting()
@@ -119,7 +125,9 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_movie_server_starting(self):
         """ Check the starting of the movie_server programs. """
-        config = [('movie_server_01', self.HOST_01), ('movie_server_02', self.HOST_03), ('movie_server_03', self.HOST_02)]
+        config = [('movie_server_01', self.HOST_01),
+                  ('movie_server_02', self.HOST_03),
+                  ('movie_server_03', self.HOST_02)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
@@ -135,7 +143,9 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
-        config = [('register_movies_01', self.HOST_01), ('register_movies_02', self.HOST_03), ('register_movies_03', self.HOST_02)]
+        config = [('register_movies_01', self.HOST_01),
+                  ('register_movies_02', self.HOST_03),
+                  ('register_movies_03', self.HOST_02)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
@@ -152,10 +162,12 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_my_movies_starting(self):
         """ Check the starting of the my_movies application.
-        The manager process is started first, then the web_server, finally the hmi.
-        In the my_movies application, there should be a major_failure due to the web_server that is configured not to start. """
+        The manager process is started first, then the web_server,
+        finally the hmi.
+        In the my_movies application, there should be a major_failure due to
+        the web_server that is configured not to start. """
         # define 'my_movies' application
-        application = Application('my_movies') 
+        application = Application('my_movies')
         self.context.add_application(application)
         application.add_program(Program('manager', True))
         application.add_program(Program('web_server', True))
@@ -198,9 +210,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_player_starting(self):
         """ Check the starting of the player application.
         The test_reader process is started first (wrong exit code expected).
-        The starting of the application is configured to be aborted after the failure. """
+        The starting of the application is configured to be aborted
+        after the failure. """
         # define 'player' application
-        application = Application('player') 
+        application = Application('player')
         self.context.add_application(application)
         application.add_program(Program('test_reader', True, True))
         application.add_program(Program('movie_player'))
@@ -222,7 +235,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the web_movies application.
         It contains only the web_browser program. """
         # define 'my_movies' application
-        application = Application('web_movies') 
+        application = Application('web_movies')
         self.context.add_application(application)
         program = Program('web_browser')
         application.add_program(program)
@@ -240,8 +253,10 @@ def test_suite():
 if __name__ == '__main__':
     # get arguments
     import argparse
-    parser = argparse.ArgumentParser(description='Check the starting sequence using Supvisors events.')
-    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
+    parser = argparse.ArgumentParser(
+        description='Check the starting sequence using Supvisors events.')
+    parser.add_argument('-p', '--port', type=int, default=60002,
+                        help="the event port of Supvisors")
     args = parser.parse_args()
     CheckSequenceTest.PORT = args.port
     # start unittest

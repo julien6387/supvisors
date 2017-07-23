@@ -97,7 +97,7 @@ class Parser(object):
     def __init__(self, supvisors):
         self.supvisors = supvisors
         supvisors_short_cuts(self, ['logger'])
-        self.tree = self.parse(supvisors.options.deployment_file)
+        self.tree = self.parse(supvisors.options.rules_file)
         self.root = self.tree.getroot()
         # get models
         elements = self.root.findall("./model[@name]")

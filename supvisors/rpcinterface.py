@@ -24,8 +24,9 @@ from supervisor.options import split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
-from supvisors.ttypes import (ApplicationStates, DeploymentStrategies,
-    SupvisorsStates)
+from supvisors.strategy import conciliate_conflicts
+from supvisors.ttypes import (ApplicationStates, ConciliationStrategies,
+    StartingStrategies, SupvisorsStates)
 from supvisors.utils import supvisors_short_cuts
 
 # get Supvisors version from file
@@ -64,6 +65,20 @@ class RPCInterface(object):
         *@return* ``str``: the IPv4 address or host name.
         """
         return self.context.master_address
+
+    def get_strategies(self):
+        """ Get the strategies applied by **Supvisors**:
+        
+            * auto-fencing, when an address becomes inactive,
+            * in the ``DEPLOYMENT`` state, to start applications,
+            * in the ``CONCILIATION`` state, to conciliate conflicts.
+
+        *@return* ``dict``: a structure containing data about the strategies applied.
+        """
+        options = self.supvisors.options
+        return {'auto-fencing': options.auto_fence,
+            'starting': StartingStrategies._to_string(options.starting_strategy),
+            'conciliation': ConciliationStrategies._to_string(options.conciliation_strategy)}
 
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
@@ -115,10 +130,27 @@ class RPCInterface(object):
         self._check_from_deployment()
         return self._get_application(application_name).serial()
 
+    def get_application_rules(self, application_name):
+        """ Get the rules used to start / stop the application named application_name.
+
+        *@param* ``str application_name``: the name of the application.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+
+        *@return* ``list(dict)``: a list of structures containing the rules.
+        """
+        self._check_from_deployment()
+        result = self._get_application(application_name).rules.serial()
+        result.update({'application_name': application_name})
+        return result
+
     def get_all_process_info(self):
         """ Get information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -134,7 +166,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
@@ -152,7 +184,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
@@ -167,21 +199,20 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
         return [process.serial()
-            for application in self.context.applications.values()
-                for process in application.processes.values()
-                    if process.conflicting()]
+            for process in self.context.processes.values()
+                if process.conflicting()]
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -199,7 +230,7 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in DeploymentStrategies._values():
+        if strategy not in StartingStrategies._values():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check application is known
         if application_name not in self.context.applications.keys():
@@ -208,7 +239,7 @@ class RPCInterface(object):
         application = self.context.applications[application_name]
         if application.state != ApplicationStates.STOPPED:
             raise RPCError(Faults.ALREADY_STARTED, application_name)
-        # TODO: develop a predictive model to check if deployment can be achieved
+        # TODO: develop a predictive model to check if starting can be achieved
         # if impossible due to a lack of resources, second try without optionals
         # return false if still impossible
         done = self.starter.start_application(strategy, application)
@@ -224,7 +255,7 @@ class RPCInterface(object):
                 return True
             onwait.delay = 0.5
             return onwait # deferred
-        # if done is True, nothing to do (no deployment or impossible to deploy)
+        # if done is True, nothing to do (no starting or impossible to start)
         return not done
 
     def stop_application(self, application_name, wait=True):
@@ -270,7 +301,7 @@ class RPCInterface(object):
     def restart_application(self, strategy, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -281,7 +312,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -360,7 +391,7 @@ class RPCInterface(object):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -380,7 +411,7 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in DeploymentStrategies._values():
+        if strategy not in StartingStrategies._values():
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check names
         application, process = self._get_application_process(namespec)
@@ -451,10 +482,10 @@ class RPCInterface(object):
         return True
 
     def restart_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Restart a process named namespec iaw the strategy and some of the rules defined in the deployment file.
+        """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``DeploymentStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -493,10 +524,33 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait # deferred
 
+    def conciliate(self, strategy):
+        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
+        with a USER strategy.
+
+        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate.
+
+        *@throws* ``RPCError``:
+
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
+
+        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
+        """
+        self._check_conciliation()
+        # check strategy
+        if strategy not in ConciliationStrategies._values():
+            raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+        # trigger conciliation
+        if strategy != ConciliationStrategies.USER:
+            conciliate_conflicts(self.supvisors, strategy, self.context.conflicts())
+            return True
+        return False
+
     def restart(self):
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -507,7 +561,7 @@ class RPCInterface(object):
     def shutdown(self):
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in state ``INITIALIZATION``.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -532,9 +586,13 @@ class RPCInterface(object):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.OPERATION])
 
+    def _check_conciliation(self):
+        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
+        self._check_state([SupvisorsStates.CONCILIATION])
+
     def _check_state(self, states):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
-        if self.supvisors.fsm.state not in states:
+        if self.fsm.state not in states:
             raise RPCError(Faults.BAD_SUPVISORS_STATE,
                 'Supvisors (state={}) not in state {} to perform request'.
                 format(SupvisorsStates._to_string(self.supvisors.fsm.state),

@@ -5,12 +5,16 @@
 
 The main features are:
 
-    - the definition of a rules file to handle the starting and the stopping sequences of the applications,
+    - a new web-based dashboard that replaces the default dashboard of Supervisor,
     - an extended XML-RPC API to control applications and multiple Supervisor instances,
-    - a new web-based dashboard that replaces the default dashboard of Supervisor.
+    - the definition of a rules file to handle:
+
+        * the starting sequence and strategy of the applications,
+        * the stopping sequence of the applications,
+        * the starting strategy
 
 .. image:: docs/images/supvisors_address_process_section.png
-   :alt: Supvisors' Dashboard
+   :alt: Image of Supvisors' Dashboard
    :align: center
 
 Supported Platforms

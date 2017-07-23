@@ -18,7 +18,7 @@
 # ======================================================================
 
 from supvisors.ttypes import (AddressStates, ConciliationStrategies,
-    DeploymentStrategies, RunningFailureStrategies)
+    StartingStrategies, RunningFailureStrategies)
 from supvisors.utils import supvisors_short_cuts
 
 
@@ -32,7 +32,7 @@ class AbstractStrategy(object):
 
 # Strategy management for Starting
 class AbstractStartingStrategy(AbstractStrategy):
-    """ Base class for a deployment strategy. """
+    """ Base class for a starting strategy. """
 
     def is_loading_valid(self, address, expected_loading):
         """ Return True and current loading if remote Supvisors instance is active and can support the additional loading. """
@@ -101,11 +101,11 @@ class MostLoadedStrategy(AbstractStartingStrategy):
 
 def get_address(supvisors, strategy, addresses, expected_loading):
     """ Creates a strategy and let it find an address to start a process having a defined loading. """
-    if strategy == DeploymentStrategies.CONFIG:
+    if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
-    if strategy == DeploymentStrategies.LESS_LOADED:
+    if strategy == StartingStrategies.LESS_LOADED:
         instance = LessLoadedStrategy(supvisors)
-    if strategy == DeploymentStrategies.MOST_LOADED:
+    if strategy == StartingStrategies.MOST_LOADED:
         instance = MostLoadedStrategy(supvisors)
     # apply strategy result
     return instance.get_address(addresses, expected_loading)
@@ -198,7 +198,7 @@ class FailureStrategy(AbstractStrategy):
         self.supvisors.failure_handler.trigger_jobs()
 
 
-def conciliate(supvisors, strategy, conflicts):
+def conciliate_conflicts(supvisors, strategy, conflicts):
     """ Creates a strategy and let it conciliate the conflicts. """
     if strategy == ConciliationStrategies.SENICIDE:
         instance = SenicideStrategy(supvisors)

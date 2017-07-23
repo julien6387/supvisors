@@ -74,6 +74,20 @@ class ControllerPluginTest(unittest.TestCase):
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
         return_value=True)
+    def test_strategies(self, mocked_check):
+        """ Test the master request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test help and request
+        mocked_rpc = plugin.supvisors().get_strategies
+        mocked_rpc.return_value = {'conciliation': 'hard', 'starting': 'easy', 'auto-fencing': True}
+        self._check_call(mocked_check, plugin.supvisors().get_strategies,
+            plugin.help_strategies, plugin.do_strategies, '',
+            [call()])
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sstate(self, mocked_check):
         """ Test the sstate request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -186,8 +200,58 @@ class ControllerPluginTest(unittest.TestCase):
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
         return_value=True)
-    def test_rules(self, mocked_check):
-        """ Test the rules request. """
+    def test_application_rules(self, mocked_check):
+        """ Test the application_rules request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test help and request for all rules
+        mocked_appli = plugin.supvisors().get_all_applications_info
+        mocked_appli.return_value = [{'application_name': 'appli_1'},
+            {'application_name': 'appli_2'}]
+        mocked_rpc = plugin.supvisors().get_application_rules
+        returned_rules = [
+            {'application_name': 'appli_1',
+                'start_sequence': 2, 'stop_sequence': 3,
+                'starting_failure_strategy': 2,
+                'running_failure_strategy': 1}, 
+            {'application_name': 'appli_2',
+                'start_sequence': 1, 'stop_sequence': 0,
+                'starting_failure_strategy': 0,
+                'running_failure_strategy': 2}]
+        # first possiblity: no argument
+        mocked_rpc.side_effect = returned_rules
+        self._check_call(mocked_check, mocked_rpc,
+            plugin.help_application_rules, plugin.do_application_rules, '',
+            [call('appli_1'), call('appli_2')])
+        self.assertEqual([call(), call()], mocked_appli.call_args_list)
+        mocked_appli.reset_mock()
+        # second possiblity: use 'all'
+        mocked_rpc.side_effect = returned_rules
+        self._check_call(mocked_check, mocked_rpc,
+            plugin.help_application_rules, plugin.do_application_rules, 'all',
+            [call('appli_1'), call('appli_2')])
+        self.assertEqual([call(), call()], mocked_appli.call_args_list)
+        mocked_appli.reset_mock()
+        # test help and request for rules from a selection of application names
+        mocked_rpc.side_effect = returned_rules
+        self._check_call(mocked_check, mocked_rpc,
+            plugin.help_application_rules, plugin.do_application_rules,
+            'appli_2 appli_1',
+            [call('appli_2'), call('appli_1')])
+        self.assertEqual(0, mocked_appli.call_count)
+        # test help and request with get_all_applications_info error
+        mocked_appli.reset_mock()
+        mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
+        plugin.do_application_rules('')
+        self.assertEqual([call()], mocked_appli.call_args_list)
+        self.assertEqual(0, mocked_rpc.call_count)
+        self.check_output_error(True)
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
+    def test_process_rules(self, mocked_check):
+        """ Test the process_rules request. """
         from supvisors.supvisorsctl import ControllerPlugin
         # create the instance
         plugin = ControllerPlugin(self.controller)
@@ -212,28 +276,28 @@ class ControllerPluginTest(unittest.TestCase):
         # first possiblity: no argument
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_rules, plugin.do_rules, '',
+            plugin.help_process_rules, plugin.do_process_rules, '',
             [call('appli_1:*'), call('appli_2:*')])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # second possiblity: use 'all'
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_rules, plugin.do_rules, 'all',
+            plugin.help_process_rules, plugin.do_process_rules, 'all',
             [call('appli_1:*'), call('appli_2:*')])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # test help and request for rules from a selection of namespecs
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_rules, plugin.do_rules,
+            plugin.help_process_rules, plugin.do_process_rules,
             'appli_2:proc_3 appli_1:proc_1',
             [call('appli_2:proc_3'), call('appli_1:proc_1')])
         self.assertEqual(0, mocked_appli.call_count)
         # test help and request with get_all_applications_info error
         mocked_appli.reset_mock()
         mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
-        plugin.do_rules('')
+        plugin.do_process_rules('')
         self.assertEqual([call()], mocked_appli.call_args_list)
         self.assertEqual(0, mocked_rpc.call_count)
         self.check_output_error(True)
@@ -397,7 +461,31 @@ class ControllerPluginTest(unittest.TestCase):
             ('appli_1:*', 'appli_2:*'),
             'appli_2:proc_3 appli_1:proc_1', ('appli_2:proc_3', 'appli_1:proc_1'))
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
+    def test_conciliate(self, mocked_check):
+        """ Test the conciliate request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test the request using no strategy
+        plugin.do_conciliate('')
+        self.check_output_error(True)
+        self.assertEqual([call()], mocked_check.call_args_list)
+        mocked_check.reset_mock()
+        # test the request using unknown strategy
+        plugin.do_conciliate('strategy')
+        self.check_output_error(True)
+        self.assertEqual([call()], mocked_check.call_args_list)
+        mocked_check.reset_mock()
+        # test help and request
+        mocked_rpc = plugin.supvisors().conciliate
+        self._check_call(mocked_check, mocked_rpc,
+            plugin.help_conciliate, plugin.do_conciliate,
+            'SENICIDE', [call(0)])
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sreload(self, mocked_check):
         """ Test the sreload request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -409,7 +497,8 @@ class ControllerPluginTest(unittest.TestCase):
             plugin.help_sreload, plugin.do_sreload, '',
             [call()])
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+        return_value=True)
     def test_sshutdown(self, mocked_check):
         """ Test the sshutdown request. """
         from supvisors.supvisorsctl import ControllerPlugin
