@@ -18,6 +18,7 @@ _ropeproject/
 build/
 .build/
 .eggs/
+.settings/
 dist/
 cur/
 tmp/
@@ -29,4 +30,6 @@ log/
 *.log
 *.coverage
 *.egg-info
+.project
+.pydevproject
 
