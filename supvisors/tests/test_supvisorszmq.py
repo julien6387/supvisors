@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -290,7 +290,7 @@ class Payload:
     def __init__(self, data):
         self.data = data
     def serial(self):
-        return self.data 
+        return self.data
 
 
 class EventTest(unittest.TestCase):
@@ -478,6 +478,35 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
 
+class SupervisorZmqTest(unittest.TestCase):
+    """ Test case for the SupervisorZmq class of the supvisorszmq module. """
+
+    def setUp(self):
+        """ Create a dummy supvisors. """
+        self.supvisors = MockedSupvisors()
+
+    def test_creation_closure(self):
+        """ Test the types of the attributes created. """
+        from supvisors.supvisorszmq import (SupervisorZmq, EventPublisher,
+            InternalEventPublisher, RequestPusher)
+        sockets = SupervisorZmq(self.supvisors)
+        # test all attribute types
+        self.assertIsInstance(sockets.zmq_context, zmq.Context)
+        self.assertFalse(sockets.zmq_context.closed)
+        self.assertIsInstance(sockets.publisher, EventPublisher)
+        self.assertFalse(sockets.publisher.socket.closed)
+        self.assertIsInstance(sockets.internal_publisher, InternalEventPublisher)
+        self.assertFalse(sockets.internal_publisher.socket.closed)
+        self.assertIsInstance(sockets.pusher, RequestPusher)
+        self.assertFalse(sockets.pusher.socket.closed)
+        # close the instance
+        sockets.close()
+        self.assertTrue(sockets.zmq_context.closed)
+        self.assertTrue(sockets.publisher.socket.closed)
+        self.assertTrue(sockets.internal_publisher.socket.closed)
+        self.assertTrue(sockets.pusher.socket.closed)
+
+
 class SupvisorsZmqTest(unittest.TestCase):
     """ Test case for the SupvisorsZmq class of the supvisorszmq module. """
 
@@ -487,30 +516,20 @@ class SupvisorsZmqTest(unittest.TestCase):
 
     def test_creation_closure(self):
         """ Test the types of the attributes created. """
-        from supvisors.supvisorszmq import (SupvisorsZmq, EventPublisher,
-            InternalEventSubscriber, InternalEventPublisher, RequestPuller, RequestPusher)
+        from supvisors.supvisorszmq import (SupvisorsZmq,
+            InternalEventSubscriber, RequestPuller)
         sockets = SupvisorsZmq(self.supvisors)
         # test all attribute types
         self.assertIsInstance(sockets.zmq_context, zmq.Context)
         self.assertFalse(sockets.zmq_context.closed)
-        self.assertIsInstance(sockets.publisher, EventPublisher)
-        self.assertFalse(sockets.publisher.socket.closed)
         self.assertIsInstance(sockets.internal_subscriber, InternalEventSubscriber)
         self.assertFalse(sockets.internal_subscriber.socket.closed)
-        self.assertIsInstance(sockets.internal_publisher, InternalEventPublisher)
-        self.assertFalse(sockets.internal_publisher.socket.closed)
         self.assertIsInstance(sockets.puller, RequestPuller)
         self.assertFalse(sockets.puller.socket.closed)
-        self.assertIsInstance(sockets.pusher, RequestPusher)
-        self.assertFalse(sockets.pusher.socket.closed)
         # close the instance
         sockets.close()
-        self.assertTrue(sockets.zmq_context.closed)
-        self.assertTrue(sockets.publisher.socket.closed)
         self.assertTrue(sockets.internal_subscriber.socket.closed)
-        self.assertTrue(sockets.internal_publisher.socket.closed)
         self.assertTrue(sockets.puller.socket.closed)
-        self.assertTrue(sockets.pusher.socket.closed)
 
 
 def test_suite():

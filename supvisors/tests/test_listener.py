@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -77,7 +77,7 @@ class ListenerTest(unittest.TestCase):
         ref_publisher = listener.publisher
         ref_main_loop = listener.main_loop
         with patch.object(self.supvisors.info_source, 'replace_default_handler') as mocked_infosource:
-            with patch('supvisors.listener.SupvisorsZmq') as mocked_zmq:
+            with patch('supvisors.listener.SupervisorZmq') as mocked_zmq:
                 with patch('supvisors.listener.SupvisorsMainLoop') as mocked_loop:
                     listener.on_running('')
                     # test attributes and calls

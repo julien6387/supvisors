@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -46,10 +46,9 @@ class MainLoopTest(unittest.TestCase):
         self.assertIsInstance(main_loop, Thread)
         self.assertIs(self.supvisors, main_loop.supvisors)
         self.assertFalse(main_loop.loop)
-        self.assertIs(self.supvisors.zmq.internal_subscriber,
-                      main_loop.subscriber)
-        self.assertIs(self.supvisors.zmq.puller, main_loop.puller)
-        self.assertDictEqual({'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
+        self.assertIsNotNone(main_loop.subscriber)
+        self.assertIsNotNone(main_loop.puller)
+        self.assertDictEqual({'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
                               'SUPERVISOR_USERNAME': '',
                               'SUPERVISOR_PASSWORD': ''},
                              main_loop.env)
@@ -86,34 +85,37 @@ class MainLoopTest(unittest.TestCase):
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # configure patches
-        main_loop.subscriber.receive.side_effect = [Exception, 'subscription']
-        main_loop.puller.receive.side_effect = [Exception, ('pull', 'data')]
-        # patch 4 loops
-        with patch.object(main_loop, 'get_loop', side_effect=[True]*4+[False]):
-            # patch zmq calls: 2 loops for subscriber, 2 loops for puller
-            effects = [{main_loop.subscriber.socket: 1}] * 2 + \
-                [{main_loop.puller.socket: 1}] * 2
-            poll.side_effect = effects
-            with patch.multiple(main_loop,
-                                send_remote_comm_event=DEFAULT,
-                                send_request=DEFAULT) as mocked_loop:
-                main_loop.run()
-                # test that poll was called 4 times
-                self.assertEqual([call(500)]*4, poll.call_args_list)
-                # test that register was called twice
-                self.assertEqual([call(main_loop.subscriber.socket, 1),
-                                  call(main_loop.puller.socket, 1)],
-                                 register.call_args_list)
-                # test that unregister was called twice
-                self.assertEqual([call(main_loop.puller.socket),
-                                  call(main_loop.subscriber.socket)],
-                                 unregister.call_args_list)
-                # test that send_remote_comm_event was called once
-                self.assertEqual([call(u'event', '"subscription"')],
-                                 mocked_loop['send_remote_comm_event'].call_args_list)
-                # test that send_request was called once
-                self.assertEqual([call('pull', 'data')],
-                                 mocked_loop['send_request'].call_args_list)
+        with patch.object(main_loop.subscriber, 'receive',
+                          side_effect=[Exception, 'subscription']):
+            with patch.object(main_loop.puller, 'receive',
+                              side_effect=[Exception, ('pull', 'data')]):
+                # patch 4 loops
+                with patch.object(main_loop, 'get_loop',
+                                  side_effect=[True] * 4 + [False]):
+                    # patch zmq calls: 2 loops for subscriber, 2 loops for puller
+                    effects = [{main_loop.subscriber.socket: 1}] * 2 + \
+                        [{main_loop.puller.socket: 1}] * 2
+                    poll.side_effect = effects
+                    with patch.multiple(main_loop,
+                                        send_remote_comm_event=DEFAULT,
+                                        send_request=DEFAULT) as mocked_loop:
+                        main_loop.run()
+                        # test that poll was called 4 times
+                        self.assertEqual([call(500)] * 4, poll.call_args_list)
+                        # test that register was called twice
+                        self.assertEqual([call(main_loop.subscriber.socket, 1),
+                                          call(main_loop.puller.socket, 1)],
+                                         register.call_args_list)
+                        # test that unregister was called twice
+                        self.assertEqual([call(main_loop.puller.socket),
+                                          call(main_loop.subscriber.socket)],
+                                         unregister.call_args_list)
+                        # test that send_remote_comm_event was called once
+                        self.assertEqual([call(u'event', '"subscription"')],
+                                         mocked_loop['send_remote_comm_event'].call_args_list)
+                        # test that send_request was called once
+                        self.assertEqual([call('pull', 'data')],
+                                         mocked_loop['send_request'].call_args_list)
 
     def test_check_address(self):
         """ Test the protocol to get the processes handled by a remote Supervisor. """
@@ -277,7 +279,8 @@ class MainLoopTest(unittest.TestCase):
             self.assertEqual(call('event type', 'event data'),
                              mocked_supervisor.call_args)
 
-    def check_call(self, main_loop, mocked_loop, method_name, request, args):
+    def check_call(self, main_loop, mocked_loop, mocked_disconnect,
+                   method_name, request, args):
         """ Perform a main loop request and check what has been called. """
         # send request
         main_loop.send_request(request, args)
@@ -291,11 +294,11 @@ class MainLoopTest(unittest.TestCase):
                 self.assertEqual(0, mocked.call_count)
         # test mocked subscriber
         if not method_name:
-            self.assertEqual(1, main_loop.subscriber.disconnect.call_count)
-            self.assertEqual(call(args), main_loop.subscriber.disconnect.call_args)
-            main_loop.subscriber.disconnect.reset_mock()
+            self.assertEqual(1, mocked_disconnect.call_count)
+            self.assertEqual(call(args), mocked_disconnect.call_args)
+            mocked_disconnect.reset_mock()
         else:
-            self.assertEqual(0, main_loop.subscriber.disconnect.call_count)
+            self.assertEqual(0, mocked_disconnect.call_count)
 
     def test_send_request(self):
         """ Test the execution of a deferred Supervisor request. """
@@ -306,26 +309,38 @@ class MainLoopTest(unittest.TestCase):
         with patch.multiple(main_loop, check_address=DEFAULT,
             start_process=DEFAULT, stop_process=DEFAULT,
             restart=DEFAULT, shutdown=DEFAULT) as mocked_loop:
-            # test check address
-            self.check_call(main_loop, mocked_loop, 'check_address',
-                DeferredRequestHeaders.CHECK_ADDRESS, ('10.0.0.2', ))
-            # test isolate addresses
-            self.check_call(main_loop, mocked_loop, '',
-                DeferredRequestHeaders.ISOLATE_ADDRESSES, ('10.0.0.2', '10.0.0.3'))
-            # test start process
-            self.check_call(main_loop, mocked_loop, 'start_process',
-                DeferredRequestHeaders.START_PROCESS,
-                ('10.0.0.2', 'dummy_process', 'extra args'))
-            # test stop process
-            self.check_call(main_loop, mocked_loop, 'stop_process',
-                DeferredRequestHeaders.STOP_PROCESS,
-                ('10.0.0.2', 'dummy_process'))
-            # test restart
-            self.check_call(main_loop, mocked_loop, 'restart',
-                DeferredRequestHeaders.RESTART, ('10.0.0.2', ))
-            # test shutdown
-            self.check_call(main_loop, mocked_loop, 'shutdown',
-                DeferredRequestHeaders.SHUTDOWN, ('10.0.0.2', ))
+            with patch.object(main_loop.subscriber,
+                              'disconnect') as mocked_disconnect:
+                # test check address
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                'check_address',
+                                DeferredRequestHeaders.CHECK_ADDRESS,
+                                ('10.0.0.2', ))
+                # test isolate addresses
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                '',
+                                DeferredRequestHeaders.ISOLATE_ADDRESSES,
+                                ('10.0.0.2', '10.0.0.3'))
+                # test start process
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                'start_process',
+                                DeferredRequestHeaders.START_PROCESS,
+                                ('10.0.0.2', 'dummy_process', 'extra args'))
+                # test stop process
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                'stop_process',
+                                DeferredRequestHeaders.STOP_PROCESS,
+                                ('10.0.0.2', 'dummy_process'))
+                # test restart
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                'restart',
+                                DeferredRequestHeaders.RESTART,
+                                ('10.0.0.2', ))
+                # test shutdown
+                self.check_call(main_loop, mocked_loop, mocked_disconnect,
+                                'shutdown',
+                                DeferredRequestHeaders.SHUTDOWN,
+                                ('10.0.0.2', ))
 
 
 def test_suite():
