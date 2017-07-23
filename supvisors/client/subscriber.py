@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,12 +30,13 @@ def create_logger(logfile='subscriber.log', loglevel=LevelsByName.INFO,
         format='%(asctime)s %(levelname)s %(message)s\n',
         rotating=True, maxbytes=10*1024*1024, backups=1, stdout=True):
     """ Return a Supervisor logger. """
-    return getLogger(logfile, loglevel, format, rotating, maxbytes, backups, stdout)
+    return getLogger(logfile, loglevel, format, rotating,
+                     maxbytes, backups, stdout)
 
 
 class SupvisorsEventInterface(threading.Thread):
-    """ The SupvisorsEventInterface is a python thread that connects to **Supvisors**
-    and receives the events published.
+    """ The SupvisorsEventInterface is a python thread that connects
+    to **Supvisors** and receives the events published.
     The subscriber attribute shall be used to define the event types of interest.
 
     The SupvisorsEventInterface requires:
@@ -44,8 +45,8 @@ class SupvisorsEventInterface(threading.Thread):
         - the event port number used by **Supvisors** to publish its events,
         - a logger reference to log traces.
 
-    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]``
-    section of the Supervisor configuration file.
+    This event port number MUST correspond to the ``event_port`` value set
+    in the ``[supvisors]`` section of the Supervisor configuration file.
 
     The default behaviour is to print the messages received.
     For any other behaviour, just specialize the methods `on_xxx_status`.
@@ -55,10 +56,11 @@ class SupvisorsEventInterface(threading.Thread):
         - logger: the reference to the logger,
         - subscriber: the wrapper of the ZeroMQ socket connected to **Supvisors**,
         - loop: when set to False, breaks the infinite loop of the thread.
-    
+
     Constants:
 
-        - _Poll_timeout: duration used to time out the ZeroMQ poller, set to 1000 milli-seconds.
+        - _Poll_timeout: duration used to time out the ZeroMQ poller,
+        set to 1000 milli-seconds.
     """
 
     _Poll_timeout = 1000
@@ -81,7 +83,7 @@ class SupvisorsEventInterface(threading.Thread):
         """ Main loop of the thread. """
         # create poller and register event subscriber
         poller = zmq.Poller()
-        poller.register(self.subscriber.socket, zmq.POLLIN) 
+        poller.register(self.subscriber.socket, zmq.POLLIN)
         # poll events every seconds
         self.loop = True
         self.logger.info('entering main loop')
@@ -133,12 +135,15 @@ if __name__ == '__main__':
     # get arguments
     import argparse, time
     parser = argparse.ArgumentParser(description='Start a subscriber to Supvisors events.')
-    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
+    parser.add_argument('-p', '--port', type=int, default=60002,
+                        help="the event port of Supvisors")
     parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=10,
         help="the duration of the subscription")
     args = parser.parse_args()
     # create test subscriber
-    loop = SupvisorsEventInterface(create_zmq_context(), args.port, create_logger())
+    loop = SupvisorsEventInterface(create_zmq_context(),
+                                   args.port,
+                                   create_logger())
     loop.subscriber.subscribe_all()
     # start thread and sleep for a while
     loop.start()

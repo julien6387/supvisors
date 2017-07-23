@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -96,7 +96,8 @@ class Application:
         return False
 
     def is_stopping(self):
-        """ Return True if the application has a stopping program and no starting program. """
+        """ Return True if the application has a stopping program and
+        no starting program. """
         stopping = False
         for program in self.programs.values():
             if program.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
@@ -106,10 +107,13 @@ class Application:
         return stopping
 
     def is_running(self):
-        """ Return True if the application has a running program and no starting or stopping program. """
+        """ Return True if the application has a running program and
+        no starting or stopping program. """
         running = False
         for program in self.programs.values():
-            if program.state in [ProcessStates.STARTING, ProcessStates.BACKOFF, ProcessStates.STOPPING]:
+            if program.state in [ProcessStates.STARTING,
+                                 ProcessStates.BACKOFF,
+                                 ProcessStates.STOPPING]:
                 return False
             if program.state == ProcessStates.RUNNING:
                 running = True
@@ -123,7 +127,8 @@ class Application:
         return True
 
     def has_major_failure(self):
-        """ Return True if there is a stopped required program in a running application. """
+        """ Return True if there is a stopped required program in a running
+        application. """
         major = False
         for program in self.programs.values():
             if program.state in STOPPED_STATES and program.required:
@@ -131,11 +136,13 @@ class Application:
         return major and (self.is_running() or self.is_starting())
 
     def has_minor_failure(self):
-        """ Return True if there is a fatal optional program in a running application. """
+        """ Return True if there is a fatal optional program in a running
+        application. """
         minor = False
         for program in self.programs.values():
             if not program.required and (program.state == ProcessStates.FATAL or
-                    (program.state == ProcessStates.EXITED and not program.expected_exit)):
+                    (program.state == ProcessStates.EXITED and
+                     not program.expected_exit)):
                 minor = True
         return minor and (self.is_running() or self.is_starting())
 
@@ -161,8 +168,10 @@ class Context:
         return self.get_application(application_name).get_program(process_name)
 
     def has_events(self, application_name=None):
-        """ Return True if the programs of the application contain events not received yet. """
-        application_list = [self.get_application(application_name)] if application_name else self.applications.values()
+        """ Return True if the programs of the application contain events
+        not received yet. """
+        application_list = [self.get_application(application_name)] \
+            if application_name else self.applications.values()
         for application in application_list:
             for program in application.programs.values():
                 if program.state_events:
@@ -176,16 +185,17 @@ class CheckSequenceTest(unittest.TestCase):
     PORT = 60002
 
     def setUp(self):
-        """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
+        """ The setUp starts the subscriber to the Supvisors events and
+        get the event queues. """
         # create logger using a BoundIO
         self.logger = create_logger(logfile=None)
         # get the addresses
         addresses_info = getRPCInterface(os.environ).supvisors.get_all_addresses_info()
-        print addresses_info
         self.HOST_01 = addresses_info[0]['address_name']
         self.HOST_02 = addresses_info[1]['address_name']
         self.HOST_03 = addresses_info[2]['address_name']
-        self.logger.info('working with HOST_01={} HOST_02={} HOST_03={}'.format(self.HOST_01, self.HOST_02, self.HOST_03))
+        self.logger.info('working with HOST_01={} HOST_02={} HOST_03={}'
+                         .format(self.HOST_01, self.HOST_02, self.HOST_03))
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -193,7 +203,7 @@ class CheckSequenceTest(unittest.TestCase):
         # get the queues
         self.address_queue = self.event_loop.event_queues[1]
         self.application_queue = self.event_loop.event_queues[2]
-        self.process_queue = self.event_loop.event_queues[3]
+        self.process_queue = self.event_loop.event_queues[4]
         # start the thread
         self.event_loop.start()
 
@@ -234,7 +244,7 @@ class CheckSequenceTest(unittest.TestCase):
         application = self.context.get_application(application_name)
         self.assertIsNotNone(application)
         # check that event corresponds to an expected process
-        process_name = event['process_name'] 
+        process_name = event['process_name']
         self.assertIn(process_name, application.programs.keys())
         program = application.get_program(process_name)
         self.assertIsNotNone(program)
@@ -261,12 +271,20 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertIsNotNone(application)
         # check event contents in accordance with context
         if application.is_starting():
-            self.assertDictContainsSubset({'statename': 'STARTING', 'statecode': ApplicationStates.STARTING}, event)
+            self.assertDictContainsSubset({'statename': 'STARTING',
+                                           'statecode': ApplicationStates.STARTING},
+                                          event)
         elif application.is_stopping():
-            self.assertDictContainsSubset({'statename': 'STOPPING', 'statecode': ApplicationStates.STOPPING}, event)
+            self.assertDictContainsSubset({'statename': 'STOPPING',
+                                           'statecode': ApplicationStates.STOPPING},
+                                          event)
         elif application.is_running():
-            self.assertDictContainsSubset({'statename': 'RUNNING', 'statecode': ApplicationStates.RUNNING}, event)
+            self.assertDictContainsSubset({'statename': 'RUNNING',
+                                           'statecode': ApplicationStates.RUNNING},
+                                          event)
         else:
-            self.assertDictContainsSubset({'statename': 'STOPPED', 'statecode': ApplicationStates.STOPPED}, event)
+            self.assertDictContainsSubset({'statename': 'STOPPED',
+                                           'statecode': ApplicationStates.STOPPED},
+                                          event)
         self.assertEqual(application.has_major_failure(), event['major_failure'])
         self.assertEqual(application.has_minor_failure(), event['minor_failure'])

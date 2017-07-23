@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,6 +23,7 @@ import zmq
 from threading import Thread
 
 from supvisors.rpcrequests import getRPCInterface
+from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
 from supvisors.utils import (supvisors_short_cuts, extract_process_info,
     DeferredRequestHeaders, RemoteCommEvents)
@@ -47,8 +48,9 @@ class SupvisorsMainLoop(Thread):
         # init loop value
         self.loop = False
         # keep a reference of zmq sockets
-        self.subscriber = supvisors.zmq.internal_subscriber
-        self.puller = supvisors.zmq.puller
+        self.zmq = SupvisorsZmq(supvisors)
+        self.subscriber = self.zmq.internal_subscriber
+        self.puller = self.zmq.puller
         # keep a reference to the environment
         self.env = self.info_source.get_env()
         # create a xml-rpc client to the local Supervisor instance
@@ -71,8 +73,8 @@ class SupvisorsMainLoop(Thread):
         # create poller
         poller = zmq.Poller()
         # register sockets
-        poller.register(self.subscriber.socket, zmq.POLLIN) 
-        poller.register(self.puller.socket, zmq.POLLIN) 
+        poller.register(self.subscriber.socket, zmq.POLLIN)
+        poller.register(self.puller.socket, zmq.POLLIN)
         # poll events every seconds
         self.loop = True
         while self.get_loop():
@@ -80,19 +82,26 @@ class SupvisorsMainLoop(Thread):
             # Need to test loop flag again as its value may have changed in the gap
             if self.loop:
                 # check tick and process events
-                if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
+                if self.subscriber.socket in socks and \
+                    socks[self.subscriber.socket] == zmq.POLLIN:
                     try:
                         message = self.subscriber.receive()
                     except:
                         # failed to get data from subscriber
                         pass
                     else:
-                        # The events received are not processed directly in this thread because it may conflict with
-                        # the Supvisors functions triggered from the Supervisor thread, as they use the same data.
-                        # That's why a RemoteCommunicationEvent is used to process the event in the Supervisor thread.
-                        self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
+                        # The events received are not processed directly
+                        # in this thread because it may conflict with
+                        # the Supvisors functions triggered from the Supervisor
+                        # thread, as they use the same data.
+                        # That's why a RemoteCommunicationEvent is used to
+                        # process the event in the Supervisor thread.
+                        self.send_remote_comm_event(
+                            RemoteCommEvents.SUPVISORS_EVENT,
+                            json.dumps(message))
                 # check xml-rpc requests
-                if self.puller.socket in socks and socks[self.puller.socket] == zmq.POLLIN:
+                if self.puller.socket in socks and \
+                    socks[self.puller.socket] == zmq.POLLIN:
                     try:
                         header, body = self.puller.receive()
                     except:
@@ -104,6 +113,7 @@ class SupvisorsMainLoop(Thread):
         self.logger.info('end of main loop')
         poller.unregister(self.puller.socket)
         poller.unregister(self.subscriber.socket)
+        self.zmq.close()
 
     def send_request(self, header, body):
         """ Perform the XML-RPC according to the header. """
@@ -131,7 +141,8 @@ class SupvisorsMainLoop(Thread):
             remote_proxy = getRPCInterface(address_name, self.env)
             # check authorization
             status = remote_proxy.supvisors.get_address_info(address_name)
-            authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
+            authorized = status['statecode'] not in [AddressStates.ISOLATING,
+                                                     AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
@@ -139,9 +150,12 @@ class SupvisorsMainLoop(Thread):
                 # create a payload from Supervisor process info
                 payload = [extract_process_info(info) for info in all_info]
                 # post the payload internally
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((address_name, payload)))
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO,
+                                            json.dumps((address_name, payload)))
             # inform local Supvisors that authorization is available
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH, 'address_name:{} authorized:{}'.format(address_name, authorized))
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
+                                        'address_name:{} authorized:{}'
+                                        .format(address_name, authorized))
         except:
             self.logger.error('failed to check address {}'.format(address_name))
 
@@ -151,7 +165,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
-            self.logger.error('failed to start process {} on {} with {}'.format(namespec, address_name, extra_args))
+            self.logger.error('failed to start process {} on {} with {}'
+                              .format(namespec, address_name, extra_args))
 
     def stop_process(self, address_name, namespec):
         """ Stop process asynchronously. """
@@ -159,7 +174,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.stopProcess(namespec, False)
         except:
-            self.logger.error('failed to stop process {} on {}'.format(namespec, address_name))
+            self.logger.error('failed to stop process {} on {}'
+                              .format(namespec, address_name))
 
     def restart(self, address_name):
         """ Restart a Supervisor instance asynchronously. """
@@ -167,7 +183,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.restart()
         except:
-            self.logger.error('failed to restart address {}'.format(address_name))
+            self.logger.error('failed to restart address {}'
+                              .format(address_name))
 
     def shutdown(self, address_name):
         """ Stop process asynchronously. """
@@ -175,7 +192,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.shutdown()
         except:
-            self.logger.error('failed to shutdown address {}'.format(address_name))
+            self.logger.error('failed to shutdown address {}'
+                              .format(address_name))
 
     def send_remote_comm_event(self, event_type, event_data):
         """ Shortcut for the use of sendRemoteCommEvent. """

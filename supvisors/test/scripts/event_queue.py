@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,7 +28,8 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
 
     def __init__(self, port, logger):
         """ Initialization of the attributes.
-        Test relies on 3 addresses so theoretically, we only need 3 notifications to know which address is RUNNING or not.
+        Test relies on 3 addresses so theoretically, we only need 3
+        notifications to know which address is RUNNING or not.
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
@@ -36,19 +37,19 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         # create a set of addresses
         self.addresses = set()
         # create queues to store messages
-        self.event_queues = (Queue(), Queue(), Queue(), Queue())
+        self.event_queues = (Queue(), Queue(), Queue(), Queue(), Queue())
         # subscribe to address status only
         self.subscriber.subscribe_address_status()
         self.nb_address_notifications = 0
- 
+
     def on_supvisors_status(self, data):
-        """ Just logs the contents of the SupvisorsStatus message. """
-        self.logger.info('got SupvisorsStatus message: {}'.format(data))
+        """ Just logs the contents of the Supvisors Status message. """
+        self.logger.info('got Supvisors Status message: {}'.format(data))
         self.event_queues[0].put(data)
 
     def on_address_status(self, data):
-        """ Pushes the AddressStatus message into a queue. """
-        self.logger.info('got AddressStatus message: {}'.format(data))
+        """ Pushes the Address Status message into a queue. """
+        self.logger.info('got Address Status message: {}'.format(data))
         if data['statename'] == 'RUNNING':
             self.addresses.add(data['address_name'])
         # check the number of notifications
@@ -64,11 +65,16 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
             self.event_queues[1].put(self.addresses)
 
     def on_application_status(self, data):
-        """ Pushes the ApplicationStatus message into a queue. """
-        self.logger.info('got ApplicationStatus message: {}'.format(data))
+        """ Pushes the Application Status message into a queue. """
+        self.logger.info('got Application Status message: {}'.format(data))
         self.event_queues[2].put(data)
 
-    def on_process_status(self, data):
-        """ Pushes the ProcessStatus message into a queue. """
-        self.logger.info('got ProcessStatus message: {}'.format(data))
+    def on_process_event(self, data):
+        """ Pushes the Process Event message into a queue. """
+        self.logger.info('got Process Event message: {}'.format(data))
         self.event_queues[3].put(data)
+
+    def on_process_status(self, data):
+        """ Pushes the Process Status message into a queue. """
+        self.logger.info('got Process Status message: {}'.format(data))
+        self.event_queues[4].put(data)

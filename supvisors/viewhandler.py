@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,12 +30,16 @@ from supvisors.webutils import *
 
 
 class ViewHandler(object):
-    """ Helper class to commonize rendering and behaviour between handlers inheriting from MeldView.
+    """ Helper class to commonize rendering and behaviour between handlers
+    inheriting from MeldView.
 
-    The use of some 'self' attributes may appear quite strange as they actually belong to MeldView inheritance.
-    However it works because python interprets the attributes in the context of the instance inheriting from both MeldView and this class.
+    The use of some 'self' attributes may appear quite strange as they actually
+    belong to MeldView inheritance.
+    However it works because python interprets the attributes in the context
+    of the instance inheriting from both MeldView and this class.
 
-    The choice of the statistics is made through class attributes for the moment because it would take too much place on the URL.
+    The choice of the statistics is made through class attributes
+    for the moment because it would take too much place on the URL.
     An change may be done later to use a short code that would be discriminating."""
 
     # static attributes for statistics selection
@@ -43,7 +47,8 @@ class ViewHandler(object):
     namespec_stats = ''
 
     def render(self):
-        """ Method called by Supervisor to handle the rendering of the Supvisors pages. """
+        """ Method called by Supervisor to handle the rendering
+        of the Supvisors pages. """
         # clone the template and set navigation menu
         if self.supvisors.info_source.supervisor_state == SupervisorStates.RUNNING:
             # manage action
@@ -57,7 +62,8 @@ class ViewHandler(object):
             # manage parameters
             self.handle_parameters()
             # blink main title in conciliation state
-            if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.supvisors.context.conflicts():
+            if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and \
+                self.supvisors.context.conflicts():
                 root.findmeld('supvisors_mid').attrib['class'] = 'blink'
             # set Supvisors version
             root.findmeld('version_mid').content(API_VERSION)
@@ -86,17 +92,20 @@ class ViewHandler(object):
                 elt.attrib['class'] = 'off'
             elt.content(item)
         # update navigation applications
-        iterator = root.findmeld('appli_li_mid').repeat(self.supvisors.context.applications.keys())
+        iterator = root.findmeld('appli_li_mid').repeat(
+            self.supvisors.context.applications.keys())
         for li_elt, item in iterator:
             application = self.supvisors.context.applications[item]
             # set element class
-            li_elt.attrib['class'] = application.state_string() + (' active' if item == appli else '')
+            li_elt.attrib['class'] = application.state_string() + (
+                ' active' if item == appli else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
             if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
-                elt.attributes(href='application.html?appli={}'.format(urllib.quote(item)))
+                elt.attributes(href='application.html?appli={}'.format(
+                    urllib.quote(item)))
                 elt.attrib['class'] = 'on'
             elt.content(item)
 
@@ -106,14 +115,16 @@ class ViewHandler(object):
         if ViewHandler.period_stats is None:
             ViewHandler.period_stats = next(iter(self.supvisors.options.stats_periods))
         # render periods
-        iterator = root.findmeld('period_li_mid').repeat(self.supvisors.options.stats_periods)
+        iterator = root.findmeld('period_li_mid').repeat(
+            self.supvisors.options.stats_periods)
         for li_elt, period in iterator:
             # print period button
             elt = li_elt.findmeld('period_a_mid')
             if period == ViewHandler.period_stats:
                 elt.attrib['class'] = "button off active"
             else:
-                elt.attributes(href='{}?{}period={}'.format(self.page_name, self.url_context(), period))
+                elt.attributes(href='{}?{}period={}'
+                               .format(self.page_name, self.url_context(), period))
             elt.content('{}s'.format(period))
 
     def write_common_process_status(self, tr_elt, item):
@@ -145,7 +156,9 @@ class ViewHandler(object):
                     elt.attributes(href='#')
                     elt.attrib['class'] = 'button off active'
                 else:
-                    elt.attributes(href='{}?{}processname={}'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
+                    elt.attributes(href='{}?{}processname={}'
+                                   .format(self.page_name, self.url_context(),
+                                           urllib.quote(namespec)))
                     elt.attrib['class'] = 'button on'
                 hide_cpu_link = False
             if len(proc_stats[1]) > 0:
@@ -157,7 +170,9 @@ class ViewHandler(object):
                     elt.attributes(href='#')
                     elt.attrib['class'] = 'button off active'
                 else:
-                    elt.attributes(href='{}?{}processname={}'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
+                    elt.attributes(href='{}?{}processname={}'
+                                   .format(self.page_name, self.url_context(),
+                                           urllib.quote(namespec)))
                     elt.attrib['class'] = 'button on'
                 hide_mem_link = False
         # when no data, no not write link
@@ -173,25 +188,31 @@ class ViewHandler(object):
         elt = tr_elt.findmeld('start_a_mid')
         if process_state in STOPPED_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}namespec={}&amp;action=start'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}namespec={}&amp;action=start'
+                           .format(self.page_name, self.url_context(),
+                                   urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         # stop button
         elt = tr_elt.findmeld('stop_a_mid')
         if process_state in RUNNING_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}namespec={}&amp;action=stop'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}namespec={}&amp;action=stop'
+                           .format(self.page_name, self.url_context(),
+                                   urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         # restart button
         elt = tr_elt.findmeld('restart_a_mid')
         if process_state in RUNNING_STATES:
             elt.attrib['class'] = 'button on'
-            elt.attributes(href='{}?{}namespec={}&amp;action=restart'.format(self.page_name, self.url_context(), urllib.quote(namespec)))
+            elt.attributes(href='{}?{}namespec={}&amp;action=restart'
+                           .format(self.page_name, self.url_context(),
+                                   urllib.quote(namespec)))
         else:
            elt.attrib['class'] = 'button off'
         return selected_tr
- 
+
     def write_process_statistics(self, root):
         """ Display detailed statistics about the selected process. """
         stats_elt = root.findmeld('pstats_div_mid')
@@ -258,7 +279,8 @@ class ViewHandler(object):
                     self.logger.warn("matplotlib module not found")
             else:
                 if ViewHandler.namespec_stats:
-                    self.logger.warn('unselect Process Statistics for {}'.format(ViewHandler.namespec_stats))
+                    self.logger.warn('unselect Process Statistics for {}'
+                                     .format(ViewHandler.namespec_stats))
                     ViewHandler.namespec_stats = ''
         # remove stats part if empty
         if not ViewHandler.namespec_stats:
@@ -266,8 +288,8 @@ class ViewHandler(object):
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page.
-        These parameters are static to the current class, so they are shared between
-        all browsers connected on this server. """
+        These parameters are static to the current class, so they are shared
+        between all browsers connected on this server. """
         form = self.context.form
         # update context period
         period_string = form.get('period')
@@ -288,7 +310,8 @@ class ViewHandler(object):
                     self.logger.info('select detailed Process statistics for %s' % process_name)
                     ViewHandler.namespec_stats = process_name
             else:
-                self.message(error_message('Incorrect stats processname: {}'.format(process_name)))
+                self.message(error_message('Incorrect stats processname: {}'
+                                           .format(process_name)))
 
     def handle_action(self):
         """ Handling of the actions requested from the Supvisors Address web page. """
@@ -311,7 +334,9 @@ class ViewHandler(object):
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
         form = self.context.form
-        location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + '?{}message={}&amp;gravity={}'.format(self.url_context(), urllib.quote(message[1]), message[0])
+        location = form['SERVER_URL'] + form['PATH_TRANSLATED'] + \
+            '?{}message={}&amp;gravity={}'.format(
+                self.url_context(), urllib.quote(message[1]), message[0])
         self.context.response['headers']['Location'] = location
 
     @staticmethod
@@ -345,12 +370,15 @@ class ViewHandler(object):
         return idx - 1 if idx > 0 else 'all'
 
     def sort_processes_by_config(self, processes):
-        """ This method sorts a process list using the internal configuration of supervisor.
-        The aim is to present processes sorted the same way as they are in group configuration file. """
+        """ This method sorts a process list using the internal configuration
+        of supervisor.
+        The aim is to present processes sorted the same way as they are
+        in group configuration file. """
         sorted_processes = []
         if processes:
             # get the list of applications, sorted alphabetically
-            application_list = sorted({process['application_name'] for process in processes})
+            application_list = sorted({process['application_name']
+                                       for process in processes})
             for application_name in application_list:
                 # get supervisor configuration for application
                 group_config = self.supvisors.info_source.get_group_config(application_name)
@@ -358,11 +386,13 @@ class ViewHandler(object):
                 ordering = [proc.name for proc in group_config.process_configs]
                 # add processes known to supervisor, using the same ordering
                 sorted_processes.extend(sorted([proc for proc in processes
-                    if proc['application_name'] == application_name and proc['process_name'] in ordering],
+                    if proc['application_name'] == application_name and \
+                        proc['process_name'] in ordering],
                     key=lambda x: ordering.index(x['process_name'])))
                 # add processes unknown to supervisor, using the alphabetical ordering
                 sorted_processes.extend(sorted([proc for proc in processes
-                    if proc['application_name'] == application_name and proc['process_name'] not in ordering],
+                    if proc['application_name'] == application_name and \
+                        proc['process_name'] not in ordering],
                     key=lambda x: x['process_name']))
         return sorted_processes
 
