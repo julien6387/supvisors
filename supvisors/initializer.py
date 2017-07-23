@@ -74,7 +74,7 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except:
-            self.logger.warn('cannot parse deployment file: {}'.format(self.options.deployment_file))
+            self.logger.warn('cannot parse rules file: {}'.format(self.options.rules_file))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

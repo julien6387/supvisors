@@ -77,6 +77,18 @@ class RpcInterfaceTest(unittest.TestCase):
         rpc = RPCInterface(self.supervisor)
         self.assertEqual('10.0.0.1', rpc.get_master_address())
 
+    def test_strategies(self):
+        """ Test the get_strategies RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # prepare context
+        self.supervisor.supvisors.options.auto_fence = True
+        self.supervisor.supvisors.options.conciliation_strategy = 1
+        self.supervisor.supvisors.options.starting_strategy = 2
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        self.assertDictEqual({'auto-fencing': True, 'starting': 'MOST_LOADED',
+            'conciliation': 'INFANTICIDE'}, rpc.get_strategies())
+
     def test_address_info(self):
         """ Test the get_address_info RPC. """
         from supvisors.rpcinterface import RPCInterface
@@ -177,6 +189,21 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual([call()], mocked_check.call_args_list)
 
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
+    @patch('supvisors.rpcinterface.RPCInterface._get_application',
+        return_value=Mock(**{'rules.serial.return_value':
+            {'start': 1, 'stop': 2, 'required': True}}))
+    def test_application_rules(self, mocked_get, mocked_check):
+        """ Test the get_application_rules RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        # test RPC call with aplpication name
+        self.assertDictEqual(rpc.get_application_rules('appli'), 
+            {'application_name': 'appli','start': 1, 'stop': 2, 'required': True})
+        self.assertEqual([call()], mocked_check.call_args_list)
+        self.assertEqual([call('appli')], mocked_get.call_args_list)
+
+    @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     @patch('supvisors.rpcinterface.RPCInterface._get_application_process',
         side_effect=[(None, '1'),
             (Mock(**{'processes.values.return_value': ['1', '2']}), None)])
@@ -208,18 +235,17 @@ class RpcInterfaceTest(unittest.TestCase):
         """ Test the get_conflicts RPC. """
         from supvisors.rpcinterface import RPCInterface
         # prepare context
-        self.supervisor.supvisors.context.applications = {
-            'appli_1': Mock(**{'processes.values.return_value': [
-                Mock(**{'conflicting.return_value': True,
-                    'serial.return_value': {'name': 'proc_1'}}),
-                Mock(**{'conflicting.return_value': False,
-                    'serial.return_value': {'name': 'proc_2'}}),
-                Mock(**{'conflicting.return_value': True,
-                    'serial.return_value': {'name': 'proc_3'}})]})}
+        self.supervisor.supvisors.context.processes = {
+            'proc_1': Mock(**{'conflicting.return_value': True,
+                'serial.return_value': {'name': 'proc_1'}}),
+            'proc_2': Mock(**{'conflicting.return_value': False,
+                'serial.return_value': {'name': 'proc_2'}}),
+            'proc_3': Mock(**{'conflicting.return_value': True,
+                'serial.return_value': {'name': 'proc_3'}})}
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test RPC call
-        self.assertEqual([{'name': 'proc_1'}, {'name': 'proc_3'}],
+        self.assertItemsEqual([{'name': 'proc_1'}, {'name': 'proc_3'}],
             rpc.get_conflicts())
         self.assertEqual([call()], mocked_check.call_args_list)
 
@@ -856,6 +882,34 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual([call()],
             self.supervisor.supvisors.fsm.on_restart.call_args_list)
 
+    @patch('supvisors.rpcinterface.RPCInterface._check_conciliation')
+    def test_conciliate(self, mocked_check):
+        """ Test the conciliate RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # set context and patches
+        self.supervisor.supvisors.fsm.state = 3
+        self.supervisor.supvisors.context.conflicts.return_value = [1, 2, 4]
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        with patch('supvisors.rpcinterface.conciliate_conflicts') as mocked_conciliate:
+            # test RPC call with wrong strategy
+            with self.assertRaises(RPCError) as exc:
+                self.assertTrue(rpc.conciliate('a strategy'))
+            self.assertEqual([call()], mocked_check.call_args_list)
+            self.assertEqual(Faults.BAD_STRATEGY, exc.exception.code)
+            self.assertEqual('BAD_STRATEGY: a strategy', exc.exception.text)
+            mocked_check.reset_mock()
+            # test RPC call with USER strategy
+            self.assertFalse(rpc.conciliate(2))
+            self.assertEqual([call()], mocked_check.call_args_list)
+            self.assertEqual(0, mocked_conciliate.call_count)
+            mocked_check.reset_mock()
+            # test RPC call with another strategy            
+            self.assertTrue(rpc.conciliate(1))
+            self.assertEqual([call()], mocked_check.call_args_list)
+            self.assertEqual([call(self.supervisor.supvisors, 1, [1, 2, 4])],
+                mocked_conciliate.call_args_list)
+
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     def test_shutdown(self, mocked_check):
         """ Test the shutdown RPC. """
@@ -914,6 +968,16 @@ class RpcInterfaceTest(unittest.TestCase):
         with patch.object(rpc, '_check_state') as mocked_check:
             rpc._check_operating()
             self.assertListEqual([call([2])], mocked_check.call_args_list)
+
+    def test_check_conciliation(self):
+        """ Test the _check_conciliation utility. """
+        from supvisors.rpcinterface import RPCInterface
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        # test the call to _check_state
+        with patch.object(rpc, '_check_state') as mocked_check:
+            rpc._check_conciliation()
+            self.assertListEqual([call([3])], mocked_check.call_args_list)
 
     def test_get_application(self):
         """ Test the _get_application utility. """

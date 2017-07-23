@@ -231,12 +231,12 @@ class StarterTest(unittest.TestCase):
     def test_creation(self):
         """ Test the values set at construction. """
         from supvisors.commander import Commander, Starter
-        from supvisors.ttypes import DeploymentStrategies
+        from supvisors.ttypes import StartingStrategies
         starter = Starter(self.supvisors)
         self.assertIsInstance(starter, Commander)
-        self.assertEqual(DeploymentStrategies.CONFIG, starter._strategy)
-        starter.strategy = DeploymentStrategies.LESS_LOADED
-        self.assertEqual(DeploymentStrategies.LESS_LOADED, starter.strategy)
+        self.assertEqual(StartingStrategies.CONFIG, starter._strategy)
+        starter.strategy = StartingStrategies.LESS_LOADED
+        self.assertEqual(StartingStrategies.LESS_LOADED, starter.strategy)
 
     def test_abort(self):
         """ Test the abort method. """
@@ -549,9 +549,10 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                 'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']}, starter.printable_current_jobs())
             self.assertEqual(0, mocked_force.call_count)
-        # re-assign request_time to processes in current_jobs
+        # re-assign last_event_time and request_time to processes in current_jobs
         for process_list in starter.current_jobs.values():
             for process in process_list:
+                process.last_event_time = 0
                 process.request_time = 0
         # stopped processes have an old request time: process_failure called
         with patch.object(starter, 'force_process_fatal') as mocked_force:
@@ -667,7 +668,7 @@ class StarterTest(unittest.TestCase):
             process = Mock()
             result = starter.default_start_process(process)
             self.assertTrue(result)
-            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+            self.assertEqual([call(self.supvisors.options.starting_strategy,
                 process)], mocked_start.call_args_list)
 
     def test_start_application(self):
@@ -715,7 +716,7 @@ class StarterTest(unittest.TestCase):
             application = Mock()
             result = starter.default_start_application(application)
             self.assertTrue(result)
-            self.assertEqual([call(self.supvisors.options.deployment_strategy,
+            self.assertEqual([call(self.supvisors.options.starting_strategy,
                 application)], mocked_start.call_args_list)
 
     def test_start_applications(self):
@@ -801,6 +802,7 @@ class StopperTest(unittest.TestCase):
         # re-assign request_time to processes in current_jobs
         for process_list in stopper.current_jobs.values():
             for process in process_list:
+                process.last_event_time = 0
                 process.request_time = 0
         # processes have an old request time: process_failure called
         completed = stopper.check_stopping()

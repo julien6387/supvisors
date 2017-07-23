@@ -152,7 +152,7 @@ class StateMachinesTest(unittest.TestCase):
         self.assertItemsEqual([application.processes['yeux_01'], application.processes['yeux_00']], application.stop_sequence[1])
         self.assertItemsEqual([application.processes['sleep']], application.stop_sequence[2])
         # test next method
-        # stay in DEPLOYMENT if local is master and a deployment is in progress, whatever the conflict status
+        # stay in DEPLOYMENT if local is master and a starting is in progress, whatever the conflict status
         with patch.object(self.supvisors.starter, 'check_starting', return_value=False):
             for conflict in [True, False]:
                 with patch.object(self.supvisors.context, 'conflicting', return_value=conflict):
@@ -166,7 +166,7 @@ class StateMachinesTest(unittest.TestCase):
                 with patch.object(self.supvisors.starter, 'check_starting', return_value=starting):
                     result = state.next()
                     self.assertEqual(SupvisorsStates.OPERATION, result)
-        # return OPERATION if a deployment is in progress and no conflict, whatever the master status
+        # return OPERATION if a starting is in progress and no conflict, whatever the master status
         with patch.object(self.supvisors.starter, 'check_starting', return_value=True):
             with patch.object(self.supvisors.context, 'conflicting', return_value=False):
                 for master in [True, False]:
@@ -180,7 +180,7 @@ class StateMachinesTest(unittest.TestCase):
                 with patch.object(self.supvisors.starter, 'check_starting', return_value=starting):
                     result = state.next()
                     self.assertEqual(SupvisorsStates.CONCILIATION, result)
-        # return CONCILIATION if a deployment is in progress and conflict detected, whatever the master status
+        # return CONCILIATION if a starting is in progress and conflict detected, whatever the master status
         with patch.object(self.supvisors.starter, 'check_starting', return_value=True):
             with patch.object(self.supvisors.context, 'conflicting', return_value=True):
                 for master in [True, False]:
@@ -246,7 +246,7 @@ class StateMachinesTest(unittest.TestCase):
         self.assertIsInstance(state, AbstractState)
         # test enter method
         with patch.object(self.supvisors.context, 'conflicts', return_value=[1, 2, 3]):
-            with patch('supvisors.statemachine.conciliate') as mocked_conciliate:
+            with patch('supvisors.statemachine.conciliate_conflicts') as mocked_conciliate:
                 # nothing done if local is not master
                 self.supvisors.context.master = False
                 state.enter()

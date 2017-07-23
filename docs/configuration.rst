@@ -58,7 +58,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
         If it's not the case, check the network configuration.
 
 
-``deployment_file``
+``rules_file``
 
     The absolute or relative path of the XML rules file. The contents of this file is described in `Supvisors' Rules File`_.
 
@@ -103,7 +103,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     *Required*:  No.
 
-``deployment_strategy``
+``starting_strategy``
 
     The strategy used to start applications on addresses.
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
@@ -214,12 +214,12 @@ Configuration File Example
     # Supvisors dedicated part
     [supvisors]
     address_list=cliche01,cliche03,cliche02,cliche04
-    deployment_file=./etc/my_movies.xml
+    rules_file=./etc/my_movies.xml
     auto_fence=false
     internal_port=60001
     event_port=60002
     synchro_timeout=20
-    deployment_strategy=LESS_LOADED
+    starting_strategy=LESS_LOADED
     conciliation_strategy=INFANTICIDE
     stats_periods=5,60,600
     stats_histo=100
@@ -240,7 +240,7 @@ Configuration File Example
 **Supvisors**' Rules File
 --------------------------
 
-This part describes the contents of the XML rules file declared in the ``deployment_file`` option.
+This part describes the contents of the XML rules file declared in the ``rules_file`` option.
 
 Basically, the rules file contains rules that define how applications and programs should be started and stopped,
 and the quality of service expected.
@@ -329,7 +329,7 @@ Here follows the definition of the rules applicable to a program.
 ``wait_exit``
 
     If the value of this element is set to true, Supvisors waits for the process to exit
-    before deploying the next sequence. This may be useful for scripts used to load a database,
+    before starting the next sequence. This may be useful for scripts used to load a database,
     to mount disks, to prepare the application working directory, etc.
         
     *Default*:  false.
@@ -391,7 +391,7 @@ Here follows the definition of the rules applicable to a program.
 .. code-block:: xml
 
     <program name="prg_00">
-        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
+        <addresses>cliche01,cliche03,cliche02</addresses>
         <required>true</required>
         <start_sequence>1</start_sequence>
         <stop_sequence>1</stop_sequence>
@@ -416,7 +416,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 .. code-block:: xml
 
     <pattern name="prg_">
-        <addresses>10.0.0.1 10.0.0.3 system02</addresses>
+        <addresses>cliche01,cliche03,cliche02</addresses>
         <start_sequence>2</start_sequence>
         <required>true</required>
     </pattern>
@@ -443,7 +443,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     .. code-block:: ini
 
         [supvisors]
-        address_list=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5
+        address_list=cliche01,cliche02,cliche03,cliche04,cliche05
 
         [program:prg]
         process_name=prg_%(process_num)02d
@@ -454,13 +454,13 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     .. code-block:: xml
 
         <program name="prg_00">
-            <addresses>10.0.0.1</addresses>
+            <addresses>cliche01</addresses>
         </program>
 
         <!-- definitions for prg_01, prg_02, prg_03 -->
  
         <program name="prg_04">
-            <addresses>10.0.0.5</addresses>
+            <addresses>cliche05</addresses>
         </program>
 
     Now with this option, the program definition is more simple.
@@ -474,7 +474,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 .. attention::
 
     Addresses are chosen in accordance with the sequence given in ``address_list``.
-    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``10.0.0.2`` and ``prg_01`` to ``10.0.0.1``.
+    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``cliche02`` and ``prg_01`` to ``cliche01``.
 
 .. attention::
 
@@ -500,7 +500,7 @@ Here follows an example of model:
 .. code-block:: xml
 
     <model name="X11_model">
-	    <addresses>192.168.0.10 192.168.0.12 sample03</addresses>
+	    <addresses>cliche01,cliche02,cliche03</addresses>
 	    <required>false</required>
 	    <wait_exit>false</wait_exit>
     </model>

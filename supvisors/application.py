@@ -23,7 +23,7 @@ from supvisors.ttypes import ApplicationStates, StartingFailureStrategies, Runni
 
 
 class ApplicationRules(object):
-    """ Definition of the rules for starting an application, iaw deployment file:
+    """ Definition of the rules for starting an application, iaw rules file:
 
         - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state,
             0 means: no automatic start,
@@ -49,6 +49,16 @@ class ApplicationRules(object):
                 self.start_sequence, self.stop_sequence,
                 StartingFailureStrategies._to_string(self.starting_failure_strategy),
                 RunningFailureStrategies._to_string(self.running_failure_strategy))
+
+    # serialization
+    def serial(self):
+        """ Return a serializable form of the ApplicationRules. """
+        return {'start_sequence': self.start_sequence,
+            'stop_sequence': self.stop_sequence,
+            'starting_failure_strategy':
+                StartingFailureStrategies._to_string(self.starting_failure_strategy),
+            'running_failure_strategy':
+                RunningFailureStrategies._to_string(self.running_failure_strategy)}
 
 
 # ApplicationStatus class

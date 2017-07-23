@@ -27,7 +27,7 @@ from supvisors.utils import *
 
 
 class ProcessRules(object):
-    """ Defines the rules for starting a process, iaw deployment file.
+    """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
 
@@ -61,7 +61,8 @@ class ProcessRules(object):
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def check_dependencies(self, namespec):
-        """ Update rules after they have been read from the deployment file.
+        """ Update rules after they have been read from the rules file.
+
         A required process that is not in the starting sequence is forced to optional.
         If addresses are not defined, all addresses are applicable.
         Supervisor autorestart is not compatible with RunningFailureStrategy STOP / RESTART.
@@ -116,9 +117,9 @@ class ProcessStatus(object):
         - process_name: the process name,
         - state: the synthetic state of the process, same enumeration as Supervisor,
         - expected_exit: a status telling if the process has exited expectantly,
-        - last_event_time: the date of the last event received,
-        - addresses: he list of all addresses where the process is running,
-        - infos: a Supervisor-like process info dictionary for each address (running or not),
+        - last_event_time: the local date of the last information received,
+        - addresses: the list of all addresses where the process is running,
+        - infos: a process info dictionary for each address (running or not),
         - rules: the rules related to this process,
         - extra_args: optional extra arguments to be passed to the command line,
         - ignore_wait_exit: a status telling if the wait_exit rule is applicable (should be temporary).
@@ -204,19 +205,14 @@ class ProcessStatus(object):
         """ Return the state as a string. """
         return ProcessStates._to_string(self.state)
 
-    def add_info(self, address, info):
-        """ Insert a new Supervisor ProcessInfo in internal list. """
-        # init expected entry
-        info['expected'] = not info['spawnerr']
-        # remove useless fields
-        self.filter(info)
-        # store time info
-        self.last_event_time = info['now']
-        info['event_time'] = self.last_event_time
-        self.update_single_times(info, self.last_event_time, int(time()))
-        # add info entry to process
-        self.logger.debug('adding {} for {}'.format(info, address))
-        self.infos[address] = info
+    def add_info(self, address, payload):
+        """ Insert a new process information in internal list. """
+        # keep date of last information received
+        self.last_event_time = int(time())
+        # store information
+        info = self.infos[address] = payload
+        self.update_uptime(info)
+        self.logger.debug('adding {} at {}'.format(info, address))
         # update process status
         self.update_status(address, info['state'], info['expected']) 
         # fix address rule
@@ -224,51 +220,40 @@ class ProcessStatus(object):
             if self.address_mapper.addresses.index(address) == self.options.procnumbers[self.process_name]:
                 self.rules.addresses = [address]
  
-    def update_info(self, address, event):
-        """ Update the internal ProcessInfo from event received. """
-        # do not add process in list while not added through tick
+    def update_info(self, address, payload):
+        """ Update the internal process information with event payload. """
+        # do not consider process event while not added through tick
         if address in self.infos:
+            # keep date of last information received
+            self.last_event_time = int(time())
+            # refresh internal information
             info = self.infos[address]
-            self.logger.trace('inserting {} into {} at {}'.format(event, info, address))
-            new_state = event['state']
-            info['state'] = new_state
-            # manage times and pid
-            remote_time = event['now']
-            info['event_time'] = remote_time
-            self.last_event_time = remote_time
-            self.update_single_times(info, remote_time, int(time()))
-            if new_state == ProcessStates.RUNNING:
-                info['pid'] = event['pid']
-                info['spawnerr'] = ''
-            elif new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
-                info['start'] = remote_time
-                info['stop'] = 0
-                info['uptime'] = 0
-            elif new_state in STOPPED_STATES:
-                info['stop'] = remote_time
-                info['pid'] = 0
-            # update expected entry
-            info['expected'] = event['expected'] if new_state == ProcessStates.EXITED else True
+            self.logger.trace('inserting {} into {} at {}'.format(payload, info, address))
+            info.update(payload)
+            new_state = info['state']
+            # reset start time if process in a starting state
+            if new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
+                info['start'] = info['now']
+            self.update_uptime(info)
             # update / check running addresses
             self.update_status(address, new_state, info['expected'])
-            self.logger.debug('new processInfo: {}'.format(info))
+            self.logger.debug('new process info: {}'.format(info))
         else:
             self.logger.warn('ProcessEvent rejected for {}.'
                 ' wait for tick from {}'.format(self.process_name, address))
 
-    def update_times(self, address, remote_time, local_time):
-        """ Update the time entries of the internal ProcessInfo when a new tick
+    def update_times(self, address, remote_time):
+        """ Update the time entries of the internal process information when a new tick
         is received from the remote Supvisors instance. """
         if address in self.infos:
-            processInfo = self.infos[address]
-            self.update_single_times(processInfo, remote_time, local_time)
+            info = self.infos[address]
+            info['now'] = remote_time
+            self.update_uptime(info)
 
     @staticmethod
-    def update_single_times(info, remote_time, local_time):
-        """ Update time entries of a Process info. """
-        info['now'] = remote_time
-        info['local_time'] = local_time
-        info['uptime'] = (remote_time - info['start']) if info['state'] \
+    def update_uptime(info):
+        """ Update uptime entry of a process information. """
+        info['uptime'] = (info['now'] - info['start']) if info['state'] \
             in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0
 
     def invalidate_address(self, address, is_master):
@@ -336,17 +321,7 @@ class ProcessStatus(object):
             return True
 
     @staticmethod
-    def filter(info):
-        """ Remove from dictionary the fields that are not used in Supvisors
-        and/or not updated through process events. """
-        for key in ProcessStatus._Filters:
-            info.pop(key, None)
-
-    @staticmethod
     def running_state(states):
         """ Return the first matching state in RUNNING_STATES. """
         return next((state for state in RUNNING_STATES if state in states),
             ProcessStates.UNKNOWN)
-
-    # list of removed entries in process info dictionary
-    _Filters = ['statename', 'description', 'stderr_logfile', 'stdout_logfile', 'logfile', 'exitstatus']

@@ -37,8 +37,8 @@ class ApplicationStates:
 ProcessStates = enumeration_tools(supervisor.states.ProcessStates)
 
 @enumeration_tools
-class DeploymentStrategies:
-    """ Applicable strategies that can be applied during a deployment. """
+class StartingStrategies:
+    """ Applicable strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED = range(3)
 
 @enumeration_tools

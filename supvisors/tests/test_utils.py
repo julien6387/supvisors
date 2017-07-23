@@ -61,12 +61,11 @@ class UtilsTest(unittest.TestCase):
         """ Test the shortcuts to supvisors data. """
         from supvisors.utils import supvisors_short_cuts
         # test with existing attributes
-        supvisors_short_cuts(self, ['address_mapper', 'deployer', 'fsm', 'logger', 'requester', 'statistician'])
+        supvisors_short_cuts(self, ['address_mapper', 'fsm', 'logger', 'requester', 'statistician'])
         self.assertIs(self.address_mapper, self.supvisors.address_mapper)
         self.assertIs(self.fsm, self.supvisors.fsm)
         self.assertIs(self.statistician, self.supvisors.statistician)
         self.assertIs(self.requester, self.supvisors.requester)
-        self.assertIs(self.deployer, self.supvisors.deployer)
         self.assertIs(self.logger, self.supvisors.logger)
         # test with unknown attributes
         with self.assertRaises(AttributeError):
@@ -83,6 +82,21 @@ class UtilsTest(unittest.TestCase):
         """ Test the display of gm time. """
         from supvisors.utils import simple_gmtime
         self.assertEqual('07:07:00', simple_gmtime(1476947220.416198))
+
+    def test_extract_process_info(self):
+        """ Test the extraction of useful data from process info. """
+        from supvisors.utils import extract_process_info
+        # test with no spawn error
+        dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data'}
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'expected': True},
+            extract_process_info(dummy_info))
+        # test with spawn error
+        dummy_info['spawnerr'] = 'something'
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            'now': 10, 'pid': 1234, 'expected': False},
+            extract_process_info(dummy_info))
 
     def test_statistics_functions(self):
         """ Test the simple statistics. """
