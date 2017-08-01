@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -68,7 +68,7 @@ class RPCInterface(object):
 
     def get_strategies(self):
         """ Get the strategies applied by **Supvisors**:
-        
+
             * auto-fencing, when an address becomes inactive,
             * in the ``DEPLOYMENT`` state, to start applications,
             * in the ``CONCILIATION`` state, to conciliate conflicts.
@@ -86,7 +86,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
         return [self.get_address_info(address_name)
-            for address_name in self.context.addresses.keys()]
+            for address_name in sorted(self.context.addresses.keys())]
 
     def get_address_info(self, address_name):
         """ Get information about the **Supvisors** instance running on the host named address_name.

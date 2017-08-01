@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -60,7 +60,7 @@ class Context(object):
     def master_address(self, address):
         self._master_address = address
         self.master = address == self.address_mapper.local_address
- 
+
     # methods on addresses
     def unknown_addresses(self):
         """ Return the AddressStatus instances in UNKNOWN state. """
@@ -253,7 +253,7 @@ class Context(object):
                     application.update_status()
                     # publish process event, status and application status
                     publisher = self.supvisors.zmq.publisher
-                    publisher.send_process_event((address_name, event))
+                    publisher.send_process_event(address_name, event)
                     publisher.send_process_status(process)
                     publisher.send_application_status(application)
                     return process

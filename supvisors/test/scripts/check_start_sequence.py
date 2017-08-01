@@ -44,7 +44,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
         self.assertFalse(self.context.has_events())
 
     def check_self_starting(self):
-        """ Test the events received that corresponds to the starting of this process. """
+        """ Test the events received that corresponds to the starting of
+        this process. """
         # define 'test' application
         application = Application('test')
         self.context.add_application(application)
@@ -53,14 +54,16 @@ class CheckStartSequenceTest(CheckSequenceTest):
         program.state = ProcessStates.STARTING
         application.add_program(program)
         # define the expected events for this process
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                            self.HOST_01))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
 
     def check_import_database_starting(self):
         """ Check the starting of the import_database application.
-        The mount_disk process is started first, then the copy_error (failure expected).
+        The mount_disk process is started first, then the copy_error
+        (failure expected).
         The application is configured to be stopped because of the failure. """
         # define 'import_database' application
         application = Application('import_database')
@@ -76,8 +79,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the mount_disk program. """
         # define the expected events for the mount_disk program
         program = self.context.get_program('import_database:mount_disk')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                            self.HOST_01))
         # check that the events received correspond to the expected
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -86,8 +91,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the copy_error program. """
         # define the expected events for the mount_disk program
         program = self.context.get_program('import_database:copy_error')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF,
+                                            self.HOST_01))
         program.add_event(ProcessStateEvent(ProcessStates.FATAL))
         # test the events received are compliant
         self.check_events()
@@ -97,7 +104,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Program the stopping of the program.state program. """
         # define the expected events for the mount_disk program
         program = self.context.get_program('import_database:mount_disk')
-        program.add_event(ProcessStateEvent(ProcessStates.STOPPING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
+                                            self.HOST_01))
         program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # do NOT check the events received at this stage
         # stopping events will be mixed with the starting events
@@ -133,8 +141,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         for program_name, address in config:
             program = application.get_program(program_name)
             if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                                    address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                                    address))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
         # check that the events received are compliant
@@ -151,8 +161,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         for program_name, address in config:
             program = application.get_program(program_name)
             if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                                    address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                                    address))
                 program.add_event(ProcessStateEvent(ProcessStates.EXITED))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
@@ -181,8 +193,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the manager program. """
         # define the expected events for the manager program
         program = self.context.get_program('my_movies:manager')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                            self.HOST_01))
         # check that the events received are compliant
         self.check_events('my_movies')
         self.assertFalse(self.context.has_events('my_movies'))
@@ -200,7 +214,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the hmi program. """
         # define the expected events for the hmi program
         program = self.context.get_program('my_movies:hmi')
-        address = self.HOST_02 if self.HOST_02 in self.addresses else self.HOST_01
+        address = self.HOST_02 if self.HOST_02 in self.addresses \
+            else self.HOST_01
         program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
         program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
         # check that the events received are compliant
@@ -224,9 +239,12 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the test_reader program. """
         # define the expected events for the test_reader program
         program = self.context.get_program('player:test_reader')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.EXITED, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.EXITED,
+                                            self.HOST_01))
         # check that the events received are compliant
         self.check_events('player')
         self.assertFalse(self.context.has_events('player'))
@@ -240,8 +258,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
         program = Program('web_browser')
         application.add_program(program)
         # define the expected events for the web_browser program
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
+                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
+                                            self.HOST_01))
         # check that the events received are compliant
         self.check_events('web_movies')
         self.assertFalse(self.context.has_events('web_movies'))

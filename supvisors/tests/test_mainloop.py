@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch, DEFAULT
+from mock import call, patch, Mock, DEFAULT
 from threading import Thread
 
 from supvisors.tests.base import MockedSupvisors, DummyRpcInterface
@@ -45,9 +45,7 @@ class MainLoopTest(unittest.TestCase):
         main_loop = SupvisorsMainLoop(self.supvisors)
         self.assertIsInstance(main_loop, Thread)
         self.assertIs(self.supvisors, main_loop.supvisors)
-        self.assertFalse(main_loop.loop)
-        self.assertIsNotNone(main_loop.subscriber)
-        self.assertIsNotNone(main_loop.puller)
+        self.assertFalse(main_loop._stop_event.is_set())
         self.assertDictEqual({'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
                               'SUPERVISOR_USERNAME': '',
                               'SUPERVISOR_PASSWORD': ''},
@@ -56,69 +54,132 @@ class MainLoopTest(unittest.TestCase):
         self.assertEqual(call('localhost', main_loop.env),
                          self.mocked_rpc.call_args)
 
-    def test_get_loop(self):
+    def test_stopping(self):
         """ Test the get_loop method. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
-        self.assertFalse(main_loop.get_loop())
-        main_loop.loop = True
-        self.assertTrue(main_loop.get_loop())
+        self.assertFalse(main_loop.stopping())
+        main_loop._stop_event.set()
+        self.assertTrue(main_loop.stopping())
 
     def test_stop(self):
         """ Test the stopping of the main loop thread. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # try to stop main loop before it is started
-        with self.assertRaises(RuntimeError):
-            main_loop.stop()
-        # stop main loop after it is started
-        main_loop.loop = True
+        self.assertTrue(main_loop.stop())
+        # stop main loop when alive
         with patch.object(main_loop, 'join') as mocked_join:
-            main_loop.stop()
-            self.assertFalse(main_loop.loop)
-            self.assertEqual(1, mocked_join.call_count)
+            with patch.object(main_loop, 'is_alive',
+                              side_effect=[True, False, True, True]):
+                # in first test, the thread has stopped
+                self.assertTrue(main_loop.stop())
+                self.assertTrue(main_loop._stop_event.is_set())
+                self.assertEqual(1, mocked_join.call_count)
+                mocked_join.reset_mock()
+                # in second test, the thread is still alive
+                self.assertFalse(main_loop.stop())
+                self.assertTrue(main_loop._stop_event.is_set())
+                self.assertEqual(1, mocked_join.call_count)
 
+    @patch('supvisors.mainloop.SupvisorsMainLoop.check_events')
+    @patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
     @patch.multiple('supvisors.mainloop.zmq.Poller', register=DEFAULT,
                     unregister=DEFAULT, poll=DEFAULT)
-    def test_run(self, register, unregister, poll):
+    def test_run(self, check_evt, check_rqt, register, unregister, poll):
         """ Test the running of the main loop thread. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
-        # configure patches
-        with patch.object(main_loop.subscriber, 'receive',
-                          side_effect=[Exception, 'subscription']):
-            with patch.object(main_loop.puller, 'receive',
-                              side_effect=[Exception, ('pull', 'data')]):
-                # patch 4 loops
-                with patch.object(main_loop, 'get_loop',
-                                  side_effect=[True] * 4 + [False]):
-                    # patch zmq calls: 2 loops for subscriber, 2 loops for puller
-                    effects = [{main_loop.subscriber.socket: 1}] * 2 + \
-                        [{main_loop.puller.socket: 1}] * 2
-                    poll.side_effect = effects
-                    with patch.multiple(main_loop,
-                                        send_remote_comm_event=DEFAULT,
-                                        send_request=DEFAULT) as mocked_loop:
-                        main_loop.run()
-                        # test that poll was called 4 times
-                        self.assertEqual([call(500)] * 4, poll.call_args_list)
-                        # test that register was called twice
-                        self.assertEqual([call(main_loop.subscriber.socket, 1),
-                                          call(main_loop.puller.socket, 1)],
-                                         register.call_args_list)
-                        # test that unregister was called twice
-                        self.assertEqual([call(main_loop.puller.socket),
-                                          call(main_loop.subscriber.socket)],
-                                         unregister.call_args_list)
-                        # test that send_remote_comm_event was called once
-                        self.assertEqual([call(u'event', '"subscription"')],
-                                         mocked_loop['send_remote_comm_event'].call_args_list)
-                        # test that send_request was called once
-                        self.assertEqual([call('pull', 'data')],
-                                         mocked_loop['send_request'].call_args_list)
+        # patch one loops
+        with patch.object(main_loop, 'stopping',
+                          side_effect=[False, False, True]):
+            main_loop.run()
+        # test that register was called twice
+        self.assertEqual(2, register.call_count)
+        # test that poll was called once
+        self.assertEqual([call(500)], poll.call_args_list)
+        # test that check_events was called once
+        self.assertEqual(1, check_evt.call_count)
+        # test that check_requests was called once
+        self.assertEqual(1, check_rqt.call_count)
+        # test that unregister was called twice
+        self.assertEqual(2, unregister.call_count)
 
-    def test_check_address(self):
-        """ Test the protocol to get the processes handled by a remote Supervisor. """
+    @patch('supvisors.mainloop.stderr')
+    @patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
+    def test_check_events(self, mocked_send, mocked_stderr):
+        """ Test the processing of the events received. """
+        from supvisors.mainloop import SupvisorsMainLoop
+        main_loop = SupvisorsMainLoop(self.supvisors)
+        # test with empty socks
+        mocked_subscriber = Mock(socket='zmq socket')
+        socks = {}
+        main_loop.check_events(mocked_subscriber, socks)
+        self.assertEqual(0, mocked_subscriber.call_count)
+        self.assertEqual(0, mocked_send.call_count)
+        # test with appropriate socks but with exception
+        mocked_subscriber = Mock(
+            socket='zmq socket', **{'receive.side_effect': Exception})
+        socks = {'zmq socket': 1}
+        main_loop.check_events(mocked_subscriber, socks)
+        self.assertEqual(1, mocked_subscriber.receive.call_count)
+        self.assertEqual(0, mocked_send.call_count)
+        mocked_subscriber.receive.reset_mock()
+        # test with appropriate socks and without exception
+        mocked_subscriber = Mock(
+            socket='zmq socket', **{'receive.return_value': 'a zmq message'})
+        main_loop.check_events(mocked_subscriber, socks)
+        self.assertEqual(1, mocked_subscriber.receive.call_count)
+        self.assertEqual([call('event', '"a zmq message"')],
+                         mocked_send.call_args_list)
+
+    @patch('supvisors.mainloop.stderr')
+    @patch('supvisors.mainloop.SupvisorsMainLoop.send_request')
+    def test_check_requests(self, mocked_send, mocked_stderr):
+        """ Test the processing of the requests received. """
+        from supvisors.mainloop import SupvisorsMainLoop
+        main_loop = SupvisorsMainLoop(self.supvisors)
+        # mock parameters
+        mocked_sockets = Mock(
+            puller=Mock(socket='zmq socket',
+                        **{'receive.side_effect': Exception}),
+            internal_subscriber=Mock(**{'disconnect.return_value': None}))
+        mocked_receive = mocked_sockets.puller.receive
+        mocked_disconnect = mocked_sockets.internal_subscriber.disconnect
+        # test with empty socks
+        socks = {}
+        main_loop.check_requests(mocked_sockets, socks)
+        self.assertEqual(0, mocked_receive.call_count)
+        self.assertEqual(0, mocked_send.call_count)
+        self.assertEqual(0, mocked_disconnect.call_count)
+        # test with appropriate socks but with exception
+        socks = {'zmq socket': 1}
+        main_loop.check_requests(mocked_sockets, socks)
+        self.assertEqual(1, mocked_receive.call_count)
+        self.assertEqual(0, mocked_send.call_count)
+        self.assertEqual(0, mocked_disconnect.call_count)
+        mocked_receive.reset_mock()
+        # test with appropriate socks and without exception
+        mocked_receive.side_effect = None
+        mocked_receive.return_value = ('a zmq header', 'a zmq message')
+        main_loop.check_requests(mocked_sockets, socks)
+        self.assertEqual([call('a zmq header', 'a zmq message')],
+                         mocked_send.call_args_list)
+        self.assertEqual(0, mocked_disconnect.call_count)
+        mocked_receive.reset_mock()
+        mocked_send.reset_mock()
+        # test disconnection request
+        mocked_receive.return_value = (1, 'an address')
+        main_loop.check_requests(mocked_sockets, socks)
+        self.assertEqual(1, mocked_receive.call_count)
+        self.assertEqual([call('an address')],
+                         mocked_disconnect.call_args_list)
+        self.assertEqual(0, mocked_send.call_count)
+
+    @patch('supvisors.mainloop.stderr')
+    def test_check_address(self, mocked_stderr):
+        """ Test the protocol to get the processes handled by a remote
+        Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         from supvisors.ttypes import AddressStates
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -148,14 +209,16 @@ class MainLoopTest(unittest.TestCase):
                         self.assertEqual(call('10.0.0.1', main_loop.env),
                                          self.mocked_rpc.call_args)
                         self.assertEqual(1, mocked_evt.call_count)
-                        self.assertEqual(call('auth', 'address_name:10.0.0.1 authorized:False'),
+                        self.assertEqual(call(
+                            'auth', 'address_name:10.0.0.1 authorized:False'),
                             mocked_evt.call_args)
                         self.assertEqual(0, mocked_supervisor.call_count)
                         # reset counters
                         mocked_evt.reset_mock()
                         self.mocked_rpc.reset_mock()
             # test with address not in isolation
-            dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+            dummy_info = [{'name': 'proc', 'group': 'appli',
+                           'state': 10, 'start': 5,
                 'now': 10, 'pid': 1234, 'spawnerr': ''}]
             with patch.object(rpc_intf.supervisor, 'getAllProcessInfo',
                 return_value=dummy_info) as mocked_supervisor:
@@ -174,8 +237,10 @@ class MainLoopTest(unittest.TestCase):
                         mocked_supervisor.reset_mock()
                         self.mocked_rpc.reset_mock()
 
-    def test_start_process(self):
-        """ Test the protocol to start a process handled by a remote Supervisor. """
+    @patch('supvisors.mainloop.stderr')
+    def test_start_process(self, mocked_stderr):
+        """ Test the protocol to start a process handled by a remote
+        Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error
@@ -188,7 +253,8 @@ class MainLoopTest(unittest.TestCase):
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supvisors, 'start_args') as mocked_supvisors:
+        with patch.object(rpc_intf.supvisors,
+                          'start_args') as mocked_supvisors:
             main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
             self.assertEqual(3, self.mocked_rpc.call_count)
             self.assertEqual(call('10.0.0.1', main_loop.env),
@@ -197,8 +263,10 @@ class MainLoopTest(unittest.TestCase):
             self.assertEqual(call('dummy_process', 'extra args', False),
                              mocked_supvisors.call_args)
 
-    def test_stop_process(self):
-        """ Test the protocol to stop a process handled by a remote Supervisor. """
+    @patch('supvisors.mainloop.stderr')
+    def test_stop_process(self, mocked_stderr):
+        """ Test the protocol to stop a process handled by a remote
+        Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error
@@ -211,7 +279,8 @@ class MainLoopTest(unittest.TestCase):
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supervisor, 'stopProcess') as mocked_supervisor:
+        with patch.object(rpc_intf.supervisor,
+                          'stopProcess') as mocked_supervisor:
             main_loop.stop_process('10.0.0.1', 'dummy_process')
             self.assertEqual(3, self.mocked_rpc.call_count)
             self.assertEqual(call('10.0.0.1', main_loop.env),
@@ -220,7 +289,8 @@ class MainLoopTest(unittest.TestCase):
             self.assertEqual(call('dummy_process', False),
                              mocked_supervisor.call_args)
 
-    def test_restart(self):
+    @patch('supvisors.mainloop.stderr')
+    def test_restart(self, mocked_stderr):
         """ Test the protocol to restart a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -234,7 +304,8 @@ class MainLoopTest(unittest.TestCase):
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supervisor, 'restart') as mocked_supervisor:
+        with patch.object(rpc_intf.supervisor,
+                          'restart') as mocked_supervisor:
             main_loop.restart('10.0.0.1')
             self.assertEqual(3, self.mocked_rpc.call_count)
             self.assertEqual(call('10.0.0.1', main_loop.env),
@@ -242,7 +313,8 @@ class MainLoopTest(unittest.TestCase):
             self.assertEqual(1, mocked_supervisor.call_count)
             self.assertEqual(call(), mocked_supervisor.call_args)
 
-    def test_shutdown(self):
+    @patch('supvisors.mainloop.stderr')
+    def test_shutdown(self, mocked_stderr):
         """ Test the protocol to shutdown a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -264,7 +336,8 @@ class MainLoopTest(unittest.TestCase):
             self.assertEqual(1, mocked_shutdown.call_count)
             self.assertEqual(call(), mocked_shutdown.call_args)
 
-    def test_comm_event(self):
+    @patch('supvisors.mainloop.stderr')
+    def test_comm_event(self, mocked_stderr):
         """ Test the protocol to send a comm event to the local Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -273,13 +346,14 @@ class MainLoopTest(unittest.TestCase):
                           side_effect=Exception):
             main_loop.send_remote_comm_event('event type', 'event data')
         # test with a mocked rpc interface
-        with patch.object(main_loop.proxy.supervisor,'sendRemoteCommEvent') as mocked_supervisor:
+        with patch.object(main_loop.proxy.supervisor,
+                          'sendRemoteCommEvent') as mocked_supervisor:
             main_loop.send_remote_comm_event('event type', 'event data')
             self.assertEqual(1, mocked_supervisor.call_count)
             self.assertEqual(call('event type', 'event data'),
                              mocked_supervisor.call_args)
 
-    def check_call(self, main_loop, mocked_loop, mocked_disconnect,
+    def check_call(self, main_loop, mocked_loop,
                    method_name, request, args):
         """ Perform a main loop request and check what has been called. """
         # send request
@@ -292,13 +366,6 @@ class MainLoopTest(unittest.TestCase):
                 mocked.reset_mock()
             else:
                 self.assertEqual(0, mocked.call_count)
-        # test mocked subscriber
-        if not method_name:
-            self.assertEqual(1, mocked_disconnect.call_count)
-            self.assertEqual(call(args), mocked_disconnect.call_args)
-            mocked_disconnect.reset_mock()
-        else:
-            self.assertEqual(0, mocked_disconnect.call_count)
 
     def test_send_request(self):
         """ Test the execution of a deferred Supervisor request. """
@@ -309,38 +376,26 @@ class MainLoopTest(unittest.TestCase):
         with patch.multiple(main_loop, check_address=DEFAULT,
             start_process=DEFAULT, stop_process=DEFAULT,
             restart=DEFAULT, shutdown=DEFAULT) as mocked_loop:
-            with patch.object(main_loop.subscriber,
-                              'disconnect') as mocked_disconnect:
-                # test check address
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                'check_address',
-                                DeferredRequestHeaders.CHECK_ADDRESS,
-                                ('10.0.0.2', ))
-                # test isolate addresses
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                '',
-                                DeferredRequestHeaders.ISOLATE_ADDRESSES,
-                                ('10.0.0.2', '10.0.0.3'))
-                # test start process
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                'start_process',
-                                DeferredRequestHeaders.START_PROCESS,
-                                ('10.0.0.2', 'dummy_process', 'extra args'))
-                # test stop process
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                'stop_process',
-                                DeferredRequestHeaders.STOP_PROCESS,
-                                ('10.0.0.2', 'dummy_process'))
-                # test restart
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                'restart',
-                                DeferredRequestHeaders.RESTART,
-                                ('10.0.0.2', ))
-                # test shutdown
-                self.check_call(main_loop, mocked_loop, mocked_disconnect,
-                                'shutdown',
-                                DeferredRequestHeaders.SHUTDOWN,
-                                ('10.0.0.2', ))
+            # test check address
+            self.check_call(main_loop, mocked_loop, 'check_address',
+                            DeferredRequestHeaders.CHECK_ADDRESS,
+                            ('10.0.0.2', ))
+            # test start process
+            self.check_call(main_loop, mocked_loop, 'start_process',
+                            DeferredRequestHeaders.START_PROCESS,
+                            ('10.0.0.2', 'dummy_process', 'extra args'))
+            # test stop process
+            self.check_call(main_loop, mocked_loop, 'stop_process',
+                            DeferredRequestHeaders.STOP_PROCESS,
+                            ('10.0.0.2', 'dummy_process'))
+            # test restart
+            self.check_call(main_loop, mocked_loop, 'restart',
+                            DeferredRequestHeaders.RESTART,
+                            ('10.0.0.2', ))
+            # test shutdown
+            self.check_call(main_loop, mocked_loop, 'shutdown',
+                            DeferredRequestHeaders.SHUTDOWN,
+                            ('10.0.0.2', ))
 
 
 def test_suite():

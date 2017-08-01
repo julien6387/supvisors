@@ -91,7 +91,7 @@ class Application:
     def is_starting(self):
         """ Return True if the application has a starting program. """
         for program in self.programs.values():
-            if program.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
+            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
                 return True
         return False
 
@@ -100,7 +100,7 @@ class Application:
         no starting program. """
         stopping = False
         for program in self.programs.values():
-            if program.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
+            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
                 return False
             if program.state == ProcessStates.STOPPING:
                 stopping = True
@@ -111,9 +111,9 @@ class Application:
         no starting or stopping program. """
         running = False
         for program in self.programs.values():
-            if program.state in [ProcessStates.STARTING,
+            if program.state in (ProcessStates.STARTING,
                                  ProcessStates.BACKOFF,
-                                 ProcessStates.STOPPING]:
+                                 ProcessStates.STOPPING):
                 return False
             if program.state == ProcessStates.RUNNING:
                 running = True
@@ -190,12 +190,15 @@ class CheckSequenceTest(unittest.TestCase):
         # create logger using a BoundIO
         self.logger = create_logger(logfile=None)
         # get the addresses
-        addresses_info = getRPCInterface(os.environ).supvisors.get_all_addresses_info()
+        proxy = getRPCInterface(os.environ).supvisors
+        addresses_info = proxy.get_all_addresses_info()
         self.HOST_01 = addresses_info[0]['address_name']
         self.HOST_02 = addresses_info[1]['address_name']
         self.HOST_03 = addresses_info[2]['address_name']
-        self.logger.info('working with HOST_01={} HOST_02={} HOST_03={}'
-                         .format(self.HOST_01, self.HOST_02, self.HOST_03))
+        self.HOST_04 = addresses_info[3]['address_name']
+        self.logger.info(
+            'working with HOST_01={} HOST_02={} HOST_03={} HOST_04={}'.format(
+                self.HOST_01, self.HOST_02, self.HOST_03, self.HOST_04))
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -255,7 +258,8 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertEqual(state_event.statename, event['statename'])
         self.assertEqual(state_event.statecode, event['statecode'])
         # check the running address
-        if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
+        if state_event.statecode in [ProcessStates.STOPPING] \
+            + list(RUNNING_STATES):
             self.assertListEqual([state_event.address], event['addresses'])
             program.address = state_event.address
         # update program state
@@ -263,7 +267,8 @@ class CheckSequenceTest(unittest.TestCase):
         program.expected_exit = event['expected_exit']
 
     def check_application_event(self, event):
-        """ Check if the received application event corresponds to expectation. """
+        """ Check if the received application event corresponds
+        to expectation. """
         self.logger.info('Checking application event: {}'.format(event))
         # check that event corresponds to an expected application
         application_name = event['application_name']
@@ -271,20 +276,22 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertIsNotNone(application)
         # check event contents in accordance with context
         if application.is_starting():
-            self.assertDictContainsSubset({'statename': 'STARTING',
-                                           'statecode': ApplicationStates.STARTING},
-                                          event)
+            self.assertDictContainsSubset(
+                {'statename': 'STARTING',
+                 'statecode': ApplicationStates.STARTING}, event)
         elif application.is_stopping():
-            self.assertDictContainsSubset({'statename': 'STOPPING',
-                                           'statecode': ApplicationStates.STOPPING},
-                                          event)
+            self.assertDictContainsSubset(
+                {'statename': 'STOPPING',
+                 'statecode': ApplicationStates.STOPPING}, event)
         elif application.is_running():
-            self.assertDictContainsSubset({'statename': 'RUNNING',
-                                           'statecode': ApplicationStates.RUNNING},
-                                          event)
+            self.assertDictContainsSubset(
+                {'statename': 'RUNNING',
+                 'statecode': ApplicationStates.RUNNING}, event)
         else:
-            self.assertDictContainsSubset({'statename': 'STOPPED',
-                                           'statecode': ApplicationStates.STOPPED},
-                                          event)
-        self.assertEqual(application.has_major_failure(), event['major_failure'])
-        self.assertEqual(application.has_minor_failure(), event['minor_failure'])
+            self.assertDictContainsSubset(
+                {'statename': 'STOPPED',
+                 'statecode': ApplicationStates.STOPPED}, event)
+        self.assertEqual(application.has_major_failure(),
+                         event['major_failure'])
+        self.assertEqual(application.has_minor_failure(),
+                         event['minor_failure'])

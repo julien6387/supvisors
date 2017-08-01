@@ -21,13 +21,12 @@ import zmq
 
 from supvisors.utils import *
 
+# Constant for Zmq sockets
+INPROC_NAME = 'supvisors'
+ZMQ_LINGER = 0
 
-def create_zmq_context():
-    """ Return a new ZeroMQ context.
-    LINGER option is set to force the sockets to close immediately. """
-    zmq_context = zmq.Context.instance()
-    zmq_context.setsockopt(zmq.LINGER, 0)
-    return zmq_context
+# reference to the Zmq Context instance
+ZmqContext = zmq.Context.instance()
 
 
 class InternalEventPublisher(object):
@@ -36,30 +35,28 @@ class InternalEventPublisher(object):
 
     Attributes are:
 
-        - supvisors: a reference to the Supervisor context,
+        - logger: a reference to the Supvisors logger,
         - address: the address name where this process is running,
         - socket: the ZeroMQ socket with a PUBLISH pattern,
         bound on the internal_port defined in the ['supvisors'] section
         of the Supervisor configuration file.
     """
 
-    def __init__(self, zmq_context, supvisors):
+    def __init__(self, address, port, logger):
         """ Initialization of the attributes. """
         # keep a reference to supvisors
-        self.supvisors = supvisors
-        # shortcuts for source code readability
-        supvisors_short_cuts(self, ['logger'])
+        self.logger = logger
         # get local address
-        self.address = supvisors.address_mapper.local_address
+        self.address = address
         # create ZMQ socket
-        self.socket = zmq_context.socket(zmq.PUB)
-        url = 'tcp://*:{}'.format(supvisors.options.internal_port)
+        self.socket = ZmqContext.socket(zmq.PUB)
+        url = 'tcp://*:{}'.format(port)
         self.logger.info('binding InternalEventPublisher to %s' % url)
         self.socket.bind(url)
 
     def close(self):
         """ This method closes the PyZMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     def send_tick_event(self, payload):
         """ Publishes the tick event with ZeroMQ. """
@@ -84,92 +81,87 @@ class InternalEventSubscriber(object):
     """ Class for subscription to Listener events.
 
     Attributes:
-        - supvisors: a reference to the Supvisors context,
+        - port: the port number used for internal events,
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, zmq_context, supvisors):
+    def __init__(self, addresses, port):
         """ Initialization of the attributes. """
-        self.supvisors = supvisors
-        self.socket = zmq_context.socket(zmq.SUB)
-        # connect all EventPublisher to Supvisors addresses
-        for address in supvisors.address_mapper.addresses:
-            url = 'tcp://{}:{}'.format(address, supvisors.options.internal_port)
-            supvisors.logger.info('connecting InternalEventSubscriber to %s' % url)
+        self.port = port
+        self.socket = ZmqContext.socket(zmq.SUB)
+        # connect all addresses
+        for address in addresses:
+            url = 'tcp://{}:{}'.format(address, self.port)
             self.socket.connect(url)
-        supvisors.logger.debug('InternalEventSubscriber connected')
         self.socket.setsockopt(zmq.SUBSCRIBE, '')
 
     def close(self):
         """ This method closes the PyZMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     def receive(self):
-        """ Reception and pyobj de-serialization of one message including:
-        - the message header,
-        - the origin,
-        - the body of the message. """
-        return self.socket.recv_pyobj()
+        """ Reception and pyobj de-serialization of one message. """
+        return self.socket.recv_pyobj(zmq.NOBLOCK)
 
     def disconnect(self, addresses):
         """ This method disconnects from the PyZMQ socket all addresses
         passed in parameter. """
         for address in addresses:
-            url = 'tcp://{}:{}'.format(address,
-                                       self.supvisors.options.internal_port)
-            self.supvisors.logger.info('disconnecting InternalEventSubscriber'\
-                                       ' from %s' % url)
+            url = 'tcp://{}:{}'.format(address, self.port)
             self.socket.disconnect(url)
 
 
 class EventPublisher(object):
     """ Class for ZMQ publication of Supvisors events. """
 
-    def __init__(self, zmq_context, supvisors):
+    def __init__(self, port, logger):
         """ Initialization of the attributes. """
-        self.supvisors = supvisors
-        self.socket = zmq_context.socket(zmq.PUB)
+        self.logger = logger
+        self.socket = ZmqContext.socket(zmq.PUB)
         # WARN: this is a local binding, only visible to processes
         # located on the same address
-        url = 'tcp://127.0.0.1:{}'.format(self.supvisors.options.event_port)
-        supvisors.logger.info('binding local Supvisors EventPublisher to %s' % url)
+        url = 'tcp://127.0.0.1:%d' % port
+        self.logger.info('binding local Supvisors EventPublisher to %s' % url)
         self.socket.bind(url)
 
     def close(self):
         """ This method closes the PyZMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     def send_supvisors_status(self, status):
         """ This method sends a serialized form of the supvisors status
         through the socket. """
-        self.supvisors.logger.trace('send SupvisorsStatus {}'.format(status))
+        self.logger.trace('send SupvisorsStatus {}'.format(status))
         self.socket.send_string(EventHeaders.SUPVISORS, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
     def send_address_status(self, status):
         """ This method sends a serialized form of the address status
         through the socket. """
-        self.supvisors.logger.trace('send RemoteStatus {}'.format(status))
+        self.logger.trace('send RemoteStatus {}'.format(status))
         self.socket.send_string(EventHeaders.ADDRESS, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
     def send_application_status(self, status):
         """ This method sends a serialized form of the application status
         through the socket. """
-        self.supvisors.logger.trace('send ApplicationStatus {}'.format(status))
+        self.logger.trace('send ApplicationStatus {}'.format(status))
         self.socket.send_string(EventHeaders.APPLICATION, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
-    def send_process_event(self, event):
+    def send_process_event(self, address, event):
         """ This method sends a process event through the socket. """
-        self.supvisors.logger.trace('send Process Event {}'.format(event))
+        # build the event before it is sent
+        evt = event.copy()
+        evt['address'] = address
+        self.logger.trace('send Process Event {}'.format(evt))
         self.socket.send_string(EventHeaders.PROCESS_EVENT, zmq.SNDMORE)
-        self.socket.send_json(event)
+        self.socket.send_json(evt)
 
     def send_process_status(self, status):
         """ This method sends a serialized form of the process status
         through the socket. """
-        self.supvisors.logger.trace('send Process Status {}'.format(status))
+        self.logger.trace('send Process Status {}'.format(status))
         self.socket.send_string(EventHeaders.PROCESS_STATUS, zmq.SNDMORE)
         self.socket.send_json(status.serial())
 
@@ -184,7 +176,6 @@ class EventSubscriber(object):
 
     The EventSubscriber requires:
 
-        - a ZeroMQ context,
         - the event port number used by **Supvisors** to publish its events,
         - a logger reference to log traces.
 
@@ -194,21 +185,21 @@ class EventSubscriber(object):
         - socket: the ZeroMQ socket connected to **Supvisors**.
     """
 
-    def __init__(self, zmq_context, event_port, logger):
+    def __init__(self, zmq_context, port, logger):
         """ Initialization of the attributes. """
         self.logger = logger
         # create ZeroMQ socket
         self.socket = zmq_context.socket(zmq.SUB)
         # WARN: this is a local binding, only visible to processes
         # located on the same address
-        url = 'tcp://127.0.0.1:{}'.format(event_port)
+        url = 'tcp://127.0.0.1:%d' % port
         self.logger.info('connecting EventSubscriber to Supvisors at %s' % url)
         self.socket.connect(url)
         self.logger.debug('EventSubscriber connected')
 
     def close(self):
         """ Close the ZeroMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     # subscription part
     def subscribe_all(self):
@@ -274,7 +265,7 @@ class EventSubscriber(object):
 
             - header as an unicode string,
             - data encoded in JSON.
-            """
+        """
         return self.socket.recv_string(), self.socket.recv_json()
 
 
@@ -282,27 +273,27 @@ class RequestPuller(object):
     """ Class for pulling deferred XML-RPC.
 
     Attributes:
-        - supvisors: a reference to the Supvisors context,
         - socket: the PyZMQ puller.
+
+    As it uses an inproc transport, this implies the following conditions:
+        - the RequestPusher instance and the RequestPuller instance MUST share
+        the same ZMQ context,
+        - the RequestPusher instance MUST be created before the RequestPuller
+        instance.
     """
 
-    def __init__(self, zmq_context, supvisors):
+    def __init__(self):
         """ Initialization of the attributes. """
-        self.supvisors = supvisors
-        self.socket = zmq_context.socket(zmq.PULL)
-        # connect RequestPuller to IPC address
-        url = 'ipc://' + IPC_NAME
-        supvisors.logger.info('connecting RequestPuller to %s' % url)
+        self.socket = ZmqContext.socket(zmq.PULL)
+        url = 'inproc://' + INPROC_NAME
         self.socket.connect(url)
 
     def close(self):
         """ This method closes the PyZMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     def receive(self):
-        """ Reception and pyobj unserialization of one message including:
-        - the message header,
-        - the body of the message. """
+        """ Reception and pyobj unserialization of one message. """
         return self.socket.recv_pyobj()
 
 
@@ -310,102 +301,117 @@ class RequestPusher(object):
     """ Class for pushing deferred XML-RPC.
 
     Attributes:
-        - supvisors: a reference to the Supvisors context,
+        - logger: a reference to the Supvisors logger,
         - socket: the PyZMQ pusher.
+
+    As it uses an inproc transport, this implies the following conditions:
+        - the RequestPusher instance and the RequestPuller instance MUST share
+        the same ZMQ context,
+        - the RequestPusher instance MUST be created before the RequestPuller
+        instance.
+
+    FIXME: deal with NOBLOCK / EAGAIN
     """
 
-    def __init__(self, zmq_context, supvisors):
+    def __init__(self, logger):
         """ Initialization of the attributes. """
-        self.logger = supvisors.logger
-        self.socket = zmq_context.socket(zmq.PUSH)
-        # connect RequestPusher to IPC address
-        url = 'ipc://' + IPC_NAME
+        self.logger = logger
+        self.socket = ZmqContext.socket(zmq.PUSH)
+        url = 'inproc://' + INPROC_NAME
         self.logger.info('binding RequestPuller to %s' % url)
         self.socket.bind(url)
 
     def close(self):
         """ This method closes the PyZMQ socket. """
-        self.socket.close()
+        self.socket.close(ZMQ_LINGER)
 
     def send_check_address(self, address_name):
         """ Send request to check address. """
-        self.logger.trace('send CHECK_ADDRESS {}'
-                          .format(address_name))
+        self.logger.trace('send CHECK_ADDRESS {}'.format(address_name))
         self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS,
-                                (address_name, )))
+                                (address_name, )),
+                               zmq.NOBLOCK)
 
     def send_isolate_addresses(self, address_names):
         """ Send request to isolate address. """
-        self.logger.trace('send ISOLATE_ADDRESSES {}'
-                          .format(address_names))
-        self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_ADDRESSES,
-                                address_names))
+        self.logger.trace('send ISOLATE_ADDRESSES {}'.format(address_names))
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_ADDRESSES,
+                                    address_names),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('ISOLATE_ADDRESSES not sent')
 
     def send_start_process(self, address_name, namespec, extra_args):
         """ Send request to start process. """
-        self.logger.trace('send START_PROCESS {} to {} with {}'
-                          .format(namespec, address_name, extra_args))
+        self.logger.trace('send START_PROCESS {} to {} with {}'.format(
+            namespec, address_name, extra_args))
         self.socket.send_pyobj((DeferredRequestHeaders.START_PROCESS,
-                                (address_name, namespec, extra_args)))
+                                (address_name, namespec, extra_args)),
+                               zmq.NOBLOCK)
 
     def send_stop_process(self, address_name, namespec):
         """ Send request to stop process. """
-        self.logger.trace('send STOP_PROCESS {} to {}'
-                          .format(namespec, address_name))
+        self.logger.trace('send STOP_PROCESS {} to {}'.format(
+            namespec, address_name))
         self.socket.send_pyobj((DeferredRequestHeaders.STOP_PROCESS,
-                                (address_name, namespec)))
+                                (address_name, namespec)),
+                               zmq.NOBLOCK)
 
     def send_restart(self, address_name):
         """ Send request to restart a Supervisor. """
         self.logger.trace('send RESTART {}'.format(address_name))
         self.socket.send_pyobj((DeferredRequestHeaders.RESTART,
-                                (address_name, )))
+                                (address_name, )),
+                               zmq.NOBLOCK)
 
     def send_shutdown(self, address_name):
         """ Send request to shutdown a Supervisor. """
         self.logger.trace('send SHUTDOWN {}'.format(address_name))
         self.socket.send_pyobj((DeferredRequestHeaders.SHUTDOWN,
-                                (address_name, )))
+                                (address_name, )),
+                               zmq.NOBLOCK)
 
 
 class SupervisorZmq():
-    """ Class for PyZmq context and sockets used from the Supervisor thread. """
+    """ Class for PyZmq context and sockets used from the Supervisor thread.
+
+    This instance owns the PyZmq context that is shared between the Supervisor
+    thread and the Supvisors thread.
+    """
 
     def __init__(self, supvisors):
-        """ Initialization of the attributes. """
-        # ZMQ context definition
-        self.zmq_context = zmq.Context.instance()
-        self.zmq_context.setsockopt(zmq.LINGER, 0)
-        # create sockets
-        self.publisher = EventPublisher(self.zmq_context, supvisors)
-        self.internal_publisher = InternalEventPublisher(self.zmq_context,
-                                                         supvisors)
-        self.pusher = RequestPusher(self.zmq_context, supvisors)
+        """ Create the sockets. """
+        self.publisher = EventPublisher(
+            supvisors.options.event_port,
+            supvisors.logger)
+        self.internal_publisher = InternalEventPublisher(
+            supvisors.address_mapper.local_address,
+            supvisors.options.internal_port,
+            supvisors.logger)
+        self.pusher = RequestPusher(
+            supvisors.logger)
 
     def close(self):
-        """ This method closes the resources. """
-        # close the sockets
-        self.internal_publisher.close()
+        """ Close the sockets. """
         self.pusher.close()
+        self.internal_publisher.close()
         self.publisher.close()
-        # close ZMQ context
-        self.zmq_context.term()
 
 
 class SupvisorsZmq():
-    """ Class for PyZmq context and sockets used from the Supvisors thread. """
+    """ Class for PyZmq context and sockets used from the Supvisors thread.
+    """
 
     def __init__(self, supvisors):
-        """ Initialization of the attributes. """
-        # ZMQ context definition
-        self.zmq_context = zmq.Context.instance()
-        # create sockets
-        self.internal_subscriber = InternalEventSubscriber(self.zmq_context,
-                                                           supvisors)
-        self.puller = RequestPuller(self.zmq_context, supvisors)
+        """ Create the sockets.
+        The Supervisor logger cannot be used here (not thread-safe). """
+        self.internal_subscriber = InternalEventSubscriber(
+            supvisors.address_mapper.addresses,
+            supvisors.options.internal_port)
+        self.puller = RequestPuller()
 
     def close(self):
-        """ This method closes the resources. """
-        # close the sockets
-        self.internal_subscriber.close()
+        """ Close the sockets. """
         self.puller.close()
+        self.internal_subscriber.close()

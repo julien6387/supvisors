@@ -16,6 +16,8 @@
 
 package org.supvisors.common;
 
+import java.util.HashMap;
+
 
 /**
  * The ProcessState enumeration.
@@ -36,9 +38,25 @@ public enum ProcessState {
     /** The state code. */
     private int stateCode;
 
+    /** Keep a map to get enum from int. */
+    private static HashMap<Integer, ProcessState> map =
+        new HashMap<Integer, ProcessState>();
+
+    static {
+        for (ProcessState state : ProcessState.values()) {
+            map.put(state.stateCode, state);
+        }
+    }
+
     /** The constructor links the state code to the state name. */
     private ProcessState(final int stateCode) {
         this.stateCode = stateCode;
     }
+
+     /** Get a ProcessState enum from integer. */
+   public static ProcessState valueOf(int stateCode) {
+        return map.get(stateCode);
+    }
+
 }
 
