@@ -26,43 +26,29 @@ import zmq
 from supvisors.tests.base import MockedSupvisors
 
 
-class ZmqContextTest(unittest.TestCase):
-    """ Test case for the create_zmq_context function of the supvisorszmq module. """
-
-    def test_create_context(self):
-        """ Create a dummy supvisors and a ZMQ context. """
-        from supvisors.supvisorszmq import create_zmq_context
-        # create and check context
-        zmq_context = create_zmq_context()
-        self.assertIsInstance(zmq_context, zmq.Context)
-        self.assertFalse(zmq_context.closed)
-        self.assertEqual(0, zmq_context.getsockopt(zmq.LINGER))
-        # destroy the context
-        zmq_context.destroy()
-        self.assertTrue(zmq_context.closed)
-
-
 class ZmqSocketTest(unittest.TestCase):
     """ Test case for the ZeroMQ sockets created in the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
-        from supvisors.supvisorszmq import create_zmq_context
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
-        self.zmq_context = create_zmq_context()
-
-    def tearDown(self):
-        """ Destroy the ZMQ context. """
-        self.zmq_context.destroy(True)
+        self.zmq_context = zmq.Context.instance()
 
     def test_internal_publish_subscribe(self):
-        """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
-        from supvisors.supvisorszmq import InternalEventPublisher, InternalEventSubscriber
+        """ Test the ZeroMQ publish-subscribe sockets used internally
+        in Supvisors. """
+        from supvisors.supvisorszmq import (InternalEventPublisher,
+                                            InternalEventSubscriber)
         # create publisher and subscriber
-        publisher = InternalEventPublisher(self.zmq_context, self.supvisors)
-        subscriber = InternalEventSubscriber(self.zmq_context, self.supvisors)
+        publisher = InternalEventPublisher(
+            self.supvisors.address_mapper.local_address,
+            self.supvisors.options.internal_port,
+            self.supvisors.logger)
+        subscriber = InternalEventSubscriber(
+            self.supvisors.address_mapper.addresses,
+            self.supvisors.options.internal_port)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
@@ -74,13 +60,15 @@ class ZmqSocketTest(unittest.TestCase):
         self.assertTrue(subscriber.socket.closed)
 
     def test_external_publish_subscribe(self):
-        """ Test the ZeroMQ publish-subscribe sockets used in the event interface of Supvisors. """
+        """ Test the ZeroMQ publish-subscribe sockets used in the event
+        interface of Supvisors. """
         from supvisors.supvisorszmq import EventPublisher, EventSubscriber
         # get event port
         port = self.supvisors.options.event_port
         # create publisher and subscriber
-        publisher = EventPublisher(self.zmq_context, self.supvisors)
-        subscriber = EventSubscriber(self.zmq_context, port, self.supvisors.logger)
+        publisher = EventPublisher(port, self.supvisors.logger)
+        subscriber = EventSubscriber(zmq.Context.instance(), port,
+                                     self.supvisors.logger)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
@@ -94,45 +82,44 @@ class ZmqSocketTest(unittest.TestCase):
     def test_internal_pusher_puller(self):
         """ Test the ZeroMQ push-pull sockets used internally in Supvisors. """
         from supvisors.supvisorszmq import RequestPusher, RequestPuller
-        from supvisors.utils import IPC_NAME
-        # test IPC file absence
-        self.assertFalse(os.path.exists(IPC_NAME))
         # create publisher and subscriber
-        pusher = RequestPusher(self.zmq_context, self.supvisors)
-        puller = RequestPuller(self.zmq_context, self.supvisors)
+        pusher = RequestPusher(self.supvisors.logger)
+        puller = RequestPuller()
         # check that the ZMQ sockets are ready
         self.assertFalse(pusher.socket.closed)
         self.assertFalse(puller.socket.closed)
-        # test IPC file existence
-        self.assertTrue(os.path.exists(IPC_NAME))
         # close the sockets
         pusher.close()
         puller.close()
         # check that the ZMQ socket are closed
         self.assertTrue(pusher.socket.closed)
         self.assertTrue(puller.socket.closed)
-        # test IPC file absence after a few seconds
-        time.sleep(1)
-        self.assertFalse(os.path.exists(IPC_NAME))
 
 
 class InternalEventTest(unittest.TestCase):
-    """ Test case for the InternalEventPublisher and InternalEventSubscriber classes of the supvisorszmq module. """
+    """ Test case for the InternalEventPublisher and InternalEventSubscriber
+    classes of the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
-        from supvisors.supvisorszmq import create_zmq_context, InternalEventPublisher, InternalEventSubscriber
+        from supvisors.supvisorszmq import (InternalEventPublisher,
+                                            InternalEventSubscriber)
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
-        # create the ZeroMQ context
-        self.zmq_context = create_zmq_context()
         # create publisher and subscriber
-        self.publisher = InternalEventPublisher(self.zmq_context, self.supvisors)
-        self.subscriber = InternalEventSubscriber(self.zmq_context, self.supvisors)
+        self.publisher = InternalEventPublisher(
+            self.supvisors.address_mapper.local_address,
+            self.supvisors.options.internal_port,
+            self.supvisors.logger)
+        self.subscriber = InternalEventSubscriber(
+            self.supvisors.address_mapper.addresses,
+            self.supvisors.options.internal_port)
         # socket configuration is meant to be blocking
-        # however, a failure would block the unit test, so a timeout is set for reception
+        # however, a failure would block the unit test,
+        # so a timeout is set for reception
         self.subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
-        # publisher does not wait for subscriber clients to work, so give some time for connections
+        # publisher does not wait for subscriber clients to work,
+        # so give some time for connections
         time.sleep(1)
 
     def tearDown(self):
@@ -140,15 +127,14 @@ class InternalEventTest(unittest.TestCase):
         # close the ZeroMQ sockets
         self.publisher.close()
         self.subscriber.close()
-        # destroy the ZeroMQ context
-        self.zmq_context.destroy(True)
 
     def receive(self, event_type):
         """ This method performs a checked reception on the subscriber. """
         try:
+            self.subscriber.socket.poll(1000)
             return self.subscriber.receive()
         except zmq.Again:
-            self.fail('Failed to get {} event'. format(event_type))
+            self.fail('Failed to get {} event'.format(event_type))
 
     def test_disconnection(self):
         """ Test the disconnection of subscribers. """
@@ -156,14 +142,17 @@ class InternalEventTest(unittest.TestCase):
         # get the local address
         local_address = self.supvisors.address_mapper.local_address
         # test remote disconnection
-        address = next(address for address in self.supvisors.address_mapper.addresses if address != local_address)
+        address = next(address
+                       for address in self.supvisors.address_mapper.addresses
+                       if address != local_address)
         self.subscriber.disconnect([address])
         # send a tick event from the local publisher
         payload = {'date': 1000}
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK,
+                               local_address, payload), msg)
         # test local disconnection
         self.subscriber.disconnect([local_address])
         # send a tick event from the local publisher
@@ -182,7 +171,8 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK,
+                               local_address, payload), msg)
 
     def test_process_event(self):
         """ Test the publication and subscription of the process events. """
@@ -194,7 +184,8 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_process_event(payload)
         # check the reception of the process event
         msg = self.receive('Process')
-        self.assertTupleEqual((InternalEventHeaders.PROCESS, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.PROCESS,
+                               local_address, payload), msg)
 
     def test_statistics(self):
         """ Test the publication and subscription of the statistics messages. """
@@ -206,24 +197,25 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_statistics(payload)
         # check the reception of the statistics event
         msg = self.receive('Statistics')
-        self.assertTupleEqual((InternalEventHeaders.STATISTICS, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.STATISTICS,
+                               local_address, payload), msg)
 
 
 class RequestTest(unittest.TestCase):
-    """ Test case for the InternalEventPublisher and InternalEventSubscriber classes of the supvisorszmq module. """
+    """ Test case for the InternalEventPublisher and InternalEventSubscriber
+    classes of the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
-        from supvisors.supvisorszmq import create_zmq_context, RequestPusher, RequestPuller
+        from supvisors.supvisorszmq import RequestPusher, RequestPuller
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
-        # create the ZeroMQ context
-        self.zmq_context = create_zmq_context()
         # create pusher and puller
-        self.pusher = RequestPusher(self.zmq_context, self.supvisors)
-        self.puller = RequestPuller(self.zmq_context, self.supvisors)
+        self.pusher = RequestPusher(self.supvisors.logger)
+        self.puller = RequestPuller()
         # socket configuration is meant to be blocking
-        # however, a failure would block the unit test, so a timeout is set for reception
+        # however, a failure would block the unit test,
+        # so a timeout is set for reception
         self.puller.socket.setsockopt(zmq.RCVTIMEO, 1000)
 
     def tearDown(self):
@@ -231,8 +223,6 @@ class RequestTest(unittest.TestCase):
         # close the ZeroMQ sockets
         self.pusher.close()
         self.puller.close()
-        # destroy the ZeroMQ context
-        self.zmq_context.destroy(True)
 
     def receive(self, event_type):
         """ This method performs a checked reception on the puller. """
@@ -242,47 +232,61 @@ class RequestTest(unittest.TestCase):
             self.fail('Failed to get {} request'. format(event_type))
 
     def test_check_address(self):
-        """ The method tests that the 'Check Address' request is sent and received correctly. """
+        """ The method tests that the 'Check Address' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_check_address('10.0.0.1')
         request = self.receive('Check Address')
-        self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS, ('10.0.0.1', )), request)
+        self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS,
+                               ('10.0.0.1', )), request)
 
     def test_isolate_addresses(self):
-        """ The method tests that the 'Isolate Addresses' request is sent and received correctly. """
+        """ The method tests that the 'Isolate Addresses' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
         request = self.receive('Isolate Addresses')
-        self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES, (['10.0.0.1', '10.0.0.2'])), request)
+        self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES,
+                               (['10.0.0.1', '10.0.0.2'])), request)
 
     def test_start_process(self):
-        """ The method tests that the 'Start Process' request is sent and received correctly. """
+        """ The method tests that the 'Start Process' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
-        self.pusher.send_start_process('10.0.0.1', 'application:program', ['-extra', 'arguments'])
+        self.pusher.send_start_process('10.0.0.1', 'application:program',
+                                       ['-extra', 'arguments'])
         request = self.receive('Start Process')
-        self.assertTupleEqual((DeferredRequestHeaders.START_PROCESS,
-            ('10.0.0.1', 'application:program', ['-extra', 'arguments'])), request)
+        self.assertTupleEqual(
+            (DeferredRequestHeaders.START_PROCESS,
+             ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
+            request)
 
     def test_stop_process(self):
-        """ The method tests that the 'Stop Process' request is sent and received correctly. """
+        """ The method tests that the 'Stop Process' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_stop_process('10.0.0.1', 'application:program')
         request = self.receive('Stop Process')
-        self.assertTupleEqual((DeferredRequestHeaders.STOP_PROCESS, ('10.0.0.1', 'application:program')), request)
+        self.assertTupleEqual((DeferredRequestHeaders.STOP_PROCESS,
+                               ('10.0.0.1', 'application:program')), request)
 
     def test_restart(self):
-        """ The method tests that the 'Restart' request is sent and received correctly. """
+        """ The method tests that the 'Restart' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_restart('10.0.0.1')
         request = self.receive('Restart')
-        self.assertTupleEqual((DeferredRequestHeaders.RESTART, ('10.0.0.1', )), request)
+        self.assertTupleEqual((DeferredRequestHeaders.RESTART,
+                               ('10.0.0.1', )), request)
 
     def test_shutdown(self):
-        """ The method tests that the 'Shutdown' request is sent and received correctly. """
+        """ The method tests that the 'Shutdown' request is sent
+        and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_shutdown('10.0.0.1')
         request = self.receive('Shutdown')
-        self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN, ('10.0.0.1', )), request)
+        self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN,
+                               ('10.0.0.1', )), request)
 
 
 class Payload:
@@ -294,36 +298,51 @@ class Payload:
 
 
 class EventTest(unittest.TestCase):
-    """ Test case for the EventPublisher and EventSubscriber classes of the supvisorszmq module. """
+    """ Test case for the EventPublisher and EventSubscriber classes
+    of the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
-        from supvisors.supvisorszmq import create_zmq_context, EventPublisher, EventSubscriber
+        from supvisors.supvisorszmq import EventPublisher, EventSubscriber
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
-        self.zmq_context = create_zmq_context()
         # create publisher and subscriber
-        self.publisher = EventPublisher(self.zmq_context, self.supvisors)
-        self.subscriber = EventSubscriber(self.zmq_context, self.supvisors.options.event_port, self.supvisors.logger)
+        self.publisher = EventPublisher(
+            self.supvisors.options.event_port,
+            self.supvisors.logger)
+        self.subscriber = EventSubscriber(
+            zmq.Context.instance(),
+            self.supvisors.options.event_port,
+            self.supvisors.logger)
         # WARN: this subscriber does not include a subscription
-        # when using a subscription, use a time sleep to give time to PyZMQ to handle it
+        # when using a subscription, use a time sleep to give time
+        # to PyZMQ to handle it
         # WARN: socket configuration is meant to be blocking
-        # however, a failure would block the unit test, so a timeout is set for reception
+        # however, a failure would block the unit test,
+        # so a timeout is set for reception
         self.subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
         # create test payloads
-        self.supvisors_payload = Payload({'state': 'running', 'version': '1.0'})
-        self.address_payload = Payload({'state': 'silent', 'name': 'cliche01', 'date': 1234})
-        self.application_payload = Payload({'state': 'starting', 'name': 'supvisors'})
-        self.process_payload = Payload({'state': 'running', 'process_name': 'plugin',
-            'application_name': 'supvisors', 'date': 1230})
+        self.supvisors_payload = Payload({'state': 'running',
+                                          'version': '1.0'})
+        self.address_payload = Payload({'state': 'silent',
+                                        'name': 'cliche01',
+                                        'date': 1234})
+        self.application_payload = Payload({'state': 'starting',
+                                            'name': 'supvisors'})
+        self.process_payload = Payload({'state': 'running',
+                                        'process_name': 'plugin',
+                                        'application_name': 'supvisors',
+                                        'date': 1230})
 
     def tearDown(self):
-        """ Destroy the ZMQ context. """
-        self.zmq_context.destroy(True)
+        """ Close the sockets. """
+        self.publisher.close()
+        self.subscriber.close()
 
     def check_reception(self, header=None, data=None):
-        """ The method tests that the message is received correctly or not received at all. """
+        """ The method tests that the message is received correctly
+        or not received at all. """
         if header and data:
             # check that subscriber receives the message
             try:
@@ -342,7 +361,8 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_supvisors_status(self.supvisors_payload)
         if subscribed:
-            self.check_reception(EventHeaders.SUPVISORS, self.supvisors_payload.data)
+            self.check_reception(EventHeaders.SUPVISORS,
+                                 self.supvisors_payload.data)
         else:
             self.check_reception()
 
@@ -352,17 +372,19 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_address_status(self.address_payload)
         if subscribed:
-            self.check_reception(EventHeaders.ADDRESS, self.address_payload.data)
+            self.check_reception(EventHeaders.ADDRESS,
+                                 self.address_payload.data)
         else:
             self.check_reception()
 
     def check_application_status(self, subscribed):
-        """ The method tests the emission and reception of an Application status,
-        depending on the subscription status. """
+        """ The method tests the emission and reception of an Application
+        status, depending on the subscription status. """
         from supvisors.utils import EventHeaders
         self.publisher.send_application_status(self.application_payload)
         if subscribed:
-            self.check_reception(EventHeaders.APPLICATION, self.application_payload.data)
+            self.check_reception(EventHeaders.APPLICATION,
+                                 self.application_payload.data)
         else:
             self.check_reception()
 
@@ -372,7 +394,8 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_process_event(self.process_payload.serial())
         if subscribed:
-            self.check_reception(EventHeaders.PROCESS_EVENT, self.process_payload.data)
+            self.check_reception(EventHeaders.PROCESS_EVENT,
+                                 self.process_payload.data)
         else:
             self.check_reception()
 
@@ -382,7 +405,8 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_process_status(self.process_payload)
         if subscribed:
-            self.check_reception(EventHeaders.PROCESS_STATUS, self.process_payload.data)
+            self.check_reception(EventHeaders.PROCESS_STATUS,
+                                 self.process_payload.data)
         else:
             self.check_reception()
 
@@ -399,11 +423,13 @@ class EventTest(unittest.TestCase):
 
     def test_no_subscription(self):
         """ Test the non-reception of messages when subscription is not set. """
-        # at this stage, no subscription has been set so nothing should be received
+        # at this stage, no subscription has been set
+        # so nothing should be received
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_supvisors_status(self):
-        """ Test the reception of Supvisors status messages when related subscription is set. """
+        """ Test the reception of Supvisors status messages
+        when related subscription is set. """
         # subscribe to Supvisors status only
         self.subscriber.subscribe_supvisors_status()
         self.check_subscription(True, False, False, False, False)
@@ -412,7 +438,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_address_status(self):
-        """ Test the reception of Address status messages when related subscription is set. """
+        """ Test the reception of Address status messages
+        when related subscription is set. """
         # subscribe to Address status only
         self.subscriber.subscribe_address_status()
         self.check_subscription(False, True, False, False, False)
@@ -421,7 +448,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_application_status(self):
-        """ Test the reception of Application status messages when related subscription is set. """
+        """ Test the reception of Application status messages
+        when related subscription is set. """
         # subscribe to Application status only
         self.subscriber.subscribe_application_status()
         self.check_subscription(False, False, True, False, False)
@@ -430,7 +458,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_process_event(self):
-        """ Test the reception of Process event messages when related subscription is set. """
+        """ Test the reception of Process event messages
+        when related subscription is set. """
         # subscribe to Process event only
         self.subscriber.subscribe_process_event()
         self.check_subscription(False, False, False, True, False)
@@ -439,7 +468,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_process_status(self):
-        """ Test the reception of Process status messages when related subscription is set. """
+        """ Test the reception of Process status messages
+        when related subscription is set. """
         # subscribe to Process status only
         self.subscriber.subscribe_process_status()
         self.check_subscription(False, False, False, False, True)
@@ -448,7 +478,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_all_status(self):
-        """ Test the reception of all status messages when related subscription is set. """
+        """ Test the reception of all status messages
+        when related subscription is set. """
         # subscribe to every status
         self.subscriber.subscribe_all()
         self.check_subscription(True, True, True, True, True)
@@ -457,7 +488,8 @@ class EventTest(unittest.TestCase):
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_multiple_status(self):
-        """ Test the reception of multiple status messages when related subscription is set. """
+        """ Test the reception of multiple status messages
+        when related subscription is set. """
         # subscribe to Application and Process Event
         self.subscriber.subscribe_application_status()
         self.subscriber.subscribe_process_event()
@@ -491,17 +523,15 @@ class SupervisorZmqTest(unittest.TestCase):
             InternalEventPublisher, RequestPusher)
         sockets = SupervisorZmq(self.supvisors)
         # test all attribute types
-        self.assertIsInstance(sockets.zmq_context, zmq.Context)
-        self.assertFalse(sockets.zmq_context.closed)
         self.assertIsInstance(sockets.publisher, EventPublisher)
         self.assertFalse(sockets.publisher.socket.closed)
-        self.assertIsInstance(sockets.internal_publisher, InternalEventPublisher)
+        self.assertIsInstance(sockets.internal_publisher,
+                              InternalEventPublisher)
         self.assertFalse(sockets.internal_publisher.socket.closed)
         self.assertIsInstance(sockets.pusher, RequestPusher)
         self.assertFalse(sockets.pusher.socket.closed)
         # close the instance
         sockets.close()
-        self.assertTrue(sockets.zmq_context.closed)
         self.assertTrue(sockets.publisher.socket.closed)
         self.assertTrue(sockets.internal_publisher.socket.closed)
         self.assertTrue(sockets.pusher.socket.closed)
@@ -520,9 +550,8 @@ class SupvisorsZmqTest(unittest.TestCase):
             InternalEventSubscriber, RequestPuller)
         sockets = SupvisorsZmq(self.supvisors)
         # test all attribute types
-        self.assertIsInstance(sockets.zmq_context, zmq.Context)
-        self.assertFalse(sockets.zmq_context.closed)
-        self.assertIsInstance(sockets.internal_subscriber, InternalEventSubscriber)
+        self.assertIsInstance(sockets.internal_subscriber,
+                              InternalEventSubscriber)
         self.assertFalse(sockets.internal_subscriber.socket.closed)
         self.assertIsInstance(sockets.puller, RequestPuller)
         self.assertFalse(sockets.puller.socket.closed)

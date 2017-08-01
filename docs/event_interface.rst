@@ -7,7 +7,9 @@ Protocol
 --------
 
 The **Supvisors** Event Interface relies on a `ZeroMQ <http://zeromq.org>`_ socket.
-To receive the **Supvisors** events, the client application must configure a socket with a ``SUBSCRIBE`` pattern and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section` of the Supervisor configuration file.
+To receive the **Supvisors** events, the client application must configure a socket
+with a ``SUBSCRIBE`` pattern and connect it on localhost using the ``event_port``
+defined in the :ref:`supvisors_section` of the Supervisor configuration file.
 
 **Supvisors** publishes the events in multi-parts messages.
 
@@ -15,7 +17,8 @@ To receive the **Supvisors** events, the client application must configure a soc
 Message header
 --------------
 
-The first part is a header that consists in an unicode string. This header identifies the type of the event, defined as follows in the supvisors.utils module:
+The first part is a header that consists in an unicode string. This header
+identifies the type of the event, defined as follows in the supvisors.utils module:
 
 .. code-block:: python
 
@@ -23,10 +26,13 @@ The first part is a header that consists in an unicode string. This header ident
     ADDRESS_STATUS_HEADER = u'address'
     APPLICATION_STATUS_HEADER = u'application'
     PROCESS_STATUS_HEADER = u'process'
+    PROCESS_EVENT_HEADER = u'event'
 
-ZeroMQ makes it possible to filter the messages received on the client side by subcribing to a part of them.
+ZeroMQ makes it possible to filter the messages received on the client side by
+subcribing to a part of them.
 To receive all messages, just subscribe using an empty string.
-For example, the following lines in python configure the ZMQ socket so as to receive only the ``Supvisors`` and ``Process`` events:
+For example, the following lines in python configure the ZMQ socket so as to
+receive only the ``Supvisors`` and ``Process`` events:
 
 .. code-block:: python
 
@@ -37,7 +43,8 @@ For example, the following lines in python configure the ZMQ socket so as to rec
 Message data
 ------------
 
-The second part of the message is a dictionary serialized in JSON. Of course, the contents depends on the message type.
+The second part of the message is a dictionary serialized in JSON. Of course,
+the contents depends on the message type.
 
 
 **Supvisors** status
@@ -96,16 +103,34 @@ Key	               Value
 ================== ==================
 
 
+Process event
+~~~~~~~~~~~~~
+
+================== ==================
+Key                Value
+================== ==================
+'group'            The name of the application.
+'name'             The name of the process.
+'state'            The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+'expected'         True if the exit status is expected (only when state is 100 - ``EXITED``).
+'now'              The date of the event in the reference time of the address.
+'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
+'address'          The address where the event comes from.
+================== ==================
+
+
 Event Clients
 -------------
 
-This section explains how to use receive the **Supvisors** Events from a Python, JAVA or C++ client.
+This section explains how to use receive the **Supvisors** Events from a Python,
+JAVA or C++ client.
 
 
 Python Client
 ~~~~~~~~~~~~~
 
-The *SupvisorsEventInterface* is designed to receive the **Supvisors** events from the local **Supvisors** instance.
+The *SupvisorsEventInterface* is designed to receive the **Supvisors** events
+from the local **Supvisors** instance.
 No additional third party is required.
 
 
@@ -117,13 +142,14 @@ No additional third party is required.
        .. automethod:: on_address_status(data)
        .. automethod:: on_application_status(data)
        .. automethod:: on_process_status(data)
+       .. automethod:: on_process_event(data)
 
 .. code-block:: python
 
     from supvisors.client.subscriber import *
 
     # create the subscriber thread
-    subscriber = SupvisorsEventInterface(create_zmq_context(), port, create_logger())
+    subscriber = SupvisorsEventInterface(zmq.Context.instance(), port, create_logger())
     # subscribe to all messages
     subscriber.subscribe_all()
     # start the thread
@@ -133,19 +159,25 @@ No additional third party is required.
 JAVA Client
 ~~~~~~~~~~~
 
-**Supvisors** provides a JAVA client in the :file:`client/java` directory of the **Supvisors** installation directory.
+**Supvisors** provides a JAVA client in the :file:`client/java` directory of
+the **Supvisors** installation directory.
 
-The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is designed to receive the **Supvisors** events from the local **Supvisors** instance.
-A *SupvisorsEventListener* with a specialization of the methods ``onXxxStatus`` must be attached to the *SupvisorsEventSubscriber* instance to receive the notifications.
+The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is
+designed to receive the **Supvisors** events from the local **Supvisors** instance.
+A *SupvisorsEventListener* with a specialization of the methods ``onXxxStatus``
+must be attached to the *SupvisorsEventSubscriber* instance to receive the
+notifications.
 
 It requires the following additional dependencies:
 
     * `JeroMQ <https://github.com/zeromq/jeromq>`_.
     * `JSON-java <https://github.com/stleary/JSON-java>`_.
 
-The binary JAR of `JeroMQ 0.3.6 <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_ is available in the MAVEN repository.
+The binary JAR of `JeroMQ 0.3.6 <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_
+is available in the MAVEN repository.
 
-The binary JAR of `JSON-java 20160810 <https://mvnrepository.com/artifact/org.json/json/20160810>`_ is available in the MAVEN repository.
+The binary JAR of `JSON-java 20160810 <https://mvnrepository.com/artifact/org.json/json/20160810>`_
+is available in the MAVEN repository.
 
 .. code-block:: java
 
@@ -177,6 +209,11 @@ The binary JAR of `JSON-java 20160810 <https://mvnrepository.com/artifact/org.js
         @Override
         public void onProcessStatus(final SupvisorsProcessInfo status) {
             System.out.println(status);
+        }
+
+        @Override
+        public void onProcessEvent(final SupvisorsProcessEvent event) {
+            System.out.println(event);
         }
     });
 

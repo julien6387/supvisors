@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,17 +22,20 @@ from time import gmtime, localtime, strftime, time
 
 
 class InternalEventHeaders:
-    """ Enumeration class for the headers in messages between Listener and MainLoop. """
+    """ Enumeration class for the headers in messages between Listener
+    and MainLoop. """
     TICK, PROCESS, STATISTICS = range(3)
 
 class RemoteCommEvents:
-    """ Strings used for remote communication between the Supvisors main loop and the listener. """
+    """ Strings used for remote communication between the Supvisors main loop
+    and the listener. """
     SUPVISORS_AUTH = u'auth'
     SUPVISORS_EVENT = u'event'
     SUPVISORS_INFO = u'info'
 
 class EventHeaders:
-    """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
+    """ Strings used as headers in messages between EventPublisher
+    and Supvisors' Client. """
     SUPVISORS = u'supvisors'
     ADDRESS = u'address'
     APPLICATION = u'application'
@@ -41,11 +44,11 @@ class EventHeaders:
 
 
 # for deferred XML-RPC requests
-IPC_NAME = '/tmp/supvisors-ipc'
-
 class DeferredRequestHeaders:
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
+    """ Enumeration class for the headers of deferred XML-RPC messages
+    sent to MainLoop."""
+    CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, \
+    SHUTDOWN = range(6)
 
 
 # used to convert enumeration-like value to string and vice-versa
@@ -55,7 +58,8 @@ def enum_to_string(dico, idxEnum):
 
 def string_to_enum(dico, strEnum):
     """ Convert a string to an enumeration value. """
-    return next((value for name, value in dico.items() if name == strEnum), None)
+    return next((value for name, value in dico.items()
+                 if name == strEnum), None)
 
 def enum_values(dico):
     """ Get all the values of an enumeration. """
@@ -68,7 +72,8 @@ def enum_strings(dico):
 
 def enumeration_tools(cls):
     """ Decorator for enumeration classes.
-    Add class methods for conversion between string and enum, for listing enumeration values and strings. """
+    Add class methods for conversion between string and enum,
+    for listing enumeration values and strings. """
     def _to_string(cls, value):
         """ Convert the enum value into a string. """
         return enum_to_string(cls.__dict__, value)
@@ -135,8 +140,10 @@ def get_linear_regression(xdata, ydata):
         sum_x = float(sum(xdata))
         sum_y = float(sum(ydata))
         sum_xx = float(sum(map(lambda x: x * x, xdata)))
-        sum_products = float(sum([xdata[i] * ydata[i] for i in range(datasize)]))
-        a = (sum_products - sum_x * sum_y / datasize) / (sum_xx - (sum_x * sum_x) / datasize)
+        sum_products = float(sum([xdata[i] * ydata[i]
+                                  for i in range(datasize)]))
+        a = (sum_products - sum_x * sum_y / datasize) / (
+            sum_xx - (sum_x * sum_x) / datasize)
         b = (sum_y - a * sum_x) / datasize
         return a, b
 

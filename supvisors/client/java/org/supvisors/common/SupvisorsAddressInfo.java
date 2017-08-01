@@ -30,13 +30,19 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     /**
      * The State enumeration for an address.
      *
-     * UNKNOWN is used at initialization, before any heartbeat message is received from this address.
-     * SILENT is used when the local Supvisors does not receive any heartbeat message from this address.
-     * RUNNING is used when the local Supvisors receives heartbeat messages from this address.
-     * ISOLATED is used when the local Supvisors has disconnected this address.
+     * UNKNOWN:  used at initialization, before any heartbeat message is
+     *           received from this address.
+     * CHECKING: used when the local Supvisors checks the isolation status of
+     *           this address.
+     * SILENT:   used when the local Supvisors does not receive any heartbeat
+     *           message from this address.
+     * RUNNING:  used when the local Supvisors receives heartbeat messages
+     *           from this address.
+     * ISOLATED: used when the local Supvisors has disconnected this address.
      */
     public enum State {
         UNKNOWN,
+        CHECKING,
         SILENT,
         RUNNING,
         ISOLATED;

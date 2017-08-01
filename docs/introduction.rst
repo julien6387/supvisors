@@ -37,8 +37,8 @@ Supervisor_ can handle a part of these requirements but it only
 works on a single UNIX-like operating system.
 
 The Supervisor website references some `tools <http://supervisord.org/plugins.html>`_
-that deal with multiple Supervisor instances but they only consist in dashboards and
-none of them is focused on the application itself.
+that deal with multiple Supervisor instances but they only consist in dashboards
+and none of them is focused on the application itself.
 Nevertheless, the extensibility of Supervisor made it possible to implement the
 missing requirements.
 
@@ -68,7 +68,7 @@ The following dependencies are required before you install **Supvisors**:
 +---------------+------------+-----------------------------------------------------------------+
 | Package       | Release    | Usage                                                           |
 +===============+============+=================================================================+
-| Supervisor_   | 3.3.0      | Base software, extended by **Supvisors**                        |
+| Supervisor_   | 3.3.2      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
 | PyZMQ_        | 15.2.0     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
