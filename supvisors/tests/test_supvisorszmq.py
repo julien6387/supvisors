@@ -293,6 +293,8 @@ class Payload:
     """ Dummy class just implementing a serial method. """
     def __init__(self, data):
         self.data = data
+    def copy(self):
+        return self.data.copy()
     def serial(self):
         return self.data
 
@@ -334,6 +336,10 @@ class EventTest(unittest.TestCase):
                                         'process_name': 'plugin',
                                         'application_name': 'supvisors',
                                         'date': 1230})
+        self.event_payload = Payload({'state': 20,
+                                      'name': 'plugin',
+                                      'group': 'supvisors',
+                                      'now': 1230})
 
     def tearDown(self):
         """ Close the sockets. """
@@ -392,10 +398,11 @@ class EventTest(unittest.TestCase):
         """ The method tests the emission and reception of a Process status,
         depending on the subscription status. """
         from supvisors.utils import EventHeaders
-        self.publisher.send_process_event(self.process_payload.serial())
+        self.publisher.send_process_event('local_address', self.event_payload)
         if subscribed:
-            self.check_reception(EventHeaders.PROCESS_EVENT,
-                                 self.process_payload.data)
+            expected = self.event_payload.data
+            expected['address'] = 'local_address'
+            self.check_reception(EventHeaders.PROCESS_EVENT, expected)
         else:
             self.check_reception()
 
