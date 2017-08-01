@@ -88,9 +88,9 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getApplicationName method returns the name of the process' application'.
+     * The getApplicationName method returns the name of the process' application.
      *
-     * @return String: The namespec of the application.
+     * @return String: The name of the application.
      */
     public String getApplicationName() {
         return this.applicationName;
@@ -99,7 +99,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /**
      * The getProcessName method returns the name of the process.
      *
-     * @return String: The namespec of the application.
+     * @return String: The name of the process.
      */
     public String getProcessName() {
         return this.processName;

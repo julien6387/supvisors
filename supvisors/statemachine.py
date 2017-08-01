@@ -286,7 +286,9 @@ class FiniteStateMachine:
         # fix failures if any (can happen after an address has been invalidated,
         # a process crash or a conciliation request)
         self.failure_handler.trigger_jobs()
-        # check if new isolating remotes and return the list of newly isolated addresses
+        # check if new isolating remotes and return the list of
+        # newly isolated addresses
+        # FIXME: create an internal event to confirm that socket has been disonnected ?
         return self.context.handle_isolation()
 
     def on_tick_event(self, address, when):
@@ -309,7 +311,8 @@ class FiniteStateMachine:
             self.stopper.on_event(process)
             # only the master is allowed to trigger an automatic behaviour
             # for a running failure
-            if self.context.master and process.crashed() and not (starting or stopping):
+            if self.context.master and process.crashed() and \
+                not (starting or stopping):
                 self.failure_handler.add_default_job(process)
                 self.failure_handler.trigger_jobs()
 

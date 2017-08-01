@@ -22,7 +22,7 @@ import zmq
 
 from supervisor.loggers import LevelsByName, getLogger
 
-from supvisors.supvisorszmq import EventSubscriber, create_zmq_context
+from supvisors.supvisorszmq import EventSubscriber
 from supvisors.utils import EventHeaders
 
 
@@ -55,15 +55,15 @@ class SupvisorsEventInterface(threading.Thread):
 
         - logger: the reference to the logger,
         - subscriber: the wrapper of the ZeroMQ socket connected to **Supvisors**,
-        - loop: when set to False, breaks the infinite loop of the thread.
+        - stop_event: when set, breaks the infinite loop of the thread.
 
     Constants:
 
         - _Poll_timeout: duration used to time out the ZeroMQ poller,
-        set to 1000 milli-seconds.
+        defaulted to 500 milli-seconds.
     """
 
-    _Poll_timeout = 1000
+    _Poll_timeout = 500
 
     def __init__(self, zmq_context, event_port, logger):
         """ Initialization of the attributes. """
@@ -73,11 +73,13 @@ class SupvisorsEventInterface(threading.Thread):
         self.logger = logger
         # create event socket
         self.subscriber = EventSubscriber(zmq_context, event_port, logger)
+        # create stop event
+        self.stop_event = threading.Event()
 
     def stop(self):
         """ This method stops the main loop of the thread. """
         self.logger.info('request to stop main loop')
-        self.loop = False
+        self.stop_event.set()
 
     def run(self):
         """ Main loop of the thread. """
@@ -85,17 +87,19 @@ class SupvisorsEventInterface(threading.Thread):
         poller = zmq.Poller()
         poller.register(self.subscriber.socket, zmq.POLLIN)
         # poll events every seconds
-        self.loop = True
         self.logger.info('entering main loop')
-        while self.loop:
+        while not self.stop_event.is_set():
             socks = dict(poller.poll(self._Poll_timeout))
             # check if something happened on the socket
-            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
+            if self.subscriber.socket in socks and \
+                socks[self.subscriber.socket] == zmq.POLLIN:
                 self.logger.debug('got message on subscriber')
                 try:
                     message = self.subscriber.receive()
                 except Exception, e:
-                    self.logger.error('failed to get data from subscriber: {}'.format(e.message))
+                    self.logger.error(
+                        'failed to get data from subscriber: {}'.format(
+                            e.message))
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
@@ -134,14 +138,16 @@ class SupvisorsEventInterface(threading.Thread):
 if __name__ == '__main__':
     # get arguments
     import argparse, time
-    parser = argparse.ArgumentParser(description='Start a subscriber to Supvisors events.')
+    parser = argparse.ArgumentParser(
+        description='Start a subscriber to Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     parser.add_argument('-s', '--sleep', type=int, metavar='SEC', default=10,
-        help="the duration of the subscription")
+                        help="the duration of the subscription")
     args = parser.parse_args()
     # create test subscriber
-    loop = SupvisorsEventInterface(create_zmq_context(),
+
+    loop = SupvisorsEventInterface(zmq.Context.instance(),
                                    args.port,
                                    create_logger())
     loop.subscriber.subscribe_all()

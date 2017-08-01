@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -32,7 +32,8 @@ from supvisors.utils import extract_process_info
 class DummyAddressMapper:
     """ Simple address mapper with an empty addresses list. """
     def __init__(self):
-        self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3',
+                          '10.0.0.4', '10.0.0.5']
         self.local_address = '127.0.0.1'
     def filter(self, address_list):
         return address_list
@@ -78,8 +79,10 @@ class MockedSupvisors:
         # mock the supervisord source
         from supvisors.infosource import SupervisordSource
         self.info_source = Mock(spec=SupervisordSource)
-        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000', 
-            'SUPERVISOR_USERNAME': '', 'SUPERVISOR_PASSWORD': ''}
+        self.info_source.get_env.return_value = {
+            'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+            'SUPERVISOR_USERNAME': '',
+            'SUPERVISOR_PASSWORD': ''}
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)
@@ -97,7 +100,8 @@ class MockedSupvisors:
 class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
     def __init__(self):
-        self.rpcinterface = Mock(supervisor='supervisor_RPC', supvisors='supvisors_RPC')
+        self.rpcinterface = Mock(supervisor='supervisor_RPC',
+                                 supvisors='supvisors_RPC')
 
 
 class DummyRpcInterface:
@@ -108,10 +112,11 @@ class DummyRpcInterface:
         # cretae rpc interfaces to have a skeleton
         # create a Supervisor RPC interface
         self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
-        # create a mocked Supvisors RPC interface 
+        # create a mocked Supvisors RPC interface
         def create_supvisors(*args, **kwargs):
             return MockedSupvisors()
-        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
+        with patch('supvisors.rpcinterface.Supvisors',
+                   side_effect=create_supvisors):
             self.supvisors = RPCInterface(supervisord)
 
 
@@ -163,7 +168,7 @@ class DummySupervisor:
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
         self.process_groups = {'dummy_application':
-            Mock(config='dummy_application_config', 
+            Mock(config='dummy_application_config',
                 processes={'dummy_process_1': DummyProcess('ls', True),
                     'dummy_process_2': DummyProcess('cat', False)})}
 
@@ -174,8 +179,8 @@ class DummyHttpContext:
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
         self.template = os.path.join(module_path, template)
-    
-    
+
+
 # note that all dates ('now') are different
 ProcessInfoDatabase = [
     {'description': '', 'pid': 80886, 'stderr_logfile': '', 'stop': 1473888084,
@@ -186,7 +191,7 @@ ProcessInfoDatabase = [
         'stop': 1473888156, 'logfile': './log/segv_cliche01.log', 'exitstatus': 0,
         'spawnerr': 'Exited too quickly (process log may have details)', 'now': 1473888156,
         'group': 'crash', 'name': 'segv', 'statename': 'BACKOFF', 'start': 1473888155, 'state': 30,
-        'stdout_logfile': './log/segv_cliche01.log'}, 
+        'stdout_logfile': './log/segv_cliche01.log'},
     {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473887937,
         'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888161,
         'group': 'firefox', 'name': 'firefox', 'statename': 'EXITED', 'start': 1473887932, 'state': 100,
@@ -228,20 +233,24 @@ def any_process_info():
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
+    info = random.choice([info for info in ProcessInfoDatabase
+                          if info['state'] in STOPPED_STATES])
     return extract_process_info(info)
 
 def any_running_process_info():
     """ Return a copy of any running process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES])
+    info = random.choice([info for info in ProcessInfoDatabase
+                          if info['state'] in RUNNING_STATES])
     return extract_process_info(info)
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
-    info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
+    info = random.choice([info for info in ProcessInfoDatabase
+                          if info['state'] == state])
     return extract_process_info(info)
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    info = next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+    info = next((info.copy() for info in ProcessInfoDatabase
+                 if info['name'] == name), None)
     return extract_process_info(info)

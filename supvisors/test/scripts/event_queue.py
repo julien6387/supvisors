@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import zmq
 from Queue import Queue
 
 from supvisors.client.subscriber import *
@@ -33,7 +34,8 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
-        SupvisorsEventInterface.__init__(self, create_zmq_context(), port, logger)
+        SupvisorsEventInterface.__init__(self, zmq.Context.instance(),
+                                         port, logger)
         # create a set of addresses
         self.addresses = set()
         # create queues to store messages

@@ -69,17 +69,12 @@ class SupvisorsTest(unittest.TestCase):
                 if info['statecode'] == ProcessStates.RUNNING}
         self.assertItemsEqual(self.running_processes.keys(),
             ['movie_server_01', 'movie_server_02', 'movie_server_03'])
-        addresses = [address for addresses in self.running_processes.values()
-            for address in addresses]
-        self.assertSetEqual(set(self.running_addresses), set(addresses))
         # create the thread of event subscriber
         self.event_loop = SupvisorsEventQueues(self.PORT, self.logger)
         self.event_loop.subscriber.unsubscribe_address_status()
         self.event_loop.subscriber.subscribe_supvisors_status()
-        self.event_loop.subscriber.subscribe_process_event()
         # get the queues
         self.supvisors_queue = self.event_loop.event_queues[0]
-        self.process_evt_queue = self.event_loop.event_queues[3]
         # start the thread
         self.event_loop.start()
 
@@ -87,6 +82,13 @@ class SupvisorsTest(unittest.TestCase):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.event_loop.stop()
         self.event_loop.join()
+
+    def get_next_supvisors_event(self):
+        """ Return next Supvisors event from queue. """
+        try:
+            return self.supvisors_queue.get(True, 15)
+        except Empty:
+            self.fail('failed to get the expected events for Supvisors')
 
 
 class ConciliationTest(SupvisorsTest):
@@ -101,38 +103,24 @@ class ConciliationTest(SupvisorsTest):
         # check that there is no conflict before to start testing
         self._check_no_conflict()
 
-    def get_next_supvisors_event(self):
-        """ Return next Supvisors event from queue. """
-        try:
-            return self.supvisors_queue.get(True, 15)
-        except Empty:
-            self.fail('failed to get the expected events for Supvisors')
-
-    def get_next_process_event(self):
-        """ Return next Supvisors event from queue. """
-        try:
-            return self.process_evt_queue.get(True, 5)
-        except Empty:
-            self.fail('failed to get the expected events for this process')
-
     def test_conciliation(self):
         """ Check depending on the configuration. """
         # test depends on configuration
         strategies = self.local_proxy.supvisors.get_strategies()
         strategy = ConciliationStrategies._from_string(strategies['conciliation'])
         if strategy == ConciliationStrategies.USER:
+            print('### Testing USER conciliation')
             self._check_conciliation_user()
         else:
+            print('### Testing Automatic conciliation with {}'.format(
+                strategies['conciliation']))
             self._check_conciliation_auto()
 
     def _check_conciliation_auto(self):
         """ Test the conciliation after creating conflicts. """
-        print('### Testing Automatic conciliation')
         # create the conflicts
         self._create_database_conflicts()
         # check process events
-        # STARTING + RUNNING + STOPPING + STOPPED expected for 2 processes
-        self._check_process_events([10, 20, 40, 0] * 2)
         # cannot check using RPC as conciliation will be triggered automatically
         # so check only the Supvisors state transitions
         data = self.get_next_supvisors_event()
@@ -146,12 +134,8 @@ class ConciliationTest(SupvisorsTest):
 
     def _check_conciliation_user(self):
         """ Test the conciliation after creating conflicts. """
-        print('### Testing USER conciliation')
         # create the conflicts and check the CONCILIATION status
         self._create_database_conflicts()
-        # check process events
-        # STARTING + RUNNING expected for 2 processes
-        self._check_process_events([10, 20] * 2)
         # check supvisors event: CONCILIATION state is expected
         data = self.get_next_supvisors_event()
         self.assertEqual(SupvisorsStates.CONCILIATION,
@@ -191,20 +175,6 @@ class ConciliationTest(SupvisorsTest):
                     proxy.supervisor.startProcess('database:movie_server_0%d' % idx)
                 except xmlrpclib.Fault, exc:
                     self.assertEqual(Faults.ALREADY_STARTED, exc.faultCode)
-
-    def _check_process_events(self, event_types):
-        """ Check process events per address. """
-        expected = {address: event_types[:]
-                    for address in self.running_addresses}
-        while expected:
-            # pop next event and remove from expectation
-            address, event = self.get_next_process_event()
-            self.assertIn(address, expected)
-            state_list = expected[address]
-            self.assertIn(event['state'], state_list)
-            state_list.remove(event['state'])
-            if not state_list:
-                expected.pop(address)
 
     def _check_database_conflicts(self):
         """ Test conflicts on database application using RPC. """

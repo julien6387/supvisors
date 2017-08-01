@@ -46,6 +46,9 @@ public class SupvisorsEventSubscriber implements Runnable {
     /** The constant header in ProcessStatus messages. */
     private static final String PROCESS_STATUS_HEADER = "process";
 
+    /** The constant header in ProcessStatus messages. */
+    private static final String PROCESS_EVENT_HEADER = "event";
+
     /** The ZeroMQ context. */
     private Context context;
 
@@ -125,6 +128,13 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
+     * Subscription to Process events.
+     */
+    public void subscribeToProcessEvent() {
+        subscribeTo(PROCESS_EVENT_HEADER);
+    }
+
+    /**
      * Subscription to event.
      *
      * @param String header: the header of the message to subscribe to.
@@ -166,6 +176,13 @@ public class SupvisorsEventSubscriber implements Runnable {
      */
     public void unsubscribeFromProcessStatus() {
         unsubscribeFrom(PROCESS_STATUS_HEADER);
+    }
+
+    /**
+     * Unubscription from Process events.
+     */
+    public void unsubscribeFromProcessEvent() {
+        unsubscribeFrom(PROCESS_EVENT_HEADER);
     }
 
     /**
@@ -213,6 +230,8 @@ public class SupvisorsEventSubscriber implements Runnable {
                         listener.onApplicationStatus(new SupvisorsApplicationInfo(body));
                     } else if (PROCESS_STATUS_HEADER.equals(header)) {
                         listener.onProcessStatus(new SupvisorsProcessInfo(body));
+                    } else if (PROCESS_EVENT_HEADER.equals(header)) {
+                        listener.onProcessEvent(new SupvisorsProcessEvent(body));
                     }
                 }
             }
@@ -233,7 +252,8 @@ public class SupvisorsEventSubscriber implements Runnable {
         final Context context = ZMQ.context(1);
 
         // create and configure the subscriber
-        final SupvisorsEventSubscriber subscriber = new SupvisorsEventSubscriber(60002, context);
+        final SupvisorsEventSubscriber subscriber =
+            new SupvisorsEventSubscriber(60002, context);
         subscriber.subscribeToAll();
         subscriber.setListener(new SupvisorsEventListener() {
 
@@ -254,6 +274,11 @@ public class SupvisorsEventSubscriber implements Runnable {
 
             @Override
             public void onProcessStatus(final SupvisorsProcessInfo status) {
+                System.out.println(status);
+            }
+
+            @Override
+            public void onProcessEvent(final SupvisorsProcessEvent status) {
                 System.out.println(status);
             }
         });

@@ -19,6 +19,7 @@ package org.supvisors.event;
 import org.supvisors.common.SupvisorsAddressInfo;
 import org.supvisors.common.SupvisorsApplicationInfo;
 import org.supvisors.common.SupvisorsProcessInfo;
+import org.supvisors.common.SupvisorsProcessEvent;
 import org.supvisors.common.SupvisorsStatus;
 
 /**
@@ -32,13 +33,13 @@ public interface SupvisorsEventListener {
      * The method is called when supvisors subscription is set
      * and a SupvisorsStatus message is received.
      *
-     * @param SupvisorsStatus: The last SupvisorsStatus received.
+     * @param Supvisors Status: The last SupvisorsStatus received.
      */
     void onSupvisorsStatus(final SupvisorsStatus status);
 
     /**
      * The method is called when address subscription is set
-     * and an AddressStatus message is received.
+     * and an Address Status message is received.
      *
      * @param SupvisorsAddressInfo: The last SupvisorsAddressInfo received.
      */
@@ -46,7 +47,7 @@ public interface SupvisorsEventListener {
 
     /**
      * The method is called when application subscription is set
-     * and an ApplicationStatus message is received.
+     * and an Application Status message is received.
      *
      * @param SupvisorsApplicationInfo: The last SupvisorsApplicationInfo received.
      */
@@ -54,11 +55,18 @@ public interface SupvisorsEventListener {
 
     /**
      * The method is called when application subscription is set
-     * and a ProcessStatus message is received.
+     * and a Process Status message is received.
      *
      * @param SupvisorsProcessInfo: The last SupvisorsProcessInfo received.
      */
     void onProcessStatus(final SupvisorsProcessInfo status);
 
+    /**
+     * The method is called when application subscription is set
+     * and a Process Event message is received.
+     *
+     * @param SupvisorsProcessEvent: The last SupvisorsProcessEvent received.
+     */
+    void onProcessEvent(final SupvisorsProcessEvent status);
 }
 
