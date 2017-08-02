@@ -60,14 +60,10 @@ class SupvisorsMainLoop(Thread):
         """ Request to stop the infinite loop by resetting its flag. """
         if self.is_alive():
             self._stop_event.set()
-            self.join(5)
-            if self.is_alive():
-                # FIXME: the thread may be blocked in a XML-RPC call
-                # the thread cannot be killed, so there is no other option
-                # give the lead back to Supervisor thread and wait
-                self.supvisors.logger.critical('Failed to stop main loop')
-                return False
-        return True
+            # the thread cannot be blocked in a XML-RPC call because of the
+            # close_httpservers called just before this stop
+            # so join is expected to end properly
+            self.join()
 
     def run(self):
         """ Contents of the infinite loop. """
@@ -87,6 +83,8 @@ class SupvisorsMainLoop(Thread):
             if not self.stopping():
                 self.check_requests(sockets, socks)
                 self.check_events(sockets.internal_subscriber, socks)
+        # test block
+        self.send_remote_comm_event('test', 'JLC')
         # close resources gracefully
         poller.unregister(sockets.puller.socket)
         poller.unregister(sockets.internal_subscriber.socket)
@@ -209,9 +207,8 @@ class SupvisorsMainLoop(Thread):
     def send_remote_comm_event(self, event_type, event_data):
         """ Shortcut for the use of sendRemoteCommEvent. """
         try:
-            # FIXME: may block forever if Supervisor is restarting
             self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
         except:
             # expected on restart / shutdown
-            print >> stderr, '[WARN] failed to send event to Supervisor: {}'.format(
-                event_type)
+            print >> stderr, \
+            '[WARN] failed to send event to Supervisor: {}'.format(event_type)

@@ -66,19 +66,14 @@ class MainLoopTest(unittest.TestCase):
         """ Test the stopping of the main loop thread. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
-        # try to stop main loop before it is started
-        self.assertTrue(main_loop.stop())
-        # stop main loop when alive
         with patch.object(main_loop, 'join') as mocked_join:
-            with patch.object(main_loop, 'is_alive',
-                              side_effect=[True, False, True, True]):
-                # in first test, the thread has stopped
-                self.assertTrue(main_loop.stop())
-                self.assertTrue(main_loop._stop_event.is_set())
-                self.assertEqual(1, mocked_join.call_count)
-                mocked_join.reset_mock()
-                # in second test, the thread is still alive
-                self.assertFalse(main_loop.stop())
+            # try to stop main loop before it is started
+            main_loop.stop()
+            self.assertFalse(main_loop._stop_event.is_set())
+            self.assertEqual(0, mocked_join.call_count)
+            # stop main loop when alive
+            with patch.object(main_loop, 'is_alive', return_value=True):
+                main_loop.stop()
                 self.assertTrue(main_loop._stop_event.is_set())
                 self.assertEqual(1, mocked_join.call_count)
 
