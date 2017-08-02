@@ -215,7 +215,8 @@ class RequestTest(unittest.TestCase):
         self.puller = RequestPuller()
         # socket configuration is meant to be blocking
         # however, a failure would block the unit test,
-        # so a timeout is set for reception
+        # so a timeout is set for emission and reception
+        self.puller.socket.setsockopt(zmq.SNDTIMEO, 1000)
         self.puller.socket.setsockopt(zmq.RCVTIMEO, 1000)
 
     def tearDown(self):
@@ -239,6 +240,13 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Check Address')
         self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS,
                                ('10.0.0.1', )), request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_check_address('10.0.0.1')
+        except:
+            self.fail('unexpected exception')
 
     def test_isolate_addresses(self):
         """ The method tests that the 'Isolate Addresses' request is sent
@@ -248,6 +256,13 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Isolate Addresses')
         self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES,
                                (['10.0.0.1', '10.0.0.2'])), request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
+        except:
+            self.fail('unexpected exception')
 
     def test_start_process(self):
         """ The method tests that the 'Start Process' request is sent
@@ -260,6 +275,14 @@ class RequestTest(unittest.TestCase):
             (DeferredRequestHeaders.START_PROCESS,
              ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
             request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_start_process('10.0.0.1', 'application:program',
+                                           ['-extra', 'arguments'])
+        except:
+            self.fail('unexpected exception')
 
     def test_stop_process(self):
         """ The method tests that the 'Stop Process' request is sent
@@ -269,6 +292,13 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Stop Process')
         self.assertTupleEqual((DeferredRequestHeaders.STOP_PROCESS,
                                ('10.0.0.1', 'application:program')), request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_stop_process('10.0.0.1', 'application:program')
+        except:
+            self.fail('unexpected exception')
 
     def test_restart(self):
         """ The method tests that the 'Restart' request is sent
@@ -278,6 +308,13 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Restart')
         self.assertTupleEqual((DeferredRequestHeaders.RESTART,
                                ('10.0.0.1', )), request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_restart('10.0.0.1')
+        except:
+            self.fail('unexpected exception')
 
     def test_shutdown(self):
         """ The method tests that the 'Shutdown' request is sent
@@ -287,6 +324,13 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Shutdown')
         self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN,
                                ('10.0.0.1', )), request)
+        # test that absence of puller does not block the pusher
+        # or raise any exception
+        self.puller.close()
+        try:
+            self.pusher.send_shutdown('10.0.0.1')
+        except:
+            self.fail('unexpected exception')
 
 
 class Payload:
