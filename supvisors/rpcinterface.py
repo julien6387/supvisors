@@ -424,7 +424,8 @@ class RPCInterface(object):
         done = True
         for process in processes:
             done &= self.starter.start_process(strategy, process, extra_args)
-        self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
+        self.logger.debug('startProcess {} done={}'.format(process.namespec(),
+                                                           done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -433,7 +434,8 @@ class RPCInterface(object):
                     return NOT_DONE_YET
                 for process in processes:
                     if process.stopped():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec())
+                        raise RPCError(Faults.ABNORMAL_TERMINATION,
+                                       process.namespec())
                 return True
             onwait.delay = 0.1
             return onwait # deferred

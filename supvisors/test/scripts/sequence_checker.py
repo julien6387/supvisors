@@ -23,11 +23,10 @@ from Queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import split_namespec
-from supervisor.states import (RUNNING_STATES, STOPPED_STATES)
-from supvisors.client.subscriber import create_logger
+from supervisor.states import RUNNING_STATES, STOPPED_STATES
 from supvisors.ttypes import ApplicationStates, ProcessStates
 
-from scripts.event_queue import SupvisorsEventQueues
+from scripts.event_queues import SupvisorsEventQueues
 
 
 class ProcessStateEvent(object):
@@ -179,16 +178,51 @@ class Context:
         return False
 
 
+class SequenceChecker(SupvisorsEventQueues):
+    """ The SequenceChecker is a python thread that connects to Supvisors
+    and stores the application and process events received into queues. """
+
+    def __init__(self):
+        """ Initialization of the attributes.
+        Test relies on 3 addresses so theoretically, we only need 3
+        notifications to know which address is RUNNING or not.
+        The asynchronism forces to work on 5 notifications.
+        The startsecs of the ini file of this program is then set to 30 seconds.
+        """
+        SupvisorsEventQueues.__init__(self)
+        # create a set of addresses
+        self.addresses = set()
+        # create queues to store messages
+        self.nb_address_notifications = 0
+
+    def configure(self):
+        """ Subscribe to address status only. """
+        self.subscriber.subscribe_address_status()
+
+    def on_address_status(self, data):
+        """ Pushes the Address Status message into a queue. """
+        self.logger.info('got Address Status message: {}'.format(data))
+        if data['statename'] == 'RUNNING':
+            self.addresses.add(data['address_name'])
+        # check the number of notifications
+        self.nb_address_notifications += 1
+        if self.nb_address_notifications == 5:
+            self.logger.info('addresses: {}'.format(self.addresses))
+            # got all notification, unsubscribe from AddressStatus
+            self.subscriber.unsubscribe_address_status()
+            # subscribe to application and process status
+            self.subscriber.subscribe_application_status()
+            self.subscriber.subscribe_process_status()
+            # notify CheckSequence with an event in start_queue
+            self.address_queue.put(self.addresses)
+
+
 class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
-
-    PORT = 60002
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and
         get the event queues. """
-        # create logger using a BoundIO
-        self.logger = create_logger(logfile=None)
         # get the addresses
         proxy = getRPCInterface(os.environ).supvisors
         addresses_info = proxy.get_all_addresses_info()
@@ -196,29 +230,21 @@ class CheckSequenceTest(unittest.TestCase):
         self.HOST_02 = addresses_info[1]['address_name']
         self.HOST_03 = addresses_info[2]['address_name']
         self.HOST_04 = addresses_info[3]['address_name']
-        self.logger.info(
-            'working with HOST_01={} HOST_02={} HOST_03={} HOST_04={}'.format(
-                self.HOST_01, self.HOST_02, self.HOST_03, self.HOST_04))
         # create a context
         self.context = Context()
         # create the thread of event subscriber
-        self.event_loop = SupvisorsEventQueues(self.PORT, self.logger)
-        # get the queues
-        self.address_queue = self.event_loop.event_queues[1]
-        self.application_queue = self.event_loop.event_queues[2]
-        self.process_queue = self.event_loop.event_queues[4]
-        # start the thread
-        self.event_loop.start()
+        self.evloop = SequenceChecker()
+        self.evloop.start()
 
     def tearDown(self):
         """ The tearDown stops the subscriber to the Supvisors events. """
-        self.event_loop.stop()
-        self.event_loop.join()
+        self.evloop.stop()
+        self.evloop.join()
 
     def get_addresses(self):
         """ Wait for address_queue to put the list of active addresses. """
         try:
-            self.addresses = self.address_queue.get(True, 30)
+            self.addresses = self.evloop.address_queue.get(True, 30)
             self.assertGreater(len(self.addresses), 0)
         except Empty:
             self.fail('failed to get the address event in the last 30 seconds')
@@ -228,20 +254,20 @@ class CheckSequenceTest(unittest.TestCase):
         while self.context.has_events(application_name):
             # wait for a process event
             try:
-                data = self.process_queue.get(True, 30)
+                data = self.evloop.process_queue.get(True, 30)
             except Empty:
                 self.fail('failed to get the expected events for this process')
             self.check_process_event(data)
             # wait for an application event
             try:
-                data = self.application_queue.get(True, 2)
+                data = self.evloop.application_queue.get(True, 2)
             except Empty:
                 self.fail('failed to get the expected events for this process')
             self.check_application_event(data)
 
     def check_process_event(self, event):
         """ Check if the received process event corresponds to expectation. """
-        self.logger.info('Checking process event: {}'.format(event))
+        self.evloop.logger.info('Checking process event: {}'.format(event))
         # check that event corresponds to an expected application
         application_name = event['application_name']
         application = self.context.get_application(application_name)
@@ -269,7 +295,7 @@ class CheckSequenceTest(unittest.TestCase):
     def check_application_event(self, event):
         """ Check if the received application event corresponds
         to expectation. """
-        self.logger.info('Checking application event: {}'.format(event))
+        self.evloop.logger.info('Checking application event: {}'.format(event))
         # check that event corresponds to an expected application
         application_name = event['application_name']
         application = self.context.get_application(application_name)

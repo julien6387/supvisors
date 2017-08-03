@@ -70,7 +70,7 @@ The following dependencies are required before you install **Supvisors**:
 +===============+============+=================================================================+
 | Supervisor_   | 3.3.2      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
-| PyZMQ_        | 15.2.0     | Python binding of ZeroMQ                                        |
+| PyZMQ_        | 16.0.2     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
 | psutil_       | 4.3.0      | *Information about processes and system utilization (optional)* |
 +---------------+------------+-----------------------------------------------------------------+

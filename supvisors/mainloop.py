@@ -45,7 +45,7 @@ class SupvisorsMainLoop(Thread):
         # thread attributes
         Thread.__init__(self)
         # create stop event
-        self._stop_event = Event()
+        self.stop_event = Event()
         # keep a reference to the Supvisors instance and to the environment
         self.supvisors = supvisors
         self.env = supvisors.info_source.get_env()
@@ -54,12 +54,12 @@ class SupvisorsMainLoop(Thread):
 
     def stopping(self):
         """ Access to the loop attribute (used to drive tests on run method). """
-        return self._stop_event.is_set()
+        return self.stop_event.is_set()
 
     def stop(self):
         """ Request to stop the infinite loop by resetting its flag. """
         if self.is_alive():
-            self._stop_event.set()
+            self.stop_event.set()
             # the thread cannot be blocked in a XML-RPC call because of the
             # close_httpservers called just before this stop
             # so join is expected to end properly
@@ -83,8 +83,6 @@ class SupvisorsMainLoop(Thread):
             if not self.stopping():
                 self.check_requests(sockets, socks)
                 self.check_events(sockets.internal_subscriber, socks)
-        # test block
-        self.send_remote_comm_event('test', 'JLC')
         # close resources gracefully
         poller.unregister(sockets.puller.socket)
         poller.unregister(sockets.internal_subscriber.socket)

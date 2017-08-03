@@ -69,10 +69,10 @@ class SupvisorsEventInterface(threading.Thread):
         """ Initialization of the attributes. """
         # thread attributes
         threading.Thread.__init__(self)
-        # keep a reference to the logger
+        # store the parameters
+        self.zmq_context = zmq_context
+        self.event_port = event_port
         self.logger = logger
-        # create event socket
-        self.subscriber = EventSubscriber(zmq_context, event_port, logger)
         # create stop event
         self.stop_event = threading.Event()
 
@@ -83,6 +83,11 @@ class SupvisorsEventInterface(threading.Thread):
 
     def run(self):
         """ Main loop of the thread. """
+        # create event socket
+        self.subscriber = EventSubscriber(self.zmq_context,
+                                          self.event_port,
+                                          self.logger)
+        self.configure()
         # create poller and register event subscriber
         poller = zmq.Poller()
         poller.register(self.subscriber.socket, zmq.POLLIN)
@@ -113,6 +118,11 @@ class SupvisorsEventInterface(threading.Thread):
                         self.on_process_status(message[1])
         self.logger.warn('exiting main loop')
         self.subscriber.close()
+
+    def configure(self):
+        """ Default is subscription to everything. """
+        self.logger.info('subscribe to all messages')
+        self.subscriber.subscribe_all()
 
     def on_supvisors_status(self, data):
         """ Just logs the contents of the Supvisors Status message. """

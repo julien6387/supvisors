@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -206,7 +206,8 @@ class Starter(Commander):
         """ Plan and start the necessary job to start the process in parameter,
         with the default strategy.
         Return False when starting not completed. """
-        return self.start_process(self.supvisors.options.starting_strategy, process)
+        return self.start_process(self.supvisors.options.starting_strategy,
+                                  process)
 
     def start_process(self, strategy, process, extra_args=''):
         """ Plan and start the necessary job to start the process in parameter,
@@ -222,12 +223,12 @@ class Starter(Commander):
         process.ignore_wait_exit = True
         # push program list in todo list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
-        self.process_job(process, job)
+        starting = self.process_job(process, job)
         # upon failure, remove inProgress entry if empty
         if not job:
             del self.current_jobs[process.application_name]
-        # return True when started
-        return not self.in_progress()
+        # return True when starting
+        return starting
 
     def check_starting(self):
         """ Check the progress of the application starting. """
@@ -341,11 +342,13 @@ class Starter(Commander):
         application_sequence = application.start_sequence.copy()
         application_sequence.pop(0, None)
         if len(application_sequence) > 0:
-            sequence = self.planned_sequence.setdefault(application.rules.start_sequence, {})
+            sequence = self.planned_sequence.setdefault(
+                application.rules.start_sequence, {})
             sequence[application.application_name] = application_sequence
 
     def process_job(self, process, jobs):
-        """ Start the process on the relevant address. """
+        """ Start the process on the relevant address.
+        Return True if process is starting. """
         reset_flag = True
         # process must be stopped
         if process.stopped():
@@ -367,36 +370,45 @@ class Starter(Commander):
                 # reset extra arguments
                 process.extra_args = ''
             else:
-                self.logger.warn('no resource available to start {}'.format(namespec))
+                self.logger.warn('no resource available to start {}'.format(
+                    namespec))
                 self.force_process_fatal(namespec, 'no resource available')
         # due to failure, reset ignore_wait_exit flag
         if reset_flag:
             process.ignore_wait_exit = False
+        # return True when process is starting
+        return not reset_flag
 
     def process_failure(self, process):
         """ Updates the start sequence when a process could not be started. """
         application_name = process.application_name
         # impact of failure on application starting
         if process.rules.required:
-            self.logger.warn('starting failed for required {}'.format(process.process_name))
+            self.logger.warn('starting failed for required {}'.format(
+                process.process_name))
             # get starting failure strategy of related application
             application = self.supvisors.context.applications[application_name]
             failure_strategy = application.rules.starting_failure_strategy
             # apply strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
-                self.logger.error('abort starting of application {}'.format(application_name))
+                self.logger.error('abort starting of application {}'.format(
+                    application_name))
                 # remove failed application from starting
-                # do not remove application from current_jobs as requests have already been sent
+                # do not remove application from current_jobs as requests
+                # have already been sent
                 self.planned_jobs.pop(application_name, None)
             elif failure_strategy == StartingFailureStrategies.STOP:
                 self.logger.error('stop application {}'.format(application_name))
                 self.planned_jobs.pop(application_name, None)
                 self.supvisors.stopper.stop_application(application)
             else:
-                self.logger.warn('continue starting of application {}'.format(application_name))
+                self.logger.warn('continue starting of application {}'.format(
+                    application_name))
         else:
-            self.logger.warn('starting failed for optional {}'.format(process.process_name))
-            self.logger.warn('continue starting of application {}'.format(application_name))
+            self.logger.warn('starting failed for optional {}'.format(
+                process.process_name))
+            self.logger.warn('continue starting of application {}'.format(
+                application_name))
 
     def force_process_fatal(self, namespec, reason):
         """ Publish the process state as FATAL to all Supvisors instances. """
@@ -405,10 +417,12 @@ class Starter(Commander):
             # this call updates the Supervisor data model
             self.supvisors.info_source.force_process_fatal(namespec, reason)
         except KeyError:
-            self.logger.error('process {} unknown to this Supervisor.'.format(namespec))
-            # the Supvisors user is not forced to use the same process configuration on all machines,
+            self.logger.error('process {} unknown to this Supervisor.'.format(
+                namespec))
+            # the Supvisors user is not forced to use the same process
+            # configuration on all machines,
             # although it is strongly recommended to avoid troubles.
-            # so, publish directly a fake process event to all Supvisors instances
+            # => publish directly a fake process event to all Supvisors instances
             self.supvisors.listener.force_process_fatal(namespec)
 
 
@@ -416,7 +430,8 @@ class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
 
     def stop_applications(self):
-        """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
+        """ Plan and start the necessary jobs to stop all the applications
+        having a stop_sequence. """
         self.logger.info('stop all applications')
         # stopping initialization: push program list in todo list
         for application in self.supvisors.context.applications.values():
@@ -427,14 +442,18 @@ class Stopper(Commander):
         self.initial_jobs()
 
     def stop_application(self, application):
-        """ Plan and start the necessary jobs to stop the application in parameter. """
-        self.logger.info('stop application {}'.format(application.application_name))
+        """ Plan and start the necessary jobs to stop the application in
+        parameter. """
+        self.logger.info('stop application {}'.format(
+            application.application_name))
         # push program list in todo list and start work
         if application.running():
             self.store_application_stop_sequence(application)
-            self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
+            self.logger.debug('planned_sequence={}'.format(
+                self.printable_planned_sequence()))
             # add application immediately to planned jobs
-            self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
+            self.planned_jobs.update(self.planned_sequence.pop(
+                min(self.planned_sequence.keys())))
             self.process_application_jobs(application.application_name)
         # return True when stopped
         return not self.in_progress()
@@ -454,7 +473,8 @@ class Stopper(Commander):
     def store_application_stop_sequence(self, application):
         """ Schedules the application processes to stop. """
         if application.stop_sequence:
-            sequence = self.planned_sequence.setdefault(application.rules.stop_sequence, {})
+            sequence = self.planned_sequence.setdefault(
+                application.rules.stop_sequence, {})
             sequence[application.application_name] = application.stop_sequence.copy()
 
     def process_job(self, process, jobs):
@@ -462,40 +482,58 @@ class Stopper(Commander):
         if process.running():
             # use asynchronous xml rpc to stop program
             for address in process.addresses:
-                self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
+                self.logger.info('stopping process {} on {}'.format(
+                    process.namespec(), address))
+                self.supvisors.zmq.pusher.send_stop_process(address,
+                                                            process.namespec())
             # push to jobs and timestamp process
             process.request_time = time.time()
-            self.logger.debug('{} requested to stop at {}'.format(process.namespec(), get_asctime(process.request_time)))
+            self.logger.debug('{} requested to stop at {}'.format(
+                process.namespec(), get_asctime(process.request_time)))
             jobs.append(process)
 
     def check_stopping(self):
         """ Check the progress of the application stopping. """
-        self.logger.debug('stopping progress: planned_sequence={} planned_jobs={} current_jobs={}'.format(
-            self.printable_planned_sequence(), self.printable_planned_jobs(), self.printable_current_jobs()))
-        # once the stop_process has been called, a STOPPING event is expected in less than 5 seconds
+        self.logger.debug('stopping progress: planned_sequence={} '\
+            'planned_jobs={} current_jobs={}'.format(
+            self.printable_planned_sequence(),
+            self.printable_planned_jobs(),
+            self.printable_current_jobs()))
+        # once the stop_process has been called, a STOPPING event is expected
+        # in less than 5 seconds
         now = time.time()
-        processes= [process for process_list in self.current_jobs.values() for process in process_list]
+        processes= [process
+                    for process_list in self.current_jobs.values()
+                    for process in process_list]
         self.logger.trace('now={} checking processes={}'.format(now,
-            [(process.process_name, process.state, process.request_time, process.last_event_time) for process in processes]))
+            [(process.process_name, process.state,
+              process.request_time, process.last_event_time)
+             for process in processes]))
         for process in processes:
-            # depending on ini file, it may take a while before the process enters in STOPPED state
-            # so just test that is in not in a RUNNING-like state 5 seconds after request_time
-            if process.running() and max(process.last_event_time, process.request_time) + 5 < now:
-                self.force_process_unknown(process.namespec(), 'Still running 5 seconds after stop request')
+            # depending on ini file, it may take a while before the process
+            # enters in STOPPED state
+            # so just test that is in not in a RUNNING-like state 5 seconds
+            # after request_time
+            if process.running() and max(process.last_event_time,
+                                         process.request_time) + 5 < now:
+                self.force_process_unknown(process.namespec(),
+                                           'Still running 5 seconds after stop request')
         # return True when starting is completed
         return not self.in_progress()
 
     def on_event(self, process):
-        """ Triggers the following of the stop sequencing, depending on the new process status. """
+        """ Triggers the following of the stop sequencing, depending on
+        the new process status. """
         # check if process event has an impact on stopping in progress
         if process.application_name in self.current_jobs:
             jobs = self.current_jobs[process.application_name]
             self.logger.debug('jobs={}'.format(self.printable_current_jobs()))
             if process in jobs:
                 if process.running():
-                    # assuming that we are stopping a process that is starting or unexpected event
-                    self.logger.warn('unexpected event when stopping {}'.format(process.namespec()))
+                    # assuming that we are stopping a process that is starting
+                    # or unexpected event
+                    self.logger.warn('unexpected event when stopping {}'.format(
+                        process.namespec()))
                 elif process.stopped():
                     # goal reached, whatever the state
                     jobs.remove(process)
@@ -508,7 +546,8 @@ class Stopper(Commander):
                     if process.application_name in self.planned_jobs:
                         self.process_application_jobs(process.application_name)
                     else:
-                        self.logger.info('stopping completed for application {}'.format(process.application_name))
+                        self.logger.info('stopping completed for application {}'.format(
+                            process.application_name))
                         # check if there are planned jobs
                         if not self.planned_jobs:
                             # trigger next sequence of applications
@@ -521,8 +560,10 @@ class Stopper(Commander):
         try:
             self.supvisors.info_source.force_process_unknown(namespec, reason)
         except KeyError:
-            self.logger.error('impossible to force {} state to UNKNOWN. process unknown in this Supervisor'.format(namespec))
-            # the Supvisors user is not forced to use the same process configuration on all machines,
+            self.logger.error('impossible to force {} state to UNKNOWN. '\
+                              'process unknown in this Supervisor'.format(namespec))
+            # the Supvisors user is not forced to use the same process
+            # configuration on all machines,
             # although it is strongly recommended to avoid troubles.
             # so, publish directly a fake process event to all instances
             self.supvisors.listener.force_process_unknown(namespec)
