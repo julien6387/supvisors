@@ -108,21 +108,31 @@
             <expected_loading>10</expected_loading>
         </program>
 
-        <program name="disk_01_">
+        <pattern name="disk_01_">
             <reference>disk_01</reference>
-        </program>
+        </pattern>
 
-        <program name="disk_02_">
+        <pattern name="disk_02_">
             <reference>disk_02</reference>
-        </program>
+        </pattern>
 
-        <program name="disk_03_">
+        <pattern name="disk_03_">
             <reference>disk_03</reference>
-        </program>
+        </pattern>
 
         <pattern name="error_disk_">
             <reference>disk_error</reference>
         </pattern>
+
+        <program name="converter_04">
+            <addresses>cliche03,cliche01,cliche02</addresses>
+            <expected_loading>25</expected_loading>
+        </program>
+
+        <program name="converter_07">
+            <addresses>cliche01,cliche02,cliche03</addresses>
+            <expected_loading>25</expected_loading>
+        </program>
 
         <pattern name="converter_">
             <expected_loading>25</expected_loading>
