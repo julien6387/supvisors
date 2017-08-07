@@ -10,9 +10,10 @@ The main features are:
     - an extended XML-RPC API to control applications and multiple Supervisor instances,
     - the definition of a rules file to handle:
 
-        * the starting sequence and strategy of the applications,
+        * the starting sequence of the applications,
         * the stopping sequence of the applications,
-        * the starting strategy
+        * the starting strategy of the processes,
+        * the strategy to apply when a process crashes.
 
 .. image:: docs/images/supvisors_address_process_section.png
    :alt: Image of Supvisors' Dashboard

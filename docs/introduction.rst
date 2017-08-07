@@ -63,7 +63,7 @@ The compatibility with other browsers or other versions of Firefox is unknown.
 Installation
 ------------
 
-The following dependencies are required before you install **Supvisors**:
+**Supvisors** has the following dependencies:
 
 +---------------+------------+-----------------------------------------------------------------+
 | Package       | Release    | Usage                                                           |
@@ -117,4 +117,3 @@ However, the Supervisor configuration file MUST:
 .. _netifaces: https://pypi.python.org/pypi/netifaces
 .. _matplotlib: http://matplotlib.org
 .. _lxml: http://lxml.de
-
