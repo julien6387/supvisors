@@ -21,8 +21,6 @@ import sys
 import unittest
 import xmlrpclib
 
-from Queue import Empty
-
 from supervisor.states import ProcessStates
 from supervisor.xmlrpc import Faults
 
@@ -64,13 +62,6 @@ class ConciliationStrategyTest(RunningAddressesTest):
             print('### Testing Automatic conciliation with {}'.format(
                 strategies['conciliation']))
             self._check_conciliation_auto()
-
-    def _get_next_supvisors_event(self):
-        """ Return next Supvisors event from queue. """
-        try:
-            return self.evloop.supvisors_queue.get(True, 15)
-        except Empty:
-            self.fail('failed to get the expected Supvisors status')
 
     def _check_conciliation_auto(self):
         """ Test the conciliation after creating conflicts. """

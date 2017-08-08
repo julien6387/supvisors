@@ -64,13 +64,6 @@ class StartingStrategyTest(RunningAddressesTest):
         # call parent
         RunningAddressesTest.tearDown(self)
 
-    def _get_next_process_event(self):
-        """ Return next Process event from queue. """
-        try:
-            return self.evloop.event_queue.get(True, 10)
-        except Empty:
-            self.fail('failed to get the expected Process event')
-
     def _refresh_loading(self):
         """ Get the current loading status. """
         addresses_info = self.local_supvisors.get_all_addresses_info()
@@ -206,7 +199,7 @@ if __name__ == '__main__':
     # get arguments
     import argparse
     parser = argparse.ArgumentParser(
-        description='Check the Supvisors special functions.')
+        description='Check the Supvisors starting strategies.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()

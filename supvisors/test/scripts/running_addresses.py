@@ -20,8 +20,8 @@
 import os
 import unittest
 
+from Queue import Empty
 from socket import gethostname
-
 from supervisor import childutils
 
 from supvisors import rpcrequests
@@ -42,6 +42,7 @@ class RunningAddressesTest(unittest.TestCase):
         """ Check that 3 running addresses are available. """
         # get a reference to the local RPC proxy
         self.local_proxy = childutils.getRPCInterface(os.environ)
+        self.local_supervisor = self.local_proxy.supervisor
         self.local_supvisors = self.local_proxy.supvisors
         # check the number of running addresses
         addresses_info = self.local_supvisors.get_all_addresses_info()
@@ -64,3 +65,24 @@ class RunningAddressesTest(unittest.TestCase):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
         self.evloop.join()
+
+    def _get_next_supvisors_event(self):
+        """ Return next Supvisors status from queue. """
+        try:
+            return self.evloop.supvisors_queue.get(True, 15)
+        except Empty:
+            self.fail('failed to get the expected Supvisors status')
+
+    def _get_next_application_status(self):
+        """ Return next Application status from queue. """
+        try:
+            return self.evloop.application_queue.get(True, 2)
+        except Empty:
+            self.fail('failed to get the expected Application status')
+
+    def _get_next_process_event(self):
+        """ Return next Process event from queue. """
+        try:
+            return self.evloop.event_queue.get(True, 10)
+        except Empty:
+            self.fail('failed to get the expected Process event')
