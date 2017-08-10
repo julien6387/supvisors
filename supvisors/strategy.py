@@ -316,9 +316,6 @@ class RunningFailureHandler(AbstractStrategy):
             self.continue_process_jobs = set(filter(
                 lambda x: x.application_name != application_name,
                 self.continue_process_jobs))
-            #self.restart_application_jobs.discard(application_name)
-            #self.restart_process_jobs.discard(process)
-            #self.continue_process_jobs.discard(process)
         elif strategy == RunningFailureStrategies.RESTART_APPLICATION:
             if application_name not in self.stop_application_jobs:
                 self.restart_application_jobs.add(application_name)
@@ -328,8 +325,6 @@ class RunningFailureHandler(AbstractStrategy):
                 self.continue_process_jobs = set(filter(
                     lambda x: x.application_name != application_name,
                     self.continue_process_jobs))
-                #self.restart_process_jobs.discard(process)
-                #self.continue_process_jobs.discard(process)
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
             if application_name not in self.stop_application_jobs and \
                 application_name not in self.restart_application_jobs:

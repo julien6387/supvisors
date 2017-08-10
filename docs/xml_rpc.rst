@@ -4,12 +4,14 @@ XML-RPC API
 ===========
 
 The **Supvisors** XML-RPC API is an extension of the Supervisor XML-RPC API.
-Detailed information can be found in the
-`Supervisor XML-RPC API Documentation <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
+Detailed information can be found in the `Supervisor XML-RPC API Documentation
+<http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
-The ``supvisors`` namespace has been added to the :command:`supervisord` XML-RPC interface.
+The ``supvisors`` namespace has been added to the :command:`supervisord`
+XML-RPC interface.
 
-The XML-RPC ``system.listMethods`` now provides the list of methods supported for both Supervisor and **Supvisors**.
+The XML-RPC ``system.listMethods`` now provides the list of methods supported
+for both Supervisor and **Supvisors**.
 An example is provided below.
 
 .. code-block:: python
@@ -18,10 +20,13 @@ An example is provided below.
 
 .. note::
 
-    In the following, the namespec refers to the full name of the process, including the application name.
-    For example: ``X11:xclock``, where ``X11`` is the name of a Supervisor group and ``xclock`` is the name
+    In the following, the namespec refers to the full name of the process,
+    including the application name.
+    For example: ``X11:xclock``, where ``X11`` is the name of a Supervisor
+    group and ``xclock`` is the name
     of a Supervisor program that is referenced in the group.
-    In some cases, it can also refer to all the programs of the group. For example: ``X11:*``.
+    In some cases, it can also refer to all the programs of the group.
+    For example: ``X11:*``.
 
 
 .. automodule:: supvisors.rpcinterface
@@ -100,7 +105,7 @@ Status
             .. note::
 
                 If there is more than one element in the 'addresses' list, a conflict is in progress.
-            
+
 
         .. automethod:: get_all_process_info()
 
@@ -184,7 +189,8 @@ Process Control
 XML-RPC Clients
 ---------------
 
-This section explains how to use the XML-RPC API from a Python, JAVA or C++ client.
+This section explains how to use the XML-RPC API from a Python, JAVA or C++
+client.
 
 
 Python Client
@@ -192,15 +198,19 @@ Python Client
 
 There are two possibilities to perform an XML-RPC from a python client.
 Both methods don't require any additional third party.
-However, it is assumed that the environment parameter contains the relevant HTTP configuration,
-as it would be set for a process spawed by Supervisor.
+However, it is assumed that the environment parameter contains the relevant
+HTTP configuration, as it would be set for a process spawed by Supervisor.
 More particularly, it is expected that the following variables are set:
 
-    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server (ex: ``http://localhost:60000``),
-    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
-    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
+    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server
+    (ex: ``http://localhost:60000``),
+    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication
+    (may be empty),
+    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication
+    (may be empty).
 
-The first is to use the ``getRPCInterface`` of the ``supervisor.childutils`` module.
+The first is to use the ``getRPCInterface`` of the ``supervisor.childutils``
+module.
 This is available in Supervisor but it works only for the local address.
 
 .. code-block:: python
@@ -212,8 +222,10 @@ This is available in Supervisor but it works only for the local address.
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 
-The second possibility is to use the ``getRPCInterface`` of the ``supvisors.rpcrequests`` module.
-This is available in **Supvisors** and works for all addresses with a Supervisor daemon running with the same HTTP configuration as the local one.
+The second possibility is to use the ``getRPCInterface`` of the
+``supvisors.rpcrequests`` module.
+This is available in **Supvisors** and works for all addresses with a
+Supervisor daemon running with the same HTTP configuration as the local one.
 
 .. code-block:: python
 
@@ -229,7 +241,8 @@ JAVA Client
 ~~~~~~~~~~~
 
 There is JAVA client *supervisord4j* referenced in the
-`Supervisor documentation <http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor>`_.
+`Supervisor documentation
+<http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor>`_.
 However, it comes with the following drawbacks, taken from the ``README.md`` of
 `supervisord4j <https://github.com/satifanie/supervisord4j>`_:
 
@@ -237,12 +250,15 @@ However, it comes with the following drawbacks, taken from the ``README.md`` of
     * some XML-RPC are not implemented,
     * some implemented XML-RPC are not tested.
 
-**Supvisors** provides a JAVA client in the :file:`client/java` directory of the **Supvisors** installation directory.
-This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all interfaces (``system``, ``supervisor`` and ``supvisors``).
+**Supvisors** provides a JAVA client in the :file:`client/java` directory of
+the **Supvisors** installation directory.
+This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all
+interfaces (``system``, ``supervisor`` and ``supvisors``).
 
-It requires the following additional dependency: `Apache XML-RPC <https://ws.apache.org/xmlrpc>`_.
-The binary JAR of Apache XML-RPC 3.1.3 is available in the
-`MAVEN repository <https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
+It requires the following additional dependency: `Apache XML-RPC
+<https://ws.apache.org/xmlrpc>`_.
+The binary JAR of Apache XML-RPC 3.1.3 is available in the `MAVEN repository
+<https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
 
 .. code-block:: java
 
