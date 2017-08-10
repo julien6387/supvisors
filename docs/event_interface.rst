@@ -159,8 +159,9 @@ No additional third party is required.
 JAVA Client
 ~~~~~~~~~~~
 
-**Supvisors** provides a JAVA client in the :file:`client/java` directory of
-the **Supvisors** installation directory.
+Each **Supvisors** release includes a JAR file that contains a JAVA client.
+It can be downloaded from the `Supvisors releases
+<https://github.com/julien6387/supvisors/releases>`_.
 
 The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is
 designed to receive the **Supvisors** events from the local **Supvisors** instance.
@@ -173,10 +174,12 @@ It requires the following additional dependencies:
     * `JeroMQ <https://github.com/zeromq/jeromq>`_.
     * `JSON-java <https://github.com/stleary/JSON-java>`_.
 
-The binary JAR of `JeroMQ 0.3.6 <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_
+The binary JAR of `JeroMQ 0.3.6
+<https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_
 is available in the MAVEN repository.
 
-The binary JAR of `JSON-java 20160810 <https://mvnrepository.com/artifact/org.json/json/20160810>`_
+The binary JAR of `JSON-java 20160810
+<https://mvnrepository.com/artifact/org.json/json/20160810>`_
 is available in the MAVEN repository.
 
 .. code-block:: java

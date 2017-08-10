@@ -240,8 +240,7 @@ Supervisor daemon running with the same HTTP configuration as the local one.
 JAVA Client
 ~~~~~~~~~~~
 
-There is JAVA client *supervisord4j* referenced in the
-`Supervisor documentation
+There is JAVA client *supervisord4j* referenced in the `Supervisor documentation
 <http://supervisord.org/plugins.html#libraries-that-integrate-third-party-applications-with-supervisor>`_.
 However, it comes with the following drawbacks, taken from the ``README.md`` of
 `supervisord4j <https://github.com/satifanie/supervisord4j>`_:
@@ -250,8 +249,10 @@ However, it comes with the following drawbacks, taken from the ``README.md`` of
     * some XML-RPC are not implemented,
     * some implemented XML-RPC are not tested.
 
-**Supvisors** provides a JAVA client in the :file:`client/java` directory of
-the **Supvisors** installation directory.
+Each **Supvisors** release includes a JAR file that contains a JAVA client.
+It can be downloaded from the `Supvisors releases
+<https://github.com/julien6387/supvisors/releases>`_.
+
 This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all
 interfaces (``system``, ``supervisor`` and ``supvisors``).
 
