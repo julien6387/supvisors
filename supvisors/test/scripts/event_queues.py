@@ -18,7 +18,9 @@
 # ======================================================================
 
 import zmq
-from Queue import Queue
+
+from time import time
+from Queue import Empty, Queue
 
 from supvisors.client.subscriber import SupvisorsEventInterface, create_logger
 
@@ -44,6 +46,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         self.process_queue = Queue()
         self.event_queue = Queue()
 
+    # callbacks
     def on_supvisors_status(self, data):
         """ Just logs the contents of the Supvisors Status message. """
         self.logger.info('got Supvisors Status message: {}'.format(data))
@@ -68,3 +71,55 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         """ Pushes the Process Event message into a queue. """
         self.logger.info('got Process Event message: {}'.format(data))
         self.event_queue.put(data)
+
+    # utilities
+    def flush(self):
+        """ Empties all queues. """
+        self.flush_queue(self.supvisors_queue)
+        self.flush_queue(self.address_queue)
+        self.flush_queue(self.application_queue)
+        self.flush_queue(self.process_queue)
+        self.flush_queue(self.event_queue)
+
+    def flush_queue(self, queue):
+        """ Empties all queues. """
+        try:
+            while True:
+                queue.get_nowait()
+        except Empty:
+            self.logger.debug('queue flushed')
+
+    def wait_until_event(self, queue, sub_event, timeout):
+        """ Wait for a specific event on queue for max timeout in seconds. """
+        end_date = time() + timeout
+        while (time() < end_date):
+            try:
+                event = queue.get(True, 0.5)
+            except Empty:
+                continue
+            # return event if all items of sub_event are in event
+            if all(item in event.items() for item in sub_event.items()):
+                return event
+
+    def wait_until_events(self, queue, sub_events, timeout):
+        """ Wait for a list of specific events on queue for max timeout
+        in seconds. """
+        events_received = []
+        end_date = time() + timeout
+        while (time() < end_date):
+            try:
+                event = queue.get(True, 0.5)
+            except Empty:
+                continue
+            # add event to list if all items of a sub_event are in event
+            sub_events_copy = sub_events[:]
+            for sub_event in sub_events_copy :
+                if all(item in event.items() for item in sub_event.items()):
+                    events_received.append(event)
+                    sub_events.remove(sub_event)
+                    # event found. next
+                    break
+            # done if all received
+            if not sub_events:
+                end_date = 0
+        return events_received

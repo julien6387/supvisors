@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,54 +35,72 @@ class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a starting strategy. """
 
     def is_loading_valid(self, address, expected_loading):
-        """ Return True and current loading if remote Supvisors instance is active and can support the additional loading. """
+        """ Return True and current loading if remote Supvisors instance is
+        active and can support the additional loading. """
         if address in self.context.addresses.keys():
-            status = self.context.addresses[address] 
-            self.logger.trace('address {} state={}'.format(address, status.state_string()))
+            status = self.context.addresses[address]
+            self.logger.trace('address {} state={}'.format(
+                address, status.state_string()))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
-                self.logger.debug('address={} loading={} expected_loading={}'.format(address, loading, expected_loading))
+                self.logger.debug('address={} loading={} expected_loading={}'.format(
+                    address, loading, expected_loading))
                 return (loading + expected_loading < 100, loading)
             self.logger.debug('address {} not RUNNING'.format(address))
         return (False, 0)
 
     def get_loading_and_validity(self, addresses, expected_loading):
-        """ Return the report of loading capability of all addresses iaw the additional loading required. """
+        """ Return the report of loading capability of all addresses iaw the
+        additional loading required. """
         if '*' in addresses:
             addresses = self.supvisors.address_mapper.addresses
-        loading_validities = {address: self.is_loading_valid(address, expected_loading) for address in addresses}
+        loading_validities = {address: self.is_loading_valid(address,
+                                                             expected_loading)
+                              for address in addresses}
         self.logger.trace('loading_validities={}'.format(loading_validities))
         return loading_validities
 
     def sort_valid_by_loading(self, loading_validities):
         """ Sort the loading report by loading value. """
         # returns adresses with validity and loading
-        sorted_addresses = sorted([(x, y[1]) for x, y in loading_validities.items() if y[0]], key=lambda (x, y): y)
+        sorted_addresses = sorted([(x, y[1])
+                                   for x, y in loading_validities.items()
+                                   if y[0]], key=lambda (x, y): y)
         self.logger.trace('sorted_addresses={}'.format(sorted_addresses))
         return sorted_addresses
 
 
 class ConfigStrategy(AbstractStartingStrategy):
-    """ Strategy designed to choose the address using the order defined in the configuration file. """
+    """ Strategy designed to choose the address using the order defined in the
+    configuration file. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the first address that can support the additional loading requested. """
-        self.logger.debug('addresses={} expected_loading={}'.format(addresses, expected_loading))
-        # returns the first remote in list that is capable of handling the loading
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        """ Choose the first address that can support the additional loading
+        requested. """
+        self.logger.debug('addresses={} expected_loading={}'.format(
+            addresses, expected_loading))
+        # returns the first remote in list that is capable of handling
+        # the loading
+        loading_validities = self.get_loading_and_validity(
+            addresses, expected_loading)
         if '*' in addresses:
             addresses = self.supvisors.address_mapper.addresses
-        return next((address for address in addresses if loading_validities[address][0]),  None)
+        return next((address for address in addresses
+                     if loading_validities[address][0]),  None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to share the loading among all the addresses. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the address having the lowest loading that can support the additional loading requested """
-        self.logger.trace('addresses={} expectedLoading={}'.format(addresses, expected_loading))
-        # returns the less loaded remote from list that is capable of handling the loading
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        """ Choose the address having the lowest loading that can support
+        the additional loading requested """
+        self.logger.trace('addresses={} expectedLoading={}'.format(
+            addresses, expected_loading))
+        # returns the less loaded remote from list that is capable of handling
+        # the loading
+        loading_validities = self.get_loading_and_validity(
+            addresses, expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
         return sorted_addresses[0][0]  if sorted_addresses else None
 
@@ -91,16 +109,21 @@ class MostLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to maximize the loading of an address. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the address having the highest loading that can support the additional loading requested """
-        self.logger.trace('addresses={} expectedLoading={}'.format(addresses, expected_loading))
-        # returns the most loaded remote from list that is capable of handling the loading
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        """ Choose the address having the highest loading that can support
+        the additional loading requested """
+        self.logger.trace('addresses={} expectedLoading={}'.format(
+            addresses, expected_loading))
+        # returns the most loaded remote from list that is capable of
+        # handling the loading
+        loading_validities = self.get_loading_and_validity(addresses,
+                                                           expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
         return sorted_addresses[-1][0]  if sorted_addresses else None
 
 
 def get_address(supvisors, strategy, addresses, expected_loading):
-    """ Creates a strategy and let it find an address to start a process having a defined loading. """
+    """ Creates a strategy and let it find an address to start a process
+    having a defined loading. """
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
     if strategy == StartingStrategies.LESS_LOADED:
@@ -116,36 +139,46 @@ class SenicideStrategy(AbstractStrategy):
     """ Strategy designed to stop the oldest processes. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
+        """ Conciliate the conflicts by finding the process that started the
+        most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = min(process.addresses, key=lambda x: process.infos[x]['uptime'])
-            self.logger.warn('senicide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
+            saved_address = min(process.addresses,
+                                key=lambda x: process.infos[x]['uptime'])
+            self.logger.warn('senicide conciliation: keep {} at {}'.format(
+                process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
             addresses = process.addresses.copy()
             addresses.remove(saved_address)
             for address in addresses:
-                self.logger.debug('senicide conciliation: {} running on {}'.format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
+                self.logger.debug('senicide conciliation: {} running on {}'.format(
+                    process.namespec(), address))
+                self.supvisors.zmq.pusher.send_stop_process(
+                    address, process.namespec())
 
 
 class InfanticideStrategy(AbstractStrategy):
     """ Strategy designed to stop the youngest processes. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
+        """ Conciliate the conflicts by finding the process that started the
+        least recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
-            saved_address = max(process.addresses, key=lambda x: process.infos[x]['uptime'])
-            self.logger.warn('infanticide conciliation: keep {} at {}'.format(process.namespec(), saved_address))
+            saved_address = max(process.addresses,
+                                key=lambda x: process.infos[x]['uptime'])
+            self.logger.warn('infanticide conciliation: keep {} at {}'.format(
+                process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
             addresses = process.addresses.copy()
             addresses.remove(saved_address)
             for address in addresses:
-                self.logger.debug('infanticide conciliation: {} running on {}'.format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
+                self.logger.debug('infanticide conciliation: {} running on {}'.format(
+                    process.namespec(), address))
+                self.supvisors.zmq.pusher.send_stop_process(
+                    address, process.namespec())
 
 
 class UserStrategy(AbstractStrategy):
@@ -177,8 +210,10 @@ class RestartStrategy(AbstractStrategy):
         # as it is in its design to restart a process
         for process in conflicts:
             self.logger.warn('restart conciliation: {}'.format(process.namespec()))
-            self.supvisors.failure_handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
-        # trigger the jobs of the failure handler directly (could wait for next tick)
+            self.supvisors.failure_handler.add_job(
+                RunningFailureStrategies.RESTART_PROCESS, process)
+        # trigger the jobs of the failure handler directly (could wait for
+        # next tick)
         self.supvisors.failure_handler.trigger_jobs()
 
 
@@ -221,14 +256,19 @@ class RunningFailureHandler(AbstractStrategy):
     """ Handler of running failures.
     The strategies are linked to the RunningFailureStrategies enumeration.
 
-    Any Supvisors instance may hold application processes with different running failure strategies.
-    If the Supvisors instance becomes inactive, as seen from another Supvisors instance, it could lead
-    to have all possible strategies to apply on the same application and related processes, which makes no sense.
+    Any Supvisors instance may hold application processes with different
+    running failure strategies.
+    If the Supvisors instance becomes inactive, as seen from another Supvisors
+    instance, it could lead to have all possible strategies to apply on the
+    same application and related processes, which makes no sense.
 
     So it has been chosen to give a priority to the strategies.
-    The highest priority is for the most restricting strategy, consisting in stopping the application.
-    Then, the priority goes to the strategy having the highest impact, i.e. restarting the application.
-    The lowest priority is for the most simple strategy consisting in restarting only the involved process.
+    The highest priority is for the most restricting strategy, consisting in
+    stopping the application.
+    Then, the priority goes to the strategy having the highest impact, i.e.
+    restarting the application.
+    The lowest priority is for the most simple strategy consisting in restarting
+    only the involved process.
 
     Attributes are:
 
@@ -307,7 +347,8 @@ class RunningFailureHandler(AbstractStrategy):
         self.add_job(process.rules.running_failure_strategy, process)
 
     def trigger_jobs(self):
-        """ Trigger the configured strategy when a process of a running application crashes. """
+        """ Trigger the configured strategy when a process of a running
+        application crashes. """
         # consider applications to stop
         if self.stop_application_jobs:
             for application_name in self.stop_application_jobs:
@@ -336,18 +377,21 @@ class RunningFailureHandler(AbstractStrategy):
         if self.start_application_jobs:
             for application in self.start_application_jobs.copy():
                 if application.stopped():
-                    self.logger.debug('start application {}'.format(application.application_name))
+                    self.logger.debug('start application {}'.format(
+                        application.application_name))
                     self.starter.default_start_application(application)
                     self.start_application_jobs.remove(application)
         # consider processes to start
         if self.start_process_jobs:
             for process in self.start_process_jobs.copy():
                 if process.stopped():
-                    self.logger.warn('restart process {}'.format(process.namespec()))
+                    self.logger.warn('restart process {}'.format(
+                        process.namespec()))
                     self.starter.default_start_process(process)
                     self.start_process_jobs.remove(process)
         # log only the continuation jobs
         if self.continue_process_jobs:
             for process in self.continue_process_jobs:
-                self.logger.info('continue despite of crashed process {}'.format(process.namespec()))
+                self.logger.info('continue despite of crashed process {}'.format(
+                    process.namespec()))
             self.continue_process_jobs = set()

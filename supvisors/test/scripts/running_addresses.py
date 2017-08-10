@@ -66,23 +66,23 @@ class RunningAddressesTest(unittest.TestCase):
         self.evloop.stop()
         self.evloop.join()
 
-    def _get_next_supvisors_event(self):
+    def _get_next_supvisors_event(self, timeout=15):
         """ Return next Supvisors status from queue. """
         try:
-            return self.evloop.supvisors_queue.get(True, 15)
+            return self.evloop.supvisors_queue.get(True, timeout)
         except Empty:
             self.fail('failed to get the expected Supvisors status')
 
-    def _get_next_application_status(self):
+    def _get_next_application_status(self, timeout=2):
         """ Return next Application status from queue. """
         try:
-            return self.evloop.application_queue.get(True, 2)
+            return self.evloop.application_queue.get(True, timeout)
         except Empty:
             self.fail('failed to get the expected Application status')
 
-    def _get_next_process_event(self):
+    def _get_next_process_event(self, timeout=10):
         """ Return next Process event from queue. """
         try:
-            return self.evloop.event_queue.get(True, 10)
+            return self.evloop.event_queue.get(True, timeout)
         except Empty:
             self.fail('failed to get the expected Process event')

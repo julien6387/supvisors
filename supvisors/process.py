@@ -200,8 +200,15 @@ class ProcessStatus(object):
     def state(self, new_state):
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('Process {} is {} at {}'.format(self.namespec(),
-                self.state_string(), list(self.addresses)))
+            self.log_process_state()
+
+    def log_process_state(self):
+        """ Log the process name and state, adding the addresses when any. """
+        log_trace = 'Process {} is {}'.format(self.namespec(),
+                                              self.state_string())
+        if self.addresses:
+            log_trace += ' at {}'.format(list(self.addresses))
+        self.logger.info(log_trace)
 
     def conflicting(self):
         """ Return True if the process is in a conflicting state (more than one
@@ -296,9 +303,11 @@ class ProcessStatus(object):
             elif self.running():
                 # addresses is empty for a running process
                 # action expected to fix the inconsistency
-                self.logger.warn('no more address for running process {}'.format(self.namespec()))
+                self.logger.warn('no more address for running process '\
+                                 '{}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
-                # notify the failure to dedicated handler, only if local address is master
+                # notify the failure to dedicated handler, only if local
+                # address is master
                 if is_master:
                     self.supvisors.failure_handler.add_default_job(self)
             elif self.state == ProcessStates.STOPPING:
@@ -306,7 +315,8 @@ class ProcessStatus(object):
                 # consider STOPPED now
                 self.state = ProcessStates.STOPPED
         else:
-            self.logger.debug('process {} still in conflict after address invalidation'.format(self.namespec()))
+            self.logger.debug('process {} still in conflict after address '\
+                              'invalidation'.format(self.namespec()))
 
     def update_status(self, address, new_state, expected):
         """ Updates the state and list of running address iaw the new event. """
@@ -323,19 +333,27 @@ class ProcessStatus(object):
         if not self.evaluate_conflict():
             # if zero element, state is the state of the program addressed
             if self.addresses:
-                self.state = next(self.infos[address]['state'] for address in self.addresses)
+                self.state = next(self.infos[address]['state']
+                                  for address in self.addresses)
                 self.expected_exit = True
             else:
                 self.state = new_state
                 self.expected_exit = expected
+        # log the new status
+        self.log_process_state()
 
     def evaluate_conflict(self):
-        """ Gets a synthetic state if several processes are in a RUNNING-like state. """
+        """ Gets a synthetic state if several processes are in a RUNNING-like
+        state. """
         if self.conflicting():
-            # several processes seems to be in a running state so that becomes tricky
-            states = {self.infos[address]['state'] for address in self.addresses}
-            self.logger.debug('{} multiple states {} for addresses {}'.format(self.process_name,
-                [ProcessStates._to_string(x) for x in states], list(self.addresses)))
+            # several processes seems to be in a running state
+            # so that becomes tricky
+            states = {self.infos[address]['state']
+                      for address in self.addresses}
+            self.logger.debug('{} multiple states {} for addresses {}'.format(
+                self.process_name,
+                [ProcessStates._to_string(x) for x in states],
+                list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)
             return True

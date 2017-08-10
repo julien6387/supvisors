@@ -530,9 +530,10 @@ class Stopper(Commander):
             self.logger.debug('jobs={}'.format(self.printable_current_jobs()))
             if process in jobs:
                 if process.running():
-                    # assuming that we are stopping a process that is starting
-                    # or unexpected event
-                    self.logger.warn('unexpected event when stopping {}'.format(
+                    # several cases:
+                    # 1) expected upon conciliation of a conflicting process
+                    # 2) concurrent stopping / starting
+                    self.logger.warn('{} still running when stopping'.format(
                         process.namespec()))
                 elif process.stopped():
                     # goal reached, whatever the state
@@ -542,12 +543,12 @@ class Stopper(Commander):
                 if not jobs:
                     # remove application entry from current_jobs
                     del self.current_jobs[process.application_name]
-                    # trigger next job for aplication
+                    # trigger next job for application
                     if process.application_name in self.planned_jobs:
                         self.process_application_jobs(process.application_name)
                     else:
-                        self.logger.info('stopping completed for application {}'.format(
-                            process.application_name))
+                        self.logger.info('stopping completed for application '\
+                                         '{}'.format(process.application_name))
                         # check if there are planned jobs
                         if not self.planned_jobs:
                             # trigger next sequence of applications
