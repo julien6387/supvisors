@@ -200,15 +200,6 @@ class ProcessStatus(object):
     def state(self, new_state):
         if self._state != new_state:
             self._state = new_state
-            self.log_process_state()
-
-    def log_process_state(self):
-        """ Log the process name and state, adding the addresses when any. """
-        log_trace = 'Process {} is {}'.format(self.namespec(),
-                                              self.state_string())
-        if self.addresses:
-            log_trace += ' at {}'.format(list(self.addresses))
-        self.logger.info(log_trace)
 
     def conflicting(self):
         """ Return True if the process is in a conflicting state (more than one
@@ -340,7 +331,11 @@ class ProcessStatus(object):
                 self.state = new_state
                 self.expected_exit = expected
         # log the new status
-        self.log_process_state()
+        log_trace = 'Process {} is {}'.format(self.namespec(),
+                                              self.state_string())
+        if self.addresses:
+            log_trace += ' at {}'.format(list(self.addresses))
+        self.logger.info(log_trace)
 
     def evaluate_conflict(self):
         """ Gets a synthetic state if several processes are in a RUNNING-like

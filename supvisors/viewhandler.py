@@ -40,7 +40,8 @@ class ViewHandler(object):
 
     The choice of the statistics is made through class attributes
     for the moment because it would take too much place on the URL.
-    An change may be done later to use a short code that would be discriminating."""
+    An change may be done later to use a short code that would be
+    discriminating. """
 
     # static attributes for statistics selection
     period_stats = None
@@ -77,17 +78,23 @@ class ViewHandler(object):
         """ Write the navigation menu. """
         server_port = self.server_port()
         # update navigation addresses
-        iterator = root.findmeld('address_li_mid').repeat(self.supvisors.address_mapper.addresses)
+        iterator = root.findmeld('address_li_mid').repeat(
+            self.supvisors.address_mapper.addresses)
         for li_elt, item in iterator:
             status = self.supvisors.context.addresses[item]
             # set element class
-            li_elt.attrib['class'] = status.state_string() + (' active' if item == address else '')
+            li_elt.attrib['class'] = status.state_string() + (
+                ' active' if item == address else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('address_a_mid')
             if status.state == AddressStates.RUNNING:
-                # go to web page located on address, so as to reuse Supervisor StatusView
-                elt.attributes(href='http://{}:{}/procaddress.html'.format(item, server_port))
-                elt.attrib['class'] = 'on' + (' master' if item == self.supvisors.context.master_address else '')
+                # go to web page located on address, so as to reuse Supervisor
+                # StatusView
+                elt.attributes(href='http://{}:{}/procaddress.html'.format(
+                    item, server_port))
+                elt.attrib['class'] = 'on' + \
+                (' master' if item == self.supvisors.context.master_address
+                 else '')
             else:
                 elt.attrib['class'] = 'off'
             elt.content(item)
@@ -113,7 +120,8 @@ class ViewHandler(object):
         """ Write configured periods for statistics. """
         # init period if necessary
         if ViewHandler.period_stats is None:
-            ViewHandler.period_stats = next(iter(self.supvisors.options.stats_periods))
+            ViewHandler.period_stats = next(iter(
+                self.supvisors.options.stats_periods))
         # render periods
         iterator = root.findmeld('period_li_mid').repeat(
             self.supvisors.options.stats_periods)
@@ -124,7 +132,9 @@ class ViewHandler(object):
                 elt.attrib['class'] = "button off active"
             else:
                 elt.attributes(href='{}?{}period={}'
-                               .format(self.page_name, self.url_context(), period))
+                               .format(self.page_name,
+                                       self.url_context(),
+                                       period))
             elt.content('{}s'.format(period))
 
     def write_common_process_status(self, tr_elt, item):
@@ -218,8 +228,10 @@ class ViewHandler(object):
         stats_elt = root.findmeld('pstats_div_mid')
         # get data from statistics module iaw period selection
         if ViewHandler.namespec_stats:
-            nbcores, proc_stats = self.get_process_stats(ViewHandler.namespec_stats)
-            if proc_stats and (len(proc_stats[0]) > 0 or len(proc_stats[1]) > 0):
+            nbcores, proc_stats = self.get_process_stats(
+                ViewHandler.namespec_stats)
+            if proc_stats and (len(proc_stats[0]) > 0 or \
+                               len(proc_stats[1]) > 0):
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(ViewHandler.namespec_stats)
@@ -300,21 +312,24 @@ class ViewHandler(object):
                     self.logger.info('statistics period set to %d' % period)
                     ViewHandler.period_stats = period
             else:
-                self.message(error_message('Incorrect period: {}'.format(period_string)))
+                self.message(error_message('Incorrect period: {}'.format(
+                    period_string)))
         # update process statistics selection
         process_name = form.get('processname')
         if process_name:
             _, proc_stats = self.get_process_stats(process_name)
             if proc_stats:
                 if ViewHandler.namespec_stats != process_name:
-                    self.logger.info('select detailed Process statistics for %s' % process_name)
+                    self.logger.info('select detailed Process statistics '\
+                                     'for %s' % process_name)
                     ViewHandler.namespec_stats = process_name
             else:
                 self.message(error_message('Incorrect stats processname: {}'
                                            .format(process_name)))
 
     def handle_action(self):
-        """ Handling of the actions requested from the Supvisors Address web page. """
+        """ Handling of the actions requested from the Supvisors Address web
+        page. """
         form = self.context.form
         action = form.get('action')
         if action:
@@ -354,11 +369,13 @@ class ViewHandler(object):
         return ''
 
     def get_process_status(self, namespec):
-        """ Get the ProcessStatus instance related to the process named namespec. """
+        """ Get the ProcessStatus instance related to the process named
+        namespec. """
         try:
             return self.supvisors.context.processes[namespec]
         except KeyError:
-            self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
+            self.logger.debug('failed to get ProcessStatus from {}'.format(
+                namespec))
 
     def server_port(self):
         """ Get the port number of the web server. """
@@ -381,7 +398,8 @@ class ViewHandler(object):
                                        for process in processes})
             for application_name in application_list:
                 # get supervisor configuration for application
-                group_config = self.supvisors.info_source.get_group_config(application_name)
+                group_config = self.supvisors.info_source.get_group_config(
+                    application_name)
                 # get process name ordering in this configuration
                 ordering = [proc.name for proc in group_config.process_configs]
                 # add processes known to supervisor, using the same ordering
@@ -389,10 +407,10 @@ class ViewHandler(object):
                     if proc['application_name'] == application_name and \
                         proc['process_name'] in ordering],
                     key=lambda x: ordering.index(x['process_name'])))
-                # add processes unknown to supervisor, using the alphabetical ordering
+                # add processes unknown to supervisor, using the alphabetical
+                # ordering
                 sorted_processes.extend(sorted([proc for proc in processes
                     if proc['application_name'] == application_name and \
                         proc['process_name'] not in ordering],
                     key=lambda x: x['process_name']))
         return sorted_processes
-
