@@ -63,16 +63,15 @@ Other releases are likely working as well.
 Installation
 -------------
 
-Get the latest release from `Supvisors releases
-<https://github.com/julien6387/supvisors/releases>`_.
-
-Unzip the archive and enter the directory supvisors-*version*.
-
-Install **Supvisors** with the following command:
+Supvisors can be installed with ``pip install``:
 
 .. code-block:: bash
 
-    python setup.py install
+   # minimal install (including Supervisor and PyZMQ)
+   [bash] > pip install supvisors
+
+   # extra install for all optional dependencies
+   [bash] > pip install supvisors[all]
 
 
 Documentation

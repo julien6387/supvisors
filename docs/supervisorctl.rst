@@ -140,7 +140,7 @@ Application Control
 -------------------
 
 From this part, a starting strategy may be required in the command lines.
-It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }
+It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
 
 ``start_application strategy``
 
