@@ -130,11 +130,8 @@ UNIX-like operating systems.
 
 However, the Supervisor configuration file MUST:
 
-    * be configured with an internet socket (refer to the `inet-http-server
-    <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_
-    section settings),
-    * include the :command:`[supvisors]` section (refer to the
-    :ref:`Configuration` part).
+    * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings),
+    * include the :command:`[supvisors]` section (refer to the :ref:`Configuration` part).
 
 .. note::
 
