@@ -90,14 +90,15 @@ class SupervisorListener(object):
         """ Called when Supervisor is STOPPING.
         This method stops the Supvisors main loop. """
         self.logger.warn('local supervisord is STOPPING')
+        # force Supervisor to close HTTP servers
+        # this will prevent any pending XML-RPC request to block the main loop
+        self.info_source.close_httpservers()
         # stop the main loop
         self.logger.info('request to stop main loop')
         self.main_loop.stop()
         self.logger.info('end of main loop')
         # close zmq sockets
         self.supvisors.zmq.close()
-        # force Supervisor to close HTTP servers
-        self.info_source.close_httpservers()
         # unsubscribe from events
         events.clear()
         # finally, close logger

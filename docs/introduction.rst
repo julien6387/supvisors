@@ -63,14 +63,14 @@ The compatibility with other browsers or other versions of Firefox is unknown.
 Installation
 ------------
 
-The following dependencies are required before you install **Supvisors**:
+**Supvisors** has the following dependencies:
 
 +---------------+------------+-----------------------------------------------------------------+
 | Package       | Release    | Usage                                                           |
 +===============+============+=================================================================+
 | Supervisor_   | 3.3.2      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
-| PyZMQ_        | 15.2.0     | Python binding of ZeroMQ                                        |
+| PyZMQ_        | 16.0.2     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
 | psutil_       | 4.3.0      | *Information about processes and system utilization (optional)* |
 +---------------+------------+-----------------------------------------------------------------+
@@ -81,7 +81,37 @@ The following dependencies are required before you install **Supvisors**:
 | lxml_         | 3.2.1      | *XSD validation of the XML rules file (optional)*               |
 +---------------+------------+-----------------------------------------------------------------+
 
-Get the latest release from `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_,
+With an Internet access
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Supvisors can be installed with ``pip install``:
+
+.. code-block:: bash
+
+   # minimal install (including Supervisor and PyZMQ)
+   [bash] > pip install supvisors
+
+   # extra install for all optional dependencies
+   [bash] > pip install supvisors[all]
+
+   # extra install for dashboard statistics and graphs only
+   # (includes psutil and matplotlib)
+   [bash] > pip install supvisors[statistics]
+
+   # extra install for XML validation only (includes lxml)
+   [bash] > pip install supvisors[xml_valid]
+
+   # extra install for use of IP aliases only (includes netifaces)
+   [bash] > pip install supvisors[ip_address]
+
+Without an Internet access
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All the dependencies have to be installed prior to **Supvisors**.
+Refer to the documentation of the dependencies.
+
+Finally, get the latest release from `Supvisors releases
+<https://github.com/julien6387/supvisors/releases>`_,
 unzip the archive and enter the directory :command:`supvisors-version`.
 
 Install **Supvisors** with the following command:
@@ -100,8 +130,11 @@ UNIX-like operating systems.
 
 However, the Supervisor configuration file MUST:
 
-    * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings),
-    * include the :command:`[supvisors]` section (refer to the :ref:`Configuration` part).
+    * be configured with an internet socket (refer to the `inet-http-server
+    <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_
+    section settings),
+    * include the :command:`[supvisors]` section (refer to the
+    :ref:`Configuration` part).
 
 .. note::
 
@@ -117,4 +150,3 @@ However, the Supervisor configuration file MUST:
 .. _netifaces: https://pypi.python.org/pypi/netifaces
 .. _matplotlib: http://matplotlib.org
 .. _lxml: http://lxml.de
-

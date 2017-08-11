@@ -309,8 +309,6 @@ class RequestPusher(object):
         the same ZMQ context,
         - the RequestPusher instance MUST be created before the RequestPuller
         instance.
-
-    FIXME: deal with NOBLOCK / EAGAIN
     """
 
     def __init__(self, logger):
@@ -328,9 +326,12 @@ class RequestPusher(object):
     def send_check_address(self, address_name):
         """ Send request to check address. """
         self.logger.trace('send CHECK_ADDRESS {}'.format(address_name))
-        self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS,
-                                (address_name, )),
-                               zmq.NOBLOCK)
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS,
+                                    (address_name, )),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('CHECK_ADDRESS not sent')
 
     def send_isolate_addresses(self, address_names):
         """ Send request to isolate address. """
@@ -346,31 +347,43 @@ class RequestPusher(object):
         """ Send request to start process. """
         self.logger.trace('send START_PROCESS {} to {} with {}'.format(
             namespec, address_name, extra_args))
-        self.socket.send_pyobj((DeferredRequestHeaders.START_PROCESS,
-                                (address_name, namespec, extra_args)),
-                               zmq.NOBLOCK)
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.START_PROCESS,
+                                    (address_name, namespec, extra_args)),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('START_PROCESS not sent')
 
     def send_stop_process(self, address_name, namespec):
         """ Send request to stop process. """
         self.logger.trace('send STOP_PROCESS {} to {}'.format(
             namespec, address_name))
-        self.socket.send_pyobj((DeferredRequestHeaders.STOP_PROCESS,
-                                (address_name, namespec)),
-                               zmq.NOBLOCK)
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.STOP_PROCESS,
+                                    (address_name, namespec)),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('STOP_PROCESS not sent')
 
     def send_restart(self, address_name):
         """ Send request to restart a Supervisor. """
         self.logger.trace('send RESTART {}'.format(address_name))
-        self.socket.send_pyobj((DeferredRequestHeaders.RESTART,
-                                (address_name, )),
-                               zmq.NOBLOCK)
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.RESTART,
+                                    (address_name, )),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('RESTART not sent')
 
     def send_shutdown(self, address_name):
         """ Send request to shutdown a Supervisor. """
         self.logger.trace('send SHUTDOWN {}'.format(address_name))
-        self.socket.send_pyobj((DeferredRequestHeaders.SHUTDOWN,
-                                (address_name, )),
-                               zmq.NOBLOCK)
+        try:
+            self.socket.send_pyobj((DeferredRequestHeaders.SHUTDOWN,
+                                    (address_name, )),
+                                   zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('SHUTDOWN not sent')
 
 
 class SupervisorZmq():

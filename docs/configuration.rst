@@ -161,7 +161,7 @@ These options are more detailed in
     *Default*:  :file:`supvisors.log`.
 
     *Required*:  No.
-    
+
 ``logfile_maxbytes``
 
     The maximum size of the **Supvisors** log file.
@@ -301,7 +301,7 @@ Here follows the definition of the rules applicable to a program.
     This element gives the importance of the program for the application.
     If true (resp. false), a failure of the program is considered major (resp. minor).
     This is quite informative and is mainly used to give the operational status of the application.
-        
+
     *Default*:  false.
 
     *Required*:  No.
@@ -311,7 +311,7 @@ Here follows the definition of the rules applicable to a program.
     This element gives the starting rank of the program when the application is starting.
     When <= 0, the program is not automatically started.
     When > 0, the program is started automatically in the given order.
-        
+
     *Default*:  0.
 
     *Required*:  No.
@@ -321,7 +321,7 @@ Here follows the definition of the rules applicable to a program.
     This element gives the stopping rank of the program when the application is stopping.
     When <= 0, the program is stopped immediately if running.
     When > 0, the program is stopped in the given order.
-        
+
     *Default*:  0.
 
     *Required*:  No.
@@ -331,7 +331,7 @@ Here follows the definition of the rules applicable to a program.
     If the value of this element is set to true, Supvisors waits for the process to exit
     before starting the next sequence. This may be useful for scripts used to load a database,
     to mount disks, to prepare the application working directory, etc.
-        
+
     *Default*:  false.
 
     *Required*:  No.
@@ -340,7 +340,7 @@ Here follows the definition of the rules applicable to a program.
 
     This element gives the expected percent usage of resources. The value is a estimation and the meaning
     in terms of resources (CPU, memory, network) is in the user's hands.
-    
+
     This can be used in **Supvisors** to ensure that a system is not overloaded with greedy processes.
     When multiple addresses are available, the `` loading`` value helps to distribute processes over
     the systems available, so that the system remains safe.
@@ -359,7 +359,7 @@ Here follows the definition of the rules applicable to a program.
     *Required*:  No.
 
 ``running_failure_strategy``
-    
+
     This element gives the strategy applied when the required process is unexpectedly stopped in a running application.
     This value supersedes the value set at application level.
     Possible values are:
@@ -458,7 +458,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
         </program>
 
         <!-- definitions for prg_01, prg_02, prg_03 -->
- 
+
         <program name="prg_04">
             <addresses>cliche05</addresses>
         </program>
@@ -500,9 +500,9 @@ Here follows an example of model:
 .. code-block:: xml
 
     <model name="X11_model">
-	    <addresses>cliche01,cliche02,cliche03</addresses>
-	    <required>false</required>
-	    <wait_exit>false</wait_exit>
+        <addresses>cliche01,cliche02,cliche03</addresses>
+        <required>false</required>
+        <wait_exit>false</wait_exit>
     </model>
 
 Here follows examples of program and pattern definitions referencing a model:
@@ -510,11 +510,11 @@ Here follows examples of program and pattern definitions referencing a model:
 .. code-block:: xml
 
     <program name="xclock">
-	    <reference>X11_model</reference>
+        <reference>X11_model</reference>
     </program>
 
     <pattern name="prg">
-	    <reference>X11_model</reference>
+        <reference>X11_model</reference>
     </pattern>
 
 
@@ -552,9 +552,9 @@ Here follows the definition of the rules applicable to an application.
     *Required*:  No.
 
     .. attention::
-    
+
         The ``stop_sequence`` is **not** taken into account:
-        
+
             * when calling Supervisor's ``restart`` or ``shutdown`` XML-RPC,
             * when stopping the :command:`supervisord` daemon.
 
@@ -574,7 +574,7 @@ Here follows the definition of the rules applicable to an application.
     *Required*:  No.
 
 ``running_failure_strategy``
-    
+
     This element gives the strategy applied when any process of the application is unexpectedly stopped when the application is running.
     This value can be superseded by the value set at program level.
     Possible values are:
@@ -614,7 +614,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
 
 .. code-block:: xml
 
-    ?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
 
         <!-- models -->
@@ -651,9 +651,33 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
 
         </application>
 
+        <!-- import application -->
+        <application name="import_database">
+            <start_sequence>2</start_sequence>
+            <starting_failure_strategy>STOP</starting_failure_strategy>
+
+            <program name="mount_disk">
+                <addresses>cliche01</addresses>
+                <start_sequence>1</start_sequence>
+                <stop_sequence>2</stop_sequence>
+                <required>true</required>
+                <expected_loading>0</expected_loading>
+            </program>
+
+            <program name="copy_error">
+                <addresses>cliche01</addresses>
+                <start_sequence>2</start_sequence>
+                 <stop_sequence>1</stop_sequence>
+                <required>true</required>
+                <wait_exit>true</wait_exit>
+                <expected_loading>25</expected_loading>
+            </program>
+
+        </application>
+
         <!-- movies_database application -->
         <application name="database">
-            <start_sequence>2</start_sequence>
+            <start_sequence>3</start_sequence>
             <stop_sequence>3</stop_sequence>
 
             <pattern name="movie_server_">
@@ -661,6 +685,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
                 <start_sequence>1</start_sequence>
                 <stop_sequence>1</stop_sequence>
                 <expected_loading>5</expected_loading>
+                <running_failure_strategy>CONTINUE</running_failure_strategy>
             </pattern>
 
             <pattern name="register_movies_">
@@ -674,8 +699,9 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
 
         <!-- my_movies application -->
         <application name="my_movies">
-            <start_sequence>3</start_sequence>
+            <start_sequence>4</start_sequence>
             <stop_sequence>2</stop_sequence>
+            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
             <program name="manager">
                 <addresses>*</addresses>
@@ -683,32 +709,49 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
                 <stop_sequence>2</stop_sequence>
                 <required>true</required>
                 <expected_loading>5</expected_loading>
+                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+            </program>
+
+            <program name="web_server">
+                <addresses>cliche04</addresses>
+                <start_sequence>2</start_sequence>
+                <required>true</required>
+                <expected_loading>3</expected_loading>
             </program>
 
             <program name="hmi">
-                <!-- no screen on cliche03 -->
-                <addresses>cliche02 cliche01</addresses>
-                <start_sequence>2</start_sequence>
+                <addresses>cliche02, cliche01</addresses>
+                <start_sequence>3</start_sequence>
                 <stop_sequence>1</stop_sequence>
-                <required>true</required>
                 <expected_loading>10</expected_loading>
+                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
             </program>
 
-            <program name="disk_01_">
+            <pattern name="disk_01_">
                 <reference>disk_01</reference>
-            </program>
+            </pattern>
 
-            <program name="disk_02_">
+            <pattern name="disk_02_">
                 <reference>disk_02</reference>
-            </program>
+            </pattern>
 
-            <program name="disk_03_">
+            <pattern name="disk_03_">
                 <reference>disk_03</reference>
-            </program>
+            </pattern>
 
             <pattern name="error_disk_">
                 <reference>disk_error</reference>
             </pattern>
+
+            <program name="converter_04">
+                <addresses>cliche03,cliche01,cliche02</addresses>
+                <expected_loading>25</expected_loading>
+            </program>
+
+            <program name="converter_07">
+                <addresses>cliche01,cliche02,cliche03</addresses>
+                <expected_loading>25</expected_loading>
+            </program>
 
             <pattern name="converter_">
                 <expected_loading>25</expected_loading>
@@ -716,26 +759,39 @@ Here follows a complete example of rules files. It is used in **Supvisors** test
 
          </application>
 
+        <!-- player application -->
+        <application name="player">
+            <start_sequence>5</start_sequence>
+            <starting_failure_strategy>ABORT</starting_failure_strategy>
+
+            <program name="test_reader">
+                <addresses>cliche01</addresses>
+                <start_sequence>1</start_sequence>
+                <required>true</required>
+                <wait_exit>true</wait_exit>
+                <expected_loading>2</expected_loading>
+            </program>
+
+            <program name="movie_player">
+                <addresses>cliche01</addresses>
+                <start_sequence>2</start_sequence>
+                <expected_loading>13</expected_loading>
+            </program>
+
+        </application>
+
         <!-- web_movies application -->
         <application name="web_movies">
-            <start_sequence>4</start_sequence>
+            <start_sequence>6</start_sequence>
             <stop_sequence>1</stop_sequence>
-
-            <program name="web_server">
-                <addresses>*</addresses>
-                <start_sequence>1</start_sequence>
-                <stop_sequence>1</stop_sequence>
-                <required>true</required>
-                <expected_loading>3</expected_loading>
-            </program>
 
             <program name="web_browser">
                 <addresses>*</addresses>
-                <start_sequence>2</start_sequence>
+                <start_sequence>1</start_sequence>
                 <expected_loading>4</expected_loading>
+                <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
             </program>
 
         </application>
 
     </root>
-

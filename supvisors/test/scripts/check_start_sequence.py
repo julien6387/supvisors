@@ -20,7 +20,8 @@
 import sys
 import unittest
 
-from scripts.expected_events import *
+from scripts.event_queues import SupvisorsEventQueues
+from scripts.sequence_checker import *
 
 
 class CheckStartSequenceTest(CheckSequenceTest):
@@ -278,6 +279,6 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()
-    CheckSequenceTest.PORT = args.port
+    SupvisorsEventQueues.PORT = args.port
     # start unittest
     unittest.main(defaultTest='test_suite')

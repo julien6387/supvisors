@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,6 +31,10 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
 
 requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0']
 
+ip_require = ['netifaces >= 0.10.4']
+statistics_require = ['psutil >= 4.3.0', 'matplotlib >= 1.5.2']
+xml_valid_require = ['lxml >= 3.2.1']
+
 tests_require = ['mock >= 0.5.0']
 testing_extras = tests_require + ['pytest >= 2.5.2', 'pytest-cov']
 
@@ -44,7 +48,7 @@ except:
 
 CLASSIFIERS = [
     "License :: OSI Approved :: Apache Software License",
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Natural Language :: English",
@@ -68,15 +72,16 @@ dist = setup(
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
     url="https://github.com/julien6387/supvisors",
+    download_url = 'https://github.com/julien6387/supvisors/archive/0.1.tar.gz',
     platforms=[
         "CentOS 7.2"
     ],
     packages=find_packages(),
     install_requires=requires,
-    extras_require={'statistics': ['psutil >= 4.3.0'],
-        'ip_address': ['netifaces >= 0.10.4'],
-        'graph': ['psutil >= 4.3.0', 'matplotlib >= 1.5.2'],
-        'xml_valid': ['lxml >= 3.2.1'],
+    extras_require={'ip_address': ip_require,
+        'statistics': statistics_require,
+        'xml_valid': xml_valid_require,
+        'all': ip_require + statistics_require + xml_valid_require,
         'testing': testing_extras},
     tests_require=tests_require,
     include_package_data=True,

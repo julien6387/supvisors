@@ -2,7 +2,8 @@
 ==================================
 
 This is an extension of the existing :command:`supervisorctl` API.
-The additional commands provided by **Supvisors** are available by typing :command:`help` at the prompt.
+The additional commands provided by **Supvisors** are available by typing
+:command:`help` at the prompt.
 
 .. code-block:: bash
 
@@ -10,19 +11,19 @@ The additional commands provided by **Supvisors** are available by typing :comma
 
     default commands (type help <topic>):
     =====================================
-    add    exit      open  reload  restart   start   tail   
-    avail  fg        pid   remove  shutdown  status  update 
+    add    exit      open  reload  restart   start   tail
+    avail  fg        pid   remove  shutdown  status  update
     clear  maintail  quit  reread  signal    stop    version
 
 
     supvisors commands (type help <topic>):
     =======================================
     address_status     process_rules        sstatus             stop_process
-    application_info   restart_application  start_application   strategies  
-    application_rules  restart_process      start_args          sversion    
-    conciliate         sreload              start_process     
+    application_info   restart_application  start_application   strategies
+    application_rules  restart_process      start_args          sversion
+    conciliate         sreload              start_process
     conflicts          sshutdown            start_process_args
-    master             sstate               stop_application  
+    master             sstate               stop_application
 
 
 Status
@@ -50,7 +51,8 @@ Status
 
 ``address_status addr``
 
-    Get the status of the Supervisor instance managed in **Supvisors** and running on addr.
+    Get the status of the Supervisor instance managed in **Supvisors** and
+    running on addr.
 
 ``address_status addr1 addr2``
 
@@ -122,7 +124,8 @@ Status
 
 ``conciliate strategy``
 
-    Conciliate the conflicts detected by **Supvisors** if default strategy is ``USER`` and **Supvisors** is in ``CONCILIATION``` state.
+    Conciliate the conflicts detected by **Supvisors** if default strategy
+    is ``USER`` and **Supvisors** is in ``CONCILIATION``` state.
 
 ``sreload``
 
@@ -136,17 +139,20 @@ Status
 Application Control
 -------------------
 
+From this part, a starting strategy may be required in the command lines.
+It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+
 ``start_application strategy``
 
-    Start all applications with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start all applications with a starting strategy.
 
 ``start_application strategy appli``
 
-    Start the application named appli with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start the application named appli with a starting strategy.
 
 ``start_application strategy appli1 appli2``
 
-    Start multiple named applications with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start multiple named applications with a starting strategy.
 
 ``stop_application``
 
@@ -162,15 +168,15 @@ Application Control
 
 ``restart_application strategy``
 
-    Restart all applications with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Restart all applications with a starting strategy.
 
 ``restart_application strategy appli``
 
-    Restart the application named appli with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Restart the application named appli with a starting strategy.
 
 ``restart_application strategy appli1 appli2``
 
-    Restart multiple named applications with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Restart multiple named applications with a starting strategy.
 
 
 Process Control
@@ -178,23 +184,25 @@ Process Control
 
 ``start_process strategy``
 
-    Start all processes with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start all processes with a starting strategy.
 
 ``start_process strategy proc``
 
-    Start the process named proc with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start the process named proc with a starting strategy.
 
 ``start_process strategy proc1 proc2``
 
-    Start multiple named processes with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Start multiple named processes with a starting strategy.
 
 ``start_args proc arg_list``
 
-    Start the process named proc on the local address and with the additional arguments arg_list passed to the command line.
+    Start the process named proc on the local address and with the additional
+    arguments arg_list passed to the command line.
 
 ``start_process_args strategy proc arg_list``
 
-    Start the process named proc with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` } and with the additional arguments arg_list passed to the command line.
+    Start the process named proc with a starting strategy and with the
+    additional arguments arg_list passed to the command line.
 
 ``stop_process``
 
@@ -210,14 +218,12 @@ Process Control
 
 ``restart_process strategy``
 
-    Restart all processes with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Restart all processes with a starting strategy.
 
 ``restart_process strategy appli``
 
-    Restart the process named appli with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Restart the process named appli with a starting strategy.
 
 ``restart_process strategy appli1 appli2``
 
-    Restart multiple named process with a strategy among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
-
-
+    Restart multiple named process with a starting strategy.
