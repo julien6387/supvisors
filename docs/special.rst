@@ -215,8 +215,8 @@ So, **Supvisors** introduces new XML-RPCs that are capable of taking into
 account extra arguments that are passed to the command line before the process
 is started:
 
-   * ``supvisors.start_args``
-   * ``supervisor.startProcess``
+   * ``supvisors.start_args``: start a process on the local system,
+   * ``supvisors.start_process``: start a process using a starting strategy.
 
 .. note::
 
@@ -227,9 +227,9 @@ is started:
 
     In other words, considering 2 systems A and B, a process that is started on
     system A with extra arguments and configured to restart on system crash
-    (refer to `Running Failure strategy`_), if the system A crashes (or is simply
-    unreachable), the process will be restarted on system B with the same extra
-    arguments.
+    (refer to `Running Failure strategy`_), if the system A crashes (or simply
+    becomes unreachable), the process will be restarted on system B with the
+    same extra arguments.
 
 
 Starting an application
