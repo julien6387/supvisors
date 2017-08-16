@@ -31,23 +31,17 @@ When the first ``TICK`` event is received from a remote **Supvisors** instance,
 the local **Supvisors** instance:
 
     * sets the remote address state to ``CHECKING``,
-    * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the
-remote **Supvisors** instance, in order to know how it is seen by the remote
-instance.
+    * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the remote **Supvisors** instance, in order to know how it is seen by the remote instance.
     * 2 possibilities:
 
-        + the local **Supvisors** instance is seen as ``ISOLATED`` by the remote
-instance:
+        + the local **Supvisors** instance is seen as ``ISOLATED`` by the remote instance:
 
             - it sets the remote address state to ``ISOLATED``,
-            - ir disconnects the URL of the remote **Supvisors** instance from
-the ``SUBSCRIBE`` ZeroMQ socket,
+            - it disconnects the URL of the remote **Supvisors** instance from the ``SUBSCRIBE`` ZeroMQ socket,
 
-        + the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the
-remote instance:
+        + the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the remote instance:
 
-            - it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the
-remote instance,
+            - it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the remote instance,
             - it loads the processes information into the internal data model,
             - it sets the remote address state to ``RUNNING``.
 
@@ -157,8 +151,7 @@ Choosing an address
 Two rules are applicable with all strategies:
 
     * the chosen address must be ``RUNNING``,
-    * the *loading* of the chosen address must not exceed 100% when adding the
-``loading`` of the process to be started.
+    * the *loading* of the chosen address must not exceed 100% when adding the ``loading`` of the process to be started.
 
 The *loading* of the chosen address is defined as the sum of the ``loading``
 of each process running on this address.
@@ -191,12 +184,9 @@ start a process:
 
 This single job is considered completed when:
 
-    * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not**
-set for this process,
-    * an ``EXITED`` event with an expected exit code is received and the
-``wait_exit`` rule is set for this process,
-    * an error is encountered (``FATAL`` event, ``EXITED`` event with an
-unexpected exit code),
+    * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process,
+    * an ``EXITED`` event with an expected exit code is received and the ``wait_exit`` rule is set for this process,
+    * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code),
     * no ``STARTING`` event has been received 5 seconds after the XML-RPC.
 
 This principle is used for starting a single process using a
@@ -249,10 +239,8 @@ The application start sequence is defined at the beginning the ``DEPLOYMENT``
 phase of **Supvisors**.
 It corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``start_sequence`` values defined in
-the program rules of the application,
-    * the value associated to a key is the list of programs having this key as
-``start_sequence``.
+    * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
+    * the value associated to a key is the list of programs having this key as ``start_sequence``.
 
 .. note::
 
@@ -284,10 +272,8 @@ applications and processes.
 
 The global start sequence corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``start_sequence`` values defined in
-the application rules,
-    * the value associated to a key is the list of application start sequences
-    whose applications have this key as ``start_sequence``.
+    * the keys correspond to the list of ``start_sequence`` values defined in the application rules,
+    * the value associated to a key is the list of application start sequences whose applications have this key as ``start_sequence``.
 
 The **Supvisors** Master instance uses the global start sequence to start the
 applications in the defined order.
@@ -336,8 +322,7 @@ stop a process:
 This single job is considered completed when:
 
     * a ``STOPPED`` event is received for this process,
-    * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the
-exit code),
+    * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code),
     * no ``STOPPING`` event has been received 5 seconds after the XML-RPC.
 
 This principle is used for stopping a single process using a
@@ -351,10 +336,8 @@ The application stop sequence is defined at the beginning the ``DEPLOYMENT``
 phase of **Supvisors**.
 It corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``stop_sequence`` values defined in
-the program rules of the application,
-    * the value associated to a key is the list of programs having this key as
-``stop_sequence``.
+    * the keys correspond to the list of ``stop_sequence`` values defined in the program rules of the application,
+    * the value associated to a key is the list of programs having this key as ``stop_sequence``.
 
 The internal *Stopper* of **Supervisors** applies the following algorithm to
 stop an application:
@@ -384,10 +367,8 @@ the ``stop_sequence`` rule configured for the applications and processes.
 
 The global stop sequence corresponds to a dictionary where:
 
-    * the keys correspond to the list of ``stop_sequence`` values defined in
-the application rules,
-    * the value associated to a key is the list of application stop sequences
-whose applications have this key as ``stop_sequence``.
+    * the keys correspond to the list of ``stop_sequence`` values defined in the application rules,
+    * the value associated to a key is the list of application stop sequences whose applications have this key as ``stop_sequence``.
 
 Upon reception of the ``supvisors.restart`` or ``supvisors.shutdown``, the
 **Supvisors** instance uses the global stop sequence
@@ -420,8 +401,7 @@ capability to start it.
 
 Nevetheless, it is still likely to happen in a few cases:
 
-    * using a request to Supervisor itself (through web ui, supervisorctl,
-XML-RPC),
+    * using a request to Supervisor itself (through web ui, supervisorctl, XML-RPC),
     * upon a network failure.
 
 .. attention::
