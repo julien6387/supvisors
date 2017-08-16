@@ -32,22 +32,22 @@ the local **Supvisors** instance:
 
     * sets the remote address state to ``CHECKING``,
     * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the
-    remote **Supvisors** instance, in order to know how it is seen by the remote
-    instance.
+remote **Supvisors** instance, in order to know how it is seen by the remote
+instance.
     * 2 possibilities:
 
         + the local **Supvisors** instance is seen as ``ISOLATED`` by the remote
-        instance:
+instance:
 
             - it sets the remote address state to ``ISOLATED``,
             - ir disconnects the URL of the remote **Supvisors** instance from
-            the ``SUBSCRIBE`` ZeroMQ socket,
+the ``SUBSCRIBE`` ZeroMQ socket,
 
         + the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the
-        remote instance:
+remote instance:
 
             - it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the
-            remote instance,
+remote instance,
             - it loads the processes information into the internal data model,
             - it sets the remote address state to ``RUNNING``.
 
@@ -88,9 +88,8 @@ instances.
 In this case, the running **Supvisors** instances disconnect the corresponding
 URL from their subscription socket.
 The address is marked as ``ISOLATED`` and, in accordance with the rules defined
-and the value of the ``autorestart``
-option of the program, **Supvisors** may try to restart somewhere else the
-processes that were eventually running
+and the value of the ``autorestart`` option of the program, **Supvisors** may
+try to restart somewhere else the processes that were eventually running
 on that address.
 
 If the incriminated system restarts, and the **Supvisors** instance is
@@ -123,8 +122,10 @@ but do not communicate between them.
     applications.
 
 
-Warm restart
-------------
+.. _running_failure_strategy:
+
+Running Failure strategy
+------------------------
 
 The ``autorestart`` option of Supervisor may be used to restart automatically a
 process that has crashed or has exited unexpectedly (or not).
@@ -157,7 +158,7 @@ Two rules are applicable with all strategies:
 
     * the chosen address must be ``RUNNING``,
     * the *loading* of the chosen address must not exceed 100% when adding the
-    ``loading`` of the process to be started.
+``loading`` of the process to be started.
 
 The *loading* of the chosen address is defined as the sum of the ``loading``
 of each process running on this address.
@@ -184,24 +185,22 @@ The internal *Starter* of **Supervisors** applies the following algorithm to
 start a process:
 
 | if process state is not ``RUNNING``:
-|     choose a starting address for the program in accordance with
-`Starting strategy`_
-|     perform a ``supvisors.start_args(namespec)`` XML-RPC to the **Supvisors**
-instance running on the chosen address
+|     choose a starting address for the program in accordance with the rules defined above
+|     perform a ``supvisors.start_args(namespec)`` XML-RPC to the **Supvisors** instance running on the chosen address
 |
 
 This single job is considered completed when:
 
     * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not**
-    set for this process,
+set for this process,
     * an ``EXITED`` event with an expected exit code is received and the
-    ``wait_exit`` rule is set for this process,
+``wait_exit`` rule is set for this process,
     * an error is encountered (``FATAL`` event, ``EXITED`` event with an
-    unexpected exit code),
+unexpected exit code),
     * no ``STARTING`` event has been received 5 seconds after the XML-RPC.
 
 This principle is used for starting a single process using a
-``supvisors.start_process`` XML-RPC,
+``supvisors.start_process`` XML-RPC.
 
 
 Extra Arguments
@@ -222,29 +221,25 @@ That is not always possible.
 On the other hand, collegues found the solution so clumsy that they finally
 preferred to use a dedicated com to configure the process. Taste and colours...
 
-So, **Supvisors** introduces a ``supvisors.start_args`` XML-RPC that is capable
-of taking into account extra arguments that are passed to the command line
-before the process is started.
+So, **Supvisors** introduces new XML-RPCs that are capable of taking into
+account extra arguments that are passed to the command line before the process
+is started:
 
-.. attention:: *There is always a "but".*
+   * ``supvisors.start_args``
+   * ``supervisor.startProcess``
 
-    The extra arguments of the program are only known to:
+.. note::
 
-        * the **Supvisors** instance that received the XML-RPC,
-        * the Supervisor instance that received the ``supervisor.startProcess``
-        XML-RPC to start the process.
+    The extra arguments of the program are shared by all Supervisor instances.
+    Once used, they are published through a **Supvisors** internal event and
+    are stored directly into the Supervisor internal configuration of the
+    programs.
 
-    If the ``autorestart`` option is ``true`` or ``unexpected``, the process
-    with extra arguments cannot be warm restarted on a different address when
-    the system crashes. Indeed, only the **Supvisors** Master instance is in
-    charge of restarting the processes in this situation and the extra
-    arguments are likely unknown to it.
-
-    That's why there is *one* restriction to the use of this functionality:
-
-        the ``autorestart`` option of the program shall be set to ``false``.
-
-    Perhaps this restriction can be lifted in a next release.
+    In other words, considering 2 systems A and B, a process that is started on
+    system A with extra arguments and configured to restart on system crash
+    (refer to `Running Failure strategy`_), if the system A crashes (or is simply
+    unreachable), the process will be restarted on system B with the same extra
+    arguments.
 
 
 Starting an application
@@ -255,9 +250,9 @@ phase of **Supvisors**.
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in
-    the program rules of the application,
+the program rules of the application,
     * the value associated to a key is the list of programs having this key as
-    ``start_sequence``.
+``start_sequence``.
 
 .. note::
 
@@ -268,8 +263,7 @@ The internal *Starter* of **Supervisors** applies the following algorithm to
 start an application:
 
 | while application start sequence is not empty:
-|     pop the process list having the lower (strictly positive)
-``start_sequence``
+|     pop the process list having the lower (strictly positive) ``start_sequence``
 |
 |     for each process in process list:
 |         apply `Starting a process`_
@@ -291,7 +285,7 @@ applications and processes.
 The global start sequence corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in
-    the application rules,
+the application rules,
     * the value associated to a key is the list of application start sequences
     whose applications have this key as ``start_sequence``.
 
@@ -300,14 +294,12 @@ applications in the defined order.
 The following pseudo-code explains the algorithm used:
 
 | while global start sequence is not empty:
-|     pop the application start sequences having the lower (strictly positive)
-``start_sequence``
+|     pop the application start sequences having the lower (strictly positive) ``start_sequence``
 |
 |     while application start sequences are not empty:
 |
 |         for each sequence in application start sequences:
-|             pop the process list having the lower (strictly positive)
-``start_sequence``
+|             pop the process list having the lower (strictly positive) ``start_sequence``
 |
 |             for each process in process list:
 |                 apply `Starting a process`_
@@ -338,15 +330,14 @@ The internal *Stopper* of **Supervisors** applies the following algorithm to
 stop a process:
 
 | if process state is ``RUNNING``:
-|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the Supervisor
-instance where the process is running
+|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the Supervisor instance where the process is running
 |
 
 This single job is considered completed when:
 
     * a ``STOPPED`` event is received for this process,
     * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the
-    exit code),
+exit code),
     * no ``STOPPING`` event has been received 5 seconds after the XML-RPC.
 
 This principle is used for stopping a single process using a
@@ -361,9 +352,9 @@ phase of **Supvisors**.
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``stop_sequence`` values defined in
-    the program rules of the application,
+the program rules of the application,
     * the value associated to a key is the list of programs having this key as
-    ``stop_sequence``.
+``stop_sequence``.
 
 The internal *Stopper* of **Supervisors** applies the following algorithm to
 stop an application:
@@ -394,9 +385,9 @@ the ``stop_sequence`` rule configured for the applications and processes.
 The global stop sequence corresponds to a dictionary where:
 
     * the keys correspond to the list of ``stop_sequence`` values defined in
-    the application rules,
+the application rules,
     * the value associated to a key is the list of application stop sequences
-    whose applications have this key as ``stop_sequence``.
+whose applications have this key as ``stop_sequence``.
 
 Upon reception of the ``supvisors.restart`` or ``supvisors.shutdown``, the
 **Supvisors** instance uses the global stop sequence
@@ -430,7 +421,7 @@ capability to start it.
 Nevetheless, it is still likely to happen in a few cases:
 
     * using a request to Supervisor itself (through web ui, supervisorctl,
-    XML-RPC),
+XML-RPC),
     * upon a network failure.
 
 .. attention::
