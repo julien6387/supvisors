@@ -55,7 +55,8 @@ class AbstractState(object):
                         .format(func.__name__, status.address_name))
                 else:
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'
-                        .format(func.__name__, status.address_name, status.state_string()))
+                        .format(func.__name__, status.address_name,
+                                status.state_string()))
         # send request to self supervisord
         func(self.address)
 
@@ -97,7 +98,8 @@ class InitializationState(AbstractState):
         return SupvisorsStates.INITIALIZATION
 
     def exit(self):
-        """ When leaving the INITIALIZATION state, the working addresses are defined.
+        """ When leaving the INITIALIZATION state, the working addresses are
+        defined.
         One of them is elected as the MASTER. """
         # force state of missing Supvisors instances
         self.context.end_synchro()

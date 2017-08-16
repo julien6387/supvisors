@@ -34,6 +34,10 @@ here = os.path.abspath(os.path.dirname(__file__))
 version_txt = os.path.join(here, 'version.txt')
 API_VERSION = open(version_txt).read().split('=')[1].strip()
 
+# IDEA:
+# 1. need a get_local_process_info in supvisors to complement the supervisor one
+#    get minimum to address supvisors, including extra_args
+
 
 class RPCInterface(object):
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
@@ -363,32 +367,41 @@ class RPCInterface(object):
         application, process = self._get_application_process(namespec)
         if extra_args and not process.accept_extra_arguments():
             raise RPCError(Faults.BAD_EXTRA_ARGUMENTS,
-                'rules for namespec {} are not compatible with extra arguments in command line'.format(namespec))
+                'rules for namespec {} are not compatible with extra '\
+                'arguments in command line'.format(namespec))
         # update command line in process config with extra_args
         try:
             self.info_source.update_extra_args(namespec, extra_args)
         except KeyError:
             # process is unknown to the local Supervisor
-            # this should not happen as Supvisors checks the configuration before it sends this request
-            self.logger.error('could not find {} in supervisord processes'.format(namespec))
-            raise RPCError(Faults.BAD_NAME, 'namespec {} unknown in this Supervisor instance'.format(namespec))
+            # this should not happen as Supvisors checks the configuration
+            # before it sends this request
+            self.logger.error('could not find {} in Supervisor processes'
+                              .format(namespec))
+            raise RPCError(Faults.BAD_NAME,
+                           'namespec {} unknown in this Supervisor instance'
+                           .format(namespec))
         # start process with Supervisor internal RPC
         try:
-            cb = self.info_source.supervisor_rpc_interface.startProcess(namespec, wait)
+            rpc_interface = self.info_source.supervisor_rpc_interface
+            cb = rpc_interface.startProcess(namespec, wait)
         except RPCError, why:
             self.logger.error('start_process {} failed: {}'.format(namespec, why))
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
-                self.logger.warn('force supervisord internal state of {} to FATAL'.format(namespec))
+                self.logger.warn('force Supervisor internal state of {} to FATAL'
+                                 .format(namespec))
                 # at this stage, process is known to the local Supervisor
                 self.info_source.force_process_fatal(namespec, why.text)
             # else process is already started
-            # this should not happen as Supvisors checks the process state before it sends this request
+            # this should not happen as Supvisors checks the process state
+            # before it sends this request
             # anyway raise exception again
             raise
         return cb
 
     def start_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Start a process named namespec iaw the strategy and some of the rules file.
+        """ Start a process named namespec iaw the strategy and some of the
+        rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
@@ -477,14 +490,16 @@ class RPCInterface(object):
                     return NOT_DONE_YET
                 for process in processes:
                     if process.running():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec())
+                        raise RPCError(Faults.ABNORMAL_TERMINATION,
+                                       process.namespec())
                 return True
             onwait.delay = 0.1
             return onwait # deferred
         return True
 
     def restart_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
+        """ Restart a process named namespec iaw the strategy and some of the
+        rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.

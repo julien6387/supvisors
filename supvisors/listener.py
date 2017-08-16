@@ -76,6 +76,8 @@ class SupervisorListener(object):
         self.logger.info('local supervisord is RUNNING')
         # replace the default handler for web ui
         self.info_source.replace_default_handler()
+        # update Supervisor internal data for extra_args
+        self.info_source.prepare_extra_args()
         # create zmq sockets
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
         # keep a reference to the internal events publisher
@@ -109,12 +111,13 @@ class SupervisorListener(object):
         """ Called when a ProcessEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        self.logger.debug('got Process event from supervisord: {} {}'.format(
-            event_name, event))
+        self.logger.debug('got Process event from supervisord: {} {}'
+                          .format(event_name, event))
         # create payload from event
         payload = {'name': event.process.config.name,
             'group': event.process.group.config.name,
             'state': ProcessStates._from_string(event_name.split('_')[-1]),
+            'extra_args': event.process.config.extra_args,
             'now': int(time.time()),
             'pid': event.process.pid,
             'expected': event.expected}

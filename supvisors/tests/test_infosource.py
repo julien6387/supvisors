@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,7 +38,8 @@ class InfoSourceTest(unittest.TestCase):
     def test_unix_server(self):
         """ Test the values set at construction. """
         from supvisors.infosource import SupervisordSource
-        with patch.dict(self.supervisor.options.server_configs[0], {'section': 'unix_http_server'}):
+        with patch.dict(self.supervisor.options.server_configs[0],
+                        {'section': 'unix_http_server'}):
             with self.assertRaises(ValueError):
                 SupervisordSource(self.supervisor)
 
@@ -47,7 +48,8 @@ class InfoSourceTest(unittest.TestCase):
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
         self.assertIs(self.supervisor, source.supervisord)
-        self.assertIs(source.supervisord.options.server_configs[0], source.server_config)
+        self.assertIs(source.supervisord.options.server_configs[0],
+                      source.server_config)
         self.assertIsNone(source._supervisor_rpc_interface)
         self.assertIsNone(source._supvisors_rpc_interface)
 
@@ -69,8 +71,10 @@ class InfoSourceTest(unittest.TestCase):
         """ Test the environment build. """
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
-        self.assertDictEqual({'SUPERVISOR_SERVER_URL': 'url', 'SUPERVISOR_USERNAME': 'user',
-            'SUPERVISOR_PASSWORD': 'p@$$w0rd'}, source.get_env())
+        self.assertDictEqual({'SUPERVISOR_SERVER_URL': 'url',
+                              'SUPERVISOR_USERNAME': 'user',
+                              'SUPERVISOR_PASSWORD': 'p@$$w0rd'},
+                             source.get_env())
 
     def test_close_server(self):
         """ Test the closing of supervisord HTTP servers. """
@@ -96,7 +100,8 @@ class InfoSourceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             source.get_group_config('unknown_application')
         # test normal behaviour
-        self.assertEqual('dummy_application_config', source.get_group_config('dummy_application'))
+        self.assertEqual('dummy_application_config',
+                         source.get_group_config('dummy_application'))
 
     def test_process(self):
         """ Test the access of a supervisord process. """
@@ -108,9 +113,10 @@ class InfoSourceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             source.get_process('dummy_application:unknown_process')
         # test normal behaviour
-        self.assertIs(self.supervisor.process_groups['dummy_application'].processes['dummy_process_1'],
+        app_config = self.supervisor.process_groups['dummy_application']
+        self.assertIs(app_config.processes['dummy_process_1'],
             source.get_process('dummy_application:dummy_process_1'))
-        self.assertIs(self.supervisor.process_groups['dummy_application'].processes['dummy_process_2'],
+        self.assertIs(app_config.processes['dummy_process_2'],
             source.get_process('dummy_application:dummy_process_2'))
 
     def test_process_config(self):
@@ -130,7 +136,7 @@ class InfoSourceTest(unittest.TestCase):
         self.assertFalse(config.autorestart)
         self.assertEqual('cat', config.command)
 
-    def test_autoreqtart(self):
+    def test_autorestart(self):
         """ Test the autostart value of a process configuration. """
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
@@ -157,6 +163,26 @@ class InfoSourceTest(unittest.TestCase):
         source.disable_autorestart('dummy_application:dummy_process_1')
         self.assertFalse(source.autorestart('dummy_application:dummy_process_1'))
 
+    def test_prepare_extra_args(self):
+        """ Test the update of the Supervisor internal data to prepare the
+        extra arguments functionality. """
+        from supvisors.infosource import SupervisordSource
+        source = SupervisordSource(self.supervisor)
+        # test initial status
+        # if test_extra_args is run before this test, there will be extra args
+        # in dummy_process_1, so check only dummy_process_2
+        appli = self.supervisor.process_groups['dummy_application']
+        process = appli.processes['dummy_process_2']
+        self.assertFalse(hasattr(process.config, 'command_ref'))
+        self.assertFalse(hasattr(process.config, 'extra_args'))
+        # add context to internal data
+        source.prepare_extra_args()
+        # test internal data: all should have additional attributes
+        self.assertTrue(all(hasattr(process.config, 'command_ref') or
+                            hasattr(process.config, 'extra_args')
+                            for appli in self.supervisor.process_groups.values()
+                            for process in appli.processes.values()))
+
     def test_extra_args(self):
         """ Test the possibility to add extra arguments to default command line. """
         from supvisors.infosource import SupervisordSource
@@ -168,18 +194,16 @@ class InfoSourceTest(unittest.TestCase):
             source.update_extra_args('dummy_application:unknown_process', '-la')
         # test normal behaviour
         config_1 = source.get_process_config('dummy_application:dummy_process_1')
-        # check that there is no save of the initial command
-        self.assertFalse(hasattr(config_1, 'config_ref'))
+        config_1.command_ref = config_1.command
+        config_1.extra_args = ''
         # add extra arguments
         source.update_extra_args('dummy_application:dummy_process_1', '-la')
         self.assertEqual('ls -la', config_1.command)
-        self.assertEqual('ls', config_1.config_ref)
+        self.assertEqual('ls', config_1.command_ref)
         # remove them
         source.update_extra_args('dummy_application:dummy_process_1', None)
         self.assertEqual('ls', config_1.command)
-        self.assertEqual('ls', config_1.config_ref)
-        # restore initial config
-        delattr(config_1, 'config_ref')
+        self.assertEqual('ls', config_1.command_ref)
 
     def test_force_fatal(self):
         """ Test the way to force a process in FATAL state. """

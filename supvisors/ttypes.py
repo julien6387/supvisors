@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -49,18 +49,21 @@ class ConciliationStrategies:
 
 @enumeration_tools
 class StartingFailureStrategies:
-    """ Applicable strategies that can be applied on a failure of a starting application. """
+    """ Applicable strategies that can be applied on a failure of a starting
+    application. """
     ABORT, STOP, CONTINUE = range(3)
 
 @enumeration_tools
 class RunningFailureStrategies:
-    """ Applicable strategies that can be applied on a failure of a running application. """
+    """ Applicable strategies that can be applied on a failure of a running
+    application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
 @enumeration_tools
 class SupvisorsStates:
     """ Internal state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, \
+    SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 # Exceptions

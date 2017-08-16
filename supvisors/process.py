@@ -132,10 +132,7 @@ class ProcessStatus(object):
         - last_event_time: the local date of the last information received,
         - addresses: the list of all addresses where the process is running,
         - infos: a process info dictionary for each address (running or not),
-        - rules: the rules related to this process,
-        - extra_args: optional extra arguments to be passed to the command line,
-        - ignore_wait_exit: a status telling if the wait_exit rule is applicable
-            (should be temporary).
+        - rules: the rules related to this process.
     """
 
     def __init__(self, application_name, process_name, supvisors):
@@ -155,8 +152,6 @@ class ProcessStatus(object):
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(supvisors)
-        self.extra_args = ''
-        self.ignore_wait_exit = False
 
     # access
     def namespec(self):

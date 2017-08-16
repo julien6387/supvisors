@@ -113,11 +113,18 @@ class ListenerTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             listener.on_process(Tick60Event(0, None))
         # test process event
-        process = Mock(pid=1234, **{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
+        process = Mock(pid=1234, **{'config.name': 'dummy_process',
+                                    'config.extra_args': '-s test',
+                                    'group.config.name': 'dummy_group'})
         event = ProcessStateFatalEvent(process, '')
         listener.on_process(event)
-        self.assertEqual([call({'name': 'dummy_process', 'group': 'dummy_group',
-            'state': 200, 'now': 77, 'pid': 1234, 'expected': True})],
+        self.assertEqual([call({'name': 'dummy_process',
+                                'group': 'dummy_group',
+                                'state': 200,
+                                'extra_args': '-s test',
+                                'now': 77,
+                                'pid': 1234,
+                                'expected': True})],
             listener.publisher.send_process_event.call_args_list)
 
     @patch.dict('sys.modules', **{'supvisors.statscollector':

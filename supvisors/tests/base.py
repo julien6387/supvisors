@@ -146,16 +146,18 @@ class DummyServerOptions:
         self.storage = self.httpservers
 
 
+class DummyProcessConfig:
+    """ Simple supervisor process config with simple attributes. """
+    def __init__(self, command, autorestart):
+        self.command = command
+        self.autorestart = autorestart
+
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
     def __init__(self, command, autorestart):
         self.state = 'STOPPED'
         self.spawnerr = ''
-        # create dummy config
-        class DummyObject: pass
-        self.config = DummyObject()
-        self.config.command = command
-        self.config.autorestart = autorestart
+        self.config = DummyProcessConfig(command, autorestart)
     def give_up(self):
        self.state = 'FATAL'
     def change_state(self, state):
@@ -169,8 +171,8 @@ class DummySupervisor:
         self.options = DummyServerOptions()
         self.process_groups = {'dummy_application':
             Mock(config='dummy_application_config',
-                processes={'dummy_process_1': DummyProcess('ls', True),
-                    'dummy_process_2': DummyProcess('cat', False)})}
+                 processes={'dummy_process_1': DummyProcess('ls', True),
+                            'dummy_process_2': DummyProcess('cat', False)})}
 
 
 class DummyHttpContext:

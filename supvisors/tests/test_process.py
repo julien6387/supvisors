@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -171,10 +171,9 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(0, process.last_event_time)
         self.assertEqual(set(), process.addresses)
         self.assertEqual({}, process.infos)
-        self.assertEqual('', process.extra_args)
-        self.assertFalse(process.ignore_wait_exit)
         # rules part
-        self.assertDictEqual(ProcessRules(self.supvisors).__dict__, process.rules.__dict__)
+        self.assertDictEqual(ProcessRules(self.supvisors).__dict__,
+                             process.rules.__dict__)
 
     def test_namespec(self):
         """ Test of the process namspec. """

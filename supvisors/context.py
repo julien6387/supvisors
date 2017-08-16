@@ -238,7 +238,7 @@ class Context(object):
                 self.logger.debug('got event {} from location={}'
                                   .format(event, address_name))
                 try:
-                    # refresh process info from process event
+                    # get internal data
                     application = self.applications[event['group']]
                     process = application.processes[event['name']]
                 except KeyError:
@@ -247,6 +247,10 @@ class Context(object):
                     self.logger.debug('reject event {} from location={}'
                                       .format(event, address_name))
                 else:
+                    # store extra_args in internal Supervisor data
+                    self.supvisors.info_source.update_extra_args(
+                        process.namespec(), event['extra_args'])
+                    # refresh process info from process event
                     process.update_info(address_name, event)
                     # refresh application status
                     application = self.applications[process.application_name]
