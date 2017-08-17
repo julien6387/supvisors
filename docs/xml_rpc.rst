@@ -202,12 +202,9 @@ However, it is assumed that the environment parameter contains the relevant
 HTTP configuration, as it would be set for a process spawed by Supervisor.
 More particularly, it is expected that the following variables are set:
 
-    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server
-    (ex: ``http://localhost:60000``),
-    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication
-    (may be empty),
-    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication
-    (may be empty).
+    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server (ex: ``http://localhost:60000``),
+    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
+    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
 
 The first is to use the ``getRPCInterface`` of the ``supervisor.childutils``
 module.
