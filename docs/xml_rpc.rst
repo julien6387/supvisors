@@ -177,13 +177,13 @@ Process Control
 
   .. autoclass:: RPCInterface
 
-        .. automethod:: start_args(namespec, extra_args=None, wait=True)
+        .. automethod:: start_args(namespec, extra_args='', wait=True)
 
-        .. automethod:: start_process(strategy, namespec, extra_args=None, wait=True)
+        .. automethod:: start_process(strategy, namespec, extra_args='', wait=True)
 
         .. automethod:: stop_process(namespec, wait=True)
 
-        .. automethod:: restart_process(strategy, namespec, wait=True)
+        .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
 
 XML-RPC Clients
