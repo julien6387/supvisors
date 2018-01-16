@@ -46,13 +46,16 @@ class SupervisordSource(object):
 
     @property
     def supervisor_rpc_interface(self):
-        # need to get internal Supervisor RPC handler to call behaviour from
+        # need to get internal Supervisor RPC handler to call behavior from
         # Supvisors
         # XML-RPC call in an other XML-RPC call on the same server is blocking
         # so, not very proud of the following lines but could not access it
         # any other way
         if not self._supervisor_rpc_interface:
             handler = self.httpserver.handlers[0]
+            # if authentication used, handler is wrapped
+            if self.username:
+                handler = handler.handler
             self._supervisor_rpc_interface = handler.rpcinterface.supervisor
         return self._supervisor_rpc_interface
 
@@ -60,6 +63,9 @@ class SupervisordSource(object):
     def supvisors_rpc_interface(self):
         if not self._supvisors_rpc_interface:
             handler = self.httpserver.handlers[0]
+            # if authentication used, handler is wrapped
+            if self.username:
+                handler = handler.handler
             self._supvisors_rpc_interface = handler.rpcinterface.supvisors
         return self._supvisors_rpc_interface
 
@@ -166,8 +172,7 @@ class SupervisordSource(object):
         defaulthandler = default_handler.default_handler(filesystem)
         # deal with authentication
         if self.username:
-            # wrap the xmlrpc handler and tailhandler in an authentication
-            # handler
+            # wrap the default handler in an authentication handler
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
