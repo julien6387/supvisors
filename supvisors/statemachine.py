@@ -21,7 +21,7 @@ from time import time
 
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import AddressStates, SupvisorsStates
-from supvisors.utils import supvisors_short_cuts
+from supvisors.utils import supvisors_shortcuts
 
 
 class AbstractState(object):
@@ -30,8 +30,8 @@ class AbstractState(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'failure_handler',
-                                    'logger', 'starter', 'stopper'])
+        supvisors_shortcuts(self, ['context', 'failure_handler',
+                                   'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
@@ -246,8 +246,8 @@ class FiniteStateMachine:
     def __init__(self, supvisors):
         """ Reset the state machine and the associated context """
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'failure_handler', 'starter',
-                                    'stopper', 'logger'])
+        supvisors_shortcuts(self, ['context', 'failure_handler', 'starter',
+                                   'stopper', 'logger'])
         self.update_instance(SupvisorsStates.INITIALIZATION)
         self.instance.enter()
 

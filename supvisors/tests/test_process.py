@@ -23,8 +23,10 @@ import unittest
 from mock import call
 
 from supvisors.tests.base import (MockedSupvisors,
-    any_process_info, any_stopped_process_info,
-    process_info_by_name, any_process_info_by_state)
+                                  any_process_info,
+                                  any_stopped_process_info,
+                                  process_info_by_name,
+                                  any_process_info_by_state)
 
 
 class ProcessRulesTest(unittest.TestCase):
@@ -169,6 +171,7 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.UNKNOWN, process.state)
         self.assertTrue(process.expected_exit)
         self.assertEqual(0, process.last_event_time)
+        self.assertEqual('', process.extra_args)
         self.assertEqual(set(), process.addresses)
         self.assertEqual({}, process.infos)
         # rules part
@@ -249,16 +252,6 @@ class ProcessTest(unittest.TestCase):
         process.addresses.remove('10.0.0.2')
         self.assertFalse(process.conflicting())
 
-    def test_accept_extra_arguments(self):
-        """ Test the possibility to add extra arguments when starting the process, iaw the process rules. """
-        from supvisors.process import ProcessStatus
-        info = any_process_info()
-        process = ProcessStatus(info['group'], info['name'], self.supvisors)
-        self.supvisors.info_source.autorestart.return_value = False
-        self.assertTrue(process.accept_extra_arguments())
-        self.supvisors.info_source.autorestart.return_value = True
-        self.assertFalse(process.accept_extra_arguments())
-
     def test_serialization(self):
         """ Test the serialization of the ProcessStatus. """
         import pickle
@@ -269,9 +262,15 @@ class ProcessTest(unittest.TestCase):
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
         process.add_info('10.0.0.1', info)
         serialized = process.serial()
-        self.assertDictEqual(serialized, {'application_name': info['group'], 'process_name': info['name'],
-            'statecode': 0, 'statename': 'STOPPED',
-            'expected_exit': info['expected'], 'last_event_time': process.last_event_time, 'addresses': []})
+        self.assertDictEqual({'application_name': info['group'],
+                              'process_name': info['name'],
+                              'statecode': 0,
+                              'statename': 'STOPPED',
+                              'expected_exit': info['expected'],
+                              'last_event_time': process.last_event_time,
+                              'addresses': [],
+                              'extra_args': ''},
+                             serialized)
         # test that returned structure is serializable using pickle
         dumped = pickle.dumps(serialized)
         loaded = pickle.loads(dumped)
@@ -281,10 +280,13 @@ class ProcessTest(unittest.TestCase):
         """ Test the addition of a process info into the ProcessStatus. """
         from supervisor.states import ProcessStates
         from supvisors.process import ProcessStatus
-        # ProcessStatus constructor uses add_info
+        # get a process info and complement extra_args
         info = process_info_by_name('xclock')
+        info['extra_args'] = '-x dummy'
         self.assertNotIn('uptime', info)
+        # create ProcessStatus instance
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
+        process.extra_args = 'something else'
         process.add_info('10.0.0.1', info)
         # check contents
         self.assertEqual(1, len(process.infos))
@@ -296,6 +298,9 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.STOPPING, process.state)
         self.assertTrue(process.expected_exit)
+        # extra_args are reset when using add_info
+        self.assertEqual('', process.extra_args)
+        self.assertEqual('', info['extra_args'])
         # test that address is unchanged
         self.assertListEqual(['*'], process.rules.addresses)
         # update rules to test '#'
@@ -312,7 +317,8 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.EXITED, process.state)
         self.assertTrue(process.expected_exit)
-        # the firefox process has a procnumber of 0 and address '10.0.0.1' has an index of 1
+        # the firefox process has a procnumber of 0 and address '10.0.0.1'
+        # has an index of 1
         # address rule remains unchanged
         self.assertListEqual(['#'], process.rules.addresses)
         # add a RUNNING process info
@@ -339,21 +345,27 @@ class ProcessTest(unittest.TestCase):
         process.add_info('10.0.0.1', info)
         self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
         local_time = process.last_event_time
         # update with a STARTING event on an unknown address
-        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 10})
+        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING,
+                                         'now': 10})
         # check no change
         info = process.infos['10.0.0.1']
         self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
         # update with a STARTING event
-        process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'now': 10})
+        process.update_info('10.0.0.1', {'state': ProcessStates.STARTING,
+                                         'now': 10,
+                                         'extra_args': '-x dummy'})
         # check changes
         info = process.infos['10.0.0.1']
         self.assertEqual(ProcessStates.STARTING, info['state'])
         self.assertEqual(ProcessStates.STARTING, process.state)
+        self.assertEqual('-x dummy', process.extra_args)
         self.assertSetEqual({'10.0.0.1'}, process.addresses)
         self.assertEqual(10, info['now'])
         self.assertGreaterEqual(process.last_event_time, local_time)
@@ -361,11 +373,15 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(10, info['start'])
         self.assertEqual(0, info['uptime'])
         # update with a RUNNING event
-        process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING, 'now': 15, 'pid': 1234})
+        process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING,
+                                         'now': 15,
+                                         'pid': 1234,
+                                         'extra_args': '-z another'})
         # check changes
         self.assertEqual(ProcessStates.RUNNING, info['state'])
         self.assertEqual(ProcessStates.RUNNING, process.state)
         self.assertSetEqual({'10.0.0.1'}, process.addresses)
+        self.assertEqual('-z another', process.extra_args)
         self.assertEqual(1234, info['pid'])
         self.assertEqual(15, info['now'])
         self.assertGreaterEqual(process.last_event_time, local_time)
@@ -374,16 +390,28 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(5, info['uptime'])
         # add a new STOPPED process info and update with STARTING / RUNNING events
         process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
-        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 20})
-        process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING, 'now': 25, 'pid': 4321})
+        # extra_args has been reset
+        self.assertEqual('', process.extra_args)
+        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING,
+                                         'now': 20,
+                                         'extra_args': '-x dummy'})
+        process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING,
+                                         'now': 25,
+                                         'pid': 4321,
+                                         'extra_args': ''})
         # check state and addresses
         self.assertEqual(ProcessStates.RUNNING, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertSetEqual({'10.0.0.1', '10.0.0.2'}, process.addresses)
         # update with an EXITED event
-        process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'expected': False})
+        process.update_info('10.0.0.1', {'state': ProcessStates.EXITED,
+                                         'now': 30,
+                                         'expected': False,
+                                         'extra_args': ''})
         # check changes
         self.assertEqual(ProcessStates.EXITED, info['state'])
         self.assertEqual(ProcessStates.RUNNING, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertSetEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(1234, info['pid'])
         self.assertEqual(30, info['now'])
@@ -394,10 +422,13 @@ class ProcessTest(unittest.TestCase):
         # update with an STOPPING event
         info = process.infos['10.0.0.2']
         local_time = process.last_event_time
-        process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING, 'now': 35})
+        process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING,
+                                         'now': 35,
+                                         'extra_args': ''})
         # check changes
         self.assertEqual(ProcessStates.STOPPING, info['state'])
         self.assertEqual(ProcessStates.STOPPING, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertSetEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(4321, info['pid'])
         self.assertEqual(35, info['now'])
@@ -407,10 +438,13 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(15, info['uptime'])
         self.assertTrue(info['expected'])
        # update with an STOPPED event
-        process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED, 'now': 40})
+        process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED,
+                                         'now': 40,
+                                         'extra_args': ''})
         # check changes
         self.assertEqual(ProcessStates.STOPPED, info['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
+        self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
         self.assertEqual(4321, info['pid'])
         self.assertEqual(40, info['now'])
@@ -599,12 +633,18 @@ class ProcessTest(unittest.TestCase):
         from supervisor.states import ProcessStates, STOPPED_STATES, RUNNING_STATES
         from supvisors.process import ProcessStatus
         # check running states with several combinations
-        self.assertEqual(ProcessStates.UNKNOWN, ProcessStatus.running_state(STOPPED_STATES))
-        self.assertEqual(ProcessStates.UNKNOWN, ProcessStatus.running_state([ProcessStates.STOPPING]))
-        self.assertEqual(ProcessStates.RUNNING, ProcessStatus.running_state(RUNNING_STATES))
-        self.assertEqual(ProcessStates.BACKOFF, ProcessStatus.running_state([ProcessStates.STARTING, ProcessStates.BACKOFF]))
-        self.assertEqual(ProcessStates.STARTING, ProcessStatus.running_state([ProcessStates.STARTING]))
-        self.assertEqual(ProcessStates.RUNNING, ProcessStatus.running_state([ProcessStates.STOPPING] + list(RUNNING_STATES) + list(STOPPED_STATES)))
+        self.assertEqual(ProcessStates.UNKNOWN,
+                         ProcessStatus.running_state(STOPPED_STATES))
+        self.assertEqual(ProcessStates.UNKNOWN,
+                         ProcessStatus.running_state([ProcessStates.STOPPING]))
+        self.assertEqual(ProcessStates.RUNNING,
+                         ProcessStatus.running_state(RUNNING_STATES))
+        self.assertEqual(ProcessStates.BACKOFF,
+                         ProcessStatus.running_state([ProcessStates.STARTING, ProcessStates.BACKOFF]))
+        self.assertEqual(ProcessStates.STARTING,
+                         ProcessStatus.running_state([ProcessStates.STARTING]))
+        self.assertEqual(ProcessStates.RUNNING,
+                         ProcessStatus.running_state([ProcessStates.STOPPING] + list(RUNNING_STATES) + list(STOPPED_STATES)))
 
 
 def test_suite():
@@ -612,4 +652,3 @@ def test_suite():
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

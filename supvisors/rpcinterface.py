@@ -20,23 +20,21 @@
 import os
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.options import split_namespec
+from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.initializer import Supvisors
 from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (ApplicationStates, ConciliationStrategies,
-    StartingStrategies, SupvisorsStates)
-from supvisors.utils import supvisors_short_cuts
+from supvisors.ttypes import (ApplicationStates,
+                              ConciliationStrategies,
+                              StartingStrategies,
+                              SupvisorsStates)
+from supvisors.utils import extract_process_info, supvisors_shortcuts
 
 # get Supvisors version from file
 here = os.path.abspath(os.path.dirname(__file__))
 version_txt = os.path.join(here, 'version.txt')
 API_VERSION = open(version_txt).read().split('=')[1].strip()
-
-# IDEA:
-# 1. need a get_local_process_info in supvisors to complement the supervisor one
-#    get minimum to address supvisors, including extra_args
 
 
 class RPCInterface(object):
@@ -45,8 +43,8 @@ class RPCInterface(object):
     def __init__(self, supervisord):
         # create a new Supvisors instance
         self.supvisors = Supvisors(supervisord)
-        supvisors_short_cuts(self, ['context', 'fsm', 'info_source',
-            'logger', 'starter', 'stopper'])
+        supvisors_shortcuts(self, ['context', 'fsm', 'info_source',
+                                   'logger', 'starter', 'stopper'])
 
     # RPC Status methods
     def get_api_version(self):
@@ -152,34 +150,69 @@ class RPCInterface(object):
         return result
 
     def get_all_process_info(self):
-        """ Get information about all processes.
+        """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE``
+        if **Supvisors** is still in ``INITIALIZATION`` state,
 
-        *@return* ``list(dict)``: a list of structures containing data about the processes.
+        *@return* ``list(dict)``: a list of structures containing data about
+        the processes.
         """
         self._check_from_deployment()
         return [process.serial()
             for process in self.context.processes.values()]
 
     def get_process_info(self, namespec):
-        """ Get information about a process named namespec.
-        It just complements ``supervisor.getProcessInfo`` by telling where the process is running.
+        """ Get synthetic information about a process named namespec.
+        It gives a synthetic status, based on the process information coming
+        from all the addresses where **Supvisors** is running.
 
-        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``,
+        ``group:name``, or ``group:*``).
 
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
-        *@return* ``list(dict)``: a list of structures containing data about the processes.
+        *@return* ``list(dict)``: a list of structures containing data about
+        the processes.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
         if process:
             return [process.serial()]
         return [proc.serial() for proc in application.processes.values()]
+
+    def get_all_local_process_info(self):
+        """ Get information about all processes located on this address.
+        It is a subset of ``supervisor.getProcessInfo``, used by
+        **Supvisors** in INITIALIZATION state, and giving the extra arguments
+        of the process.
+
+        *@return* ``list(dict)``: a list of structures containing data about
+        the processes.
+        """
+        supervisor_intf = self.info_source.supervisor_rpc_interface
+        all_info = supervisor_intf.getAllProcessInfo()
+        return [self._get_local_info(info) for info in all_info]
+
+    def get_local_process_info(self, namespec):
+        """ Get local information about a process named namespec.
+        It is a subset of ``supervisor.getProcessInfo``, used by
+        **Supvisors** in INITIALIZATION state, and giving the extra arguments
+        of the process.
+
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``).
+
+        *@throws* ``RPCError`` with code ``Faults.BAD_NAME`` if namespec is
+        unknown to **Supvisors**.
+
+        *@return* ``dict``: a structure containing data about the process.
+        """
+        supervisor_intf = self.info_source.supervisor_rpc_interface
+        info = supervisor_intf.getProcessInfo(namespec)
+        return self._get_local_info(info)
 
     def get_process_rules(self, namespec):
         """ Get the rules used to start / stop the process named namespec.
@@ -303,7 +336,8 @@ class RPCInterface(object):
         return not done
 
     def restart_application(self, strategy, application_name, wait=True):
-        """ Restart the application named application_name iaw the strategy and the rules file.
+        """ Restart the application named application_name iaw the strategy and
+        the rules file.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
@@ -344,9 +378,11 @@ class RPCInterface(object):
 
     def start_args(self, namespec, extra_args='', wait=True):
         """ Start a local process.
-        The behaviour is different from ``supervisor.startProcess`` as it sets the process state to ``FATAL``
-        instead of throwing an exception to the RPC client.
-        This RPC makes it also possible to pass extra arguments to the program command line.
+        The behaviour is different from ``supervisor.startProcess`` as it sets
+        the process state to ``FATAL`` instead of throwing an exception to the
+        RPC client.
+        This RPC makes it also possible to pass extra arguments to the program
+        command line.
 
         *@param* ``str namespec``: the process namespec.
 
@@ -357,7 +393,6 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_NAME`` if namespec is unknown to the local Supervisor,
-            * with code ``Faults.BAD_EXTRA_ARGUMENTS`` if program is required or has a start sequence,
             * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
@@ -365,16 +400,12 @@ class RPCInterface(object):
         """
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT)
         application, process = self._get_application_process(namespec)
-        if extra_args and not process.accept_extra_arguments():
-            raise RPCError(Faults.BAD_EXTRA_ARGUMENTS,
-                'rules for namespec {} are not compatible with extra '\
-                'arguments in command line'.format(namespec))
         # update command line in process config with extra_args
         try:
-            self.info_source.update_extra_args(namespec, extra_args)
+            self.info_source.update_extra_args(process.namespec(), extra_args)
         except KeyError:
             # process is unknown to the local Supervisor
-            # this should not happen as Supvisors checks the configuration
+            # this is unexpected as Supvisors checks the configuration
             # before it sends this request
             self.logger.error('could not find {} in Supervisor processes'
                               .format(namespec))
@@ -393,7 +424,7 @@ class RPCInterface(object):
                 # at this stage, process is known to the local Supervisor
                 self.info_source.force_process_fatal(namespec, why.text)
             # else process is already started
-            # this should not happen as Supvisors checks the process state
+            # this is unexpected as Supvisors checks the process state
             # before it sends this request
             # anyway raise exception again
             raise
@@ -425,7 +456,7 @@ class RPCInterface(object):
         self._check_operating()
         # check strategy
         if strategy not in StartingStrategies._values():
-            raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+            raise RPCError(Faults.BAD_STRATEGY, strategy)
         # check names
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
@@ -437,8 +468,8 @@ class RPCInterface(object):
         done = True
         for process in processes:
             done &= self.starter.start_process(strategy, process, extra_args)
-        self.logger.debug('startProcess {} done={}'.format(process.namespec(),
-                                                           done))
+        self.logger.debug('startProcess {} done={}'
+                          .format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -507,6 +538,7 @@ class RPCInterface(object):
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
         *@param* ``str extra_args``: extra arguments to be passed to command line.
+        If None, use the arguments passed with the last call.
 
         *@param* ``bool wait``: wait for process to be fully stopped.
 
@@ -528,7 +560,8 @@ class RPCInterface(object):
                 if value is True:
                     # done. request start application
                     onwait.waitstop = False
-                    value = self.start_process(strategy, namespec, extra_args, wait)
+                    value = self.start_process(strategy, namespec,
+                                               extra_args, wait)
                     if type(value) is bool:
                         return value
                     # deferred job to wait for application to be started
@@ -646,5 +679,12 @@ class RPCInterface(object):
         """ Return a dictionary with the rules of the process. """
         result = process.rules.serial()
         result.update({'application_name': process.application_name,
-            'process_name': process.process_name})
+                       'process_name': process.process_name})
         return result
+
+    def _get_local_info(self, info):
+        """ Create a payload from Supervisor process info. """
+        sub_info = extract_process_info(info)
+        namespec = make_namespec(info['group'], info['name'])
+        sub_info['extra_args'] = self.info_source.get_extra_args(namespec)
+        return sub_info

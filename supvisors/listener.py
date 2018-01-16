@@ -26,7 +26,7 @@ from supervisor.options import split_namespec
 
 from supvisors.mainloop import SupvisorsMainLoop
 from supvisors.ttypes import ProcessStates
-from supvisors.utils import (supvisors_short_cuts,
+from supvisors.utils import (supvisors_shortcuts,
                              InternalEventHeaders,
                              RemoteCommEvents)
 from supvisors.supvisorszmq import SupervisorZmq
@@ -49,8 +49,8 @@ class SupervisorListener(object):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         # shortcuts for source code readability
-        supvisors_short_cuts(self, ['fsm', 'info_source',
-                                    'logger', 'statistician'])
+        supvisors_shortcuts(self, ['fsm', 'info_source',
+                                   'logger', 'statistician'])
         # test if statistics collector can be created for local host
         try:
             from supvisors.statscollector import instant_statistics
@@ -115,12 +115,12 @@ class SupervisorListener(object):
                           .format(event_name, event))
         # create payload from event
         payload = {'name': event.process.config.name,
-            'group': event.process.group.config.name,
-            'state': ProcessStates._from_string(event_name.split('_')[-1]),
-            'extra_args': event.process.config.extra_args,
-            'now': int(time.time()),
-            'pid': event.process.pid,
-            'expected': event.expected}
+                   'group': event.process.group.config.name,
+                   'state': ProcessStates._from_string(event_name.split('_')[-1]),
+                   'extra_args': event.process.config.extra_args,
+                   'now': int(time.time()),
+                   'pid': event.process.pid,
+                   'expected': event.expected}
         self.logger.debug('payload={}'.format(payload))
         self.publisher.send_process_event(payload)
 

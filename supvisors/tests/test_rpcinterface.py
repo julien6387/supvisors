@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -49,7 +49,8 @@ class RpcInterfaceTest(unittest.TestCase):
         """ Test the values set at construction. """
         from supvisors.rpcinterface import RPCInterface
         rpc = RPCInterface(self.supervisor)
-        self.assertListEqual([call(self.supervisor)], self.mocked_supvisors.call_args_list)
+        self.assertListEqual([call(self.supervisor)],
+                             self.mocked_supvisors.call_args_list)
         self.assertIsInstance(rpc.supvisors, MockedSupvisors)
 
     def test_api_version(self):
@@ -161,17 +162,22 @@ class RpcInterfaceTest(unittest.TestCase):
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test first RPC call with process namespec
-        self.assertEqual([{'name': 'proc'}], rpc.get_process_info('appli:proc'))
-        self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call('appli:proc')], mocked_get.call_args_list)
+        self.assertEqual([{'name': 'proc'}],
+                         rpc.get_process_info('appli:proc'))
+        self.assertEqual([call()],
+                         mocked_check.call_args_list)
+        self.assertEqual([call('appli:proc')],
+                         mocked_get.call_args_list)
         # reset patches
         mocked_check.reset_mock()
         mocked_get.reset_mock()
         # test second RPC call with group namespec
         self.assertEqual([{'name': 'proc_1'}, {'name': 'proc_2'}],
-            rpc.get_process_info('appli:*'))
-        self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call('appli:*')], mocked_get.call_args_list)
+                         rpc.get_process_info('appli:*'))
+        self.assertEqual([call()],
+                         mocked_check.call_args_list)
+        self.assertEqual([call('appli:*')],
+                         mocked_get.call_args_list)
 
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     def test_all_process_info(self, mocked_check):
@@ -188,6 +194,46 @@ class RpcInterfaceTest(unittest.TestCase):
             rpc.get_all_process_info())
         self.assertEqual([call()], mocked_check.call_args_list)
 
+    @patch('supvisors.rpcinterface.RPCInterface._get_local_info',
+           return_value={'group': 'group', 'name': 'name'})
+    def test_local_process_info(self, mocked_get):
+        """ Test the get_local_process_info RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # prepare context
+        info_source = self.supervisor.supvisors.info_source
+        mocked_rpc = info_source.supervisor_rpc_interface.getProcessInfo
+        mocked_rpc.return_value = {'group': 'dummy_group',
+                                   'name': 'dummy_name'}
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        # test RPC call with process namespec
+        self.assertEqual({'group': 'group', 'name': 'name'},
+                         rpc.get_local_process_info('appli:proc'))
+        self.assertEqual([call('appli:proc')], mocked_rpc.call_args_list)
+        self.assertEqual([call({'group': 'dummy_group',
+                                'name': 'dummy_name'})],
+                         mocked_get.call_args_list)
+
+    @patch('supvisors.rpcinterface.RPCInterface._get_local_info',
+           return_value={'group': 'group', 'name': 'name'})
+    def test_all_local_process_info(self, mocked_get):
+        """ Test the get_all_local_process_info RPC. """
+        from supvisors.rpcinterface import RPCInterface
+        # prepare context
+        info_source = self.supervisor.supvisors.info_source
+        mocked_rpc = info_source.supervisor_rpc_interface.getAllProcessInfo
+        mocked_rpc.return_value = [{'group': 'dummy_group',
+                                    'name': 'dummy_name'}]
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        # test RPC call with process namespec
+        self.assertEqual([{'group': 'group', 'name': 'name'}],
+                         rpc.get_all_local_process_info())
+        self.assertEqual([call()], mocked_rpc.call_args_list)
+        self.assertEqual([call({'group': 'dummy_group',
+                                'name': 'dummy_name'})],
+                         mocked_get.call_args_list)
+
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     @patch('supvisors.rpcinterface.RPCInterface._get_application',
         return_value=Mock(**{'rules.serial.return_value':
@@ -198,7 +244,7 @@ class RpcInterfaceTest(unittest.TestCase):
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test RPC call with aplpication name
-        self.assertDictEqual(rpc.get_application_rules('appli'), 
+        self.assertDictEqual(rpc.get_application_rules('appli'),
             {'application_name': 'appli','start': 1, 'stop': 2, 'required': True})
         self.assertEqual([call()], mocked_check.call_args_list)
         self.assertEqual([call('appli')], mocked_get.call_args_list)
@@ -504,47 +550,35 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual(0, mocked_stop_job.call_count)
 
     @patch('supvisors.rpcinterface.RPCInterface._get_application_process',
-        side_effect=[(None, Mock(**{'accept_extra_arguments.return_value': False})),
-            (None, Mock(**{'accept_extra_arguments.return_value': True}))])
-    @patch('supvisors.rpcinterface.RPCInterface._check_state')
-    def test_start_args(self, mocked_check, mocked_proc):
+        return_value=(None, Mock(**{'namespec.return_value': 'appli:proc'})))
+    def test_start_args(self, mocked_proc):
         """ Test the start_args RPC. """
         from supvisors.rpcinterface import RPCInterface
         # prepare context
         info_source = self.supervisor.supvisors.info_source
         info_source.update_extra_args.side_effect = KeyError
-        info_source.supervisor_rpc_interface.startProcess.side_effect = [
+        mocked_startProcess = info_source.supervisor_rpc_interface.startProcess
+        mocked_startProcess.side_effect = [
             RPCError(Faults.NO_FILE, 'no file'),
             RPCError(Faults.NOT_EXECUTABLE),
             RPCError(Faults.ABNORMAL_TERMINATION),
             'done']
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
-        # test RPC call with extra arguments and a process that is not compliant
-        with self.assertRaises(RPCError) as exc:
-            rpc.start_args('appli:proc', 'dummy arguments')
-        self.assertEqual(Faults.BAD_EXTRA_ARGUMENTS, exc.exception.code)
-        self.assertEqual("BAD_EXTRA_ARGUMENTS: rules for namespec appli:proc"
-            " are not compatible with extra arguments in command line",
-            exc.exception.text)
-        self.assertEqual(0, mocked_check.call_count)
-        self.assertEqual(0, info_source.update_extra_args.call_count)
-        self.assertEqual(0, info_source.supervisor_rpc_interface.startProcess.call_count)
-        # test RPC call with extra arguments and a process that is compliant
-        # but unknown in Supervisor
+        # test RPC call with extra arguments but with a process that is
+        # unknown to Supervisor
         with self.assertRaises(RPCError) as exc:
             rpc.start_args('appli:proc', 'dummy arguments')
         self.assertEqual(Faults.BAD_NAME, exc.exception.code)
-        self.assertEqual("BAD_NAME: namespec appli:proc unknown in this Supervisor instance",
-            exc.exception.text)
+        self.assertEqual('BAD_NAME: namespec appli:proc unknown in this '\
+                         'Supervisor instance', exc.exception.text)
         self.assertEqual([call('appli:proc', 'dummy arguments')],
             info_source.update_extra_args.call_args_list)
-        self.assertEqual(0, info_source.supervisor_rpc_interface.startProcess.call_count)
+        self.assertEqual(0, mocked_startProcess.call_count)
+        # update mocking
         info_source.update_extra_args.reset_mock()
         info_source.update_extra_args.side_effect = None
         # test RPC call with start exceptions
-        mocked_proc.side_effect = None
-        mocked_proc.return_value = None, None
         # NO_FILE exception triggers an update of the process state
         with self.assertRaises(RPCError) as exc:
             rpc.start_args('appli:proc')
@@ -553,13 +587,13 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual([call('appli:proc', '')],
             info_source.update_extra_args.call_args_list)
         self.assertEqual([call('appli:proc', True)],
-            info_source.supervisor_rpc_interface.startProcess.call_args_list)
+            mocked_startProcess.call_args_list)
         self.assertEqual([call('appli:proc', 'NO_FILE: no file')],
             info_source.force_process_fatal.call_args_list)
         # reset patches
         info_source.update_extra_args.reset_mock()
         info_source.force_process_fatal.reset_mock()
-        info_source.supervisor_rpc_interface.startProcess.reset_mock()
+        mocked_startProcess.reset_mock()
         # NOT_EXECUTABLE exception triggers an update of the process state
         with self.assertRaises(RPCError) as exc:
             rpc.start_args('appli:proc', wait=False)
@@ -568,28 +602,33 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual([call('appli:proc', '')],
             info_source.update_extra_args.call_args_list)
         self.assertEqual([call('appli:proc', False)],
-            info_source.supervisor_rpc_interface.startProcess.call_args_list)
+            mocked_startProcess.call_args_list)
         self.assertEqual([call('appli:proc', 'NOT_EXECUTABLE')],
             info_source.force_process_fatal.call_args_list)
         # reset patches
         info_source.update_extra_args.reset_mock()
         info_source.force_process_fatal.reset_mock()
-        info_source.supervisor_rpc_interface.startProcess.reset_mock()
+        mocked_startProcess.reset_mock()
         # other exception doesn't trigger an update of the process state
         with self.assertRaises(RPCError) as exc:
             rpc.start_args('appli:proc', wait=False)
         self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.code)
-        self.assertEqual("ABNORMAL_TERMINATION", exc.exception.text)
+        self.assertEqual('ABNORMAL_TERMINATION', exc.exception.text)
         self.assertEqual([call('appli:proc', '')],
-            info_source.update_extra_args.call_args_list)
+                         info_source.update_extra_args.call_args_list)
         self.assertEqual([call('appli:proc', False)],
-            info_source.supervisor_rpc_interface.startProcess.call_args_list)
+                         mocked_startProcess.call_args_list)
         self.assertEqual(0, info_source.force_process_fatal.call_count)
         # reset patches
         info_source.update_extra_args.reset_mock()
-        info_source.supervisor_rpc_interface.startProcess.reset_mock()
+        mocked_startProcess.reset_mock()
         # finally, normal behaviour
         self.assertEqual('done', rpc.start_args('appli:proc'))
+        self.assertEqual([call('appli:proc', '')],
+                         info_source.update_extra_args.call_args_list)
+        self.assertEqual([call('appli:proc', True)],
+                         mocked_startProcess.call_args_list)
+        self.assertEqual(0, info_source.force_process_fatal.call_count)
 
     @patch('supvisors.rpcinterface.RPCInterface._check_operating')
     def test_start_process(self, mocked_check):
@@ -904,7 +943,7 @@ class RpcInterfaceTest(unittest.TestCase):
             self.assertEqual([call()], mocked_check.call_args_list)
             self.assertEqual(0, mocked_conciliate.call_count)
             mocked_check.reset_mock()
-            # test RPC call with another strategy            
+            # test RPC call with another strategy
             self.assertTrue(rpc.conciliate(1))
             self.assertEqual([call()], mocked_check.call_args_list)
             self.assertEqual([call(self.supervisor.supvisors, 1, [1, 2, 4])],
@@ -1038,10 +1077,37 @@ class RpcInterfaceTest(unittest.TestCase):
             **{'rules.serial.return_value': {'start': 0, 'stop': 1}})
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
-        # test with full namespec
         self.assertDictEqual({'application_name': 'appli',
-            'process_name': 'proc', 'start': 0, 'stop': 1},
-            rpc._get_internal_process_rules(process))
+                              'process_name': 'proc',
+                              'start': 0,
+                              'stop': 1},
+                             rpc._get_internal_process_rules(process))
+
+    def test_get_local_info(self):
+        """ Test the _get_local_info utility. """
+        from supvisors.rpcinterface import RPCInterface
+        # prepare context
+        info = {'group': 'dummy_group',
+                'name': 'dummy_name',
+                'key': 'value',
+                'state': 'undefined',
+                'start': 1234,
+                'now': 4321,
+                'pid': 4567,
+                'spawnerr': ''}
+        info_source = self.supervisor.supvisors.info_source
+        info_source.get_extra_args.return_value = '-x dummy_args'
+        # create RPC instance
+        rpc = RPCInterface(self.supervisor)
+        self.assertDictEqual({'group': 'dummy_group',
+                              'name': 'dummy_name',
+                              'extra_args': '-x dummy_args',
+                              'state': 'undefined',
+                              'start': 1234,
+                              'now': 4321,
+                              'pid': 4567,
+                              'expected': True},
+                             rpc._get_local_info(info))
 
 
 def test_suite():

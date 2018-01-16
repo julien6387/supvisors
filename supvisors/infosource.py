@@ -136,6 +136,11 @@ class SupervisordSource(object):
         if extra_args:
             config.command += ' ' + extra_args
 
+    def get_extra_args(self, namespec):
+        """ Return the extra arguments passed to the command line of the
+        process named namespec. """
+        return self.get_process_config(namespec).extra_args
+
     def force_process_fatal(self, namespec, reason):
         """ This method forces the FATAL process state into Supervisor
         internal data and dispatches process event to event listeners. """

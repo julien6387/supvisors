@@ -782,7 +782,7 @@ class StarterTest(unittest.TestCase):
             # get any other process
             yeux_command = self._get_test_command('yeux_00')
             # test that success complements current_jobs
-            start_result = starter.start_process(3, yeux_command.process)
+            start_result = starter.start_process(3, yeux_command.process, '')
             self.assertEqual(3, starter.strategy)
             self.assertEqual(1, mocked_jobs.call_count)
             args2, _ = mocked_jobs.call_args

@@ -55,7 +55,7 @@ class ProcessRules(object):
         # autorestart should be False
         # keep a reference to the Supvisors data
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['info_source', 'logger'])
+        supvisors_shortcuts(self, ['info_source', 'logger'])
         # attributes
         self.addresses = ['*']
         self.start_sequence = 0
@@ -117,7 +117,6 @@ class ProcessRules(object):
                     self.running_failure_strategy)}
 
 
-# ProcessStatus class
 class ProcessStatus(object):
     """ Class defining the status of a process of Supvisors.
 
@@ -130,6 +129,7 @@ class ProcessStatus(object):
             Supervisor,
         - expected_exit: a status telling if the process has exited expectantly,
         - last_event_time: the local date of the last information received,
+        - extra_args: the additional arguments passed to the command line,
         - addresses: the list of all addresses where the process is running,
         - infos: a process info dictionary for each address (running or not),
         - rules: the rules related to this process.
@@ -139,19 +139,53 @@ class ProcessStatus(object):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['address_mapper', 'info_source', 'logger',
-                                    'options'])
+        supvisors_shortcuts(self, ['address_mapper', 'info_source',
+                                   'logger', 'options'])
         # attributes
         self.application_name = application_name
         self.process_name = process_name
         self._state = ProcessStates.UNKNOWN
         self.expected_exit = True
         self.last_event_time = 0
+        self._extra_args = ''
         # expected one single applicable address
         self.addresses = set() # addresses
         self.infos = {} # address: processInfo
         # rules part
         self.rules = ProcessRules(supvisors)
+
+    # property for state access
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, new_state):
+        if self._state != new_state:
+            self._state = new_state
+
+    # property for extra_args access
+    @property
+    def extra_args(self):
+        return self._extra_args
+
+    @extra_args.setter
+    def extra_args(self, new_args):
+        if self._extra_args != new_args:
+            self._extra_args = new_args
+            self.info_source.update_extra_args(self.namespec(), new_args)
+
+    # serialization
+    def serial(self):
+        """ Return a serializable form of the ProcessStatus. """
+        return {'application_name': self.application_name,
+                'process_name': self.process_name,
+                'statecode': self.state,
+                'statename': self.state_string(),
+                'expected_exit': self.expected_exit,
+                'last_event_time': self.last_event_time,
+                'addresses': list(self.addresses),
+                'extra_args': self.extra_args}
 
     # access
     def namespec(self):
@@ -182,35 +216,10 @@ class ProcessStatus(object):
         This is used by the statistics module that requires an existing PID. """
         return self.state == ProcessStates.RUNNING and address in self.addresses
 
-    def accept_extra_arguments(self):
-        """ Return True if process rules are compatible with extra arguments. """
-        return not self.info_source.autorestart(self.namespec())
-
-    # property for state access
-    @property
-    def state(self):
-        return self._state
-
-    @state.setter
-    def state(self, new_state):
-        if self._state != new_state:
-            self._state = new_state
-
     def conflicting(self):
         """ Return True if the process is in a conflicting state (more than one
         instance running). """
         return len(self.addresses) > 1
-
-    # serialization
-    def serial(self):
-        """ Return a serializable form of the ProcessStatus. """
-        return {'application_name': self.application_name,
-                'process_name': self.process_name,
-                'statecode': self.state,
-                'statename': self.state_string(),
-                'expected_exit': self.expected_exit,
-                'last_event_time': self.last_event_time,
-                'addresses': list(self.addresses)}
 
     # methods
     def state_string(self):
@@ -225,11 +234,15 @@ class ProcessStatus(object):
         info = self.infos[address] = payload
         self.update_uptime(info)
         self.logger.debug('adding {} at {}'.format(info, address))
+        # reset extra_args
+        info['extra_args'] = ''
+        self.extra_args = ''
         # update process status
         self.update_status(address, info['state'], info['expected'])
         # fix address rule
         if self.rules.addresses == ['#']:
-            if self.address_mapper.addresses.index(address) == self.options.procnumbers[self.process_name]:
+            if self.address_mapper.addresses.index(address) == \
+                self.options.procnumbers[self.process_name]:
                 self.rules.addresses = [address]
 
     def update_info(self, address, payload):
@@ -238,10 +251,12 @@ class ProcessStatus(object):
         if address in self.infos:
             # keep date of last information received
             self.last_event_time = int(time())
+            # last received extra_args are always applicable
+            self.extra_args = payload['extra_args']
             # refresh internal information
             info = self.infos[address]
-            self.logger.trace('inserting {} into {} at {}'.format(
-                payload, info, address))
+            self.logger.trace('inserting {} into {} at {}'
+                              .format(payload, info, address))
             info.update(payload)
             new_state = info['state']
             # reset start time if process in a starting state
@@ -256,8 +271,8 @@ class ProcessStatus(object):
                 ' wait for tick from {}'.format(self.process_name, address))
 
     def update_times(self, address, remote_time):
-        """ Update the time entries of the internal process information when a new tick
-        is received from the remote Supvisors instance. """
+        """ Update the time entries of the internal process information when
+        a new tick is received from the remote Supvisors instance. """
         if address in self.infos:
             info = self.infos[address]
             info['now'] = remote_time
@@ -266,8 +281,9 @@ class ProcessStatus(object):
     @staticmethod
     def update_uptime(info):
         """ Update uptime entry of a process information. """
-        info['uptime'] = (info['now'] - info['start']) if info['state'] \
-            in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0
+        info['uptime'] = (info['now'] - info['start']) \
+            if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] \
+            else 0
 
     def invalidate_address(self, address, is_master):
         """ Update status of a process that was running on a lost address. """
@@ -340,10 +356,10 @@ class ProcessStatus(object):
             # so that becomes tricky
             states = {self.infos[address]['state']
                       for address in self.addresses}
-            self.logger.debug('{} multiple states {} for addresses {}'.format(
-                self.process_name,
-                [ProcessStates._to_string(x) for x in states],
-                list(self.addresses)))
+            self.logger.debug('{} multiple states {} for addresses {}'
+                              .format(self.process_name,
+                                      [ProcessStates._to_string(x) for x in states],
+                                      list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)
             return True

@@ -18,12 +18,12 @@ The additional commands provided by **Supvisors** are available by typing
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     process_rules        sstatus             stop_process
-    application_info   restart_application  start_application   strategies
-    application_rules  restart_process      start_args          sversion
-    conciliate         sreload              start_process
-    conflicts          sshutdown            start_process_args
-    master             sstate               stop_application
+    address_status     master               sstate              stop_application
+    application_info   process_rules        sstatus             stop_process
+    application_rules  restart_application  start_application   strategies
+    conciliate         restart_process      start_args          sversion
+    conflicts          sreload              start_process
+    local_status       sshutdown            start_process_args
 
 
 Status
@@ -85,6 +85,23 @@ Status
 ``sstatus proc1 proc2``
 
     Get the status for multiple named processes.
+
+``local_status``
+
+    Get the local status (subset of Supervisor status, with extra arguments)
+    of all processes.
+
+``local_status proc``
+
+    Get the local status of the process named proc.
+
+``local_status appli:*``
+
+    Get the local status of all processes in the application named appli.
+
+``local_status proc1 proc2``
+
+    Get the local status for multiple named processes.
 
 ``application_rules``
 

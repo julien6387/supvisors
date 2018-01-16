@@ -159,6 +159,38 @@ public class SupvisorsXmlRpc {
     }
 
     /**
+     * The getAllLocalProcessInfo methods returns information about all
+     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo,
+     * including extra arguments.
+     *
+     * @return HashMap<String, SupvisorsProcessEvent>: Information about the
+     * processes, sorted by namespec.
+     */
+    public HashMap<String, SupvisorsProcessEvent> getAllLocalProcessInfo()
+            throws XmlRpcException {
+        Object[] objectsArray = client.rpcCall(Namespace + "get_all_local_process_info",
+            null, Object[].class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsProcessEvent.class);
+    }
+
+    /**
+     * The getLocalProcessInfo methods returns information about a list of
+     * processes known to Supervisor, but as a subset of supervisor.getProcessInfo,
+     * including extra arguments.
+     *
+     * @param String namespec: The name of the process (or "applicationName:processName").
+     * @return SupvisorsProcessEvent: Information about the process.
+     * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
+     */
+    public SupvisorsProcessEvent getLocalProcessInfo(final String namespec)
+            throws XmlRpcException {
+        Object[] params = new Object[]{namespec};
+        HashMap result = client.rpcCall(Namespace + "get_local_process_info",
+            params, HashMap.class);
+        return new SupvisorsProcessEvent(result);
+    }
+
+    /**
      * The getApplicationRules methods returns rules used to start/stop applications known in Supvisors.
      *
      * @param String applicationName: The name of the application.
@@ -414,6 +446,14 @@ public class SupvisorsXmlRpc {
         processes = supvisors.getProcessInfo(processName);
         System.out.println(processes);
 
+        // test process local status rpc
+        System.out.println("### Testing supvisors.getAllLocalProcessInfo(...) ###");
+        HashMap<String, SupvisorsProcessEvent> events = supvisors.getAllLocalProcessInfo();
+        System.out.println(events);
+        System.out.println("### Testing supvisors.getLocalProcessInfo(...) ###");
+        SupvisorsProcessEvent event = supvisors.getLocalProcessInfo(processName);
+        System.out.println(event);
+
         // test application rules rpc
         System.out.println("### Testing supvisors.getApplicationRules(...) ###");
         SupvisorsApplicationRules applicationRules = supvisors.getApplicationRules(applicationName);
@@ -423,7 +463,6 @@ public class SupvisorsXmlRpc {
         System.out.println("### Testing supvisors.getProcessRules(...) ###");
         HashMap<String, SupvisorsProcessRules> processRules = supvisors.getProcessRules(applicationName + ":*");
         System.out.println(processRules);
-        processName = processRules.entrySet().iterator().next().getValue().getName();
         System.out.println(supvisors.getProcessRules(processName));
 
         // test process conflicts rpc

@@ -20,8 +20,12 @@
 from collections import OrderedDict
 from socket import gethostname
 
-from supervisor.datatypes import (boolean, integer, existing_dirpath,
-    byte_size, logging_level, list_of_strings)
+from supervisor.datatypes import (boolean,
+                                  integer,
+                                  existing_dirpath,
+                                  byte_size,
+                                  logging_level,
+                                  list_of_strings)
 from supervisor.options import ServerOptions
 
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies

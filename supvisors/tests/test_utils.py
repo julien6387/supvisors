@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -53,15 +53,18 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(DummyEnum.ENUM_3, DummyEnum._from_string('ENUM_3'))
         self.assertIsNone(DummyEnum._from_string('ENUM_0'))
         # test _values
-        self.assertListEqual([DummyEnum.ENUM_1, DummyEnum.ENUM_2, DummyEnum.ENUM_3], sorted(DummyEnum._values()))
+        self.assertListEqual([DummyEnum.ENUM_1, DummyEnum.ENUM_2, DummyEnum.ENUM_3],
+                             sorted(DummyEnum._values()))
         # test _strings
-        self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'], sorted(DummyEnum._strings()))
+        self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'],
+                             sorted(DummyEnum._strings()))
 
     def test_shortcut(self):
         """ Test the shortcuts to supvisors data. """
-        from supvisors.utils import supvisors_short_cuts
+        from supvisors.utils import supvisors_shortcuts
         # test with existing attributes
-        supvisors_short_cuts(self, ['address_mapper', 'fsm', 'logger', 'requester', 'statistician'])
+        supvisors_shortcuts(self, ['address_mapper', 'fsm', 'logger',
+                                   'requester', 'statistician'])
         self.assertIs(self.address_mapper, self.supvisors.address_mapper)
         self.assertIs(self.fsm, self.supvisors.fsm)
         self.assertIs(self.statistician, self.supvisors.statistician)
@@ -69,14 +72,15 @@ class UtilsTest(unittest.TestCase):
         self.assertIs(self.logger, self.supvisors.logger)
         # test with unknown attributes
         with self.assertRaises(AttributeError):
-            supvisors_short_cuts(self, ['addresser', 'logging'])
+            supvisors_shortcuts(self, ['addresser', 'logging'])
 
     def test_localtime(self):
         """ Test the display of local time. """
         import time
         from supvisors.utils import simple_localtime
         time_shift = time.timezone if time.gmtime().tm_isdst else time.altzone
-        self.assertEqual('07:07:00', simple_localtime(1476947220.416198 + time_shift))
+        self.assertEqual('07:07:00',
+                         simple_localtime(1476947220.416198 + time_shift))
 
     def test_gmtime(self):
         """ Test the display of gm time. """
@@ -94,8 +98,9 @@ class UtilsTest(unittest.TestCase):
             extract_process_info(dummy_info))
         # test with spawn error
         dummy_info['spawnerr'] = 'something'
-        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-            'now': 10, 'pid': 1234, 'expected': False},
+        self.assertDictEqual({'name': 'proc', 'group': 'appli',
+                              'state': 10, 'start': 5,
+                              'now': 10, 'pid': 1234, 'expected': False},
             extract_process_info(dummy_info))
 
     def test_statistics_functions(self):

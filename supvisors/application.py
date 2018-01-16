@@ -19,7 +19,9 @@
 
 from supervisor.states import *
 
-from supvisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
+from supvisors.ttypes import (ApplicationStates,
+                              StartingFailureStrategies,
+                              RunningFailureStrategies)
 
 
 class ApplicationRules(object):

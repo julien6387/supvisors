@@ -24,7 +24,7 @@ from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import StartingStrategies
-from supvisors.utils import supvisors_short_cuts
+from supvisors.utils import supvisors_shortcuts
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
@@ -39,7 +39,7 @@ class ApplicationView(MeldView, ViewHandler):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.supvisors = self.context.supervisord.supvisors
-        supvisors_short_cuts(self, ['logger'])
+        supvisors_shortcuts(self, ['logger'])
 
     def url_context(self):
         return 'appli={}&amp;'.format(self.application_name)
@@ -51,7 +51,8 @@ class ApplicationView(MeldView, ViewHandler):
         if not self.application_name:
             self.logger.error('no application')
         elif self.application_name not in self.supvisors.context.applications.keys():
-            self.logger.error('unknown application: {}'.format(self.application_name))
+            self.logger.error('unknown application: {}'
+                              .format(self.application_name))
         else:
             # Force the call to the render method of ViewHandler
             return ViewHandler.render(self)

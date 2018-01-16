@@ -100,6 +100,7 @@ Key	               Value
 'expected_exit'    True if the exit status is expected (only when state is ``EXITED``).
 'last_event_time'  The date of the last process event received for this process, regardless of the originating **Supvisor** instance.
 'addresses'        The list of addresses where the process is running.
+'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
 
 
@@ -116,6 +117,7 @@ Key                Value
 'now'              The date of the event in the reference time of the address.
 'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
 'address'          The address where the event comes from.
+'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
 
 

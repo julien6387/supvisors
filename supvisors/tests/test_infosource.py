@@ -163,18 +163,15 @@ class InfoSourceTest(unittest.TestCase):
         source.disable_autorestart('dummy_application:dummy_process_1')
         self.assertFalse(source.autorestart('dummy_application:dummy_process_1'))
 
-    def test_prepare_extra_args(self):
-        """ Test the update of the Supervisor internal data to prepare the
-        extra arguments functionality. """
+    def test_extra_args(self):
+        """ Test the extra arguments functionality. """
         from supvisors.infosource import SupervisordSource
         source = SupervisordSource(self.supervisor)
         # test initial status
-        # if test_extra_args is run before this test, there will be extra args
-        # in dummy_process_1, so check only dummy_process_2
-        appli = self.supervisor.process_groups['dummy_application']
-        process = appli.processes['dummy_process_2']
-        self.assertFalse(hasattr(process.config, 'command_ref'))
-        self.assertFalse(hasattr(process.config, 'extra_args'))
+        self.assertFalse(any(hasattr(process.config, 'command_ref') or
+                             hasattr(process.config, 'extra_args')
+                             for appli in self.supervisor.process_groups.values()
+                             for process in appli.processes.values()))
         # add context to internal data
         source.prepare_extra_args()
         # test internal data: all should have additional attributes
@@ -182,28 +179,30 @@ class InfoSourceTest(unittest.TestCase):
                             hasattr(process.config, 'extra_args')
                             for appli in self.supervisor.process_groups.values()
                             for process in appli.processes.values()))
-
-    def test_extra_args(self):
-        """ Test the possibility to add extra arguments to default command line. """
-        from supvisors.infosource import SupervisordSource
-        source = SupervisordSource(self.supervisor)
         # test unknown application and process
         with self.assertRaises(KeyError):
             source.update_extra_args('unknown_application:unknown_process', '-la')
         with self.assertRaises(KeyError):
             source.update_extra_args('dummy_application:unknown_process', '-la')
         # test normal behaviour
-        config_1 = source.get_process_config('dummy_application:dummy_process_1')
-        config_1.command_ref = config_1.command
-        config_1.extra_args = ''
+        namespec = 'dummy_application:dummy_process_1'
+        config = source.get_process_config(namespec)
         # add extra arguments
-        source.update_extra_args('dummy_application:dummy_process_1', '-la')
-        self.assertEqual('ls -la', config_1.command)
-        self.assertEqual('ls', config_1.command_ref)
+        source.update_extra_args(namespec, '-la')
+        # test access
+        self.assertEqual('-la', source.get_extra_args(namespec))
+        # test internal data
+        self.assertEqual('ls -la', config.command)
+        self.assertEqual('ls', config.command_ref)
+        self.assertEqual('-la', config.extra_args)
         # remove them
-        source.update_extra_args('dummy_application:dummy_process_1', None)
-        self.assertEqual('ls', config_1.command)
-        self.assertEqual('ls', config_1.command_ref)
+        source.update_extra_args(namespec, '')
+        # test access
+        self.assertEqual('', source.get_extra_args(namespec))
+        # test internal data
+        self.assertEqual('ls', config.command)
+        self.assertEqual('ls', config.command_ref)
+        self.assertEqual('', config.extra_args)
 
     def test_force_fatal(self):
         """ Test the way to force a process in FATAL state. """

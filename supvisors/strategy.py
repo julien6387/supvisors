@@ -17,9 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.ttypes import (AddressStates, ConciliationStrategies,
-    StartingStrategies, RunningFailureStrategies)
-from supvisors.utils import supvisors_short_cuts
+from supvisors.ttypes import (AddressStates,
+                              ConciliationStrategies,
+                              StartingStrategies,
+                              RunningFailureStrategies)
+from supvisors.utils import supvisors_shortcuts
 
 
 class AbstractStrategy(object):
@@ -27,7 +29,7 @@ class AbstractStrategy(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['context', 'logger'])
+        supvisors_shortcuts(self, ['context', 'logger'])
 
 
 # Strategy management for Starting
@@ -43,8 +45,8 @@ class AbstractStartingStrategy(AbstractStrategy):
                 address, status.state_string()))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
-                self.logger.debug('address={} loading={} expected_loading={}'.format(
-                    address, loading, expected_loading))
+                self.logger.debug('address={} loading={} expected_loading={}'\
+                                  .format(address, loading, expected_loading))
                 return (loading + expected_loading < 100, loading)
             self.logger.debug('address {} not RUNNING'.format(address))
         return (False, 0)
@@ -77,8 +79,8 @@ class ConfigStrategy(AbstractStartingStrategy):
     def get_address(self, addresses, expected_loading):
         """ Choose the first address that can support the additional loading
         requested. """
-        self.logger.debug('addresses={} expected_loading={}'.format(
-            addresses, expected_loading))
+        self.logger.debug('addresses={} expected_loading={}'\
+                          .format(addresses, expected_loading))
         # returns the first remote in list that is capable of handling
         # the loading
         loading_validities = self.get_loading_and_validity(
@@ -152,8 +154,8 @@ class SenicideStrategy(AbstractStrategy):
             addresses = process.addresses.copy()
             addresses.remove(saved_address)
             for address in addresses:
-                self.logger.debug('senicide conciliation: {} running on {}'.format(
-                    process.namespec(), address))
+                self.logger.debug('senicide conciliation: {} running on {}'
+                                  .format(process.namespec(), address))
                 self.supvisors.zmq.pusher.send_stop_process(
                     address, process.namespec())
 
@@ -168,15 +170,15 @@ class InfanticideStrategy(AbstractStrategy):
             # determine running address with lower uptime (the youngest)
             saved_address = max(process.addresses,
                                 key=lambda x: process.infos[x]['uptime'])
-            self.logger.warn('infanticide conciliation: keep {} at {}'.format(
-                process.namespec(), saved_address))
+            self.logger.warn('infanticide conciliation: keep {} at {}'
+                             .format(process.namespec(), saved_address))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
             addresses = process.addresses.copy()
             addresses.remove(saved_address)
             for address in addresses:
-                self.logger.debug('infanticide conciliation: {} running on {}'.format(
-                    process.namespec(), address))
+                self.logger.debug('infanticide conciliation: {} running on {}'
+                                  .format(process.namespec(), address))
                 self.supvisors.zmq.pusher.send_stop_process(
                     address, process.namespec())
 
@@ -282,7 +284,7 @@ class RunningFailureHandler(AbstractStrategy):
 
     def __init__(self, supvisors):
         AbstractStrategy.__init__(self, supvisors)
-        supvisors_short_cuts(self, ['starter', 'stopper'])
+        supvisors_shortcuts(self, ['starter', 'stopper'])
         # the initial jobs
         self.stop_application_jobs = set()
         self.restart_application_jobs = set()

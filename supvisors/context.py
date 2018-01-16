@@ -23,7 +23,7 @@ from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
 from supvisors.ttypes import AddressStates
-from supvisors.utils import supvisors_short_cuts
+from supvisors.utils import supvisors_shortcuts
 
 
 class Context(object):
@@ -40,7 +40,7 @@ class Context(object):
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         # shortcuts for readability
-        supvisors_short_cuts(self, ['address_mapper', 'logger'])
+        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger'])
         # attributes
         self.addresses = {address: AddressStatus(address, self.logger)
                           for address in self.address_mapper.addresses}
@@ -241,15 +241,15 @@ class Context(object):
                     # get internal data
                     application = self.applications[event['group']]
                     process = application.processes[event['name']]
+                    # update command line
+                    self.info_source.update_extra_args(process.namespec(),
+                                                       event['extra_args'])
                 except KeyError:
                     # process not found. normal when no tick yet received
                     # from this address
                     self.logger.debug('reject event {} from location={}'
                                       .format(event, address_name))
                 else:
-                    # store extra_args in internal Supervisor data
-                    self.supvisors.info_source.update_extra_args(
-                        process.namespec(), event['extra_args'])
                     # refresh process info from process event
                     process.update_info(address_name, event)
                     # refresh application status

@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,8 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-from psutil import (cpu_times, net_io_counters, virtual_memory,
-    Process, NoSuchProcess)
+from psutil import (cpu_times,
+                    net_io_counters,
+                    virtual_memory,
+                    Process,
+                    NoSuchProcess)
 from time import time
 
 from supvisors.utils import mean
@@ -74,7 +77,7 @@ def instant_process_statistics(pid):
     except (NoSuchProcess, ValueError):
         # process may have disappeared in the interval
         pass
-    # take into account the number of processes for the process work 
+    # take into account the number of processes for the process work
     return work, memory
 
 

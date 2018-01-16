@@ -16,6 +16,7 @@
 
 package org.supvisors.common;
 
+import java.util.HashMap;
 import org.json.JSONObject;
 
 
@@ -49,7 +50,27 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
 
     /** The address of the event. */
     private String address;
+
+    /** The extra arguments passed to the command line. */
+    private String extraArgs;
     
+    /**
+     * This constructor gets all information from an HashMap.
+     *
+     * @param HashMap processInfo: The untyped structure got from the XML-RPC.
+     */
+    public SupvisorsProcessEvent(HashMap processInfo)  {
+        this.name = (String) processInfo.get("name");
+        this.group = (String) processInfo.get("group");
+        this.namespec = DataConversion.stringsToNamespec(this.group, this.name);
+        this.state = ProcessState.valueOf((Integer) processInfo.get("state"));
+        this.expected = (Boolean) processInfo.get("expected");
+        this.now = (Integer) processInfo.get("now");
+        this.pid = (Integer) processInfo.get("pid");
+        // address is not set here
+        this.extraArgs = (String) processInfo.get("extra_args");
+   }
+
     /**
      * This constructor gets all information from a JSON string.
      *
@@ -65,6 +86,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         this.now = obj.getInt("now");
         this.pid = obj.getInt("pid");
         this.address = obj.getString("address");
+        this.extraArgs = obj.getString("extra_args");
     }
 
     /**
@@ -141,6 +163,16 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getExtraArgs method returns the exta arguments passed to the
+     * command line.
+     *
+     * @return String: The arguments.
+     */
+    public String getExtraArgs() {
+        return this.extraArgs;
+    }
+
+    /**
      * The toString method returns a printable form of the contents
      * of the instance.
      *
@@ -148,10 +180,14 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      */
     public String toString() {
         return "SupvisorsProcessEvent(namespec=" + this.namespec
-            + " group=" + this.group + " name=" + this.name
-            + " state=" + this.state + " expected=" + this.expected
-            + " now=" + this.now + " pid=" + this.pid
-            + " address=" + this.address + ")";
+            + " group=" + this.group
+            + " name=" + this.name
+            + " state=" + this.state
+            + " expected=" + this.expected
+            + " now=" + this.now
+            + " pid=" + this.pid
+            + " address=" + this.address
+            + " extraArgs=\"" + this.extraArgs + "\")";
     }
 
 }

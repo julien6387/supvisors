@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,21 +33,19 @@ class WebUtilsTest(unittest.TestCase):
         # test Supervisor information message
         msg = format_gravity_message('an information message')
         self.assertIs(tuple, type(msg))
-        self.assertEqual(2, len(msg))
-        self.assertEqual('info', msg[0])
-        self.assertEqual('an information message', msg[1])
+        self.assertTupleEqual(('info', 'an information message'), msg)
         # test Supervisor error message
         msg = format_gravity_message('ERROR: an error message')
         self.assertIs(tuple, type(msg))
-        self.assertEqual(2, len(msg))
-        self.assertEqual('erro', msg[0])
-        self.assertEqual('an error message', msg[1])
+        self.assertTupleEqual(('erro', 'an error message'), msg)
+        # test Supervisor warning message
+        msg = format_gravity_message('unexpected rpc fault')
+        self.assertIs(tuple, type(msg))
+        self.assertTupleEqual(('warn', 'unexpected rpc fault'), msg)
         # test Supvisors information message
         msg = format_gravity_message(('warn', 'a warning message'))
         self.assertIs(tuple, type(msg))
-        self.assertEqual(2, len(msg))
-        self.assertEqual('warn', msg[0])
-        self.assertEqual('a warning message', msg[1])
+        msg = format_gravity_message(('warn', 'a warning message'))
 
     def test_print_message(self):
         """ Test the meld formatting of a message. """

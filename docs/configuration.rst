@@ -362,12 +362,8 @@ Here follows the definition of the rules applicable to a program.
 
     This element gives the strategy applied when the required process is unexpectedly stopped in a running application.
     This value supersedes the value set at application level.
-    Possible values are:
-
-        * ``CONTINUE``: Skip the failure. The application stays with the major failure.
-        * ``RESTART_PROCESS``: Restart the process.
-        * ``STOP_APPLICATION``: Stop the application.
-        * ``RESTART_APPLICATION``: Restart the application.
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    and are detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
 
@@ -577,12 +573,8 @@ Here follows the definition of the rules applicable to an application.
 
     This element gives the strategy applied when any process of the application is unexpectedly stopped when the application is running.
     This value can be superseded by the value set at program level.
-    Possible values are:
-
-        * ``CONTINUE``: Skip the failure. The application stays with the major failure.
-        * ``RESTART_PROCESS``: Restart the process (almost equivalent to ``autorestart=unexpected`` in the program configuration of Supervisor).
-        * ``STOP_APPLICATION``: Stop the application.
-        * ``RESTART_APPLICATION``: Restart the application.
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    and are detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
 

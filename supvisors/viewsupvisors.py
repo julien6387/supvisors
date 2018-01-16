@@ -24,7 +24,8 @@ from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (AddressStates, ConciliationStrategies,
+from supvisors.ttypes import (AddressStates,
+                              ConciliationStrategies,
                               SupvisorsStates)
 from supvisors.utils import simple_gmtime
 from supvisors.viewhandler import ViewHandler

@@ -93,7 +93,7 @@ def enumeration_tools(cls):
     return cls
 
 
-def supvisors_short_cuts(instance, lst):
+def supvisors_shortcuts(instance, lst):
     """ Used to set shortcuts in object attributes against supvisors attributes. """
     for attr in lst:
         setattr(instance, attr, getattr(instance.supvisors, attr))
@@ -126,6 +126,7 @@ mean = lambda x: sum(x) / float(len(x))
 srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
 stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
+
 # linear regression
 def get_linear_regression(xdata, ydata):
     """ Calculate the coefficients of the linear equation corresponding
@@ -153,6 +154,7 @@ def get_simple_linear_regression(lst):
     # in Supvisors, Y data is periodic
     datasize = len(lst)
     return get_linear_regression( [ i for i in range(datasize) ], lst)
+
 
 # get statistics from data
 def get_stats(lst):

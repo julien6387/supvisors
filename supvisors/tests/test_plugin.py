@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,6 +21,7 @@ import sys
 import unittest
 
 from mock import call, patch
+
 from supervisor.web import VIEWS, OKView, TailView
 from supervisor.xmlrpc import Faults
 
@@ -53,7 +54,8 @@ class PluginTest(unittest.TestCase):
         update_views()
         # check Supvisors views
         view = VIEWS['index.html']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/index.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/index.html$')
         self.assertEqual(view['view'], SupvisorsView)
         view = VIEWS['ok.html']
         self.assertEqual(None, view['template'])
@@ -62,28 +64,36 @@ class PluginTest(unittest.TestCase):
         self.assertEqual('ui/tail.html', view['template'])
         self.assertEqual(view['view'], TailView)
         view = VIEWS['application.html']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/application.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/application.html$')
         self.assertEqual(view['view'], ApplicationView)
         view = VIEWS['hostaddress.html']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/hostaddress.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/hostaddress.html$')
         self.assertEqual(view['view'], HostAddressView)
         view = VIEWS['procaddress.html']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/procaddress.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/procaddress.html$')
         self.assertEqual(view['view'], ProcAddressView)
         view = VIEWS['address_mem.png']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], AddressMemoryImageView)
         view = VIEWS['process_mem.png']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], ProcessMemoryImageView)
         view = VIEWS['address_cpu.png']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], AddressCpuImageView)
         view = VIEWS['process_cpu.png']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], ProcessCpuImageView)
         view = VIEWS['address_io.png']
-        self.assertRegexpMatches(view['template'], 'supvisors/ui/empty.html$')
+        self.assertRegexpMatches(view['template'],
+                                 'supvisors/ui/empty.html$')
         self.assertEqual(view['view'], AddressNetworkImageView)
 
     @patch('supvisors.plugin.update_views')
@@ -93,10 +103,16 @@ class PluginTest(unittest.TestCase):
         """ Test the values set at construction. """
         from supvisors.plugin import make_supvisors_rpcinterface
         supervisord = DummySupervisor
+        # save cleanup_fds function
+        from supervisor.options import ServerOptions
+        cleanup = ServerOptions.cleanup_fds
+        # test the calls to previous functions
         make_supvisors_rpcinterface(supervisord)
         self.assertEqual([call(supervisord)], mocked_rpc.call_args_list)
         self.assertEqual([call()], mocked_expand.call_args_list)
         self.assertEqual([call()], mocked_views.call_args_list)
+        # test cleanup_fds replacement
+        self.assertIsNot(cleanup, ServerOptions.cleanup_fds)
 
 
 def test_suite():

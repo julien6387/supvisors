@@ -215,7 +215,7 @@ class MainLoopTest(unittest.TestCase):
             dummy_info = [{'name': 'proc', 'group': 'appli',
                            'state': 10, 'start': 5,
                 'now': 10, 'pid': 1234, 'spawnerr': ''}]
-            with patch.object(rpc_intf.supervisor, 'getAllProcessInfo',
+            with patch.object(rpc_intf.supvisors, 'get_all_local_process_info',
                 return_value=dummy_info) as mocked_supervisor:
                 for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
                     AddressStates.RUNNING, AddressStates.SILENT]:

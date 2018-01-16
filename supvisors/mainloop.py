@@ -26,8 +26,8 @@ from sys import stderr
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
-from supvisors.utils import (supvisors_short_cuts, extract_process_info,
-    DeferredRequestHeaders, RemoteCommEvents)
+from supvisors.utils import (DeferredRequestHeaders,
+                             RemoteCommEvents)
 from zmq.error import ZMQError
 
 
@@ -151,20 +151,17 @@ class SupvisorsMainLoop(Thread):
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
-                all_info = remote_proxy.supervisor.getAllProcessInfo()
-                # create a payload from Supervisor process info
-                payload = [extract_process_info(info) for info in all_info]
-                # post the payload internally
+                all_info = remote_proxy.supvisors.get_all_local_process_info()
+                # post internally
                 self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO,
-                                            json.dumps((address_name, payload)))
+                                            json.dumps((address_name, all_info)))
             # inform local Supvisors that authorization is available
-            self.send_remote_comm_event(
-                RemoteCommEvents.SUPVISORS_AUTH,
-                'address_name:{} authorized:{}'.format(
-                    address_name, authorized))
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
+                                        'address_name:{} authorized:{}'
+                                        .format(address_name, authorized))
         except:
-            print >> stderr, '[ERROR] failed to check address {}'.format(
-                address_name)
+            print >> stderr, '[ERROR] failed to check address {}'\
+                .format(address_name)
 
     def start_process(self, address_name, namespec, extra_args):
         """ Start process asynchronously. """
@@ -172,8 +169,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
-            print >> stderr, '[ERROR] failed to start process {} on {} with {}'.format(
-                namespec, address_name, extra_args)
+            print >> stderr, '[ERROR] failed to start process {} on {} with {}'\
+                .format(namespec, address_name, extra_args)
 
     def stop_process(self, address_name, namespec):
         """ Stop process asynchronously. """
@@ -181,8 +178,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.stopProcess(namespec, False)
         except:
-            print >> stderr, '[ERROR] failed to stop process {} on {}'.format(
-                namespec, address_name)
+            print >> stderr, '[ERROR] failed to stop process {} on {}'\
+                .format(namespec, address_name)
 
     def restart(self, address_name):
         """ Restart a Supervisor instance asynchronously. """
@@ -190,8 +187,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.restart()
         except:
-            print >> stderr, '[ERROR] failed to restart address {}'.format(
-                address_name)
+            print >> stderr, '[ERROR] failed to restart address {}'\
+                .format(address_name)
 
     def shutdown(self, address_name):
         """ Stop process asynchronously. """
@@ -199,8 +196,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.shutdown()
         except:
-            print >> stderr, '[ERROR] failed to shutdown address {}'.format(
-                address_name)
+            print >> stderr, '[ERROR] failed to shutdown address {}'\
+                .format(address_name)
 
     def send_remote_comm_event(self, event_type, event_data):
         """ Shortcut for the use of sendRemoteCommEvent. """
@@ -208,5 +205,5 @@ class SupvisorsMainLoop(Thread):
             self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
         except:
             # expected on restart / shutdown
-            print >> stderr, \
-            '[WARN] failed to send event to Supervisor: {}'.format(event_type)
+            print >> stderr, '[WARN] failed to send event to Supervisor: {}'\
+                .format(event_type)

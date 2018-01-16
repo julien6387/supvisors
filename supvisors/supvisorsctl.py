@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,10 +22,13 @@ import socket
 import xmlrpclib
 
 from supervisor import xmlrpc
+from supervisor.options import split_namespec
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import ConciliationStrategies, StartingStrategies
+from supvisors.ttypes import (ProcessStates,
+                              ConciliationStrategies,
+                              StartingStrategies)
 from supvisors.utils import simple_localtime
 
 
@@ -121,15 +124,18 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_address_info(address)
                     except xmlrpclib.Fault, e:
-                        self.ctl.output('{}: ERROR ({})'.format(address, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'
+                                        .format(address, e.faultString))
                     else:
                         self.output_address_info(info)
 
     def output_address_info(self, info):
         """ Print an address status. """
         template = '%(addr)-20s%(state)-12s%(load)-8s%(ltime)-12s'
-        line = template % {'addr': info['address_name'], 'state': info['statename'],
-            'load': '{}%'.format(info['loading']), 'ltime': simple_localtime(info['local_time'])}
+        line = template % {'addr': info['address_name'],
+                           'state': info['statename'],
+                           'load': '{}%'.format(info['loading']),
+                           'ltime': simple_localtime(info['local_time'])}
         self.ctl.output(line)
 
     def help_address_status(self):
@@ -158,18 +164,20 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_application_info(application_name)
                     except xmlrpclib.Fault, e:
-                        self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'
+                                        .format(application_name, e.faultString))
                     else:
                         self.output_application_info(info)
 
     def output_application_info(self, info):
         """ Print an application information. """
         template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
-        major_failure = info['major_failure']
-        minor_failure = info['minor_failure']
-        line = template % {'name': info['application_name'], 'state': info['statename'],
-            'major_failure': 'major_failure' if major_failure else '',
-            'minor_failure': 'minor_failure' if minor_failure else ''}
+        major = info['major_failure']
+        minor = info['minor_failure']
+        line = template % {'name': info['application_name'],
+                           'state': info['statename'],
+                           'major_failure': 'major_failure' if major else '',
+                           'minor_failure': 'minor_failure' if minor else ''}
         self.ctl.output(line)
 
     def help_application_info(self):
@@ -197,7 +205,8 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     rules = self.supvisors().get_application_rules(application)
                 except xmlrpclib.Fault, e:
-                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                    self.ctl.output('{}: ERROR ({})'
+                                    .format(application, e.faultString))
                 else:
                     rules_list.append(rules)
             # print results
@@ -205,12 +214,13 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = max(len(rules['application_name'])
                     for rules in rules_list) + 4
                 template = '%(appli)-{}s%(start_seq)-5s%(stop_seq)-5s'\
-                    '%(starting_strategy)-12s%(running_strategy)-12s'.format(max_appli)
+                    '%(starting_strategy)-12s%(running_strategy)-12s'\
+                    .format(max_appli)
                 for rules in rules_list:
                     line = template % {'appli': rules['application_name'],
                         'start_seq': rules['start_sequence'],
-                        'stop_seq': rules['stop_sequence'], 
-                        'starting_strategy': rules['starting_failure_strategy'], 
+                        'stop_seq': rules['stop_sequence'],
+                        'starting_strategy': rules['starting_failure_strategy'],
                         'running_strategy': rules['running_failure_strategy']}
                     self.ctl.output(line)
 
@@ -239,17 +249,23 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_process_info(process)
                     except xmlrpclib.Fault, e:
-                        self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'
+                                        .format(process, e.faultString))
                     else:
                         info_list.extend(info)
             # print results
             if info_list:
-                max_appli = max(len(info['application_name']) for info in info_list) + 4
-                max_proc = max(len(info['process_name']) for info in info_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
+                max_appli = max(len(info['application_name'])
+                                for info in info_list) + 4
+                max_proc = max(len(info['process_name'])
+                               for info in info_list) + 4
+                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'\
+                    .format(max_appli, max_proc)
                 for info in info_list:
-                    line = template % {'appli': info['application_name'], 'proc': info['process_name'],
-                        'state': info['statename'], 'addresses': info['addresses']}
+                    line = template % {'appli': info['application_name'],
+                                       'proc': info['process_name'],
+                                       'state': info['statename'],
+                                       'addresses': info['addresses']}
                     self.ctl.output(line)
 
     def help_sstatus(self):
@@ -262,6 +278,66 @@ class ControllerPlugin(ControllerPluginBase):
             "Get the status for multiple named processes")
         self.ctl.output("sstatus\t\t\t\t\t"
             "Get the status of all processes.")
+
+    def do_local_status(self, arg):
+        """ Command to get a subset of information about processes,
+        using Supervisor's getProcessInfo, complemented by extra arguments.
+        This is the minimal information required by Supvisors. """
+        if self._upcheck():
+            # get all information
+            try:
+                info_list = self.supvisors().get_all_local_process_info()
+            except xmlrpclib.Fault, e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+                info_list = []
+            # filter information iaw arguments
+            processes = arg.split()
+            if not processes or 'all' in processes:
+                match_list = info_list
+            else:
+                match_list = []
+                for process in processes:
+                    group_name, process_name = split_namespec(process)
+                    found = False
+                    for info in info_list:
+                        matches = info['group'] == group_name
+                        if process_name:
+                            matches &= info['name'] == process_name
+                        if matches:
+                            match_list.append(info)
+                            found = True
+            # print results
+            if match_list:
+                max_appli = max(len(info['group']) for info in match_list) + 4
+                max_proc = max(len(info['name']) for info in match_list) + 4
+                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(start)-12s'\
+                    '%(now)-12s%(pid)-8sargs="%(args)s"'.\
+                    format(max_appli, max_proc)
+                for info in match_list:
+                    start_time = simple_localtime(info['start']) \
+                        if info['start'] else 0
+                    now_time = simple_localtime(info['now']) \
+                        if info['now'] else 0
+                    line = template % {
+                        'appli': info['group'],
+                        'proc': info['name'],
+                        'state': ProcessStates._to_string(info['state']),
+                        'start': start_time,
+                        'now': now_time,
+                        'pid': info['pid'],
+                        'args': info['extra_args']}
+                    self.ctl.output(line)
+
+    def help_local_status(self):
+        """ Print the help of the local_status command."""
+        self.ctl.output("local_status <proc>\t\t\t\t"
+            "Get the local status of the process named proc.")
+        self.ctl.output("local_status <appli>:*\t\t\t"
+            "Get the local status of all processes in the application named appli.")
+        self.ctl.output("local_status <proc> <proc>\t\t\t"
+            "Get the local status for multiple named processes")
+        self.ctl.output("local_status\t\t\t\t\t"
+            "Get the local status of all processes.")
 
     def do_process_rules(self, arg):
         """ Command to get the process rules handled by Supvisors. """
@@ -297,7 +373,7 @@ class ControllerPlugin(ControllerPluginBase):
                         'proc': rules['process_name'],
                         'addr': rules['addresses'],
                         'start_seq': rules['start_sequence'],
-                        'stop_seq': rules['stop_sequence'], 
+                        'stop_seq': rules['stop_sequence'],
                         'req': 'required' if required else 'optional',
                         'exit': 'exit' if wait_exit else '',
                         'load': '{}%'.format(rules['expected_loading']),
@@ -658,7 +734,7 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to shutdown Supvisors on all addresses. """
         if self._upcheck():
             try:
-                result = self.supvisors().shutdown() 
+                result = self.supvisors().shutdown()
             except xmlrpclib.Fault, e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
@@ -700,4 +776,4 @@ class ControllerPlugin(ControllerPluginBase):
 def make_supvisors_controller_plugin(controller, **config):
     """ Create a plugin for the Supvisors commands. """
     return ControllerPlugin(controller)
-    
+

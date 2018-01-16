@@ -24,7 +24,7 @@ from supervisor.states import ProcessStates
 
 from supvisors.strategy import get_address
 from supvisors.ttypes import StartingStrategies, StartingFailureStrategies
-from supvisors.utils import supvisors_short_cuts
+from supvisors.utils import supvisors_shortcuts
 
 
 class ProcessCommand(object):
@@ -77,7 +77,7 @@ class Commander(object):
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         # shortcuts for readability
-        supvisors_short_cuts(self, ['logger'])
+        supvisors_shortcuts(self, ['logger'])
         #attributes
         self.planned_sequence = {} # {app_seq: {app_name: {proc_seq: [proc_cmd]}}}
         self.planned_jobs = {} # {app_name: {proc_seq: [proc_cmd]}}
@@ -278,7 +278,7 @@ class Starter(Commander):
         Return False when starting not completed. """
         return self.start_process(self.get_default_strategy(), process)
 
-    def start_process(self, strategy, process, extra_args=''):
+    def start_process(self, strategy, process, extra_args):
         """ Plan and start the necessary job to start the process in parameter,
         with the strategy requested.
         Return False when starting not completed. """
