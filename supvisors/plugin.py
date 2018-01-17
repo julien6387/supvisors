@@ -94,7 +94,6 @@ def cleanup_fds(self):
     clean-up is disabled in Supvisors. """
 
 
-
 def make_supvisors_rpcinterface(supervisord, **config):
     """ Supervisor entry point. """
     # update Supervisor Fault definition

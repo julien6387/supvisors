@@ -100,8 +100,8 @@ class MockedSupvisors:
 class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
     def __init__(self):
-        self.rpcinterface = Mock(supervisor='supervisor_RPC',
-                                 supvisors='supvisors_RPC')
+        self.handler = Mock(rpcinterface=Mock(supervisor='supervisor_RPC',
+                                              supvisors='supvisors_RPC'))
 
 
 class DummyRpcInterface:
