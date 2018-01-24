@@ -70,11 +70,12 @@ class MockedSupvisors:
         self.context.__init__()
         self.context.addresses = {}
         self.context.applications = {}
+        self.context.processes = {}
         # simple mocks
         self.fsm = Mock()
         self.pool = Mock()
         self.requester = Mock()
-        self.statistician = Mock()
+        self.statistician = Mock(data={}, nbcores={})
         self.failure_handler = Mock()
         # mock the supervisord source
         from supvisors.infosource import SupervisordSource
@@ -132,8 +133,10 @@ class DummyServerOptions:
     """ Simple supervisord server options with dummy attributes. """
     def __init__(self):
         # build a fake server config
-        self.server_configs = [{'section': 'inet_http_server', 'port': 1234,
-            'username': 'user', 'password': 'p@$$w0rd'}]
+        self.server_configs = [{'section': 'inet_http_server',
+                                'port': 1234,
+                                'username': 'user',
+                                'password': 'p@$$w0rd'}]
         self.serverurl = 'url'
         self.mood = 'mood'
         self.nodaemon = True
@@ -181,6 +184,16 @@ class DummyHttpContext:
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
         self.template = os.path.join(module_path, template)
+        self.supervisord = DummySupervisor()
+        # create form and response
+        self.form = {'SERVER_URL': 'http://10.0.0.1:7777',
+                     'SERVER_PORT': 7777,
+                     'PATH_TRANSLATED': '/index.html',
+                     'action': 'test',
+                     'address': '10.0.0.4',
+                     'message': 'hi chaps',
+                     'gravity': 'none'}
+        self.response = {'headers': {'Location': None}}
 
 
 # note that all dates ('now') are different

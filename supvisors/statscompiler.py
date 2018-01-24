@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -111,7 +111,8 @@ class StatisticsInstance(object):
 
     def find_process_stats(self, namespec):
         """ Return the process statistics related to the namespec. """
-        return next((stats for (process_name, pid), stats in self.proc.items() if process_name == namespec), None)
+        return next((stats for (process_name, pid), stats in self.proc.items()
+                     if process_name == namespec), None)
 
     def push_statistics(self, stats):
         """ Calculates new statistics given a new series of measures. """
@@ -122,8 +123,8 @@ class StatisticsInstance(object):
                 integ_stats = statistics(stats, self.ref_stats)
                 # add new CPU values to CPU lists
                 for lst in self.cpu:
-                	lst.append(integ_stats[1].pop(0))
-                	self.trunc_depth(lst)
+                    lst.append(integ_stats[1].pop(0))
+                    self.trunc_depth(lst)
                 # add new Mem value to MEM list
                 self.mem.append(integ_stats[2])
                 self.trunc_depth(self.mem)
@@ -152,10 +153,10 @@ class StatisticsInstance(object):
                         self.trunc_depth(mem_stats)
                 # destroy obsolete elements
                 for named_pid in destroy_list:
-                	del self.proc[named_pid]
+                    del self.proc[named_pid]
                 # add new elements
                 for named_pid, (new_cpu_value, new_mem_value) in integ_stats[4].items():
-                	self.proc[named_pid] = [new_cpu_value], [new_mem_value]
+                    self.proc[named_pid] = [new_cpu_value], [new_mem_value]
             else:
                 # init data structures (mem unchanged)
                 self.cpu = [[] for _ in stats[1]]
@@ -173,9 +174,9 @@ class StatisticsInstance(object):
 # Class used to compile statistics coming from all addresses
 class StatisticsCompiler(object):
     """ This class handles stores statistics for all addresses and periods.
-    
+
     Attributes are:
-    
+
         - data: a dictionary containing a StatisticsInstance entry for each pair of address and period,
         - cores: a dictionary giving the number of processor cores per address.
         """

@@ -25,37 +25,29 @@ from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import supvisors_shortcuts
+from supvisors.viewcontext import *
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-class ApplicationView(MeldView, ViewHandler):
+class ApplicationView(ViewHandler, MeldView):
     """ Supvisors Application page. """
 
-    # Name of the HTML page
-    page_name = 'application.html'
-
     def __init__(self, context):
-        """ Initialization of the attributes. """
+        """ Call of the superclass constructors. """
+        ViewHandler.__init__(self, context, APPLICATION_PAGE)
         MeldView.__init__(self, context)
-        self.supvisors = self.context.supervisord.supvisors
-        supvisors_shortcuts(self, ['logger'])
 
-    def url_context(self):
-        return 'appli={}&amp;'.format(self.application_name)
-
-    def render(self):
-        """ Method called by Supervisor to handle the rendering
-        of the Supvisors Application page. """
-        self.application_name = self.context.form.get('appli')
-        if not self.application_name:
-            self.logger.error('no application')
-        elif self.application_name not in self.supvisors.context.applications.keys():
-            self.logger.error('unknown application: {}'
-                              .format(self.application_name))
+    def handle_parameters(self):
+        """ Retrieve the parameters selected on the web page. """
+        ViewHandler.handle_parameters(self)
+        # check if application name is available
+        self.application_name = self.view_ctx.parameters[APPLI]
+        if self.application_name:
+            # store application
+            self.application = self.sup_ctx.applications[self.application_name]
         else:
-            # Force the call to the render method of ViewHandler
-            return ViewHandler.render(self)
+            self.view_ctx.message(error_message('No application'))
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection
@@ -68,15 +60,14 @@ class ApplicationView(MeldView, ViewHandler):
         elt = root.findmeld('application_mid')
         elt.content(self.application_name)
         # set application state
-        application = self.supvisors.context.applications[self.application_name]
         elt = root.findmeld('state_mid')
-        elt.content(application.state_string())
+        elt.content(self.application.state_string())
         # set LED iaw major/minor failures
         elt = root.findmeld('state_led_mid')
-        if application.running():
-            if application.major_failure:
+        if self.application.running():
+            if self.application.major_failure:
                 elt.attrib['class'] = 'status_red'
-            elif application.minor_failure:
+            elif self.application.minor_failure:
                 elt.attrib['class'] = 'status_yellow'
             else:
                 elt.attrib['class'] = 'status_green'
@@ -98,76 +89,71 @@ class ApplicationView(MeldView, ViewHandler):
         if strategy == StartingStrategies.CONFIG:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=config'
-                           .format(self.page_name, self.url_context()))
+            url = self.view_ctx.format_url('', self.page_name,
+                                           **{ACTION: 'config'})
+            elt.attributes(href=url)
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
         if strategy == StartingStrategies.MOST_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}action=most'
-                           .format(self.page_name, self.url_context()))
+            url = self.view_ctx.format_url('', self.page_name,
+                                           **{ACTION: 'most'})
+            elt.attributes(href=url)
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
         if strategy == StartingStrategies.LESS_LOADED:
             elt.attrib['class'] = "button off active"
         else:
-            elt.attributes(href='{}?{}&action=less'
-                           .format(self.page_name, self.url_context()))
-
+            url = self.view_ctx.format_url('', self.page_name,
+                                           **{ACTION: 'less'})
+            elt.attributes(href=url)
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
         # set hyperlinks for global actions
         elt = root.findmeld('refresh_a_mid')
-        elt.attributes(href='{}?{}action=refresh'
-                       .format(self.page_name, self.url_context()))
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'refresh'})
+        elt.attributes(href=url)
         elt = root.findmeld('startapp_a_mid')
-        elt.attributes(href='{}?{}action=startapp'
-                       .format(self.page_name, self.url_context()))
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'startapp'})
+        elt.attributes(href=url)
         elt = root.findmeld('stopapp_a_mid')
-        elt.attributes(href='{}?{}action=stopapp'.
-                       format(self.page_name, self.url_context()))
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'stopapp'})
+        elt.attributes(href=url)
         elt = root.findmeld('restartapp_a_mid')
-        elt.attributes(href='{}?{}action=restartapp'
-                       .format(self.page_name, self.url_context()))
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'restartapp'})
+        elt.attributes(href=url)
 
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
         self.write_process_table(root)
         # check selected Process Statistics
-        if ViewHandler.namespec_stats:
-            status = self.get_process_status(ViewHandler.namespec_stats)
+        namespec = self.view_ctx.parameters[PROCESS]
+        if namespec:
+            status = self.view_ctx.get_process_status(namespec)
             if not status or status.application_name != self.application_name:
                 self.logger.warn('unselect Process Statistics for {}'
-                                 .format(ViewHandler.namespec_stats))
-                ViewHandler.namespec_stats = ''
+                                 .format(namespec))
+                # form parameter is not consistent. remove it
+                self.view_ctx.parameters[PROCESS] = ''
             else:
-                # addtional information for title
+                # additional information for title
                 elt = root.findmeld('address_fig_mid')
                 elt.content(next(iter(status.addresses), ''))
         # write selected Process Statistics
         self.write_process_statistics(root)
 
-    def get_process_stats(self, namespec):
-        """ Get the statistics structure related to the period selected
-        and the address where the process named namespec is running. """
-        status = self.get_process_status(namespec)
-        if status:
-            # get running address from procStatus
-            address = next(iter(status.addresses), None)
-            if address:
-                stats = self.supvisors.statistician.data[address][ViewHandler.period_stats]
-                nbcores = self.supvisors.statistician.nbcores[address]
-                return nbcores, stats.find_process_stats(namespec)
-        return 0, None
-
     def write_process_table(self, root):
-        """ Rendering of the application processes managed through Supervisor. """
+        """ Rendering of the application processes managed through
+        Supervisor. """
         # collect data on processes
         data = []
-        application = self.supvisors.context.applications[self.application_name]
-        for process in application.processes.values():
+        for process in self.application.processes.values():
             data.append({'application_name': process.application_name,
                          'process_name': process.process_name,
                          'namespec': process.namespec(),
@@ -185,24 +171,29 @@ class ApplicationView(MeldView, ViewHandler):
                 # get first item in running list
                 running_list = item['running_list']
                 address = next(iter(running_list), None)
-                # write common status(shared between this application view and address view)
+                # write common status(shared between this application view
+                # and address view)
                 selected_tr = self.write_common_process_status(tr_elt, item)
                 # print process name (tail NOT allowed if STOPPED)
                 process_name = item['process_name']
                 namespec = item['namespec']
                 if address:
                     elt = tr_elt.findmeld('name_a_mid')
-                    elt.attributes(href='http://{}:{}/tail.html?processname={}'.format(address, self.server_port(), urllib.quote(namespec)))
+                    url = self.view_ctx.format_url(address, TAIL_PAGE,
+                                                   **{PROCESS: namespec})
+                    elt.attributes(href=url)
                     elt.content(process_name)
                 else:
                     elt = tr_elt.findmeld('name_a_mid')
                     elt.replace(process_name)
                 # print running addresses
                 if running_list:
-                    addrIterator = tr_elt.findmeld('running_li_mid').repeat(running_list)
-                    for li_elt, address in addrIterator:
+                    running_li_mid = tr_elt.findmeld('running_li_mid')
+                    for li_elt, address in running_li_mid.repeat(running_list):
                         elt = li_elt.findmeld('running_a_mid')
-                        elt.attributes(href='procaddress.html?address={}'.format(address))
+                        url = self.view_ctx.format_url(address,
+                                                       PROC_ADDRESS_PAGE)
+                        elt.attributes(href=url)
                         elt.content(address)
                 else:
                     elt = tr_elt.findmeld('running_ul_mid')
@@ -236,7 +227,7 @@ class ApplicationView(MeldView, ViewHandler):
         if action == 'restartapp':
             return self.restart_application_action(strategy)
         if namespec:
-            if self.get_process_status(namespec) is None:
+            if self.view_ctx.get_process_status(namespec) is None:
                 return delayed_error('No such process named %s' % namespec)
             if action == 'start':
                 return self.start_process_action(strategy, namespec)
@@ -252,13 +243,15 @@ class ApplicationView(MeldView, ViewHandler):
     def set_starting_strategy(self, strategy):
         """ Update starting strategy. """
         self.supvisors.starter.strategy = strategy
-        return delayed_info('Starting strategy set to {}'.format(StartingStrategies._to_string(strategy)))
+        return delayed_info('Starting strategy set to {}'
+                            .format(StartingStrategies._to_string(strategy)))
 
     # Application actions
     def start_application_action(self, strategy):
         """ Start the application iaw the strategy. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.start_application(strategy, self.application_name)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.start_application(strategy, self.application_name)
         except RPCError, e:
             return delayed_error('start_application: {}'.format(e.text))
         if callable(cb):
@@ -266,22 +259,28 @@ class ApplicationView(MeldView, ViewHandler):
                 try:
                     result = cb()
                 except RPCError, e:
-                    return error_message('start_application: {}'.format(e.text))
+                    return error_message('start_application: {}'
+                                         .format(e.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 if result:
-                    return info_message('Application {} started'.format(self.application_name))
-                return warn_message('Application {} NOT started'.format(self.application_name))
+                    return info_message('Application {} started'
+                                        .format(self.application_name))
+                return warn_message('Application {} NOT started'
+                                    .format(self.application_name))
             onwait.delay = 0.1
             return onwait
         if cb:
-            return delayed_info('Application {} started'.format(self.application_name))
-        return delayed_warn('Application {} NOT started'.format(self.application_name))
+            return delayed_info('Application {} started'
+                                .format(self.application_name))
+        return delayed_warn('Application {} NOT started'
+                            .format(self.application_name))
 
     def stop_application_action(self):
         """ Stop the application. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.stop_application(self.application_name)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.stop_application(self.application_name)
         except RPCError, e:
             return delayed_error('stopApplication: {}'.format(e.text))
         if callable(cb):
@@ -289,18 +288,22 @@ class ApplicationView(MeldView, ViewHandler):
                 try:
                     result = cb()
                 except RPCError, e:
-                    return error_message('stopApplication: {}'.format(e.text))
+                    return error_message('stopApplication: {}'
+                                         .format(e.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('Application {} stopped'.format(self.application_name))
+                return info_message('Application {} stopped'
+                                    .format(self.application_name))
             onwait.delay = 0.1
             return onwait
-        return delayed_info('Application {} stopped'.format(self.application_name))
+        return delayed_info('Application {} stopped'
+                            .format(self.application_name))
 
     def restart_application_action(self, strategy):
         """ Restart the application iaw the strategy. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.restart_application(strategy, self.application_name)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.restart_application(strategy, self.application_name)
         except RPCError, e:
             return delayed_error('restartApplication: {}'.format(e.text))
         if callable(cb):
@@ -308,23 +311,29 @@ class ApplicationView(MeldView, ViewHandler):
                 try:
                     result = cb()
                 except RPCError, e:
-                    return error_message('restartApplication: {}'.format(e.text))
+                    return error_message('restartApplication: {}'
+                                         .format(e.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 if result:
-                    return info_message('Application {} restarted'.format(self.application_name))
-                return warn_message('Application {} NOT restarted'.format(self.application_name))
+                    return info_message('Application {} restarted'
+                                        .format(self.application_name))
+                return warn_message('Application {} NOT restarted'
+                                    .format(self.application_name))
             onwait.delay = 0.1
             return onwait
         if cb:
-            return delayed_info('Application {} restarted'.format(self.application_name))
-        return delayed_warn('Application {} NOT restarted'.format(self.application_name))
+            return delayed_info('Application {} restarted'
+                                .format(self.application_name))
+        return delayed_warn('Application {} NOT restarted'
+                            .format(self.application_name))
 
     # Process actions
     def start_process_action(self, strategy, namespec):
         """ Start the process named namespec iaw the strategy. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.start_process(strategy, namespec)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.start_process(strategy, namespec)
         except RPCError, e:
             return delayed_error('startProcess: {}'.format(e.text))
         if callable(cb):
@@ -347,7 +356,8 @@ class ApplicationView(MeldView, ViewHandler):
     def stop_process_action(self, namespec):
         """ Stop the process named namespec. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.stop_process(namespec)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.stop_process(namespec)
         except RPCError, e:
             return delayed_error('stopProcess: {}'.format(e.text))
         if callable(cb):
@@ -366,7 +376,8 @@ class ApplicationView(MeldView, ViewHandler):
     def restart_process_action(self, strategy, namespec):
         """ Restart the process named namespec iaw the strategy. """
         try:
-            cb = self.supvisors.info_source.supvisors_rpc_interface.restart_process(strategy, namespec)
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = rpc_intf.restart_process(strategy, namespec)
         except RPCError, e:
             return delayed_error('restartProcess: {}'.format(e.text))
         if callable(cb):
@@ -378,10 +389,16 @@ class ApplicationView(MeldView, ViewHandler):
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 if result:
-                    return info_message('Process {} restarted'.format(namespec))
-                return warn_message('Process {} NOT restarted'.format(namespec))
+                    return info_message('Process {} restarted'
+                                        .format(namespec))
+                return warn_message('Process {} NOT restarted'
+                                    .format(namespec))
             onwait.delay = 0.1
             return onwait
         if cb:
             return delayed_info('Process {} restarted'.format(namespec))
         return delayed_warn('Process {} NOT restarted'.format(namespec))
+
+    def get_process_stats(self, namespec):
+        """ Get process statistics of running process. """
+        return self.view_ctx.get_process_stats(namespec, True)

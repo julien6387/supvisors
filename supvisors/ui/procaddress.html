@@ -4,44 +4,44 @@
     xmlns:meld="http://www.plope.com/software/meld3">
 
 <head>
-	<meta charset="utf-8" />
-	<link rel="stylesheet" href="css/ui_style.css" />
-	<link rel="stylesheet" href="css/menu.css" />
-	<link rel="stylesheet" href="css/button.css" />
-	<title>Supvisors status</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="css/ui_style.css" />
+    <link rel="stylesheet" href="css/menu.css" />
+    <link rel="stylesheet" href="css/button.css" />
+    <title>Supvisors status</title>
 </head>
 
 <body>
-	<div id="body_block">
+    <div id="body_block">
 
-		<div id="left_side">
-			<header>
-				<h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
-				<p><span meld:id="version_mid" class="version"></span></p>
-			</header>
+        <div id="left_side">
+            <header>
+                <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
+                <p><span meld:id="version_mid" class="version"></span></p>
+            </header>
 
-			<nav id="address-list">
-				<h2>Addresses</h2>
-				<ul>
-					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
-				</ul>
-			</nav>
+            <nav id="address-list">
+                <h2>Addresses</h2>
+                <ul>
+                    <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+                </ul>
+            </nav>
 
-			<nav id="application-list">
-				<h2>Applications</h2>
-				<ul>
-					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
-				</ul>
-			</nav>
+            <nav id="application-list">
+                <h2>Applications</h2>
+                <ul>
+                    <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+                </ul>
+            </nav>
 
-			<footer>
-				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-				<p id="copyright">&amp;copy; Copyright 2016-2017 Julien LE CLEACH</p>
-			</footer>
-		</div>
+            <footer>
+                <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+                <p id="copyright">&amp;copy; Copyright 2016-2017 Julien LE CLEACH</p>
+            </footer>
+        </div>
 
-		<div id="right_side">
-			<header>
+        <div id="right_side">
+            <header>
                 <div>
                     <h2><span meld:id="address_mid">address</span> - <span meld:id="percent_mid">50%</span></h2>
                     <h3><code meld:id="state_mid" class="classState">RemoteStates</code> at <span meld:id="date_mid">Time</span></h3>
@@ -52,7 +52,7 @@
                         <tr><th>Statistics View</th></tr>
                         <tr><td><ul class="linear">
                             <li><a href="#" class="button off active">Processes</a></li>
-                            <li><a href="hostaddress.html" class="button on">Host</a></li>
+                            <li><a href="#" meld:id="host_a_mid" class="button on">Host</a></li>
                         </ul></td></tr>
                     </table>
                 </div>
@@ -61,24 +61,42 @@
                     <table class="optionBox">
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">5</a></li>
+                            <li meld:id="period_li_mid">
+                                <a href="#" meld:id="period_a_mid" class="button on">5</a>
+                            </li>
                         </ul></td></tr>
                     </table>
                 </div>
 
-				<div>
+                <div>
                     <ul class="linear">
-                        <li><a href="procaddress.html?action=stopall"><img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a></li>
-                        <li><a href="procaddress.html?action=restartsup"><img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a></li>
-                        <li><a href="procaddress.html?action=shutdownsup"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a></li>
+                        <li>
+                            <a href="#" meld:id="stopall_a_mid">
+                                <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="procaddress.html?action=restartsup">
+                                <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="procaddress.html?action=shutdownsup">
+                                <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
+                            </a>
+                        </li>
                     </ul>
                     <ul class="linear">
-                        <li><a href="procaddress.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                        <li>
+                            <a href="#" meld:id="refresh_a_mid" class="button on">
+                                <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
+                            </a>
+                        </li>
                     </ul>
-				</div>
-			</header>
+                </div>
+            </header>
 
-			<div id="process_contents">
+            <div id="process_contents">
                 <div id="process_left_side">
                     <table meld:id="table_mid">
                         <thead>
@@ -147,7 +165,7 @@
             <div id="messageBox" meld:id="message_mid"></div>
 
         </div>
-	</div>
+    </div>
 </body>
 </html>
 

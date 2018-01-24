@@ -24,28 +24,20 @@ from supervisor.web import StatusView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.utils import simple_localtime, supvisors_shortcuts
+from supvisors.viewcontext import *
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-class ProcAddressView(StatusView, ViewHandler):
-    """ View renderer of the Process section of the Supvisors Address page. """
-
-    # Name of the HTML page
-    page_name = 'procaddress.html'
+class ProcAddressView(ViewHandler, StatusView):
+    """ View renderer of the Process section of the Supvisors Address page.
+    First inheritance is set to ViewHandler so that it grabs the render call.
+    """
 
     def __init__(self, context):
-        """ Initialization of the attributes. """
+        """ Call of the superclass constructors. """
+        ViewHandler.__init__(self, context, PROC_ADDRESS_PAGE)
         StatusView.__init__(self, context)
-        self.supvisors = self.context.supervisord.supvisors
-        supvisors_shortcuts(self, ['info_source', 'logger'])
-        self.address = self.supvisors.address_mapper.local_address
-
-    def render(self):
-        """ Method called by Supervisor to handle the rendering of the
-        Supvisors Address page. """
-        # Force the call to the render method of ViewHandler
-        return ViewHandler.render(self)
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current
@@ -56,11 +48,11 @@ class ProcAddressView(StatusView, ViewHandler):
         """ Rendering of the header part of the Supvisors Address page """
         # set address name
         elt = root.findmeld('address_mid')
-        if self.supvisors.context.master:
+        if self.sup_ctx.master:
             elt.attrib['class'] = 'master'
         elt.content(self.address)
         # set address state
-        status = self.supvisors.context.addresses[self.address]
+        status = self.sup_ctx.addresses[self.address]
         elt = root.findmeld('state_mid')
         elt.content(status.state_string())
         # set loading
@@ -72,33 +64,42 @@ class ProcAddressView(StatusView, ViewHandler):
         elt.content(simple_localtime(status.remote_time))
         # write periods of statistics
         self.write_periods(root)
+        # write actions related to address
+        self.write_address_actions(root)
+
+    def write_address_actions(self, root):
+        """ Write actions related to the address. """
+        # configure host address button
+        elt = root.findmeld('host_a_mid')
+        url = self.view_ctx.format_url('', HOST_ADDRESS_PAGE)
+        elt.attributes(href=url)
+        # configure refresh button
+        elt = root.findmeld('refresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'refresh'})
+        elt.attributes(href=url)
+        # configure stop all button
+        elt = root.findmeld('stopall_a_mid')
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'stopall'})
+        elt.attributes(href=url)
 
     def write_contents(self, root):
         """ Rendering of the contents part of the page """
         self.write_process_table(root)
         self.write_process_statistics(root)
 
-    def get_address_stats(self):
-        """ Get the statistics structure related to the local address
-        and the period selected """
-        return (self.supvisors.statistician.nbcores[self.address],
-            self.supvisors.statistician.data[self.address][ViewHandler.period_stats])
-
-    def get_process_stats(self, namespec):
-        """ Get the statistics structure related to the local address
-        and the period selected """
-        nbcores, address_stats = self.get_address_stats()
-        return nbcores, address_stats.find_process_stats(namespec)
-
     def write_process_table(self, root):
         """ Rendering of the processes managed through Supervisor """
         # collect data on processes
         data = []
         try:
-            for info in self.info_source.supervisor_rpc_interface.getAllProcessInfo():
+            rpc_intf = self.info_source.supervisor_rpc_interface
+            for info in rpc_intf.getAllProcessInfo():
                 data.append({'application_name': info['group'],
                              'process_name': info['name'],
-                             'namespec': make_namespec(info['group'], info['name']),
+                             'namespec': make_namespec(info['group'],
+                                                       info['name']),
                              'statename': info['statename'],
                              'statecode': info['state'],
                              'desc': info['description']})
@@ -118,9 +119,9 @@ class ProcAddressView(StatusView, ViewHandler):
                 namespec = item['namespec']
                 process_name = item.get('processname', namespec)
                 elt = tr_elt.findmeld('name_a_mid')
-                elt.attributes(href='http://{}:{}/tail.html?processname={}'
-                               .format(self.address, self.server_port(),
-                                       urllib.quote(namespec)))
+                url = self.view_ctx.format_url(self.address, TAIL_PAGE,
+                                               **{PROCESS: namespec})
+                elt.attributes(href=url)
                 elt.content(process_name)
                 # print description
                 elt = tr_elt.findmeld('desc_td_mid')
@@ -128,12 +129,12 @@ class ProcAddressView(StatusView, ViewHandler):
                 # manage process log actions
                 namespec = item['namespec']
                 elt = tr_elt.findmeld('clear_a_mid')
-                elt.attributes(href='{}?processname={}&amp;action=clearlog'
-                               .format(ProcAddressView.page_name,
-                                       urllib.quote(namespec)))
+                parameters = {ACTION: 'clearlog', PROCESS: namespec}
+                url = self.view_ctx.format_url('', self.page_name,
+                                               **parameters)
+                elt.attributes(href=url)
                 elt = tr_elt.findmeld('tail_a_mid')
-                elt.attributes(href='logtail/{}'
-                               .format(urllib.quote(namespec)),
+                elt.attributes(href='logtail/%s' % urllib.quote(namespec),
                                target='_blank')
                 # set line background and invert
                 if selected_tr:
@@ -151,6 +152,7 @@ class ProcAddressView(StatusView, ViewHandler):
             return self.restart_sup_action()
         if action == 'shutdownsup':
             return self.shutdown_sup_action()
+        # TODO: context is lost
         return StatusView.make_callback(self, namespec, action)
 
     def restart_sup_action(self):

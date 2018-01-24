@@ -24,8 +24,10 @@ import unittest
 
 from mock import call, patch, Mock
 
-from supvisors.tests.base import (DummyAddressMapper, MockedSupvisors,
-    database_copy, any_process_info)
+from supvisors.tests.base import (DummyAddressMapper,
+                                  MockedSupvisors,
+                                  database_copy,
+                                  any_process_info)
 
 
 class ContextTest(unittest.TestCase):
