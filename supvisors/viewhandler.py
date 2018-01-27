@@ -149,7 +149,7 @@ class ViewHandler(object):
             # print period button
             elt = li_elt.findmeld('period_a_mid')
             if item == self.view_ctx.parameters[PERIOD]:
-                elt.attrib['class'] = "button off active"
+                elt.attrib['class'] = 'button off active'
             else:
                 parameters = {PERIOD: item}
                 url = self.view_ctx.format_url('', self.page_name,
@@ -157,96 +157,162 @@ class ViewHandler(object):
                 elt.attributes(href=url)
             elt.content('{}s'.format(item))
 
+    def write_common_process_cpu(self, tr_elt, namespec,
+                                 proc_stats, nbcores):
+        """ Write the CPU part of the common process status. """
+        elt = tr_elt.findmeld('pcpu_a_mid')
+        if proc_stats and len(proc_stats[0]) > 0:
+            # print last CPU value of process
+            cpuvalue = proc_stats[0][-1]
+            if not self.supvisors.options.stats_irix_mode:
+                cpuvalue /= nbcores
+            elt.content('{:.2f}%'.format(cpuvalue))
+            if self.view_ctx.parameters[PROCESS] == namespec:
+                elt.attributes(href='#')
+                elt.attrib['class'] = 'button off active'
+            else:
+                parameters = {PROCESS: namespec}
+                url = self.view_ctx.format_url('', self.page_name,
+                                               **parameters)
+                elt.attributes(href=url)
+                elt.attrib['class'] = 'button on'
+        else:
+            # when no data, no not write link
+            elt.replace('--')
+
+    def write_common_process_mem(self, tr_elt, namespec, proc_stats):
+        """ Write the MEM part of the common process status. """
+        elt = tr_elt.findmeld('pmem_a_mid')
+        if proc_stats and len(proc_stats[1]) > 0:
+            # print last MEM value of process
+            elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+            if self.view_ctx.parameters[PROCESS] == namespec:
+                elt.attributes(href='#')
+                elt.attrib['class'] = 'button off active'
+            else:
+                parameters = {PROCESS: namespec}
+                url = self.view_ctx.format_url('', self.page_name,
+                                               **parameters)
+                elt.attributes(href=url)
+                elt.attrib['class'] = 'button on'
+        else:
+            # when no data, no not write link
+            elt.replace('--')
+
+    def write_process_start_button(self, tr_elt, namespec, state):
+        """ Write the configuration of the start button of a process. """
+        self._write_process_button(tr_elt, 'start_a_mid',
+                                   'start', namespec,
+                                   state, STOPPED_STATES)
+
+    def write_process_stop_button(self, tr_elt, namespec, state):
+        """ Write the configuration of the stop button of a process. """
+        self._write_process_button(tr_elt, 'stop_a_mid',
+                                   'stop', namespec,
+                                   state, RUNNING_STATES)
+
+    def write_process_restart_button(self, tr_elt, namespec, state):
+        """ Write the configuration of the restart button of a process. """
+        self._write_process_button(tr_elt, 'restart_a_mid',
+                                   'restart', namespec,
+                                   state, RUNNING_STATES)
+
+    def _write_process_button(self, tr_elt, elt_name,
+                              action, namespec,
+                              state, state_list):
+        """ Write the configuration of a process button. """
+        elt = tr_elt.findmeld(elt_name)
+        if state in state_list:
+            elt.attrib['class'] = 'button on'
+            parameters = {ACTION: action, NAMESPEC: namespec}
+            url = self.view_ctx.format_url('', self.page_name,
+                                           **parameters)
+            elt.attributes(href=url)
+        else:
+           elt.attrib['class'] = 'button off'
+
     def write_common_process_status(self, tr_elt, item):
         """ Write the common part of a process status into a table. """
-        selected_tr = False
-        namespec = item['namespec']
         # print state
         elt = tr_elt.findmeld('state_td_mid')
         elt.attrib['class'] = item['statename']
         elt.content(item['statename'])
         # print expected loading
-        status = self.view_ctx.get_process_status(namespec)
-        if status:
-            elt = tr_elt.findmeld('load_td_mid')
-            elt.content('{}%'.format(status.rules.expected_loading))
+        elt = tr_elt.findmeld('load_td_mid')
+        elt.content('{}%'.format(item['loading']))
         # get data from statistics module iaw period selection
-        hide_cpu_link, hide_mem_link = (True, )*2
+        namespec = item['namespec']
         proc_stats, nbcores = self.get_process_stats(namespec)
-        if proc_stats:
-            if len(proc_stats[0]) > 0:
-                # print last CPU value of process
-                elt = tr_elt.findmeld('pcpu_a_mid')
-                cpuvalue = proc_stats[0][-1]
-                if not self.supvisors.options.stats_irix_mode:
-                    cpuvalue /= nbcores
-                elt.content('{:.2f}%'.format(cpuvalue))
-                if self.view_ctx.parameters[PROCESS] == namespec:
-                    selected_tr = True
-                    elt.attributes(href='#')
-                    elt.attrib['class'] = 'button off active'
-                else:
-                    parameters = {PROCESS: namespec}
-                    url = self.view_ctx.format_url('', self.page_name,
-                                                   **parameters)
-                    elt.attributes(href=url)
-                    elt.attrib['class'] = 'button on'
-                hide_cpu_link = False
-            if len(proc_stats[1]) > 0:
-                # print last MEM value of process
-                elt = tr_elt.findmeld('pmem_a_mid')
-                elt.content('{:.2f}%'.format(proc_stats[1][-1]))
-                if self.view_ctx.parameters[PROCESS] == namespec:
-                    selected_tr = True
-                    elt.attributes(href='#')
-                    elt.attrib['class'] = 'button off active'
-                else:
-                    parameters = {PROCESS: namespec}
-                    url = self.view_ctx.format_url('', self.page_name,
-                                                   **parameters)
-                    elt.attributes(href=url)
-                    elt.attrib['class'] = 'button on'
-                hide_mem_link = False
-        # when no data, no not write link
-        if hide_cpu_link:
-            elt = tr_elt.findmeld('pcpu_a_mid')
-            elt.replace('--')
-        if hide_mem_link:
-            elt = tr_elt.findmeld('pmem_a_mid')
-            elt.replace('--')
+        self.write_common_process_cpu(tr_elt, namespec, proc_stats, nbcores)
+        self.write_common_process_mem(tr_elt, namespec, proc_stats)
         # manage actions iaw state
         process_state = item['statecode']
-        # start button
-        elt = tr_elt.findmeld('start_a_mid')
-        if process_state in STOPPED_STATES:
-            elt.attrib['class'] = 'button on'
-            parameters = {ACTION: 'start', NAMESPEC: namespec}
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **parameters)
-            elt.attributes(href=url)
-        else:
-           elt.attrib['class'] = 'button off'
-        # stop button
-        elt = tr_elt.findmeld('stop_a_mid')
-        if process_state in RUNNING_STATES:
-            elt.attrib['class'] = 'button on'
-            parameters = {ACTION: 'stop', NAMESPEC: namespec}
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **parameters)
-            elt.attributes(href=url)
-        else:
-           elt.attrib['class'] = 'button off'
-        # restart button
-        elt = tr_elt.findmeld('restart_a_mid')
-        if process_state in RUNNING_STATES:
-            elt.attrib['class'] = 'button on'
-            parameters = {ACTION: 'restart', NAMESPEC: namespec}
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **parameters)
-            elt.attributes(href=url)
-        else:
-           elt.attrib['class'] = 'button off'
-        return selected_tr
+        self.write_process_start_button(tr_elt, namespec, process_state)
+        self.write_process_stop_button(tr_elt, namespec, process_state)
+        self.write_process_restart_button(tr_elt, namespec, process_state)
+        return self.view_ctx.parameters[PROCESS] == namespec
+
+    def write_detailed_process_cpu(self, stats_elt, proc_stats, nbcores):
+        """ Write the CPU part of the detailed process status. """
+        if proc_stats and len(proc_stats[0]) > 0:
+            avg, rate, (a, b), dev = get_stats(proc_stats[0])
+            # print last CPU value of process
+            elt = stats_elt.findmeld('pcpuval_td_mid')
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            cpuvalue = proc_stats[0][-1]
+            if not self.options.stats_irix_mode:
+                cpuvalue /= nbcores
+            elt.content('{:.2f}%'.format(cpuvalue))
+            # set mean value
+            elt = stats_elt.findmeld('pcpuavg_td_mid')
+            elt.content('{:.2f}%'.format(avg))
+            if a is not None:
+                # set slope value between last 2 values
+                elt = stats_elt.findmeld('pcpuslope_td_mid')
+                elt.content('{:.2f}'.format(a))
+            if dev is not None:
+                # set standard deviation
+                elt = stats_elt.findmeld('pcpudev_td_mid')
+                elt.content('{:.2f}'.format(dev))
+            return True
+
+    def write_detailed_process_mem(self, stats_elt, proc_stats):
+        """ Write the MEM part of the detailed process status. """
+        if proc_stats and len(proc_stats[1]) > 0:
+            avg, rate, (a, b), dev = get_stats(proc_stats[1])
+            # print last MEM value of process
+            elt = stats_elt.findmeld('pmemval_td_mid')
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            elt.content('{:.2f}%'.format(proc_stats[1][-1]))
+            # set mean value
+            elt = stats_elt.findmeld('pmemavg_td_mid')
+            elt.content('{:.2f}%'.format(avg))
+            if a is not None:
+                # set slope value between last 2 values
+                elt = stats_elt.findmeld('pmemslope_td_mid')
+                elt.content('{:.2f}'.format(a))
+            if dev is not None:
+                # set standard deviation
+                elt = stats_elt.findmeld('pmemdev_td_mid')
+                elt.content('{:.2f}'.format(dev))
+            return True
+
+    def write_process_plots(self, proc_stats):
+        """ Write the CPU / Memory plots if matplotlib is installed. """
+        try:
+            from supvisors.plot import StatisticsPlot
+            # build CPU image
+            cpu_img = StatisticsPlot()
+            cpu_img.add_plot('CPU', '%', proc_stats[0])
+            cpu_img.export_image(process_cpu_image)
+            # build Memory image
+            mem_img = StatisticsPlot()
+            mem_img.add_plot('MEM', '%', proc_stats[1])
+            mem_img.export_image(process_mem_image)
+        except ImportError:
+            self.logger.warn('matplotlib module not found')
 
     def write_process_statistics(self, root):
         """ Display detailed statistics about the selected process. """
@@ -255,71 +321,18 @@ class ViewHandler(object):
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
             proc_stats, nbcores = self.get_process_stats(namespec)
-            if proc_stats and (len(proc_stats[0]) > 0 or
-                               len(proc_stats[1]) > 0):
+            # set CPU/MEM statistics
+            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats,
+                                                       nbcores)
+            done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
+            if done_cpu or done_mem:
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(namespec)
-                 # set CPU statistics
-                if len(proc_stats[0]) > 0:
-                    avg, rate, (a, b), dev = get_stats(proc_stats[0])
-                    # print last CPU value of process
-                    elt = stats_elt.findmeld('pcpuval_td_mid')
-                    if rate is not None:
-                        self.set_slope_class(elt, rate)
-                    cpuvalue = proc_stats[0][-1]
-                    if not self.options.stats_irix_mode:
-                        cpuvalue /= nbcores
-                    elt.content('{:.2f}%'.format(cpuvalue))
-                    # set mean value
-                    elt = stats_elt.findmeld('pcpuavg_td_mid')
-                    elt.content('{:.2f}'.format(avg))
-                    if a is not None:
-                        # set slope value between last 2 values
-                        elt = stats_elt.findmeld('pcpuslope_td_mid')
-                        elt.content('{:.2f}'.format(a))
-                    if dev is not None:
-                        # set standard deviation
-                        elt = stats_elt.findmeld('pcpudev_td_mid')
-                        elt.content('{:.2f}'.format(dev))
-                # set MEM statistics
-                if len(proc_stats[1]) > 0:
-                    avg, rate, (a, b), dev = get_stats(proc_stats[1])
-                    # print last MEM value of process
-                    elt = stats_elt.findmeld('pmemval_td_mid')
-                    if rate is not None:
-                        self.set_slope_class(elt, rate)
-                    elt.content('{:.2f}%'.format(proc_stats[1][-1]))
-                    # set mean value
-                    elt = stats_elt.findmeld('pmemavg_td_mid')
-                    elt.content('{:.2f}'.format(avg))
-                    if a is not None:
-                        # set slope value between last 2 values
-                        elt = stats_elt.findmeld('pmemslope_td_mid')
-                        elt.content('{:.2f}'.format(a))
-                    if dev is not None:
-                        # set standard deviation
-                        elt = stats_elt.findmeld('pmemdev_td_mid')
-                        elt.content('{:.2f}'.format(dev))
                 # write CPU / Memory plots
-                try:
-                    from supvisors.plot import StatisticsPlot
-                    # build CPU image
-                    cpu_img = StatisticsPlot()
-                    cpu_img.add_plot('CPU', '%', proc_stats[0])
-                    cpu_img.export_image(process_cpu_image)
-                    # build Memory image
-                    mem_img = StatisticsPlot()
-                    mem_img.add_plot('MEM', '%', proc_stats[1])
-                    mem_img.export_image(process_mem_image)
-                except ImportError:
-                    self.logger.warn('matplotlib module not found')
-            elif namespec:
-                self.logger.warn('unselect Process Statistics for {}'
-                                 .format(namespec))
-                self.view_ctx.parameters[PROCESS] = ''
-        # remove stats part if empty
-        if not namespec:
+                self.write_process_plots(proc_stats)
+        else:
+            # remove stats part if empty
             stats_elt.replace('')
 
     def handle_action(self):

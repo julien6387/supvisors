@@ -155,6 +155,7 @@ class DummyProcessConfig:
         self.command = command
         self.autorestart = autorestart
 
+
 class DummyProcess:
     """ Simple supervisor process with simple attributes. """
     def __init__(self, command, autorestart):
@@ -165,6 +166,7 @@ class DummyProcess:
        self.state = 'FATAL'
     def change_state(self, state):
        self.state = state
+
 
 class DummySupervisor:
     """ Simple supervisor with simple attributes. """

@@ -85,28 +85,38 @@ class ProcAddressView(ViewHandler, StatusView):
         elt.attributes(href=url)
 
     def write_contents(self, root):
-        """ Rendering of the contents part of the page """
+        """ Rendering of the contents part of the page. """
         self.write_process_table(root)
         self.write_process_statistics(root)
 
-    def write_process_table(self, root):
-        """ Rendering of the processes managed through Supervisor """
-        # collect data on processes
-        data = []
+    def get_process_data(self):
+        """ Collect data on processes. """
+        # use Supervisor to get local information on all processes
+        rpc_intf = self.info_source.supervisor_rpc_interface
         try:
-            rpc_intf = self.info_source.supervisor_rpc_interface
-            for info in rpc_intf.getAllProcessInfo():
-                data.append({'application_name': info['group'],
-                             'process_name': info['name'],
-                             'namespec': make_namespec(info['group'],
-                                                       info['name']),
-                             'statename': info['statename'],
-                             'statecode': info['state'],
-                             'desc': info['description']})
+            all_info = rpc_intf.getAllProcessInfo()
         except RPCError, e:
             self.logger.warn('failed to get all process info from {}: {}'
                              .format(self.address, e.text))
-        # print processes
+        else:
+            # extract what is useful to display
+            data = []
+            for info in all_info:
+                namespec = make_namespec(info['group'], info['name'])
+                status = self.view_ctx.get_process_status(namespec)
+                loading = status.rules.expected_loading if status else '?'
+                data.append({'application_name': info['group'],
+                             'process_name': info['name'],
+                             'namespec': namespec,
+                             'statename': info['statename'],
+                             'statecode': info['state'],
+                             'desc': info['description'],
+                             'loading': loading})
+            return data
+
+    def write_process_table(self, root):
+        """ Rendering of the processes managed through Supervisor """
+        data = self.get_process_data()
         if data:
             # re-arrange data
             data = self.sort_processes_by_config(data)
