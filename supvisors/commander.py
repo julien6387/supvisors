@@ -297,8 +297,8 @@ class Starter(Commander):
         # upon failure, remove inProgress entry if empty
         if not job:
             del self.current_jobs[process.application_name]
-        # return True when starting
-        return starting
+        # return True when started
+        return not starting
 
     def check_starting(self):
         """ Check the progress of the application starting. """
@@ -559,7 +559,7 @@ class Stopper(Commander):
         if not job:
             del self.current_jobs[process.application_name]
         # return True when stopped
-        return stopping
+        return not stopping
 
     def store_application_stop_sequence(self, application):
         """ Schedules the application processes to stop. """

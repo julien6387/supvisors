@@ -760,7 +760,7 @@ class StarterTest(unittest.TestCase):
             args, kwargs = mocked_jobs.call_args
             self.assertEqual('extra_args', args[0].extra_args)
             self.assertTrue(args[0].ignore_wait_exit)
-            self.assertFalse(start_result)
+            self.assertTrue(start_result)
         # test success
         def success_job(*args, **kwargs):
             args[1].append(args[0])
@@ -777,7 +777,7 @@ class StarterTest(unittest.TestCase):
             self.assertTrue(args1[0].ignore_wait_exit)
             self.assertDictEqual({'sample_test_1': [args1[0]]},
                                  starter.current_jobs)
-            self.assertTrue(start_result)
+            self.assertFalse(start_result)
             mocked_jobs.reset_mock()
             # get any other process
             yeux_command = self._get_test_command('yeux_00')
@@ -791,7 +791,7 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': [args1[0]],
                                   'sample_test_2': [args2[0]]},
                                  starter.current_jobs)
-            self.assertTrue(start_result)
+            self.assertFalse(start_result)
 
     def test_default_start_process(self):
         """ Test the default_start_process method. """
@@ -1169,7 +1169,7 @@ class StopperTest(unittest.TestCase):
             start_result = stopper.stop_process(xlogo_command.process)
             self.assertDictEqual({}, stopper.current_jobs)
             self.assertEqual(1, mocked_jobs.call_count)
-            self.assertFalse(start_result)
+            self.assertTrue(start_result)
         # test success
         def success_job(*args, **kwargs):
             args[1].append(args[0])
@@ -1181,7 +1181,7 @@ class StopperTest(unittest.TestCase):
             args1, _ = mocked_jobs.call_args
             self.assertDictEqual({'sample_test_1': [args1[0]]},
                                  stopper.current_jobs)
-            self.assertTrue(start_result)
+            self.assertFalse(start_result)
             mocked_jobs.reset_mock()
             # get any other process
             yeux_command = self._get_test_command('yeux_00')
@@ -1192,7 +1192,7 @@ class StopperTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': [args1[0]],
                                   'sample_test_2': [args2[0]]},
                                  stopper.current_jobs)
-            self.assertTrue(start_result)
+            self.assertFalse(start_result)
 
     def test_stop_application(self):
         """ Test the stop_application method. """
