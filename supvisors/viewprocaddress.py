@@ -90,7 +90,7 @@ class ProcAddressView(ViewHandler, StatusView):
         self.write_process_statistics(root)
 
     def get_process_data(self):
-        """ Collect data on processes. """
+        """ Collect sorted data on processes. """
         # use Supervisor to get local information on all processes
         rpc_intf = self.info_source.supervisor_rpc_interface
         try:
@@ -112,14 +112,13 @@ class ProcAddressView(ViewHandler, StatusView):
                              'statecode': info['state'],
                              'desc': info['description'],
                              'loading': loading})
-            return data
+            # re-arrange data
+            return self.sort_processes_by_config(data)
 
     def write_process_table(self, root):
         """ Rendering of the processes managed through Supervisor """
         data = self.get_process_data()
         if data:
-            # re-arrange data
-            data = self.sort_processes_by_config(data)
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style

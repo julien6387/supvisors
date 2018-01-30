@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 
 # ======================================================================
-# Copyright 2016 Julien LE CLEACH
+# Copyright 2018 Julien LE CLEACH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -425,6 +425,7 @@ class ViewHandlerTest(unittest.TestCase):
 
     def test_write_periods(self):
         """ Test the write_periods method. """
+        from supvisors.viewcontext import PERIOD
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context, 'index.html')
         # patch the meld elements
@@ -433,7 +434,7 @@ class ViewHandlerTest(unittest.TestCase):
         mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with period selection identical to parameter
-        handler.view_ctx = Mock(parameters={'period': 5},
+        handler.view_ctx = Mock(parameters={PERIOD: 5},
                                 **{'format_url.return_value': 'an url'})
         handler.write_periods(mocked_root)
         self.assertEqual([call('period_li_mid')],
@@ -452,7 +453,7 @@ class ViewHandlerTest(unittest.TestCase):
         href_elt.content.reset_mock()
         href_elt.attrib['class'] = ''
         # test call with period selection different from parameter
-        handler.view_ctx.parameters['period'] = 10
+        handler.view_ctx.parameters[PERIOD] = 10
         handler.write_periods(mocked_root)
         self.assertEqual([call('period_li_mid')],
                          mocked_root.findmeld.call_args_list)

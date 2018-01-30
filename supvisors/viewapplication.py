@@ -17,8 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
-
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
@@ -37,6 +35,9 @@ class ApplicationView(ViewHandler, MeldView):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context, APPLICATION_PAGE)
         MeldView.__init__(self, context)
+        # init parameters
+        self.application_name = ''
+        self.application = None
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
@@ -87,7 +88,7 @@ class ApplicationView(ViewHandler, MeldView):
         # CONFIG strategy
         elt = root.findmeld('config_a_mid')
         if strategy == StartingStrategies.CONFIG:
-            elt.attrib['class'] = "button off active"
+            elt.attrib['class'] = 'button off active'
         else:
             url = self.view_ctx.format_url('', self.page_name,
                                            **{ACTION: 'config'})
@@ -95,7 +96,7 @@ class ApplicationView(ViewHandler, MeldView):
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
         if strategy == StartingStrategies.MOST_LOADED:
-            elt.attrib['class'] = "button off active"
+            elt.attrib['class'] = 'button off active'
         else:
             url = self.view_ctx.format_url('', self.page_name,
                                            **{ACTION: 'most'})
@@ -103,7 +104,7 @@ class ApplicationView(ViewHandler, MeldView):
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
         if strategy == StartingStrategies.LESS_LOADED:
-            elt.attrib['class'] = "button off active"
+            elt.attrib['class'] = 'button off active'
         else:
             url = self.view_ctx.format_url('', self.page_name,
                                            **{ACTION: 'less'})
@@ -148,22 +149,54 @@ class ApplicationView(ViewHandler, MeldView):
         # write selected Process Statistics
         self.write_process_statistics(root)
 
+    def get_process_data(self):
+        """ Collect sorted data on processes. """
+        data = [{'application_name': process.application_name,
+                 'process_name': process.process_name,
+                 'namespec': process.namespec(),
+                 'running_list': list(process.addresses),
+                 'statename': process.state_string(),
+                 'statecode': process.state,
+                 'loading': process.rules.expected_loading}
+                for process in self.application.processes.values()]
+        # re-arrange data
+        return self.sort_processes_by_config(data)
+
+    def write_process_name(self, tr_elt, info):
+        """ Rendering of the cell corresponding to the process name. """
+        elt = tr_elt.findmeld('name_a_mid')
+        # tail action is NOT allowed if process is stopped
+        process_name = info['process_name']
+        address = next(iter(info['running_list']), None)
+        if address:
+            namespec = info['namespec']
+            url = self.view_ctx.format_url(address, TAIL_PAGE,
+                                           **{PROCESS: namespec})
+            elt.attributes(href=url)
+            elt.content(process_name)
+        else:
+            elt.replace(process_name)
+
+    def write_process_addresses(self, tr_elt, info):
+        """ Rendering of the cell corresponding to the running addresses of
+        the process. """
+        running_list = info['running_list']
+        if running_list:
+            running_li_mid = tr_elt.findmeld('running_li_mid')
+            for li_elt, address in running_li_mid.repeat(running_list):
+                elt = li_elt.findmeld('running_a_mid')
+                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+                elt.attributes(href=url)
+                elt.content(address)
+        else:
+            elt = tr_elt.findmeld('running_ul_mid')
+            elt.replace('')
+
     def write_process_table(self, root):
         """ Rendering of the application processes managed through
         Supervisor. """
-        # collect data on processes
-        data = []
-        for process in self.application.processes.values():
-            data.append({'application_name': process.application_name,
-                         'process_name': process.process_name,
-                         'namespec': process.namespec(),
-                         'running_list': list(process.addresses),
-                         'statename': process.state_string(),
-                         'statecode': process.state})
-        # print processes
+        data = self.get_process_data()
         if data:
-            # re-arrange data
-            data = self.sort_processes_by_config(data)
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False # used to invert background style
@@ -174,30 +207,9 @@ class ApplicationView(ViewHandler, MeldView):
                 # write common status(shared between this application view
                 # and address view)
                 selected_tr = self.write_common_process_status(tr_elt, item)
-                # print process name (tail NOT allowed if STOPPED)
-                process_name = item['process_name']
-                namespec = item['namespec']
-                if address:
-                    elt = tr_elt.findmeld('name_a_mid')
-                    url = self.view_ctx.format_url(address, TAIL_PAGE,
-                                                   **{PROCESS: namespec})
-                    elt.attributes(href=url)
-                    elt.content(process_name)
-                else:
-                    elt = tr_elt.findmeld('name_a_mid')
-                    elt.replace(process_name)
-                # print running addresses
-                if running_list:
-                    running_li_mid = tr_elt.findmeld('running_li_mid')
-                    for li_elt, address in running_li_mid.repeat(running_list):
-                        elt = li_elt.findmeld('running_a_mid')
-                        url = self.view_ctx.format_url(address,
-                                                       PROC_ADDRESS_PAGE)
-                        elt.attributes(href=url)
-                        elt.content(address)
-                else:
-                    elt = tr_elt.findmeld('running_ul_mid')
-                    elt.replace('')
+                # print process name and running addresses
+                self.write_process_name(tr_elt, item)
+                self.write_process_addresses(tr_elt, item)
                 # set line background and invert
                 if selected_tr:
                     tr_elt.attrib['class'] = 'selected'
@@ -246,158 +258,87 @@ class ApplicationView(ViewHandler, MeldView):
         return delayed_info('Starting strategy set to {}'
                             .format(StartingStrategies._to_string(strategy)))
 
+    # Common processing for starting and stopping actions
+    def start_action(self, strategy, rpc_name, arg_name, arg_type):
+        """ Start/Restart an application or a process iaw the strategy. """
+        try:
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = getattr(rpc_intf, rpc_name)(strategy, arg_name)
+        except RPCError, e:
+            return delayed_error('{}: {}'.format(rpc_name, e.text))
+        if callable(cb):
+            def onwait():
+                try:
+                    result = cb()
+                except RPCError, e:
+                    return error_message('{}: {}'.format(rpc_name, e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                if result:
+                    return info_message('{} {} started'
+                                        .format(arg_type, arg_name))
+                return warn_message('{} {} NOT started'
+                                    .format(arg_type, arg_name))
+            onwait.delay = 0.1
+            return onwait
+        if cb:
+            return delayed_info('{} {} started'.format(arg_type, arg_name))
+        return delayed_warn('{} {} NOT started'.format(arg_type, arg_name))
+
+    def stop_action(self, rpc_name, arg_name, arg_type):
+        """ Stop an application or a process. """
+        try:
+            rpc_intf = self.info_source.supvisors_rpc_interface
+            cb = getattr(rpc_intf, rpc_name)(arg_name)
+        except RPCError, e:
+            return delayed_error('{}: {}'.format(rpc_name, e.text))
+        if callable(cb):
+            def onwait():
+                try:
+                    result = cb()
+                except RPCError, e:
+                    return error_message('{}: {}'.format(rpc_name, e.text))
+                if result is NOT_DONE_YET:
+                    return NOT_DONE_YET
+                return info_message('{} {} stopped'
+                                    .format(arg_type, arg_name))
+            onwait.delay = 0.1
+            return onwait
+        if cb:
+            return delayed_info('{} {} stopped'.format(arg_type, arg_name))
+        return delayed_warn('{} {} NOT stopped'.format(arg_type, arg_name))
+
     # Application actions
     def start_application_action(self, strategy):
         """ Start the application iaw the strategy. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.start_application(strategy, self.application_name)
-        except RPCError, e:
-            return delayed_error('start_application: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('start_application: {}'
-                                         .format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if result:
-                    return info_message('Application {} started'
-                                        .format(self.application_name))
-                return warn_message('Application {} NOT started'
-                                    .format(self.application_name))
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            return delayed_info('Application {} started'
-                                .format(self.application_name))
-        return delayed_warn('Application {} NOT started'
-                            .format(self.application_name))
-
-    def stop_application_action(self):
-        """ Stop the application. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.stop_application(self.application_name)
-        except RPCError, e:
-            return delayed_error('stopApplication: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('stopApplication: {}'
-                                         .format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                return info_message('Application {} stopped'
-                                    .format(self.application_name))
-            onwait.delay = 0.1
-            return onwait
-        return delayed_info('Application {} stopped'
-                            .format(self.application_name))
+        return self.start_action(strategy, 'start_application',
+                                 self.application_name, 'Application')
 
     def restart_application_action(self, strategy):
         """ Restart the application iaw the strategy. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.restart_application(strategy, self.application_name)
-        except RPCError, e:
-            return delayed_error('restartApplication: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('restartApplication: {}'
-                                         .format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if result:
-                    return info_message('Application {} restarted'
-                                        .format(self.application_name))
-                return warn_message('Application {} NOT restarted'
-                                    .format(self.application_name))
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            return delayed_info('Application {} restarted'
-                                .format(self.application_name))
-        return delayed_warn('Application {} NOT restarted'
-                            .format(self.application_name))
+        return self.start_action(strategy, 'restart_application',
+                                 self.application_name, 'Application')
+
+    def stop_application_action(self):
+        """ Stop the application. """
+        return self.stop_action('stop_application',
+                                self.application_name, 'Application')
 
     # Process actions
     def start_process_action(self, strategy, namespec):
         """ Start the process named namespec iaw the strategy. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.start_process(strategy, namespec)
-        except RPCError, e:
-            return delayed_error('startProcess: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('startProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if result:
-                    return info_message('Process {} started'.format(namespec))
-                return warn_message('Process {} NOT started'.format(namespec))
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            return delayed_info('Process {} started'.format(namespec))
-        return delayed_warn('Process {} NOT started'.format(namespec))
 
-    def stop_process_action(self, namespec):
-        """ Stop the process named namespec. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.stop_process(namespec)
-        except RPCError, e:
-            return delayed_error('stopProcess: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('stopProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                return info_message('process {} stopped'.format(namespec))
-            onwait.delay = 0.1
-            return onwait
-        return delayed_info('process {} stopped'.format(namespec))
+        return self.start_action(strategy, 'start_process',
+                                 namespec, 'Process')
 
     def restart_process_action(self, strategy, namespec):
         """ Restart the process named namespec iaw the strategy. """
-        try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
-            cb = rpc_intf.restart_process(strategy, namespec)
-        except RPCError, e:
-            return delayed_error('restartProcess: {}'.format(e.text))
-        if callable(cb):
-            def onwait():
-                try:
-                    result = cb()
-                except RPCError, e:
-                    return error_message('restartProcess: {}'.format(e.text))
-                if result is NOT_DONE_YET:
-                    return NOT_DONE_YET
-                if result:
-                    return info_message('Process {} restarted'
-                                        .format(namespec))
-                return warn_message('Process {} NOT restarted'
-                                    .format(namespec))
-            onwait.delay = 0.1
-            return onwait
-        if cb:
-            return delayed_info('Process {} restarted'.format(namespec))
-        return delayed_warn('Process {} NOT restarted'.format(namespec))
+        return self.start_action(strategy, 'restart_process',
+                                 namespec, 'Process')
+
+    def stop_process_action(self, namespec):
+        """ Stop the process named namespec. """
+        return self.stop_action('stop_process', namespec, 'Process')
 
     def get_process_stats(self, namespec):
         """ Get process statistics of running process. """
