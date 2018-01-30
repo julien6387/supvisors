@@ -537,7 +537,7 @@ class RPCInterface(object):
                         raise RPCError(Faults.ABNORMAL_TERMINATION,
                                        process.namespec())
                 return True
-            onwait.delay = 0.1
+            onwait.delay = 0.5
             return onwait # deferred
         return True
 
@@ -583,7 +583,7 @@ class RPCInterface(object):
                         raise RPCError(Faults.ABNORMAL_TERMINATION,
                                        process.namespec())
                 return True
-            onwait.delay = 0.1
+            onwait.delay = 0.5
             return onwait # deferred
         return True
 
@@ -636,7 +636,7 @@ class RPCInterface(object):
             return onwait.job()
         onwait.delay = 0.5
         onwait.waitstop = True
-        # request stop application. job is for deferred result
+        # request stop process. job is for deferred result
         onwait.job = self.stop_process(namespec, True)
         return onwait # deferred
 
