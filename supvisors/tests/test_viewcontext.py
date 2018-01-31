@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import re
 import sys
 import unittest
 
@@ -29,6 +30,8 @@ from supvisors.tests.base import (DummyAddressMapper,
 
 class ViewContextTest(unittest.TestCase):
     """ Test case for the viewcontext module. """
+
+    url_attr_template = r'(.+=.+)'
 
     def setUp(self):
         """ Create a logger that stores log traces. """
@@ -214,8 +217,12 @@ class ViewContextTest(unittest.TestCase):
         with patch.dict(ctx.context.applications,
                         {'abc': [], 'dummy_appli':[]}, clear=True):
             ctx.update_application_name()
-            self.assertEqual([call(APPLI, ['abc', 'dummy_appli'])],
-                             mocked_update.call_args_list)
+        # cannot rely on ordering for second parameter because of dict
+        # need to split checking
+        self.assertEqual(1, mocked_update.call_count)
+        mocked_call = mocked_update.call_args[0]
+        self.assertEqual(APPLI, mocked_call[0])
+        self.assertItemsEqual(['abc', 'dummy_appli'], mocked_call[1])
 
     @patch('supvisors.viewcontext.ViewContext.get_address_stats',
            return_value=None)
@@ -292,17 +299,35 @@ class ViewContextTest(unittest.TestCase):
                                'appliname': 'dummy_appli',
                                'period': 8})
         # test without additional parameters
-        self.assertEqual('processname=dummy_proc&amp;namespec=dummy_ns&amp;'
-                         'address=10.0.0.1&amp;cpuid=3&amp;intfname=eth0&amp;'
-                         'appliname=dummy_appli&amp;period=8',
-                         ctx.url_parameters())
+        url = ctx.url_parameters()
+        # result depends on dict contents so ordering is unreliable
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(7)])
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertItemsEqual(matches.groups(),
+                              ('processname=dummy_proc',
+                               'namespec=dummy_ns',
+                               'address=10.0.0.1',
+                               'cpuid=3',
+                               'intfname=eth0',
+                               'appliname=dummy_appli',
+                               'period=8'))
         # test with additional parameters
-        self.assertEqual('processname=dummy_proc&amp;namespec=dummy_ns&amp;'
-                         'address=127.0.0.1&amp;cpuid=3&amp;intfname=lo&amp;'
-                         'extra=args&amp;appliname=dummy_appli&amp;period=8',
-                         ctx.url_parameters(**{'address': '127.0.0.1',
-                                               'intfname': 'lo',
-                                               'extra': 'args'}))
+        url = ctx.url_parameters(**{'address': '127.0.0.1',
+                                    'intfname': 'lo',
+                                    'extra': 'args'})
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertItemsEqual(matches.groups(),
+                              ('processname=dummy_proc',
+                               'namespec=dummy_ns',
+                               'address=127.0.0.1',
+                               'cpuid=3',
+                               'intfname=lo',
+                               'extra=args',
+                               'appliname=dummy_appli',
+                               'period=8'))
 
     def test_format_url(self):
         """ Test the format_url method. """
@@ -312,12 +337,20 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual('index.html?period=5',
                          ctx.format_url(0, 'index.html'))
         # test with address and arguments
-        self.assertEqual('http://10.0.0.1:7777/index.html?extra=args&amp;'
-                         'appliname=dummy_appli&amp;period=10',
-                         ctx.format_url('10.0.0.1', 'index.html',
-                                        **{'period': 10,
-                                           'appliname': 'dummy_appli',
-                                            'extra': 'args'}))
+        url = ctx.format_url('10.0.0.1', 'index.html',
+                             **{'period': 10,
+                                'appliname': 'dummy_appli',
+                                'extra': 'args'})
+        # result depends on dict contents so ordering is unreliable
+        base_address = r'http://10.0.0.1:7777/index.html\?'
+        parameters = r'&amp;'.join([self.url_attr_template for _ in range(3)])
+        regexp = base_address + parameters
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertItemsEqual(matches.groups(),
+                              ('extra=args',
+                               'period=10',
+                               'appliname=dummy_appli'))
 
     def test_message(self):
         """ Test the message method. """
@@ -325,10 +358,17 @@ class ViewContextTest(unittest.TestCase):
         ctx = ViewContext(self.http_context)
         self.assertIsNone(self.http_context.response['headers']['Location'])
         ctx.message(('warning', 'not as expected'))
-        self.assertEqual('http://10.0.0.1:7777/index.html?'
-                         'message=not%20as%20expected&amp;period=5&amp;'
-                         'gravity=warning',
-                         self.http_context.response['headers']['Location'])
+        # result depends on dict contents so ordering is unreliable
+        url = self.http_context.response['headers']['Location']
+        base_address = r'http://10.0.0.1:7777/index.html\?'
+        parameters = r'&amp;'.join([self.url_attr_template for _ in range(3)])
+        regexp = base_address + parameters
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertItemsEqual(matches.groups(),
+                              ('message=not%20as%20expected',
+                               'period=5',
+                               'gravity=warning'))
 
     def test_get_nbcores(self):
         """ Test the get_nb_cores method. """
