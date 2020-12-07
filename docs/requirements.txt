@@ -1,1 +1,1 @@
-supervisor >= 3.3.0
+supervisor >= 4.2.1

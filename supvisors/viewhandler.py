@@ -17,33 +17,39 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisor.compat import as_bytes, as_string
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
+from supervisor.web import MeldView
 
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import AddressStates, SupvisorsStates
 from supvisors.utils import get_stats, supvisors_shortcuts
 from supvisors.viewcontext import *
-from supvisors.viewimage import process_cpu_image, process_mem_image
+from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import *
 
+# test matplotlib availability
+def test_matplotlib_import():
+    try:
+        from supvisors.plot import StatisticsPlot
+        StatisticsPlot()
+        return StatisticsPlot
+    except ImportError:
+        return None
+PLOT_CLASS = test_matplotlib_import()
 
-class ViewHandler(object):
-    """ Helper class to communalize rendering and behavior between handlers
-    inheriting from MeldView.
 
-    The use of some 'self' attributes may appear quite strange as they actually
-    belong to MeldView inheritance.
-    However it works because python interprets the attributes in the context
-    of the instance inheriting from both MeldView and this class.
-    """
+class ViewHandler(MeldView):
+    """ Helper class to commonize rendering and behavior between handlers
+    inheriting from MeldView. """
 
-    def __init__(self, context, page_name):
+    def __init__(self, context):
         """ Initialization of the attributes. """
-        # store the page name
-        self.page_name = page_name
+        MeldView.__init__(self, context)
+        self.page_name = None
         # add Supvisors shortcuts
-        # WARN: not for Supvisors context as it is already used by MeldView
+        # WARN: do not shortcut Supvisors context as it is already used by MeldView
         self.supvisors = context.supervisord.supvisors
         supvisors_shortcuts(self, ['address_mapper', 'fsm', 'info_source',
                                    'logger', 'options', 'statistician'])
@@ -54,9 +60,19 @@ class ViewHandler(object):
         # init view_ctx (only for tests)
         self.view_ctx = None
 
+    def __call__(self):
+        """ Anticipation of Supervisor#1273.
+        Return response body as bytes instead of as string to prevent
+        UnicodeDecodeError in the event of using binary references (images)
+        in HTML. """
+        response = MeldView.__call__(self)
+        if response is NOT_DONE_YET:
+            return NOT_DONE_YET
+        response['body'] = as_bytes(response['body'])
+        return response
+
     def render(self):
-        """ Method called by Supervisor to handle the rendering
-        of the Supvisors pages. """
+        """ Handle the rendering of the Supvisors pages. """
         # clone the template and set navigation menu
         if self.info_source.supervisor_state == SupervisorStates.RUNNING:
             # manage parameters
@@ -81,7 +97,7 @@ class ViewHandler(object):
             self.write_navigation(root)
             self.write_header(root)
             self.write_contents(root)
-            return root.write_xhtmlstring()
+            return as_string(root.write_xhtmlstring())
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
@@ -300,19 +316,17 @@ class ViewHandler(object):
             return True
 
     def write_process_plots(self, proc_stats):
-        """ Write the CPU / Memory plots if matplotlib is installed. """
-        try:
-            from supvisors.plot import StatisticsPlot
+        """ Write the CPU / Memory plots.
+        (only if matplotlib is installed) """
+        if PLOT_CLASS:
             # build CPU image
-            cpu_img = StatisticsPlot()
+            cpu_img = PLOT_CLASS()
             cpu_img.add_plot('CPU', '%', proc_stats[0])
-            cpu_img.export_image(process_cpu_image)
+            cpu_img.export_image(process_cpu_img)
             # build Memory image
-            mem_img = StatisticsPlot()
+            mem_img = PLOT_CLASS()
             mem_img.add_plot('MEM', '%', proc_stats[1])
-            mem_img.export_image(process_mem_image)
-        except ImportError:
-            self.logger.warn('matplotlib module not found')
+            mem_img.export_image(process_mem_img)
 
     def write_process_statistics(self, root):
         """ Display detailed statistics about the selected process. """

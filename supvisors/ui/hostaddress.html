@@ -1,14 +1,12 @@
-<!DOCTYPE html>
-<html lang="en"
-    xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:meld="http://www.plope.com/software/meld3">
-
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
-    <meta charset="utf-8" />
+    <title>Supvisors status</title>
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
-    <title>Supvisors status</title>
 </head>
 
 <body>
@@ -36,7 +34,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2018 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2020 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -61,7 +59,9 @@
                     <table class="optionBox">
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">5</a></li>
+                            <li meld:id="period_li_mid">
+                                <a href="#" meld:id="period_a_mid" class="button on">5</a>
+                            </li>
                         </ul></td></tr>
                     </table>
                 </div>
@@ -101,10 +101,16 @@
                             <table>
                                 <caption>Processor Statistics</caption>
                                 <tr>
-                                    <th>#</th><th>Last %</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                    <th>#</th>
+                                    <th>Last %</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
                                 </tr>
                                 <tr meld:id="cpu_tr_mid">
-                                    <td><a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a></td>
+                                    <td>
+                                        <a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a>
+                                    </td>
                                     <td meld:id="cpuval_td_mid">--</td>
                                     <td meld:id="cpuavg_td_mid">--</td>
                                     <td meld:id="cpuslope_td_mid">--</td>
@@ -116,8 +122,13 @@
                             <table>
                                 <caption>Memory Statistics</caption>
                                 <tr>
-                                    <th rowspan="2"><a href="#" class="button off active">mem</a></th>
-                                    <th>Occ %</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                    <th rowspan="2">
+                                        <a href="#" class="button off active">mem</a>
+                                    </th>
+                                    <th>Occ %</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
                                 </tr>
                                 <tr>
                                     <td meld:id="memval_td_mid">--</td>
@@ -145,10 +156,17 @@
                         <table>
                             <caption>Network Statistics</caption>
                             <tr>
-                                <th>Interface</th><th>Rx/Tx</th><th>Last kbit/s</th><th>Mean kbit/s</th><th>Slope %</th><th>SD kbit/s</th>
+                                <th>Interface</th>
+                                <th>Rx/Tx</th>
+                                <th>Last kbit/s</th>
+                                <th>Mean kbit/s</th>
+                                <th>Slope %</th>
+                                <th>SD kbit/s</th>
                             </tr>
                             <tr meld:id="intf_tr_mid">
-                                <td meld:id="intf_td_mid"><a href="#" meld:id="intf_a_mid" class="button on">eth#</a></td>
+                                <td meld:id="intf_td_mid">
+                                    <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
+                                </td>
                                 <td meld:id="intfrxtx_td_mid">--</td>
                                 <td meld:id="intfval_td_mid">--</td>
                                 <td meld:id="intfavg_td_mid">--</td>

@@ -27,10 +27,9 @@ PROC_ADDRESS_PAGE = 'procaddress.html'
 APPLICATION_PAGE = 'application.html'
 TAIL_PAGE = 'tail.html'
 
-
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
-Info ='info'
+Info = 'info'
 Warn = 'warn'
 Error = 'erro'
 

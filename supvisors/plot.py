@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,13 +25,13 @@ import matplotlib.pyplot as plt
 from supvisors.utils import get_stats
 
 
-# class to create statistics graph using matplotlib 
+# class to create statistics graph using matplotlib
 class StatisticsPlot(object):
     """ Class used to export statistics data into a PNG graph. """
 
     def __init__(self):
         """ Initialization of the plot. """
-        plt.figure(figsize=(6, 3))
+        plt.figure(figsize=(6, 3), dpi=90)
         self.ydata = {}
 
     def add_plot(self, title, unit, ydata):
@@ -56,20 +56,28 @@ class StatisticsPlot(object):
                 dataLine, = plt.plot(xdata, ydata, label=title)
                 plotColor = dataLine.get_color()
                 # plot the mean line
-                avg_data = [avg for _ in ydata]
-                meanLine, = plt.plot(xdata, avg_data, label='Mean: {:.2f}{}'.format(avg, unit), linestyle='--', color=plotColor)
+                avg_data = [avg,]*len(ydata)
+                meanLine, = plt.plot(xdata, avg_data,
+                                     label='Mean: {:.2f}{}'.format(avg, unit),
+                                     linestyle='--', color=plotColor)
                 if a is not None:
                     # plot the linear regression
-                    plt.plot([xdata[0], xdata[-1]], [a * xdata[0] + b,  a * xdata[-1] + b], linestyle=':', color=plotColor)
+                    plt.plot([xdata[0], xdata[-1]],
+                             [a * xdata[0] + b, a * xdata[-1] + b],
+                             linestyle=':', color=plotColor)
                 if dev is not None:
                     # plot the standard deviation
-                    plt.fill_between(xdata, avg-dev, avg+dev, facecolor=plotColor, alpha=.3)
+                    plt.fill_between(xdata, avg-dev, avg+dev,
+                                     facecolor=plotColor, alpha=.3)
                 # create the legend
-                legend = plt.legend(handles=[dataLine, meanLine], loc=i+1, fontsize='small', fancybox=True, shadow=True)
+                legend = plt.legend(handles=[dataLine, meanLine], loc=i+1,
+                                    fontsize='small', fancybox=True, shadow=True)
                 # add the legend to the current axes
                 plt.gca().add_artist(legend)
             # save image to internal memory buffer
-            plt.savefig(image_contents.new_image(), dpi=80, bbox_inches='tight', format='png')
+            # supported formats: eps, pdf, pgf, png, ps, raw, rgba, svg, svgz
+            plt.savefig(image_contents.new_image(),
+                        bbox_inches='tight', format='png')
             # reset yData
             self.ydata = {}
         # close plot
@@ -78,8 +86,10 @@ class StatisticsPlot(object):
     @staticmethod
     def get_range(lst):
         """ Return a custom range from a series of values.
+        Min range is 0.
+        Range is at least 1.
         Max range is increased to let additional space for legend. """
         min_range = math.floor(min(lst))
         max_range = math.ceil(max(lst))
-        range = max_range - min_range
+        range = max(1, max_range - min_range)
         return max(0, min_range - range * 0.1), max_range + range * .35

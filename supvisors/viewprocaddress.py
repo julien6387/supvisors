@@ -29,15 +29,23 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-class ProcAddressView(ViewHandler, StatusView):
+class ProcAddressView(StatusView):
     """ View renderer of the Process section of the Supvisors Address page.
-    First inheritance is set to ViewHandler so that it grabs the render call.
+    Inheritance is made from supervisor.web.StatusView to benefit from
+    the action methods.
+    Note that the inheritance of StatusView has been patched dynamically
+    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
+    inherits from ViewHandler instead of MeldView.
     """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        ViewHandler.__init__(self, context, PROC_ADDRESS_PAGE)
         StatusView.__init__(self, context)
+        self.page_name = PROC_ADDRESS_PAGE
+
+    def render(self):
+        """ Catch render to force the use of ViewHandler's method. """
+        return ViewHandler.render(self)
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current

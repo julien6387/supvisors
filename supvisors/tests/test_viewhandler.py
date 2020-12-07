@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch, Mock, PropertyMock, DEFAULT
+from mock import call, patch, Mock, PropertyMock
 from random import shuffle
 
 from supervisor.http import NOT_DONE_YET
@@ -37,12 +37,18 @@ class ViewHandlerTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a logger that stores log traces. """
-        self.http_context = DummyHttpContext('')
+        self.http_context = DummyHttpContext('ui/index.html')
 
     def test_init(self):
         """ Test the values set at construction. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
+        self.assertIsNotNone(handler.root)
+        self.assertIsNotNone(handler.root.findmeld('version_mid'))
+        self.assertIsNone(handler.callback)
+        # test MeldView inheritance
+        self.assertIs(handler.context, self.http_context)
+        # test ViewHandler initialization
         self.assertIs(handler.supvisors,
                       self.http_context.supervisord.supvisors)
         self.assertIs(handler.sup_ctx,
@@ -55,7 +61,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the render method when Supervisor is not in RUNNING state. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.info_source.supervisor_state = SupervisorStates.RESTARTING
         # heavy patch on handler
         # ViewHandler is designed to be used as a superclass in conjunction
@@ -80,7 +86,7 @@ class ViewHandlerTest(unittest.TestCase):
         and when an action is in progress. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
         handler.fsm.state = SupvisorsStates.OPERATION
@@ -107,7 +113,7 @@ class ViewHandlerTest(unittest.TestCase):
         when no action is in progress and no conflict is found. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
         handler.fsm.state = SupvisorsStates.OPERATION
@@ -144,7 +150,7 @@ class ViewHandlerTest(unittest.TestCase):
         when no action is in progress and conflicts are found. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
         handler.fsm.state = SupvisorsStates.CONCILIATION
@@ -179,7 +185,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the handle_parameters method. """
         from supvisors.viewcontext import ViewContext
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.context = self.http_context
         self.assertIsNone(handler.view_ctx)
         handler.handle_parameters()
@@ -191,7 +197,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_nav(self, mocked_addr, mocked_appli):
         """ Test the write_nav method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.write_nav('root', 'address', 'appli')
         self.assertEqual([call('root', 'address')],
                          mocked_addr.call_args_list)
@@ -202,7 +208,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_nav_addresses method with an address not existing
         in supvisors context. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -221,7 +227,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_nav_addresses method using a SILENT address. """
         from supvisors.ttypes import AddressStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -266,7 +272,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_nav_addresses method using a RUNNING address. """
         from supvisors.ttypes import AddressStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -324,7 +330,7 @@ class ViewHandlerTest(unittest.TestCase):
         INITIALIZATION state. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.fsm.state = SupvisorsStates.INITIALIZATION
         # patch the meld elements
         href_elt = Mock(attrib={})
@@ -372,7 +378,7 @@ class ViewHandlerTest(unittest.TestCase):
         OPERATION state. """
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.fsm.state = SupvisorsStates.OPERATION
         # patch the meld elements
         href_elt = Mock(attrib={})
@@ -427,7 +433,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_periods method. """
         from supvisors.viewcontext import PERIOD
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         href_elt = Mock(attrib={'class': ''})
         period_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -462,7 +468,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call('period_a_mid')],
                          period_elt.findmeld.call_args_list)
         self.assertEqual('', href_elt.attrib['class'])
-        self.assertEqual([call('', 'index.html', period=5)],
+        self.assertEqual([call('', None, period=5)],
                          handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
                          href_elt.attributes.call_args_list)
@@ -472,7 +478,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_common_process_cpu method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the view context
         handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'},
                                 **{'format_url.return_value': 'an url'})
@@ -519,7 +525,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([], cell_elt.replace.call_args_list)
         self.assertEqual([call('15.00%')],
                          cell_elt.content.call_args_list)
-        self.assertEqual([call('', 'index.html', processname='dummy')],
+        self.assertEqual([call('', None, processname='dummy')],
                          handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
                          cell_elt.attributes.call_args_list)
@@ -529,7 +535,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_common_process_mem method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the view context
         handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'},
                                 **{'format_url.return_value': 'an url'})
@@ -572,7 +578,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([], cell_elt.replace.call_args_list)
         self.assertEqual([call('30.00%')],
                          cell_elt.content.call_args_list)
-        self.assertEqual([call('', 'index.html', processname='dummy')],
+        self.assertEqual([call('', None, processname='dummy')],
                          handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
                          cell_elt.attributes.call_args_list)
@@ -582,7 +588,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_process_start_button(self, mocked_button):
         """ Test the write_process_start_button method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # test call indirection
         handler.write_process_start_button('elt', 'dummy_proc', 'stopped')
         self.assertEqual([call('elt', 'start_a_mid', 'start', 'dummy_proc',
@@ -593,7 +599,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_process_stop_button(self, mocked_button):
         """ Test the write_process_stop_button method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # test call indirection
         handler.write_process_stop_button('elt', 'dummy_proc', 'starting')
         self.assertEqual([call('elt', 'stop_a_mid', 'stop', 'dummy_proc',
@@ -604,7 +610,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_process_restart_button(self, mocked_button):
         """ Test the write_process_restart_button method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # test call indirection
         handler.write_process_restart_button('elt', 'dummy_proc', 'running')
         self.assertEqual([call('elt', 'restart_a_mid', 'restart', 'dummy_proc',
@@ -614,7 +620,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_process_button(self):
         """ Test the _write_process_button method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the view context
         handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # patch the meld elements
@@ -636,8 +642,8 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call('meld_id')],
                          tr_elt.findmeld.call_args_list)
         self.assertEqual('button on', cell_elt.attrib['class'])
-        self.assertEqual([call('', 'index.html',
-                               action='action', namespec='dummy_proc')],
+        self.assertEqual([call('', None, action='action',
+                               namespec='dummy_proc')],
                          handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
                          cell_elt.attributes.call_args_list)
@@ -656,7 +662,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_common_process_status method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the view context
         handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'})
         # patch the meld elements
@@ -694,7 +700,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_detailed_process_cpu(self):
         """ Test the write_detailed_process_cpu method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         val_elt = Mock(attrib={'class': ''})
         avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
@@ -733,7 +739,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_detailed_process_mem(self):
         """ Test the write_detailed_process_mem method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the meld elements
         val_elt = Mock(attrib={'class': ''})
         avg_elt, slope_elt, dev_elt = Mock(), Mock(), Mock()
@@ -757,36 +763,42 @@ class ViewHandlerTest(unittest.TestCase):
 
     @patch('supvisors.plot.StatisticsPlot.export_image')
     @patch('supvisors.plot.StatisticsPlot.add_plot')
-    @patch('supvisors.plot.StatisticsPlot', side_effect=ImportError)
-    def test_write_process_plots_import_error(self, mocked_import,
-                                              moked_add, mocked_export):
-        """ Test the write_process_plots method. """
-        from supvisors.plot import StatisticsPlot
-        from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
-        # create fake stats
-        with patch('supvisors.plot.StatisticsPlot.StatisticsPlot') \
-            as mocked_plot:
-            handler.write_process_plots([])
-        self.assertEqual([], mocked_plot.call_args_list)
-        self.assertEqual([], moked_add.call_args_list)
-        self.assertEqual([], mocked_export.call_args_list)
+    @patch.dict(sys.modules, {'matplotlib': None})
+    def test_write_process_plots_no_plot(self, mocked_add, mocked_export):
+        """ Test the write_process_plots method in the event of matplotlib import error. """
+        # test considering that matplotlib is not installed
+        import supvisors.viewhandler
+        from supvisors.viewhandler import (ViewHandler, test_matplotlib_import)
+        handler = ViewHandler(self.http_context)
+        # re-evaluate PLOT_CLASS
+        supvisors.viewhandler.PLOT_CLASS = test_matplotlib_import()
+        # test call
+        handler.write_process_plots([])
+        # test that plot methods are not called
+        self.assertFalse(mocked_add.called)
+        self.assertFalse(mocked_export.called)
 
     @patch('supvisors.plot.StatisticsPlot.export_image')
     @patch('supvisors.plot.StatisticsPlot.add_plot')
-    def test_write_process_plots(self, moked_add, mocked_export):
+    def test_write_process_plots(self, mocked_add, mocked_export):
         """ Test the write_process_plots method. """
+        # skip test if matplotlib is not installed
+        try:
+            import matplotlib
+            matplotlib.__name__
+        except ImportError:
+            raise unittest.SkipTest('cannot test as optional matplotlib is not installed')
+        # test considering that matplotlib is installed
         from supvisors.viewhandler import ViewHandler
-        from supvisors.viewimage import process_cpu_image, process_mem_image
-        handler = ViewHandler(self.http_context, 'index.html')
-         # create fake stats
+        from supvisors.viewimage import process_cpu_img, process_mem_img
+        handler = ViewHandler(self.http_context)
+        # test call with dummy stats
         proc_stats = ([10, 16, 24], [20, 32, 32])
-        # test call
         handler.write_process_plots(proc_stats)
         self.assertEqual([call('CPU', '%', [10, 16, 24]),
                           call('MEM', '%', [20, 32, 32])],
-                         moked_add.call_args_list)
-        self.assertEqual([call(process_cpu_image), call(process_mem_image)],
+                         mocked_add.call_args_list)
+        self.assertEqual([call(process_cpu_img), call(process_mem_img)],
                          mocked_export.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler.write_process_plots')
@@ -801,7 +813,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_statistics method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch the view context
         handler.view_ctx = Mock(parameters={PROCESS: ''})
         # patch the meld elements
@@ -840,7 +852,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_handle_action(self):
         """ Test the handle_action method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         handler.view_ctx = Mock(parameters={'namespec': 'dummy_proc'},
                                 **{'get_action.return_value': 'test'})
         handler.callback = None
@@ -868,7 +880,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_get_process_stats(self):
         """ Test the get_process_stats method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # patch view context
         handler.view_ctx = Mock()
         # test indirection
@@ -901,7 +913,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_sort_processes_by_config(self):
         """ Test the sort_processes_by_config method. """
         from supvisors.viewhandler import ViewHandler
-        handler = ViewHandler(self.http_context, 'index.html')
+        handler = ViewHandler(self.http_context)
         # test empty parameter
         self.assertEqual([], handler.sort_processes_by_config(None))
         # build process list

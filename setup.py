@@ -29,7 +29,7 @@ if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
     sys.stderr.write(msg)
     sys.exit(1)
 
-requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0']
+requires = ['supervisor >= 4.2.1', 'pyzmq >= 15.2.0']
 
 ip_require = ['netifaces >= 0.10.4']
 statistics_require = ['psutil >= 4.3.0', 'matplotlib >= 1.5.2']
@@ -72,7 +72,7 @@ dist = setup(
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
     url="https://github.com/julien6387/supvisors",
-    download_url = 'https://github.com/julien6387/supvisors/archive/0.1.tar.gz',
+    download_url = 'https://github.com/julien6387/supvisors/archive/0.2.tar.gz',
     platforms=[
         "CentOS 7.2"
     ],

@@ -21,14 +21,15 @@ import errno
 import os
 
 from supervisor.options import ServerOptions
-from supervisor.web import VIEWS
+from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
 from supvisors.rpcinterface import RPCInterface
-from supvisors.viewprocaddress import ProcAddressView
-from supvisors.viewhostaddress import HostAddressView
 from supvisors.viewapplication import ApplicationView
+from supvisors.viewhandler import ViewHandler
+from supvisors.viewhostaddress import HostAddressView
 from supvisors.viewimage import *
+from supvisors.viewprocaddress import ProcAddressView
 from supvisors.viewsupvisors import SupvisorsView
 
 
@@ -68,19 +69,19 @@ def update_views():
         'view': ApplicationView}
     # set fake page to export images
     VIEWS['process_cpu.png'] =  {
-        'template': os.path.join(here, 'ui/empty.html'),
+        'template': None,
         'view': ProcessCpuImageView}
     VIEWS['process_mem.png'] =  {
-        'template': os.path.join(here, 'ui/empty.html'),
+        'template': None,
         'view': ProcessMemoryImageView}
     VIEWS['address_cpu.png'] =  {
-        'template': os.path.join(here, 'ui/empty.html'),
+        'template': None,
         'view': AddressCpuImageView}
     VIEWS['address_mem.png'] =  {
-        'template': os.path.join(here, 'ui/empty.html'),
+        'template': None,
         'view': AddressMemoryImageView}
     VIEWS['address_io.png'] =  {
-        'template': os.path.join(here, 'ui/empty.html'),
+        'template': None,
         'view': AddressNetworkImageView}
 
 
@@ -100,7 +101,12 @@ def make_supvisors_rpcinterface(supervisord, **config):
     expand_faults()
     # update Supervisor http web pages
     update_views()
-    # patches the Supervisor ServerOptions.cleanup_fds
+    # patch the Supervisor ServerOptions.cleanup_fds
     ServerOptions.cleanup_fds = cleanup_fds
+    # patch inheritance of supervisor.web.StatusView
+    # 2 reasons:
+    #    * waiting for Supervisor#1273 to be fixed
+    #    * to benefit from the commonalities done in supvisors.ViewHandler
+    StatusView.__bases__ = (ViewHandler,)
     # create and return handler
     return RPCInterface(supervisord)

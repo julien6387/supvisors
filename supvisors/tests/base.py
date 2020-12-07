@@ -140,6 +140,7 @@ class DummyServerOptions:
         self.serverurl = 'url'
         self.mood = 'mood'
         self.nodaemon = True
+        self.silent = False
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]
@@ -182,10 +183,11 @@ class DummySupervisor:
 
 class DummyHttpContext:
     """ Simple HTTP context for web ui views. """
-    def __init__(self, template):
+    def __init__(self, template=None):
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
-        self.template = os.path.join(module_path, template)
+        self.template = os.path.join(module_path, template)\
+            if template else None
         self.supervisord = DummySupervisor()
         # create form and response
         self.form = {'SERVER_URL': 'http://10.0.0.1:7777',

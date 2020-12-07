@@ -1,14 +1,12 @@
-<!DOCTYPE html>
-<html lang="en"
-        xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:meld="http://www.plope.com/software/meld3">
-
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
-    <meta charset="utf-8" />
+    <title>Supvisors status</title>
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
-    <title>Supvisors status</title>
 </head>
 
 <body>
@@ -36,7 +34,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2018 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2020 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -120,10 +118,18 @@
                     <div>
                         <table>
                             <tr>
-                                <th colspan="4">CPU</th><th colspan="4">MEM</th>
+                                <th colspan="4">CPU</th>
+                                <th colspan="4">MEM</th>
                             </tr>
                             <tr>
-                                <th>%</th><th>Mean %</th><th>Slope %</th><th>SD %</th><th>%</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                <th>%</th>
+                                <th>Mean %</th>
+                                <th>Slope %</th>
+                                <th>SD %</th>
+                                <th>%</th>
+                                <th>Mean %</th>
+                                <th>Slope %</th>
+                                <th>SD %</th>
                             </tr>
                             <tr>
                                 <td meld:id="pcpuval_td_mid">--</td>

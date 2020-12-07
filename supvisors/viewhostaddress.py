@@ -23,22 +23,30 @@ from supvisors.utils import (get_stats,
                              simple_localtime,
                              supvisors_shortcuts)
 from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewimage import (address_cpu_image,
-                                 address_mem_image,
-                                 address_io_image)
+from supvisors.viewhandler import PLOT_CLASS, ViewHandler
+from supvisors.viewimage import (address_cpu_img,
+                                 address_mem_img,
+                                 address_io_img)
 from supvisors.webutils import *
 
 
-class HostAddressView(ViewHandler, StatusView):
+class HostAddressView(StatusView):
     """ View renderer of the Host section of the Supvisors Address page.
-    First inheritance is set to ViewHandler so that it grabs the render call.
+    Inheritance is made from supervisor.web.StatusView to benefit from
+    the action methods.
+    Note that the inheritance of StatusView has been patched dynamically
+    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
+    inherits from ViewHandler instead of MeldView.
     """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        ViewHandler.__init__(self, context, HOST_ADDRESS_PAGE)
         StatusView.__init__(self, context)
+        self.page_name = HOST_ADDRESS_PAGE
+
+    def render(self):
+        """ Catch render to force the use of ViewHandler's method. """
+        return ViewHandler.render(self)
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current
@@ -89,75 +97,34 @@ class HostAddressView(ViewHandler, StatusView):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection
         stats_instance = self.view_ctx.get_address_stats()
-        self.write_memory_statistics(root, stats_instance.mem)
         self.write_processor_statistics(root, stats_instance.cpu)
+        self.write_memory_statistics(root, stats_instance.mem)
         self.write_network_statistics(root, stats_instance.io)
         # write CPU / Memory / Network plots
-        try:
-            from supvisors.plot import StatisticsPlot
-            # build CPU image
-            cpu_id = self.view_ctx.parameters[CPU]
-            cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
-            cpu_img = StatisticsPlot()
-            cpu_img.add_plot('CPU #{}'.format(cpu_id_string), '%',
-                             stats_instance.cpu[cpu_id])
-            cpu_img.export_image(address_cpu_image)
-            # build Memory image
-            mem_img = StatisticsPlot()
-            mem_img.add_plot('MEM', '%', stats_instance.mem)
-            mem_img.export_image(address_mem_image)
-            # build Network image
-            intf_name = self.view_ctx.parameters[INTF]
-            if intf_name:
-                io_img = StatisticsPlot()
-                io_img.add_plot('{} recv'.format(intf_name), 'kbits/s',
-                                stats_instance.io[intf_name][0])
-                io_img.add_plot('{} sent'.format(intf_name),'kbits/s',
-                                stats_instance.io[intf_name][1])
-                io_img.export_image(address_io_image)
-        except ImportError:
-            self.logger.warn("matplotlib module not found")
-
-    def write_memory_statistics(self, root, mem_stats):
-        """ Rendering of the memory statistics. """
-        if len(mem_stats) > 0:
-            # get additional statistics
-            avg, rate, (a, b), dev = get_stats(mem_stats)
-            # set last value
-            elt = root.findmeld('memval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content('{:.2f}'.format(mem_stats[-1]))
-            # set mean value
-            elt = root.findmeld('memavg_td_mid')
-            elt.content('{:.2f}'.format(avg))
-            if a is not None:
-                # set slope of linear regression
-                elt = root.findmeld('memslope_td_mid')
-                elt.content('{:.2f}'.format(a))
-            if dev is not None:
-                # set standard deviation
-                elt = root.findmeld('memdev_td_mid')
-                elt.content('{:.2f}'.format(dev))
+        if PLOT_CLASS:
+            self._write_cpu_image(root, stats_instance.cpu)
+            self._write_mem_image(root, stats_instance.mem)
+            self._write_io_image(root, stats_instance.io)
 
     def write_processor_statistics(self, root, cpu_stats):
         """ Rendering of the processor statistics. """
+        selected_cpu_id = self.view_ctx.parameters[CPU]
         iterator = root.findmeld('cpu_tr_mid').repeat(cpu_stats)
         shaded_tr = False
-        for idx, (tr_element, single_cpu_stats) in enumerate(iterator):
+        for cpu_id, (tr_element, single_cpu_stats) in enumerate(iterator):
             selected_tr = False
             # set CPU id
-            cpu_id = self.view_ctx.parameters[CPU]
             elt = tr_element.findmeld('cpunum_a_mid')
-            if cpu_id == idx:
+            if selected_cpu_id == cpu_id:
                 selected_tr = True
                 elt.attrib['class'] = 'button off active'
             else:
                 url = self.view_ctx.format_url('', self.page_name,
-                                               **{CPU: idx})
+                                               **{CPU: cpu_id})
                 elt.attributes(href=url)
             cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
             elt.content('cpu#%s' % cpu_id_string)
+            # set statistics
             if len(single_cpu_stats) > 0:
                 avg, rate, (a, b), dev = get_stats(single_cpu_stats)
                 # set last value with instant slope
@@ -181,6 +148,28 @@ class HostAddressView(ViewHandler, StatusView):
             elif shaded_tr:
                 tr_element.attrib['class'] = 'shaded'
             shaded_tr = not shaded_tr
+
+    def write_memory_statistics(self, root, mem_stats):
+        """ Rendering of the memory statistics. """
+        if len(mem_stats) > 0:
+            # get additional statistics
+            avg, rate, (a, b), dev = get_stats(mem_stats)
+            # set last value
+            elt = root.findmeld('memval_td_mid')
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            elt.content('{:.2f}'.format(mem_stats[-1]))
+            # set mean value
+            elt = root.findmeld('memavg_td_mid')
+            elt.content('{:.2f}'.format(avg))
+            if a is not None:
+                # set slope of linear regression
+                elt = root.findmeld('memslope_td_mid')
+                elt.content('{:.2f}'.format(a))
+            if dev is not None:
+                # set standard deviation
+                elt = root.findmeld('memdev_td_mid')
+                elt.content('{:.2f}'.format(dev))
 
     def write_network_statistics(self, root, io_stats):
         """ Rendering of the network statistics. """
@@ -239,6 +228,41 @@ class HostAddressView(ViewHandler, StatusView):
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
+
+    def _write_cpu_image(self, root,  cpu_stats):
+        """ Write CPU data into Base64 image. """
+        # get CPU data
+        cpu_id = self.view_ctx.parameters[CPU]
+        cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
+        stats_instance = self.view_ctx.get_address_stats()
+        cpu_data = cpu_stats[cpu_id]
+        # build image from data
+        plt = PLOT_CLASS()
+        plt.add_plot('CPU #{}'.format(cpu_id_string),
+                     '%', cpu_data)
+        plt.export_image(address_cpu_img)
+
+    def _write_mem_image(self, root, mem_stats):
+        """ Write MEM data into Base64 image. """
+        # build image from data
+        plt = PLOT_CLASS()
+        plt.add_plot('MEM', '%', mem_stats)
+        plt.export_image(address_mem_img)
+
+    def _write_io_image(self, root, io_stats):
+        """ Write MEM data into Base64 image. """
+        # get IO data
+        intf_name = self.view_ctx.parameters[INTF]
+        if intf_name:
+            recv_data = io_stats[intf_name][0]
+            sent_data = io_stats[intf_name][1]
+            # build image from data
+            plt = PLOT_CLASS()
+            plt.add_plot('{} recv'.format(intf_name),
+                         'kbits/s', recv_data)
+            plt.add_plot('{} sent'.format(intf_name),
+                         'kbits/s', sent_data)
+            plt.export_image(address_io_img)
 
     def make_callback(self, namespec, action):
         """ Triggers the action requested. """

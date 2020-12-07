@@ -221,7 +221,7 @@ class Parser(object):
         return program_elt
 
     def parse(self, filename):
-        self.parser = None
+        """ Parse the file depending on the modules installed. """
         # find parser
         try:
             from lxml.etree import parse, XMLSchema

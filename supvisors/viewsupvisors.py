@@ -33,7 +33,8 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-class SupvisorsView(MeldView, ViewHandler):
+#class SupvisorsView(ViewHandler, MeldView):
+class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
         * a navigation menu towards addresses contents and applications,
@@ -41,12 +42,15 @@ class SupvisorsView(MeldView, ViewHandler):
         * actions on Supvisors,
         * a synoptic of the processes running on the different addresses,
         * in CONCILIATION state only, the synoptic is replaced by a table of
-        conflicts with tools to solve them. """
+        conflicts with tools to solve them.
+    """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        ViewHandler.__init__(self, context, SUPVISORS_PAGE)
-        MeldView.__init__(self, context)
+        ViewHandler.__init__(self, context)
+        #ViewHandler.__init__(self, context, SUPVISORS_PAGE)
+        #MeldView.__init__(self, context)
+        self.page_name = SUPVISORS_PAGE
         # get applicable conciliation strategies
         self.strategies = map(str.lower, ConciliationStrategies._strings())
         user = ConciliationStrategies._to_string(ConciliationStrategies.USER)

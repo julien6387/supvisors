@@ -76,24 +76,19 @@ class PluginTest(unittest.TestCase):
                                  'supvisors/ui/procaddress.html$')
         self.assertEqual(view['view'], ProcAddressView)
         view = VIEWS['address_mem.png']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/empty.html$')
+        self.assertIsNone(view['template'])
         self.assertEqual(view['view'], AddressMemoryImageView)
         view = VIEWS['process_mem.png']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/empty.html$')
+        self.assertIsNone(view['template'])
         self.assertEqual(view['view'], ProcessMemoryImageView)
         view = VIEWS['address_cpu.png']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/empty.html$')
+        self.assertIsNone(view['template'])
         self.assertEqual(view['view'], AddressCpuImageView)
         view = VIEWS['process_cpu.png']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/empty.html$')
+        self.assertIsNone(view['template'])
         self.assertEqual(view['view'], ProcessCpuImageView)
         view = VIEWS['address_io.png']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/empty.html$')
+        self.assertIsNone(view['template'])
         self.assertEqual(view['view'], AddressNetworkImageView)
 
     @patch('supvisors.plugin.update_views')

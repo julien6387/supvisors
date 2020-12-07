@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +19,8 @@
 
 from io import BytesIO
 
-from supervisor.web import MeldView
+from supervisor.compat import as_bytes
+from supervisor.medusa.http_server import http_date
 
 
 # exchange class for images
@@ -35,29 +36,39 @@ class StatsImage(object):
         self.contents = BytesIO()
         return self.contents
 
-# instance for image buffers
-address_cpu_image = StatsImage()
-address_mem_image = StatsImage()
-address_io_image = StatsImage()
 
-process_cpu_image = StatsImage()
-process_mem_image = StatsImage()
+# instance for image buffers
+address_cpu_img = StatsImage()
+address_mem_img = StatsImage()
+address_io_img = StatsImage()
+
+process_cpu_img = StatsImage()
+process_mem_img = StatsImage()
 
 
 # simple handlers for web images
-class ImageView(MeldView):
-    """ Dummy view holding an image. """
+class ImageView(object):
+
+    content_type = 'image/png'
+    delay = .5
 
     def __init__(self, context, buffer):
-        """ Storage of the reference to the buffer. """
-        MeldView.__init__(self, context)
+        self.context = context
         self.buffer = buffer
 
-    def render(self):
-        """ Export the internal memory buffer. """
+    def __call__(self):
+        response = self.context.response
+        headers = response['headers']
+        headers['Content-Type'] = self.content_type
+        headers['Pragma'] = 'no-cache'
+        headers['Cache-Control'] = 'no-cache'
+        headers['Expires'] = http_date.build_http_date(0)
         if self.buffer.contents:
-            return self.buffer.contents.getvalue()
-        return self.clone().write_xhtmlstring()
+            body = self.buffer.contents.getvalue()
+        else:
+            body = ''
+        response['body'] = as_bytes(body)
+        return response
 
 
 class AddressCpuImageView(ImageView):
@@ -65,7 +76,7 @@ class AddressCpuImageView(ImageView):
 
     def __init__(self, context):
         """ Link to the Address CPU buffer. """
-        ImageView.__init__(self, context, address_cpu_image)
+        ImageView.__init__(self, context, address_cpu_img)
 
 
 class AddressMemoryImageView(ImageView):
@@ -73,7 +84,7 @@ class AddressMemoryImageView(ImageView):
 
     def __init__(self, context):
         """ Link to the Address Memory buffer. """
-        ImageView.__init__(self, context, address_mem_image)
+        ImageView.__init__(self, context, address_mem_img)
 
 
 class AddressNetworkImageView(ImageView):
@@ -81,7 +92,7 @@ class AddressNetworkImageView(ImageView):
 
     def __init__(self, context):
         """ Link to the Address Network buffer. """
-        ImageView.__init__(self, context, address_io_image)
+        ImageView.__init__(self, context, address_io_img)
 
 
 class ProcessCpuImageView(ImageView):
@@ -89,7 +100,7 @@ class ProcessCpuImageView(ImageView):
 
     def __init__(self, context):
         """ Link to the Process CPU buffer. """
-        ImageView.__init__(self, context, process_cpu_image)
+        ImageView.__init__(self, context, process_cpu_img)
 
 
 class ProcessMemoryImageView(ImageView):
@@ -97,5 +108,5 @@ class ProcessMemoryImageView(ImageView):
 
     def __init__(self, context):
         """ Link to the Process Memory buffer. """
-        ImageView.__init__(self, context, process_mem_image)
+        ImageView.__init__(self, context, process_mem_img)
 

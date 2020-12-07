@@ -18,7 +18,6 @@
 # ======================================================================
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import StartingStrategies
@@ -28,13 +27,13 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-class ApplicationView(ViewHandler, MeldView):
+class ApplicationView(ViewHandler):
     """ Supvisors Application page. """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        ViewHandler.__init__(self, context, APPLICATION_PAGE)
-        MeldView.__init__(self, context)
+        ViewHandler.__init__(self, context)
+        self.page_name = APPLICATION_PAGE
         # init parameters
         self.application_name = ''
         self.application = None
