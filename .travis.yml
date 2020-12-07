@@ -1,11 +1,17 @@
 language: python
 
-sudo: false
-
-env:
-    - TOXENV=cover
-    - TOXENV=py27
-#    - TOXENV=pypy
+matrix:
+    include:
+        - python: 2.7
+          env: TOXENV=cover
+        - python: 2.7
+          env:
+            - TOXENV=py27
+            - END_TO_END=1
+        - python: 2.7
+          env:
+            - TOXENV=py27-configparser
+            - END_TO_END=1
 
 install:
     - travis_retry pip install tox
