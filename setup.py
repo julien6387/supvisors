@@ -35,7 +35,7 @@ ip_require = ['netifaces >= 0.10.4']
 statistics_require = ['psutil >= 4.3.0', 'matplotlib >= 1.5.2']
 xml_valid_require = ['lxml >= 3.2.1']
 
-tests_require = ['mock >= 0.5.0']
+tests_require = ['mock<4.0.0.dev0']
 testing_extras = tests_require + ['pytest >= 2.5.2', 'pytest-cov']
 
 here = os.path.abspath(os.path.dirname(__file__))
