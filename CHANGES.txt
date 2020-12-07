@@ -1,3 +1,12 @@
+0.2 (unreleased)
+----------------
+
+* Fixed https://github.com/julien6387/supvisors/issues/72
+  The extra arguments are shared between all Supvisors instances.
+
+* Fixed some document formatting issues.
+
+
 0.1 (2017-08-11)
 ----------------
 

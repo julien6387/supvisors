@@ -51,6 +51,9 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /** The addresses where the process is running. */
     private List<String> addresses;
     
+    /** The extra arguments passed to the command line. */
+    private String extraArgs;
+    
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -64,7 +67,8 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
         this.expectedExitStatus = (Boolean) processInfo.get("expected_exit");
         this.lastEventTime = (Integer) processInfo.get("last_event_time");
         this.addresses = DataConversion.arrayToStringList((Object[]) processInfo.get("addresses"));
-    }
+         this.extraArgs = (String) processInfo.get("extra_args");
+   }
 
     /**
      * This constructor gets all information from a JSON string.
@@ -85,6 +89,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
         for (int i=0 ; i<addresses.length() ; i++) {
             this.addresses.add(addresses.getString(i));
         }
+        this.extraArgs = obj.getString("extra_args");
     }
 
     /**
@@ -152,15 +157,29 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getExtraArgs method returns the exta arguments passed to the
+     * command line.
+     *
+     * @return String: The arguments.
+     */
+    public String getExtraArgs() {
+        return this.extraArgs;
+    }
+
+    /**
      * The toString method returns a printable form of the contents of the instance.
      *
      * @return String: The contents of the instance.
      */
     public String toString() {
         return "SupvisorsProcessInfo(namespec=" + this.namespec
-            + " applicationName=" + this.applicationName + " processName=" + this.processName
-            + " state=" + this.state + " expectedExitStatus=" + this.expectedExitStatus
-            + " lastEventTime=" + this.lastEventTime + " addresses=" + this.addresses + ")";
+            + " applicationName=" + this.applicationName
+            + " processName=" + this.processName
+            + " state=" + this.state
+            + " expectedExitStatus=" + this.expectedExitStatus
+            + " lastEventTime=" + this.lastEventTime
+            + " addresses=" + this.addresses
+            + " extraArgs=" + this.extraArgs + ")";
     }
 
 }

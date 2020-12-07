@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -111,7 +111,7 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_all_addresses_info
         mocked_rpc.return_value = [
             {'address_name': '10.0.0.1', 'statename': 'running',
-                'loading': 10, 'local_time': 1500}, 
+                'loading': 10, 'local_time': 1500},
             {'address_name': '10.0.0.2', 'statename': 'stopped',
                 'loading': 0, 'local_time': 100}]
         self._check_call(mocked_check, mocked_rpc,
@@ -125,7 +125,7 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_address_info
         mocked_rpc.side_effect = [
             {'address_name': '10.0.0.1', 'statename': 'running',
-                'loading': 10, 'local_time': 1500}, 
+                'loading': 10, 'local_time': 1500},
             {'address_name': '10.0.0.2', 'statename': 'stopped',
                 'loading': 0, 'local_time': 100}]
         self._check_call(mocked_check, mocked_rpc,
@@ -144,7 +144,7 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_all_applications_info
         mocked_rpc.return_value = [
             {'application_name': 'appli_1', 'statename': 'running',
-                'major_failure': True, 'minor_failure': False}, 
+                'major_failure': True, 'minor_failure': False},
             {'application_name': 'appli_2', 'statename': 'stopped',
                 'major_failure': False, 'minor_failure': True}]
         self._check_call(mocked_check, mocked_rpc,
@@ -158,7 +158,7 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_application_info
         mocked_rpc.side_effect = [
             {'application_name': 'appli_1', 'statename': 'running',
-                'major_failure': True, 'minor_failure': False}, 
+                'major_failure': True, 'minor_failure': False},
             {'application_name': 'appli_2', 'statename': 'stopped',
                 'major_failure': False, 'minor_failure': True}]
         self._check_call(mocked_check, mocked_rpc,
@@ -167,7 +167,7 @@ class ControllerPluginTest(unittest.TestCase):
             [call('appli_2'), call('appli_1')])
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
-        return_value=True)
+           return_value=True)
     def test_sstatus(self, mocked_check):
         """ Test the sstatus request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -177,29 +177,57 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_all_process_info
         mocked_rpc.return_value = [
             {'application_name': 'appli_1', 'process_name': 'proc_1',
-                'statename': 'running', 'addresses': ['10.0.1', '10.0.2']}, 
+             'statename': 'running', 'addresses': ['10.0.1', '10.0.2']},
             {'application_name': 'appli_2', 'process_name': 'proc_3',
-                'statename': 'stopped', 'addresses': []}]
+             'statename': 'stopped', 'addresses': []}]
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_sstatus, plugin.do_sstatus, '',
-            [call()])
+                         plugin.help_sstatus, plugin.do_sstatus, '',
+                         [call()])
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_sstatus, plugin.do_sstatus, 'all',
-            [call()])
+                         plugin.help_sstatus, plugin.do_sstatus, 'all',
+                         [call()])
         # test help and request for process info from a selection of namespecs
         mocked_rpc = plugin.supvisors().get_process_info
         mocked_rpc.side_effect = [
             [{'application_name': 'appli_1', 'process_name': 'proc_1',
-                'statename': 'running', 'addresses': ['10.0.1', '10.0.2']}],
+              'statename': 'running', 'addresses': ['10.0.1', '10.0.2']}],
             [{'application_name': 'appli_2', 'process_name': 'proc_3',
-                'statename': 'stopped', 'addresses': []}]]
+              'statename': 'stopped', 'addresses': []}]]
         self._check_call(mocked_check, mocked_rpc,
-            plugin.help_sstatus, plugin.do_sstatus,
-            'appli_2:proc_3 appli_1:proc_1',
-            [call('appli_2:proc_3'), call('appli_1:proc_1')])
+                         plugin.help_sstatus, plugin.do_sstatus,
+                         'appli_2:proc_3 appli_1:proc_1',
+                         [call('appli_2:proc_3'), call('appli_1:proc_1')])
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
-        return_value=True)
+           return_value=True)
+    def test_local_status(self, mocked_check):
+        """ Test the local_status request. """
+        from supvisors.supvisorsctl import ControllerPlugin
+        # create the instance
+        plugin = ControllerPlugin(self.controller)
+        # test help and request for all local process info
+        mocked_rpc = plugin.supvisors().get_all_local_process_info
+        mocked_rpc.return_value = [
+            {'group': 'appli_1', 'name': 'proc_1',
+             'state': 'running', 'start': 1234, 'now': 4321, 'pid': 14725,
+             'extra_args': '-x dummy'},
+            {'group': 'appli_2', 'name': 'proc_3',
+             'state': 'stopped', 'start': 0, 'now': 0, 'pid': 0,
+             'extra_args': ''}]
+        self._check_call(mocked_check, mocked_rpc,
+                         plugin.help_local_status, plugin.do_local_status, '',
+                         [call()])
+        self._check_call(mocked_check, mocked_rpc,
+                         plugin.help_local_status, plugin.do_local_status, 'all',
+                         [call()])
+        # test help and request for process info from a selection of namespecs
+        self._check_call(mocked_check, mocked_rpc,
+                         plugin.help_local_status, plugin.do_local_status,
+                         'appli_2:proc_3 appli_1:proc_1',
+                         [call()])
+
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
+           return_value=True)
     def test_application_rules(self, mocked_check):
         """ Test the application_rules request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -214,7 +242,7 @@ class ControllerPluginTest(unittest.TestCase):
             {'application_name': 'appli_1',
                 'start_sequence': 2, 'stop_sequence': 3,
                 'starting_failure_strategy': 2,
-                'running_failure_strategy': 1}, 
+                'running_failure_strategy': 1},
             {'application_name': 'appli_2',
                 'start_sequence': 1, 'stop_sequence': 0,
                 'starting_failure_strategy': 0,
@@ -266,7 +294,7 @@ class ControllerPluginTest(unittest.TestCase):
                 'start_sequence': 2, 'stop_sequence': 3,
                 'required': True, 'wait_exit': False,
                 'expected_loading': 50,
-                'running_failure_strategy': 1}], 
+                'running_failure_strategy': 1}],
             [{'application_name': 'appli_2', 'process_name': 'proc_3',
                 'addresses': ['*'],
                 'start_sequence': 1, 'stop_sequence': 0,
@@ -636,7 +664,7 @@ class ControllerPluginTest(unittest.TestCase):
         self.check_output_error(True)
 
     def _check_call(self, mocked_check, mocked_rpc,
-            help_fct, do_fct, arg, rpc_result):
+                    help_fct, do_fct, arg, rpc_result):
         """ Generic test of help and request. """
         # test that help uses output
         help_fct()

@@ -100,6 +100,7 @@ Status
             'statecode'        ``int``         The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
             'statename'        ``str``         The string state of the process, in [``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'``].
             'addresses'        ``list(str)``   The list of all addresses where the process is running.
+            'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
             .. note::
@@ -108,6 +109,22 @@ Status
 
 
         .. automethod:: get_all_process_info()
+
+        .. automethod:: get_local_process_info(namespec)
+
+            ================== =============== ===========
+            Key                Type            Description
+            ================== =============== ===========
+            'group'            ``str``         The name of the process' application.
+            'name'             ``str``         The name of the process.
+            'state'            ``int``         The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+            'start'            ``int``         The start date of the process.
+            'now'              ``int``         The current date of the process.
+            'pid'              ``int``         The UNIX process identifier.
+            'extra_args'       ``str``         The extra arguments used in the command line of the process.
+            ================== =============== ===========
+
+        .. automethod:: get_all_local_process_info()
 
         .. automethod:: get_application_rules(application_name)
 
@@ -177,13 +194,13 @@ Process Control
 
   .. autoclass:: RPCInterface
 
-        .. automethod:: start_args(namespec, extra_args=None, wait=True)
+        .. automethod:: start_args(namespec, extra_args='', wait=True)
 
-        .. automethod:: start_process(strategy, namespec, extra_args=None, wait=True)
+        .. automethod:: start_process(strategy, namespec, extra_args='', wait=True)
 
         .. automethod:: stop_process(namespec, wait=True)
 
-        .. automethod:: restart_process(strategy, namespec, wait=True)
+        .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
 
 XML-RPC Clients
@@ -202,12 +219,9 @@ However, it is assumed that the environment parameter contains the relevant
 HTTP configuration, as it would be set for a process spawed by Supervisor.
 More particularly, it is expected that the following variables are set:
 
-    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server
-    (ex: ``http://localhost:60000``),
-    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication
-    (may be empty),
-    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication
-    (may be empty).
+    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server (ex: ``http://localhost:60000``),
+    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
+    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
 
 The first is to use the ``getRPCInterface`` of the ``supervisor.childutils``
 module.

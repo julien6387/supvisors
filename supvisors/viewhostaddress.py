@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,70 +19,38 @@
 
 from supervisor.web import StatusView
 
-from supvisors.utils import get_stats, simple_localtime, supvisors_short_cuts
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewimage import address_cpu_image, address_mem_image, address_io_image
+from supvisors.utils import (get_stats,
+                             simple_localtime,
+                             supvisors_shortcuts)
+from supvisors.viewcontext import *
+from supvisors.viewhandler import PLOT_CLASS, ViewHandler
+from supvisors.viewimage import (address_cpu_img,
+                                 address_mem_img,
+                                 address_io_img)
 from supvisors.webutils import *
 
 
-class HostAddressView(StatusView, ViewHandler):
-    """ View renderer of the Host section of the Supvisors Address page. """
-
-    # Name of the HTML page
-    page_name = 'hostaddress.html'
-
-    # static attributes for statistics selection
-    cpu_id_stats = 0
-    interface_stats = ''
+class HostAddressView(StatusView):
+    """ View renderer of the Host section of the Supvisors Address page.
+    Inheritance is made from supervisor.web.StatusView to benefit from
+    the action methods.
+    Note that the inheritance of StatusView has been patched dynamically
+    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
+    inherits from ViewHandler instead of MeldView.
+    """
 
     def __init__(self, context):
-        """ Initialization of the attributes. """
+        """ Call of the superclass constructors. """
         StatusView.__init__(self, context)
-        self.supvisors = self.context.supervisord.supvisors
-        supvisors_short_cuts(self, ['info_source', 'logger'])
-        self.address = self.supvisors.address_mapper.local_address
+        self.page_name = HOST_ADDRESS_PAGE
 
     def render(self):
-        """ Method called by Supervisor to handle the rendering of the Supvisors Address page. """
-        # Force the call to the render method of ViewHandler
+        """ Catch render to force the use of ViewHandler's method. """
         return ViewHandler.render(self)
 
-    def handle_parameters(self):
-        """ Retrieve the parameters selected on the web page
-        These parameters are static to the current class, so they are shared between all browsers connected on this server. """
-        # call parent
-        ViewHandler.handle_parameters(self)
-        # get owned parameters
-        form = self.context.form
-       # update CPU statistics selection
-        cpuid = form.get('idx')
-        if cpuid:
-            try:
-                cpuid = int(cpuid)
-            except ValueError:
-                self.message(error_message('Cpu id is not an integer: {}'.format(cpuid)))
-            else:
-                address_stats = self.get_address_stats()
-                if cpuid < len(address_stats.cpu):
-                    if HostAddressView.cpu_id_stats != cpuid:
-                        self.logger.info('select cpu#{} statistics for address'.format(self.cpu_id_to_string(cpuid)))
-                        HostAddressView.cpu_id_stats = cpuid
-                else:
-                    self.message(error_message('Incorrect stats cpu id: {}'.format(cpuid)))
-        # update Network statistics selection
-        interface = form.get('intf')
-        if interface:
-            # check if interface requested exists
-            address_stats = self.get_address_stats()
-            if interface in address_stats.io.keys():
-                if HostAddressView.interface_stats != interface:
-                    self.logger.info('select Interface graph for {}'.format(interface))
-                    HostAddressView.interface_stats = interface
-            else:
-                self.message(error_message('Incorrect stats interface: {}'.format(interface)))
-
     def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection of the current address. """
+        """ Rendering of the navigation menu with selection of the current
+        address. """
         self.write_nav(root, address=self.address)
 
     def write_header(self, root):
@@ -99,82 +67,64 @@ class HostAddressView(StatusView, ViewHandler):
         # set loading
         elt = root.findmeld('percent_mid')
         elt.content('{}%'.format(status.loading()))
-        # set last tick date: remote_time and local_time should be identical since self is running on the 'remote' address
+        # set last tick date: remote_time and local_time should be identical
+        # since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(simple_localtime(status.remote_time))
         # write periods of statistics
         self.write_periods(root)
+        # write actions related to address
+        self.write_address_actions(root)
 
-    def get_address_stats(self):
-        """ Get the statistics structure related to the local address and the period selected. """
-        return self.supvisors.statistician.data[self.address][ViewHandler.period_stats]
+    def write_address_actions(self, root):
+        """ Write actions related to the address. """
+        # configure host address button
+        elt = root.findmeld('proc_a_mid')
+        url = self.view_ctx.format_url('', PROC_ADDRESS_PAGE)
+        elt.attributes(href=url)
+        # configure refresh button
+        elt = root.findmeld('refresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'refresh'})
+        elt.attributes(href=url)
+        # configure stop all button
+        elt = root.findmeld('stopall_a_mid')
+        url = self.view_ctx.format_url('', self.page_name,
+                                       **{ACTION: 'stopall'})
+        elt.attributes(href=url)
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection
-        stats_instance = self.get_address_stats()
-        self.write_memory_statistics(root, stats_instance.mem)
+        stats_instance = self.view_ctx.get_address_stats()
         self.write_processor_statistics(root, stats_instance.cpu)
+        self.write_memory_statistics(root, stats_instance.mem)
         self.write_network_statistics(root, stats_instance.io)
         # write CPU / Memory / Network plots
-        try:
-            from supvisors.plot import StatisticsPlot
-            # build CPU image
-            cpu_img = StatisticsPlot()
-            cpu_img.add_plot('CPU #{}'.format(self.cpu_id_to_string(HostAddressView.cpu_id_stats)), '%',
-                stats_instance.cpu[HostAddressView.cpu_id_stats])
-            cpu_img.export_image(address_cpu_image)
-            # build Memory image
-            mem_img = StatisticsPlot()
-            mem_img.add_plot('MEM', '%', stats_instance.mem)
-            mem_img.export_image(address_mem_image)
-            # build Network image
-            if HostAddressView.interface_stats:
-                io_img = StatisticsPlot()
-                io_img.add_plot('{} recv'.format(HostAddressView.interface_stats), 'kbits/s',
-                    stats_instance.io[HostAddressView.interface_stats][0])
-                io_img.add_plot('{} sent'.format(HostAddressView.interface_stats), 'kbits/s',
-                    stats_instance.io[HostAddressView.interface_stats][1])
-                io_img.export_image(address_io_image)
-        except ImportError:
-            self.logger.warn("matplotlib module not found")
-
-    def write_memory_statistics(self, root, mem_stats):
-        """ Rendering of the memory statistics. """
-        if len(mem_stats) > 0:
-            # get additional statistics
-            avg, rate, (a, b), dev = get_stats(mem_stats)
-            # set last value
-            elt = root.findmeld('memval_td_mid')
-            if rate is not None:
-                self.set_slope_class(elt, rate)
-            elt.content('{:.2f}'.format(mem_stats[-1]))
-            # set mean value
-            elt = root.findmeld('memavg_td_mid')
-            elt.content('{:.2f}'.format(avg))
-            if a is not None:
-            	# set slope of linear regression
-            	elt = root.findmeld('memslope_td_mid')
-            	elt.content('{:.2f}'.format(a))
-            if dev is not None:
-            	# set standard deviation
-            	elt = root.findmeld('memdev_td_mid')
-            	elt.content('{:.2f}'.format(dev))
+        if PLOT_CLASS:
+            self._write_cpu_image(root, stats_instance.cpu)
+            self._write_mem_image(root, stats_instance.mem)
+            self._write_io_image(root, stats_instance.io)
 
     def write_processor_statistics(self, root, cpu_stats):
         """ Rendering of the processor statistics. """
+        selected_cpu_id = self.view_ctx.parameters[CPU]
         iterator = root.findmeld('cpu_tr_mid').repeat(cpu_stats)
         shaded_tr = False
-        for idx, (tr_element, single_cpu_stats) in enumerate(iterator):
+        for cpu_id, (tr_element, single_cpu_stats) in enumerate(iterator):
             selected_tr = False
             # set CPU id
             elt = tr_element.findmeld('cpunum_a_mid')
-            if HostAddressView.cpu_id_stats == idx:
+            if selected_cpu_id == cpu_id:
                 selected_tr = True
                 elt.attrib['class'] = 'button off active'
             else:
-                elt.attributes(href='{}?idx={}'.format(HostAddressView.page_name, idx))
-            elt.content('cpu#{}'.format(idx-1 if idx > 0 else 'all'))
+                url = self.view_ctx.format_url('', self.page_name,
+                                               **{CPU: cpu_id})
+                elt.attributes(href=url)
+            cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
+            elt.content('cpu#%s' % cpu_id_string)
+            # set statistics
             if len(single_cpu_stats) > 0:
                 avg, rate, (a, b), dev = get_stats(single_cpu_stats)
                 # set last value with instant slope
@@ -199,15 +149,35 @@ class HostAddressView(StatusView, ViewHandler):
                 tr_element.attrib['class'] = 'shaded'
             shaded_tr = not shaded_tr
 
+    def write_memory_statistics(self, root, mem_stats):
+        """ Rendering of the memory statistics. """
+        if len(mem_stats) > 0:
+            # get additional statistics
+            avg, rate, (a, b), dev = get_stats(mem_stats)
+            # set last value
+            elt = root.findmeld('memval_td_mid')
+            if rate is not None:
+                self.set_slope_class(elt, rate)
+            elt.content('{:.2f}'.format(mem_stats[-1]))
+            # set mean value
+            elt = root.findmeld('memavg_td_mid')
+            elt.content('{:.2f}'.format(avg))
+            if a is not None:
+                # set slope of linear regression
+                elt = root.findmeld('memslope_td_mid')
+                elt.content('{:.2f}'.format(a))
+            if dev is not None:
+                # set standard deviation
+                elt = root.findmeld('memdev_td_mid')
+                elt.content('{:.2f}'.format(dev))
+
     def write_network_statistics(self, root, io_stats):
         """ Rendering of the network statistics. """
-        if not HostAddressView.interface_stats:
-            # choose first interface name by default
-            address_stats = self.get_address_stats()
-            io_stats = address_stats.io
-            HostAddressView.interface_stats = next(iter(io_stats.keys()))
+        intf_name = self.view_ctx.parameters[INTF]
         # display io statistics
-        flatten_io_stats = [(intf, lst) for intf, lsts in io_stats.items() for lst in lsts]
+        flatten_io_stats = [(intf, lst)
+                            for intf, lsts in io_stats.items()
+                            for lst in lsts]
         iterator = root.findmeld('intf_tr_mid').repeat(flatten_io_stats)
         rowspan, shaded_tr = True, False
         for tr_element, (intf, single_io_stats) in iterator:
@@ -218,14 +188,16 @@ class HostAddressView(StatusView, ViewHandler):
                 elt.attrib['rowspan'] = "2"
                 # set interface name
                 elt = elt.findmeld('intf_a_mid')
-                if HostAddressView.interface_stats == intf:
+                if intf_name == intf:
                     selected_tr = True
                     elt.attrib['class'] = 'button off active'
                 else:
-                    elt.attributes(href='{}?intf={}'.format(HostAddressView.page_name, intf))
+                    url = self.view_ctx.format_url('', self.page_name,
+                                                   **{INTF: intf})
+                    elt.attributes(href=url)
                 elt.content(intf)
             else:
-                if HostAddressView.interface_stats == intf:
+                if intf_name == intf:
                     selected_tr = True
                 elt.replace('')
             # set interface direction
@@ -256,6 +228,41 @@ class HostAddressView(StatusView, ViewHandler):
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
+
+    def _write_cpu_image(self, root,  cpu_stats):
+        """ Write CPU data into Base64 image. """
+        # get CPU data
+        cpu_id = self.view_ctx.parameters[CPU]
+        cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
+        stats_instance = self.view_ctx.get_address_stats()
+        cpu_data = cpu_stats[cpu_id]
+        # build image from data
+        plt = PLOT_CLASS()
+        plt.add_plot('CPU #{}'.format(cpu_id_string),
+                     '%', cpu_data)
+        plt.export_image(address_cpu_img)
+
+    def _write_mem_image(self, root, mem_stats):
+        """ Write MEM data into Base64 image. """
+        # build image from data
+        plt = PLOT_CLASS()
+        plt.add_plot('MEM', '%', mem_stats)
+        plt.export_image(address_mem_img)
+
+    def _write_io_image(self, root, io_stats):
+        """ Write MEM data into Base64 image. """
+        # get IO data
+        intf_name = self.view_ctx.parameters[INTF]
+        if intf_name:
+            recv_data = io_stats[intf_name][0]
+            sent_data = io_stats[intf_name][1]
+            # build image from data
+            plt = PLOT_CLASS()
+            plt.add_plot('{} recv'.format(intf_name),
+                         'kbits/s', recv_data)
+            plt.add_plot('{} sent'.format(intf_name),
+                         'kbits/s', sent_data)
+            plt.export_image(address_io_img)
 
     def make_callback(self, namespec, action):
         """ Triggers the action requested. """

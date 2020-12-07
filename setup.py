@@ -22,21 +22,17 @@ import sys
 
 from setuptools import setup, find_packages
 
-if sys.version_info[:2] < (2, 7) or sys.version_info[0] > 2:
-    msg = ("Supvisors requires Python 2.7 or later but does not work on "
-           "any version of Python 3.  You are using version %s.  Please "
-           "install using a supported version." % sys.version)
-    sys.stderr.write(msg)
-    sys.exit(1)
+py_version = sys.version_info[:2]
+if py_version < (3, 4):
+    raise RuntimeError('Supvisors requires Python 3.4 or later')
 
-requires = ['supervisor >= 3.3.0', 'pyzmq >= 15.2.0']
+requires = ['supervisor >= 4.2.1', 'pyzmq >= 20.0.0']
 
-ip_require = ['netifaces >= 0.10.4']
-statistics_require = ['psutil >= 4.3.0', 'matplotlib >= 1.5.2']
-xml_valid_require = ['lxml >= 3.2.1']
+ip_require = ['netifaces >= 0.10.9']
+statistics_require = ['psutil >= 5.7.3', 'matplotlib >= 3.3.3']
+xml_valid_require = ['lxml >= 4.6.2']
 
-tests_require = ['mock >= 0.5.0']
-testing_extras = tests_require + ['pytest >= 2.5.2', 'pytest-cov']
+testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -54,7 +50,7 @@ CLASSIFIERS = [
     "Natural Language :: English",
     "Environment :: No Input/Output (Daemon)",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.6",
     "Topic :: System :: Boot",
     "Topic :: System :: Monitoring",
     "Topic :: System :: Software Distribution"
@@ -72,21 +68,19 @@ dist = setup(
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
     url="https://github.com/julien6387/supvisors",
-    download_url = 'https://github.com/julien6387/supvisors/archive/0.1.tar.gz',
+    download_url='https://github.com/julien6387/supvisors/archive/0.2.tar.gz',
     platforms=[
-        "CentOS 7.2"
+        "CentOS 8.0"
     ],
     packages=find_packages(),
     install_requires=requires,
     extras_require={'ip_address': ip_require,
-        'statistics': statistics_require,
-        'xml_valid': xml_valid_require,
-        'all': ip_require + statistics_require + xml_valid_require,
-        'testing': testing_extras},
-    tests_require=tests_require,
+                    'statistics': statistics_require,
+                    'xml_valid': xml_valid_require,
+                    'all': ip_require + statistics_require + xml_valid_require,
+                    'testing': testing_extras},
     include_package_data=True,
     zip_safe=False,
     namespace_packages=['supvisors'],
     test_suite="supvisors.tests",
 )
-

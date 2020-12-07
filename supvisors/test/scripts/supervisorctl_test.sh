@@ -27,6 +27,9 @@ sendRequest application_info database
 sendRequest sstatus
 sendRequest sstatus database:*
 sendRequest sstatus database:movie_server_01 database:movie_server_02 database:movie_server_03
+sendRequest local_status
+sendRequest local_status database:*
+sendRequest local_status database:movie_server_01 database:movie_server_02 database:movie_server_03
 sendRequest conflicts
 sendRequest application_rules
 sendRequest application_rules database

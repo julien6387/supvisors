@@ -1,13 +1,13 @@
 /* Additional resources */
 @font-face {
-	font-family: 'kingthings_calligraphica_2Rg';
-	src: url('Kingthings_Calligraphica_2-webfont.eot');
-	src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
-		url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
-		url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
-		url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
-	font-weight: normal;
-	font-style: normal;
+    font-family: 'kingthings_calligraphica_2Rg';
+    src: url('Kingthings_Calligraphica_2-webfont.eot');
+    src: url('Kingthings_Calligraphica_2-webfont.eot?#iefix') format('embedded-opentype'),
+        url('Kingthings_Calligraphica_2-webfont.woff') format('woff'),
+        url('Kingthings_Calligraphica_2-webfont.ttf') format('truetype'),
+        url('Kingthings_Calligraphica_2-webfont.svg#kingthings_calligraphica_2Rg') format('svg');
+    font-weight: normal;
+    font-style: normal;
 }
 
 
@@ -20,21 +20,21 @@ html, body, #body_block {
 }
 
 body {
-	margin: auto;
+    margin: auto;
 }
 
 /* fake a background transparency because smoke image is too dark */
 body::after {
-	content: "";
+    content: "";
     background: url(../img/smoke.jpg);
-	top: 0; left: 0; bottom: 0; right: 0;
-	position: absolute;
-	z-index: -1;
-	opacity: 0.5;
+    top: 0; left: 0; bottom: 0; right: 0;
+    position: absolute;
+    z-index: -1;
+    opacity: 0.5;
 }
 
 #body_block {
-	min-width: 1000px;
+    min-width: 1000px;
     display: flex;
 }
 
@@ -43,13 +43,13 @@ body::after {
  * Left Side Layout
 */
 #left_side {
-	min-width: 230px;
+    min-width: 230px;
     max-width: 230px;
-	flex: 1;
+    flex: 1;
     display: flex;
-	flex-direction: column;
-	background: url(../img/texture.jpg);
-	color: #e6e6e6;
+    flex-direction: column;
+    background: url(../img/texture.jpg);
+    color: #e6e6e6;
     border-right: 3px #cc7a00 solid;
 }
 
@@ -58,18 +58,18 @@ body::after {
 }
 
 nav {
-	flex: 1;
+    flex: 1;
     display: flex;
-	flex-direction: column;
-	overflow: auto;
+    flex-direction: column;
+    overflow: auto;
 }
 
 #left_side footer {
-	font-style: italic;
+    font-style: italic;
 }
 
 #copyright {
-	font-size: .6em;
+    font-size: .6em;
 }
 
 
@@ -77,27 +77,27 @@ nav {
  * Right Side Layout
 */
 #right_side {
-	flex: 1;
+    flex: 1;
     display: flex;
-	flex-direction: column;
+    flex-direction: column;
 }
 
 #right_side header {
     min-height: 90px;
     max-height: 90px;
     padding: 0 10px;
-	background: url(../img/texture.jpg);
-	color: #e6e6e6;
+    background: url(../img/texture.jpg);
+    color: #e6e6e6;
     display: flex;
-	justify-content: space-between;
+    justify-content: space-between;
     align-items: center;
 }
 
 #contents {
     flex: 1;
     display: flex;
-	flex-direction: column;
-	justify-content: space-between;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 /* Supvisors page: address boxes */
@@ -107,11 +107,11 @@ nav {
     overflow: auto;
     margin-top: 10px;
 }
- 
+
 #box_part {
     display: flex;
-	flex: 1;
-	justify-content: space-around;
+    flex: 1;
+    justify-content: space-around;
     flex-wrap: wrap;
     margin: 5px;
 }
@@ -124,17 +124,17 @@ nav {
 #process_contents {
     display: flex;
     flex: 1;
- 	flex-direction: row;
+     flex-direction: row;
     overflow: auto;
     margin: 5px;
 }
- 
+
 #process_left_side {
     display: flex;
     flex: 1;
-	color: #111;
-	font-family: Verdana, Arial, sans-serif;
-	text-align: justify;
+    color: #111;
+    font-family: Verdana, Arial, sans-serif;
+    text-align: justify;
     margin-right: 5px;
 }
 
@@ -149,20 +149,20 @@ nav {
 #address_contents {
     display: flex;
     flex: 1;
- 	flex-direction: column;
-	justify-content: space-around;
+     flex-direction: column;
+    justify-content: space-around;
 }
 
 .horizontal_contents {
     display: flex;
- 	flex-direction: row;
-	justify-content: space-around;
+     flex-direction: row;
+    justify-content: space-around;
 }
 
 .vertical_contents {
     display: flex;
- 	flex-direction: column;
-	justify-content: space-around;
+     flex-direction: column;
+    justify-content: space-around;
 }
 
 
@@ -171,7 +171,7 @@ nav {
     min-height: 25px;
     max-height: 25px;
     width: 98%;
-	font-size: 0.9em;
+    font-size: 0.9em;
 }
 
 
@@ -179,48 +179,48 @@ nav {
  * Resource design
 */
 header, nav, footer {
-	padding: 5px;
+    padding: 5px;
 }
 
 header a, footer a {
     color: #cc7a00;
-	text-decoration: none;
+    text-decoration: none;
 }
 
 h1, h2, h3, h4 {
-	font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
+    font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
 
 h1 {
-	font-size: 1.6em;
+    font-size: 1.6em;
 }
 
 h2, h3 {
-	font-size: 1.2em;
+    font-size: 1.2em;
     margin: 0 0 8px 0;
 }
 
 h4 {
-	font-weight: bold;
-	text-align: center;
-	font-size: .8em;
+    font-weight: bold;
+    text-align: center;
+    font-size: .8em;
     padding: 5px;
-	color: #e6e6e6;
-	border: 3px ridge black;
-	background: url(../img/texture.jpg);
+    color: #e6e6e6;
+    border: 3px ridge black;
+    background: url(../img/texture.jpg);
 }
 
 h3 code {
     display: inline-block;
     padding: 5px 10px;
     color: black;
-	font-size: 16px;
-	text-shadow: 3px 3px 6px black;
+    font-size: 16px;
+    text-shadow: 3px 3px 6px black;
     background: #e6e6e6;
 }
 
 nav ul, p {
-	font-size: .8em;
+    font-size: .8em;
 }
 
 
@@ -232,7 +232,7 @@ nav ul, p {
     animation: blinker 1.2s linear infinite;
 }
 
-@keyframes blinker {  
+@keyframes blinker {
     50% { opacity: 0.0; }
 }
 
@@ -241,7 +241,7 @@ nav ul, p {
  * Figure style
  */
 figure {
-    margin: 0;
+    margin: 2;
 }
 
 figure img {
@@ -251,11 +251,11 @@ figure img {
 }
 
 figcaption {
-	margin-top: 6px;
-	font-weight: bold;
-	font-style: italic;
-	text-align: center;
-	font-size: .8em;
+    margin-top: 6px;
+    font-weight: bold;
+    font-style: italic;
+    text-align: center;
+    font-size: .8em;
 }
 
 /*
@@ -280,7 +280,7 @@ ul.vertical li {
  * Style for operational status
  */
 .status_empty, .status_green, .status_yellow, .status_red {
-	padding: 10px 100px 10px 2px;
+    padding: 10px 100px 10px 2px;
 }
 
 .status_empty {
@@ -311,38 +311,38 @@ ul.vertical li {
 }
 
 .empty {
-	background-image: linear-gradient(165deg, silver, #1a1a1a);
+    background-image: linear-gradient(165deg, silver, #1a1a1a);
     border: 1px grey inset;
 }
 
 .info {
-	background-image: linear-gradient(165deg, dodgerblue, #1a1a1a);
+    background-image: linear-gradient(165deg, dodgerblue, #1a1a1a);
     border: 1px blue inset;
 }
 
 .info::before {
-	content: url(../img/info_20.png) '\00a0';
-	float: left;
+    content: url(../img/info_20.png) '\00a0';
+    float: left;
 }
 
 .warn {
-	background-image: linear-gradient(165deg, #f90, #1a1a1a);
+    background-image: linear-gradient(165deg, #f90, #1a1a1a);
     border: 1px orange inset;
 }
 
 .warn::before {
-	content: url(../img/warn_20.png) '\00a0';
-	float: left;
+    content: url(../img/warn_20.png) '\00a0';
+    float: left;
 }
 
 .erro {
-	background-image: linear-gradient(165deg, orangered, #1a1a1a);
+    background-image: linear-gradient(165deg, orangered, #1a1a1a);
     border: 1px red inset;
 }
 
 .erro::before {
-	content: url(../img/erro_20.png) '\00a0';
-	float: left;
+    content: url(../img/erro_20.png) '\00a0';
+    float: left;
 }
 
 
@@ -359,7 +359,7 @@ ul.vertical li {
  * Master address style
  */
 .master::after {
-	content: " \272A";
+    content: " \272A";
 }
 
 
@@ -367,36 +367,36 @@ ul.vertical li {
  * Common Table style
  */
 table {
-	border-collapse: collapse;
-	caption-side: top;
-	background: rgba(200, 200, 200, .7);
-	margin: 0 auto;
+    border-collapse: collapse;
+    caption-side: top;
+    background: rgba(200, 200, 200, .7);
+    margin: 0 auto;
 }
 
 caption {
     padding-right: 4px;
-	font-size: .8em;
-	font-style: italic;
+    font-size: .8em;
+    font-style: italic;
 }
 
 /* add border for all cells */
 th, td {
-	border: 1px solid black;
+    border: 1px solid black;
     padding: 3px 5px;
-	font-size: .7em;
+    font-size: .7em;
 }
 
 th {
-	background-color: #555;
-	color: #e6e6e6;
+    background-color: #555;
+    color: #e6e6e6;
 }
 
 tr.shaded {
-	background-color: #ffc;
+    background-color: #ffc;
 }
 
 tr.selected {
-	background-color: #9f9;
+    background-color: #9f9;
 }
 
 /* fix first columns sizes (button actions have a fixed contents) */
@@ -413,32 +413,32 @@ table .desc, table.addr {
 }
 
 th a {
-	color: #e6e6e6;
-	text-decoration: none;
+    color: #e6e6e6;
+    text-decoration: none;
 }
 
 /* style for a table of processes */
 #processes th {
-	text-align: left;
+    text-align: left;
 }
 
 #processes td:nth-child(2), #processes th:nth-child(2),
 #processes td:nth-child(n+4), #processes th:nth-child(n+4) {
-	text-align: center;
+    text-align: center;
 }
 
 #processes td:nth-child(4) {
-	font-style: italic;
+    font-style: italic;
 }
 
 #address_part th, #address_part td,
 #process_right_side th, #process_right_side td {
-	text-align: center;
+    text-align: center;
     vertical-align:middle;
 }
 
 #application td:nth-child(2), #application td:nth-child(n+4) {
-	text-align: center;
+    text-align: center;
 }
 
 
@@ -446,17 +446,17 @@ th a {
  * Style for optionBox
  */
 .optionBox {
-	border: 3px ridge black;
-	background: rgba(150, 150, 150, .7);
+    border: 3px ridge black;
+    background: rgba(150, 150, 150, .7);
 }
 
 .optionBox th {
-	background: url(../img/texture.jpg);
-	text-align: center;
+    background: url(../img/texture.jpg);
+    text-align: center;
 }
 
 .optionBox ul {
-	text-align: center;
+    text-align: center;
 }
 
 
@@ -473,7 +473,7 @@ th a {
 
 .addressBox table {
     height: 100%;
-	border: 3px ridge black;
+    border: 3px ridge black;
 }
 
 .addressBox th {
@@ -485,20 +485,20 @@ th a {
 }
 
 .addressBox tr {
-	background: rgba(100, 100, 100, .5);
+    background: rgba(100, 100, 100, .5);
 }
 
 .addressBox .button {
-	display: inline-block;
-	padding: 2px 4px;
+    display: inline-block;
+    padding: 2px 4px;
     margin-bottom: 4px;
-	background-color: orange;
-	border-radius: 6px;
-	cursor: default;
+    background-color: orange;
+    border-radius: 6px;
+    cursor: default;
 }
 
 .addressBox td:nth-child(2) {
-	text-align: center;
+    text-align: center;
 }
 
 
@@ -506,7 +506,7 @@ th a {
  * State gradients
  */
 table .UNKNOWN {
-	background-image: linear-gradient(165deg, grey, white);
+    background-image: linear-gradient(165deg, grey, white);
 }
 
 table .STOPPED, table .EXITED, table .SILENT {
@@ -514,71 +514,71 @@ table .STOPPED, table .EXITED, table .SILENT {
 }
 
 table .STARTING, table .BACKOFF {
-	background-image: linear-gradient(165deg, #cc0, green, white);
+    background-image: linear-gradient(165deg, #cc0, green, white);
 }
 
 table .STOPPING {
-	background-image: linear-gradient(165deg, green, #cc0, white);
+    background-image: linear-gradient(165deg, green, #cc0, white);
 }
 
 table .RUNNING {
-	background-image: linear-gradient(165deg, white, green, green, white);
+    background-image: linear-gradient(165deg, white, green, green, white);
 }
 
 table .FATAL, table .ISOLATED {
-	background-image: linear-gradient(165deg, white, red, red, white);
+    background-image: linear-gradient(165deg, white, red, red, white);
 }
 
 nav .UNKNOWN {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey);
 }
 
 nav .UNKNOWN.active {
-	background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, grey, #1a1a1a 40%, #1a1a1a);
 }
 
 nav .CHECKING {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey 80%, green);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, grey 80%, green);
 }
 
 nav .CHECKING.active {
-	background-image: linear-gradient(165deg, green, grey 20%, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, green, grey 20%, #1a1a1a 40%, #1a1a1a);
 }
 
 nav .STOPPED, nav .SILENT {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0);
 }
 
 nav .STOPPED.active {
-	background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, #cc0, #1a1a1a 40%, #1a1a1a);
 }
 
 nav .RUNNING {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green);
 }
 
 nav .RUNNING.active {
-	background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, green, #1a1a1a 40%, #1a1a1a);
 }
 
 nav .ISOLATED {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, red);
 }
 
 nav .STARTING {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, #cc0 80%, green);
 }
 
 nav .STARTING.active {
-	background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, green, #cc0 20%, #1a1a1a 40%, #1a1a1a);
 }
 
 nav .STOPPING {
-	background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
+    background-image: linear-gradient(165deg, #1a1a1a, #1a1a1a 60%, green 80%, #cc0);
 }
 
 nav li.STOPPING.active {
-	background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
+    background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
 }
 
 
@@ -586,25 +586,25 @@ nav li.STOPPING.active {
  * Increase / Stable / Decrease styles
  */
 .increase {
-	color: red;
+    color: red;
 }
 
 .increase::after {
-	content: "\2197";
+    content: "\2197";
 }
 
 .stable {
-	color: blue;
+    color: blue;
 }
 
 .stable::after {
-	content: "\219d";
+    content: "\219d";
 }
 
 .decrease {
-	color: green;
+    color: green;
 }
 
 .decrease::after {
-	content: "\2198";
+    content: "\2198";
 }

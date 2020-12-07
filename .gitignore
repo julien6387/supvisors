@@ -1,11 +1,3 @@
-.eric6project/
-_eric6project/
-.eric5project/
-_eric5project/
-.eric4project/
-_eric4project/
-.ropeproject/
-_ropeproject/
 .directory/
 *.pyc
 *.pyo
@@ -18,13 +10,14 @@ _ropeproject/
 build/
 .build/
 .eggs/
+.idea/
 .settings/
 dist/
 cur/
 tmp/
+venv/
 __pycache__/
 *.DS_Store
-thrift/
 log/
 *.e4p
 *.log

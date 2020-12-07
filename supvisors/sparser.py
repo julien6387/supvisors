@@ -1,15 +1,15 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,18 +18,19 @@
 # ======================================================================
 
 from collections import OrderedDict
-from StringIO import StringIO
+from io import StringIO
 from sys import stderr
 
 from supervisor.datatypes import boolean, list_of_strings
 
-from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
-from supvisors.utils import supvisors_short_cuts
-
+from supvisors.ttypes import (StartingFailureStrategies,
+                              RunningFailureStrategies)
+from supvisors.utils import supvisors_shortcuts
 
 # XSD contents for XML validation
 XSDContents = StringIO('''\
-<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified"
+xmlns:xs="http://www.w3.org/2001/XMLSchema">
     <xs:simpleType name="Loading">
         <xs:restriction base="xs:int">
             <xs:minInclusive value="0"/>
@@ -92,11 +93,12 @@ XSDContents = StringIO('''\
 </xs:schema>
 ''')
 
+
 class Parser(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_short_cuts(self, ['logger'])
+        supvisors_shortcuts(self, ['logger'])
         self.tree = self.parse(supvisors.options.rules_file)
         self.root = self.tree.getroot()
         # get models
@@ -115,10 +117,10 @@ class Parser(object):
         if application_elt is not None:
             # get start_sequence rule
             value = application_elt.findtext('start_sequence')
-            application.rules.start_sequence = int(value) if value and int(value)>0 else 0
+            application.rules.start_sequence = int(value) if value and int(value) > 0 else 0
             # get stop_sequence rule
             value = application_elt.findtext('stop_sequence')
-            application.rules.stop_sequence = int(value) if value and int(value)>0 else 0
+            application.rules.stop_sequence = int(value) if value and int(value) > 0 else 0
             # get starting_failure_strategy rule
             value = application_elt.findtext('starting_failure_strategy')
             if value:
@@ -193,15 +195,16 @@ class Parser(object):
             # sort and trim
             addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
             if '*' in addresses:
-                rules.addresses = [ '*' ]
+                rules.addresses = ['*']
             elif '#' in addresses:
-                rules.addresses = [ '#' ]
+                rules.addresses = ['#']
             else:
                 rules.addresses = self.supvisors.address_mapper.filter(addresses)
 
     def get_program_element(self, process):
         # try to find program name in file
-        program_elt = self.root.find("./application[@name='{}']/program[@name='{}']".format(process.application_name, process.process_name))
+        program_elt = self.root.find(
+            "./application[@name='{}']/program[@name='{}']".format(process.application_name, process.process_name))
         self.logger.trace('{} - direct search program element {}'.format(process.namespec(), program_elt))
         if program_elt is None:
             # try to find a corresponding pattern
@@ -216,11 +219,12 @@ class Parser(object):
             model = program_elt.findtext('reference')
             if model in self.models.keys():
                 program_elt = self.models[model]
-            self.logger.trace('{} - model search ({}) program element {}'.format(process.namespec(), model, program_elt))
+            self.logger.trace(
+                '{} - model search ({}) program element {}'.format(process.namespec(), model, program_elt))
         return program_elt
 
     def parse(self, filename):
-        self.parser = None
+        """ Parse the file depending on the modules installed. """
         # find parser
         try:
             from lxml.etree import parse, XMLSchema
@@ -228,12 +232,12 @@ class Parser(object):
             # parse XML and validate it
             tree = parse(filename)
             # get XSD
-            schemaDoc = parse(XSDContents)
-            schema = XMLSchema(schemaDoc)
+            schema_doc = parse(XSDContents)
+            schema = XMLSchema(schema_doc)
             if schema.validate(tree):
                 self.logger.info('XML validated')
                 return tree
-            print >> stderr,  schema.error_log
+            print(schema.error_log, file=sys.stderr)
             raise ValueError('XML NOT validated: {}'.format(filename))
         except ImportError:
             try:

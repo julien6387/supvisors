@@ -3,13 +3,13 @@
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import patch
+from mock import DEFAULT, patch
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.tests.base import DummySupervisor
@@ -30,8 +30,8 @@ class InitializerTest(unittest.TestCase):
     """ Test case for the initializer module. """
 
     @patch('supvisors.initializer.Parser')
-    @patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
-    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.AddressMapper')
+    @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')
     def test_creation(self, *args, **kwargs):
         """ Test the values set at construction. """
@@ -43,7 +43,9 @@ class InitializerTest(unittest.TestCase):
         self.assertIs(supvisors, supervisord.supvisors)
         # test calls
         self.assertTrue(args[0].called)
-        self.assertTrue(args[1].called)
+        self.assertTrue(args[1].getLogger.called)
+        self.assertTrue(args[1].handle_stdout.called)
+        self.assertTrue(args[1].handle_file.called)
         self.assertTrue(args[2].called)
         self.assertTrue(args[3].called)
         # test instances
@@ -59,7 +61,7 @@ class InitializerTest(unittest.TestCase):
         self.assertIsNotNone(supvisors.parser)
         self.assertIsNotNone(supvisors.listener)
 
-    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')
     def test_address_exception(self, *args, **kwargs):
         """ Test the values set at construction. """
@@ -74,7 +76,7 @@ class InitializerTest(unittest.TestCase):
 
     @patch('supvisors.initializer.Parser', side_effect=Exception)
     @patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
-    @patch('supvisors.initializer.getLogger')
+    @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')
     def test_parser_exception(self, *args, **kwargs):
         """ Test the values set at construction. """

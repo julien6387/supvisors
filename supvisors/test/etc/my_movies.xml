@@ -51,7 +51,7 @@
         <program name="copy_error">
             <addresses>cliche01</addresses>
             <start_sequence>2</start_sequence>
-             <stop_sequence>1</stop_sequence>
+            <stop_sequence>1</stop_sequence>
             <required>true</required>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>

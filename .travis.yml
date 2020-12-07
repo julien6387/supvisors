@@ -1,15 +1,15 @@
 language: python
 
-sudo: false
-
-env:
-    - TOXENV=cover
-    - TOXENV=py27
-#    - TOXENV=pypy
+matrix:
+    include:
+        - python: 3.6
+          env: TOXENV=cover
+        - python: 3.6
+          env:
+            - TOXENV=py36
 
 install:
     - travis_retry pip install tox
 
 script:
     - travis_retry tox
-

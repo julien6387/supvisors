@@ -1,47 +1,45 @@
-<!DOCTYPE html>
-<html lang="en"
-		xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:meld="http://www.plope.com/software/meld3">
-
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
-	<meta charset="utf-8" />
-	<link rel="stylesheet" href="css/ui_style.css" />
-	<link rel="stylesheet" href="css/menu.css" />
-	<link rel="stylesheet" href="css/button.css" />
-	<title>Supvisors status</title>
+    <title>Supvisors status</title>
+    <link rel="stylesheet" href="css/ui_style.css" />
+    <link rel="stylesheet" href="css/menu.css" />
+    <link rel="stylesheet" href="css/button.css" />
 </head>
 
 <body>
-	<div id="body_block">
+    <div id="body_block">
 
-		<div id="left_side">
-			<header>
-				<h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
-				<p><span meld:id="version_mid" class="version"></span></p>
-			</header>
+        <div id="left_side">
+            <header>
+                <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
+                <p><span meld:id="version_mid" class="version"></span></p>
+            </header>
 
-			<nav id="address-list">
-				<h2>Addresses</h2>
-				<ul>
-					<li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
-				</ul>
-			</nav>
+            <nav id="address-list">
+                <h2>Addresses</h2>
+                <ul>
+                    <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+                </ul>
+            </nav>
 
-			<nav id="application-list">
-				<h2>Applications</h2>
-				<ul>
-					<li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
-				</ul>
-			</nav>
+            <nav id="application-list">
+                <h2>Applications</h2>
+                <ul>
+                    <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+                </ul>
+            </nav>
 
-			<footer>
-				<p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-				<p id="copyright">&amp;copy; Copyright 2016-2017 Julien LE CLEACH</p>
-			</footer>
-		</div>
+            <footer>
+                <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
+                <p id="copyright">&amp;copy; Copyright 2016-2020 Julien LE CLEACH</p>
+            </footer>
+        </div>
 
-		<div id="right_side">
-			<header>
+        <div id="right_side">
+            <header>
                 <div>
                     <h2><span meld:id="application_mid">application</span></h2>
                     <h3 class="classState"><code meld:id="state_mid" class="classState">ApplicationStates</code><span meld:id="state_led_mid" class="status_green"></span></h3>
@@ -77,7 +75,7 @@
                         <li><a href="#" meld:id="refresh_a_mid" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
                     </ul>
                 </div>
-			</header>
+            </header>
 
             <div id="process_contents">
                 <div id="process_left_side">
@@ -120,10 +118,18 @@
                     <div>
                         <table>
                             <tr>
-                                <th colspan="4">CPU</th><th colspan="4">MEM</th>
+                                <th colspan="4">CPU</th>
+                                <th colspan="4">MEM</th>
                             </tr>
                             <tr>
-                                <th>%</th><th>Mean %</th><th>Slope %</th><th>SD %</th><th>%</th><th>Mean %</th><th>Slope %</th><th>SD %</th>
+                                <th>%</th>
+                                <th>Mean %</th>
+                                <th>Slope %</th>
+                                <th>SD %</th>
+                                <th>%</th>
+                                <th>Mean %</th>
+                                <th>Slope %</th>
+                                <th>SD %</th>
                             </tr>
                             <tr>
                                 <td meld:id="pcpuval_td_mid">--</td>
@@ -147,11 +153,11 @@
                     </figure>
                 </div>
             </div>
- 
+
             <div id="messageBox" meld:id="message_mid"></div>
 
         </div>
-	</div>
+    </div>
 </body>
 </html>
 

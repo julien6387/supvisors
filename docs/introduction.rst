@@ -57,6 +57,7 @@ Platform Requirements
 version of Python 3.
 
 The CSS of the Dashboard has been written for Firefox ESR 45.4.0.
+It has been re-tested successfully with Firefox ESR 60.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
 
 
@@ -68,7 +69,7 @@ Installation
 +---------------+------------+-----------------------------------------------------------------+
 | Package       | Release    | Usage                                                           |
 +===============+============+=================================================================+
-| Supervisor_   | 3.3.2      | Base software, extended by **Supvisors**                        |
+| Supervisor_   | 4.2.1      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
 | PyZMQ_        | 16.0.2     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+

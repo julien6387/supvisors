@@ -23,6 +23,8 @@ import time
 import unittest
 import zmq
 
+from mock import patch
+
 from supvisors.tests.base import MockedSupvisors
 
 
@@ -240,6 +242,10 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Check Address')
         self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS,
                                ('10.0.0.1', )), request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_check_address('10.0.0.1')
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
@@ -256,6 +262,10 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Isolate Addresses')
         self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES,
                                (['10.0.0.1', '10.0.0.2'])), request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
@@ -275,6 +285,11 @@ class RequestTest(unittest.TestCase):
             (DeferredRequestHeaders.START_PROCESS,
              ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
             request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_start_process('10.0.0.1', 'application:program',
+                                           ['-extra', 'arguments'])
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
@@ -292,6 +307,10 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Stop Process')
         self.assertTupleEqual((DeferredRequestHeaders.STOP_PROCESS,
                                ('10.0.0.1', 'application:program')), request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_stop_process('10.0.0.1', 'application:program')
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
@@ -308,6 +327,10 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Restart')
         self.assertTupleEqual((DeferredRequestHeaders.RESTART,
                                ('10.0.0.1', )), request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_restart('10.0.0.1')
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
@@ -324,6 +347,10 @@ class RequestTest(unittest.TestCase):
         request = self.receive('Shutdown')
         self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN,
                                ('10.0.0.1', )), request)
+        # test that the pusher socket is not blocking
+        with patch.object(self.pusher.socket, 'send_pyobj',
+                          side_effect=zmq.error.Again):
+            self.pusher.send_shutdown('10.0.0.1')
         # test that absence of puller does not block the pusher
         # or raise any exception
         self.puller.close()
