@@ -67,7 +67,7 @@ class AbstractStartingStrategy(AbstractStrategy):
         # returns adresses with validity and loading
         sorted_addresses = sorted([(x, y[1])
                                    for x, y in loading_validities.items()
-                                   if y[0]], key=lambda (x, y): y)
+                                   if y[0]], key=lambda x, y: y)
         self.logger.trace('sorted_addresses={}'.format(sorted_addresses))
         return sorted_addresses
 

@@ -210,13 +210,13 @@ class SupvisorsView(ViewHandler):
         """ Restart all Supervisor instances. """
         try:
             cb = self.info_source.supvisors_rpc_interface.restart()
-        except RPCError, e:
+        except RPCError as e:
             return delayed_error('restart: {}'.format(e))
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
-                except RPCError, e:
+                except RPCError as e:
                     return error_message('restart: {}'.format(e))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
@@ -229,13 +229,13 @@ class SupvisorsView(ViewHandler):
         """ Stop all Supervisor instances. """
         try:
             cb = self.info_source.supvisors_rpc_interface.shutdown()
-        except RPCError, e:
+        except RPCError as e:
             return delayed_error('shutdown: {}'.format(e))
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
-                except RPCError, e:
+                except RPCError as e:
                     return error_message('shutdown: {}'.format(e))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET

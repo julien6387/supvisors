@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,13 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
-
 from supervisor.options import make_namespec
 from supervisor.web import StatusView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.utils import simple_localtime, supvisors_shortcuts
+from supvisors.utils import simple_localtime
 from supvisors.viewcontext import *
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
@@ -103,7 +101,7 @@ class ProcAddressView(StatusView):
         rpc_intf = self.info_source.supervisor_rpc_interface
         try:
             all_info = rpc_intf.getAllProcessInfo()
-        except RPCError, e:
+        except RPCError as e:
             self.logger.warn('failed to get all process info from {}: {}'
                              .format(self.address, e.text))
         else:
@@ -129,7 +127,7 @@ class ProcAddressView(StatusView):
         if data:
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
-            shaded_tr = False # used to invert background style
+            shaded_tr = False  # used to invert background style
             for tr_elt, item in iterator:
                 selected_tr = self.write_common_process_status(tr_elt, item)
                 # print process name (tail allowed if STOPPED)
@@ -184,4 +182,3 @@ class ProcAddressView(StatusView):
         self.supvisors.zmq.pusher.send_shutdown(self.address)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')
-

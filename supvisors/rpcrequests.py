@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import xmlrpclib
+from supervisor.compat import xmlrpclib
 
 from supervisor.xmlrpc import SupervisorTransport
 

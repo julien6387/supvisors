@@ -463,7 +463,7 @@ class RPCInterface(object):
         try:
             rpc_interface = self.info_source.supervisor_rpc_interface
             cb = rpc_interface.startProcess(namespec, wait)
-        except RPCError, why:
+        except RPCError as why:
             self.logger.error('start_process {} failed: {}'
                               .format(namespec, why))
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -21,7 +21,6 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import StartingStrategies
-from supvisors.utils import supvisors_shortcuts
 from supvisors.viewcontext import *
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
@@ -198,7 +197,7 @@ class ApplicationView(ViewHandler):
         if data:
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
-            shaded_tr = False # used to invert background style
+            shaded_tr = False  # used to invert background style
             for tr_elt, item in iterator:
                 # get first item in running list
                 running_list = item['running_list']
@@ -222,7 +221,7 @@ class ApplicationView(ViewHandler):
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested. """
         if action == 'refresh':
-            return self.refresh_action()
+            return self.refresh_action
         if action == 'config':
             return self.set_starting_strategy(StartingStrategies.CONFIG)
         if action == 'most':
@@ -263,13 +262,13 @@ class ApplicationView(ViewHandler):
         try:
             rpc_intf = self.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(strategy, arg_name)
-        except RPCError, e:
+        except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
-                except RPCError, e:
+                except RPCError as e:
                     return error_message('{}: {}'.format(rpc_name, e.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
@@ -278,6 +277,7 @@ class ApplicationView(ViewHandler):
                                         .format(arg_type, arg_name))
                 return warn_message('{} {} NOT started'
                                     .format(arg_type, arg_name))
+
             onwait.delay = 0.1
             return onwait
         if cb:
@@ -289,18 +289,19 @@ class ApplicationView(ViewHandler):
         try:
             rpc_intf = self.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(arg_name)
-        except RPCError, e:
+        except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
-                except RPCError, e:
+                except RPCError as e:
                     return error_message('{}: {}'.format(rpc_name, e.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('{} {} stopped'
                                     .format(arg_type, arg_name))
+
             onwait.delay = 0.1
             return onwait
         if cb:

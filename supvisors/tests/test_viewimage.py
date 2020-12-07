@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -81,17 +81,17 @@ class ImageViewTest(unittest.TestCase):
         self.assertEqual('no-cache', headers['Pragma'])
         self.assertEqual('no-cache', headers['Cache-Control'])
         self.assertEqual('Thu, 01 Jan 1970 00:00:00 GMT', headers['Expires'])
-        self.assertEqual('', response['body'])
+        self.assertEqual(response['body'], b'')
         # test render with an image having contents
         contents = image.new_image()
-        contents.write('Dummy contents')
+        contents.write(b'Dummy contents')
         response = view()
         headers = response['headers']
         self.assertEqual('image/png', headers['Content-Type'])
         self.assertEqual('no-cache', headers['Pragma'])
         self.assertEqual('no-cache', headers['Cache-Control'])
         self.assertEqual('Thu, 01 Jan 1970 00:00:00 GMT', headers['Expires'])
-        self.assertEqual('Dummy contents', response['body'])
+        self.assertEqual(b'Dummy contents', response['body'])
 
     def test_address_cpu_image_view(self):
         """ Test the values set at construction. """
@@ -126,6 +126,7 @@ class ImageViewTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

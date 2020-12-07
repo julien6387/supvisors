@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -48,7 +48,6 @@ process_mem_img = StatsImage()
 
 # simple handlers for web images
 class ImageView(object):
-
     content_type = 'image/png'
     delay = .5
 
@@ -66,7 +65,7 @@ class ImageView(object):
         if self.buffer.contents:
             body = self.buffer.contents.getvalue()
         else:
-            body = ''
+            body = b""
         response['body'] = as_bytes(body)
         return response
 
@@ -109,4 +108,3 @@ class ProcessMemoryImageView(ImageView):
     def __init__(self, context):
         """ Link to the Process Memory buffer. """
         ImageView.__init__(self, context, process_mem_img)
-

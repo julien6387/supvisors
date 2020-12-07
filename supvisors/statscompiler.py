@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -30,6 +30,7 @@ def cpu_statistics(last, ref):
         cpu.append(100.0 * work / total if total else 0)
     return cpu
 
+
 def cpu_total_work(last, ref):
     """ Return the total work on the average CPU between last and ref measures. """
     work = last[0][0] - ref[0][0]
@@ -45,7 +46,8 @@ def io_statistics(last, ref, duration):
         if intf in ref.keys():
             ref_recv, ref_sent = ref[intf]
             # Warning taken from psutil documentation (https://pythonhosted.org/psutil/#network)
-            # on some systems such as Linux, on a very busy or long-lived system these numbers may wrap (restart from zero),
+            # on some systems such as Linux, on a very busy or long-lived system these numbers
+            # may wrap (restart from zero),
             # see issues #802. Applications should be prepared to deal with that.
             if ref_recv <= last_recv and ref_sent <= last_sent:
                 recv_bytes = last_recv - ref_recv
@@ -78,7 +80,6 @@ def statistics(last, ref):
         # find same process in ref
         ref_pid_stats = ref[4].get(process_name, None)
         # calculate cpu if ref is found
-        proc_cpu = 0
         # pid must be identical (in case of process restart in the interval)
         if ref_pid_stats and last_pid_stats[0] == ref_pid_stats[0]:
             # need the work jiffies in the interval
@@ -129,13 +130,13 @@ class StatisticsInstance(object):
                 self.mem.append(integ_stats[2])
                 self.trunc_depth(self.mem)
                 # add new IO values to IO list
-                for intf, bytes in self.io.items():
+                for intf, iobytes in self.io.items():
                     new_bytes = integ_stats[3].pop(intf)
-                    bytes[0].append(new_bytes[0])
-                    bytes[1].append(new_bytes[1])
+                    iobytes[0].append(new_bytes[0])
+                    iobytes[1].append(new_bytes[1])
                     # remove too old values when max depth is reached
-                    self.trunc_depth(bytes[0])
-                    self.trunc_depth(bytes[1])
+                    self.trunc_depth(iobytes[0])
+                    self.trunc_depth(iobytes[1])
                 # add new Process CPU / Mem values to Process list
                 # as process list is dynamic, there are special rules
                 destroy_list = []
@@ -184,8 +185,8 @@ class StatisticsCompiler(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.data = {address: {period: StatisticsInstance(period, supvisors.options.stats_histo)
-            for period in supvisors.options.stats_periods}
-            for address in supvisors.address_mapper.addresses}
+                               for period in supvisors.options.stats_periods}
+                     for address in supvisors.address_mapper.addresses}
         self.nbcores = {address: 1 for address in supvisors.address_mapper.addresses}
 
     def clear(self, address):
@@ -199,4 +200,4 @@ class StatisticsCompiler(object):
             period.push_statistics(stats)
         # set the number of processor cores
         nb = len(stats[1])
-        self.nbcores[address] = nb if nb == 1 else nb-1
+        self.nbcores[address] = nb if nb == 1 else nb - 1

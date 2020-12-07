@@ -513,7 +513,7 @@ class ViewApplicationTest(unittest.TestCase):
         from supvisors.viewapplication import ApplicationView
         view = ApplicationView(self.http_context)
         # test call
-        self.assertEqual('Delayed', view.refresh_action())
+        self.assertEqual('Delayed', view.refresh_action)
         self.assertEqual([call('Page refreshed')],
                          mocked_delayed.call_args_list)
 

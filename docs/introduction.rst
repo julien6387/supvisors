@@ -57,6 +57,7 @@ Platform Requirements
 version of Python 3.
 
 The CSS of the Dashboard has been written for Firefox ESR 45.4.0.
+It has been re-tested successfully with Firefox ESR 60.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
 
 

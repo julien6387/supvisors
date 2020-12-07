@@ -101,7 +101,7 @@ class SupvisorsEventInterface(threading.Thread):
                 self.logger.debug('got message on subscriber')
                 try:
                     message = self.subscriber.receive()
-                except Exception, e:
+                except Exception as e:
                     self.logger.error(
                         'failed to get data from subscriber: {}'.format(
                             e.message))

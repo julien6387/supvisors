@@ -2,20 +2,14 @@ language: python
 
 matrix:
     include:
-        - python: 2.7
+        - python: 3.6
           env: TOXENV=cover
-        - python: 2.7
+        - python: 3.6
           env:
-            - TOXENV=py27
-            - END_TO_END=1
-        - python: 2.7
-          env:
-            - TOXENV=py27-configparser
-            - END_TO_END=1
+            - TOXENV=py36
 
 install:
     - travis_retry pip install tox
 
 script:
     - travis_retry tox
-
