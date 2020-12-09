@@ -17,8 +17,6 @@
 package org.supvisors.common;
 
 import java.util.HashMap;
-import org.json.JSONObject;
-
 
 /**
  * The Class SupvisorsProcessEvent.
@@ -26,9 +24,6 @@ import org.json.JSONObject;
  * It gives a structured form to the process event received from a listener.
  */
 public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
-
-    /** The process namespec. */
-    private String namespec;
 
     /** The name of the process' application. */
     private String group;
@@ -52,8 +47,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     private String address;
 
     /** The extra arguments passed to the command line. */
-    private String extraArgs;
-    
+    private String extra_args;
+
     /**
      * This constructor gets all information from an HashMap.
      *
@@ -62,32 +57,14 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     public SupvisorsProcessEvent(HashMap processInfo)  {
         this.name = (String) processInfo.get("name");
         this.group = (String) processInfo.get("group");
-        this.namespec = DataConversion.stringsToNamespec(this.group, this.name);
         this.state = ProcessState.valueOf((Integer) processInfo.get("state"));
         this.expected = (Boolean) processInfo.get("expected");
         this.now = (Integer) processInfo.get("now");
         this.pid = (Integer) processInfo.get("pid");
-        // address is not set here
-        this.extraArgs = (String) processInfo.get("extra_args");
+        // address is not set in this message
+        this.address = null;
+        this.extra_args = (String) processInfo.get("extra_args");
    }
-
-    /**
-     * This constructor gets all information from a JSON string.
-     *
-     * @param String json: The untyped structure got from the event subscriber.
-     */
-    public SupvisorsProcessEvent(final String json) {
-        JSONObject obj = new JSONObject(json);
-        this.name = obj.getString("name");
-        this.group = obj.getString("group");
-        this.namespec = DataConversion.stringsToNamespec(this.group, this.name);
-        this.state = ProcessState.valueOf(obj.getInt("state"));
-        this.expected = obj.getBoolean("expected");
-        this.now = obj.getInt("now");
-        this.pid = obj.getInt("pid");
-        this.address = obj.getString("address");
-        this.extraArgs = obj.getString("extra_args");
-    }
 
     /**
      * The getGroup method returns the name of the process' application'.
@@ -113,7 +90,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @return String: The namespec of the process.
      */
     public String getName() {
-        return this.namespec;
+        return DataConversion.stringsToNamespec(this.group, this.name);
     }
 
     /**
@@ -169,7 +146,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @return String: The arguments.
      */
     public String getExtraArgs() {
-        return this.extraArgs;
+        return this.extra_args;
     }
 
     /**
@@ -179,7 +156,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsProcessEvent(namespec=" + this.namespec
+        return "SupvisorsProcessEvent(namespec=" + this.getName()
             + " group=" + this.group
             + " name=" + this.name
             + " state=" + this.state
@@ -187,7 +164,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
             + " now=" + this.now
             + " pid=" + this.pid
             + " address=" + this.address
-            + " extraArgs=\"" + this.extraArgs + "\")";
+            + " extraArgs=\"" + this.extra_args + "\")";
     }
 
 }

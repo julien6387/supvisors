@@ -17,7 +17,6 @@
 package org.supvisors.common;
 
 import java.util.HashMap;
-import org.json.JSONObject;
 
 
 /**
@@ -30,7 +29,7 @@ public class SupvisorsStatus {
     /**
      * The State enumeration for Supvisors.
      *
-     * INITIALIZATION is used when Supvisors is synchronizing with all orther Supvisors instances.
+     * INITIALIZATION is used when Supvisors is synchronizing with all other Supvisors instances.
      * DEPLOYMENT is used when Supvisors is starting applications automatically.
      * OPERATION is used when Supvisors is working normally.
      * CONCILIATION is used when Supvisors is conciliating conflicts due to multiple instance of the same process.
@@ -39,7 +38,10 @@ public class SupvisorsStatus {
         INITIALIZATION(0),
         DEPLOYMENT(1),
         OPERATION(2),
-        CONCILIATION(3);
+        CONCILIATION(3),
+        RESTARTING(4),
+        SHUTTING_DOWN(5),
+        SHUTDOWN(6);
 
         /** The state code. */
         private int stateCode;
@@ -51,7 +53,7 @@ public class SupvisorsStatus {
     }
 
     /** The Supvisors state. */
-    private State state;
+    private State statename;
 
     /**
      * The constructor gets the state information from an HashMap.
@@ -59,17 +61,7 @@ public class SupvisorsStatus {
      * @param HashMap stateInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsStatus(HashMap stateInfo)  {
-        this.state = State.valueOf((String) stateInfo.get("statename"));
-    }
-
-    /**
-     * The constructor gets the state information from a JSON string.
-     *
-     * @param String json: The untyped structure got from the event subscriber.
-     */
-    public SupvisorsStatus(final String json) {
-        JSONObject obj = new JSONObject(json);
-        this.state = State.valueOf(obj.getString("statename"));
+        this.statename = State.valueOf((String) stateInfo.get("statename"));
     }
 
     /**
@@ -78,7 +70,7 @@ public class SupvisorsStatus {
      * @return State: The state of the supervisor.
      */
     public State getState() {
-        return this.state;
+        return this.statename;
     }
 
     /**
@@ -87,7 +79,7 @@ public class SupvisorsStatus {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsState(state=" + this.state + ")";
+        return "SupvisorsState(state=" + this.statename + ")";
     }
 
 }

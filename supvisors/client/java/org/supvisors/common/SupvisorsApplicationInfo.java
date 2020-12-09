@@ -17,7 +17,6 @@
 package org.supvisors.common;
 
 import java.util.HashMap;
-import org.json.JSONObject;
 
 
 /**
@@ -36,29 +35,38 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * STOPPING is used when one of the processes of the application is STOPPING and none is STARTING.
      */
     public enum State {
-        STOPPED,
-        STARTING,
-        RUNNING,
-        STOPPING;
+        STOPPED(0),
+        STARTING(1),
+        RUNNING(2),
+        STOPPING(3);
+
+        private final int value;
+        public int getValue() {
+            return value;
+        }
+
+        private State(int value) {
+            this.value = value;
+        }
     }
 
     /** The application name. */
-    private String name;
+    private String application_name;
 
     /** The application state. */
-    private State state;
+    private State statename;
 
     /**
      * A status telling if the running application has a major failure,
      * i.e. at least one of its required processes is stopped.
      */
-    private Boolean majorFailure;
+    private Boolean major_failure;
 
     /**
      * A status telling if the running application has a minor failure,
      * i.e. at least one of its optional processes has stopped unexpectantly.
      */
-    private Boolean minorFailure;
+    private Boolean minor_failure;
     
     /**
      * This constructor gets all information from an HashMap.
@@ -66,23 +74,10 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsApplicationInfo(HashMap addressInfo) {
-        this.name = (String) addressInfo.get("application_name");
-        this.state = State.valueOf((String) addressInfo.get("statename"));
-        this.majorFailure = (Boolean) addressInfo.get("major_failure");
-        this.minorFailure = (Boolean) addressInfo.get("minor_failure");
-    }
-
-    /**
-     * This constructor gets all information from a JSON string.
-     *
-     * @param String json: The untyped structure got from the event subscriber.
-     */
-    public SupvisorsApplicationInfo(final String json) {
-        JSONObject obj = new JSONObject(json);
-        this.name = obj.getString("application_name");
-        this.state = State.valueOf(obj.getString("statename"));
-        this.majorFailure = obj.getBoolean("major_failure");
-        this.minorFailure = obj.getBoolean("minor_failure");
+        this.application_name = (String) addressInfo.get("application_name");
+        this.statename = State.valueOf((String) addressInfo.get("statename"));
+        this.major_failure = (Boolean) addressInfo.get("major_failure");
+        this.minor_failure = (Boolean) addressInfo.get("minor_failure");
     }
 
     /**
@@ -91,7 +86,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return String: The name of the application.
      */
     public String getName() {
-        return this.name;
+        return this.application_name;
     }
 
     /**
@@ -100,7 +95,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return State: The state of the application.
      */
     public State getState() {
-        return this.state;
+        return this.statename;
     }
 
     /**
@@ -109,7 +104,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return Boolean: True if a major failure is raised.
      */
     public Boolean hasMajorFailure() {
-        return this.majorFailure;
+        return this.major_failure;
     }
 
     /**
@@ -118,7 +113,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return Boolean: True if a minor failure is raised.
      */
     public Boolean hasMinorFailure() {
-        return this.minorFailure;
+        return this.minor_failure;
     }
 
     /**
@@ -127,9 +122,11 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsApplicationInfo(name=" + this.name
-            + " state=" + this.state + " majorFailure=" + this.majorFailure
-            + " minorFailure=" + this.minorFailure + ")";
+        return "SupvisorsApplicationInfo("
+            + "name=" + this.application_name
+            + " state=" + this.statename
+            + " majorFailure=" + this.major_failure
+            + " minorFailure=" + this.minor_failure + ")";
     }
 
 }
