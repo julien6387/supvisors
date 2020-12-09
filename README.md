@@ -6,7 +6,7 @@ multiple instances of Supervisor.
 The main features are:
    * a new web-based dashboard that replaces the default dashboard of Supervisor,
    * an extended XML-RPC API to control applications and multiple Supervisor instances,
-   * the definition of a rules file to handle
+   * the definition of a rules file to handle:
       * the starting sequence of the applications,
       * the stopping sequence of the applications,
       * the starting strategy of the processes,
@@ -29,7 +29,7 @@ but is not maintained anymore.
 
 [![Build Status](https://travis-ci.org/julien6387/supvisors.svg?branch=master)](https://travis-ci.org/julien6387/supvisors)
 
-### Dependencies
+## Dependencies
 
 **Supvisors** has dependencies on:
 
