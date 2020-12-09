@@ -22,14 +22,13 @@ The main features are:
 Supported Platforms
 -------------------
 
-**Supvisors** has been tested and is known to run on Linux (CentOS 7.2).
+**Supvisors** has been tested and is known to run on Linux (CentOS 8.3).
 It will likely work fine on most UNIX systems.
 
 **Supvisors** will not run at all under any version of Windows.
 
-**Supvisors** is known to work with Python 2.7 or later but will not work under
-any version of Python 3.
-
+**Supvisors** >= 0.2 works with Python 3.6 or later.
+**Supvisors** 0.1 (available on PyPi) works with Python 2.7 only but is not maintained.
 
 Dependencies
 -------------
@@ -41,15 +40,15 @@ Dependencies
 +============+============+============+
 | Supervisor | 4.2.1      |            |
 +------------+------------+------------+
-| PyZMQ      | 16.0.2     |            |
+| PyZMQ      | 20.0.0     |            |
 +------------+------------+------------+
-| psutil     | 4.3.0      |     X      |
+| psutil     | 5.7.3      |     X      |
 +------------+------------+------------+
-| netifaces  | 0.10.4     |     X      |
+| netifaces  | 0.10.9     |     X      |
 +------------+------------+------------+
-| matplotlib | 1.2.0      |     X      |
+| matplotlib | 3.3.3      |     X      |
 +------------+------------+------------+
-| lxml       | 3.2.1      |     X      |
+| lxml       | 4.6.2      |     X      |
 +------------+------------+------------+
 
 Please note that some of these dependencies may have their own dependencies.

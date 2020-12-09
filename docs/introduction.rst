@@ -71,15 +71,15 @@ Installation
 +===============+============+=================================================================+
 | Supervisor_   | 4.2.1      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
-| PyZMQ_        | 16.0.2     | Python binding of ZeroMQ                                        |
+| PyZMQ_        | 20.0.0     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
-| psutil_       | 4.3.0      | *Information about processes and system utilization (optional)* |
+| psutil_       | 5.7.3      | *Information about processes and system utilization (optional)* |
 +---------------+------------+-----------------------------------------------------------------+
-| netifaces_    | 0.10.4     | *IPv4 aliases from host name (optional)*                        |
+| netifaces_    | 0.10.9     | *IPv4 aliases from host name (optional)*                        |
 +---------------+------------+-----------------------------------------------------------------+
-| matplotlib_   | 1.2.0      | *Graphs for Dashboard (optional)*                               |
+| matplotlib_   | 3.3.3      | *Graphs for Dashboard (optional)*                               |
 +---------------+------------+-----------------------------------------------------------------+
-| lxml_         | 3.2.1      | *XSD validation of the XML rules file (optional)*               |
+| lxml_         | 4.6.2      | *XSD validation of the XML rules file (optional)*               |
 +---------------+------------+-----------------------------------------------------------------+
 
 With an Internet access
