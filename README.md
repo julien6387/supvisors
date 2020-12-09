@@ -4,9 +4,11 @@
 multiple instances of Supervisor.
 
 The main features are:
+
     - a new web-based dashboard that replaces the default dashboard of Supervisor,
     - an extended XML-RPC API to control applications and multiple Supervisor instances,
     - the definition of a rules file to handle:
+
         * the starting sequence of the applications,
         * the stopping sequence of the applications,
         * the starting strategy of the processes,
@@ -73,11 +75,9 @@ You will find detailed installation and configuration documentation.
 
 ## Reporting Bugs and Viewing the Source Repository
 
-Please report bugs in the `Github issue tracker
-<https://github.com/julien6387/supvisors/issues>`_.
+Please report bugs in the [Github issue tracker(https://github.com/julien6387/supvisors/issues).
 
-You can view the [source repository](https://github.com/julien6387/supvisors)
-for Supvisors.
+You can view the [source repository](https://github.com/julien6387/supvisors) for Supvisors.
 
 ## Contributing
 
