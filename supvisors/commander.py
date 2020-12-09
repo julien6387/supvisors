@@ -274,7 +274,7 @@ class Starter(Commander):
         Return False when starting not completed. """
         return self.start_process(self.get_default_strategy(), process)
 
-    def start_process(self, strategy, process, extra_args):
+    def start_process(self, strategy, process, extra_args=''):
         """ Plan and start the necessary job to start the process in parameter,
         with the strategy requested.
         Return False when starting not completed. """
@@ -284,8 +284,8 @@ class Starter(Commander):
         # store extra arguments to be passed to the command line
         command = ProcessCommand(process)
         command.extra_args = extra_args
-        # WARN: when starting a single process (outside the scope of an
-        # application starting), do NOT consider the 'wait_exit' rule
+        # WARN: when starting a single process (outside the scope of an application starting),
+        # do NOT consider the 'wait_exit' rule
         command.ignore_wait_exit = True
         # push program list in todo list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
@@ -447,18 +447,15 @@ class Starter(Commander):
                 self.logger.info('try to start {} at address={}'
                                  .format(namespec, address))
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(
-                    address, namespec, command.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
                 # push to jobs and timestamp process
                 command.request_time = time.time()
                 self.logger.debug('{} requested to start at {}'
-                                  .format(namespec,
-                                          get_asctime(command.request_time)))
+                                  .format(namespec, get_asctime(command.request_time)))
                 jobs.append(command)
                 starting = True
             else:
-                self.logger.warn('no resource available to start {}'
-                                 .format(namespec))
+                self.logger.warn('no resource available to start {}'.format(namespec))
                 self.force_process_fatal(namespec, 'no resource available')
         # return True when process is starting
         return starting
