@@ -262,12 +262,13 @@ However, it comes with the following drawbacks, taken from the ``README.md`` of
     * some XML-RPC are not implemented,
     * some implemented XML-RPC are not tested.
 
-Each **Supvisors** release includes a JAR file that contains a JAVA client.
-It can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
+The **Supvisors** release comes with a JAR file including a JAVA client.
+It can be downloaded from the `Supvisors releases<https://github.com/julien6387/supvisors/releases>`_.
 
-This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all interfaces (``system``, ``supervisor`` and ``supvisors``).
+The package ``org.supvisors.rpc`` implements all XML-RPC of all interfaces (``system``, ``supervisor`` and ``supvisors``).
+The package ``org.supvisors.event`` provides a way to receive instant information about **Supvisors** status and distributed applications.
 
-It requires the following additional dependencies:
+These packages require the following additional dependencies:
 
     * `Apache XML-RPC<https://ws.apache.org/xmlrpc>`_.
     * `JeroMQ<https://github.com/zeromq/jeromq>`_.
