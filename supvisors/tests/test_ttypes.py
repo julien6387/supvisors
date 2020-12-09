@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -68,9 +68,12 @@ class TypesTest(unittest.TestCase):
         """ Test the RunningFailureStrategies enumeration. """
         from supvisors.ttypes import RunningFailureStrategies
         self.assertEqual('CONTINUE', RunningFailureStrategies._to_string(RunningFailureStrategies.CONTINUE))
-        self.assertEqual('RESTART_PROCESS', RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_PROCESS))
-        self.assertEqual('STOP_APPLICATION', RunningFailureStrategies._to_string(RunningFailureStrategies.STOP_APPLICATION))
-        self.assertEqual('RESTART_APPLICATION', RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_APPLICATION))
+        self.assertEqual('RESTART_PROCESS',
+                         RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_PROCESS))
+        self.assertEqual('STOP_APPLICATION',
+                         RunningFailureStrategies._to_string(RunningFailureStrategies.STOP_APPLICATION))
+        self.assertEqual('RESTART_APPLICATION',
+                         RunningFailureStrategies._to_string(RunningFailureStrategies.RESTART_APPLICATION))
 
     def test_SupvisorsStates(self):
         """ Test the SupvisorsStates enumeration. """
@@ -95,6 +98,6 @@ class TypesTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -22,12 +22,14 @@ import random
 import socket
 import unittest
 
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 from supervisor.loggers import Logger
 
+from supvisors.tests.base import CompatTestCase
 
-class AddressMapperTest(unittest.TestCase):
+
+class AddressMapperTest(CompatTestCase):
     """ Test case for the addressmapper module. """
 
     def setUp(self):
@@ -132,7 +134,7 @@ class AddressMapperTest(unittest.TestCase):
         ip_list = AddressMapper.ipv4()
         self.assertTrue(ip_list)
         for ip in ip_list:
-            self.assertRegexpMatches(ip, r'^\d{1,3}(.\d{1,3}){3}$')
+            self.assertRegex(ip, r'^\d{1,3}(.\d{1,3}){3}$')
 
     @patch.dict('sys.modules', {'netifaces': None})
     def test_ipv4_importerror(self, *args, **keywargs):
@@ -145,6 +147,6 @@ class AddressMapperTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

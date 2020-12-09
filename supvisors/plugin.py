@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,7 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-import errno
 import os
 
 from supervisor.options import ServerOptions
@@ -35,10 +34,11 @@ from supvisors.viewsupvisors import SupvisorsView
 
 # Supvisors related faults
 class SupvisorsFaults:
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, \
-    BAD_EXTRA_ARGUMENTS = range(5)
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_EXTRA_ARGUMENTS = range(5)
+
 
 FAULTS_OFFSET = 100
+
 
 def expand_faults():
     """ Expand supervisord Fault definition. """
@@ -52,35 +52,35 @@ def update_views():
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
     # set main page
-    VIEWS['index.html'] =  {
+    VIEWS['index.html'] = {
         'template': os.path.join(here, 'ui/index.html'),
         'view': SupvisorsView}
     # set address /processpage
-    VIEWS['procaddress.html'] =  {
+    VIEWS['procaddress.html'] = {
         'template': os.path.join(here, 'ui/procaddress.html'),
         'view': ProcAddressView}
     # set address/host page
-    VIEWS['hostaddress.html'] =  {
+    VIEWS['hostaddress.html'] = {
         'template': os.path.join(here, 'ui/hostaddress.html'),
         'view': HostAddressView}
     # set application page
-    VIEWS['application.html'] =  {
+    VIEWS['application.html'] = {
         'template': os.path.join(here, 'ui/application.html'),
         'view': ApplicationView}
     # set fake page to export images
-    VIEWS['process_cpu.png'] =  {
+    VIEWS['process_cpu.png'] = {
         'template': None,
         'view': ProcessCpuImageView}
-    VIEWS['process_mem.png'] =  {
+    VIEWS['process_mem.png'] = {
         'template': None,
         'view': ProcessMemoryImageView}
-    VIEWS['address_cpu.png'] =  {
+    VIEWS['address_cpu.png'] = {
         'template': None,
         'view': AddressCpuImageView}
-    VIEWS['address_mem.png'] =  {
+    VIEWS['address_mem.png'] = {
         'template': None,
         'view': AddressMemoryImageView}
-    VIEWS['address_io.png'] =  {
+    VIEWS['address_io.png'] = {
         'template': None,
         'view': AddressNetworkImageView}
 

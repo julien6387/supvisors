@@ -26,6 +26,8 @@ from supvisors.viewcontext import *
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
+from urllib.parse import quote
+
 
 class ProcAddressView(StatusView):
     """ View renderer of the Process section of the Supvisors Address page.
@@ -149,7 +151,7 @@ class ProcAddressView(StatusView):
                                                **parameters)
                 elt.attributes(href=url)
                 elt = tr_elt.findmeld('tail_a_mid')
-                elt.attributes(href='logtail/%s' % urllib.quote(namespec),
+                elt.attributes(href='logtail/%s' % quote(namespec),
                                target='_blank')
                 # set line background and invert
                 if selected_tr:

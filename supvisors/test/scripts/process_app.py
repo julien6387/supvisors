@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,7 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from Tkinter import *
+from tkinter import *
+
 
 class ProcessAppTk(Tk):
 
@@ -50,6 +51,7 @@ class ProcessAppTk(Tk):
 if __name__ == "__main__":
     # get arguments
     import argparse
+
     parser = argparse.ArgumentParser(description='Start a dummy window named with a namespec.')
     parser.add_argument('-n', '--namespec', required=True, help='the namespec of the program')
     parser.add_argument('-x', '--xkill', type=int, metavar='SEC', help='kill the window after SEC seconds')
@@ -62,4 +64,3 @@ if __name__ == "__main__":
         root.after(args.xkill * 1000, root.quit)
     # start main loop
     root.mainloop()
-

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
+from urllib.parse import quote
 
 from supvisors.utils import supvisors_shortcuts
 from supvisors.webutils import error_message
@@ -99,7 +99,7 @@ class ViewContext:
 
     def update_application_name(self):
         """ Extract application name from context. """
-        self._update_string(APPLI, self.context.applications.keys())
+        self._update_string(APPLI, list(self.context.applications.keys()))
 
     def update_process_name(self):
         """ Extract process name from context. """
@@ -109,11 +109,11 @@ class ViewContext:
 
     def update_namespec(self):
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, self.context.processes.keys())
+        self._update_string(NAMESPEC, list(self.context.processes.keys()))
 
     def update_cpu_id(self):
         """ Extract CPU id from context. """
-        self._update_integer(CPU, range(self.get_nbcores() + 1))
+        self._update_integer(CPU, list(range(self.get_nbcores() + 1)))
 
     def update_interface_name(self):
         """ Extract interface name from context. """
@@ -125,13 +125,13 @@ class ViewContext:
     def url_parameters(self, **kwargs):
         """ Return the list of parameters for an URL. """
         parameters = dict(self.parameters, **kwargs)
-        return '&amp;'.join(['{}={}'.format(key, urllib.quote(str(value)))
+        return '&amp;'.join(['{}={}'.format(key, quote(str(value)))
                              for key, value in parameters.items()
                              if value])
 
     def format_url(self, address_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(urllib.quote(address_name),
+        url = 'http://{}:{}/'.format(quote(address_name),
                                      self.get_server_port()) \
             if address_name else ''
         return '{}{}?{}'.format(url, page,
@@ -156,7 +156,7 @@ class ViewContext:
         and the period selected.
         If no address is specified, local address is used. """
         stats_address = address or self.address
-        return self.statistician.data.get(stats_address, {})\
+        return self.statistician.data.get(stats_address, {}) \
             .get(self.parameters[PERIOD], None)
 
     def get_process_stats(self, namespec, running=False):

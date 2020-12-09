@@ -34,7 +34,8 @@ from supvisors.utils import extract_process_info, supvisors_shortcuts
 # get Supvisors version from file
 here = os.path.abspath(os.path.dirname(__file__))
 version_txt = os.path.join(here, 'version.txt')
-API_VERSION = open(version_txt).read().split('=')[1].strip()
+with open(version_txt, 'r') as ver:
+    API_VERSION = ver.read().split('=')[1].strip()
 
 
 class RPCInterface(object):

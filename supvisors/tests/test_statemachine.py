@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -21,7 +21,7 @@ import sys
 import time
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 
 from supvisors.tests.base import MockedSupvisors, database_copy
 
@@ -61,7 +61,8 @@ class StateMachinesTest(unittest.TestCase):
         mock_function = Mock()
         mock_function.__name__ = 'dummy_name'
         state.apply_addresses_func(mock_function)
-        self.assertItemsEqual([call('10.0.0.2'), call('10.0.0.4'), call('127.0.0.1')], mock_function.call_args_list)
+        self.assertListEqual([call('10.0.0.2'), call('10.0.0.4'), call('127.0.0.1')],
+                             mock_function.call_args_list)
 
     def test_initialization_state(self):
         """ Test the Initialization state of the FSM. """
@@ -72,7 +73,7 @@ class StateMachinesTest(unittest.TestCase):
         # test enter method: master and start_date are reset
         # test that all addresses that are not in an isolation state are reset to UNKNOWN
         state.enter()
-        self.assertEqual('',  state.context.master_address)
+        self.assertEqual('', state.context.master_address)
         self.assertGreaterEqual(int(time.time()), state.start_date)
         self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['127.0.0.1'].state)
         self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['10.0.0.1'].state)
@@ -100,7 +101,8 @@ class StateMachinesTest(unittest.TestCase):
                 self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
         # test exit method
         # test that context end_synchro is called and master is the lowest string among address names
-        with patch.object(self.supvisors.context, 'running_addresses', return_value=['127.0.0.1', '10.0.0.2', '10.0.0.4']):
+        with patch.object(self.supvisors.context, 'running_addresses',
+                          return_value=['127.0.0.1', '10.0.0.2', '10.0.0.4']):
             with patch.object(self.supvisors.context, 'end_synchro') as mocked_synchro:
                 state.exit()
                 self.assertEqual(1, mocked_synchro.call_count)
@@ -147,12 +149,18 @@ class StateMachinesTest(unittest.TestCase):
         self.assertTrue(application.minor_failure)
         self.assertFalse(application.major_failure)
         # list order may differ, so break down
-        self.assertItemsEqual([0, 1], application.start_sequence.keys())
-        self.assertItemsEqual([application.processes['yeux_01'], application.processes['yeux_00']], application.start_sequence[0])
-        self.assertItemsEqual([application.processes['sleep']], application.start_sequence[1])
-        self.assertItemsEqual([1, 2], application.stop_sequence.keys())
-        self.assertItemsEqual([application.processes['yeux_01'], application.processes['yeux_00']], application.stop_sequence[1])
-        self.assertItemsEqual([application.processes['sleep']], application.stop_sequence[2])
+        self.assertListEqual(sorted(application.start_sequence.keys()), [0, 1])
+        self.assertEqual(len(application.start_sequence[0]), 2)
+        self.assertTrue(all(item in [application.processes['yeux_01'], application.processes['yeux_00']]
+                            for item in application.start_sequence[0]))
+        self.assertListEqual([application.processes['sleep']],
+                             application.start_sequence[1])
+        self.assertListEqual(sorted(application.stop_sequence.keys()), [1, 2])
+        self.assertEqual(len(application.stop_sequence[1]), 2)
+        self.assertTrue(all(item in [application.processes['yeux_01'], application.processes['yeux_00']]
+                            for item in application.stop_sequence[1]))
+        self.assertListEqual([application.processes['sleep']],
+                             application.stop_sequence[2])
         # test next method
         # stay in DEPLOYMENT if local is master and a starting is in progress, whatever the conflict status
         with patch.object(self.supvisors.starter, 'check_starting', return_value=False):
@@ -175,7 +183,7 @@ class StateMachinesTest(unittest.TestCase):
                     self.supvisors.context.master = master
                     result = state.next()
                     self.assertEqual(SupvisorsStates.OPERATION, result)
-         # return CONCILIATION if local is not master and conflict detected, whatever the starting status
+        # return CONCILIATION if local is not master and conflict detected, whatever the starting status
         self.supvisors.context.master = False
         with patch.object(self.supvisors.context, 'conflicting', return_value=True):
             for starting in [True, False]:
@@ -304,7 +312,7 @@ class StateMachinesTest(unittest.TestCase):
                 addresses['10.0.0.3']._state = AddressStates.SILENT
                 result = state.next()
                 self.assertEqual(SupvisorsStates.INITIALIZATION, result)
-         # no exit implementation. just call it without test
+        # no exit implementation. just call it without test
         state.exit()
 
     def test_restarting_state(self):
@@ -422,11 +430,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test single transitions of the state machine using set_state method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0, 0, 0, 0])
@@ -460,11 +470,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test multiple transitions of the state machine using set_state method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -482,11 +494,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test no transition of the state machine using next_method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0])
@@ -507,11 +521,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test single transition of the state machine using next_method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0, 0, 0, 0])
@@ -535,11 +551,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test multiple transitions of the state machine using next_method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -572,11 +590,13 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test multiple transitions of the state machine using next_method. """
         from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
+
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
             for call_count, mocked in zip(call_counts, args):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
+
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -611,6 +631,7 @@ class FiniteStateMachineTest(unittest.TestCase):
                 # test that the state machine object is published
                 compare_state.cpt = compare_state.cpt + 1
                 self.assertEqual(compare_state.cpt, mocked_publisher.call_count)
+
             # add internal persistent variables to function
             compare_state.instance_ref = fsm.instance
             compare_state.cpt = 0
@@ -776,6 +797,7 @@ class FiniteStateMachineTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

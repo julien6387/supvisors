@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch, Mock, PropertyMock
+from unittest.mock import call, patch, Mock, PropertyMock
 from random import shuffle
 
 from supervisor.http import NOT_DONE_YET
@@ -31,6 +31,7 @@ from supervisor.states import (SupervisorStates,
 from supvisors.tests.base import (DummyAddressMapper,
                                   DummyHttpContext,
                                   ProcessInfoDatabase)
+
 
 class ViewHandlerTest(unittest.TestCase):
     """ Test case for the viewhandler module. """
@@ -59,7 +60,6 @@ class ViewHandlerTest(unittest.TestCase):
     @patch('supvisors.viewhandler.ViewHandler.handle_action')
     def test_render_not_ready(self, mocked_action):
         """ Test the render method when Supervisor is not in RUNNING state. """
-        from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
         handler.info_source.supervisor_state = SupervisorStates.RESTARTING
@@ -84,8 +84,8 @@ class ViewHandlerTest(unittest.TestCase):
     def test_render_action_in_progress(self, mocked_action):
         """ Test the render method when Supervisor is in RUNNING state
         and when an action is in progress. """
-        from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
+        from supvisors.ttypes import SupvisorsStates
         handler = ViewHandler(self.http_context)
         handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
@@ -108,7 +108,7 @@ class ViewHandlerTest(unittest.TestCase):
 
     @patch('supvisors.viewhandler.print_message')
     @patch('supvisors.viewhandler.ViewHandler.handle_action')
-    def test_render_no_conflict(self, mocked_action, mocked_print):
+    def test_render_no_conflict(self, mocked_action, _):
         """ Test the render method when Supervisor is in RUNNING state,
         when no action is in progress and no conflict is found. """
         from supvisors.ttypes import SupvisorsStates
@@ -145,7 +145,7 @@ class ViewHandlerTest(unittest.TestCase):
 
     @patch('supvisors.viewhandler.print_message')
     @patch('supvisors.viewhandler.ViewHandler.handle_action')
-    def test_render_no_conflict(self, mocked_action, mocked_print):
+    def test_render_no_conflict(self, mocked_action, _):
         """ Test the render method when Supervisor is in RUNNING state,
         when no action is in progress and conflicts are found. """
         from supvisors.ttypes import SupvisorsStates
@@ -212,8 +212,7 @@ class ViewHandlerTest(unittest.TestCase):
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value':
-                             [(address_elt, '10.0.0.1')]})
+        mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with no address status in context
         handler.write_nav_addresses(mocked_root, '10.0.0.1')
@@ -231,8 +230,7 @@ class ViewHandlerTest(unittest.TestCase):
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value':
-                             [(address_elt, '10.0.0.1')]})
+        mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with address status set in context, SILENT
         # and different from parameter
@@ -276,8 +274,7 @@ class ViewHandlerTest(unittest.TestCase):
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value':
-                             [(address_elt, '10.0.0.1')]})
+        mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with address status set in context, RUNNING,
         # different from parameter and not MASTER
@@ -294,9 +291,9 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call('address_a_mid')],
                          address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')],
-                          handler.view_ctx.format_url.call_args_list)
+                         handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
-                          href_elt.attributes.call_args_list)
+                         href_elt.attributes.call_args_list)
         self.assertEqual('on', href_elt.attrib['class'])
         self.assertEqual([call('10.0.0.1')],
                          href_elt.content.call_args_list)
@@ -318,35 +315,32 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call('address_a_mid')],
                          address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')],
-                          handler.view_ctx.format_url.call_args_list)
+                         handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')],
-                          href_elt.attributes.call_args_list)
+                         href_elt.attributes.call_args_list)
         self.assertEqual('on master', href_elt.attrib['class'])
         self.assertEqual([call('10.0.0.1')],
                          href_elt.content.call_args_list)
 
     def test_write_nav_applications_initialization(self):
-        """ Test the write_nav_applications method with Supvisors in its
-        INITIALIZATION state. """
-        from supvisors.ttypes import SupvisorsStates
+        """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
         from supvisors.viewhandler import ViewHandler
+        from supvisors.ttypes import SupvisorsStates
         handler = ViewHandler(self.http_context)
         handler.fsm.state = SupvisorsStates.INITIALIZATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value':
-                             [(appli_elt,
-                               Mock(application_name='dummy_appli',
-                                    **{'state_string.return_value': 'running'})
-                               )]})
+        mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
+                                                      Mock(application_name='dummy_appli',
+                                                           **{'state_string.return_value': 'running'}))]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with application name different from parameter
         handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         handler.write_nav_applications(mocked_root, 'dumb_appli')
-        self.assertEqual([call('appli_li_mid')],
-                         mocked_root.findmeld.call_args_list)
-        self.assertEqual([call([])], mocked_mid.repeat.call_args_list)
+        self.assertListEqual(mocked_root.findmeld.call_args_list,
+                             [call('appli_li_mid')])
+        self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
         self.assertEqual('running', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')],
                          appli_elt.findmeld.call_args_list)
@@ -363,7 +357,7 @@ class ViewHandlerTest(unittest.TestCase):
         handler.write_nav_applications(mocked_root, 'dummy_appli')
         self.assertEqual([call('appli_li_mid')],
                          mocked_root.findmeld.call_args_list)
-        self.assertEqual([call([])], mocked_mid.repeat.call_args_list)
+        self.assertEqual(mocked_mid.repeat.call_args_list, [call([])])
         self.assertEqual('running active', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')],
                          appli_elt.findmeld.call_args_list)
@@ -376,25 +370,23 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_nav_applications_operation(self):
         """ Test the write_nav_applications method with Supvisors in its
         OPERATION state. """
-        from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
+        from supvisors.ttypes import SupvisorsStates
         handler = ViewHandler(self.http_context)
         handler.fsm.state = SupvisorsStates.OPERATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value':
-                             [(appli_elt,
-                               Mock(application_name='dummy_appli',
-                                    **{'state_string.return_value': 'running'})
-                               )]})
+        mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
+                                                      Mock(application_name='dummy_appli',
+                                                           **{'state_string.return_value': 'running'}))]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with application name different from parameter
         handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         handler.write_nav_applications(mocked_root, 'dumb_appli')
         self.assertEqual([call('appli_li_mid')],
                          mocked_root.findmeld.call_args_list)
-        self.assertEqual([call([])], mocked_mid.repeat.call_args_list)
+        self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
         self.assertEqual('running', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')],
                          appli_elt.findmeld.call_args_list)
@@ -416,7 +408,7 @@ class ViewHandlerTest(unittest.TestCase):
         handler.write_nav_applications(mocked_root, 'dummy_appli')
         self.assertEqual([call('appli_li_mid')],
                          mocked_root.findmeld.call_args_list)
-        self.assertEqual([call([])], mocked_mid.repeat.call_args_list)
+        self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
         self.assertEqual('running active', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')],
                          appli_elt.findmeld.call_args_list)
@@ -504,7 +496,7 @@ class ViewHandlerTest(unittest.TestCase):
         # test with filled stats on selected process, irix mode
         handler.options.stats_irix_mode = True
         handler.write_common_process_cpu(tr_elt, 'dummy_proc',
-                                         ([10, 20], ), 2)
+                                         ([10, 20],), 2)
         self.assertEqual([call('pcpu_a_mid')],
                          tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
@@ -519,7 +511,7 @@ class ViewHandlerTest(unittest.TestCase):
         # test with filled stats on not selected process, solaris mode
         handler.options.stats_irix_mode = False
         handler.write_common_process_cpu(tr_elt, 'dummy',
-                                         ([10, 20, 30], ), 2)
+                                         ([10, 20, 30],), 2)
         self.assertEqual([call('pcpu_a_mid')],
                          tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
@@ -668,8 +660,7 @@ class ViewHandlerTest(unittest.TestCase):
         # patch the meld elements
         state_elt = Mock(attrib={'class': ''})
         load_elt = Mock(attrib={'class': ''})
-        tr_elt = Mock(attrib={}, **{'findmeld.side_effect':
-                                    [state_elt, load_elt]})
+        tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, load_elt]})
         # test call on selected process
         param = {'namespec': 'dummy_proc',
                  'statename': 'running',
@@ -707,7 +698,7 @@ class ViewHandlerTest(unittest.TestCase):
         stats_elt = Mock(**{'findmeld.side_effect': [val_elt, avg_elt,
                                                      slope_elt, dev_elt] * 2})
         # create fake stats
-        proc_stats = ([10, 16, 13], )
+        proc_stats = ([10, 16, 13],)
         # test call with empty stats
         self.assertFalse(handler.write_detailed_process_cpu(stats_elt, [], 4))
         self.assertFalse(handler.write_detailed_process_cpu(stats_elt,
@@ -726,7 +717,7 @@ class ViewHandlerTest(unittest.TestCase):
         slope_elt.content.reset_mock()
         dev_elt.content.reset_mock()
         # test call with solaris mode
-        proc_stats = ([10, 16, 24], )
+        proc_stats = ([10, 16, 24],)
         handler.options.stats_irix_mode = False
         self.assertTrue(handler.write_detailed_process_cpu(stats_elt,
                                                            proc_stats, 4))
@@ -748,7 +739,7 @@ class ViewHandlerTest(unittest.TestCase):
         # create fake stats
         proc_stats = ((), [20, 32, 32])
         # test call with empty stats
-        self.assertFalse(handler.write_detailed_process_mem(stats_elt, [],))
+        self.assertFalse(handler.write_detailed_process_mem(stats_elt, [], ))
         self.assertFalse(handler.write_detailed_process_mem(stats_elt,
                                                             ([], [])))
         # test call with irix mode
@@ -763,15 +754,14 @@ class ViewHandlerTest(unittest.TestCase):
 
     @patch('supvisors.plot.StatisticsPlot.export_image')
     @patch('supvisors.plot.StatisticsPlot.add_plot')
-    @patch.dict(sys.modules, {'matplotlib': None})
     def test_write_process_plots_no_plot(self, mocked_add, mocked_export):
         """ Test the write_process_plots method in the event of matplotlib import error. """
         # test considering that matplotlib is not installed
         import supvisors.viewhandler
-        from supvisors.viewhandler import (ViewHandler, test_matplotlib_import)
+        from supvisors.viewhandler import ViewHandler, test_matplotlib_import
         handler = ViewHandler(self.http_context)
         # re-evaluate PLOT_CLASS
-        supvisors.viewhandler.PLOT_CLASS = test_matplotlib_import()
+        setattr(supvisors.viewhandler, 'PLOT_CLASS', None)
         # test call
         handler.write_process_plots([])
         # test that plot methods are not called
@@ -808,7 +798,7 @@ class ViewHandlerTest(unittest.TestCase):
            return_value=False)
     @patch('supvisors.viewhandler.ViewHandler.get_process_stats',
            return_value=(([], []), 0))
-    def test_write_process_statistics(self, mocked_stats, mocked_cpu,
+    def test_write_process_statistics(self, _, mocked_cpu,
                                       mocked_mem, mocked_plots):
         """ Test the write_process_statistics method. """
         from supvisors.viewcontext import PROCESS
@@ -921,11 +911,13 @@ class ViewHandlerTest(unittest.TestCase):
                       'process_name': info['name']}
                      for info in ProcessInfoDatabase]
         shuffle(processes)
+
         # define group and process config ordering
         def create_mock(proc_name):
             proc = Mock()
             type(proc).name = PropertyMock(return_value=proc_name)
             return proc
+
         handler.info_source.get_group_config.side_effect = [
             # first group is crash
             # late_segv is forgotten to test ordering with unknown processes
@@ -964,6 +956,7 @@ class ViewHandlerTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

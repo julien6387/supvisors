@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -93,7 +93,7 @@ class InternalEventSubscriber(object):
         for address in addresses:
             url = 'tcp://{}:{}'.format(address, self.port)
             self.socket.connect(url)
-        self.socket.setsockopt(zmq.SUBSCRIBE, '')
+        self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
     def close(self):
         """ This method closes the PyZMQ socket. """
@@ -204,7 +204,7 @@ class EventSubscriber(object):
     # subscription part
     def subscribe_all(self):
         """ Subscription to all events. """
-        self.socket.setsockopt(zmq.SUBSCRIBE, '')
+        self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
     def subscribe_supvisors_status(self):
         """ Subscription to Supvisors Status messages. """
@@ -233,7 +233,7 @@ class EventSubscriber(object):
     # unsubscription part
     def unsubscribe_all(self):
         """ Subscription to all events. """
-        self.socket.setsockopt(zmq.UNSUBSCRIBE, '')
+        self.socket.setsockopt(zmq.UNSUBSCRIBE, b'')
 
     def unsubscribe_supvisors_status(self):
         """ Subscription to Supvisors Status messages. """
@@ -328,7 +328,7 @@ class RequestPusher(object):
         self.logger.trace('send CHECK_ADDRESS {}'.format(address_name))
         try:
             self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS,
-                                    (address_name, )),
+                                    (address_name,)),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
             self.logger.error('CHECK_ADDRESS not sent')
@@ -370,7 +370,7 @@ class RequestPusher(object):
         self.logger.trace('send RESTART {}'.format(address_name))
         try:
             self.socket.send_pyobj((DeferredRequestHeaders.RESTART,
-                                    (address_name, )),
+                                    (address_name,)),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
             self.logger.error('RESTART not sent')
@@ -380,13 +380,13 @@ class RequestPusher(object):
         self.logger.trace('send SHUTDOWN {}'.format(address_name))
         try:
             self.socket.send_pyobj((DeferredRequestHeaders.SHUTDOWN,
-                                    (address_name, )),
+                                    (address_name,)),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
             self.logger.error('SHUTDOWN not sent')
 
 
-class SupervisorZmq():
+class SupervisorZmq(object):
     """ Class for PyZmq context and sockets used from the Supervisor thread.
 
     This instance owns the PyZmq context that is shared between the Supervisor
@@ -412,7 +412,7 @@ class SupervisorZmq():
         self.publisher.close()
 
 
-class SupvisorsZmq():
+class SupvisorsZmq(object):
     """ Class for PyZmq context and sockets used from the Supvisors thread.
     """
 

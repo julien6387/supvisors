@@ -237,7 +237,7 @@ class Parser(object):
             if schema.validate(tree):
                 self.logger.info('XML validated')
                 return tree
-            print(schema.error_log, file=sys.stderr)
+            print(schema.error_log, file=stderr)
             raise ValueError('XML NOT validated: {}'.format(filename))
         except ImportError:
             try:

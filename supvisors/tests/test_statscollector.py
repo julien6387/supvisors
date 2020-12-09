@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -38,7 +38,7 @@ class StatisticsCollectorTest(unittest.TestCase):
     def test_instant_cpu_statistics(self):
         """ Test the instant CPU statistics. """
         from supvisors.statscollector import instant_cpu_statistics
-        stats = instant_cpu_statistics()
+        stats = list(instant_cpu_statistics())
         # test number of results (number of cores + average)
         self.assertEqual(multiprocessing.cpu_count() + 1, len(stats))
         # test average value
@@ -69,12 +69,12 @@ class StatisticsCollectorTest(unittest.TestCase):
             # two first lines are title
             contents = netfile.readlines()[2:]
         interfaces = [intf.strip().split(':')[0] for intf in contents]
-        self.assertItemsEqual(interfaces, stats.keys())
+        self.assertListEqual(interfaces, list(stats.keys()))
         self.assertIn('lo', stats.keys())
         # test that values are pairs
-        for intf, bytes in stats.items():
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
+        for intf, io_bytes in stats.items():
+            self.assertEqual(2, len(io_bytes))
+            for value in io_bytes:
                 self.assertIs(int, type(value))
         # for loopback address, recv bytes equals sent bytes
         self.assertEqual(stats['lo'][0], stats['lo'][1])
@@ -108,7 +108,7 @@ class StatisticsCollectorTest(unittest.TestCase):
         #  check time (current is greater)
         self.assertGreater(time.time(), date)
         # check cpu jiffies
-        self.assertEqual(multiprocessing.cpu_count() + 1, len(cpu_stats))
+        self.assertEqual(multiprocessing.cpu_count() + 1, len(list(cpu_stats)))
         for cpu in cpu_stats:
             self.assertEqual(2, len(cpu))
             for value in cpu:
@@ -118,13 +118,13 @@ class StatisticsCollectorTest(unittest.TestCase):
         self.assertGreaterEqual(mem_stats, 0)
         self.assertLessEqual(mem_stats, 100)
         # check io
-        for intf, bytes in io_stats.items():
+        for intf, io_bytes in io_stats.items():
             self.assertIs(str, type(intf))
-            self.assertEqual(2, len(bytes))
-            for value in bytes:
+            self.assertEqual(2, len(io_bytes))
+            for value in io_bytes:
                 self.assertIs(int, type(value))
         # check process stats
-        self.assertListEqual(['myself'], proc_stats.keys())
+        self.assertListEqual(['myself'], list(proc_stats.keys()))
         values = proc_stats['myself']
         self.assertEqual(2, len(values))
         self.assertEqual(os.getpid(), values[0])
@@ -138,6 +138,6 @@ class StatisticsCollectorTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

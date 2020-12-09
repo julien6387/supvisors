@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -22,10 +22,13 @@ import sys
 import time
 import unittest
 
-from supvisors.tests.base import (MockedSupvisors, any_process_info, database_copy)
+from supvisors.tests.base import (MockedSupvisors,
+                                  any_process_info,
+                                  database_copy,
+                                  CompatTestCase)
 
 
-class AddressTest(unittest.TestCase):
+class AddressTest(CompatTestCase):
     """ Test case for the address module. """
 
     def setUp(self):
@@ -55,7 +58,8 @@ class AddressTest(unittest.TestCase):
         for state in self.all_states:
             status._state = state
             self.assertTrue(status.in_isolation() and state in [AddressStates.ISOLATING, AddressStates.ISOLATED] or
-                not status.in_isolation() and state not in [AddressStates.ISOLATING, AddressStates.ISOLATED])
+                            not status.in_isolation() and state not in [AddressStates.ISOLATING,
+                                                                        AddressStates.ISOLATED])
 
     def test_serialization(self):
         """ Test the serial method used to get a serializable form of AddressStatus. """
@@ -71,7 +75,7 @@ class AddressTest(unittest.TestCase):
         # test to_json method
         serialized = status.serial()
         self.assertDictEqual(serialized, {'address_name': '10.0.0.1', 'loading': 0,
-            'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time':60})
+                                          'statecode': 2, 'statename': 'RUNNING', 'remote_time': 50, 'local_time': 60})
         # test that returned structure is serializable using pickle
         dumped = pickle.dumps(serialized)
         loaded = pickle.loads(dumped)
@@ -121,8 +125,8 @@ class AddressTest(unittest.TestCase):
             status.add_process(process)
         # get current process times
         ref_data = {process.namespec(): (process.state, info['now'], info['uptime'])
-            for process in status.processes.values()
-                for info in [process.infos['10.0.0.1']]}
+                    for process in status.processes.values()
+                    for info in [process.infos['10.0.0.1']]}
         # update times and check
         now = int(time.time())
         status.update_times(now + 10, now)
@@ -130,8 +134,8 @@ class AddressTest(unittest.TestCase):
         self.assertEqual(now, status.local_time)
         # test process times: only RUNNING and STOPPING have a positive uptime
         new_data = {process.namespec(): (process.state, info['now'], info['uptime'])
-            for process in status.processes.values()
-                for info in [process.infos['10.0.0.1']]}
+                    for process in status.processes.values()
+                    for info in [process.infos['10.0.0.1']]}
         for namespec, new_info in new_data.items():
             ref_info = ref_data[namespec]
             self.assertEqual(new_info[0], ref_info[0])
@@ -151,8 +155,8 @@ class AddressTest(unittest.TestCase):
             process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the name of the running processes
-        self.assertItemsEqual(['late_segv','segv', 'xfontsel', 'yeux_01'],
-            [proc.process_name for proc in status.running_processes()])
+        self.assertItemsEqual(['late_segv', 'segv', 'xfontsel', 'yeux_01'],
+                              [proc.process_name for proc in status.running_processes()])
 
     def test_pid_process(self):
         """ Test the pid_process method. """
@@ -164,7 +168,8 @@ class AddressTest(unittest.TestCase):
             process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the namespec and pid of the running processes
-        self.assertItemsEqual([('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)], status.pid_processes())
+        self.assertItemsEqual([('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)],
+                              status.pid_processes())
 
     def test_loading(self):
         """ Test the loading method. """
@@ -190,6 +195,6 @@ class AddressTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

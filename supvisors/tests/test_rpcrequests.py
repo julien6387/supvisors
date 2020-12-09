@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -20,7 +20,8 @@
 import sys
 import unittest
 
-from xmlrpclib import ServerProxy
+from supervisor.compat import xmlrpclib
+
 
 class RpcRequestsTest(unittest.TestCase):
     """ Test case for the rpcrequests module. """
@@ -32,7 +33,7 @@ class RpcRequestsTest(unittest.TestCase):
         # test with empty environment
         env = {}
         with self.assertRaises(KeyError):
-            proxy = getRPCInterface(address, env)
+            getRPCInterface(address, env)
         # test with incorrect environment
         env = {'SUPERVISOR_SERVER_URL': 'unix://localhost:1000'}
         with self.assertRaises(ValueError):
@@ -40,7 +41,7 @@ class RpcRequestsTest(unittest.TestCase):
         # test with simple environment
         env = {'SUPERVISOR_SERVER_URL': 'http://localhost:1000'}
         proxy = getRPCInterface(address, env)
-        self.assertIsInstance(proxy, ServerProxy)
+        self.assertIsInstance(proxy, xmlrpclib.ServerProxy)
         self.assertEqual('/RPC2', proxy._ServerProxy__handler)
         self.assertEqual('10.0.0.1', proxy._ServerProxy__host)
         self.assertEqual('http://10.0.0.1:1000', proxy._ServerProxy__transport.serverurl)
@@ -48,9 +49,9 @@ class RpcRequestsTest(unittest.TestCase):
         self.assertEqual('', proxy._ServerProxy__transport.password)
         # test with authentification environment
         env = {'SUPERVISOR_SERVER_URL': 'http://192.168.1.1:1000', 'SUPERVISOR_USERNAME': 'cliche',
-            'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+               'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
         proxy = getRPCInterface(address, env)
-        self.assertIsInstance(proxy, ServerProxy)
+        self.assertIsInstance(proxy, xmlrpclib.ServerProxy)
         self.assertEqual('/RPC2', proxy._ServerProxy__handler)
         self.assertEqual('10.0.0.1', proxy._ServerProxy__host)
         self.assertEqual('http://10.0.0.1:1000', proxy._ServerProxy__transport.serverurl)
@@ -58,10 +59,10 @@ class RpcRequestsTest(unittest.TestCase):
         self.assertEqual('p@$$w0rd', proxy._ServerProxy__transport.password)
         # if no server is started, call would block
 
- 
+
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

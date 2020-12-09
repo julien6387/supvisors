@@ -19,6 +19,7 @@
 
 import os
 import random
+import unittest
 
 from unittest.mock import patch, Mock
 
@@ -117,12 +118,14 @@ class DummyRpcInterface:
     def __init__(self):
         from supvisors.rpcinterface import RPCInterface
         supervisord = DummySupervisor()
-        # cretae rpc interfaces to have a skeleton
+        # create rpc interfaces to have a skeleton
         # create a Supervisor RPC interface
         self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
 
         # create a mocked Supvisors RPC interface
-        def create_supvisors():
+        def create_supvisors(arg):
+            # arg is supervisord
+            assert(arg == supervisord)
             return MockedSupvisors()
 
         with patch('supvisors.rpcinterface.Supvisors',
@@ -136,7 +139,7 @@ class DummyHttpServer:
     def __init__(self):
         self.handlers = [DummyRpcHandler(), Mock()]
 
-    def install_handler(self, handler, condition):
+    def install_handler(self, handler, _):
         self.handlers.append(handler)
 
 
@@ -296,3 +299,20 @@ def process_info_by_name(name):
     info = next((info.copy() for info in ProcessInfoDatabase
                  if info['name'] == name), None)
     return extract_process_info(info)
+
+
+class CompatTestCase(unittest.TestCase):
+    """ unittest.TestCase.assertItemsEqual has been removed from Python3
+    and unittest.TestCase.assertDictContainsSubset has been obsoleted.
+    Here is a try to replace tem without having tests to rewrite. """
+
+    def assertItemsEqual(self, lst1, lst2):
+        """ Two lists are equal when they have the same size
+        and when all elements of one are in the other one. """
+        self.assertEqual(len(lst1), len(lst2))
+        self.assertTrue(all(item in lst2 for item in lst1))
+        self.assertTrue(all(item in lst1 for item in lst2))
+
+    def assertDictContainsSubset(self, subset, origin, **kwargs):
+        """ Create a dictionary with both and test that it's equal to origin. """
+        self.assertEqual(dict(origin, **subset), origin)

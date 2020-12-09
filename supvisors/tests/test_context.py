@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -22,15 +22,16 @@ import sys
 import time
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 
 from supvisors.tests.base import (DummyAddressMapper,
                                   MockedSupvisors,
                                   database_copy,
-                                  any_process_info)
+                                  any_process_info,
+                                  CompatTestCase)
 
 
-class ContextTest(unittest.TestCase):
+class ContextTest(CompatTestCase):
     """ Test case for the context module. """
 
     def setUp(self):
@@ -45,8 +46,7 @@ class ContextTest(unittest.TestCase):
         self.assertIs(self.supvisors, context.supvisors)
         self.assertIs(self.supvisors.address_mapper, context.address_mapper)
         self.assertIs(self.supvisors.logger, context.logger)
-        self.assertItemsEqual(DummyAddressMapper().addresses,
-                              context.addresses.keys())
+        self.assertItemsEqual(DummyAddressMapper().addresses, context.addresses.keys())
         for address_name, address in context.addresses.items():
             self.assertEqual(address_name, address.address_name)
             self.assertIsInstance(address, AddressStatus)
@@ -76,18 +76,13 @@ class ContextTest(unittest.TestCase):
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
         # test initial states
-        self.assertItemsEqual(DummyAddressMapper().addresses,
-                              context.unknown_addresses())
-        self.assertItemsEqual([], context.running_addresses())
-        self.assertItemsEqual([], context.isolating_addresses())
-        self.assertItemsEqual([], context.isolation_addresses())
-        self.assertItemsEqual(
-            [], context.addresses_by_states([AddressStates.RUNNING,
-                                             AddressStates.ISOLATED]))
-        self.assertItemsEqual(
-            [], context.addresses_by_states([AddressStates.SILENT]))
-        self.assertItemsEqual(DummyAddressMapper().addresses,
-            context.addresses_by_states([AddressStates.UNKNOWN]))
+        self.assertListEqual(DummyAddressMapper().addresses, context.unknown_addresses())
+        self.assertListEqual([], context.running_addresses())
+        self.assertListEqual([], context.isolating_addresses())
+        self.assertListEqual([], context.isolation_addresses())
+        self.assertListEqual([], context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
+        self.assertListEqual([], context.addresses_by_states([AddressStates.SILENT]))
+        self.assertListEqual(DummyAddressMapper().addresses, context.addresses_by_states([AddressStates.UNKNOWN]))
         # change states
         context.addresses['127.0.0.1']._state = AddressStates.RUNNING
         context.addresses['10.0.0.1']._state = AddressStates.SILENT
@@ -95,25 +90,21 @@ class ContextTest(unittest.TestCase):
         context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
         context.addresses['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertItemsEqual(['10.0.0.5'], context.unknown_addresses())
-        self.assertItemsEqual(['127.0.0.1', '10.0.0.4'],
-                              context.running_addresses())
-        self.assertItemsEqual(['10.0.0.2'], context.isolating_addresses())
-        self.assertItemsEqual(['10.0.0.2', '10.0.0.3'],
-                              context.isolation_addresses())
-        self.assertItemsEqual(['127.0.0.1', '10.0.0.3', '10.0.0.4'],
-            context.addresses_by_states([AddressStates.RUNNING,
-                                         AddressStates.ISOLATED]))
-        self.assertItemsEqual(['10.0.0.1'],
-                              context.addresses_by_states([AddressStates.SILENT]))
-        self.assertItemsEqual(['10.0.0.5'],
-                              context.addresses_by_states([AddressStates.UNKNOWN]))
+        self.assertListEqual(['10.0.0.5'], context.unknown_addresses())
+        self.assertListEqual(['127.0.0.1', '10.0.0.4'], context.running_addresses())
+        self.assertListEqual(['10.0.0.2'], context.isolating_addresses())
+        self.assertListEqual(['10.0.0.2', '10.0.0.3'], context.isolation_addresses())
+        self.assertListEqual(['127.0.0.1', '10.0.0.3', '10.0.0.4'],
+                             context.addresses_by_states([AddressStates.RUNNING,
+                                                          AddressStates.ISOLATED]))
+        self.assertListEqual(['10.0.0.1'], context.addresses_by_states([AddressStates.SILENT]))
+        self.assertListEqual(['10.0.0.5'], context.addresses_by_states([AddressStates.UNKNOWN]))
 
     def random_fill_processes(self, context):
         """ Pushes ProcessInfoDatabase process info in AddressStatus. """
         for info in database_copy():
             process = context.setdefault_process(info)
-            address_name = random.choice(context.addresses.keys())
+            address_name = random.choice(list(context.addresses.keys()))
             process.add_info(address_name, info)
             context.addresses[address_name].add_process(process)
 
@@ -122,6 +113,7 @@ class ContextTest(unittest.TestCase):
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
+
         def check_address_status(address_name, new_state):
             # get address status
             address_status = context.addresses[address_name]
@@ -131,7 +123,7 @@ class ContextTest(unittest.TestCase):
             proc_1 = Mock(**{'invalidate_address.return_value': None})
             proc_2 = Mock(**{'invalidate_address.return_value': None})
             with patch.object(address_status, 'running_processes',
-                    return_value=[proc_1, proc_2]) as mocked_running:
+                              return_value=[proc_1, proc_2]) as mocked_running:
                 context.invalid(address_status)
             # check new state
             self.assertEqual(new_state, address_status.state)
@@ -143,6 +135,7 @@ class ContextTest(unittest.TestCase):
                              proc_2.invalidate_address.call_args_list)
             # restore address state
             address_status._state = AddressStates.UNKNOWN
+
         # test address state with auto_fence and local_address
         check_address_status('127.0.0.1', AddressStates.SILENT)
         # test address state with auto_fence and other than local_address
@@ -214,7 +207,7 @@ class ContextTest(unittest.TestCase):
         process2.addresses.update(context.addresses.keys())
         # test conflict is detected
         self.assertTrue(context.conflicting())
-        self.assertItemsEqual([process1, process2], context.conflicts())
+        self.assertListEqual([process1, process2], context.conflicts())
         # empty addresses of first process list
         process1.addresses.clear()
         # test conflict is still detected
@@ -259,30 +252,26 @@ class ContextTest(unittest.TestCase):
         dummy_info1 = {'group': 'dummy_application_1', 'name': 'dummy_process_1'}
         process1 = context.setdefault_process(dummy_info1)
         # check application and process list
-        self.assertItemsEqual(['dummy_application_1'],
-                              context.applications.keys())
-        self.assertDictEqual({'dummy_application_1:dummy_process_1': process1},
-                             context.processes)
+        self.assertItemsEqual(['dummy_application_1'], context.applications.keys())
+        self.assertDictEqual({'dummy_application_1:dummy_process_1': process1}, context.processes)
         # get application
         dummy_info2 = {'group': 'dummy_application_2', 'name': 'dummy_process_2'}
         process2 = context.setdefault_process(dummy_info2)
         # check application and process list
-        self.assertItemsEqual(['dummy_application_1', 'dummy_application_2'],
-            context.applications.keys())
+        self.assertItemsEqual(['dummy_application_1', 'dummy_application_2'], context.applications.keys())
         self.assertDictEqual({'dummy_application_1:dummy_process_1': process1,
-            'dummy_application_2:dummy_process_2': process2},
-            context.processes)
+                              'dummy_application_2:dummy_process_2': process2},
+                             context.processes)
         # get application
         dummy_info3 = {'group': process1.application_name,
                        'name': process1.process_name}
         process3 = context.setdefault_process(dummy_info3)
         self.assertIs(process1, process3)
         # check application and process list
-        self.assertItemsEqual(['dummy_application_1', 'dummy_application_2'],
-            context.applications.keys())
+        self.assertItemsEqual(['dummy_application_1', 'dummy_application_2'], context.applications.keys())
         self.assertDictEqual({'dummy_application_1:dummy_process_1': process1,
-            'dummy_application_2:dummy_process_2': process2},
-            context.processes)
+                              'dummy_application_2:dummy_process_2': process2},
+                             context.processes)
 
     def test_load_processes(self):
         """ Test the storage of processes handled by Supervisor on a given
@@ -300,8 +289,7 @@ class ContextTest(unittest.TestCase):
         # load ProcessInfoDatabase in known address
         context.load_processes('10.0.0.1', database_copy())
         # check context contents
-        self.assertItemsEqual(['sample_test_1', 'sample_test_2',
-                               'firefox', 'crash'],
+        self.assertItemsEqual(['sample_test_1', 'sample_test_2', 'firefox', 'crash'],
                               context.applications.keys())
         self.assertItemsEqual(['sample_test_1:xclock', 'sample_test_1:xfontsel',
                                'sample_test_1:xlogo', 'sample_test_2:sleep',
@@ -313,8 +301,7 @@ class ContextTest(unittest.TestCase):
         # load ProcessInfoDatabase in other known address
         context.load_processes('10.0.0.2', database_copy())
         # check context contents
-        self.assertItemsEqual(['sample_test_1', 'sample_test_2',
-                               'firefox', 'crash'],
+        self.assertItemsEqual(['sample_test_1', 'sample_test_2', 'firefox', 'crash'],
                               context.applications.keys())
         self.assertItemsEqual(['sample_test_1:xclock', 'sample_test_1:xfontsel',
                                'sample_test_1:xlogo', 'sample_test_2:sleep',
@@ -338,15 +325,17 @@ class ContextTest(unittest.TestCase):
                                'crash:late_segv', 'crash:segv', 'firefox',
                                'dummy_application:dummy_process'],
                               context.processes.keys())
-        self.assertListEqual(['dummy_application:dummy_process'],
-                             context.addresses['10.0.0.4'].processes.keys())
+        self.assertItemsEqual(['dummy_application:dummy_process'],
+                              context.addresses['10.0.0.4'].processes.keys())
         # equality lost between processes in addresses and processes in context
-        self.assertNotIn(context.processes.keys(),
-                         context.addresses['10.0.0.1'].processes.keys())
-        self.assertNotIn(context.processes.keys(),
-                         context.addresses['10.0.0.2'].processes.keys())
-        self.assertNotIn(context.processes.keys(),
-                         context.addresses['10.0.0.4'].processes.keys())
+        self.assertNotIn(list(context.processes.keys()),
+                         list(context.addresses['10.0.0.1'].processes.keys()))
+        self.assertNotIn(list(context.processes.keys()),
+                         list(context.addresses['10.0.0.2'].processes.keys()))
+        self.assertNotIn(list(context.processes.keys()),
+                         list(context.addresses['10.0.0.4'].processes.keys()))
+        self.assertDictContainsSubset(context.addresses['10.0.0.1'].processes,
+                                      context.processes)
         self.assertDictContainsSubset(context.addresses['10.0.0.1'].processes,
                                       context.processes)
         self.assertDictContainsSubset(context.addresses['10.0.0.2'].processes,
@@ -470,7 +459,8 @@ class ContextTest(unittest.TestCase):
                     self.assertEqual(0, mocked_appli.call_count)
                     self.assertEqual(0, mocked_proc.call_count)
                 # check no exception with unknown process
-                for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
+                for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING,
+                              AddressStates.RUNNING]:
                     address._state = state
                     result = context.on_process_event(
                         '10.0.0.1', {'groupname': 'dummy_application',
@@ -510,14 +500,13 @@ class ContextTest(unittest.TestCase):
         with patch.object(self.supvisors.zmq.publisher,
                           'send_address_status') as mocked_send:
             # test address states excepting RUNNING: nothing happens
-            for state in [x for x in AddressStates._values()
-                          if x != AddressStates.RUNNING]:
+            for _ in [x for x in AddressStates._values() if x != AddressStates.RUNNING]:
                 context.on_timer_event()
                 for address in context.addresses.values():
                     self.assertEqual(AddressStates.UNKNOWN, address.state)
                 self.assertEqual(0, mocked_send.call_count)
             # test RUNNING address state with recent local_time
-            test_addresses = ['10.0.0.1', '10.0.0.3',  '10.0.0.5']
+            test_addresses = ['10.0.0.1', '10.0.0.3', '10.0.0.5']
             for address_name in test_addresses:
                 address = context.addresses[address_name]
                 address._state = AddressStates.RUNNING
@@ -561,8 +550,9 @@ class ContextTest(unittest.TestCase):
                                      if x not in test_addresses]:
                     self.assertEqual(AddressStates.UNKNOWN,
                                      context.addresses[address_name].state)
-                self.assertItemsEqual([call(address2), call(address3)],
-                                      mocked_send.call_args_list)
+                send_calls = mocked_send.call_args_list
+                self.assertTrue([call(address2), call(address3)] == send_calls or
+                                [call(address3), call(address2)] == send_calls)
 
     def test_handle_isolation(self):
         """ Test the isolation of addresses. """
@@ -592,15 +582,16 @@ class ContextTest(unittest.TestCase):
                              context.addresses['10.0.0.4'].state)
             self.assertEqual(AddressStates.ISOLATED,
                              context.addresses['10.0.0.5'].state)
-            self.assertItemsEqual(['10.0.0.4', '10.0.0.5'], result)
+            self.assertListEqual(['10.0.0.4', '10.0.0.5'], result)
             # check calls to publisher.send_address_status
-            self.assertItemsEqual([call(context.addresses['10.0.0.4']),
-                                   call(context.addresses['10.0.0.5'])],
-                                  mocked_send.call_args_list)
+            self.assertListEqual([call(context.addresses['10.0.0.4']),
+                                  call(context.addresses['10.0.0.5'])],
+                                 mocked_send.call_args_list)
 
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

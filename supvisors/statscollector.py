@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -37,13 +37,13 @@ def instant_cpu_statistics():
     cpu_stats = cpu_times(percpu=True)
     for cpu_stat in cpu_stats:
         work.append(cpu_stat.user + cpu_stat.nice + cpu_stat.system
-            + cpu_stat.irq + cpu_stat.softirq
-            + cpu_stat.steal + cpu_stat.guest)
+                    + cpu_stat.irq + cpu_stat.softirq
+                    + cpu_stat.steal + cpu_stat.guest)
         idle.append(cpu_stat.idle + cpu_stat.iowait)
     # return adding CPU average in front of lists
     work.insert(0, mean(work))
     idle.insert(0, mean(idle))
-    return zip(work, idle)
+    return list(zip(work, idle))
 
 
 # Memory statistics
@@ -85,6 +85,6 @@ def instant_process_statistics(pid):
 def instant_statistics(named_pid_list):
     """ Return a tuple of all measures taken on the CPU, Memory and IO resources. """
     proc_statistics = {process_name: (pid, instant_process_statistics(pid))
-        for process_name, pid in named_pid_list}
+                       for process_name, pid in named_pid_list}
     return (time(), instant_cpu_statistics(), instant_memory_statistics(),
-        instant_io_statistics(), proc_statistics)
+            instant_io_statistics(), proc_statistics)

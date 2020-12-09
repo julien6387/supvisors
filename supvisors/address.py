@@ -52,16 +52,15 @@ class AddressStatus(object):
         return self._state
 
     @state.setter
-    def state(self, newState):
-        if self._state != newState:
-            if self.check_transition(newState):
-                self._state = newState
-                self.logger.info('Address {} is {}'.format(
-                    self.address_name, self.state_string()))
+    def state(self, new_state):
+        if self._state != new_state:
+            if self.check_transition(new_state):
+                self._state = new_state
+                self.logger.info('Address {} is {}'.format(self.address_name, self.state_string()))
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.
-                    format(self.state_string(),
-                           AddressStates._to_string(newState)))
+                                        format(self.state_string(),
+                                               AddressStates._to_string(new_state)))
 
     # serialization
     def serial(self):
@@ -71,7 +70,7 @@ class AddressStatus(object):
                 'statename': self.state_string(),
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
-                'loading': self.loading() }
+                'loading': self.loading()}
 
     # methods
     def state_string(self):
@@ -111,7 +110,7 @@ class AddressStatus(object):
        Different from running_processes_on because it excludes the states
        STARTING and BACKOFF """
         return [(process.namespec(), process.infos[self.address_name]['pid'])
-            for process in self.processes.values()
+                for process in self.processes.values()
                 if process.pid_running_on(self.address_name)]
 
     def loading(self):

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -70,7 +70,7 @@ class SupervisorListener(object):
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
-    def on_running(self, event):
+    def on_running(self, _):
         """ Called when Supervisor is RUNNING.
         This method start the Supvisors main loop. """
         self.logger.info('local supervisord is RUNNING')
@@ -87,8 +87,7 @@ class SupervisorListener(object):
         self.main_loop = SupvisorsMainLoop(self.supvisors)
         self.main_loop.start()
 
-
-    def on_stopping(self, event):
+    def on_stopping(self, _):
         """ Called when Supervisor is STOPPING.
         This method stops the Supvisors main loop. """
         self.logger.warn('local supervisord is STOPPING')
@@ -105,7 +104,6 @@ class SupervisorListener(object):
         events.clear()
         # finally, close logger
         self.logger.close()
-
 
     def on_process(self, event):
         """ Called when a ProcessEvent is sent by the local Supervisor.
@@ -134,8 +132,8 @@ class SupervisorListener(object):
         # get and publish statistics at tick time (optional)
         if self.collector:
             status = self.supvisors.context.addresses[self.address]
-            self.publisher.send_statistics(
-                self.collector(status.pid_processes()))
+            stats = self.collector(status.pid_processes())
+            self.publisher.send_statistics(stats)
         # periodic task
         addresses = self.fsm.on_timer_event()
         # pushes isolated addresses to main loop
@@ -201,10 +199,10 @@ class SupervisorListener(object):
         application_name, process_name = split_namespec(namespec)
         # create payload from event
         payload = {'processname': process_name,
-            'groupname': application_name,
-            'state': state,
-            'now': int(time.time()),
-            'pid': 0,
-            'expected': False}
+                   'groupname': application_name,
+                   'state': state,
+                   'now': int(time.time()),
+                   'pid': 0,
+                   'expected': False}
         self.logger.debug('payload={}'.format(payload))
         self.publisher.send_process_event(payload)

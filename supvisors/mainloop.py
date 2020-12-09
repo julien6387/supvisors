@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -28,7 +28,6 @@ from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
 from supvisors.utils import (DeferredRequestHeaders,
                              RemoteCommEvents)
-from zmq.error import ZMQError
 
 
 class SupvisorsMainLoop(Thread):
@@ -91,29 +90,28 @@ class SupvisorsMainLoop(Thread):
     def check_events(self, subscriber, socks):
         """ Forward external Supervisor events to main thread. """
         if subscriber.socket in socks and \
-            socks[subscriber.socket] == zmq.POLLIN:
+                socks[subscriber.socket] == zmq.POLLIN:
             try:
                 message = subscriber.receive()
             except:
-                print >> stderr, '[ERROR] failed to get data from subscriber'
+                print('[ERROR] failed to get data from subscriber', file=stderr)
             else:
                 # The events received are not processed directly in this thread
                 # because it would conflict with the processing in the
                 # Supervisor thread, as they use the same data.
                 # That's why a RemoteCommunicationEvent is used to push the
                 # event in the Supervisor thread.
-                self.send_remote_comm_event(
-                    RemoteCommEvents.SUPVISORS_EVENT,
-                    json.dumps(message))
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT,
+                                            json.dumps(message))
 
     def check_requests(self, zmq_sockets, socks):
         """ Defer internal requests. """
         if zmq_sockets.puller.socket in socks and \
-            socks[zmq_sockets.puller.socket] == zmq.POLLIN:
+                socks[zmq_sockets.puller.socket] == zmq.POLLIN:
             try:
                 header, body = zmq_sockets.puller.receive()
             except:
-                print >> stderr, '[ERROR] failed to get data from puller'
+                print('[ERROR] failed to get data from puller', file=stderr)
             else:
                 if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
                     # isolation request: disconnect the address from subscriber
@@ -160,8 +158,7 @@ class SupvisorsMainLoop(Thread):
                                         'address_name:{} authorized:{}'
                                         .format(address_name, authorized))
         except:
-            print >> stderr, '[ERROR] failed to check address {}'\
-                .format(address_name)
+            print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
 
     def start_process(self, address_name, namespec, extra_args):
         """ Start process asynchronously. """
@@ -169,8 +166,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
-            print >> stderr, '[ERROR] failed to start process {} on {} with {}'\
-                .format(namespec, address_name, extra_args)
+            print('[ERROR] failed to start process {} on {} with {}'.format(namespec, address_name, extra_args),
+                  file=stderr)
 
     def stop_process(self, address_name, namespec):
         """ Stop process asynchronously. """
@@ -178,8 +175,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.stopProcess(namespec, False)
         except:
-            print >> stderr, '[ERROR] failed to stop process {} on {}'\
-                .format(namespec, address_name)
+            print('[ERROR] failed to stop process {} on {}'.format(namespec, address_name),
+                  file=stderr)
 
     def restart(self, address_name):
         """ Restart a Supervisor instance asynchronously. """
@@ -187,8 +184,7 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.restart()
         except:
-            print >> stderr, '[ERROR] failed to restart address {}'\
-                .format(address_name)
+            print('[ERROR] failed to restart address {}'.format(address_name), file=stderr)
 
     def shutdown(self, address_name):
         """ Stop process asynchronously. """
@@ -196,8 +192,7 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supervisor.shutdown()
         except:
-            print >> stderr, '[ERROR] failed to shutdown address {}'\
-                .format(address_name)
+            print('[ERROR] failed to shutdown address {}'.format(address_name), file=stderr)
 
     def send_remote_comm_event(self, event_type, event_data):
         """ Shortcut for the use of sendRemoteCommEvent. """
@@ -205,5 +200,4 @@ class SupvisorsMainLoop(Thread):
             self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
         except:
             # expected on restart / shutdown
-            print >> stderr, '[WARN] failed to send event to Supervisor: {}'\
-                .format(event_type)
+            print('[WARN] failed to send event to Supervisor: {}'.format(event_type), file=stderr)

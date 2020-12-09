@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -53,13 +53,14 @@ class AddressMapper(object):
         # get IP list for local board
         self.local_address = self.expected(self.local_addresses)
         self.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
- 
+
     def valid(self, address):
         """ Return True if address is among the addresses defined in the configuration file. """
         return address in self._addresses
 
     def filter(self, address_list):
-        """ Returns a list of expected addresses from a list of names or ip addresses identifying different locations. """
+        """ Returns a list of expected addresses from a list of names or ip addresses identifying
+        different locations. """
         # filter unknown addresses
         addresses = [address for address in address_list if self.valid(address)]
         # remove duplicates keeping the same ordering
@@ -67,7 +68,7 @@ class AddressMapper(object):
 
     def expected(self, address_list):
         """ Returns the expected address from a list of names or ip addresses identifying the same location. """
-        return next((address for address in address_list if self.valid(address)),  None)
+        return next((address for address in address_list if self.valid(address)), None)
 
     @staticmethod
     def ipv4():
@@ -83,8 +84,7 @@ class AddressMapper(object):
                     for link in config[AF_INET]:
                         # loopback holds a 'peer' instead of a 'broadcast' address
                         if 'addr' in link.keys() and 'peer' not in link.keys():
-                            addresses.append(link['addr']) 
+                            addresses.append(link['addr'])
             return addresses
         except ImportError:
             return []
-

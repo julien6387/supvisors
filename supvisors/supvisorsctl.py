@@ -40,7 +40,7 @@ class ControllerPlugin(ControllerPluginBase):
         """ Get a proxy to the Supvisors RPC interface. """
         return self.ctl.get_server_proxy('supvisors')
 
-    def do_sversion(self):
+    def do_sversion(self, _):
         """ Command to get the Supvisors API version. """
         if self._upcheck():
             try:
@@ -55,7 +55,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sversion\t\t\t\t"
                         "Get the API version of Supvisors.")
 
-    def do_sstate(self):
+    def do_sstate(self, _):
         """ Command to get the Supvisors state. """
         if self._upcheck():
             try:
@@ -72,7 +72,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sstate\t\t\t\t\t"
                         "Get the Supvisors state.")
 
-    def do_master(self):
+    def do_master(self, _):
         """ Command to get the Supvisors master address. """
         if self._upcheck():
             try:
@@ -87,7 +87,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("master\t\t\t\t\t"
                         "Get the Supvisors master address.")
 
-    def do_strategies(self):
+    def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
         if self._upcheck():
             try:
@@ -389,7 +389,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("process_rules\t\t\t\t\t"
                         "Get the rules of all processes.")
 
-    def do_conflicts(self):
+    def do_conflicts(self, _):
         """ Command to get the conflicts detected by Supvisors. """
         if self._upcheck():
             try:
@@ -712,7 +712,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("conciliate strategy\t\t\t\t\t"
                         "Conciliate process conflicts using strategy")
 
-    def do_sreload(self):
+    def do_sreload(self, _):
         """ Command to restart Supvisors on all addresses. """
         if self._upcheck():
             try:
@@ -728,7 +728,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("sreload\t\t\t\t\t"
                         "Restart all remote supervisord")
 
-    def do_sshutdown(self):
+    def do_sshutdown(self, _):
         """ Command to shutdown Supvisors on all addresses. """
         if self._upcheck():
             try:

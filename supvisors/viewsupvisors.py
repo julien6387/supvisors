@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,10 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
-
 from supervisor.http import NOT_DONE_YET
-from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.strategy import conciliate_conflicts
@@ -33,7 +30,6 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-#class SupvisorsView(ViewHandler, MeldView):
 class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
@@ -48,11 +44,9 @@ class SupvisorsView(ViewHandler):
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
-        #ViewHandler.__init__(self, context, SUPVISORS_PAGE)
-        #MeldView.__init__(self, context)
         self.page_name = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = map(str.lower, ConciliationStrategies._strings())
+        self.strategies = {str.lower(x) for x in ConciliationStrategies._strings()}
         user = ConciliationStrategies._to_string(ConciliationStrategies.USER)
         self.strategies.remove(user.lower())
         # global actions (no parameter)
@@ -139,8 +133,8 @@ class SupvisorsView(ViewHandler):
                  'rowspan': len(process.addresses) if idx == 0 else 0,
                  'address': address,
                  'uptime': process.infos[address]['uptime']}
-            for process in self.sup_ctx.conflicts()
-            for idx, address in enumerate(process.addresses)]
+                for process in self.sup_ctx.conflicts()
+                for idx, address in enumerate(process.addresses)]
         tr_mid = div_elt.findmeld('tr_mid')
         for tr_elt, item in tr_mid.repeat(data):
             # set process name
@@ -178,7 +172,7 @@ class SupvisorsView(ViewHandler):
                     'local_strategy_li_mid').repeat(self.strategies)
                 for li_elt, item in strategy_iterator:
                     elt = li_elt.findmeld('local_strategy_a_mid')
-                    # conciliation requests MUST be sent to MASTER
+                    #  conciliation requests MUST be sent to MASTER
                     master = self.sup_ctx.master_address
                     parameters = {ViewContext.NAMESPEC: namespec,
                                   ViewContext.ACTION: item}
@@ -216,11 +210,12 @@ class SupvisorsView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('restart: {}'.format(e))
+                except RPCError as exc:
+                    return error_message('restart: {}'.format(exc))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('Supvisors restarted')
+
             onwait.delay = 0.1
             return onwait
         return delayed_info('Supvisors restarted')
@@ -235,11 +230,12 @@ class SupvisorsView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('shutdown: {}'.format(e))
+                except RPCError as exc:
+                    return error_message('shutdown: {}'.format(exc))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('Supvisors shut down')
+
             onwait.delay = 0.1
             return onwait
         return delayed_info('Supvisors shut down')
@@ -249,11 +245,13 @@ class SupvisorsView(ViewHandler):
         # get running addresses of process
         addresses = self.sup_ctx.processes[namespec].addresses
         self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+
         def on_wait():
             if address in addresses:
                 return NOT_DONE_YET
             return info_message('process {} stopped on {}'
                                 .format(namespec, address))
+
         on_wait.delay = 0.1
         return on_wait
 
@@ -266,11 +264,13 @@ class SupvisorsView(ViewHandler):
         running_addresses.remove(address)
         for address in running_addresses:
             self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+
         def on_wait():
             if len(addresses) > 1:
                 return NOT_DONE_YET
             return info_message('processes {} stopped but on {}'
                                 .format(namespec, address))
+
         on_wait.delay = 0.1
         return on_wait
 

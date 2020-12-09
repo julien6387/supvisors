@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
@@ -49,7 +49,7 @@ class ViewApplicationTest(unittest.TestCase):
 
     @patch('supvisors.viewapplication.error_message', return_value='an error')
     @patch('supvisors.viewhandler.ViewHandler.handle_parameters')
-    def test_handle_parameters(self, mocked_handle, mocked_message):
+    def test_handle_parameters(self, mocked_handle, _):
         """ Test the handle_parameters method. """
         from supvisors.viewapplication import ApplicationView
         from supvisors.viewcontext import APPLI
@@ -222,9 +222,8 @@ class ViewApplicationTest(unittest.TestCase):
         from supvisors.webutils import APPLICATION_PAGE
         view = ApplicationView(self.http_context)
         # patch the view context
-        view.view_ctx = Mock(**{'format_url.side_effect':
-                                ['a refresh url', 'a start url',
-                                 'a stop url', 'a restart url']})
+        view.view_ctx = Mock(**{'format_url.side_effect': ['a refresh url', 'a start url',
+                                                           'a stop url', 'a restart url']})
         # patch the meld elements
         actions_mid = (Mock(), Mock(), Mock(), Mock())
         mocked_root = Mock(**{'findmeld.side_effect': actions_mid})
@@ -370,10 +369,8 @@ class ViewApplicationTest(unittest.TestCase):
         running_ul_mid = Mock()
         running_a_mid = Mock()
         running_li_elt = Mock(**{'findmeld.return_value': running_a_mid})
-        running_li_mid = Mock(**{'repeat.return_value':
-                                 [(running_li_elt, '10.0.0.1')]})
-        tr_elt = Mock(**{'findmeld.side_effect': [running_ul_mid,
-                                                  running_li_mid]})
+        running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1')]})
+        tr_elt = Mock(**{'findmeld.side_effect': [running_ul_mid, running_li_mid]})
         # test call with stopped process
         view.write_process_addresses(tr_elt, info)
         self.assertEqual([call('')], running_ul_mid.replace.call_args_list)
@@ -466,7 +463,7 @@ class ViewApplicationTest(unittest.TestCase):
     def test_make_callback(self, mocked_refresh, mocked_strategy,
                            mocked_start_app, mocked_stop_app,
                            mocked_restart_app, mocked_start_proc,
-                           mocked_stop_proc,  mocked_restart_proc,
+                           mocked_stop_proc, mocked_restart_proc,
                            mocked_delayed):
         """ Test the make_callback method. """
         from supvisors.viewapplication import ApplicationView
@@ -513,7 +510,7 @@ class ViewApplicationTest(unittest.TestCase):
         from supvisors.viewapplication import ApplicationView
         view = ApplicationView(self.http_context)
         # test call
-        self.assertEqual('Delayed', view.refresh_action)
+        self.assertEqual('Delayed', view.refresh_action())
         self.assertEqual([call('Page refreshed')],
                          mocked_delayed.call_args_list)
 
@@ -586,7 +583,7 @@ class ViewApplicationActionTest(unittest.TestCase):
     def test_stop_process_action(self):
         """ Test the stop_process_action method. """
         self.check_stop_action('stop_process', 'stop_process_action',
-                                'dummy_proc')
+                               'dummy_proc')
 
     def test_restart_process_action(self):
         """ Test the restart_process_action method. """
@@ -667,6 +664,7 @@ class ViewApplicationActionTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

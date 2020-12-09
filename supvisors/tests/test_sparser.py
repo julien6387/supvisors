@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -20,8 +20,8 @@
 import sys
 import unittest
 
-from mock import patch
-from StringIO import StringIO
+from unittest.mock import patch
+from io import BytesIO
 
 from supvisors.tests.base import MockedSupvisors
 from supvisors.tests.configurations import InvalidXmlTest, XmlTest
@@ -41,11 +41,11 @@ class CommonParserTest(unittest.TestCase):
         from supvisors.ttypes import (RunningFailureStrategies,
                                       StartingFailureStrategies)
         # test models & patterns
-        self.assertItemsEqual(['dummy_model_01', 'dummy_model_02',
-                               'dummy_model_03', 'dummy_model_04'],
-                               parser.models.keys())
-        self.assertItemsEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
-                              parser.patterns.keys())
+        self.assertListEqual(['dummy_model_01', 'dummy_model_02',
+                              'dummy_model_03', 'dummy_model_04'],
+                             sorted(parser.models.keys()))
+        self.assertListEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
+                             sorted(parser.patterns.keys()))
         # check unknown application
         application = ApplicationStatus('dummy_application_X',
                                         self.supvisors.logger)
@@ -76,7 +76,7 @@ class CommonParserTest(unittest.TestCase):
         parser.load_application_rules(application)
         self.assert_application_rules(application.rules, 0, 100,
                                       StartingFailureStrategies.CONTINUE,
-            RunningFailureStrategies.RESTART_APPLICATION)
+                                      RunningFailureStrategies.RESTART_APPLICATION)
         # check program from unknown application: all default
         process = ProcessStatus('dummy_application_X', 'dummy_program_X0',
                                 self.supvisors)
@@ -181,7 +181,7 @@ class CommonParserTest(unittest.TestCase):
                                       RunningFailureStrategies.CONTINUE)
 
     def assert_application_rules(self, rules, start, stop,
-        starting_strategy, running_strategy):
+                                 starting_strategy, running_strategy):
         """ Test the application rules. """
         self.assertEqual(start, rules.start_sequence)
         self.assertEqual(stop, rules.stop_sequence)
@@ -195,7 +195,7 @@ class CommonParserTest(unittest.TestCase):
                                   RunningFailureStrategies.CONTINUE)
 
     def assert_process_rules(self, rules, addresses, start, stop, required,
-        wait, loading, running_strategy):
+                             wait, loading, running_strategy):
         """ Test the process rules. """
         self.assertListEqual(addresses, rules.addresses)
         self.assertEqual(start, rules.start_sequence)
@@ -223,8 +223,7 @@ class LxmlParserTest(CommonParserTest):
         """ Test the parsing using lxml (optional dependency). """
         # perform the test
         from supvisors.sparser import Parser
-        with patch.object(self.supvisors.options, 'rules_file',
-                          StringIO(XmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', BytesIO(XmlTest)):
             parser = Parser(self.supvisors)
         self.check_valid(parser)
 
@@ -233,8 +232,7 @@ class LxmlParserTest(CommonParserTest):
         """ Test the parsing of an invalid XML using lxml (optional dependency). """
         # perform the test
         from supvisors.sparser import Parser
-        with patch.object(self.supvisors.options, 'rules_file',
-                          StringIO(InvalidXmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', BytesIO(InvalidXmlTest)):
             with self.assertRaises(ValueError):
                 Parser(self.supvisors)
 
@@ -268,8 +266,7 @@ class ElementTreeParserTest(CommonParserTest):
         """ Test the parsing of a valid XML using ElementTree. """
         from supvisors.sparser import Parser
         # create Parser instance
-        with patch.object(self.supvisors.options, 'rules_file',
-                          StringIO(XmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', BytesIO(XmlTest)):
             parser = Parser(self.supvisors)
         self.check_valid(parser)
 
@@ -277,8 +274,7 @@ class ElementTreeParserTest(CommonParserTest):
         """ Test the parsing of an invalid XML using ElementTree. """
         from supvisors.sparser import Parser
         # create Parser instance
-        with patch.object(self.supvisors.options, 'rules_file',
-                          StringIO(InvalidXmlTest)):
+        with patch.object(self.supvisors.options, 'rules_file', BytesIO(InvalidXmlTest)):
             parser = Parser(self.supvisors)
         self.check_invalid(parser)
 
@@ -289,11 +285,11 @@ class ElementTreeParserTest(CommonParserTest):
         from supvisors.ttypes import (RunningFailureStrategies,
                                       StartingFailureStrategies)
         # test models & patterns
-        self.assertItemsEqual(['dummy_model_01', 'dummy_model_02',
-                               'dummy_model_03', 'dummy_model_04'],
-                              parser.models.keys())
-        self.assertItemsEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
-                              parser.patterns.keys())
+        self.assertListEqual(['dummy_model_01', 'dummy_model_02',
+                              'dummy_model_03', 'dummy_model_04'],
+                             sorted(parser.models.keys()))
+        self.assertListEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
+                             sorted(parser.patterns.keys()))
         # check unknown application
         application = ApplicationStatus('dummy_application_X',
                                         self.supvisors.logger)
@@ -310,7 +306,7 @@ class ElementTreeParserTest(CommonParserTest):
         parser.load_application_rules(application)
         self.assert_application_rules(application.rules, 1, 4,
                                       StartingFailureStrategies.STOP,
-            RunningFailureStrategies.RESTART_PROCESS)
+                                      RunningFailureStrategies.RESTART_PROCESS)
         # check third application
         application = ApplicationStatus('dummy_application_C',
                                         self.supvisors.logger)
@@ -442,6 +438,7 @@ class ElementTreeParserTest(CommonParserTest):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

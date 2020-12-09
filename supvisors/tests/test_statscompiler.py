@@ -18,13 +18,13 @@
 # ======================================================================
 
 import multiprocessing
-import sys
 import unittest
+import sys
 
-from supvisors.tests.base import MockedSupvisors
+from supvisors.tests.base import MockedSupvisors, CompatTestCase
 
 
-class StatisticsTest(unittest.TestCase):
+class StatisticsTest(CompatTestCase):
     """ Test case for the functions of the statscompiler module. """
 
     def test_cpu_statistics(self):
@@ -62,8 +62,8 @@ class StatisticsTest(unittest.TestCase):
         last_stats = {'eth0': (2896, 328), 'lo': (6024, 6024)}
         stats = io_statistics(last_stats, ref_stats, 1)
         # test keys
-        self.assertListEqual(ref_stats.keys(), stats.keys())
-        self.assertListEqual(last_stats.keys(), stats.keys())
+        self.assertItemsEqual(ref_stats.keys(), stats.keys())
+        self.assertItemsEqual(last_stats.keys(), stats.keys())
         # test that values
         self.assertDictEqual({'lo': (8, 8), 'eth0': (7, 1)}, stats)
 
@@ -97,7 +97,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertDictEqual({('myself', 26088): (0.5, 1.9)}, proc_stats)
 
 
-class StatisticsInstanceTest(unittest.TestCase):
+class StatisticsInstanceTest(CompatTestCase):
     """ Test case for the StatisticsInstance class of the statscompiler module. """
 
     def test_create(self):
@@ -250,11 +250,14 @@ class StatisticsInstanceTest(unittest.TestCase):
         # this update is taken into account
         # check evolution of instance
         self.assertEqual(4, instance.counter)
-        self.assertListEqual([[6.25, 10.9375], [20.0, 19.5], [20.0, 16.0], [1.0, 0.0], [0.0, 15.0]], instance.cpu)
+        self.assertListEqual([[6.25, 10.9375], [20.0, 19.5], [20.0, 16.0], [1.0, 0.0], [0.0, 15.0]],
+                             instance.cpu)
         self.assertListEqual([76.1, 75.9], instance.mem)
-        self.assertDictEqual({'eth0': ([0.4, 0.8], [0.2, 0.2]), 'lo': ([0.1, 0.8], [0.1, 0.8])}, instance.io)
+        self.assertDictEqual({'eth0': ([0.4, 0.8], [0.2, 0.2]), 'lo': ([0.1, 0.8], [0.1, 0.8])},
+                             instance.io)
         self.assertEqual({('myself', 118612): ([0.5, 3.125], [1.9, 1.87]),
-                          ('other1', 8865): ([3.125], [1.87])}, instance.proc)
+                          ('other1', 8865): ([3.125], [1.87])},
+                         instance.proc)
         self.assertIs(stats5, instance.ref_stats)
         # push sixth set of measures (reuse stats2)
         instance.push_statistics(stats2)
@@ -270,15 +273,17 @@ class StatisticsInstanceTest(unittest.TestCase):
         # this update is taken into account
         # check evolution of instance. max depth is reached so lists roll
         self.assertEqual(6, instance.counter)
-        self.assertListEqual([[10.9375, 5.0], [19.5, 10.0], [16.0, 0.0], [0.0, 1.5], [15.0, 1.25]], instance.cpu)
+        self.assertListEqual([[10.9375, 5.0], [19.5, 10.0], [16.0, 0.0], [0.0, 1.5], [15.0, 1.25]],
+                             instance.cpu)
         self.assertListEqual([75.9, 74.7], instance.mem)
-        self.assertDictEqual({'eth0': ([0.8, 0.4], [0.2, 0.8]), 'lo': ([0.8, 0.025], [0.8, 0.025])}, instance.io)
+        self.assertDictEqual({'eth0': ([0.8, 0.4], [0.2, 0.8]), 'lo': ([0.8, 0.025], [0.8, 0.025])},
+                             instance.io)
         self.assertEqual({('myself', 118612): ([3.125, 36.25], [1.87, 2.34]),
                           ('other1', 8865): ([3.125, 36.25], [1.87, 2.34])}, instance.proc)
         self.assertIs(stats7, instance.ref_stats)
 
 
-class StatisticsCompilerTest(unittest.TestCase):
+class StatisticsCompilerTest(CompatTestCase):
     """ Test case for the StatisticsCompiler class of the statscompiler module. """
 
     def setUp(self):

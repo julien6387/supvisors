@@ -21,12 +21,12 @@ import sys
 import time
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 
-from supvisors.tests.base import MockedSupvisors, database_copy
+from supvisors.tests.base import MockedSupvisors, database_copy, CompatTestCase
 
 
-class ProcessCommandTest(unittest.TestCase):
+class ProcessCommandTest(CompatTestCase):
     """ Test case for the ProcessCommand class of the commander module. """
 
     def test_creation(self):
@@ -73,7 +73,7 @@ def _create_process_command(group, name, supvisors):
     return ProcessCommand(process)
 
 
-class CommanderTest(unittest.TestCase):
+class CommanderTest(CompatTestCase):
     """ Test case for the Commander class of the commander module. """
 
     def setUp(self):
@@ -287,7 +287,7 @@ class CommanderTest(unittest.TestCase):
             self.assertEqual(4, mocked_job.call_count)
 
 
-class StarterTest(unittest.TestCase):
+class StarterTest(CompatTestCase):
     """ Test case for the Starter class of the commander module. """
 
     def setUp(self):
@@ -895,7 +895,7 @@ class StarterTest(unittest.TestCase):
             self.assertEqual(call('sample_test_2'), mocked_jobs.call_args)
 
 
-class StopperTest(unittest.TestCase):
+class StopperTest(CompatTestCase):
     """ Test case for the Stopper class of the commander module. """
 
     def setUp(self):

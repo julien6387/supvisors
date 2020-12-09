@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -21,7 +21,7 @@ import math
 import sys
 import unittest
 
-from mock import patch
+from unittest.mock import patch
 
 from supvisors.tests.base import MockedSupvisors
 
@@ -36,9 +36,11 @@ class UtilsTest(unittest.TestCase):
     def test_enum(self):
         """ Test the enumeration tools. """
         from supvisors.utils import enumeration_tools
+
         @enumeration_tools
         class DummyEnum:
             ENUM_1, ENUM_2, ENUM_3 = range(3)
+
         # test _to_string
         self.assertEqual('ENUM_1', DummyEnum._to_string(DummyEnum.ENUM_1))
         self.assertEqual('ENUM_2', DummyEnum._to_string(DummyEnum.ENUM_2))
@@ -92,16 +94,16 @@ class UtilsTest(unittest.TestCase):
         from supvisors.utils import extract_process_info
         # test with no spawn error
         dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-            'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data'}
+                      'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data'}
         self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-            'now': 10, 'pid': 1234, 'expected': True},
-            extract_process_info(dummy_info))
+                              'now': 10, 'pid': 1234, 'expected': True},
+                             extract_process_info(dummy_info))
         # test with spawn error
         dummy_info['spawnerr'] = 'something'
         self.assertDictEqual({'name': 'proc', 'group': 'appli',
                               'state': 10, 'start': 5,
                               'now': 10, 'pid': 1234, 'expected': False},
-            extract_process_info(dummy_info))
+                             extract_process_info(dummy_info))
 
     def test_statistics_functions(self):
         """ Test the simple statistics. """
@@ -157,7 +159,7 @@ class UtilsTest(unittest.TestCase):
         """ Test the statistics function. """
         from supvisors.utils import get_stats
         ydata = [2, 3, 4, 5, 6]
-        avg, rate, (a,  b), dev = get_stats(ydata)
+        avg, rate, (a, b), dev = get_stats(ydata)
         self.assertAlmostEqual(4, avg)
         self.assertAlmostEqual(20, rate)
         self.assertAlmostEqual(1, a)
@@ -168,6 +170,6 @@ class UtilsTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

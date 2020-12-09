@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 from supervisor.http import supervisor_auth_handler
 from supervisor.medusa import default_handler
@@ -115,9 +115,9 @@ class InfoSourceTest(unittest.TestCase):
         # test normal behaviour
         app_config = self.supervisor.process_groups['dummy_application']
         self.assertIs(app_config.processes['dummy_process_1'],
-            source.get_process('dummy_application:dummy_process_1'))
+                      source.get_process('dummy_application:dummy_process_1'))
         self.assertIs(app_config.processes['dummy_process_2'],
-            source.get_process('dummy_application:dummy_process_2'))
+                      source.get_process('dummy_application:dummy_process_2'))
 
     def test_process_config(self):
         """ Test the access of a group configuration. """
@@ -263,6 +263,7 @@ class InfoSourceTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

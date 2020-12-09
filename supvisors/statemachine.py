@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -52,11 +52,11 @@ class AbstractState(object):
                 if status.state == AddressStates.RUNNING:
                     func(status.address_name)
                     self.logger.warn('supervisord {} on {}'
-                        .format(func.__name__, status.address_name))
+                                     .format(func.__name__, status.address_name))
                 else:
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'
-                        .format(func.__name__, status.address_name,
-                                status.state_string()))
+                                     .format(func.__name__, status.address_name,
+                                             status.state_string()))
         # send request to self supervisord
         func(self.address)
 
@@ -94,7 +94,7 @@ class InitializationState(AbstractState):
             self.logger.debug('still waiting for remote supvisors to synchronize')
         else:
             self.logger.debug('local address {} still not RUNNING'
-                .format(self.address))
+                              .format(self.address))
         return SupvisorsStates.INITIALIZATION
 
     def exit(self):
@@ -130,9 +130,9 @@ class DeploymentState(AbstractState):
     def next(self):
         """ Wait for applications to be started. """
         if not self.context.master or self.starter.check_starting():
-                return SupvisorsStates.CONCILIATION \
-                    if self.context.conflicting() \
-                    else SupvisorsStates.OPERATION
+            return SupvisorsStates.CONCILIATION \
+                if self.context.conflicting() \
+                else SupvisorsStates.OPERATION
         return SupvisorsStates.DEPLOYMENT
 
 
@@ -314,7 +314,7 @@ class FiniteStateMachine:
             # only the master is allowed to trigger an automatic behaviour
             # for a running failure
             if self.context.master and process.crashed() and \
-                not (starting or stopping):
+                    not (starting or stopping):
                 self.failure_handler.add_default_job(process)
                 self.failure_handler.trigger_jobs()
 
@@ -372,4 +372,4 @@ class FiniteStateMachine:
         SupvisorsStates.RESTARTING: [SupvisorsStates.SHUTDOWN],
         SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
         SupvisorsStates.SHUTDOWN: []
-   }
+    }

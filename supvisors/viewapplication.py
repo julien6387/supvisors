@@ -221,7 +221,7 @@ class ApplicationView(ViewHandler):
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested. """
         if action == 'refresh':
-            return self.refresh_action
+            return self.refresh_action()
         if action == 'config':
             return self.set_starting_strategy(StartingStrategies.CONFIG)
         if action == 'most':

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -20,10 +20,9 @@
 import sys
 import unittest
 
-from mock import call
+from unittest.mock import call
 
 from supvisors.tests.base import (MockedSupvisors,
-                                  any_process_info,
                                   any_stopped_process_info,
                                   process_info_by_name,
                                   any_process_info_by_state)
@@ -54,15 +53,15 @@ class ProcessRulesTest(unittest.TestCase):
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
         self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False"
-            " wait_exit=False expected_loading=1 running_failure_strategy=CONTINUE", str(rules))
+                         " wait_exit=False expected_loading=1 running_failure_strategy=CONTINUE", str(rules))
 
     def test_serial(self):
         """ Test the serialization of the ProcessRules object. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
         self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
-            'required': False, 'wait_exit': False, 'expected_loading': 1,
-            'running_failure_strategy': 'CONTINUE'}, rules.serial())
+                              'required': False, 'wait_exit': False, 'expected_loading': 1,
+                              'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
     def test_dependency_rules(self):
         """ Test the dependencies in process rules. """
@@ -353,7 +352,7 @@ class ProcessTest(unittest.TestCase):
                                          'now': 10})
         # check no change
         info = process.infos['10.0.0.1']
-        self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
+        self.assertEqual(ProcessStates.STOPPED, info['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
@@ -437,7 +436,7 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(20, info['start'])
         self.assertEqual(15, info['uptime'])
         self.assertTrue(info['expected'])
-       # update with an STOPPED event
+        # update with an STOPPED event
         process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED,
                                          'now': 40,
                                          'extra_args': ''})
@@ -488,7 +487,7 @@ class ProcessTest(unittest.TestCase):
         from supvisors.process import ProcessStatus
         from supvisors.ttypes import ProcessStates
         # check times on a RUNNING process info
-        info = {'start': 50, 'now':75}
+        info = {'start': 50, 'now': 75}
         for state in ProcessStates._values():
             info['state'] = state
             ProcessStatus.update_uptime(info)
@@ -644,11 +643,13 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(ProcessStates.STARTING,
                          ProcessStatus.running_state([ProcessStates.STARTING]))
         self.assertEqual(ProcessStates.RUNNING,
-                         ProcessStatus.running_state([ProcessStates.STOPPING] + list(RUNNING_STATES) + list(STOPPED_STATES)))
+                         ProcessStatus.running_state(
+                             [ProcessStates.STOPPING] + list(RUNNING_STATES) + list(STOPPED_STATES)))
 
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

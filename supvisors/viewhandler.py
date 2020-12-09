@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -29,6 +29,7 @@ from supvisors.viewcontext import *
 from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import *
 
+
 # test matplotlib availability
 def test_matplotlib_import():
     try:
@@ -37,6 +38,8 @@ def test_matplotlib_import():
         return StatisticsPlot
     except ImportError:
         return None
+
+# keep matplotlib availability information at once
 PLOT_CLASS = test_matplotlib_import()
 
 
@@ -83,13 +86,12 @@ class ViewHandler(MeldView):
                 return NOT_DONE_YET
             # display result
             root = self.clone()
-            form = self.context.form
             print_message(root,
                           self.view_ctx.get_gravity(),
                           self.view_ctx.get_message())
             # blink main title in conciliation state
             if self.fsm.state == SupvisorsStates.CONCILIATION and \
-                self.sup_ctx.conflicts():
+                    self.sup_ctx.conflicts():
                 root.findmeld('supvisors_mid').attrib['class'] = 'blink'
             # set Supvisors version
             root.findmeld('version_mid').content(API_VERSION)
@@ -121,7 +123,7 @@ class ViewHandler(MeldView):
             else:
                 # set element class
                 li_elt.attrib['class'] = status.state_string() \
-                    + (' active' if item == address else '')
+                                         + (' active' if item == address else '')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
                 if status.state == AddressStates.RUNNING:
@@ -130,9 +132,9 @@ class ViewHandler(MeldView):
                     url = self.view_ctx.format_url(item, PROC_ADDRESS_PAGE)
                     elt.attributes(href=url)
                     elt.attrib['class'] = 'on' \
-                        + (' master'
-                           if item == self.sup_ctx.master_address
-                           else '')
+                                          + (' master'
+                                             if item == self.sup_ctx.master_address
+                                             else '')
                 else:
                     elt.attrib['class'] = 'off'
                 elt.content(item)
@@ -141,10 +143,11 @@ class ViewHandler(MeldView):
         """ Write the application part of the navigation menu. """
         mid_elt = root.findmeld('appli_li_mid')
         applications = self.sup_ctx.applications.values()
-        for li_elt, item in mid_elt.repeat(applications):
+        # forced to list otherwise not easily testable
+        for li_elt, item in mid_elt.repeat(list(applications)):
             # set element class
             li_elt.attrib['class'] = item.state_string() \
-                + (' active' if item.application_name == appli else '')
+                                     + (' active' if item.application_name == appli else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
             if self.fsm.state == SupvisorsStates.INITIALIZATION:
@@ -245,7 +248,7 @@ class ViewHandler(MeldView):
                                            **parameters)
             elt.attributes(href=url)
         else:
-           elt.attrib['class'] = 'button off'
+            elt.attrib['class'] = 'button off'
 
     def write_common_process_status(self, tr_elt, item):
         """ Write the common part of a process status into a table. """
@@ -373,9 +376,9 @@ class ViewHandler(MeldView):
     @staticmethod
     def set_slope_class(elt, value):
         """ Set attribute class iaw positive or negative slope. """
-        if (abs(value) < .005):
+        if abs(value) < .005:
             elt.attrib['class'] = 'stable'
-        elif (value > 0):
+        elif value > 0:
             elt.attrib['class'] = 'increase'
         else:
             elt.attrib['class'] = 'decrease'
@@ -397,14 +400,14 @@ class ViewHandler(MeldView):
                 ordering = [proc.name for proc in group_config.process_configs]
                 # add processes known to supervisor, using the same ordering
                 known_list = sorted([proc for proc in processes
-                                     if proc['application_name'] == application_name and \
+                                     if proc['application_name'] == application_name and
                                      proc['process_name'] in ordering],
                                     key=lambda x: ordering.index(x['process_name']))
                 sorted_processes.extend(known_list)
                 # add processes unknown to supervisor, using the alphabetical
                 # ordering
                 unknown_list = sorted([proc for proc in processes
-                                       if proc['application_name'] == application_name and \
+                                       if proc['application_name'] == application_name and
                                        proc['process_name'] not in ordering],
                                       key=lambda x: x['process_name'])
                 sorted_processes.extend(unknown_list)

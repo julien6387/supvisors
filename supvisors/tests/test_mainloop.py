@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch, Mock, DEFAULT
+from unittest.mock import call, patch, Mock, DEFAULT
 from threading import Thread
 
 from supvisors.tests.base import MockedSupvisors, DummyRpcInterface
@@ -198,7 +198,7 @@ class MainLoopTest(unittest.TestCase):
                               'getAllProcessInfo') as mocked_supervisor:
                 for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
                     with patch.object(rpc_intf.supvisors, 'get_address_info',
-                        return_value={'statecode': state}):
+                                      return_value={'statecode': state}):
                         main_loop.check_address('10.0.0.1')
                         self.assertEqual(1, self.mocked_rpc.call_count)
                         self.assertEqual(call('10.0.0.1', main_loop.env),
@@ -214,13 +214,13 @@ class MainLoopTest(unittest.TestCase):
             # test with address not in isolation
             dummy_info = [{'name': 'proc', 'group': 'appli',
                            'state': 10, 'start': 5,
-                'now': 10, 'pid': 1234, 'spawnerr': ''}]
+                           'now': 10, 'pid': 1234, 'spawnerr': ''}]
             with patch.object(rpc_intf.supvisors, 'get_all_local_process_info',
-                return_value=dummy_info) as mocked_supervisor:
+                              return_value=dummy_info) as mocked_supervisor:
                 for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
-                    AddressStates.RUNNING, AddressStates.SILENT]:
+                              AddressStates.RUNNING, AddressStates.SILENT]:
                     with patch.object(rpc_intf.supvisors, 'get_address_info',
-                        return_value={'statecode': state}):
+                                      return_value={'statecode': state}):
                         main_loop.check_address('10.0.0.1')
                         self.assertEqual(1, self.mocked_rpc.call_count)
                         self.assertEqual(call('10.0.0.1', main_loop.env),
@@ -337,7 +337,7 @@ class MainLoopTest(unittest.TestCase):
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error
-        with patch.object(main_loop.proxy.supervisor,'sendRemoteCommEvent',
+        with patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent',
                           side_effect=Exception):
             main_loop.send_remote_comm_event('event type', 'event data')
         # test with a mocked rpc interface
@@ -369,12 +369,12 @@ class MainLoopTest(unittest.TestCase):
         main_loop = SupvisorsMainLoop(self.supvisors)
         # patch main loop subscriber
         with patch.multiple(main_loop, check_address=DEFAULT,
-            start_process=DEFAULT, stop_process=DEFAULT,
-            restart=DEFAULT, shutdown=DEFAULT) as mocked_loop:
+                            start_process=DEFAULT, stop_process=DEFAULT,
+                            restart=DEFAULT, shutdown=DEFAULT) as mocked_loop:
             # test check address
             self.check_call(main_loop, mocked_loop, 'check_address',
                             DeferredRequestHeaders.CHECK_ADDRESS,
-                            ('10.0.0.2', ))
+                            ('10.0.0.2',))
             # test start process
             self.check_call(main_loop, mocked_loop, 'start_process',
                             DeferredRequestHeaders.START_PROCESS,
@@ -386,15 +386,16 @@ class MainLoopTest(unittest.TestCase):
             # test restart
             self.check_call(main_loop, mocked_loop, 'restart',
                             DeferredRequestHeaders.RESTART,
-                            ('10.0.0.2', ))
+                            ('10.0.0.2',))
             # test shutdown
             self.check_call(main_loop, mocked_loop, 'shutdown',
                             DeferredRequestHeaders.SHUTDOWN,
-                            ('10.0.0.2', ))
+                            ('10.0.0.2',))
 
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

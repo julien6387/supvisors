@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -26,12 +26,14 @@ class InternalEventHeaders:
     and MainLoop. """
     TICK, PROCESS, STATISTICS = range(3)
 
+
 class RemoteCommEvents:
     """ Strings used for remote communication between the Supvisors main loop
     and the listener. """
     SUPVISORS_AUTH = u'auth'
     SUPVISORS_EVENT = u'event'
     SUPVISORS_INFO = u'info'
+
 
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher
@@ -52,18 +54,21 @@ class DeferredRequestHeaders:
 
 
 # used to convert enumeration-like value to string and vice-versa
-def enum_to_string(dico, idxEnum):
+def enum_to_string(dico, idx_enum):
     """ Convert an enumeration value to a string. """
-    return next((name for name, value in dico.items() if value == idxEnum), None)
+    return next((name for name, value in dico.items() if value == idx_enum), None)
 
-def string_to_enum(dico, strEnum):
+
+def string_to_enum(dico, str_enum):
     """ Convert a string to an enumeration value. """
     return next((value for name, value in dico.items()
-                 if name == strEnum), None)
+                 if name == str_enum), None)
+
 
 def enum_values(dico):
     """ Get all the values of an enumeration. """
     return [y for x, y in dico.items() if not x.startswith('_')]
+
 
 def enum_strings(dico):
     """ Get all the strings of an enumeration. """
@@ -74,18 +79,23 @@ def enumeration_tools(cls):
     """ Decorator for enumeration classes.
     Add class methods for conversion between string and enum,
     for listing enumeration values and strings. """
+
     def _to_string(cls, value):
         """ Convert the enum value into a string. """
         return enum_to_string(cls.__dict__, value)
+
     def _from_string(cls, strEnum):
         """ Convert a string into an enum value. """
         return string_to_enum(cls.__dict__, strEnum)
+
     def _values(cls):
         """ Return all enum values. """
         return enum_values(cls.__dict__)
+
     def _strings(cls):
         """ Return all enum values as string. """
         return enum_strings(cls.__dict__)
+
     setattr(cls, '_to_string', classmethod(_to_string))
     setattr(cls, '_from_string', classmethod(_from_string))
     setattr(cls, '_values', classmethod(_values))
@@ -101,17 +111,21 @@ def supvisors_shortcuts(instance, lst):
 
 def simple_localtime(now=None):
     """ Returns the local time as a string, without the date. """
-    if now is None: now = time()
+    if now is None:
+        now = time()
     return strftime("%H:%M:%S", localtime(now))
+
 
 def simple_gmtime(now=None):
     """ Returns the UTC time as a string, without the date. """
-    if now is None: now = time()
+    if now is None:
+        now = time()
     return strftime("%H:%M:%S", gmtime(now))
 
 
 # Keys of information kept from Supervisor
 __Payload_Keys = ('name', 'group', 'state', 'start', 'now', 'pid')
+
 
 def extract_process_info(info):
     """ Returns a subset of Supervisor process information. """
@@ -121,10 +135,17 @@ def extract_process_info(info):
     return payload
 
 
-# simple lambda functions
-mean = lambda x: sum(x) / float(len(x))
-srate = lambda x, y: 100.0 * x / y - 100.0 if y else float('inf')
-stddev = lambda lst, avg: sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
+# simple functions
+def mean(x):
+    return sum(x) / float(len(x))
+
+
+def srate(x, y):
+    return 100.0 * x / y - 100.0 if y else float('inf')
+
+
+def stddev(lst, avg):
+    return sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 
 # linear regression
@@ -144,16 +165,17 @@ def get_linear_regression(xdata, ydata):
         sum_products = float(sum([xdata[i] * ydata[i]
                                   for i in range(datasize)]))
         a = (sum_products - sum_x * sum_y / datasize) / (
-            sum_xx - (sum_x * sum_x) / datasize)
+                sum_xx - (sum_x * sum_x) / datasize)
         b = (sum_y - a * sum_x) / datasize
         return a, b
+
 
 def get_simple_linear_regression(lst):
     """ Calculate the coefficients of the linear equation corresponding
     to the linear regression of a series of values. """
     # in Supvisors, Y data is periodic
     datasize = len(lst)
-    return get_linear_regression( [ i for i in range(datasize) ], lst)
+    return get_linear_regression([i for i in range(datasize)], lst)
 
 
 # get statistics from data
@@ -163,7 +185,7 @@ def get_stats(lst):
     - the instant rate between the two last values,
     - the coefficients of the linear regression,
     - the standard deviation, """
-    rate, a, b, dev = (None, )*4
+    rate, a, b, dev = (None,) * 4
     # calculate mean value
     avg = mean(lst)
     if len(lst) > 1:
@@ -173,4 +195,4 @@ def get_stats(lst):
         a, b = get_simple_linear_regression(lst)
         # calculate standard deviation
         dev = stddev(lst, avg)
-    return avg, rate, (a,  b), dev
+    return avg, rate, (a, b), dev

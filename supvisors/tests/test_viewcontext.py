@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
@@ -21,7 +21,7 @@ import re
 import sys
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 
 from supvisors.tests.base import (DummyAddressMapper,
                                   DummyHttpContext,
@@ -117,7 +117,7 @@ class ViewContextTest(unittest.TestCase):
         """ Test the cpu_id_to_string method. """
         from supvisors.viewcontext import ViewContext
         for idx in range(1, 10):
-            self.assertEqual(str(idx-1), ViewContext.cpu_id_to_string(idx))
+            self.assertEqual(str(idx - 1), ViewContext.cpu_id_to_string(idx))
         self.assertEqual('all', ViewContext.cpu_id_to_string(0))
         self.assertEqual('all', ViewContext.cpu_id_to_string(-5))
 
@@ -215,14 +215,14 @@ class ViewContextTest(unittest.TestCase):
         mocked_update.reset_mock()
         # test call
         with patch.dict(ctx.context.applications,
-                        {'abc': [], 'dummy_appli':[]}, clear=True):
+                        {'abc': [], 'dummy_appli': []}, clear=True):
             ctx.update_application_name()
         # cannot rely on ordering for second parameter because of dict
         # need to split checking
         self.assertEqual(1, mocked_update.call_count)
         mocked_call = mocked_update.call_args[0]
         self.assertEqual(APPLI, mocked_call[0])
-        self.assertItemsEqual(['abc', 'dummy_appli'], mocked_call[1])
+        self.assertListEqual(['abc', 'dummy_appli'], mocked_call[1])
 
     @patch('supvisors.viewcontext.ViewContext.get_address_stats',
            return_value=None)
@@ -245,7 +245,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual(1, mocked_update.call_count)
         call_args = mocked_update.call_args[0]
         self.assertEqual(PROCESS, call_args[0])
-        self.assertItemsEqual(['abc', 'dummy_proc'], call_args[1])
+        self.assertListEqual(['abc', 'dummy_proc'], call_args[1])
 
     @patch('supvisors.viewcontext.ViewContext._update_string')
     def test_update_namespec(self, mocked_update):
@@ -256,13 +256,13 @@ class ViewContextTest(unittest.TestCase):
         mocked_update.reset_mock()
         # test call
         with patch.dict(ctx.context.processes,
-                        {'abc': [], 'dummy_proc':[]}, clear=True):
+                        {'abc': [], 'dummy_proc': []}, clear=True):
             ctx.update_namespec()
-            self.assertEqual([call(NAMESPEC, ['abc', 'dummy_proc'])],
-                             mocked_update.call_args_list)
+            self.assertListEqual([call(NAMESPEC, ['abc', 'dummy_proc'])],
+                                 mocked_update.call_args_list)
 
     @patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=2)
-    def test_update_cpu_id(self, mocked_nbcores):
+    def test_update_cpu_id(self, _):
         """ Test the update_cpu_id method. """
         from supvisors.viewcontext import ViewContext, CPU
         ctx = ViewContext(self.http_context)
@@ -304,14 +304,14 @@ class ViewContextTest(unittest.TestCase):
         regexp = r'&amp;'.join([self.url_attr_template for _ in range(7)])
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
-        self.assertItemsEqual(matches.groups(),
-                              ('processname=dummy_proc',
-                               'namespec=dummy_ns',
-                               'address=10.0.0.1',
-                               'cpuid=3',
-                               'intfname=eth0',
-                               'appliname=dummy_appli',
-                               'period=8'))
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('processname=dummy_proc',
+                                         'namespec=dummy_ns',
+                                         'address=10.0.0.1',
+                                         'cpuid=3',
+                                         'intfname=eth0',
+                                         'appliname=dummy_appli',
+                                         'period=8')))
         # test with additional parameters
         url = ctx.url_parameters(**{'address': '127.0.0.1',
                                     'intfname': 'lo',
@@ -319,15 +319,15 @@ class ViewContextTest(unittest.TestCase):
         regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
-        self.assertItemsEqual(matches.groups(),
-                              ('processname=dummy_proc',
-                               'namespec=dummy_ns',
-                               'address=127.0.0.1',
-                               'cpuid=3',
-                               'intfname=lo',
-                               'extra=args',
-                               'appliname=dummy_appli',
-                               'period=8'))
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('processname=dummy_proc',
+                                         'namespec=dummy_ns',
+                                         'address=127.0.0.1',
+                                         'cpuid=3',
+                                         'intfname=lo',
+                                         'extra=args',
+                                         'appliname=dummy_appli',
+                                         'period=8')))
 
     def test_format_url(self):
         """ Test the format_url method. """
@@ -347,10 +347,10 @@ class ViewContextTest(unittest.TestCase):
         regexp = base_address + parameters
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
-        self.assertItemsEqual(matches.groups(),
-                              ('extra=args',
-                               'period=10',
-                               'appliname=dummy_appli'))
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('extra=args',
+                                         'period=10',
+                                         'appliname=dummy_appli')))
 
     def test_message(self):
         """ Test the message method. """
@@ -365,10 +365,10 @@ class ViewContextTest(unittest.TestCase):
         regexp = base_address + parameters
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
-        self.assertItemsEqual(matches.groups(),
-                              ('message=not%20as%20expected',
-                               'period=5',
-                               'gravity=warning'))
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('message=not%20as%20expected',
+                                         'period=5',
+                                         'gravity=warning')))
 
     def test_get_nbcores(self):
         """ Test the get_nb_cores method. """
@@ -428,7 +428,7 @@ class ViewContextTest(unittest.TestCase):
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
         with patch.object(ctx, 'get_address_stats', return_value=mocked_find) \
-            as mocked_stats:
+                as mocked_stats:
             # test with default running False
             self.assertEqual(('mock stats', 4),
                              ctx.get_process_stats('dummy_proc'))
@@ -492,6 +492,7 @@ class ViewContextTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

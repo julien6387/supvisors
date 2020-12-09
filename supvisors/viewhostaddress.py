@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -102,9 +102,9 @@ class HostAddressView(StatusView):
         self.write_network_statistics(root, stats_instance.io)
         # write CPU / Memory / Network plots
         if PLOT_CLASS:
-            self._write_cpu_image(root, stats_instance.cpu)
-            self._write_mem_image(root, stats_instance.mem)
-            self._write_io_image(root, stats_instance.io)
+            self._write_cpu_image(stats_instance.cpu)
+            self._write_mem_image(stats_instance.mem)
+            self._write_io_image(stats_instance.io)
 
     def write_processor_statistics(self, root, cpu_stats):
         """ Rendering of the processor statistics. """
@@ -229,7 +229,7 @@ class HostAddressView(StatusView):
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
 
-    def _write_cpu_image(self, root,  cpu_stats):
+    def _write_cpu_image(self, cpu_stats):
         """ Write CPU data into Base64 image. """
         # get CPU data
         cpu_id = self.view_ctx.parameters[CPU]
@@ -242,14 +242,14 @@ class HostAddressView(StatusView):
                      '%', cpu_data)
         plt.export_image(address_cpu_img)
 
-    def _write_mem_image(self, root, mem_stats):
+    def _write_mem_image(self, mem_stats):
         """ Write MEM data into Base64 image. """
         # build image from data
         plt = PLOT_CLASS()
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(address_mem_img)
 
-    def _write_io_image(self, root, io_stats):
+    def _write_io_image(self, io_stats):
         """ Write MEM data into Base64 image. """
         # get IO data
         intf_name = self.view_ctx.parameters[INTF]

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -28,18 +28,22 @@ class AddressStates:
     """ Enumeration class for the state of remote Supvisors instance """
     UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
 
+
 @enumeration_tools
 class ApplicationStates:
     """ Class holding the possible enumeration values for an application state. """
     STOPPED, STARTING, RUNNING, STOPPING = range(4)
 
+
 # completion of supervisor ProcessStates definition
 ProcessStates = enumeration_tools(supervisor.states.ProcessStates)
+
 
 @enumeration_tools
 class StartingStrategies:
     """ Applicable strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED = range(3)
+
 
 @enumeration_tools
 class ConciliationStrategies:
@@ -47,11 +51,13 @@ class ConciliationStrategies:
     SENICIDE, INFANTICIDE, USER, STOP, RESTART, RUNNING_FAILURE = range(6)
     # TODO: change to STOP+RESTART PROCESS and add STOP+RESTART APPLICATION ?
 
+
 @enumeration_tools
 class StartingFailureStrategies:
     """ Applicable strategies that can be applied on a failure of a starting
     application. """
     ABORT, STOP, CONTINUE = range(3)
+
 
 @enumeration_tools
 class RunningFailureStrategies:
@@ -59,16 +65,18 @@ class RunningFailureStrategies:
     application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
+
 @enumeration_tools
 class SupvisorsStates:
     """ Internal state of Supvisors. """
     INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, \
-    SHUTTING_DOWN, SHUTDOWN = range(7)
+        SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 # Exceptions
 class InvalidTransition(Exception):
     """ Exception used for an invalid transition in state machines. """
+
     def __init__(self, value):
         self.value = value
 
