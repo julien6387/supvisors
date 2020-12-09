@@ -28,7 +28,9 @@ It will likely work fine on most UNIX systems.
 **Supvisors** will not run at all under any version of Windows.
 
 **Supvisors** >= 0.2 works with Python 3.6 or later.
-**Supvisors** 0.1 (available on PyPi) works with Python 2.7 only but is not maintained.
+
+**Supvisors** 0.1 (available on PyPi) works with Python 2.7 (and former versions of Supervisor, i.e. 3.3.0)
+but is not maintained anymore.
 
 Dependencies
 -------------
