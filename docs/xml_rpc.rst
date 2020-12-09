@@ -206,8 +206,7 @@ Process Control
 XML-RPC Clients
 ---------------
 
-This section explains how to use the XML-RPC API from a Python, JAVA or C++
-client.
+This section explains how to use the XML-RPC API from a Python or JAVA client.
 
 
 Python Client
@@ -264,16 +263,19 @@ However, it comes with the following drawbacks, taken from the ``README.md`` of
     * some implemented XML-RPC are not tested.
 
 Each **Supvisors** release includes a JAR file that contains a JAVA client.
-It can be downloaded from the `Supvisors releases
-<https://github.com/julien6387/supvisors/releases>`_.
+It can be downloaded from the `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_.
 
-This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all
-interfaces (``system``, ``supervisor`` and ``supvisors``).
+This classes of the ``org.supvisors.rpc`` package implement all XML-RPC of all interfaces (``system``, ``supervisor`` and ``supvisors``).
 
-It requires the following additional dependency: `Apache XML-RPC
-<https://ws.apache.org/xmlrpc>`_.
-The binary JAR of Apache XML-RPC 3.1.3 is available in the `MAVEN repository
-<https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
+It requires the following additional dependencies:
+
+    * `Apache XML-RPC<https://ws.apache.org/xmlrpc>`_.
+    * `JeroMQ<https://github.com/zeromq/jeromq>`_.
+    * `Gson<https://github.com/google/gson>`_.
+
+The binary JAR of Apache XML-RPC 3.1.3 is available in the `MAVEN repository<https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
+The binary JAR of JeroMQ 0.5.2 is available in the `MAVEN repository<https://mvnrepository.com/artifact/org.zeromq/jeromq/0.5.2>`_.
+The binary JAR of Google Gson 2.8.6 is available in the `MAVEN repository<https://mvnrepository.com/artifact/com.google.code.gson/gson/2.8.6>`_.
 
 .. code-block:: java
 
@@ -289,10 +291,3 @@ The binary JAR of Apache XML-RPC 3.1.3 is available in the `MAVEN repository
     // Supvisors XML-RPC
     SupvisorsXmlRpc supvisors = new SupvisorsXmlRpc(client);
     System.out.println(supvisors.getSupvisorsState());
-
-
-C++ Client
-~~~~~~~~~~
-
-Not implemented yet
-
