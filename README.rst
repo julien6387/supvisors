@@ -32,6 +32,8 @@ It will likely work fine on most UNIX systems.
 **Supvisors** 0.1 (available on PyPi) works with Python 2.7 (and former versions of Supervisor, i.e. 3.3.0)
 but is not maintained anymore.
 
+[![Build Status](https://travis-ci.org/julien6387/supvisors.svg?branch=master)](https://travis-ci.org/julien6387/supvisors)
+
 Dependencies
 -------------
 
