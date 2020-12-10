@@ -104,6 +104,15 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
+        # TODO: check that parameters are all valid
+        # For example, it happens that when coming from an application where a process
+        # has been selected and running on host A and going to page of host B, the selection
+        # is not valid anymore, so parameters have to be cancelled
+        # APPLI = 'appliname'
+        # PROCESS = 'processname'
+        # NAMESPEC = 'namespec'
+        # CPU = 'cpuid'
+        # INTF = 'intfname'
 
     def write_nav(self, root, address=None, appli=None):
         """ Write the navigation menu. """
@@ -154,8 +163,7 @@ class ViewHandler(MeldView):
                 elt.attrib['class'] = 'off'
             else:
                 parameters = {APPLI: item.application_name}
-                url = self.view_ctx.format_url('', APPLICATION_PAGE,
-                                               **parameters)
+                url = self.view_ctx.format_url('', APPLICATION_PAGE, **parameters)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'on'
             elt.content(item.application_name)
@@ -171,13 +179,11 @@ class ViewHandler(MeldView):
                 elt.attrib['class'] = 'button off active'
             else:
                 parameters = {PERIOD: item}
-                url = self.view_ctx.format_url('', self.page_name,
-                                               **parameters)
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
             elt.content('{}s'.format(item))
 
-    def write_common_process_cpu(self, tr_elt, namespec,
-                                 proc_stats, nbcores):
+    def write_common_process_cpu(self, tr_elt, namespec, proc_stats, nbcores):
         """ Write the CPU part of the common process status. """
         elt = tr_elt.findmeld('pcpu_a_mid')
         if proc_stats and len(proc_stats[0]) > 0:
@@ -191,8 +197,7 @@ class ViewHandler(MeldView):
                 elt.attrib['class'] = 'button off active'
             else:
                 parameters = {PROCESS: namespec}
-                url = self.view_ctx.format_url('', self.page_name,
-                                               **parameters)
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'button on'
         else:
@@ -210,8 +215,7 @@ class ViewHandler(MeldView):
                 elt.attrib['class'] = 'button off active'
             else:
                 parameters = {PROCESS: namespec}
-                url = self.view_ctx.format_url('', self.page_name,
-                                               **parameters)
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'button on'
         else:
@@ -220,32 +224,23 @@ class ViewHandler(MeldView):
 
     def write_process_start_button(self, tr_elt, namespec, state):
         """ Write the configuration of the start button of a process. """
-        self._write_process_button(tr_elt, 'start_a_mid',
-                                   'start', namespec,
-                                   state, STOPPED_STATES)
+        self._write_process_button(tr_elt, 'start_a_mid', 'start', namespec, state, STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, namespec, state):
         """ Write the configuration of the stop button of a process. """
-        self._write_process_button(tr_elt, 'stop_a_mid',
-                                   'stop', namespec,
-                                   state, RUNNING_STATES)
+        self._write_process_button(tr_elt, 'stop_a_mid', 'stop', namespec, state, RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, namespec, state):
         """ Write the configuration of the restart button of a process. """
-        self._write_process_button(tr_elt, 'restart_a_mid',
-                                   'restart', namespec,
-                                   state, RUNNING_STATES)
+        self._write_process_button(tr_elt, 'restart_a_mid', 'restart', namespec, state, RUNNING_STATES)
 
-    def _write_process_button(self, tr_elt, elt_name,
-                              action, namespec,
-                              state, state_list):
+    def _write_process_button(self, tr_elt, elt_name, action, namespec, state, state_list):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
         if state in state_list:
             elt.attrib['class'] = 'button on'
             parameters = {ACTION: action, NAMESPEC: namespec}
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **parameters)
+            url = self.view_ctx.format_url('', self.page_name, **parameters)
             elt.attributes(href=url)
         else:
             elt.attrib['class'] = 'button off'

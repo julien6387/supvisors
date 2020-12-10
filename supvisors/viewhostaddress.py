@@ -119,8 +119,7 @@ class HostAddressView(StatusView):
                 selected_tr = True
                 elt.attrib['class'] = 'button off active'
             else:
-                url = self.view_ctx.format_url('', self.page_name,
-                                               **{CPU: cpu_id})
+                url = self.view_ctx.format_url('', self.page_name, **{CPU: cpu_id})
                 elt.attributes(href=url)
             cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
             elt.content('cpu#%s' % cpu_id_string)

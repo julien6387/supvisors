@@ -94,8 +94,7 @@ class ViewContext:
     def update_period(self):
         """ Extract period from context. """
         default_value = next(iter(self.options.stats_periods))
-        self._update_integer(PERIOD, self.options.stats_periods,
-                             default_value)
+        self._update_integer(PERIOD, self.options.stats_periods, default_value)
 
     def update_application_name(self):
         """ Extract application name from context. """
@@ -156,8 +155,7 @@ class ViewContext:
         and the period selected.
         If no address is specified, local address is used. """
         stats_address = address or self.address
-        return self.statistician.data.get(stats_address, {}) \
-            .get(self.parameters[PERIOD], None)
+        return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
 
     def get_process_stats(self, namespec, running=False):
         """ Get the statistics structure related to the process and the period
@@ -174,12 +172,13 @@ class ViewContext:
                 stats_address = next(iter(status.addresses), None)
         # return the process statistics for this process
         address_stats = self.get_address_stats(stats_address)
-        return (address_stats.find_process_stats(namespec),
-                self.get_nbcores(stats_address))
+        nb_cores = self.get_nbcores(stats_address)
+        if address_stats:
+            return address_stats.find_process_stats(namespec), nb_cores
+        return None, nb_cores
 
     def get_process_status(self, namespec=None):
-        """ Get the ProcessStatus instance related to the process named
-        namespec.
+        """ Get the ProcessStatus instance related to the process named namespec.
         If none specified, the form namespec is used. """
         namespec = namespec or self.parameters[NAMESPEC]
         if namespec:
@@ -198,8 +197,7 @@ class ViewContext:
                 # reset default_value
                 default_value = value
             else:
-                self.message(error_message('Incorrect {}: {}'
-                                           .format(param, value)))
+                self.message(error_message('Incorrect {}: {}'.format(param, value)))
         # assign value found or default
         self.logger.debug('{} set to {}'.format(param, default_value))
         self.parameters[param] = default_value
