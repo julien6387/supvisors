@@ -104,15 +104,6 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        # TODO: check that parameters are all valid
-        # For example, it happens that when coming from an application where a process
-        # has been selected and running on host A and going to page of host B, the selection
-        # is not valid anymore, so parameters have to be cancelled
-        # APPLI = 'appliname'
-        # PROCESS = 'processname'
-        # NAMESPEC = 'namespec'
-        # CPU = 'cpuid'
-        # INTF = 'intfname'
 
     def write_nav(self, root, address=None, appli=None):
         """ Write the navigation menu. """
