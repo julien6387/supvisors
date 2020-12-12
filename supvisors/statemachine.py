@@ -115,11 +115,8 @@ class DeploymentState(AbstractState):
     applications having a starting model. """
 
     def enter(self):
-        """ When entering in the DEPLOYMENT state, define the start sequencing.
-        Only the MASTER can perform the automatic starting. """
-        # TODO: make a restriction of addresses in process rules,
-        # iaw process location in Supervisor instances
-        # define ordering iaw Addresses
+        """ When entering in the DEPLOYMENT state, define the start and stop sequences.
+        Only the MASTER can perform the automatic start and stop. """
         for application in self.context.applications.values():
             application.update_sequences()
             application.update_status()
