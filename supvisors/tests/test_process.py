@@ -283,16 +283,18 @@ class ProcessTest(unittest.TestCase):
         info = process_info_by_name('xclock')
         info['extra_args'] = '-x dummy'
         self.assertNotIn('uptime', info)
-        # create ProcessStatus instance
+
+        # 1. create ProcessStatus instance
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
         process.extra_args = 'something else'
         process.add_info('10.0.0.1', info)
+        # check last event info
+        self.assertGreater(process.last_event_time, 0)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check contents
         self.assertEqual(1, len(process.infos))
         self.assertIs(info, process.infos['10.0.0.1'])
-        self.assertGreater(process.last_event_time, 0)
-        last_event_time = process.last_event_time
-        self.assertIn('uptime', info)
         self.assertEqual(info['now'] - info['start'], info['uptime'])
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.STOPPING, process.state)
@@ -300,19 +302,22 @@ class ProcessTest(unittest.TestCase):
         # extra_args are reset when using add_info
         self.assertEqual('', process.extra_args)
         self.assertEqual('', info['extra_args'])
-        # test that address is unchanged
+
+        # 2. test that address is unchanged
         self.assertListEqual(['*'], process.rules.addresses)
         # update rules to test '#'
         process.rules.addresses = ['#']
         # replace with an EXITED process info
         info = any_process_info_by_state(ProcessStates.EXITED)
         process.add_info('10.0.0.1', info)
+        # check last event info
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check contents
         self.assertEqual(1, len(process.infos))
         self.assertIs(info, process.infos['10.0.0.1'])
-        self.assertGreaterEqual(process.last_event_time, last_event_time)
-        last_event_time = process.last_event_time
-        self.assertIn('uptime', info)
+        self.assertEqual(0, info['uptime'])
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.EXITED, process.state)
         self.assertTrue(process.expected_exit)
@@ -320,13 +325,17 @@ class ProcessTest(unittest.TestCase):
         # has an index of 1
         # address rule remains unchanged
         self.assertListEqual(['#'], process.rules.addresses)
-        # add a RUNNING process info
+
+        # 3. add a RUNNING process info
         info = any_process_info_by_state(ProcessStates.RUNNING)
         process.add_info('10.0.0.2', info)
+        # check last event info
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        self.assertEqual(info['local_time'], last_event_time)
         # check contents
         self.assertEqual(2, len(process.infos))
         self.assertIs(info, process.infos['10.0.0.2'])
-        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        self.assertEqual(info['now'] - info['start'], info['uptime'])
         self.assertEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(ProcessStates.RUNNING, process.state)
         self.assertTrue(process.expected_exit)
@@ -338,44 +347,60 @@ class ProcessTest(unittest.TestCase):
         """ Test the update of the ProcessStatus upon reception of a process event. """
         from supervisor.states import ProcessStates
         from supvisors.process import ProcessStatus
-        # add a STOPPED process infos into a process status
+        # 1. add a STOPPED process infos into a process status
         info = any_process_info_by_state(ProcessStates.STOPPED)
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
         process.add_info('10.0.0.1', info)
+        # test last event info stored
+        self.assertGreater(process.last_event_time, 0)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
+        # check changes on status
         self.assertEqual(ProcessStates.STOPPED, process.infos['10.0.0.1']['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
-        local_time = process.last_event_time
-        # update with a STARTING event on an unknown address
-        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING,
-                                         'now': 10})
-        # check no change
+
+        # 2. update with a STARTING event on an unknown address
+        process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 10})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
+        # check no change on other status
         info = process.infos['10.0.0.1']
         self.assertEqual(ProcessStates.STOPPED, info['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
         self.assertEqual('', process.extra_args)
         self.assertFalse(process.addresses)
-        # update with a STARTING event
+
+        # 3. update with a STARTING event
         process.update_info('10.0.0.1', {'state': ProcessStates.STARTING,
                                          'now': 10,
                                          'extra_args': '-x dummy'})
-        # check changes
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
+        # check changes on status
         info = process.infos['10.0.0.1']
         self.assertEqual(ProcessStates.STARTING, info['state'])
         self.assertEqual(ProcessStates.STARTING, process.state)
         self.assertEqual('-x dummy', process.extra_args)
         self.assertSetEqual({'10.0.0.1'}, process.addresses)
         self.assertEqual(10, info['now'])
-        self.assertGreaterEqual(process.last_event_time, local_time)
-        local_time = process.last_event_time
         self.assertEqual(10, info['start'])
         self.assertEqual(0, info['uptime'])
-        # update with a RUNNING event
+
+        # 4. update with a RUNNING event
         process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING,
                                          'now': 15,
                                          'pid': 1234,
                                          'extra_args': '-z another'})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check changes
         self.assertEqual(ProcessStates.RUNNING, info['state'])
         self.assertEqual(ProcessStates.RUNNING, process.state)
@@ -383,14 +408,19 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual('-z another', process.extra_args)
         self.assertEqual(1234, info['pid'])
         self.assertEqual(15, info['now'])
-        self.assertGreaterEqual(process.last_event_time, local_time)
-        local_time = process.last_event_time
         self.assertEqual(10, info['start'])
         self.assertEqual(5, info['uptime'])
-        # add a new STOPPED process info and update with STARTING / RUNNING events
+
+        # 5.a add a new STOPPED process info
         process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # extra_args has been reset
         self.assertEqual('', process.extra_args)
+
+        # 5.b update with STARTING / RUNNING events
         process.update_info('10.0.0.2', {'state': ProcessStates.STARTING,
                                          'now': 20,
                                          'extra_args': '-x dummy'})
@@ -398,15 +428,24 @@ class ProcessTest(unittest.TestCase):
                                          'now': 25,
                                          'pid': 4321,
                                          'extra_args': ''})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check state and addresses
         self.assertEqual(ProcessStates.RUNNING, process.state)
         self.assertEqual('', process.extra_args)
         self.assertSetEqual({'10.0.0.1', '10.0.0.2'}, process.addresses)
-        # update with an EXITED event
+
+        # 6. update with an EXITED event
         process.update_info('10.0.0.1', {'state': ProcessStates.EXITED,
                                          'now': 30,
                                          'expected': False,
                                          'extra_args': ''})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check changes
         self.assertEqual(ProcessStates.EXITED, info['state'])
         self.assertEqual(ProcessStates.RUNNING, process.state)
@@ -414,16 +453,19 @@ class ProcessTest(unittest.TestCase):
         self.assertSetEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(1234, info['pid'])
         self.assertEqual(30, info['now'])
-        self.assertGreaterEqual(process.last_event_time, local_time)
         self.assertEqual(10, info['start'])
         self.assertEqual(0, info['uptime'])
         self.assertFalse(info['expected'])
-        # update with an STOPPING event
+
+        # 7. update with an STOPPING event
         info = process.infos['10.0.0.2']
-        local_time = process.last_event_time
         process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING,
                                          'now': 35,
                                          'extra_args': ''})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check changes
         self.assertEqual(ProcessStates.STOPPING, info['state'])
         self.assertEqual(ProcessStates.STOPPING, process.state)
@@ -431,15 +473,18 @@ class ProcessTest(unittest.TestCase):
         self.assertSetEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(4321, info['pid'])
         self.assertEqual(35, info['now'])
-        self.assertGreaterEqual(process.last_event_time, local_time)
-        local_time = process.last_event_time
         self.assertEqual(20, info['start'])
         self.assertEqual(15, info['uptime'])
         self.assertTrue(info['expected'])
-        # update with an STOPPED event
+
+        # 8. update with an STOPPED event
         process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED,
                                          'now': 40,
                                          'extra_args': ''})
+        # test last event info stored
+        self.assertGreaterEqual(process.last_event_time, last_event_time)
+        last_event_time = process.last_event_time
+        self.assertEqual(info['local_time'], last_event_time)
         # check changes
         self.assertEqual(ProcessStates.STOPPED, info['state'])
         self.assertEqual(ProcessStates.STOPPED, process.state)
@@ -447,7 +492,6 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(4321, info['pid'])
         self.assertEqual(40, info['now'])
-        self.assertGreaterEqual(process.last_event_time, local_time)
         self.assertEqual(20, info['start'])
         self.assertEqual(0, info['uptime'])
         self.assertTrue(info['expected'])
