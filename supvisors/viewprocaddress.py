@@ -136,23 +136,27 @@ class ProcAddressView(StatusView):
                 namespec = item['namespec']
                 process_name = item.get('processname', namespec)
                 elt = tr_elt.findmeld('name_a_mid')
-                url = self.view_ctx.format_url(self.address, TAIL_PAGE,
-                                               **{PROCESS: namespec})
+                url = self.view_ctx.format_url(self.address, TAIL_PAGE, **{PROCESS: namespec})
                 elt.attributes(href=url)
                 elt.content(process_name)
                 # print description
                 elt = tr_elt.findmeld('desc_td_mid')
                 elt.content(item['desc'])
                 # manage process log actions
+                # clear log
                 namespec = item['namespec']
                 elt = tr_elt.findmeld('clear_a_mid')
                 parameters = {ACTION: 'clearlog', PROCESS: namespec}
-                url = self.view_ctx.format_url('', self.page_name,
-                                               **parameters)
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
-                elt = tr_elt.findmeld('tail_a_mid')
-                elt.attributes(href='logtail/%s' % quote(namespec),
-                               target='_blank')
+                # tail stdout
+                elt = tr_elt.findmeld('tailout_a_mid')
+                url = STDOUT_PAGE % quote(namespec)
+                elt.attributes(href=url, target='_blank')
+                # tail stderr
+                elt = tr_elt.findmeld('tailerr_a_mid')
+                url = STDERR_PAGE % quote(namespec)
+                elt.attributes(href=url, target='_blank')
                 # set line background and invert
                 if selected_tr:
                     tr_elt.attrib['class'] = 'selected'
