@@ -7,6 +7,8 @@ matrix:
         - python: 3.6
           env:
             - TOXENV=py36
+        - python: 3.6
+          env: TOXENV=docs
 
 install:
     - travis_retry pip install tox
