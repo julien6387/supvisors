@@ -63,6 +63,7 @@ version_txt = os.path.join(parent, 'supvisors/version.txt')
 supvisors_version = open(version_txt).read().split('=')[1].strip()
 
 version = supvisors_version
+
 # The full version, including alpha/beta/rc tags.
 release = supvisors_version
 

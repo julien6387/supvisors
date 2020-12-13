@@ -134,10 +134,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is
-            still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the application.
         """
@@ -152,10 +150,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is
-            still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
         """
@@ -170,8 +166,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE``
         if **Supvisors** is still in ``INITIALIZATION`` state,
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        the processes.
+        *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
         return [process.serial()
@@ -182,18 +177,14 @@ class RPCInterface(object):
         It gives a synthetic status, based on the process information coming
         from all the addresses where **Supvisors** is running.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is
-            still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        the processes.
+        *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         self._check_from_deployment()
         application, process = self._get_application_process(namespec)
@@ -207,8 +198,7 @@ class RPCInterface(object):
         **Supvisors** in INITIALIZATION state, and giving the extra arguments
         of the process.
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        the processes.
+        *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
         supervisor_intf = self.info_source.supervisor_rpc_interface
         all_info = supervisor_intf.getAllProcessInfo()
@@ -220,11 +210,9 @@ class RPCInterface(object):
         **Supvisors** in INITIALIZATION state, and giving the extra arguments
         of the process.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``).
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``).
 
-        *@throws* ``RPCError`` with code ``Faults.BAD_NAME`` if namespec is
-        unknown to **Supvisors**.
+        *@throws* ``RPCError`` with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the process.
         """
@@ -235,15 +223,12 @@ class RPCInterface(object):
     def get_process_rules(self, namespec):
         """ Get the rules used to start / stop the process named namespec.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is
-            still in ``INITIALIZATION`` state,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
         """
@@ -257,11 +242,9 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if
-        **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        the conflicting processes.
+        *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
         return [process.serial()
@@ -273,8 +256,7 @@ class RPCInterface(object):
         """ Start the application named application_name iaw the strategy and
         the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose
-        addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -282,16 +264,11 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to
-            **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to
-            **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if application is
-            ``STARTING``, ``STOPPING`` or ``RUNNING``,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could
-            not be started.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
+            * with code ``Faults.ALREADY_STARTED`` if application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
 
         *@return* ``bool``: always ``True`` unless error or nothing to start.
         """
@@ -337,10 +314,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION`` or ``CONCILIATION``,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
 
         *@return* ``bool``: always ``True`` unless error.
@@ -377,8 +352,7 @@ class RPCInterface(object):
         """ Restart the application named application_name iaw the strategy
         and the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose
-        addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -386,14 +360,10 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to
-            **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if application_name is unknown to
-            **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could
-            not be restarted.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -433,18 +403,15 @@ class RPCInterface(object):
 
         *@param* ``str namespec``: the process namespec.
 
-        *@param* ``str extra_args``: extra arguments to be passed to the
-        command line of the program.
+        *@param* ``str extra_args``: extra arguments to be passed to the command line of the program.
 
         *@param* ``bool wait``: wait for the process to be fully started.
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local
-            Supervisor,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to the local Supervisor,
             * with code ``Faults.ALREADY_STARTED`` if process is ``RUNNING``,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be
-            started.
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -486,29 +453,21 @@ class RPCInterface(object):
         rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose
-        addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``,``group:name``, or ``group:*``).
 
-        *@param* ``str extra_args``: extra arguments to be passed to command
-        line.
+        *@param* ``str extra_args``: extra arguments to be passed to command line.
 
         *@param* ``bool wait``: wait for the process to be fully started.
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to
-            **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to
-            **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if process is in a running
-            state,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be
-            started.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
+            * with code ``Faults.ALREADY_STARTED`` if process is in a running state,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -547,17 +506,14 @@ class RPCInterface(object):
     def stop_process(self, namespec, wait=True):
         """ Stop the process named namespec where it is running.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
         *@param* ``bool wait``: wait for process to be fully stopped.
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION`` or ``CONCILIATION``,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
 
         *@return* ``bool``: always ``True`` unless error.
@@ -595,28 +551,20 @@ class RPCInterface(object):
         rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose
-        addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
-        *@param* ``str namespec``: the process namespec (``name``,
-        ``group:name``, or ``group:*``).
+        *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
-        *@param* ``str extra_args``: extra arguments to be passed to command
-        line.
-        If None, use the arguments passed with the last call.
+        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed with the last call.
 
         *@param* ``bool wait``: wait for process to be fully stopped.
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to
-            **Supvisors**,
-            * with code ``Faults.BAD_NAME`` if namespec is unknown to
-            **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be
-            started.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -649,18 +597,14 @@ class RPCInterface(object):
         """ Apply the conciliation strategy only if **Supvisors** is in
         ``CONCILIATION`` state, with a USER strategy.
 
-        *@param* ``ConciliationStrategies strategy``: the strategy used to
-        conciliate.
+        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate.
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not
-            in state ``CONCILIATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to
-            **Supvisors**.
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
+            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
 
-        *@return* ``bool``: ``True`` if conciliation is triggered, ``False``
-        when strategy is USER.
+        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
         """
         self._check_conciliation()
         # check strategy
@@ -677,8 +621,7 @@ class RPCInterface(object):
         """ Stops all applications and restart **Supvisors** through all
         Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if
-        **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -690,8 +633,7 @@ class RPCInterface(object):
         """ Stops all applications and shut down **Supvisors** through all
         Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if
-        **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """

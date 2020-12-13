@@ -86,12 +86,9 @@ class ViewHandler(MeldView):
                 return NOT_DONE_YET
             # display result
             root = self.clone()
-            print_message(root,
-                          self.view_ctx.get_gravity(),
-                          self.view_ctx.get_message())
+            print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
             # blink main title in conciliation state
-            if self.fsm.state == SupvisorsStates.CONCILIATION and \
-                    self.sup_ctx.conflicts():
+            if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
                 root.findmeld('supvisors_mid').attrib['class'] = 'blink'
             # set Supvisors version
             root.findmeld('version_mid').content(API_VERSION)
@@ -104,6 +101,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
+        self.logger.warn('New context: {}'. format(self.view_ctx.__dict__))
 
     def write_nav(self, root, address=None, appli=None):
         """ Write the navigation menu. """

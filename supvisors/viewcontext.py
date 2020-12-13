@@ -149,8 +149,7 @@ class ViewContext:
         return self.statistician.nbcores.get(stats_address, 0)
 
     def get_address_stats(self, address=None):
-        """ Get the statistics structure related to the address
-        and the period selected.
+        """ Get the statistics structure related to the address and the period selected.
         If no address is specified, local address is used. """
         stats_address = address or self.address
         return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
