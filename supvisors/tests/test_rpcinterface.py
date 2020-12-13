@@ -1089,8 +1089,10 @@ class RpcInterfaceTest(unittest.TestCase):
                 'key': 'value',
                 'state': 'undefined',
                 'start': 1234,
+                'stop': 7777,
                 'now': 4321,
                 'pid': 4567,
+                'description': 'process dead',
                 'spawnerr': ''}
         info_source = self.supervisor.supvisors.info_source
         info_source.get_extra_args.return_value = '-x dummy_args'
@@ -1101,9 +1103,12 @@ class RpcInterfaceTest(unittest.TestCase):
                               'extra_args': '-x dummy_args',
                               'state': 'undefined',
                               'start': 1234,
+                              'stop': 7777,
                               'now': 4321,
                               'pid': 4567,
-                              'expected': True},
+                              'description': 'process dead',
+                              'expected': True,
+                              'spawnerr': ''},
                              rpc._get_local_info(info))
 
 

@@ -139,20 +139,19 @@ class ApplicationView(ViewHandler):
         # write selected Process Statistics
         self.write_process_statistics(root)
 
+    def _get_address_desc(self, namespec):
+        """ Return the description related to the instance of the process
+        having the most recent event among all addresses. """
+        address, info = self.view_ctx.get_process_last_info(namespec)
+        return address, info['description']
+
     def get_process_data(self):
         """ Collect sorted data on processes. """
-
-        def get_address_desc(namespec):
-            """ Return the description related to the instance of the process
-            having the most recent event among all addresses. """
-            address, info = self.view_ctx.get_process_last_info(namespec)
-            return address, info['description']
-
         data = [{'application_name': process.application_name,
                  'process_name': process.process_name,
                  'namespec': process.namespec(),
                  'running_list': list(process.addresses),
-                 'addr_desc': get_address_desc(process.namespec()),
+                 'addr_desc': self._get_address_desc(process.namespec()),
                  'statename': process.state_string(),
                  'statecode': process.state,
                  'loading': process.rules.expected_loading}

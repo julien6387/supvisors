@@ -355,17 +355,14 @@ class ViewHandlerTest(unittest.TestCase):
         href_elt.content.reset_mock()
         # test call with application name identical to parameter
         handler.write_nav_applications(mocked_root, 'dummy_appli')
-        self.assertEqual([call('appli_li_mid')],
-                         mocked_root.findmeld.call_args_list)
+        self.assertEqual([call('appli_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual(mocked_mid.repeat.call_args_list, [call([])])
         self.assertEqual('running active', appli_elt.attrib['class'])
-        self.assertEqual([call('appli_a_mid')],
-                         appli_elt.findmeld.call_args_list)
+        self.assertEqual([call('appli_a_mid')], appli_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([], handler.view_ctx.format_url.call_args_list)
         self.assertEqual([], href_elt.attributes.call_args_list)
-        self.assertEqual([call('dummy_appli')],
-                         href_elt.content.call_args_list)
+        self.assertEqual([call('dummy_appli')], href_elt.content.call_args_list)
 
     def test_write_nav_applications_operation(self):
         """ Test the write_nav_applications method with Supvisors in its
@@ -536,44 +533,33 @@ class ViewHandlerTest(unittest.TestCase):
         tr_elt = Mock(attrib={}, **{'findmeld.return_value': cell_elt})
         # test with no stats
         handler.write_common_process_mem(tr_elt, None, None)
-        self.assertEqual([call('pmem_a_mid')],
-                         tr_elt.findmeld.call_args_list)
-        self.assertEqual([call('--')],
-                         cell_elt.replace.call_args_list)
+        self.assertEqual([call('pmem_a_mid')], tr_elt.findmeld.call_args_list)
+        self.assertEqual([call('--')], cell_elt.replace.call_args_list)
         tr_elt.findmeld.reset_mock()
         cell_elt.replace.reset_mock()
         # test with empty stats
         handler.write_common_process_mem(tr_elt, None, ([], []))
-        self.assertEqual([call('pmem_a_mid')],
-                         tr_elt.findmeld.call_args_list)
-        self.assertEqual([call('--')],
-                         cell_elt.replace.call_args_list)
+        self.assertEqual([call('pmem_a_mid')], tr_elt.findmeld.call_args_list)
+        self.assertEqual([call('--')], cell_elt.replace.call_args_list)
         tr_elt.findmeld.reset_mock()
         cell_elt.replace.reset_mock()
         # test with filled stats on selected process
         handler.write_common_process_mem(tr_elt, 'dummy_proc', ([], [10, 20]))
-        self.assertEqual([call('pmem_a_mid')],
-                         tr_elt.findmeld.call_args_list)
+        self.assertEqual([call('pmem_a_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
-        self.assertEqual([call('20.00%')],
-                         cell_elt.content.call_args_list)
-        self.assertEqual([call(href='#')],
-                         cell_elt.attributes.call_args_list)
+        self.assertEqual([call('20.00%')], cell_elt.content.call_args_list)
+        self.assertEqual([call(href='#')], cell_elt.attributes.call_args_list)
         self.assertEqual('button off active', cell_elt.attrib['class'])
         tr_elt.findmeld.reset_mock()
         cell_elt.content.reset_mock()
         cell_elt.attributes.reset_mock()
         # test with filled stats on not selected process
         handler.write_common_process_mem(tr_elt, 'dummy', ([], [10, 20, 30]))
-        self.assertEqual([call('pmem_a_mid')],
-                         tr_elt.findmeld.call_args_list)
+        self.assertEqual([call('pmem_a_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
-        self.assertEqual([call('30.00%')],
-                         cell_elt.content.call_args_list)
-        self.assertEqual([call('', None, processname='dummy')],
-                         handler.view_ctx.format_url.call_args_list)
-        self.assertEqual([call(href='an url')],
-                         cell_elt.attributes.call_args_list)
+        self.assertEqual([call('30.00%')], cell_elt.content.call_args_list)
+        self.assertEqual([call('', None, processname='dummy')], handler.view_ctx.format_url.call_args_list)
+        self.assertEqual([call(href='an url')], cell_elt.attributes.call_args_list)
         self.assertEqual('button on', cell_elt.attrib['class'])
 
     @patch('supvisors.viewhandler.ViewHandler._write_process_button')
@@ -581,10 +567,10 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_start_button method. """
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
         # test call indirection
         handler.write_process_start_button('elt', 'dummy_proc', 'stopped')
-        self.assertEqual([call('elt', 'start_a_mid', 'start', 'dummy_proc',
-                               'stopped', STOPPED_STATES)],
+        self.assertEqual([call('elt', 'start_a_mid', '', 'My Page', 'start', 'dummy_proc', 'stopped', STOPPED_STATES)],
                          mocked_button.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler._write_process_button')
@@ -592,10 +578,10 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_stop_button method. """
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
         # test call indirection
         handler.write_process_stop_button('elt', 'dummy_proc', 'starting')
-        self.assertEqual([call('elt', 'stop_a_mid', 'stop', 'dummy_proc',
-                               'starting', RUNNING_STATES)],
+        self.assertEqual([call('elt', 'stop_a_mid', '', 'My Page', 'stop', 'dummy_proc', 'starting', RUNNING_STATES)],
                          mocked_button.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler._write_process_button')
@@ -603,10 +589,10 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_restart_button method. """
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
         # test call indirection
         handler.write_process_restart_button('elt', 'dummy_proc', 'running')
-        self.assertEqual([call('elt', 'restart_a_mid', 'restart', 'dummy_proc',
-                               'running', RUNNING_STATES)],
+        self.assertEqual([call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc', 'running', RUNNING_STATES)],
                          mocked_button.call_args_list)
 
     def test_write_process_button(self):
@@ -619,27 +605,24 @@ class ViewHandlerTest(unittest.TestCase):
         cell_elt = Mock(attrib={'class': ''})
         tr_elt = Mock(**{'findmeld.return_value': cell_elt})
         # test with process state not in expected list
-        handler._write_process_button(tr_elt, 'meld_id', 'action',
-                                      'dummy_proc', 'running',
-                                      ['stopped', 'stopping'])
-        self.assertEqual([call('meld_id')],
-                         tr_elt.findmeld.call_args_list)
+        handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
+                                      'running', ['stopped', 'stopping'])
+        self.assertEqual([call('meld_id')], tr_elt.findmeld.call_args_list)
         self.assertEqual('button off', cell_elt.attrib['class'])
         self.assertEqual([], cell_elt.attributes.call_args_list)
         tr_elt.findmeld.reset_mock()
         # test with filled stats on selected process
-        handler._write_process_button(tr_elt, 'meld_id', 'action',
-                                      'dummy_proc', 'running',
-                                      ['running', 'starting'])
-        self.assertEqual([call('meld_id')],
-                         tr_elt.findmeld.call_args_list)
+        handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
+                                      'running', ['running', 'starting'])
+        self.assertEqual([call('meld_id')], tr_elt.findmeld.call_args_list)
         self.assertEqual('button on', cell_elt.attrib['class'])
-        self.assertEqual([call('', None, action='action',
-                               namespec='dummy_proc')],
+        self.assertEqual([call('10.0.0.1', 'index.html', action='action', namespec='dummy_proc')],
                          handler.view_ctx.format_url.call_args_list)
-        self.assertEqual([call(href='an url')],
-                         cell_elt.attributes.call_args_list)
+        self.assertEqual([call(href='an url')], cell_elt.attributes.call_args_list)
 
+    @patch('supvisors.viewhandler.ViewHandler.write_process_stderr_button')
+    @patch('supvisors.viewhandler.ViewHandler.write_process_stdout_button')
+    @patch('supvisors.viewhandler.ViewHandler.write_process_clear_button')
     @patch('supvisors.viewhandler.ViewHandler.write_process_restart_button')
     @patch('supvisors.viewhandler.ViewHandler.write_process_stop_button')
     @patch('supvisors.viewhandler.ViewHandler.write_process_start_button')
@@ -647,10 +630,9 @@ class ViewHandlerTest(unittest.TestCase):
     @patch('supvisors.viewhandler.ViewHandler.write_common_process_cpu')
     @patch('supvisors.viewhandler.ViewHandler.get_process_stats',
            return_value=('proc_stats', 4))
-    def test_write_common_process_status(self, mocked_stats,
-                                         mocked_cpu, mocked_mem,
-                                         mocked_start, mocked_stop,
-                                         mocked_restart):
+    def test_write_common_process_status(self, mocked_stats, mocked_cpu, mocked_mem,
+                                         mocked_start, mocked_stop, mocked_restart,
+                                         mocked_clear, mocked_stdout, mocked_stderr):
         """ Test the write_common_process_status method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
@@ -662,31 +644,22 @@ class ViewHandlerTest(unittest.TestCase):
         load_elt = Mock(attrib={'class': ''})
         tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, load_elt]})
         # test call on selected process
-        param = {'namespec': 'dummy_proc',
-                 'statename': 'running',
-                 'loading': 35,
-                 'statecode': 7}
-        self.assertTrue(handler.write_common_process_status(tr_elt, param))
+        param = {'namespec': 'dummy_proc', 'statename': 'running', 'loading': 35, 'statecode': 7}
+        handler.write_common_process_status(tr_elt, param, '10.0.0.1')
         self.assertEqual([call('state_td_mid'), call('load_td_mid')],
                          tr_elt.findmeld.call_args_list)
         self.assertEqual('running', state_elt.attrib['class'])
         self.assertEqual([call('running')], state_elt.content.call_args_list)
         self.assertEqual([call('35%')], load_elt.content.call_args_list)
         self.assertEqual([call('dummy_proc')], mocked_stats.call_args_list)
-        self.assertEqual([call(tr_elt, 'dummy_proc', 'proc_stats', 4)],
-                         mocked_cpu.call_args_list)
-        self.assertEqual([call(tr_elt, 'dummy_proc', 'proc_stats')],
-                         mocked_mem.call_args_list)
-        self.assertEqual([call(tr_elt, 'dummy_proc', 7)],
-                         mocked_start.call_args_list)
-        self.assertEqual([call(tr_elt, 'dummy_proc', 7)],
-                         mocked_stop.call_args_list)
-        self.assertEqual([call(tr_elt, 'dummy_proc', 7)],
-                         mocked_restart.call_args_list)
-        # test call on not selected process
-        param['namespec'] = 'dummy'
-        tr_elt.findmeld.side_effect = [state_elt, load_elt]
-        self.assertFalse(handler.write_common_process_status(tr_elt, param))
+        self.assertEqual([call(tr_elt, 'dummy_proc', 'proc_stats', 4)], mocked_cpu.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', 'proc_stats')], mocked_mem.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', 7)], mocked_start.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', 7)], mocked_stop.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', 7)], mocked_restart.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', '10.0.0.1')], mocked_clear.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', '10.0.0.1')], mocked_stdout.call_args_list)
+        self.assertEqual([call(tr_elt, 'dummy_proc', '10.0.0.1')], mocked_stderr.call_args_list)
 
     def test_write_detailed_process_cpu(self):
         """ Test the write_detailed_process_cpu method. """
@@ -785,58 +758,64 @@ class ViewHandlerTest(unittest.TestCase):
         # test call with dummy stats
         proc_stats = ([10, 16, 24], [20, 32, 32])
         handler.write_process_plots(proc_stats)
-        self.assertEqual([call('CPU', '%', [10, 16, 24]),
-                          call('MEM', '%', [20, 32, 32])],
+        self.assertEqual([call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])],
                          mocked_add.call_args_list)
         self.assertEqual([call(process_cpu_img), call(process_mem_img)],
                          mocked_export.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler.write_process_plots')
-    @patch('supvisors.viewhandler.ViewHandler.write_detailed_process_mem',
-           return_value=False)
-    @patch('supvisors.viewhandler.ViewHandler.write_detailed_process_cpu',
-           return_value=False)
-    @patch('supvisors.viewhandler.ViewHandler.get_process_stats',
-           return_value=(([], []), 0))
-    def test_write_process_statistics(self, _, mocked_cpu,
-                                      mocked_mem, mocked_plots):
+    @patch('supvisors.viewhandler.ViewHandler.write_detailed_process_mem', return_value=False)
+    @patch('supvisors.viewhandler.ViewHandler.write_detailed_process_cpu', return_value=False)
+    @patch('supvisors.viewhandler.ViewHandler.get_process_stats', return_value=(([], []), 0))
+    def test_write_process_statistics(self, _, mocked_cpu, mocked_mem, mocked_plots):
         """ Test the write_process_statistics method. """
         from supvisors.viewcontext import PROCESS
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
         # patch the view context
-        handler.view_ctx = Mock(parameters={PROCESS: ''})
+        handler.view_ctx = Mock(parameters={PROCESS: None})
         # patch the meld elements
+        row_elt = Mock(attrib={})
         title_elt = Mock()
-        stats_elt = Mock(attrib={}, **{'findmeld.return_value': title_elt})
+        stats_elt = Mock(attrib={}, **{'findmeld.side_effect': [title_elt, row_elt]})
         root_elt = Mock(attrib={}, **{'findmeld.return_value': stats_elt})
         # test call with no namespec selection
         handler.write_process_statistics(root_elt)
+        self.assertEqual([call('pstats_div_mid')], root_elt.findmeld.call_args_list)
         self.assertEqual([call('')], stats_elt.replace.call_args_list)
+        self.assertEqual([], stats_elt.findmeld.call_args_list)
         self.assertEqual([], mocked_cpu.call_args_list)
         self.assertEqual([], mocked_mem.call_args_list)
+        self.assertEqual([], title_elt.content.call_args_list)
+        self.assertNotIn('class', row_elt.attrib)
         self.assertEqual([], mocked_plots.call_args_list)
+        root_elt.findmeld.reset_mock()
         stats_elt.replace.reset_mock()
         # test call with namespec selection and no stats found
         handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'})
         handler.write_process_statistics(root_elt)
+        self.assertEqual([call('pstats_div_mid')], root_elt.findmeld.call_args_list)
         self.assertEqual([], stats_elt.replace.call_args_list)
-        self.assertEqual([call(stats_elt, ([], []), 0)],
-                         mocked_cpu.call_args_list)
-        self.assertEqual([call(stats_elt, ([], []))],
-                         mocked_mem.call_args_list)
+        self.assertEqual([], stats_elt.findmeld.call_args_list)
+        self.assertEqual([call(stats_elt, ([], []), 0)], mocked_cpu.call_args_list)
+        self.assertEqual([call(stats_elt, ([], []))], mocked_mem.call_args_list)
+        self.assertEqual([], title_elt.content.call_args_list)
+        self.assertNotIn('class', row_elt.attrib)
         self.assertEqual([], mocked_plots.call_args_list)
+        root_elt.findmeld.reset_mock()
         mocked_cpu.reset_mock()
         mocked_mem.reset_mock()
         # test call with namespec selection and stats found
         mocked_cpu.return_value = True
         handler.write_process_statistics(root_elt)
+        self.assertEqual([call('pstats_div_mid')], root_elt.findmeld.call_args_list)
+        self.assertEqual([call('process_h_mid'), call('pstats_tr_mid')],
+                         stats_elt.findmeld.call_args_list)
         self.assertEqual([], stats_elt.replace.call_args_list)
-        self.assertEqual([], stats_elt.replace.call_args_list)
-        self.assertEqual([call(stats_elt, ([], []), 0)],
-                         mocked_cpu.call_args_list)
-        self.assertEqual([call(stats_elt, ([], []))],
-                         mocked_mem.call_args_list)
+        self.assertEqual([call(stats_elt, ([], []), 0)], mocked_cpu.call_args_list)
+        self.assertEqual([call(stats_elt, ([], []))], mocked_mem.call_args_list)
+        self.assertEqual([call('dummy_proc')], title_elt.content.call_args_list)
+        self.assertEqual('brightened', row_elt.attrib['class'])
         self.assertEqual([call(([], []))], mocked_plots.call_args_list)
 
     def test_handle_action(self):
