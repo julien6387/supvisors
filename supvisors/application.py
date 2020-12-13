@@ -54,20 +54,16 @@ class ApplicationRules(object):
         return 'start_sequence={} stop_sequence={} ' \
                'starting_failure_strategy={} running_failure_strategy={}' \
             .format(self.start_sequence, self.stop_sequence,
-                    StartingFailureStrategies._to_string(
-                        self.starting_failure_strategy),
-                    RunningFailureStrategies._to_string(
-                        self.running_failure_strategy))
+                    StartingFailureStrategies.to_string(self.starting_failure_strategy),
+                    RunningFailureStrategies.to_string(self.running_failure_strategy))
 
     # serialization
     def serial(self):
         """ Return a serializable form of the ApplicationRules. """
         return {'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
-                'starting_failure_strategy': StartingFailureStrategies._to_string(
-                    self.starting_failure_strategy),
-                'running_failure_strategy': RunningFailureStrategies._to_string(
-                    self.running_failure_strategy)}
+                'starting_failure_strategy': StartingFailureStrategies.to_string(self.starting_failure_strategy),
+                'running_failure_strategy': RunningFailureStrategies.to_string(self.running_failure_strategy)}
 
 
 # ApplicationStatus class
@@ -145,7 +141,7 @@ class ApplicationStatus(object):
     # methods
     def state_string(self):
         """ Return the application state as a string. """
-        return ApplicationStates._to_string(self.state)
+        return ApplicationStates.to_string(self.state)
 
     def add_process(self, process):
         """ Add a new process to the process list. """

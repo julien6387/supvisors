@@ -34,11 +34,10 @@ class PluginTest(unittest.TestCase):
     def test_codes(self):
         """ Test the addition of Supvisors fault codes to Supervisor's. """
         from supvisors.plugin import SupvisorsFaults, expand_faults
-        from supvisors.utils import enum_strings
         # update Supervisor faults
         expand_faults()
         # test that enumerations are in Supervisor
-        for enum in enum_strings(SupvisorsFaults.__dict__):
+        for enum in SupvisorsFaults.strings():
             self.assertTrue(hasattr(Faults, enum))
 
     def test_update_views(self):

@@ -250,7 +250,7 @@ class FiniteStateMachine:
 
     def state_string(self):
         """ Return the supvisors state as a string. """
-        return SupvisorsStates._to_string(self.state)
+        return SupvisorsStates.to_string(self.state)
 
     def next(self):
         """ Send the event to the state and transitions if possible.

@@ -114,7 +114,7 @@ class SupervisorListener(object):
         # create payload from event
         payload = {'name': event.process.config.name,
                    'group': event.process.group.config.name,
-                   'state': ProcessStates._from_string(event_name.split('_')[-1]),
+                   'state': ProcessStates.from_string(event_name.split('_')[-1]),
                    'extra_args': event.process.config.extra_args,
                    'now': int(time.time()),
                    'pid': event.process.pid,

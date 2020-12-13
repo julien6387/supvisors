@@ -201,19 +201,21 @@ class SupvisorsServerOptions(ServerOptions):
     @staticmethod
     def to_conciliation_strategy(value):
         """ Convert a string into a ConciliationStrategies enum. """
-        strategy = ConciliationStrategies._from_string(value)
-        if strategy is None:
-            raise ValueError('invalid value for conciliation_strategy: {}. '
-                             'expected in {}'.format(value, ConciliationStrategies._strings()))
+        try:
+            strategy = ConciliationStrategies.from_string(value)
+        except KeyError:
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'
+                             .format(value, ConciliationStrategies.strings()))
         return strategy
 
     @staticmethod
     def to_starting_strategy(value):
         """ Convert a string into a StartingStrategies enum. """
-        strategy = StartingStrategies._from_string(value)
-        if strategy is None:
-            raise ValueError('invalid value for starting_strategy: {}. '
-                             'expected in {}'.format(value, StartingStrategies._strings()))
+        try:
+            strategy = StartingStrategies.from_string(value)
+        except KeyError:
+            raise ValueError('invalid value for starting_strategy: {}. expected in {}'
+                             .format(value, StartingStrategies.strings()))
         return strategy
 
     @staticmethod

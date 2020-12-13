@@ -46,8 +46,8 @@ class SupvisorsView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = {str.lower(x) for x in ConciliationStrategies._strings()}
-        user = ConciliationStrategies._to_string(ConciliationStrategies.USER)
+        self.strategies = {str.lower(x) for x in ConciliationStrategies.strings()}
+        user = ConciliationStrategies.to_string(ConciliationStrategies.USER)
         self.strategies.remove(user.lower())
         # global actions (no parameter)
         self.global_methods = {'refresh': self.refresh_action,
@@ -187,14 +187,14 @@ class SupvisorsView(ViewHandler):
                 # fill the strategies
                 td_elt.attrib['rowspan'] = str(rowspan)
                 strategy_iterator = td_elt.findmeld('local_strategy_li_mid').repeat(self.strategies)
-                for li_elt, item in strategy_iterator:
+                for li_elt, st_item in strategy_iterator:
                     elt = li_elt.findmeld('local_strategy_a_mid')
                     # conciliation requests MUST be sent to MASTER
                     master = self.sup_ctx.master_address
-                    parameters = {NAMESPEC: namespec, ACTION: item}
+                    parameters = {NAMESPEC: namespec, ACTION: st_item}
                     url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
                     elt.attributes(href=url)
-                    elt.content(item.title())
+                    elt.content(st_item.title())
             else:
                 td_elt.replace('')
 
@@ -295,12 +295,12 @@ class SupvisorsView(ViewHandler):
         if namespec:
             # conciliate only one process
             conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies._from_string(action),
+                                 ConciliationStrategies.from_string(action),
                                  [self.sup_ctx.processes[namespec]])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
             conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies._from_string(action),
+                                 ConciliationStrategies.from_string(action),
                                  self.sup_ctx.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

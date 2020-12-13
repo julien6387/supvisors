@@ -137,7 +137,7 @@ class AddressMapperTest(CompatTestCase):
             self.assertRegex(ip, r'^\d{1,3}(.\d{1,3}){3}$')
 
     @patch.dict('sys.modules', {'netifaces': None})
-    def test_ipv4_importerror(self, *args, **keywargs):
+    def test_ipv4_importerror(self):
         """ Test the ipv4 method with a mocking of import (netifaces not installed). """
         from supvisors.addressmapper import AddressMapper
         ip_list = AddressMapper.ipv4()

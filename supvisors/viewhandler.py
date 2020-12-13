@@ -22,6 +22,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
+from supvisors.plot import StatisticsPlot
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import AddressStates, SupvisorsStates
 from supvisors.utils import get_stats, supvisors_shortcuts
@@ -33,15 +34,14 @@ from supvisors.webutils import *
 # test matplotlib availability
 def test_matplotlib_import():
     try:
-        from supvisors.plot import StatisticsPlot
-        StatisticsPlot()
-        return StatisticsPlot
+        import matplotlib
+        return True
     except ImportError:
-        return None
+        return False
 
 
 # keep matplotlib availability information at once
-PLOT_CLASS = test_matplotlib_import()
+HAS_PLOT = test_matplotlib_import()
 
 
 class ViewHandler(MeldView):
@@ -243,14 +243,14 @@ class ViewHandler(MeldView):
         This action must be sent to the relevant address. """
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', action_address, STDOUT_PAGE % quote(namespec),
-                                   '', namespec, '', '')
+                                   '', '', '', '')
 
     def write_process_stderr_button(self, tr_elt, namespec, action_address):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant address. """
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', action_address, STDERR_PAGE % quote(namespec),
-                                   '', namespec, '', '')
+                                   '', '', '', '')
 
     def _write_process_button(self, tr_elt, elt_name, address, page, action, namespec,
                               state, state_list):
@@ -338,13 +338,13 @@ class ViewHandler(MeldView):
     def write_process_plots(self, proc_stats):
         """ Write the CPU / Memory plots.
         (only if matplotlib is installed) """
-        if PLOT_CLASS:
+        if HAS_PLOT:
             # build CPU image
-            cpu_img = PLOT_CLASS()
+            cpu_img = StatisticsPlot()
             cpu_img.add_plot('CPU', '%', proc_stats[0])
             cpu_img.export_image(process_cpu_img)
             # build Memory image
-            mem_img = PLOT_CLASS()
+            mem_img = StatisticsPlot()
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
 

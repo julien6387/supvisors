@@ -319,7 +319,7 @@ class ControllerPlugin(ControllerPluginBase):
                     line = template % {
                         'appli': info['group'],
                         'proc': info['name'],
-                        'state': ProcessStates._to_string(info['state']),
+                        'state': ProcessStates.to_string(info['state']),
                         'start': start_time,
                         'now': now_time,
                         'pid': info['pid'],
@@ -423,10 +423,11 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_application requires at least a strategy')
                 self.help_start_application()
                 return
-            strategy = StartingStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_application.'
-                                'use one of {}'.format(StartingStrategies._strings()))
+            try:
+                strategy = StartingStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'
+                                .format(StartingStrategies.strings()))
                 self.help_start_application()
                 return
             applications = args[1:]
@@ -491,10 +492,11 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_application requires at least a strategy')
                 self.help_restart_application()
                 return
-            strategy = StartingStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for restart_application.'
-                                ' use one of {}'.format(StartingStrategies._strings()))
+            try:
+                strategy = StartingStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'
+                                .format(StartingStrategies.strings()))
                 self.help_restart_application()
                 return
             applications = args[1:]
@@ -552,10 +554,11 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: start_process requires at least a strategy')
                 self.help_start_process()
                 return
-            strategy = StartingStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_process.'
-                                ' use one of {}'.format(StartingStrategies._strings()))
+            try:
+                strategy = StartingStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'
+                                .format(StartingStrategies.strings()))
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -595,16 +598,16 @@ class ControllerPlugin(ControllerPluginBase):
                                 'a program name and extra arguments')
                 self.help_start_process_args()
                 return
-            strategy = StartingStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for start_process_args.'
-                                ' use one of {}'.format(StartingStrategies._strings()))
+            try:
+                strategy = StartingStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'
+                                .format(StartingStrategies.strings()))
                 self.help_start_process_args()
                 return
             namespec = args[1]
             try:
-                result = self.supvisors().start_process(strategy, namespec,
-                                                        ' '.join(args[2:]))
+                result = self.supvisors().start_process(strategy, namespec, ' '.join(args[2:]))
             except xmlrpclib.Fault as e:
                 self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
             else:
@@ -653,10 +656,11 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
                 self.help_restart_process()
                 return
-            strategy = StartingStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for restart_process. '
-                                'use one of {}'.format(StartingStrategies._strings()))
+            try:
+                strategy = StartingStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'
+                                .format(StartingStrategies.strings()))
                 self.help_restart_process()
                 return
             processes = args[1:]
@@ -693,10 +697,11 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR: conciliate requires a strategy')
                 self.help_conciliate()
                 return
-            strategy = ConciliationStrategies._from_string(args[0])
-            if strategy is None:
-                self.ctl.output('ERROR: unknown strategy for conciliate. '
-                                'use one of {}'.format(ConciliationStrategies._strings()))
+            try:
+                strategy = ConciliationStrategies.from_string(args[0])
+            except KeyError:
+                self.ctl.output('ERROR: unknown strategy for conciliate. use one of {}'
+                                .format(ConciliationStrategies.strings()))
                 self.help_conciliate()
                 return
             try:

@@ -140,7 +140,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules = ProcessRules(self.supvisors)
         # test that only the CONTINUE strategy keeps the autorestart
         mocked_disable = self.supvisors.info_source.disable_autorestart
-        for strategy in RunningFailureStrategies._values():
+        for strategy in RunningFailureStrategies.values():
             rules.running_failure_strategy = strategy
             rules.check_dependencies('dummy_process_1')
             if strategy == RunningFailureStrategies.CONTINUE:
@@ -532,7 +532,7 @@ class ProcessTest(unittest.TestCase):
         from supvisors.ttypes import ProcessStates
         # check times on a RUNNING process info
         info = {'start': 50, 'now': 75}
-        for state in ProcessStates._values():
+        for state in ProcessStates.values():
             info['state'] = state
             ProcessStatus.update_uptime(info)
             if state in [ProcessStates.RUNNING, ProcessStates.STOPPING]:

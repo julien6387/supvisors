@@ -57,6 +57,17 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual(DummyAddressMapper().local_address, handler.address)
         self.assertIsNone(handler.view_ctx)
 
+    @patch('supvisors.viewhandler.MeldView.__call__',
+           side_effect=(NOT_DONE_YET, {'body': u'html_body'}))
+    def test_call(self, mocked_call):
+        """ Test the values set at construction. """
+        from supvisors.viewhandler import ViewHandler
+        handler = ViewHandler(self.http_context)
+        # first call to MeldView returns NOT_DONE_YET
+        self.assertIs(NOT_DONE_YET, handler.__call__())
+        # second call to MeldView returns an HTML struct
+        self.assertDictEqual({'body': b'html_body'}, handler.__call__())
+
     @patch('supvisors.viewhandler.ViewHandler.handle_action')
     def test_render_not_ready(self, mocked_action):
         """ Test the render method when Supervisor is not in RUNNING state. """
@@ -331,9 +342,10 @@ class ViewHandlerTest(unittest.TestCase):
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-        mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
-                                                      Mock(application_name='dummy_appli',
-                                                           **{'state_string.return_value': 'running'}))]})
+        mocked_mid = Mock(
+            **{'repeat.return_value': [(appli_elt,
+                                        Mock(application_name='dummy_appli',
+                                             **{'state_string.return_value': 'running'}))]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with application name different from parameter
         handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
@@ -592,7 +604,43 @@ class ViewHandlerTest(unittest.TestCase):
         handler.page_name = 'My Page'
         # test call indirection
         handler.write_process_restart_button('elt', 'dummy_proc', 'running')
-        self.assertEqual([call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc', 'running', RUNNING_STATES)],
+        self.assertEqual([call('elt', 'restart_a_mid', '', 'My Page', 'restart', 'dummy_proc',
+                               'running', RUNNING_STATES)],
+                         mocked_button.call_args_list)
+
+    @patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    def test_write_process_clear_button(self, mocked_button):
+        """ Test the write_process_clear_button method. """
+        from supvisors.viewhandler import ViewHandler
+        handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
+        # test call indirection
+        handler.write_process_clear_button('elt', 'dummy_proc', '10.0.0.1')
+        self.assertEqual([call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog', 'dummy_proc', '', '')],
+                         mocked_button.call_args_list)
+
+    @patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    def test_write_process_stdout_button(self, mocked_button):
+        """ Test the write_process_stdout_button method. """
+        from supvisors.viewhandler import ViewHandler
+        handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
+        # test call indirection
+        handler.write_process_stdout_button('elt', 'dummy_proc', '10.0.0.1')
+        self.assertEqual([call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
+                               '', 'dummy_proc', '', '')],
+                         mocked_button.call_args_list)
+
+    @patch('supvisors.viewhandler.ViewHandler._write_process_button')
+    def test_write_process_stderr_button(self, mocked_button):
+        """ Test the write_process_stderr_button method. """
+        from supvisors.viewhandler import ViewHandler
+        handler = ViewHandler(self.http_context)
+        handler.page_name = 'My Page'
+        # test call indirection
+        handler.write_process_stderr_button('elt', 'dummy_proc', '10.0.0.1')
+        self.assertEqual([call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
+                               '', 'dummy_proc', '', '')],
                          mocked_button.call_args_list)
 
     def test_write_process_button(self):
@@ -725,16 +773,27 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call('6.00')], slope_elt.content.call_args_list)
         self.assertEqual([call('5.66')], dev_elt.content.call_args_list)
 
+    def test_test_matplotlib_import(self):
+        """ Test the test_matplotlib_import function in the event of matplotlib import error. """
+        from supvisors.viewhandler import test_matplotlib_import
+        # test correct behaviour depending on environment
+        try:
+            import matplotlib
+            matplotlib.__name__
+        except ImportError:
+            self.assertFalse(test_matplotlib_import())
+        else:
+            self.assertTrue(test_matplotlib_import())
+
     @patch('supvisors.plot.StatisticsPlot.export_image')
     @patch('supvisors.plot.StatisticsPlot.add_plot')
     def test_write_process_plots_no_plot(self, mocked_add, mocked_export):
         """ Test the write_process_plots method in the event of matplotlib import error. """
-        # test considering that matplotlib is not installed
-        import supvisors.viewhandler
-        from supvisors.viewhandler import ViewHandler, test_matplotlib_import
+        # import context
+        from supvisors import viewhandler
+        viewhandler.HAS_PLOT = False
+        from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
-        # re-evaluate PLOT_CLASS
-        setattr(supvisors.viewhandler, 'PLOT_CLASS', None)
         # test call
         handler.write_process_plots([])
         # test that plot methods are not called

@@ -405,9 +405,9 @@ class FiniteStateMachineTest(unittest.TestCase):
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         # test string conversion for all states
-        for state in SupvisorsStates._values():
+        for state in SupvisorsStates.values():
             fsm.state = state
-            self.assertEqual(SupvisorsStates._to_string(state), fsm.state_string())
+            self.assertEqual(SupvisorsStates.to_string(state), fsm.state_string())
 
     def test_serial(self):
         """ Test the serialization of state machine. """
@@ -416,9 +416,9 @@ class FiniteStateMachineTest(unittest.TestCase):
         # create state machine instance
         fsm = FiniteStateMachine(self.supvisors)
         # test serialization for all states
-        for state in SupvisorsStates._values():
+        for state in SupvisorsStates.values():
             fsm.state = state
-            self.assertDictEqual({'statecode': state, 'statename': SupvisorsStates._to_string(state)}, fsm.serial())
+            self.assertDictEqual({'statecode': state, 'statename': SupvisorsStates.to_string(state)}, fsm.serial())
 
     @patch('supvisors.statemachine.DeploymentState.exit')
     @patch('supvisors.statemachine.DeploymentState.next')

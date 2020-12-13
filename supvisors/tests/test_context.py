@@ -497,10 +497,9 @@ class ContextTest(CompatTestCase):
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        with patch.object(self.supvisors.zmq.publisher,
-                          'send_address_status') as mocked_send:
+        with patch.object(self.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
             # test address states excepting RUNNING: nothing happens
-            for _ in [x for x in AddressStates._values() if x != AddressStates.RUNNING]:
+            for _ in [x for x in AddressStates.values() if x != AddressStates.RUNNING]:
                 context.on_timer_event()
                 for address in context.addresses.values():
                     self.assertEqual(AddressStates.UNKNOWN, address.state)

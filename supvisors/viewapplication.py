@@ -248,7 +248,7 @@ class ApplicationView(ViewHandler):
     def set_starting_strategy(self, strategy):
         """ Update starting strategy. """
         self.supvisors.starter.strategy = strategy
-        return delayed_info('Starting strategy set to {}'.format(StartingStrategies._to_string(strategy)))
+        return delayed_info('Starting strategy set to {}'.format(StartingStrategies.to_string(strategy)))
 
     # Common processing for starting and stopping actions
     def start_action(self, strategy, rpc_name, arg_name, arg_type):
@@ -330,7 +330,7 @@ class ApplicationView(ViewHandler):
         Just do the same job. """
         try:
             rpc_intf = self.info_source.supervisor_rpc_interface
-            callback = rpc_intf.clearProcessLogs(namespec)
+            rpc_intf.clearProcessLogs(namespec)
         except RPCError as e:
             return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))
         return delayed_info('Log for %s cleared' % namespec)

@@ -464,6 +464,8 @@ class ViewApplicationTest(unittest.TestCase):
         self.assertEqual('brightened', tr_elt_3.attrib['class'])
 
     @patch('supvisors.viewapplication.delayed_error', return_value='Delayed')
+    @patch('supvisors.viewapplication.ApplicationView.clearlog_process_action',
+           return_value='Clear process logs')
     @patch('supvisors.viewapplication.ApplicationView.restart_process_action',
            return_value='Restart process')
     @patch('supvisors.viewapplication.ApplicationView.stop_process_action',
@@ -484,7 +486,7 @@ class ViewApplicationTest(unittest.TestCase):
                            mocked_start_app, mocked_stop_app,
                            mocked_restart_app, mocked_start_proc,
                            mocked_stop_proc, mocked_restart_proc,
-                           mocked_delayed):
+                           mocked_clear_proc, mocked_delayed):
         """ Test the make_callback method. """
         from supvisors.viewapplication import ApplicationView
         view = ApplicationView(self.http_context)
@@ -511,18 +513,18 @@ class ViewApplicationTest(unittest.TestCase):
         self.assertEqual('Delayed', view.make_callback('dummy', 'anything'))
         # change view context for the remaining actions
         view.view_ctx.get_process_status.return_value = 'None'
-        self.assertEqual('Start process',
-                         view.make_callback('dummy', 'start'))
-        self.assertEqual([call('starter strategy', 'dummy')],
-                         mocked_start_proc.call_args_list)
-        self.assertEqual('Stop process',
-                         view.make_callback('dummy', 'stop'))
-        self.assertEqual([call('dummy')],
-                         mocked_stop_proc.call_args_list)
-        self.assertEqual('Restart process',
-                         view.make_callback('dummy', 'restart'))
-        self.assertEqual([call('starter strategy', 'dummy')],
-                         mocked_restart_proc.call_args_list)
+        # test start process
+        self.assertEqual('Start process', view.make_callback('dummy', 'start'))
+        self.assertEqual([call('starter strategy', 'dummy')], mocked_start_proc.call_args_list)
+        # test stop process
+        self.assertEqual('Stop process', view.make_callback('dummy', 'stop'))
+        self.assertEqual([call('dummy')], mocked_stop_proc.call_args_list)
+        # test restart process
+        self.assertEqual('Restart process', view.make_callback('dummy', 'restart'))
+        self.assertEqual([call('starter strategy', 'dummy')], mocked_restart_proc.call_args_list)
+        # test clear logs process
+        self.assertEqual('Clear process logs', view.make_callback('dummy', 'clearlog'))
+        self.assertEqual([call('dummy')], mocked_clear_proc.call_args_list)
 
     @patch('supvisors.viewapplication.delayed_info', return_value='Delayed')
     def test_refresh_action(self, mocked_delayed):
@@ -597,18 +599,15 @@ class ViewApplicationActionTest(unittest.TestCase):
 
     def test_start_process_action(self):
         """ Test the start_process_action method. """
-        self.check_start_action('start_process', 'start_process_action',
-                                'dummy_proc')
+        self.check_start_action('start_process', 'start_process_action', 'dummy_proc')
 
     def test_stop_process_action(self):
         """ Test the stop_process_action method. """
-        self.check_stop_action('stop_process', 'stop_process_action',
-                               'dummy_proc')
+        self.check_stop_action('stop_process', 'stop_process_action', 'dummy_proc')
 
     def test_restart_process_action(self):
         """ Test the restart_process_action method. """
-        self.check_start_action('restart_process', 'restart_process_action',
-                                'dummy_proc')
+        self.check_start_action('restart_process', 'restart_process_action', 'dummy_proc')
 
     def check_start_action(self, rpc_name, action_name, *args):
         """ Test the method named action_name. """
@@ -680,6 +679,19 @@ class ViewApplicationActionTest(unittest.TestCase):
         result = action(*args)
         self.assertTrue(callable(result))
         self.assertEqual('Msg info', result())
+
+    def test_clearlog_process_action(self):
+        """ Test the clearlog_process_action method. """
+        from supvisors.viewapplication import ApplicationView
+        view = ApplicationView(self.http_context)
+        # get rpc involved (mock)
+        rpc_call = view.info_source.supervisor_rpc_interface.clearProcessLogs
+        # test call with error on main RPC call
+        rpc_call.side_effect = RPCError(777, 'failed RPC')
+        self.assertEqual('Delay err', view.clearlog_process_action('namespec'))
+        # test call with direct result (application started)
+        rpc_call.side_effect = None
+        self.assertEqual('Delay info', view.clearlog_process_action('namespec'))
 
 
 def test_suite():

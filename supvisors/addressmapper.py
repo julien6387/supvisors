@@ -28,7 +28,8 @@ class AddressMapper(object):
         - logger: a reference to the common logger,
         - addresses: the list of addresses defined in the Supvisors configuration file,
         - local_addresses: the list of known aliases of the current host, i.e. the host name and the IPv4 addresses,
-        - local_address: the usage name of the current host, i.e. the name in the known aliases that corresponds to an address of the Supvisors list. """
+        - local_address: the usage name of the current host, i.e. the name in the known aliases corresponding
+        to an address of the Supvisors list. """
 
     def __init__(self, logger):
         """ Initialization of the attributes. """

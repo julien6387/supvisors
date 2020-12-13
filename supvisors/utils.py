@@ -52,53 +52,34 @@ class DeferredRequestHeaders:
     CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
-# used to convert enumeration-like value to string and vice-versa
-def enum_to_string(dico, idx_enum):
-    """ Convert an enumeration value to a string. """
-    return next((name for name, value in dico.items() if value == idx_enum), None)
-
-
-def string_to_enum(dico, str_enum):
-    """ Convert a string to an enumeration value. """
-    return next((value for name, value in dico.items()
-                 if name == str_enum), None)
-
-
-def enum_values(dico):
-    """ Get all the values of an enumeration. """
-    return [y for x, y in dico.items() if not x.startswith('_')]
-
-
-def enum_strings(dico):
-    """ Get all the strings of an enumeration. """
-    return [x for x in dico.keys() if not x.startswith('_')]
-
-
 def enumeration_tools(cls):
     """ Decorator for enumeration classes.
-    Add class methods for conversion between string and enum,
+    Add class attributes and methods for conversion between string and enum,
     for listing enumeration values and strings. """
 
-    def _to_string(cls, value):
+    def to_string(cls, value):
         """ Convert the enum value into a string. """
-        return enum_to_string(cls.__dict__, value)
+        return cls.enum_map[value]
 
-    def _from_string(cls, strEnum):
+    def from_string(cls, str_enum):
         """ Convert a string into an enum value. """
-        return string_to_enum(cls.__dict__, strEnum)
+        return cls.string_map[str_enum]
 
-    def _values(cls):
+    def values(cls):
         """ Return all enum values. """
-        return enum_values(cls.__dict__)
+        return cls.enum_map.keys()
 
-    def _strings(cls):
+    def strings(cls):
         """ Return all enum values as string. """
-        return enum_strings(cls.__dict__)
+        return cls.string_map.keys()
 
-    setattr(cls, '_to_string', classmethod(_to_string))
-    setattr(cls, '_from_string', classmethod(_from_string))
-    setattr(cls, '_values', classmethod(_values))
-    setattr(cls, '_strings', classmethod(_strings))
+    setattr(cls, 'string_map', {x: y for x, y in cls.__dict__.items()
+                                 if not x.startswith('_')})
+    setattr(cls, 'enum_map', {y: x for x, y in cls.string_map.items()})
+    setattr(cls, 'to_string', classmethod(to_string))
+    setattr(cls, 'from_string', classmethod(from_string))
+    setattr(cls, 'values', classmethod(values))
+    setattr(cls, 'strings', classmethod(strings))
     return cls
 
 

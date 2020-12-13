@@ -60,7 +60,7 @@ class AddressStatus(object):
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.
                                         format(self.state_string(),
-                                               AddressStates._to_string(new_state)))
+                                               AddressStates.to_string(new_state)))
 
     # serialization
     def serial(self):
@@ -75,7 +75,7 @@ class AddressStatus(object):
     # methods
     def state_string(self):
         """ Return the application state as a string. """
-        return AddressStates._to_string(self.state)
+        return AddressStates.to_string(self.state)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """

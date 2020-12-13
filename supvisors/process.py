@@ -88,10 +88,9 @@ class ProcessRules(object):
         if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
             if self.info_source.autorestart(namespec):
                 self.info_source.disable_autorestart(namespec)
-                self.logger.warn('{} - autorestart disabled due to running failure'
-                                 ' strategy {}'.format(namespec,
-                                                       RunningFailureStrategies._to_string(
-                                                           self.running_failure_strategy)))
+                self.logger.warn('{} - autorestart disabled due to running failure strategy {}'
+                                 .format(namespec,
+                                         RunningFailureStrategies.to_string(self.running_failure_strategy)))
 
     def __str__(self):
         """ Contents as string. """
@@ -100,7 +99,7 @@ class ProcessRules(object):
             format(self.addresses,
                    self.start_sequence, self.stop_sequence, self.required,
                    self.wait_exit, self.expected_loading,
-                   RunningFailureStrategies._to_string(self.running_failure_strategy))
+                   RunningFailureStrategies.to_string(self.running_failure_strategy))
 
     # serialization
     def serial(self):
@@ -112,7 +111,7 @@ class ProcessRules(object):
                 'wait_exit': self.wait_exit,
                 'expected_loading': self.expected_loading,
                 'running_failure_strategy':
-                    RunningFailureStrategies._to_string(self.running_failure_strategy)}
+                    RunningFailureStrategies.to_string(self.running_failure_strategy)}
 
 
 class ProcessStatus(object):
@@ -224,7 +223,7 @@ class ProcessStatus(object):
     # methods
     def state_string(self):
         """ Return the state as a string. """
-        return ProcessStates._to_string(self.state)
+        return ProcessStates.to_string(self.state)
 
     def add_info(self, address, process_info):
         """ Insert a new process information in internal list.
@@ -368,7 +367,7 @@ class ProcessStatus(object):
                       for address in self.addresses}
             self.logger.debug('{} multiple states {} for addresses {}'
                               .format(self.process_name,
-                                      [ProcessStates._to_string(x) for x in states],
+                                      [ProcessStates.to_string(x) for x in states],
                                       list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)

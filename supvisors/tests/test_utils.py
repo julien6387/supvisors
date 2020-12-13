@@ -42,24 +42,26 @@ class UtilsTest(unittest.TestCase):
             ENUM_1, ENUM_2, ENUM_3 = range(3)
 
         # test _to_string
-        self.assertEqual('ENUM_1', DummyEnum._to_string(DummyEnum.ENUM_1))
-        self.assertEqual('ENUM_2', DummyEnum._to_string(DummyEnum.ENUM_2))
-        self.assertEqual('ENUM_3', DummyEnum._to_string(DummyEnum.ENUM_3))
-        self.assertEqual('ENUM_1', DummyEnum._to_string(0))
-        self.assertEqual('ENUM_2', DummyEnum._to_string(1))
-        self.assertEqual('ENUM_3', DummyEnum._to_string(2))
-        self.assertIsNone(DummyEnum._to_string(-1))
+        self.assertEqual('ENUM_1', DummyEnum.to_string(DummyEnum.ENUM_1))
+        self.assertEqual('ENUM_2', DummyEnum.to_string(DummyEnum.ENUM_2))
+        self.assertEqual('ENUM_3', DummyEnum.to_string(DummyEnum.ENUM_3))
+        self.assertEqual('ENUM_1', DummyEnum.to_string(0))
+        self.assertEqual('ENUM_2', DummyEnum.to_string(1))
+        self.assertEqual('ENUM_3', DummyEnum.to_string(2))
+        with self.assertRaises(KeyError):
+            DummyEnum.to_string(-1)
         # test _from_string
-        self.assertEqual(DummyEnum.ENUM_1, DummyEnum._from_string('ENUM_1'))
-        self.assertEqual(DummyEnum.ENUM_2, DummyEnum._from_string('ENUM_2'))
-        self.assertEqual(DummyEnum.ENUM_3, DummyEnum._from_string('ENUM_3'))
-        self.assertIsNone(DummyEnum._from_string('ENUM_0'))
+        self.assertEqual(DummyEnum.ENUM_1, DummyEnum.from_string('ENUM_1'))
+        self.assertEqual(DummyEnum.ENUM_2, DummyEnum.from_string('ENUM_2'))
+        self.assertEqual(DummyEnum.ENUM_3, DummyEnum.from_string('ENUM_3'))
+        with self.assertRaises(KeyError):
+            DummyEnum.from_string('ENUM_0')
         # test _values
         self.assertListEqual([DummyEnum.ENUM_1, DummyEnum.ENUM_2, DummyEnum.ENUM_3],
-                             sorted(DummyEnum._values()))
+                             sorted(DummyEnum.values()))
         # test _strings
         self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'],
-                             sorted(DummyEnum._strings()))
+                             sorted(DummyEnum.strings()))
 
     def test_shortcut(self):
         """ Test the shortcuts to supvisors data. """
@@ -80,14 +82,19 @@ class UtilsTest(unittest.TestCase):
         """ Test the display of local time. """
         import time
         from supvisors.utils import simple_localtime
+        # test with argument
         time_shift = time.timezone if time.gmtime().tm_isdst else time.altzone
-        self.assertEqual('07:07:00',
-                         simple_localtime(1476947220.416198 + time_shift))
+        self.assertEqual('07:07:00', simple_localtime(1476947220.416198 + time_shift))
+        # test without argument: just test output format
+        self.assertRegex(simple_localtime(), r'\d\d:\d\d:\d\d')
 
     def test_gmtime(self):
         """ Test the display of gm time. """
         from supvisors.utils import simple_gmtime
+        # test with argument
         self.assertEqual('07:07:00', simple_gmtime(1476947220.416198))
+        # test without argument: just test output format
+        self.assertRegex(simple_gmtime(), r'\d\d:\d\d:\d\d')
 
     def test_extract_process_info(self):
         """ Test the extraction of useful data from process info. """

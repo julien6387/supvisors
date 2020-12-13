@@ -65,7 +65,7 @@ class Supvisors(object):
         self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local host unexpected in address list: {}' \
+                           'local host unexpected in address list: {}'
                            .format(self.options.address_list))
         # create context data
         self.context = Context(self)

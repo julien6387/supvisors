@@ -212,7 +212,7 @@ class Starter(Commander):
     @strategy.setter
     def strategy(self, strategy):
         self.logger.info('start processes using strategy {}'.format(
-            StartingStrategies._to_string(strategy)))
+            StartingStrategies.to_string(strategy)))
         self._strategy = strategy
 
     def get_default_strategy(self):
@@ -330,7 +330,7 @@ class Starter(Commander):
             # i.e. it corresponds to a process in current jobs
             jobs = self.current_jobs[process.application_name]
             command = self.get_process_command(process, jobs)
-            assert (command)
+            assert command
         except (KeyError, AssertionError):
             # otherwise, check if event impacts the starting sequence
             self.on_event_out_of_sequence(process)

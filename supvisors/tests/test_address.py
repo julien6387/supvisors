@@ -35,7 +35,7 @@ class AddressTest(CompatTestCase):
         """ Create a logger that stores log traces. """
         self.supvisors = MockedSupvisors()
         from supvisors.ttypes import AddressStates
-        self.all_states = AddressStates._values()
+        self.all_states = AddressStates.values()
 
     def test_create(self):
         """ Test the values set at construction. """
@@ -93,7 +93,7 @@ class AddressTest(CompatTestCase):
                 if state2 in status._Transitions[state1]:
                     status.state = state2
                     self.assertEqual(state2, status.state)
-                    self.assertEqual(AddressStates._to_string(state2), status.state_string())
+                    self.assertEqual(AddressStates.to_string(state2), status.state_string())
                 elif state1 == state2:
                     self.assertEqual(state1, status.state)
                 else:

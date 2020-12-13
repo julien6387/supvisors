@@ -469,10 +469,14 @@ class ViewContextTest(unittest.TestCase):
         ctx = ViewContext(self.http_context)
         # reset mocks that have been called in constructor
         mocked_core.reset_mock()
+        # patch get_address_stats so that it returns no result
+        with patch.object(ctx, 'get_address_stats', return_value=None):
+            self.assertEqual((None, 4), ctx.get_process_stats('dummy_proc'))
+        mocked_running_info.reset_mock()
+        mocked_core.reset_mock()
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
-        with patch.object(ctx, 'get_address_stats', return_value=mocked_find) \
-                as mocked_stats:
+        with patch.object(ctx, 'get_address_stats', return_value=mocked_find) as mocked_stats:
             # test with default running False
             self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc'))
             self.assertFalse(mocked_running_info.called)

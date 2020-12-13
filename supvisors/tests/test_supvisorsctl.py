@@ -211,10 +211,10 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().get_all_local_process_info
         mocked_rpc.return_value = [
             {'group': 'appli_1', 'name': 'proc_1',
-             'state': 'running', 'start': 1234, 'now': 4321, 'pid': 14725,
+             'state': 20, 'start': 1234, 'now': 4321, 'pid': 14725,
              'extra_args': '-x dummy'},
             {'group': 'appli_2', 'name': 'proc_3',
-             'state': 'stopped', 'start': 0, 'now': 0, 'pid': 0,
+             'state': 0, 'start': 0, 'now': 0, 'pid': 0,
              'extra_args': ''}]
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_local_status, plugin.do_local_status, '',
