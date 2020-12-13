@@ -165,6 +165,7 @@ Status
 ---------------------
 
   .. autoclass:: RPCInterface
+    :noindex:
 
         .. automethod:: conciliate(strategy)
 
@@ -179,6 +180,7 @@ Application Control
 -------------------
 
   .. autoclass:: RPCInterface
+    :noindex:
 
         .. automethod:: start_application(strategy, application_name, wait=True)
 
@@ -193,6 +195,7 @@ Process Control
 ---------------
 
   .. autoclass:: RPCInterface
+    :noindex:
 
         .. automethod:: start_args(namespec, extra_args='', wait=True)
 
@@ -274,9 +277,9 @@ These packages require the following additional dependencies:
     * `JeroMQ <https://github.com/zeromq/jeromq>`_.
     * `Gson <https://github.com/google/gson>`_.
 
-The binary JAR of Apache XML-RPC 3.1.3 is available in the `MAVEN repository <https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
-The binary JAR of JeroMQ 0.5.2 is available in the `MAVEN repository <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.5.2>`_.
-The binary JAR of Google Gson 2.8.6 is available in the `MAVEN repository <https://mvnrepository.com/artifact/com.google.code.gson/gson/2.8.6>`_.
+The binary JAR of Apache XML-RPC 3.1.3 is available in the `Apache MAVEN repository <https://mvnrepository.com/artifact/org.apache.xmlrpc/xmlrpc/3.1.3>`_.
+The binary JAR of JeroMQ 0.5.2 is available in the `JeroMQ MAVEN repository <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.5.2>`_.
+The binary JAR of Google Gson 2.8.6 is available in the `Gson MAVEN repository <https://mvnrepository.com/artifact/com.google.code.gson/gson/2.8.6>`_.
 
 .. code-block:: java
 
