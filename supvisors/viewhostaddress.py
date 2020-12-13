@@ -19,11 +19,12 @@
 
 from supervisor.web import StatusView
 
+from supvisors.plot import StatisticsPlot
 from supvisors.utils import (get_stats,
                              simple_localtime,
                              supvisors_shortcuts)
 from supvisors.viewcontext import *
-from supvisors.viewhandler import PLOT_CLASS, ViewHandler
+from supvisors.viewhandler import HAS_PLOT, ViewHandler
 from supvisors.viewimage import (address_cpu_img,
                                  address_mem_img,
                                  address_io_img)
@@ -101,7 +102,7 @@ class HostAddressView(StatusView):
         self.write_memory_statistics(root, stats_instance.mem)
         self.write_network_statistics(root, stats_instance.io)
         # write CPU / Memory / Network plots
-        if PLOT_CLASS:
+        if HAS_PLOT:
             self._write_cpu_image(stats_instance.cpu)
             self._write_mem_image(stats_instance.mem)
             self._write_io_image(stats_instance.io)
@@ -235,14 +236,14 @@ class HostAddressView(StatusView):
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
         # build image from data
-        plt = PLOT_CLASS()
+        plt = StatisticsPlot()
         plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
         plt.export_image(address_cpu_img)
 
     def _write_mem_image(self, mem_stats):
         """ Write MEM data into the dedicated buffer. """
         # build image from data
-        plt = PLOT_CLASS()
+        plt = StatisticsPlot()
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(address_mem_img)
 
@@ -254,7 +255,7 @@ class HostAddressView(StatusView):
             recv_data = io_stats[intf_name][0]
             sent_data = io_stats[intf_name][1]
             # build image from data
-            plt = PLOT_CLASS()
+            plt = StatisticsPlot()
             plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
             plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)
             plt.export_image(address_io_img)

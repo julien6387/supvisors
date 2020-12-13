@@ -39,6 +39,7 @@ class ViewHandlerTest(unittest.TestCase):
     def setUp(self):
         """ Create a logger that stores log traces. """
         self.http_context = DummyHttpContext('ui/index.html')
+        self.maxDiff = None
 
     def test_init(self):
         """ Test the values set at construction. """
@@ -628,7 +629,7 @@ class ViewHandlerTest(unittest.TestCase):
         # test call indirection
         handler.write_process_stdout_button('elt', 'dummy_proc', '10.0.0.1')
         self.assertEqual([call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
-                               '', 'dummy_proc', '', '')],
+                               '', '', '', '')],
                          mocked_button.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler._write_process_button')
@@ -640,7 +641,7 @@ class ViewHandlerTest(unittest.TestCase):
         # test call indirection
         handler.write_process_stderr_button('elt', 'dummy_proc', '10.0.0.1')
         self.assertEqual([call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
-                               '', 'dummy_proc', '', '')],
+                               '', '', '', '')],
                          mocked_button.call_args_list)
 
     def test_write_process_button(self):

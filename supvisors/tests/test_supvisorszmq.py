@@ -25,13 +25,16 @@ import zmq
 from unittest.mock import patch
 from supvisors.tests.base import MockedSupvisors
 
+SKIP_IT = False
+
 
 class ZmqSocketTest(unittest.TestCase):
     """ Test case for the ZeroMQ sockets created in the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
@@ -103,7 +106,8 @@ class InternalEventTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import (InternalEventPublisher,
                                             InternalEventSubscriber)
         # the dummy Supvisors is used for addresses and ports
@@ -209,7 +213,8 @@ class RequestTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import RequestPusher, RequestPuller
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
@@ -380,7 +385,8 @@ class EventTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import EventPublisher, EventSubscriber
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
@@ -598,7 +604,8 @@ class SupervisorZmqTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         self.supvisors = MockedSupvisors()
 
     def test_creation_closure(self):
@@ -626,7 +633,8 @@ class SupvisorsZmqTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
-        #raise unittest.SkipTest('DEBUG')
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         self.supvisors = MockedSupvisors()
 
     def test_creation_closure(self):
