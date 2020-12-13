@@ -786,9 +786,7 @@ class ViewHandlerTest(unittest.TestCase):
         else:
             self.assertTrue(test_matplotlib_import())
 
-    @patch('supvisors.plot.StatisticsPlot.export_image')
-    @patch('supvisors.plot.StatisticsPlot.add_plot')
-    def test_write_process_plots_no_plot(self, mocked_add, mocked_export):
+    def test_write_process_plots_no_plot(self):
         """ Test the write_process_plots method in the event of matplotlib import error. """
         # import context
         from supvisors import viewhandler
@@ -798,12 +796,9 @@ class ViewHandlerTest(unittest.TestCase):
         # test call
         handler.write_process_plots([])
         # test that plot methods are not called
-        self.assertFalse(mocked_add.called)
-        self.assertFalse(mocked_export.called)
+        # can't test what is not called from a module that cannot even be imported
 
-    @patch('supvisors.plot.StatisticsPlot.export_image')
-    @patch('supvisors.plot.StatisticsPlot.add_plot')
-    def test_write_process_plots(self, mocked_add, mocked_export):
+    def test_write_process_plots(self):
         """ Test the write_process_plots method. """
         # skip test if matplotlib is not installed
         try:
@@ -816,12 +811,14 @@ class ViewHandlerTest(unittest.TestCase):
         from supvisors.viewimage import process_cpu_img, process_mem_img
         handler = ViewHandler(self.http_context)
         # test call with dummy stats
-        proc_stats = ([10, 16, 24], [20, 32, 32])
-        handler.write_process_plots(proc_stats)
-        self.assertEqual([call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])],
-                         mocked_add.call_args_list)
-        self.assertEqual([call(process_cpu_img), call(process_mem_img)],
-                         mocked_export.call_args_list)
+        with patch('supvisors.plot.StatisticsPlot.export_image') as mocked_export:
+            with patch('supvisors.plot.StatisticsPlot.add_plot') as mocked_add:
+                proc_stats = ([10, 16, 24], [20, 32, 32])
+                handler.write_process_plots(proc_stats)
+                self.assertEqual([call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])],
+                                 mocked_add.call_args_list)
+                self.assertEqual([call(process_cpu_img), call(process_mem_img)],
+                                 mocked_export.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler.write_process_plots')
     @patch('supvisors.viewhandler.ViewHandler.write_detailed_process_mem', return_value=False)

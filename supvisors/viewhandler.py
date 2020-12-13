@@ -22,7 +22,6 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from supvisors.plot import StatisticsPlot
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import AddressStates, SupvisorsStates
 from supvisors.utils import get_stats, supvisors_shortcuts
@@ -339,6 +338,7 @@ class ViewHandler(MeldView):
         """ Write the CPU / Memory plots.
         (only if matplotlib is installed) """
         if HAS_PLOT:
+            from supvisors.plot import StatisticsPlot
             # build CPU image
             cpu_img = StatisticsPlot()
             cpu_img.add_plot('CPU', '%', proc_stats[0])

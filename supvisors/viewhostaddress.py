@@ -19,7 +19,6 @@
 
 from supervisor.web import StatusView
 
-from supvisors.plot import StatisticsPlot
 from supvisors.utils import (get_stats,
                              simple_localtime,
                              supvisors_shortcuts)
@@ -236,6 +235,7 @@ class HostAddressView(StatusView):
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
         # build image from data
+        from supvisors.plot import StatisticsPlot
         plt = StatisticsPlot()
         plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
         plt.export_image(address_cpu_img)
@@ -243,6 +243,7 @@ class HostAddressView(StatusView):
     def _write_mem_image(self, mem_stats):
         """ Write MEM data into the dedicated buffer. """
         # build image from data
+        from supvisors.plot import StatisticsPlot
         plt = StatisticsPlot()
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(address_mem_img)
@@ -255,6 +256,7 @@ class HostAddressView(StatusView):
             recv_data = io_stats[intf_name][0]
             sent_data = io_stats[intf_name][1]
             # build image from data
+            from supvisors.plot import StatisticsPlot
             plt = StatisticsPlot()
             plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
             plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)
