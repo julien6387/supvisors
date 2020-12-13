@@ -96,7 +96,7 @@ class StatisticsInstance(object):
         """ Initalization of the attributes.
         As period is a multiple of 5 and a call to pushStatistics is expected every 5 seconds,
         period is used as a simple counter. """
-        self.period = period / 5
+        self.period = period // 5
         self.depth = depth
         self.clear()
 

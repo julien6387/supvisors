@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -32,7 +32,7 @@ from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
 
 # Options of main section
-class SupvisorsOptions():
+class SupvisorsOptions(object):
     """ Holder of the Supvisors options.
 
     Attributes are:
@@ -83,13 +83,12 @@ class SupvisorsOptions():
                 'auto_fence={} synchro_timeout={} conciliation_strategy={} '
                 'starting_strategy={} stats_periods={} stats_histo={} '
                 'stats_irix_mode={} logfile={} logfile_maxbytes={} '
-                'logfile_backups={} loglevel={}'.format(
-                    self.address_list, self.rules_file, self.internal_port,
-                    self.event_port, self.auto_fence, self.synchro_timeout,
-                    self.conciliation_strategy, self.starting_strategy,
-                    self.stats_periods, self.stats_histo, self.stats_irix_mode,
-                    self.logfile, self.logfile_maxbytes, self.logfile_backups,
-                    self.loglevel))
+                'logfile_backups={} loglevel={}'.format(self.address_list, self.rules_file, self.internal_port,
+                                                        self.event_port, self.auto_fence, self.synchro_timeout,
+                                                        self.conciliation_strategy, self.starting_strategy,
+                                                        self.stats_periods, self.stats_histo, self.stats_irix_mode,
+                                                        self.logfile, self.logfile_maxbytes, self.logfile_backups,
+                                                        self.loglevel))
 
 
 class SupvisorsServerOptions(ServerOptions):
@@ -202,21 +201,21 @@ class SupvisorsServerOptions(ServerOptions):
     @staticmethod
     def to_conciliation_strategy(value):
         """ Convert a string into a ConciliationStrategies enum. """
-        strategy = ConciliationStrategies._from_string(value)
-        if strategy is None:
-            raise ValueError('invalid value for conciliation_strategy: {}. '
-                             'expected in {}'.format(
-                value, ConciliationStrategies._strings()))
+        try:
+            strategy = ConciliationStrategies.from_string(value)
+        except KeyError:
+            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'
+                             .format(value, ConciliationStrategies.strings()))
         return strategy
 
     @staticmethod
     def to_starting_strategy(value):
         """ Convert a string into a StartingStrategies enum. """
-        strategy = StartingStrategies._from_string(value)
-        if strategy is None:
-            raise ValueError('invalid value for starting_strategy: {}. '
-                             'expected in {}'.format(
-                value, StartingStrategies._strings()))
+        try:
+            strategy = StartingStrategies.from_string(value)
+        except KeyError:
+            raise ValueError('invalid value for starting_strategy: {}. expected in {}'
+                             .format(value, StartingStrategies.strings()))
         return strategy
 
     @staticmethod

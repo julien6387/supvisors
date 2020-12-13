@@ -16,8 +16,8 @@
 
 package org.supvisors.common;
 
+import com.google.gson.annotations.SerializedName;
 import java.util.HashMap;
-
 
 /**
  * The ProcessState enumeration.
@@ -26,13 +26,21 @@ import java.util.HashMap;
  * http://supervisord.org/subprocess.html#process-states
  */
 public enum ProcessState {
+    @SerializedName("0")
     STOPPED(0),
+    @SerializedName("10")
     STARTING(10),
+    @SerializedName("20")
     RUNNING(20),
+    @SerializedName("30")
     BACKOFF(30),
+    @SerializedName("40")
     STOPPING(40),
+    @SerializedName("100")
     EXITED(100),
+    @SerializedName("200")
     FATAL(200),
+    @SerializedName("1000")
     UNKNOWN(1000);
 
     /** The state code. */

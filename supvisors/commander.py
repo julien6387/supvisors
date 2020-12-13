@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -47,7 +47,7 @@ class ProcessCommand(object):
     def __str__(self):
         """ Contents as string. """
         return 'process={} state={} last_event_time={} ' \
-            'request_time={} ignore_wait_exit={} extra_args="{}"' \
+               'request_time={} ignore_wait_exit={} extra_args="{}"' \
             .format(self.process.namespec(), self.process.state,
                     self.process.last_event_time, self.request_time,
                     self.ignore_wait_exit, self.extra_args)
@@ -78,20 +78,19 @@ class Commander(object):
         self.supvisors = supvisors
         # shortcuts for readability
         supvisors_shortcuts(self, ['logger'])
-        #attributes
-        self.planned_sequence = {} # {app_seq: {app_name: {proc_seq: [proc_cmd]}}}
-        self.planned_jobs = {} # {app_name: {proc_seq: [proc_cmd]}}
-        self.current_jobs = {} # {app_name: [proc_cmd]}
+        # attributes
+        self.planned_sequence = {}  # {app_seq: {app_name: {proc_seq: [proc_cmd]}}}
+        self.planned_jobs = {}  # {app_name: {proc_seq: [proc_cmd]}}
+        self.current_jobs = {}  # {app_name: [proc_cmd]}
 
     def in_progress(self):
         """ Return True if there are jobs planned or in progress. """
-        self.logger.debug('progress: planned_sequence={} planned_jobs={} '\
+        self.logger.debug('progress: planned_sequence={} planned_jobs={} '
                           'current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
-        return len(self.planned_sequence) or len(self.planned_jobs) or \
-            len(self.current_jobs)
+        return len(self.planned_sequence) or len(self.planned_jobs) or len(self.current_jobs)
 
     def has_application(self, application_name):
         """ Return True if application is in jobs. """
@@ -100,32 +99,29 @@ class Commander(object):
                                 in self.planned_sequence.values()
                                 for app_name in jobs]
         # search for application name in internal structures
-        return application_name in planned_applications \
-            or application_name in self.planned_jobs \
-            or application_name in self.current_jobs
+        return (application_name in planned_applications
+                or application_name in self.planned_jobs
+                or application_name in self.current_jobs)
 
     # log facilities
     def printable_planned_sequence(self):
         """ Simple form of planned_sequence, so that it can be printed. """
-        return {application_sequence:
-                {application_name:
-                 {sequence: Commander.printable_command_list(commands)
-                  for sequence, commands in sequences.items()}
-                 for application_name, sequences in applications.items()}
+        return {application_sequence: {application_name: {sequence: Commander.printable_command_list(commands)
+                                                          for sequence, commands in sequences.items()}
+                                       for application_name, sequences in applications.items()}
                 for application_sequence, applications
                 in self.planned_sequence.items()}
 
     def printable_planned_jobs(self):
         """ Simple form of planned_jobs, so that it can be printed. """
-        return {application_name:
-                {sequence: Commander.printable_command_list(commands)
-                 for sequence, commands in sequences.items()}
-            for application_name, sequences in self.planned_jobs.items()}
+        return {application_name: {sequence: Commander.printable_command_list(commands)
+                                   for sequence, commands in sequences.items()}
+                for application_name, sequences in self.planned_jobs.items()}
 
     def printable_current_jobs(self):
         """ Simple form of current_jobs, so that it can be printed. """
         return {application_name: Commander.printable_command_list(commands)
-            for application_name, commands in self.current_jobs.items()}
+                for application_name, commands in self.current_jobs.items()}
 
     @staticmethod
     def printable_command_list(commands):
@@ -148,7 +144,7 @@ class Commander(object):
             self.logger.debug('planned_jobs={}'
                               .format(self.printable_planned_jobs()))
             # iterate on copy to avoid problems with deletions
-            for application_name in self.planned_jobs.keys()[:]:
+            for application_name in list(self.planned_jobs.keys()):
                 self.process_application_jobs(application_name)
         else:
             self.logger.debug('command completed')
@@ -216,7 +212,7 @@ class Starter(Commander):
     @strategy.setter
     def strategy(self, strategy):
         self.logger.info('start processes using strategy {}'.format(
-            StartingStrategies._to_string(strategy)))
+            StartingStrategies.to_string(strategy)))
         self._strategy = strategy
 
     def get_default_strategy(self):
@@ -278,7 +274,7 @@ class Starter(Commander):
         Return False when starting not completed. """
         return self.start_process(self.get_default_strategy(), process)
 
-    def start_process(self, strategy, process, extra_args):
+    def start_process(self, strategy, process, extra_args=''):
         """ Plan and start the necessary job to start the process in parameter,
         with the strategy requested.
         Return False when starting not completed. """
@@ -288,8 +284,8 @@ class Starter(Commander):
         # store extra arguments to be passed to the command line
         command = ProcessCommand(process)
         command.extra_args = extra_args
-        # WARN: when starting a single process (outside the scope of an
-        # application starting), do NOT consider the 'wait_exit' rule
+        # WARN: when starting a single process (outside the scope of an application starting),
+        # do NOT consider the 'wait_exit' rule
         command.ignore_wait_exit = True
         # push program list in todo list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
@@ -302,7 +298,7 @@ class Starter(Commander):
 
     def check_starting(self):
         """ Check the progress of the application starting. """
-        self.logger.debug('starting progress: planned_sequence={} '\
+        self.logger.debug('starting progress: planned_sequence={} '
                           'planned_jobs={} current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
@@ -322,7 +318,7 @@ class Starter(Commander):
             if command.process.stopped() and command.timeout(now):
                 # generate a FATAL event for this process
                 self.force_process_fatal(command.process.namespec(),
-                    'Still stopped 5 seconds after start request')
+                                         'Still stopped 5 seconds after start request')
         # return True when starting is completed
         return not self.in_progress()
 
@@ -334,7 +330,7 @@ class Starter(Commander):
             # i.e. it corresponds to a process in current jobs
             jobs = self.current_jobs[process.application_name]
             command = self.get_process_command(process, jobs)
-            assert(command)
+            assert command
         except (KeyError, AssertionError):
             # otherwise, check if event impacts the starting sequence
             self.on_event_out_of_sequence(process)
@@ -451,18 +447,15 @@ class Starter(Commander):
                 self.logger.info('try to start {} at address={}'
                                  .format(namespec, address))
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(
-                    address, namespec, command.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
                 # push to jobs and timestamp process
                 command.request_time = time.time()
                 self.logger.debug('{} requested to start at {}'
-                                  .format(namespec,
-                                          get_asctime(command.request_time)))
+                                  .format(namespec, get_asctime(command.request_time)))
                 jobs.append(command)
                 starting = True
             else:
-                self.logger.warn('no resource available to start {}'
-                                 .format(namespec))
+                self.logger.warn('no resource available to start {}'.format(namespec))
                 self.force_process_fatal(namespec, 'no resource available')
         # return True when process is starting
         return starting
@@ -591,7 +584,7 @@ class Stopper(Commander):
 
     def check_stopping(self):
         """ Check the progress of the application stopping. """
-        self.logger.debug('stopping progress: planned_sequence={} '\
+        self.logger.debug('stopping progress: planned_sequence={} '
                           'planned_jobs={} current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
@@ -611,7 +604,7 @@ class Stopper(Commander):
             # after request_time
             if command.process.running() and command.timeout(now):
                 self.force_process_unknown(command.process.namespec(),
-                    'Still running 5 seconds after stop request')
+                                           'Still running 5 seconds after stop request')
         # return True when starting is completed
         return not self.in_progress()
 
@@ -658,7 +651,7 @@ class Stopper(Commander):
         try:
             self.supvisors.info_source.force_process_unknown(namespec, reason)
         except KeyError:
-            self.logger.error('impossible to force {} state to UNKNOWN. '\
+            self.logger.error('impossible to force {} state to UNKNOWN. '
                               'process unknown in this Supervisor'.format(namespec))
             # the Supvisors user is not forced to use the same process
             # configuration on all machines,

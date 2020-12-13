@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from mock import call, patch
+from unittest.mock import call, patch
 
 from supervisor.web import VIEWS, OKView, TailView
 from supervisor.xmlrpc import Faults
@@ -34,11 +34,10 @@ class PluginTest(unittest.TestCase):
     def test_codes(self):
         """ Test the addition of Supvisors fault codes to Supervisor's. """
         from supvisors.plugin import SupvisorsFaults, expand_faults
-        from supvisors.utils import enum_strings
         # update Supervisor faults
         expand_faults()
         # test that enumerations are in Supervisor
-        for enum in enum_strings(SupvisorsFaults.__dict__):
+        for enum in SupvisorsFaults.strings():
             self.assertTrue(hasattr(Faults, enum))
 
     def test_update_views(self):
@@ -49,13 +48,12 @@ class PluginTest(unittest.TestCase):
         from supvisors.viewhostaddress import HostAddressView
         from supvisors.viewprocaddress import ProcAddressView
         from supvisors.viewimage import (AddressMemoryImageView, ProcessMemoryImageView,
-            AddressCpuImageView, ProcessCpuImageView, AddressNetworkImageView)
+                                         AddressCpuImageView, ProcessCpuImageView, AddressNetworkImageView)
         # update Supervisor views
         update_views()
         # check Supvisors views
         view = VIEWS['index.html']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/index.html$')
+        self.assertRegex(view['template'], 'supvisors/ui/index.html$')
         self.assertEqual(view['view'], SupvisorsView)
         view = VIEWS['ok.html']
         self.assertEqual(None, view['template'])
@@ -64,16 +62,13 @@ class PluginTest(unittest.TestCase):
         self.assertEqual('ui/tail.html', view['template'])
         self.assertEqual(view['view'], TailView)
         view = VIEWS['application.html']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/application.html$')
+        self.assertRegex(view['template'], 'supvisors/ui/application.html$')
         self.assertEqual(view['view'], ApplicationView)
         view = VIEWS['hostaddress.html']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/hostaddress.html$')
+        self.assertRegex(view['template'], 'supvisors/ui/hostaddress.html$')
         self.assertEqual(view['view'], HostAddressView)
         view = VIEWS['procaddress.html']
-        self.assertRegexpMatches(view['template'],
-                                 'supvisors/ui/procaddress.html$')
+        self.assertRegex(view['template'], 'supvisors/ui/procaddress.html$')
         self.assertEqual(view['view'], ProcAddressView)
         view = VIEWS['address_mem.png']
         self.assertIsNone(view['template'])
@@ -112,6 +107,7 @@ class PluginTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

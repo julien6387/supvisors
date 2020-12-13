@@ -144,16 +144,16 @@ public class SystemXmlRpc {
 
         // first result is an Object array made of String objects (see conversion in listMethods)
         List<String> result = DataConversion.arrayToStringList((Object[]) results[0]);
-        System.out.println(result);
+        System.out.println("# Got results for system.listMethods: " + result);
 
         // second result is a String
-        System.out.println(results[1]);
+        System.out.println("# Got results for system.methodHelp: " + results[1]);
 
         // third result is an Object array made of String objects (see conversion in methodSignature)
         result = DataConversion.arrayToStringList((Object[]) results[2]);
-        System.out.println(result);
+        System.out.println("# Got results for system.methodSignature: " + result);
 
         // fourth result should be an error
-        System.out.println((HashMap) results[3]);
+        System.out.println("# Got error for system.methodSignature: " + (HashMap) results[3]);
     }
 }

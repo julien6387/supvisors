@@ -17,8 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-from time import time
-
 from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
@@ -84,7 +82,7 @@ class Context(object):
         """ Return the AddressStatus instances sorted by state. """
         return [status.address_name
                 for status in self.addresses.values()
-                    if status.state in states]
+                if status.state in states]
 
     def invalid(self, status):
         """ Declare SILENT or ISOLATING the AddressStatus in parameter,
@@ -92,7 +90,7 @@ class Context(object):
         A local address is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
         if self.supvisors.options.auto_fence and \
-            status.address_name != self.address_mapper.local_address:
+                status.address_name != self.address_mapper.local_address:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
@@ -106,8 +104,9 @@ class Context(object):
         """ Declare as SILENT the AddressStatus that are still not responsive
         at the end of the INITIALIZATION state of Supvisors. """
         # consider problem if no tick received at the end of synchro time
-        map(self.invalid, filter(lambda x: x.state == AddressStates.UNKNOWN,
-                                 self.addresses.values()))
+        for address in self.addresses.values():
+            if address.state == AddressStates.UNKNOWN:
+                self.invalid(address)
 
     # methods on applications / processes
     def conflicting(self):
@@ -271,7 +270,7 @@ class Context(object):
         if no tick received in last 10s. """
         for status in self.addresses.values():
             if status.state == AddressStates.RUNNING and \
-                (time() - status.local_time) > 10:
+                    (time() - status.local_time) > 10:
                 self.invalid(status)
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status)

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -21,7 +21,7 @@ import math
 import sys
 import unittest
 
-from mock import patch
+from unittest.mock import patch
 
 from supvisors.tests.base import MockedSupvisors
 
@@ -36,28 +36,32 @@ class UtilsTest(unittest.TestCase):
     def test_enum(self):
         """ Test the enumeration tools. """
         from supvisors.utils import enumeration_tools
+
         @enumeration_tools
         class DummyEnum:
             ENUM_1, ENUM_2, ENUM_3 = range(3)
+
         # test _to_string
-        self.assertEqual('ENUM_1', DummyEnum._to_string(DummyEnum.ENUM_1))
-        self.assertEqual('ENUM_2', DummyEnum._to_string(DummyEnum.ENUM_2))
-        self.assertEqual('ENUM_3', DummyEnum._to_string(DummyEnum.ENUM_3))
-        self.assertEqual('ENUM_1', DummyEnum._to_string(0))
-        self.assertEqual('ENUM_2', DummyEnum._to_string(1))
-        self.assertEqual('ENUM_3', DummyEnum._to_string(2))
-        self.assertIsNone(DummyEnum._to_string(-1))
+        self.assertEqual('ENUM_1', DummyEnum.to_string(DummyEnum.ENUM_1))
+        self.assertEqual('ENUM_2', DummyEnum.to_string(DummyEnum.ENUM_2))
+        self.assertEqual('ENUM_3', DummyEnum.to_string(DummyEnum.ENUM_3))
+        self.assertEqual('ENUM_1', DummyEnum.to_string(0))
+        self.assertEqual('ENUM_2', DummyEnum.to_string(1))
+        self.assertEqual('ENUM_3', DummyEnum.to_string(2))
+        with self.assertRaises(KeyError):
+            DummyEnum.to_string(-1)
         # test _from_string
-        self.assertEqual(DummyEnum.ENUM_1, DummyEnum._from_string('ENUM_1'))
-        self.assertEqual(DummyEnum.ENUM_2, DummyEnum._from_string('ENUM_2'))
-        self.assertEqual(DummyEnum.ENUM_3, DummyEnum._from_string('ENUM_3'))
-        self.assertIsNone(DummyEnum._from_string('ENUM_0'))
+        self.assertEqual(DummyEnum.ENUM_1, DummyEnum.from_string('ENUM_1'))
+        self.assertEqual(DummyEnum.ENUM_2, DummyEnum.from_string('ENUM_2'))
+        self.assertEqual(DummyEnum.ENUM_3, DummyEnum.from_string('ENUM_3'))
+        with self.assertRaises(KeyError):
+            DummyEnum.from_string('ENUM_0')
         # test _values
         self.assertListEqual([DummyEnum.ENUM_1, DummyEnum.ENUM_2, DummyEnum.ENUM_3],
-                             sorted(DummyEnum._values()))
+                             sorted(DummyEnum.values()))
         # test _strings
         self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'],
-                             sorted(DummyEnum._strings()))
+                             sorted(DummyEnum.strings()))
 
     def test_shortcut(self):
         """ Test the shortcuts to supvisors data. """
@@ -78,30 +82,37 @@ class UtilsTest(unittest.TestCase):
         """ Test the display of local time. """
         import time
         from supvisors.utils import simple_localtime
+        # test with argument
         time_shift = time.timezone if time.gmtime().tm_isdst else time.altzone
-        self.assertEqual('07:07:00',
-                         simple_localtime(1476947220.416198 + time_shift))
+        self.assertEqual('07:07:00', simple_localtime(1476947220.416198 + time_shift))
+        # test without argument: just test output format
+        self.assertRegex(simple_localtime(), r'\d\d:\d\d:\d\d')
 
     def test_gmtime(self):
         """ Test the display of gm time. """
         from supvisors.utils import simple_gmtime
+        # test with argument
         self.assertEqual('07:07:00', simple_gmtime(1476947220.416198))
+        # test without argument: just test output format
+        self.assertRegex(simple_gmtime(), r'\d\d:\d\d:\d\d')
 
     def test_extract_process_info(self):
         """ Test the extraction of useful data from process info. """
         from supvisors.utils import extract_process_info
         # test with no spawn error
-        dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-            'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data'}
-        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
-            'now': 10, 'pid': 1234, 'expected': True},
-            extract_process_info(dummy_info))
+        dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+                      'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data',
+                      'description': 'process dead'}
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+                              'now': 10, 'pid': 1234, 'expected': True, 'spawnerr': '',
+                              'description': 'process dead'},
+                             extract_process_info(dummy_info))
         # test with spawn error
         dummy_info['spawnerr'] = 'something'
-        self.assertDictEqual({'name': 'proc', 'group': 'appli',
-                              'state': 10, 'start': 5,
-                              'now': 10, 'pid': 1234, 'expected': False},
-            extract_process_info(dummy_info))
+        self.assertDictEqual({'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+                              'now': 10, 'pid': 1234, 'expected': False, 'spawnerr': 'something',
+                              'description': 'process dead'},
+                             extract_process_info(dummy_info))
 
     def test_statistics_functions(self):
         """ Test the simple statistics. """
@@ -157,7 +168,7 @@ class UtilsTest(unittest.TestCase):
         """ Test the statistics function. """
         from supvisors.utils import get_stats
         ydata = [2, 3, 4, 5, 6]
-        avg, rate, (a,  b), dev = get_stats(ydata)
+        avg, rate, (a, b), dev = get_stats(ydata)
         self.assertAlmostEqual(4, avg)
         self.assertAlmostEqual(20, rate)
         self.assertAlmostEqual(1, a)
@@ -168,6 +179,6 @@ class UtilsTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

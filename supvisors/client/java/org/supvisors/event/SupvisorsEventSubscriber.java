@@ -16,14 +16,18 @@
 
 package org.supvisors.event;
 
+import com.google.gson.Gson;
+
 import java.util.Timer;
 import java.util.TimerTask;
 
 import org.supvisors.common.*;
+
 import org.zeromq.ZMQ;
-import org.zeromq.ZMQ.Context;
 import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
+import org.zeromq.SocketType;
+import org.zeromq.ZContext;
 
 
 /**
@@ -50,7 +54,7 @@ public class SupvisorsEventSubscriber implements Runnable {
     private static final String PROCESS_EVENT_HEADER = "event";
 
     /** The ZeroMQ context. */
-    private Context context;
+    private ZContext context;
 
     /** The ZeroMQ Socket. */
     private Socket subscriber;
@@ -67,11 +71,11 @@ public class SupvisorsEventSubscriber implements Runnable {
      * @param Integer port: The port number of the Supervisor's server.
      * @param Context context: The ZeroMQ context.
      */
-    public SupvisorsEventSubscriber(final Integer port, final Context context)  {
+    public SupvisorsEventSubscriber(final Integer port, final ZContext context)  {
         // store the context
         this.context = context;
         //  connect the subscriber socket
-        this.subscriber = context.socket(ZMQ.SUB);
+        this.subscriber = context.createSocket(SocketType.SUB);
         this.subscriber.connect("tcp://localhost:" + port);
     }
 
@@ -208,7 +212,7 @@ public class SupvisorsEventSubscriber implements Runnable {
         this.done = false;
 
         // create poller so as to benefit from a non-blocking reception
-        Poller poller = new Poller(1);
+        Poller poller = this.context.createPoller(1);
         poller.register(this.subscriber, Poller.POLLIN);
 
         // main loop until stop called or thread interrupted
@@ -222,16 +226,22 @@ public class SupvisorsEventSubscriber implements Runnable {
 
                 // notify subscribers if any
                 if (listener != null) {
+                    Gson gson = new Gson();
                     if (SUPVISORS_STATUS_HEADER.equals(header)) {
-                        listener.onSupvisorsStatus(new SupvisorsStatus(body));
+                        SupvisorsStatus status = gson.fromJson(body, SupvisorsStatus.class);
+                        listener.onSupvisorsStatus(status);
                     } else if (ADDRESS_STATUS_HEADER.equals(header)) {
-                        listener.onAddressStatus(new SupvisorsAddressInfo(body));
+                        SupvisorsAddressInfo info = gson.fromJson(body, SupvisorsAddressInfo.class);
+                        listener.onAddressStatus(info);
                     } else if (APPLICATION_STATUS_HEADER.equals(header)) {
-                        listener.onApplicationStatus(new SupvisorsApplicationInfo(body));
+                        SupvisorsApplicationInfo info = gson.fromJson(body, SupvisorsApplicationInfo.class);
+                        listener.onApplicationStatus(info);
                     } else if (PROCESS_STATUS_HEADER.equals(header)) {
-                        listener.onProcessStatus(new SupvisorsProcessInfo(body));
+                        SupvisorsProcessInfo info = gson.fromJson(body, SupvisorsProcessInfo.class);
+                        listener.onProcessStatus(info);
                     } else if (PROCESS_EVENT_HEADER.equals(header)) {
-                        listener.onProcessEvent(new SupvisorsProcessEvent(body));
+                        SupvisorsProcessEvent evt = gson.fromJson(body, SupvisorsProcessEvent.class);
+                        listener.onProcessEvent(evt);
                     }
                 }
             }
@@ -249,57 +259,56 @@ public class SupvisorsEventSubscriber implements Runnable {
      */
     public static void main(String[] args) throws InterruptedException {
         // create ZeroMQ context
-        final Context context = ZMQ.context(1);
+        try (ZContext context = new ZContext()) {
+            // create and configure the subscriber
+            final SupvisorsEventSubscriber subscriber =
+                new SupvisorsEventSubscriber(60002, context);
+            subscriber.subscribeToAll();
+            subscriber.setListener(new SupvisorsEventListener() {
 
-        // create and configure the subscriber
-        final SupvisorsEventSubscriber subscriber =
-            new SupvisorsEventSubscriber(60002, context);
-        subscriber.subscribeToAll();
-        subscriber.setListener(new SupvisorsEventListener() {
+                @Override
+                public void onSupvisorsStatus(final SupvisorsStatus status) {
+                    System.out.println(status);
+                }
 
-            @Override
-            public void onSupvisorsStatus(final SupvisorsStatus status) {
-                System.out.println(status);
-            }
+                @Override
+                public void onAddressStatus(final SupvisorsAddressInfo status) {
+                    System.out.println(status);
+                }
 
-            @Override
-            public void onAddressStatus(final SupvisorsAddressInfo status) {
-                System.out.println(status);
-            }
+                @Override
+                public void onApplicationStatus(final SupvisorsApplicationInfo status) {
+                    System.out.println(status);
+                }
 
-            @Override
-            public void onApplicationStatus(final SupvisorsApplicationInfo status) {
-                System.out.println(status);
-            }
+                @Override
+                public void onProcessStatus(final SupvisorsProcessInfo status) {
+                    System.out.println(status);
+                }
 
-            @Override
-            public void onProcessStatus(final SupvisorsProcessInfo status) {
-                System.out.println(status);
-            }
+                @Override
+                public void onProcessEvent(final SupvisorsProcessEvent status) {
+                    System.out.println(status);
+                }
+            });
 
-            @Override
-            public void onProcessEvent(final SupvisorsProcessEvent status) {
-                System.out.println(status);
-            }
-        });
+            // start subscriber in thread
+            Thread t = new Thread(subscriber);
+            t.start();
 
-        // start subscriber in thread
-        Thread t = new Thread(subscriber);
-        t.start();
+            // schedule task to stop the thread
+            new Timer().schedule(new TimerTask() {
 
-        // schedule task to stop the thread
-        new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    subscriber.stop();
+                }
 
-            @Override
-            public void run() {
-                subscriber.stop();
-            }
+            }, 200000);
 
-        }, 20000);
-
-        // wait for the thread to end
-        t.join();
+            // wait for the thread to end
+            t.join();
+        }
     }
-
 }
 

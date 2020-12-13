@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -17,15 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import sys
 import time
 import unittest
 import zmq
 
-from mock import patch
-
+from unittest.mock import patch
 from supvisors.tests.base import MockedSupvisors
+
+SKIP_IT = False
 
 
 class ZmqSocketTest(unittest.TestCase):
@@ -33,6 +33,8 @@ class ZmqSocketTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
@@ -104,6 +106,8 @@ class InternalEventTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import (InternalEventPublisher,
                                             InternalEventSubscriber)
         # the dummy Supvisors is used for addresses and ports
@@ -209,6 +213,8 @@ class RequestTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors, ZMQ context and sockets. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import RequestPusher, RequestPuller
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
@@ -232,7 +238,7 @@ class RequestTest(unittest.TestCase):
         try:
             return self.puller.receive()
         except zmq.Again:
-            self.fail('Failed to get {} request'. format(event_type))
+            self.fail('Failed to get {} request'.format(event_type))
 
     def test_check_address(self):
         """ The method tests that the 'Check Address' request is sent
@@ -241,7 +247,7 @@ class RequestTest(unittest.TestCase):
         self.pusher.send_check_address('10.0.0.1')
         request = self.receive('Check Address')
         self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS,
-                               ('10.0.0.1', )), request)
+                               ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj',
                           side_effect=zmq.error.Again):
@@ -326,7 +332,7 @@ class RequestTest(unittest.TestCase):
         self.pusher.send_restart('10.0.0.1')
         request = self.receive('Restart')
         self.assertTupleEqual((DeferredRequestHeaders.RESTART,
-                               ('10.0.0.1', )), request)
+                               ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj',
                           side_effect=zmq.error.Again):
@@ -346,7 +352,7 @@ class RequestTest(unittest.TestCase):
         self.pusher.send_shutdown('10.0.0.1')
         request = self.receive('Shutdown')
         self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN,
-                               ('10.0.0.1', )), request)
+                               ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj',
                           side_effect=zmq.error.Again):
@@ -362,10 +368,13 @@ class RequestTest(unittest.TestCase):
 
 class Payload:
     """ Dummy class just implementing a serial method. """
+
     def __init__(self, data):
         self.data = data
+
     def copy(self):
         return self.data.copy()
+
     def serial(self):
         return self.data
 
@@ -376,6 +385,8 @@ class EventTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         from supvisors.supvisorszmq import EventPublisher, EventSubscriber
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
@@ -489,7 +500,7 @@ class EventTest(unittest.TestCase):
             self.check_reception()
 
     def check_subscription(self, supvisors_subscribed, address_subscribed,
-            application_subscribed, event_subscribed, process_subscribed):
+                           application_subscribed, event_subscribed, process_subscribed):
         """ The method tests the emission and reception of all status,
         depending on their subscription status. """
         time.sleep(1)
@@ -593,12 +604,14 @@ class SupervisorZmqTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         self.supvisors = MockedSupvisors()
 
     def test_creation_closure(self):
         """ Test the types of the attributes created. """
         from supvisors.supvisorszmq import (SupervisorZmq, EventPublisher,
-            InternalEventPublisher, RequestPusher)
+                                            InternalEventPublisher, RequestPusher)
         sockets = SupervisorZmq(self.supvisors)
         # test all attribute types
         self.assertIsInstance(sockets.publisher, EventPublisher)
@@ -620,12 +633,14 @@ class SupvisorsZmqTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a dummy supvisors. """
+        if SKIP_IT:
+            raise unittest.SkipTest('DEBUG')
         self.supvisors = MockedSupvisors()
 
     def test_creation_closure(self):
         """ Test the types of the attributes created. """
         from supvisors.supvisorszmq import (SupvisorsZmq,
-            InternalEventSubscriber, RequestPuller)
+                                            InternalEventSubscriber, RequestPuller)
         sockets = SupvisorsZmq(self.supvisors)
         # test all attribute types
         self.assertIsInstance(sockets.internal_subscriber,
@@ -642,6 +657,6 @@ class SupvisorsZmqTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

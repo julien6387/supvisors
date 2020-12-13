@@ -12,6 +12,29 @@
 
 
 /*
+ * Declare all colors
+ */
+:root {
+    --title-color: #00e6b0;
+    --text-color: #a0d5dd;
+    --dark1-color: #052525;
+    --dark2-color: #053035;
+    --light1-color: #203535;
+    --light2-color: #305050;
+    --vlight1-color: #709090;
+    --vlight2-color: #506469;
+    --th-color: #053035;
+    --tr-color: #305050;
+    --selected-color: #00e6b0;
+    --border-color: #82aaaf;
+    --ok-color: #33ff33;
+    --stable-color: dodgerblue;
+    --error-color: #ff3333;
+    --blink-color: orangered;
+}
+
+
+/*
  * General Layout
  */
 html, body, #body_block {
@@ -26,11 +49,10 @@ body {
 /* fake a background transparency because smoke image is too dark */
 body::after {
     content: "";
-    background: url(../img/smoke.jpg);
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
     top: 0; left: 0; bottom: 0; right: 0;
     position: absolute;
     z-index: -1;
-    opacity: 0.5;
 }
 
 #body_block {
@@ -48,13 +70,11 @@ body::after {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: url(../img/texture.jpg);
-    color: #e6e6e6;
-    border-right: 3px #cc7a00 solid;
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
-
-#left_side header {
+#left_side header, #left_side header a {
    text-align: center;
+   color: var(--title-color);
 }
 
 nav {
@@ -62,10 +82,16 @@ nav {
     display: flex;
     flex-direction: column;
     overflow: auto;
+    color: var(--text-color);
 }
 
 #left_side footer {
     font-style: italic;
+    color: var(--text-color);
+}
+
+#left_side footer a {
+   color: var(--title-color);
 }
 
 #copyright {
@@ -80,14 +106,14 @@ nav {
     flex: 1;
     display: flex;
     flex-direction: column;
+    color: var(--text-color);
 }
 
 #right_side header {
     min-height: 90px;
     max-height: 90px;
     padding: 0 10px;
-    background: url(../img/texture.jpg);
-    color: #e6e6e6;
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -124,7 +150,7 @@ nav {
 #process_contents {
     display: flex;
     flex: 1;
-     flex-direction: row;
+    flex-direction: row;
     overflow: auto;
     margin: 5px;
 }
@@ -132,7 +158,6 @@ nav {
 #process_left_side {
     display: flex;
     flex: 1;
-    color: #111;
     font-family: Verdana, Arial, sans-serif;
     text-align: justify;
     margin-right: 5px;
@@ -149,19 +174,19 @@ nav {
 #address_contents {
     display: flex;
     flex: 1;
-     flex-direction: column;
+    flex-direction: column;
     justify-content: space-around;
 }
 
 .horizontal_contents {
     display: flex;
-     flex-direction: row;
+    flex-direction: row;
     justify-content: space-around;
 }
 
 .vertical_contents {
     display: flex;
-     flex-direction: column;
+    flex-direction: column;
     justify-content: space-around;
 }
 
@@ -182,11 +207,6 @@ header, nav, footer {
     padding: 5px;
 }
 
-header a, footer a {
-    color: #cc7a00;
-    text-decoration: none;
-}
-
 h1, h2, h3, h4 {
     font-family: 'kingthings_calligraphica_2Rg', Verdana, sans-serif;
 }
@@ -205,30 +225,33 @@ h4 {
     text-align: center;
     font-size: .8em;
     padding: 5px;
-    color: #e6e6e6;
-    border: 3px ridge black;
-    background: url(../img/texture.jpg);
+    border: 3px ridge var(--border-color);
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
 h3 code {
     display: inline-block;
     padding: 5px 10px;
-    color: black;
     font-size: 16px;
     text-shadow: 3px 3px 6px black;
-    background: #e6e6e6;
+    background: var(--vlight1-color);
 }
 
 nav ul, p {
     font-size: .8em;
 }
 
+a {
+    text-decoration: none;
+    color: var(--text-color);
+}
 
 /*
  * Blink Style
+ *
  */
-.blink {
-    color: orangered;
+#left_side header a.blink {
+    color: var(--blink-color);
     animation: blinker 1.2s linear infinite;
 }
 
@@ -304,7 +327,6 @@ ul.vertical li {
  * Style for status message
  */
 .empty, .info, .warn, .erro {
-    color: #eee;
     padding: 5px;
     margin: 5px auto;
     border-radius: 10px;
@@ -347,15 +369,6 @@ ul.vertical li {
 
 
 /*
- * Option style
- */
-.button.active {
-    color: green;
-    font-weight: bold;
-}
-
-
-/*
  * Master address style
  */
 .master::after {
@@ -369,7 +382,7 @@ ul.vertical li {
 table {
     border-collapse: collapse;
     caption-side: top;
-    background: rgba(200, 200, 200, .7);
+    background-color: var(--tr-color);
     margin: 0 auto;
 }
 
@@ -381,22 +394,21 @@ caption {
 
 /* add border for all cells */
 th, td {
-    border: 1px solid black;
+    border: 1px solid var(--border-color);
     padding: 3px 5px;
     font-size: .7em;
 }
 
 th {
-    background-color: #555;
-    color: #e6e6e6;
+    background-color: var(--th-color);
 }
 
-tr.shaded {
-    background-color: #ffc;
+.brightened {
+    background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
 }
 
-tr.selected {
-    background-color: #9f9;
+.shaded {
+    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
 }
 
 /* fix first columns sizes (button actions have a fixed contents) */
@@ -412,10 +424,6 @@ table .desc, table.addr {
   width: 250px;
 }
 
-th a {
-    color: #e6e6e6;
-    text-decoration: none;
-}
 
 /* style for a table of processes */
 #processes th {
@@ -446,12 +454,12 @@ th a {
  * Style for optionBox
  */
 .optionBox {
-    border: 3px ridge black;
-    background: rgba(150, 150, 150, .7);
+    border: 3px ridge var(--border-color);
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
 .optionBox th {
-    background: url(../img/texture.jpg);
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
     text-align: center;
 }
 
@@ -473,11 +481,12 @@ th a {
 
 .addressBox table {
     height: 100%;
-    border: 3px ridge black;
+    border: 3px ridge var(--border-color);
 }
 
 .addressBox th {
     height: 18px;
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
 
 .addressBox td:nth-child(1) {
@@ -485,14 +494,14 @@ th a {
 }
 
 .addressBox tr {
-    background: rgba(100, 100, 100, .5);
+    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
 .addressBox .button {
     display: inline-block;
     padding: 2px 4px;
     margin-bottom: 4px;
-    background-color: orange;
+    background-color: #007600;
     border-radius: 6px;
     cursor: default;
 }
@@ -507,26 +516,32 @@ th a {
  */
 table .UNKNOWN {
     background-image: linear-gradient(165deg, grey, white);
+    color: black;
 }
 
 table .STOPPED, table .EXITED, table .SILENT {
     background-image: linear-gradient(165deg, white, #cc0, #cc0, white);
+    color: black;
 }
 
 table .STARTING, table .BACKOFF {
     background-image: linear-gradient(165deg, #cc0, green, white);
+    color: black;
 }
 
 table .STOPPING {
     background-image: linear-gradient(165deg, green, #cc0, white);
+    color: black;
 }
 
 table .RUNNING {
     background-image: linear-gradient(165deg, white, green, green, white);
+    color: black;
 }
 
 table .FATAL, table .ISOLATED {
     background-image: linear-gradient(165deg, white, red, red, white);
+    color: black;
 }
 
 nav .UNKNOWN {
@@ -586,7 +601,7 @@ nav li.STOPPING.active {
  * Increase / Stable / Decrease styles
  */
 .increase {
-    color: red;
+    color: var(--error-color);
 }
 
 .increase::after {
@@ -594,7 +609,7 @@ nav li.STOPPING.active {
 }
 
 .stable {
-    color: blue;
+    color: var(--stable-color);
 }
 
 .stable::after {
@@ -602,7 +617,7 @@ nav li.STOPPING.active {
 }
 
 .decrease {
-    color: green;
+    color: var(--ok-color);
 }
 
 .decrease::after {

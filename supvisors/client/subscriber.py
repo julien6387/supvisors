@@ -59,8 +59,7 @@ class SupvisorsEventInterface(threading.Thread):
 
     Constants:
 
-        - _Poll_timeout: duration used to time out the ZeroMQ poller,
-        defaulted to 500 milli-seconds.
+        - _Poll_timeout: duration used to time out the ZeroMQ poller, defaulted to 500 milli-seconds.
     """
 
     _Poll_timeout = 500

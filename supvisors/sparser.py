@@ -124,13 +124,13 @@ class Parser(object):
             # get starting_failure_strategy rule
             value = application_elt.findtext('starting_failure_strategy')
             if value:
-                strategy = StartingFailureStrategies._from_string(value)
+                strategy = StartingFailureStrategies.from_string(value)
                 if strategy:
                     application.rules.starting_failure_strategy = strategy
             # get running_failure_strategy rule
             value = application_elt.findtext('running_failure_strategy')
             if value:
-                strategy = RunningFailureStrategies._from_string(value)
+                strategy = RunningFailureStrategies.from_string(value)
                 if strategy:
                     application.rules.running_failure_strategy = strategy
             # final print
@@ -182,8 +182,11 @@ class Parser(object):
             # get running_failure_strategy rule
             value = program_elt.findtext('running_failure_strategy')
             if value:
-                strategy = RunningFailureStrategies._from_string(value)
-                if strategy:
+                try:
+                    strategy = RunningFailureStrategies.from_string(value)
+                except KeyError:
+                    self.logger.error('strategy {} unknown'.format(value))
+                else:
                     rules.running_failure_strategy = strategy
             # check that rules are compliant with dependencies
             rules.check_dependencies(process.namespec())
@@ -237,7 +240,7 @@ class Parser(object):
             if schema.validate(tree):
                 self.logger.info('XML validated')
                 return tree
-            print(schema.error_log, file=sys.stderr)
+            print(schema.error_log, file=stderr)
             raise ValueError('XML NOT validated: {}'.format(filename))
         except ImportError:
             try:

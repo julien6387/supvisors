@@ -19,8 +19,6 @@ package org.supvisors.common;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 
 /**
@@ -30,67 +28,41 @@ import org.json.JSONObject;
  */
 public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
 
-    /** The process namespec. */
-    private String namespec;
-
     /** The name of the process' application. */
-    private String applicationName;
+    private String application_name;
 
     /** The process name. */
-    private String processName;
+    private String process_name;
 
     /** The process state. */
-    private ProcessState state;
+    private ProcessState statecode;
 
     /** A status telling if the process has exited expectantly. */
-    private Boolean expectedExitStatus;
+    private Boolean expected_exit;
 
     /** The date of the last event received for this process. */
-    private Integer lastEventTime;
+    private Integer last_event_time;
 
     /** The addresses where the process is running. */
     private List<String> addresses;
     
     /** The extra arguments passed to the command line. */
-    private String extraArgs;
-    
+    private String extra_args;
+
     /**
      * This constructor gets all information from an HashMap.
      *
      * @param HashMap processInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsProcessInfo(HashMap processInfo)  {
-        this.processName = (String) processInfo.get("process_name");
-        this.applicationName = (String) processInfo.get("application_name");
-        this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
-        this.state = ProcessState.valueOf((String) processInfo.get("statename"));
-        this.expectedExitStatus = (Boolean) processInfo.get("expected_exit");
-        this.lastEventTime = (Integer) processInfo.get("last_event_time");
+        this.process_name = (String) processInfo.get("process_name");
+        this.application_name = (String) processInfo.get("application_name");
+        this.statecode = ProcessState.valueOf((String) processInfo.get("statename"));
+        this.expected_exit = (Boolean) processInfo.get("expected_exit");
+        this.last_event_time = (Integer) processInfo.get("last_event_time");
         this.addresses = DataConversion.arrayToStringList((Object[]) processInfo.get("addresses"));
-         this.extraArgs = (String) processInfo.get("extra_args");
+        this.extra_args = (String) processInfo.get("extra_args");
    }
-
-    /**
-     * This constructor gets all information from a JSON string.
-     *
-     * @param String json: The untyped structure got from the event subscriber.
-     */
-    public SupvisorsProcessInfo(final String json) {
-        JSONObject obj = new JSONObject(json);
-        this.processName = obj.getString("process_name");
-        this.applicationName = obj.getString("application_name");
-        this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
-        this.state = ProcessState.valueOf(obj.getString("statename"));
-        this.expectedExitStatus = obj.getBoolean("expected_exit");
-        this.lastEventTime = obj.getInt("last_event_time");
-        // parse addresses
-        JSONArray addresses = obj.getJSONArray("addresses");
-        this.addresses = new ArrayList<String>(addresses.length());
-        for (int i=0 ; i<addresses.length() ; i++) {
-            this.addresses.add(addresses.getString(i));
-        }
-        this.extraArgs = obj.getString("extra_args");
-    }
 
     /**
      * The getApplicationName method returns the name of the process' application.
@@ -98,7 +70,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The name of the application.
      */
     public String getApplicationName() {
-        return this.applicationName;
+        return this.application_name;
     }
 
     /**
@@ -107,7 +79,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The name of the process.
      */
     public String getProcessName() {
-        return this.processName;
+        return this.process_name;
     }
 
     /**
@@ -116,7 +88,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The namespec of the process.
      */
     public String getName() {
-        return this.namespec;
+        return DataConversion.stringsToNamespec(this.application_name, this.process_name);
     }
 
     /**
@@ -125,7 +97,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return ProcessState: The state of the process.
      */
     public ProcessState getState() {
-        return this.state;
+        return this.statecode;
     }
 
     /**
@@ -135,7 +107,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return Boolean: The exit status.
      */
     public Boolean getExpectedExitStatus() {
-        return this.expectedExitStatus;
+        return this.expected_exit;
     }
 
     /**
@@ -144,7 +116,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return Integer: The date of the last event received.
      */
     public Integer getLastEventTime() {
-        return this.lastEventTime;
+        return this.last_event_time;
     }
 
     /**
@@ -163,7 +135,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The arguments.
      */
     public String getExtraArgs() {
-        return this.extraArgs;
+        return this.extra_args;
     }
 
     /**
@@ -172,14 +144,14 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsProcessInfo(namespec=" + this.namespec
-            + " applicationName=" + this.applicationName
-            + " processName=" + this.processName
-            + " state=" + this.state
-            + " expectedExitStatus=" + this.expectedExitStatus
-            + " lastEventTime=" + this.lastEventTime
+        return "SupvisorsProcessInfo(namespec=" + this.getName()
+            + " applicationName=" + this.application_name
+            + " processName=" + this.process_name
+            + " state=" + this.statecode
+            + " expectedExitStatus=" + this.expected_exit
+            + " lastEventTime=" + this.last_event_time
             + " addresses=" + this.addresses
-            + " extraArgs=" + this.extraArgs + ")";
+            + " extraArgs=" + this.extra_args + ")";
     }
 
 }

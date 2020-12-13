@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -22,7 +22,7 @@ import sys
 import unittest
 
 from supvisors.tests.base import (MockedSupvisors, database_copy,
-    any_process_info, any_stopped_process_info, any_running_process_info)
+                                  any_process_info, any_stopped_process_info, any_running_process_info)
 
 
 class ApplicationRulesTest(unittest.TestCase):
@@ -43,15 +43,17 @@ class ApplicationRulesTest(unittest.TestCase):
         """ Test the string output. """
         from supvisors.application import ApplicationRules
         rules = ApplicationRules()
-        self.assertEqual('start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE', str(rules))
+        self.assertEqual(
+            'start_sequence=0 stop_sequence=0 starting_failure_strategy=ABORT running_failure_strategy=CONTINUE',
+            str(rules))
 
     def test_serial(self):
         """ Test the serialization of the ApplicationRules object. """
         from supvisors.application import ApplicationRules
         rules = ApplicationRules()
         self.assertDictEqual({'start_sequence': 0, 'stop_sequence': 0,
-            'starting_failure_strategy': 'ABORT',
-            'running_failure_strategy': 'CONTINUE'}, rules.serial())
+                              'starting_failure_strategy': 'ABORT',
+                              'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
 
 class ApplicationStatusTest(unittest.TestCase):
@@ -135,8 +137,8 @@ class ApplicationStatusTest(unittest.TestCase):
         # test to_json method
         serialized = application.serial()
         self.assertDictEqual(serialized, {'application_name': 'ApplicationTest',
-            'statecode': 2, 'statename': 'RUNNING',
-            'major_failure': False, 'minor_failure':True})
+                                          'statecode': 2, 'statename': 'RUNNING',
+                                          'major_failure': False, 'minor_failure': True})
         # test that returned structure is serializable using pickle
         dumped = pickle.dumps(serialized)
         loaded = pickle.loads(dumped)
@@ -177,14 +179,16 @@ class ApplicationStatusTest(unittest.TestCase):
         for sequence, processes in sorted(application.start_sequence.items()):
             self.assertEqual(sequence, sequences.pop(0))
             self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
-                sorted([proc for proc in application.processes.values() if sequence == proc.rules.start_sequence], key=lambda x: x.process_name))
+                                 sorted([proc for proc in application.processes.values() if
+                                         sequence == proc.rules.start_sequence], key=lambda x: x.process_name))
         # check the sequencing of the stopping
         sequences = sorted({process.rules.stop_sequence for process in application.processes.values()})
         # as key is an integer, the sequence dictionary should be sorted but pypy doesn't...
         for sequence, processes in sorted(application.stop_sequence.items()):
             self.assertEqual(sequence, sequences.pop(0))
             self.assertListEqual(sorted(processes, key=lambda x: x.process_name),
-                sorted([proc for proc in application.processes.values() if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name))
+                                 sorted([proc for proc in application.processes.values() if
+                                         sequence == proc.rules.stop_sequence], key=lambda x: x.process_name))
 
     def test_update_status(self):
         """ Test the rules to update the status of the application method. """
@@ -208,7 +212,8 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertFalse(application.major_failure)
         self.assertTrue(application.minor_failure)
         # set FATAL process to major
-        fatal_process = next((process for process in application.processes.values() if process.state == ProcessStates.FATAL), None)
+        fatal_process = next(
+            (process for process in application.processes.values() if process.state == ProcessStates.FATAL), None)
         fatal_process.rules.required = True
         # update status. major failure is now expected
         application.update_status()
@@ -216,7 +221,8 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertTrue(application.major_failure)
         self.assertFalse(application.minor_failure)
         # set STARTING process to RUNNING
-        starting_process = next((process for process in application.processes.values() if process.state == ProcessStates.STARTING), None)
+        starting_process = next(
+            (process for process in application.processes.values() if process.state == ProcessStates.STARTING), None)
         starting_process.state = ProcessStates.RUNNING
         # update status. there is still one BACKOFF process leading to STARTING application
         application.update_status()
@@ -224,7 +230,8 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertTrue(application.major_failure)
         self.assertFalse(application.minor_failure)
         # set BACKOFF process to EXITED
-        backoff_process = next((process for process in application.processes.values() if process.state == ProcessStates.BACKOFF), None)
+        backoff_process = next(
+            (process for process in application.processes.values() if process.state == ProcessStates.BACKOFF), None)
         backoff_process.state = ProcessStates.EXITED
         # update status. the 'strongest' state is now STOPPING
         # as STOPPING is not a 'running' state, failures are not applicable
@@ -233,7 +240,8 @@ class ApplicationStatusTest(unittest.TestCase):
         self.assertFalse(application.major_failure)
         self.assertFalse(application.minor_failure)
         # set STOPPING process to STOPPED
-        stopping_process = next((process for process in application.processes.values() if process.state == ProcessStates.STOPPING), None)
+        stopping_process = next(
+            (process for process in application.processes.values() if process.state == ProcessStates.STOPPING), None)
         stopping_process.state = ProcessStates.STOPPED
         # update status. the 'strongest' state is now RUNNING
         # failures are applicable again
@@ -256,6 +264,6 @@ class ApplicationStatusTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

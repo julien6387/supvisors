@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -42,9 +42,10 @@ class StatisticsPlot(object):
     def export_image(self, image_contents):
         """ Write curves into a PNG image. """
         if self.ydata:
-            # calculate and apply max range
+            # calculate and apply max range on all sub-lists
             all_ydata = []
-            map(all_ydata.extend, [ydata for ydata in self.ydata.values()])
+            for ydata in self.ydata.values():
+                all_ydata.extend(ydata)
             plt.ylim(self.get_range(all_ydata))
             # create plots for each series of data
             for i, ((title, unit), ydata) in enumerate(self.ydata.items()):
@@ -53,24 +54,24 @@ class StatisticsPlot(object):
                 # get additional statistics
                 avg, rate, (a, b), dev = get_stats(ydata)
                 # plot the data
-                dataLine, = plt.plot(xdata, ydata, label=title)
-                plotColor = dataLine.get_color()
+                data_line, = plt.plot(xdata, ydata, label=title)
+                plot_color = data_line.get_color()
                 # plot the mean line
-                avg_data = [avg,]*len(ydata)
-                meanLine, = plt.plot(xdata, avg_data,
-                                     label='Mean: {:.2f}{}'.format(avg, unit),
-                                     linestyle='--', color=plotColor)
+                avg_data = [avg, ] * len(ydata)
+                mean_line, = plt.plot(xdata, avg_data,
+                                      label='Mean: {:.2f}{}'.format(avg, unit),
+                                      linestyle='--', color=plot_color)
                 if a is not None:
                     # plot the linear regression
                     plt.plot([xdata[0], xdata[-1]],
                              [a * xdata[0] + b, a * xdata[-1] + b],
-                             linestyle=':', color=plotColor)
+                             linestyle=':', color=plot_color)
                 if dev is not None:
                     # plot the standard deviation
-                    plt.fill_between(xdata, avg-dev, avg+dev,
-                                     facecolor=plotColor, alpha=.3)
+                    plt.fill_between(xdata, avg - dev, avg + dev,
+                                     facecolor=plot_color, alpha=.3)
                 # create the legend
-                legend = plt.legend(handles=[dataLine, meanLine], loc=i+1,
+                legend = plt.legend(handles=[data_line, mean_line], loc=i + 1,
                                     fontsize='small', fancybox=True, shadow=True)
                 # add the legend to the current axes
                 plt.gca().add_artist(legend)
@@ -91,5 +92,5 @@ class StatisticsPlot(object):
         Max range is increased to let additional space for legend. """
         min_range = math.floor(min(lst))
         max_range = math.ceil(max(lst))
-        range = max(1, max_range - min_range)
-        return max(0, min_range - range * 0.1), max_range + range * .35
+        full_range = max(1, max_range - min_range)
+        return max(0.0, min_range - full_range * 0.1), max_range + full_range * .35

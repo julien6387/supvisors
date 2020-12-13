@@ -17,8 +17,8 @@
 package org.supvisors.common;
 
 import java.util.HashMap;
-import org.json.JSONObject;
 
+import com.google.gson.annotations.SerializedName;
 
 /**
  * The Class SupvisorsAddressInfo.
@@ -30,67 +30,64 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     /**
      * The State enumeration for an address.
      *
-     * UNKNOWN:  used at initialization, before any heartbeat message is
-     *           received from this address.
-     * CHECKING: used when the local Supvisors checks the isolation status of
-     *           this address.
-     * SILENT:   used when the local Supvisors does not receive any heartbeat
-     *           message from this address.
-     * RUNNING:  used when the local Supvisors receives heartbeat messages
-     *           from this address.
-     * ISOLATED: used when the local Supvisors has disconnected this address.
+     * UNKNOWN:   used at initialization, before any heartbeat message is
+     *            received from this address.
+     * CHECKING:  used when the local Supvisors checks the isolation status of
+     *            this address.
+     * RUNNING:   used when the local Supvisors receives heartbeat messages
+     *            from this address.
+     * SILENT:    used when the local Supvisors does not receive any heartbeat
+     *            message from this address.
+     * ISOLATING: used when the local Supvisors is about to disconnect this address.
+     * ISOLATED:  used when the local Supvisors has disconnected this address.
      */
     public enum State {
-        UNKNOWN,
-        CHECKING,
-        SILENT,
-        RUNNING,
-        ISOLATED;
+        UNKNOWN(0),
+        CHECKING(1),
+        RUNNING(2),
+        SILENT(3),
+        ISOLATING(4),
+        ISOLATED(5);
+
+        private final int value;
+        public int getValue() {
+            return value;
+        }
+
+        private State(int value) {
+            this.value = value;
+        }
     }
 
     /** The address name. */
-    private String name;
+    private String address_name;
 
     /** The address state. */
-    private State state;
+    private State statename;
 
     /** The date of the last heartbeat message, as received. */
-    private Integer remoteTime;
+    private Integer remote_time;
 
     /** The date of the last heartbeat message, in the local reference time. */
-    private Integer localTime;
+    private Integer local_time;
 
     /**
      * The current declared loading of the address.
      * Note: This is not a measurement. It corresponds to the sum of the declared loading of the running processes.
      */
     private Integer loading;
-    
+
     /**
      * This constructor gets all information from an HashMap.
      *
      * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsAddressInfo(HashMap addressInfo)  {
-        this.name = (String) addressInfo.get("address_name");
-        this.state = State.valueOf((String) addressInfo.get("statename"));
-        this.remoteTime = (Integer) addressInfo.get("remote_time");
-        this.localTime = (Integer) addressInfo.get("local_time");
+        this.address_name = (String) addressInfo.get("address_name");
+        this.statename = State.valueOf((String) addressInfo.get("statename"));
+        this.remote_time = (Integer) addressInfo.get("remote_time");
+        this.local_time = (Integer) addressInfo.get("local_time");
         this.loading = (Integer) addressInfo.get("loading");
-    }
-
-    /**
-     * The constructor gets all information from a JSON string.
-     *
-     * @param String json: The untyped structure got from the event subscriber.
-     */
-    public SupvisorsAddressInfo(final String json) {
-        JSONObject obj = new JSONObject(json);
-        this.name = obj.getString("address_name");
-        this.state = State.valueOf(obj.getString("statename"));
-        this.remoteTime = obj.getInt("remote_time");
-        this.localTime = obj.getInt("local_time");
-        this.loading = obj.getInt("loading");
     }
 
     /**
@@ -99,7 +96,7 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * @return String: The name of the address.
      */
     public String getName() {
-        return this.name;
+        return this.address_name;
     }
 
     /**
@@ -108,7 +105,7 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * @return State: The state of the address.
      */
     public State getState() {
-        return this.state;
+        return this.statename;
     }
 
     /**
@@ -118,23 +115,23 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * @return Integer: The number of seconds since Epoch.
      */
     public Integer getRemoteTime() {
-        return this.remoteTime;
+        return this.remote_time;
     }
 
-     /**
+    /**
      * The getLocalTime method returns the date of the last heartbeat message,
      * in the reference time of the local Supvisors.
      *
      * @return Integer: The number of seconds since Epoch.
      */
    public Integer getLocalTime() {
-        return this.localTime;
+        return this.local_time;
     }
 
     /**
      * The getLoading method returns the loading of the address.
      *
-     * @return State: The loadinf in percent.
+     * @return State: The loading in percent.
      */
     public Integer getLoading() {
         return this.loading;
@@ -146,9 +143,9 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsAddressInfo(name=" + this.name
-            + " state=" + this.state + " remoteTime=" + this.remoteTime
-            + " localTime=" + this.localTime + " loading=" + this.loading + ")";
+        return "SupvisorsAddressInfo(name=" + this.address_name
+            + " state=" + this.statename + " remoteTime=" + this.remote_time
+            + " localTime=" + this.local_time + " loading=" + this.loading + ")";
     }
 
 }

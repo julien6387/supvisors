@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -18,7 +18,7 @@
 # ======================================================================
 
 
-from StringIO import StringIO
+from io import StringIO
 
 # Contents of a minimal Supervisor configuration file without Supvisors
 NoSupvisors = StringIO('''
@@ -27,7 +27,6 @@ port=:60000
 
 [supervisord]
 ''')
-
 
 # Contents of a minimal Supervisor configuration file including program definitions
 ProgramConfiguration = StringIO('''
@@ -52,7 +51,6 @@ numprocs=2
 numprocs_start=10
 ''')
 
-
 # Contents of a minimal Supervisor configuration file without
 #  Supvisors options defined
 DefaultOptionConfiguration = StringIO('''
@@ -62,7 +60,6 @@ port=:60000
 [supervisord]
 [supvisors]
 ''')
-
 
 # Contents of a minimal Supervisor configuration file including
 #  Supvisors options defined
@@ -90,9 +87,8 @@ logfile_backups=5
 loglevel=error
 ''')
 
-
 # Contents of a rules file including schema errors
-InvalidXmlTest = '''\
+InvalidXmlTest = b'''\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
     <model name="dummy_model_01">
@@ -210,7 +206,7 @@ InvalidXmlTest = '''\
             <expected_loading>5</expected_loading>
         </program>
 
-	</application>
+    </application>
 
     <application name="dummy_application_D">
         <start_sequence>-1</start_sequence>
@@ -235,13 +231,13 @@ InvalidXmlTest = '''\
             <reference>dummy_model_04</reference>
         </pattern>
 
-	</application>
+    </application>
 
 </root>
 '''
 
 # Contents of a rules file with no schema error
-XmlTest = '''\
+XmlTest = b'''\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
     <model name="dummy_model_01">
@@ -333,7 +329,7 @@ XmlTest = '''\
             <reference>dummy_model_02</reference>
         </program>
 
-	</application>
+    </application>
 
     <application name="dummy_application_D">
         <start_sequence>-1</start_sequence>
@@ -358,7 +354,7 @@ XmlTest = '''\
             <reference>dummy_model_04</reference>
         </pattern>
 
-	</application>
+    </application>
 
 </root>
 '''

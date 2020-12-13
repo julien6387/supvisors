@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -23,8 +23,10 @@ import unittest
 from time import ctime
 from types import FunctionType
 
+from supvisors.tests.base import CompatTestCase
 
-class WebUtilsTest(unittest.TestCase):
+
+class WebUtilsTest(CompatTestCase):
     """ Test case for the webutils module. """
 
     def test_format_gravity_message(self):
@@ -46,21 +48,27 @@ class WebUtilsTest(unittest.TestCase):
         msg = format_gravity_message(('warn', 'a warning message'))
         self.assertIs(tuple, type(msg))
         msg = format_gravity_message(('warn', 'a warning message'))
+        self.assertIs(tuple, type(msg))
 
     def test_print_message(self):
         """ Test the meld formatting of a message. """
         from supvisors.webutils import print_message
+
         # create simple classes replacing meld behaviour
         class DummyElement:
             def __init__(self):
                 self.attrib = {}
+
             def content(self, cnt):
                 self.attrib['content'] = cnt
+
         class DummyRoot:
             def __init__(self):
                 self.elt = DummyElement()
-            def findmeld(self, id):
+
+            def findmeld(self, _):
                 return self.elt
+
         # test with empty message
         root = DummyRoot()
         print_message(root, 'gravity', None)
@@ -142,6 +150,6 @@ class WebUtilsTest(unittest.TestCase):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')
-

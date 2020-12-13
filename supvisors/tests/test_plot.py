@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -43,7 +43,8 @@ class StatisticsPlotTest(unittest.TestCase):
         # add series of data
         plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
         plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
-        self.assertDictEqual({('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]}, plot.ydata)
+        self.assertDictEqual({('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]},
+                             plot.ydata)
         # export image in buffer
         contents = StatsImage()
         plot.export_image(contents)
@@ -55,7 +56,7 @@ class StatisticsPlotTest(unittest.TestCase):
         Complex to test anything. Just check that there is no exception. """
         from supvisors.plot import StatisticsPlot
         # first test
-        min_range, max_range = StatisticsPlot.get_range([10, 50, 30,  90])
+        min_range, max_range = StatisticsPlot.get_range([10, 50, 30, 90])
         self.assertAlmostEqual(2.0, min_range)
         self.assertAlmostEqual(118.0, max_range)
         # second test
@@ -66,6 +67,7 @@ class StatisticsPlotTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

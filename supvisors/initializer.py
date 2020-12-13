@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -65,8 +65,8 @@ class Supvisors(object):
         self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                'local host unexpected in address list: {}'\
-                .format(self.options.address_list))
+                           'local host unexpected in address list: {}'
+                           .format(self.options.address_list))
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -82,8 +82,7 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except:
-            self.logger.warn('cannot parse rules file: {}'\
-                             .format(self.options.rules_file))
+            self.logger.warn('cannot parse rules file: {}'.format(self.options.rules_file))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

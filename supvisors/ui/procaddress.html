@@ -101,12 +101,15 @@
                             <tr>
                                 <th class="name">Name</th><th class="state">State</th><th class="desc">Description</th>
                                 <th class="load">Load</th><th class="cpu">CPU</th><th class="mem">MEM</th>
-                                <th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+                                <th colspan="3">Actions</th><th colspan="3">Log</th>
+                            </tr>
                         </thead>
                         <tfoot>
-                            <tr><th>Name</th><th>State</th><th>Description</th>
-                            <th>Load</th><th>CPU</th><th>MEM</th>
-                            <th colspan="3">Actions</th><th colspan="2">Log</th></tr>
+                            <tr>
+                                <th>Name</th><th>State</th><th>Description</th>
+                                <th>Load</th><th>CPU</th><th>MEM</th>
+                                <th colspan="3">Actions</th><th colspan="3">Log</th>
+                            </tr>
                         </tfoot>
                         <tbody>
                             <tr meld:id="tr_mid">
@@ -120,7 +123,8 @@
                                 <td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid" class="button off">Stop</a></td>
                                 <td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid" class="button off">Restart</a></td>
                                 <td meld:id="clear_td_mid"><a href="#" meld:id="clear_a_mid" class="button on">Clear</a></td>
-                                <td meld:id="tail_td_mid"><a href="#" meld:id="tail_a_mid" class="button on">Tail</a></td>
+                                <td meld:id="tailout_td_mid"><a href="#" meld:id="tailout_a_mid" class="button on" target="_blank">Stdout</a></td>
+                                <td meld:id="tailerr_td_mid"><a href="#" meld:id="tailerr_a_mid" class="button on" target="_blank">Stderr</a></td>
                             </tr>
                         </tbody>
                     </table>
@@ -145,7 +149,7 @@
                                 <th>Slope %</th>
                                 <th>SD %</th>
                             </tr>
-                            <tr>
+                            <tr meld:id="pstats_tr_mid">
                                 <td meld:id="pcpuval_td_mid">--</td>
                                 <td meld:id="pcpuavg_td_mid">--</td>
                                 <td meld:id="pcpuslope_td_mid">--</td>

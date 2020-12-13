@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -21,12 +21,12 @@ import sys
 import time
 import unittest
 
-from mock import call, patch, Mock
+from unittest.mock import call, patch, Mock
 
-from supvisors.tests.base import MockedSupvisors, database_copy
+from supvisors.tests.base import MockedSupvisors, database_copy, CompatTestCase
 
 
-class ProcessCommandTest(unittest.TestCase):
+class ProcessCommandTest(CompatTestCase):
     """ Test case for the ProcessCommand class of the commander module. """
 
     def test_creation(self):
@@ -48,8 +48,8 @@ class ProcessCommandTest(unittest.TestCase):
         command.request_time = 4321
         command.ignore_wait_exit = True
         command.extra_args = '-s test args'
-        self.assertEqual('process=proc_1 state=RUNNING last_event_time=1234 '\
-                         'request_time=4321 ignore_wait_exit=True '\
+        self.assertEqual('process=proc_1 state=RUNNING last_event_time=1234 '
+                         'request_time=4321 ignore_wait_exit=True '
                          'extra_args="-s test args"', str(command))
 
     def test_timeout(self):
@@ -73,7 +73,7 @@ def _create_process_command(group, name, supvisors):
     return ProcessCommand(process)
 
 
-class CommanderTest(unittest.TestCase):
+class CommanderTest(CompatTestCase):
     """ Test case for the Commander class of the commander module. """
 
     def setUp(self):
@@ -179,7 +179,7 @@ class CommanderTest(unittest.TestCase):
                               'then': ['appli_A:dummy_A1',
                                        'appli_A:dummy_A2',
                                        'appli_A:dummy_A3'],
-            'else': ['appli_B:dummy_B1']}, printable)
+                              'else': ['appli_B:dummy_B1']}, printable)
 
     def test_printable_planned_jobs(self):
         """ Test the printable_planned_jobs method. """
@@ -190,14 +190,14 @@ class CommanderTest(unittest.TestCase):
         printable = commander.printable_planned_jobs()
         self.assertDictEqual({}, printable)
         # test with complex structure
-        commander.planned_jobs = {'if': {0: self.command_list_1, 1:[]},
+        commander.planned_jobs = {'if': {0: self.command_list_1, 1: []},
                                   'then': {2: self.command_list_2},
                                   'else': {}}
         printable = commander.printable_planned_jobs()
         self.assertDictEqual({'if': {0: ['appli_A:dummy_A1',
                                          'appli_A:dummy_A2',
-                                         'appli_A:dummy_A3'], 1:[]},
-            'then': {2: ['appli_B:dummy_B1']}, 'else': {}}, printable)
+                                         'appli_A:dummy_A3'], 1: []},
+                              'then': {2: ['appli_B:dummy_B1']}, 'else': {}}, printable)
 
     def test_printable_planned_sequence(self):
         """ Test the printable_planned_sequence method. """
@@ -210,38 +210,40 @@ class CommanderTest(unittest.TestCase):
         # test with complex structure
         commander.planned_sequence = {0: {'if': {-1: [],
                                                  0: self.command_list_1},
-            'then': {2: self.command_list_2}}, 3: {'else': {}}}
+                                          'then': {2: self.command_list_2}}, 3: {'else': {}}}
         printable = commander.printable_planned_sequence()
         self.assertDictEqual({0: {'if': {-1: [],
                                          0: ['appli_A:dummy_A1',
                                              'appli_A:dummy_A2',
                                              'appli_A:dummy_A3']},
-            'then': {2: ['appli_B:dummy_B1']}}, 3: {'else': {}}}, printable)
+                                  'then': {2: ['appli_B:dummy_B1']}}, 3: {'else': {}}}, printable)
 
     def test_process_application_jobs(self):
         """ Test the process_application_jobs method. """
         from supvisors.commander import Commander
         commander = Commander(self.supvisors)
         # fill planned_jobs
-        commander.planned_jobs = {'if': {0: self.command_list_1, 1:[]},
+        commander.planned_jobs = {'if': {0: self.command_list_1, 1: []},
                                   'then': {2: self.command_list_2},
                                   'else': {}}
+
         # define patch function
         def fill_jobs(*args, **kwargs):
             args[1].append(args[0])
+
         with patch.object(commander, 'process_job',
                           side_effect=fill_jobs) as mocked_job:
             # test with unknown application
             commander.process_application_jobs('while')
             self.assertDictEqual({}, commander.current_jobs)
-            self.assertDictEqual({'if': {0: self.command_list_1, 1:[]},
+            self.assertDictEqual({'if': {0: self.command_list_1, 1: []},
                                   'then': {2: self.command_list_2},
                                   'else': {}},
-                commander.planned_jobs)
+                                 commander.planned_jobs)
             self.assertEqual(0, mocked_job.call_count)
             # test with known application: sequence 0 of 'if' application is popped
             commander.process_application_jobs('if')
-            self.assertDictEqual({'if': {1:[]},
+            self.assertDictEqual({'if': {1: []},
                                   'then': {2: self.command_list_2},
                                   'else': {}}, commander.planned_jobs)
             self.assertDictEqual({'if': self.command_list_1},
@@ -272,9 +274,11 @@ class CommanderTest(unittest.TestCase):
         commander.planned_sequence = {
             0: {'if': {2: [], 0: self.command_list_1},
                 'then': {2: self.command_list_2}}, 3: {'else': {}}}
+
         # define patch function
         def fill_jobs(*args, **kwargs):
             args[1].append(args[0])
+
         with patch.object(commander, 'process_job',
                           side_effect=fill_jobs) as mocked_job:
             commander.initial_jobs()
@@ -287,7 +291,7 @@ class CommanderTest(unittest.TestCase):
             self.assertEqual(4, mocked_job.call_count)
 
 
-class StarterTest(unittest.TestCase):
+class StarterTest(CompatTestCase):
     """ Test case for the Starter class of the commander module. """
 
     def setUp(self):
@@ -360,8 +364,8 @@ class StarterTest(unittest.TestCase):
         starter.store_application_start_sequence(application2)
         # check that application sequence 0 is not in starter planned sequence
         self.assertDictEqual({0: {'sample_test_1': {
-                1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                2: ['sample_test_1:xclock']},
+            1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
+            2: ['sample_test_1:xclock']},
             'sample_test_2': {1: ['sample_test_2:sleep']}}},
             starter.printable_planned_sequence())
 
@@ -417,7 +421,7 @@ class StarterTest(unittest.TestCase):
         # check that application has NOT been removed from planned jobs
         # and stopper wasn't called
         self.assertDictEqual({'appli_1': {0: ['proc_1']}, 'appli_2': {1: ['proc_2']}},
-            starter.planned_jobs)
+                             starter.planned_jobs)
         self.assertEqual(0, mocked_stopper.call_count)
         # test STOP starting strategy
         starter.planned_jobs = test_planned_jobs.copy()
@@ -664,9 +668,9 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual(
                 {'sample_test_1': ['sample_test_1:xfontsel',
                                    'sample_test_1:xlogo'],
-                'sample_test_2': ['sample_test_2:yeux_00',
-                                  'sample_test_2:yeux_01']},
-                                 starter.printable_current_jobs())
+                 'sample_test_2': ['sample_test_2:yeux_00',
+                                   'sample_test_2:yeux_01']},
+                starter.printable_current_jobs())
             self.assertEqual(0, mocked_force.call_count)
         # re-assign last_event_time and request_time to processes
         # in current_jobs
@@ -683,10 +687,10 @@ class StarterTest(unittest.TestCase):
                                    'sample_test_1:xlogo'],
                  'sample_test_2': ['sample_test_2:yeux_00',
                                    'sample_test_2:yeux_01']},
-                                 starter.printable_current_jobs())
+                starter.printable_current_jobs())
             str_error = 'Still stopped 5 seconds after start request'
             self.assertItemsEqual([call('sample_test_1:xlogo', str_error),
-                call('sample_test_2:yeux_00', str_error)],
+                                   call('sample_test_2:yeux_00', str_error)],
                                   mocked_force.call_args_list)
 
     @patch('supvisors.commander.Starter.force_process_fatal')
@@ -745,32 +749,35 @@ class StarterTest(unittest.TestCase):
     def test_start_process(self):
         """ Test the start_process method. """
         from supvisors.commander import Starter
+        from supvisors.ttypes import StartingStrategies
         starter = Starter(self.supvisors)
         # get any process
         xlogo_command = self._get_test_command('xlogo')
         # test failure
         with patch.object(starter, 'process_job',
                           return_value=False) as mocked_jobs:
-            start_result = starter.start_process('strategy',
+            start_result = starter.start_process(StartingStrategies.CONFIG,
                                                  xlogo_command.process,
                                                  'extra_args')
-            self.assertEqual('strategy', starter.strategy)
+            self.assertEqual(StartingStrategies.CONFIG, starter.strategy)
             self.assertDictEqual({}, starter.current_jobs)
             self.assertEqual(1, mocked_jobs.call_count)
             args, kwargs = mocked_jobs.call_args
             self.assertEqual('extra_args', args[0].extra_args)
             self.assertTrue(args[0].ignore_wait_exit)
             self.assertTrue(start_result)
+
         # test success
         def success_job(*args, **kwargs):
             args[1].append(args[0])
             return True
+
         with patch.object(starter, 'process_job',
                           side_effect=success_job) as mocked_jobs:
-            start_result = starter.start_process('strategy',
+            start_result = starter.start_process(StartingStrategies.CONFIG,
                                                  xlogo_command.process,
                                                  'extra_args')
-            self.assertEqual('strategy', starter.strategy)
+            self.assertEqual(StartingStrategies.CONFIG, starter.strategy)
             self.assertEqual(1, mocked_jobs.call_count)
             args1, _ = mocked_jobs.call_args
             self.assertEqual('extra_args', args1[0].extra_args)
@@ -782,8 +789,8 @@ class StarterTest(unittest.TestCase):
             # get any other process
             yeux_command = self._get_test_command('yeux_00')
             # test that success complements current_jobs
-            start_result = starter.start_process(3, yeux_command.process, '')
-            self.assertEqual(3, starter.strategy)
+            start_result = starter.start_process(2, yeux_command.process, '')
+            self.assertEqual(2, starter.strategy)
             self.assertEqual(1, mocked_jobs.call_count)
             args2, _ = mocked_jobs.call_args
             self.assertEqual('', args2[0].extra_args)
@@ -804,7 +811,7 @@ class StarterTest(unittest.TestCase):
             result = starter.default_start_process(process)
             self.assertTrue(result)
             self.assertEqual([call(self.supvisors.options.starting_strategy,
-                process)], mocked_start.call_args_list)
+                                   process)], mocked_start.call_args_list)
 
     def test_start_application(self):
         """ Test the start_application method. """
@@ -840,7 +847,7 @@ class StarterTest(unittest.TestCase):
             self.assertDictEqual({'sample_test_1': {
                 1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                 2: ['sample_test_1:xclock']}},
-                                 starter.printable_planned_jobs())
+                starter.printable_planned_jobs())
             self.assertEqual([call('sample_test_1')],
                              mocked_jobs.call_args_list)
 
@@ -856,7 +863,7 @@ class StarterTest(unittest.TestCase):
             result = starter.default_start_application(application)
             self.assertTrue(result)
             self.assertEqual([call(self.supvisors.options.starting_strategy,
-                application)], mocked_start.call_args_list)
+                                   application)], mocked_start.call_args_list)
 
     def test_start_applications(self):
         """ Test the start_applications method. """
@@ -895,7 +902,7 @@ class StarterTest(unittest.TestCase):
             self.assertEqual(call('sample_test_2'), mocked_jobs.call_args)
 
 
-class StopperTest(unittest.TestCase):
+class StopperTest(CompatTestCase):
     """ Test case for the Stopper class of the commander module. """
 
     def setUp(self):
@@ -943,11 +950,10 @@ class StopperTest(unittest.TestCase):
         # processes have a recent request time: nothing done
         completed = stopper.check_stopping()
         self.assertFalse(completed)
-        self.assertDictEqual({
-            'sample_test_1': ['sample_test_1:xfontsel',
-                              'sample_test_1:xlogo'],
-            'sample_test_2': ['sample_test_2:yeux_00',
-                              'sample_test_2:yeux_01']},
+        self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel',
+                                                'sample_test_1:xlogo'],
+                              'sample_test_2': ['sample_test_2:yeux_00',
+                                                'sample_test_2:yeux_01']},
                              stopper.printable_current_jobs())
         self.assertEqual(0, mocked_force.call_count)
         # re-assign request_time to processes in current_jobs
@@ -1109,9 +1115,9 @@ class StopperTest(unittest.TestCase):
             {0: {'sample_test_1': {
                 1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                 2: ['sample_test_1:xclock']},
-                 'sample_test_2': {
-                     0: ['sample_test_2:yeux_00', 'sample_test_2:yeux_01'],
-                     1: ['sample_test_2:sleep']}}},
+                'sample_test_2': {
+                    0: ['sample_test_2:yeux_00', 'sample_test_2:yeux_01'],
+                    1: ['sample_test_2:sleep']}}},
             stopper.printable_planned_sequence())
 
     def test_force_process_unknown(self):
@@ -1155,7 +1161,7 @@ class StopperTest(unittest.TestCase):
         stopper.process_job(process, jobs)
         self.assertListEqual([process], jobs)
         self.assertEqual([call('10.0.0.1', 'sample_test_1:xfontsel')],
-            mocked_pusher.call_args_list)
+                         mocked_pusher.call_args_list)
 
     def test_stop_process(self):
         """ Test the stop_process method. """
@@ -1170,10 +1176,12 @@ class StopperTest(unittest.TestCase):
             self.assertDictEqual({}, stopper.current_jobs)
             self.assertEqual(1, mocked_jobs.call_count)
             self.assertTrue(start_result)
+
         # test success
         def success_job(*args, **kwargs):
             args[1].append(args[0])
             return True
+
         with patch.object(stopper, 'process_job',
                           side_effect=success_job) as mocked_jobs:
             start_result = stopper.stop_process(xlogo_command.process)
@@ -1207,9 +1215,11 @@ class StopperTest(unittest.TestCase):
                 application.stop_sequence.setdefault(
                     len(command.process.namespec()) % 3,
                     []).append(command.process)
+
         # patch the starter.process_application_jobs
         def success_job(*args, **kwargs):
             args[1].append(args[0])
+
         with patch.object(stopper, 'process_job',
                           side_effect=success_job) as mocked_jobs:
             # test start_application on a stopped application
@@ -1228,7 +1238,8 @@ class StopperTest(unittest.TestCase):
             # process_application_jobs patch
             self.assertDictEqual({}, stopper.planned_sequence)
             self.assertDictEqual({'sample_test_1': {2: ['sample_test_1:xclock']}}, stopper.printable_planned_jobs())
-            self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo']}, stopper.printable_current_jobs())
+            self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo']},
+                                 stopper.printable_current_jobs())
             self.assertEqual(2, mocked_jobs.call_count)
 
     def test_stop_applications(self):
@@ -1267,11 +1278,11 @@ class StopperTest(unittest.TestCase):
             self.assertDictEqual({2: {'sample_test_1': {
                 1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                 2: ['sample_test_1:xclock']}}},
-                                 stopper.printable_planned_sequence())
+                stopper.printable_planned_sequence())
             self.assertDictEqual({'crash': {
                 0: ['crash:late_segv'],
                 1: ['crash:segv']}},
-                                 stopper.printable_planned_jobs())
+                stopper.printable_planned_jobs())
             # current jobs is empty because of process_application_jobs mocking
             self.assertDictEqual({}, stopper.printable_current_jobs())
             self.assertEqual(1, mocked_jobs.call_count)
@@ -1280,6 +1291,7 @@ class StopperTest(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     unittest.main(defaultTest='test_suite')

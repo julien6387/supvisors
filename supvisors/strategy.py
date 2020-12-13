@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -45,11 +45,11 @@ class AbstractStartingStrategy(AbstractStrategy):
                 address, status.state_string()))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
-                self.logger.debug('address={} loading={} expected_loading={}'\
+                self.logger.debug('address={} loading={} expected_loading={}'
                                   .format(address, loading, expected_loading))
-                return (loading + expected_loading < 100, loading)
+                return loading + expected_loading < 100, loading
             self.logger.debug('address {} not RUNNING'.format(address))
-        return (False, 0)
+        return False, 0
 
     def get_loading_and_validity(self, addresses, expected_loading):
         """ Return the report of loading capability of all addresses iaw the
@@ -67,7 +67,7 @@ class AbstractStartingStrategy(AbstractStrategy):
         # returns adresses with validity and loading
         sorted_addresses = sorted([(x, y[1])
                                    for x, y in loading_validities.items()
-                                   if y[0]], key=lambda x, y: y)
+                                   if y[0]], key=lambda t: t[1])
         self.logger.trace('sorted_addresses={}'.format(sorted_addresses))
         return sorted_addresses
 
@@ -79,7 +79,7 @@ class ConfigStrategy(AbstractStartingStrategy):
     def get_address(self, addresses, expected_loading):
         """ Choose the first address that can support the additional loading
         requested. """
-        self.logger.debug('addresses={} expected_loading={}'\
+        self.logger.debug('addresses={} expected_loading={}'
                           .format(addresses, expected_loading))
         # returns the first remote in list that is capable of handling
         # the loading
@@ -88,7 +88,7 @@ class ConfigStrategy(AbstractStartingStrategy):
         if '*' in addresses:
             addresses = self.supvisors.address_mapper.addresses
         return next((address for address in addresses
-                     if loading_validities[address][0]),  None)
+                     if loading_validities[address][0]), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
@@ -104,7 +104,7 @@ class LessLoadedStrategy(AbstractStartingStrategy):
         loading_validities = self.get_loading_and_validity(
             addresses, expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
-        return sorted_addresses[0][0]  if sorted_addresses else None
+        return sorted_addresses[0][0] if sorted_addresses else None
 
 
 class MostLoadedStrategy(AbstractStartingStrategy):
@@ -120,7 +120,7 @@ class MostLoadedStrategy(AbstractStartingStrategy):
         loading_validities = self.get_loading_and_validity(addresses,
                                                            expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
-        return sorted_addresses[-1][0]  if sorted_addresses else None
+        return sorted_addresses[-1][0] if sorted_addresses else None
 
 
 def get_address(supvisors, strategy, addresses, expected_loading):
@@ -145,6 +145,8 @@ class SenicideStrategy(AbstractStrategy):
         most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
+            # uptime is used as there is guarantee that addresses are time synchonized
+            # so comparing start dates may be irrelevant
             saved_address = min(process.addresses,
                                 key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('senicide conciliation: keep {} at {}'.format(
@@ -329,13 +331,13 @@ class RunningFailureHandler(AbstractStrategy):
                     self.continue_process_jobs))
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
             if application_name not in self.stop_application_jobs and \
-                application_name not in self.restart_application_jobs:
+                    application_name not in self.restart_application_jobs:
                 self.restart_process_jobs.add(process)
                 self.continue_process_jobs.discard(process)
         elif strategy == RunningFailureStrategies.CONTINUE:
             if application_name not in self.stop_application_jobs and \
-                application_name not in self.restart_application_jobs and \
-                process not in self.restart_process_jobs:
+                    application_name not in self.restart_application_jobs and \
+                    process not in self.restart_process_jobs:
                 self.continue_process_jobs.add(process)
 
     def add_default_job(self, process):

@@ -4,8 +4,8 @@
     <property name="supvisors.jar" value="supvisors-${version}.jar"/>
 
     <path id="project.classpath">
-        <pathelement path="/opt/jeromq-0.3.6/lib/jeromq-0.3.6.jar"/>
-        <pathelement path="/opt/JSON-java-20160810/lib/json-20160810.jar"/>
+        <pathelement path="/opt/JeroMQ-0.5.2/bin/jeromq-0.5.2.jar"/>
+        <pathelement path="/opt/Gson-2.8.6/bin/gson-2.8.6.jar"/>
         <fileset dir="/opt/apache-xmlrpc-3.1.3/lib">
            <include name="**/*.jar"/>
         </fileset>

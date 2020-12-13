@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -19,19 +19,21 @@
 
 from time import ctime
 
-
 # HTML page names
 SUPVISORS_PAGE = 'index.html'
 HOST_ADDRESS_PAGE = 'hostaddress.html'
 PROC_ADDRESS_PAGE = 'procaddress.html'
 APPLICATION_PAGE = 'application.html'
 TAIL_PAGE = 'tail.html'
+STDOUT_PAGE = 'logtail/%s'
+STDERR_PAGE = 'logtail/%s/stderr'
 
 # gravity classes for messages
 # use of 'erro' instead of 'error' in order to avoid HTTP error log traces
 Info = 'info'
 Warn = 'warn'
 Error = 'erro'
+
 
 def format_gravity_message(message):
     """ Add a gravity to a message if not present."""
@@ -48,6 +50,7 @@ def format_gravity_message(message):
     # in other cases, Supervisor message is suitable
     return message
 
+
 def print_message(root, gravity, message):
     """ Print message as a result of action. """
     elt = root.findmeld('message_mid')
@@ -58,38 +61,47 @@ def print_message(root, gravity, message):
         elt.attrib['class'] = 'empty'
         elt.content('')
 
+
 def info_message(msg, address=None):
     """ Define an information message. """
-    return Info, msg + ' at {}'.format(ctime()) \
-        + (' on {}'.format(address) if address else '')
+    return Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
+
 
 def warn_message(msg, address=None):
     """ Define a warning message. """
-    return Warn, msg + ' at {}'.format(ctime()) \
-        + (' on {}'.format(address) if address else '')
+    return Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
+
 
 def error_message(msg, address=None):
     """ Define an error message. """
-    return Error, msg + ' at {}'.format(ctime()) \
-        + (' on {}'.format(address) if address else '')
+    return Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(address) if address else '')
+
 
 def delayed_info(msg, address=None):
     """ Define a delayed information message. """
+
     def on_wait():
         return info_message(msg, address)
+
     on_wait.delay = 0.05
     return on_wait
+
 
 def delayed_warn(msg, address=None):
     """ Define a delayed warning message. """
+
     def on_wait():
         return warn_message(msg, address)
+
     on_wait.delay = 0.05
     return on_wait
 
+
 def delayed_error(msg, address=None):
     """ Define a delayed error message. """
+
     def on_wait():
         return error_message(msg, address)
+
     on_wait.delay = 0.05
     return on_wait

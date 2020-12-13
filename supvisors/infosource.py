@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -75,15 +75,24 @@ class SupervisordSource(object):
         return self.supervisord.options.httpservers[0][1]
 
     @property
-    def serverurl(self): return self.supervisord.options.serverurl
+    def serverurl(self):
+        return self.supervisord.options.serverurl
+
     @property
-    def serverport(self): return self.server_config['port']
+    def serverport(self):
+        return self.server_config['port']
+
     @property
-    def username(self): return self.server_config['username']
+    def username(self):
+        return self.server_config['username']
+
     @property
-    def password(self): return self.server_config['password']
+    def password(self):
+        return self.server_config['password']
+
     @property
-    def supervisor_state(self): return self.supervisord.options.mood
+    def supervisor_state(self):
+        return self.supervisord.options.mood
 
     def get_env(self):
         """ Return a simple environment that can be used for the configuration

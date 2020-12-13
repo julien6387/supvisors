@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,10 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
-
 from supervisor.http import NOT_DONE_YET
-from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
 from supvisors.strategy import conciliate_conflicts
@@ -33,7 +30,6 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import *
 
 
-#class SupvisorsView(ViewHandler, MeldView):
 class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
@@ -48,12 +44,10 @@ class SupvisorsView(ViewHandler):
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
-        #ViewHandler.__init__(self, context, SUPVISORS_PAGE)
-        #MeldView.__init__(self, context)
         self.page_name = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = map(str.lower, ConciliationStrategies._strings())
-        user = ConciliationStrategies._to_string(ConciliationStrategies.USER)
+        self.strategies = {str.lower(x) for x in ConciliationStrategies.strings()}
+        user = ConciliationStrategies.to_string(ConciliationStrategies.USER)
         self.strategies.remove(user.lower())
         # global actions (no parameter)
         self.global_methods = {'refresh': self.refresh_action,
@@ -77,7 +71,7 @@ class SupvisorsView(ViewHandler):
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
         if self.fsm.state == SupvisorsStates.CONCILIATION and \
-                self.sup_ctxt.conflicts():
+                self.sup_ctx.conflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
@@ -126,8 +120,7 @@ class SupvisorsView(ViewHandler):
             elt = li_elt.findmeld('global_strategy_a_mid')
             # conciliation requests MUST be sent to MASTER
             master = self.sup_ctx.master_address
-            url = self.view_ctx.format_url(master, SUPVISORS_PAGE,
-                                           **{ACTION: item})
+            url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **{ACTION: item})
             elt.attributes(href=url)
             elt.content(item.title())
 
@@ -139,17 +132,31 @@ class SupvisorsView(ViewHandler):
                  'rowspan': len(process.addresses) if idx == 0 else 0,
                  'address': address,
                  'uptime': process.infos[address]['uptime']}
-            for process in self.sup_ctx.conflicts()
-            for idx, address in enumerate(process.addresses)]
+                for process in self.sup_ctx.conflicts()
+                for idx, address in enumerate(process.addresses)]
         tr_mid = div_elt.findmeld('tr_mid')
+        shaded_tr = True
         for tr_elt, item in tr_mid.repeat(data):
+            # first get the rowspan
+            rowspan = item['rowspan']
+            if rowspan:
+                shaded_tr = not shaded_tr
+            # set row background
+            if shaded_tr:
+                tr_elt.attrib['class'] = 'shaded'
+            else:
+                tr_elt.attrib['class'] = 'brightened'
             # set process name
             elt = tr_elt.findmeld('name_td_mid')
-            rowspan = item['rowspan']
             if rowspan > 0:
                 namespec = item['namespec']
                 elt.attrib['rowspan'] = str(rowspan)
                 elt.content(namespec)
+                # apply shaded / brightened to td element too for background-image to work
+                if shaded_tr:
+                    elt.attrib['class'] = 'shaded'
+                else:
+                    elt.attrib['class'] = 'brightened'
             else:
                 elt.replace('')
             # set address
@@ -167,25 +174,27 @@ class SupvisorsView(ViewHandler):
                 parameters = {NAMESPEC: namespec,
                               ADDRESS: address,
                               ACTION: action}
-                url = self.view_ctx.format_url('', SUPVISORS_PAGE,
-                                               **parameters)
+                url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
                 elt.attributes(href=url)
             # set process action links
             td_elt = tr_elt.findmeld('strategy_td_mid')
             if rowspan > 0:
+                # apply shaded / brightened to td element too for background-image to work
+                if shaded_tr:
+                    td_elt.attrib['class'] = 'shaded'
+                else:
+                    td_elt.attrib['class'] = 'brightened'
+                # fill the strategies
                 td_elt.attrib['rowspan'] = str(rowspan)
-                strategy_iterator = td_elt.findmeld(
-                    'local_strategy_li_mid').repeat(self.strategies)
-                for li_elt, item in strategy_iterator:
+                strategy_iterator = td_elt.findmeld('local_strategy_li_mid').repeat(self.strategies)
+                for li_elt, st_item in strategy_iterator:
                     elt = li_elt.findmeld('local_strategy_a_mid')
-                    # conciliation requests MUST be sent to MASTER
+                    # conciliation requests MUST be sent to MASTER
                     master = self.sup_ctx.master_address
-                    parameters = {ViewContext.NAMESPEC: namespec,
-                                  ViewContext.ACTION: item}
-                    url = self.view_ctx.format_url(master, SUPVISORS_PAGE,
-                                                   **parameters)
+                    parameters = {NAMESPEC: namespec, ACTION: st_item}
+                    url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
                     elt.attributes(href=url)
-                    elt.content(item.title())
+                    elt.content(st_item.title())
             else:
                 td_elt.replace('')
 
@@ -202,7 +211,8 @@ class SupvisorsView(ViewHandler):
             address = self.view_ctx.get_address()
             return self.process_methods[action](namespec, address)
 
-    def refresh_action(self):
+    @staticmethod
+    def refresh_action():
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
@@ -216,11 +226,12 @@ class SupvisorsView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('restart: {}'.format(e))
+                except RPCError as exc:
+                    return error_message('restart: {}'.format(exc))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('Supvisors restarted')
+
             onwait.delay = 0.1
             return onwait
         return delayed_info('Supvisors restarted')
@@ -235,11 +246,12 @@ class SupvisorsView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('shutdown: {}'.format(e))
+                except RPCError as exc:
+                    return error_message('shutdown: {}'.format(exc))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 return info_message('Supvisors shut down')
+
             onwait.delay = 0.1
             return onwait
         return delayed_info('Supvisors shut down')
@@ -249,11 +261,13 @@ class SupvisorsView(ViewHandler):
         # get running addresses of process
         addresses = self.sup_ctx.processes[namespec].addresses
         self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+
         def on_wait():
             if address in addresses:
                 return NOT_DONE_YET
             return info_message('process {} stopped on {}'
                                 .format(namespec, address))
+
         on_wait.delay = 0.1
         return on_wait
 
@@ -266,11 +280,13 @@ class SupvisorsView(ViewHandler):
         running_addresses.remove(address)
         for address in running_addresses:
             self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+
         def on_wait():
             if len(addresses) > 1:
                 return NOT_DONE_YET
             return info_message('processes {} stopped but on {}'
                                 .format(namespec, address))
+
         on_wait.delay = 0.1
         return on_wait
 
@@ -279,14 +295,12 @@ class SupvisorsView(ViewHandler):
         if namespec:
             # conciliate only one process
             conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies._from_string(action),
+                                 ConciliationStrategies.from_string(action),
                                  [self.sup_ctx.processes[namespec]])
-            return delayed_info('{} in progress for {}'
-                                .format(action, namespec))
+            return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
             conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies._from_string(action),
+                                 ConciliationStrategies.from_string(action),
                                  self.sup_ctx.conflicts())
-            return delayed_info('{} in progress for all conflicts'
-                                .format(action))
+            return delayed_info('{} in progress for all conflicts'.format(action))

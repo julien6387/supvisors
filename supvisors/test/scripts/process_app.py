@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,13 +17,18 @@
 # limitations under the License.
 # ======================================================================
 
-from Tkinter import *
+from sys import stderr
+from tkinter import *
+
 
 class ProcessAppTk(Tk):
+
+    cpt=1
 
     def __init__(self, namespec, description):
         """ Initialization of the attributes. """
         Tk.__init__(self, None)
+        print('Starting %s' % namespec)
         self.title(u'Supvisors')
         self.grid()
         # create main form
@@ -33,14 +38,21 @@ class ProcessAppTk(Tk):
         mainWindow.add(Label(mainWindow, text=u'Supvisors namespec: {}'.format(namespec)))
         if description:
             mainWindow.add(Label(mainWindow, text=u'Supvisors description: {}'.format(description)))
+        # talk action
+        mainWindow.add(Button(self, text=u"Talk", command=self.talk))
         # add window to form and pack it
         formWindow.add(mainWindow)
         formWindow.pack()
-        # Actions
-        Button(self, text=u"close", command=self.quit).pack(side=BOTTOM, padx=10, pady=2)
+        # close action
+        Button(self, text=u"Close", command=self.quit).pack(side=BOTTOM, padx=10, pady=2)
         # window properties
         self.grid_columnconfigure(0, weight=1)
         self.resizable(False, False)
+
+    def talk(self):
+        print('Talking seq=%d' % ProcessAppTk.cpt, flush=True)
+        print('Talking seq=%d' % ProcessAppTk.cpt, file=stderr, flush=True)
+        ProcessAppTk.cpt = ProcessAppTk.cpt + 1
 
     def quit(self):
         print('Quit called')
@@ -50,6 +62,7 @@ class ProcessAppTk(Tk):
 if __name__ == "__main__":
     # get arguments
     import argparse
+
     parser = argparse.ArgumentParser(description='Start a dummy window named with a namespec.')
     parser.add_argument('-n', '--namespec', required=True, help='the namespec of the program')
     parser.add_argument('-x', '--xkill', type=int, metavar='SEC', help='kill the window after SEC seconds')
@@ -62,4 +75,3 @@ if __name__ == "__main__":
         root.after(args.xkill * 1000, root.quit)
     # start main loop
     root.mainloop()
-

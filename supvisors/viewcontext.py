@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2018 Julien LE CLEACH
@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-import urllib
+from urllib.parse import quote
 
 from supvisors.utils import supvisors_shortcuts
 from supvisors.webutils import error_message
@@ -53,7 +53,7 @@ class ViewContext:
         """ Define attributes for statistics selection. """
         # store the HTML context
         self.http_context = context
-        # keep a reference to Supvisors logger and options
+        # keep references to Supvisors instance and attributes for readability
         self.supvisors = context.supervisord.supvisors
         supvisors_shortcuts(self, ['address_mapper', 'context', 'logger',
                                    'options', 'statistician'])
@@ -94,12 +94,11 @@ class ViewContext:
     def update_period(self):
         """ Extract period from context. """
         default_value = next(iter(self.options.stats_periods))
-        self._update_integer(PERIOD, self.options.stats_periods,
-                             default_value)
+        self._update_integer(PERIOD, self.options.stats_periods, default_value)
 
     def update_application_name(self):
         """ Extract application name from context. """
-        self._update_string(APPLI, self.context.applications.keys())
+        self._update_string(APPLI, list(self.context.applications.keys()))
 
     def update_process_name(self):
         """ Extract process name from context. """
@@ -109,11 +108,11 @@ class ViewContext:
 
     def update_namespec(self):
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, self.context.processes.keys())
+        self._update_string(NAMESPEC, list(self.context.processes.keys()))
 
     def update_cpu_id(self):
         """ Extract CPU id from context. """
-        self._update_integer(CPU, range(self.get_nbcores() + 1))
+        self._update_integer(CPU, list(range(self.get_nbcores() + 1)))
 
     def update_interface_name(self):
         """ Extract interface name from context. """
@@ -125,17 +124,15 @@ class ViewContext:
     def url_parameters(self, **kwargs):
         """ Return the list of parameters for an URL. """
         parameters = dict(self.parameters, **kwargs)
-        return '&amp;'.join(['{}={}'.format(key, urllib.quote(str(value)))
+        return '&amp;'.join(['{}={}'.format(key, quote(str(value)))
                              for key, value in parameters.items()
                              if value])
 
     def format_url(self, address_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(urllib.quote(address_name),
-                                     self.get_server_port()) \
+        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) \
             if address_name else ''
-        return '{}{}?{}'.format(url, page,
-                                self.url_parameters(**kwargs))
+        return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
 
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
@@ -152,12 +149,30 @@ class ViewContext:
         return self.statistician.nbcores.get(stats_address, 0)
 
     def get_address_stats(self, address=None):
-        """ Get the statistics structure related to the address
-        and the period selected.
+        """ Get the statistics structure related to the address and the period selected.
         If no address is specified, local address is used. """
         stats_address = address or self.address
-        return self.statistician.data.get(stats_address, {})\
-            .get(self.parameters[PERIOD], None)
+        return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
+
+    def get_process_last_info(self, namespec, running=False):
+        """ Get the latest process info received from the process across all addresses.
+        A priority is given to the info coming from an address where the process is running.
+        If running is set to True, the priority is exclusive. """
+        address, info = None, None
+        status = self.get_process_status(namespec)
+        if status:
+            # search for process info where process is running
+            infos = dict(filter(lambda elem: elem[0] in status.addresses,
+                                status.infos.items()))
+            if not infos and not running:
+                # nothing found and running not requested: consider all process infos
+                infos = status.infos
+            # sort infos them by date (local_time is local time of latest received event)
+            sorted_infos = sorted(infos.items(),
+                                  key=lambda x: x[1]['local_time'],
+                                  reverse=True)
+            address, info = next(iter(sorted_infos), (None, None))
+        return address, info
 
     def get_process_stats(self, namespec, running=False):
         """ Get the statistics structure related to the process and the period
@@ -166,28 +181,29 @@ class ViewContext:
         If running is set to True, process stats are taken from the address
         where the process is running (first in list if multiple).
         Otherwise, process stats are taken from the local address. """
-        stats_address = self.address
         # if running requested, find an address where the process is running
+        stats_address = self.address
         if running:
-            status = self.get_process_status(namespec)
-            if status:
-                stats_address = next(iter(status.addresses), None)
+            address, _ = self.get_process_last_info(namespec, True)
+            if address:
+                # replace local address only if running address has been found
+                stats_address = address
         # return the process statistics for this process
         address_stats = self.get_address_stats(stats_address)
-        return (address_stats.find_process_stats(namespec),
-                self.get_nbcores(stats_address))
+        nb_cores = self.get_nbcores(stats_address)
+        if address_stats:
+            return address_stats.find_process_stats(namespec), nb_cores
+        return None, nb_cores
 
     def get_process_status(self, namespec=None):
-        """ Get the ProcessStatus instance related to the process named
-        namespec.
+        """ Get the ProcessStatus instance related to the process named namespec.
         If none specified, the form namespec is used. """
         namespec = namespec or self.parameters[NAMESPEC]
         if namespec:
             try:
                 return self.context.processes[namespec]
             except KeyError:
-                self.logger.debug('failed to get ProcessStatus from {}'
-                                  .format(namespec))
+                self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
 
     def _update_string(self, param, check_list, default_value=None):
         """ Extract application name from context. """
@@ -198,8 +214,7 @@ class ViewContext:
                 # reset default_value
                 default_value = value
             else:
-                self.message(error_message('Incorrect {}: {}'
-                                           .format(param, value)))
+                self.message(error_message('Incorrect {}: {}'.format(param, value)))
         # assign value found or default
         self.logger.debug('{} set to {}'.format(param, default_value))
         self.parameters[param] = default_value
