@@ -155,26 +155,22 @@ class SupervisorListener(object):
         """ Unstack and process one event from the event queue. """
         event_type, event_address, event_data = json.loads(message)
         if event_type == InternalEventHeaders.TICK:
-            self.logger.trace('got tick event from {}: {}'.format(
-                event_address, event_data))
+            self.logger.trace('got tick event from {}: {}'.format(event_address, event_data))
             self.fsm.on_tick_event(event_address, event_data)
         elif event_type == InternalEventHeaders.PROCESS:
-            self.logger.trace('got process event from {}: {}'.format(
-                event_address, event_data))
+            self.logger.trace('got process event from {}: {}'.format(event_address, event_data))
             self.fsm.on_process_event(event_address, event_data)
         elif event_type == InternalEventHeaders.STATISTICS:
             # this Supvisors could handle statistics
             # even if psutil is not installed
-            self.logger.trace('got statistics event from {}: {}'.format(
-                event_address, event_data))
+            self.logger.trace('got statistics event from {}: {}'.format(event_address, event_data))
             self.statistician.push_statistics(event_address, event_data)
 
     def unstack_info(self, message):
         """ Unstack the process info received. """
         # unstack the queue for process info
         address_name, info = json.loads(message)
-        self.logger.trace('got process info event from {}'.format(
-            address_name))
+        self.logger.trace('got process info event from {}'.format(address_name))
         self.fsm.on_process_info(address_name, info)
 
     def authorization(self, data):

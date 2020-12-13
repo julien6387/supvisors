@@ -131,7 +131,7 @@ class ProcAddressView(StatusView):
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
             for tr_elt, item in iterator:
-                selected_tr = self.write_common_process_status(tr_elt, item)
+                self.write_common_process_status(tr_elt, item, self.address)
                 # print process name (tail allowed if STOPPED)
                 namespec = item['namespec']
                 process_name = item.get('processname', namespec)
@@ -142,26 +142,11 @@ class ProcAddressView(StatusView):
                 # print description
                 elt = tr_elt.findmeld('desc_td_mid')
                 elt.content(item['desc'])
-                # manage process log actions
-                # clear log
-                namespec = item['namespec']
-                elt = tr_elt.findmeld('clear_a_mid')
-                parameters = {ACTION: 'clearlog', PROCESS: namespec}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                # tail stdout
-                elt = tr_elt.findmeld('tailout_a_mid')
-                url = STDOUT_PAGE % quote(namespec)
-                elt.attributes(href=url, target='_blank')
-                # tail stderr
-                elt = tr_elt.findmeld('tailerr_a_mid')
-                url = STDERR_PAGE % quote(namespec)
-                elt.attributes(href=url, target='_blank')
                 # set line background and invert
-                if selected_tr:
-                    tr_elt.attrib['class'] = 'selected'
-                elif shaded_tr:
+                if shaded_tr:
                     tr_elt.attrib['class'] = 'shaded'
+                else:
+                    tr_elt.attrib['class'] = 'brightened'
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')
@@ -173,7 +158,6 @@ class ProcAddressView(StatusView):
             return self.restart_sup_action()
         if action == 'shutdownsup':
             return self.shutdown_sup_action()
-        # TODO: context is lost
         return StatusView.make_callback(self, namespec, action)
 
     def restart_sup_action(self):

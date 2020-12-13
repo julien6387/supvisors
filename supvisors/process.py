@@ -18,6 +18,7 @@
 # ======================================================================
 
 from supervisor.options import make_namespec
+from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
 from supvisors.ttypes import ProcessStates, RunningFailureStrategies
@@ -99,8 +100,7 @@ class ProcessRules(object):
             format(self.addresses,
                    self.start_sequence, self.stop_sequence, self.required,
                    self.wait_exit, self.expected_loading,
-                   RunningFailureStrategies._to_string(
-                       self.running_failure_strategy))
+                   RunningFailureStrategies._to_string(self.running_failure_strategy))
 
     # serialization
     def serial(self):
@@ -112,8 +112,7 @@ class ProcessRules(object):
                 'wait_exit': self.wait_exit,
                 'expected_loading': self.expected_loading,
                 'running_failure_strategy':
-                    RunningFailureStrategies._to_string(
-                        self.running_failure_strategy)}
+                    RunningFailureStrategies._to_string(self.running_failure_strategy)}
 
 
 class ProcessStatus(object):
@@ -140,6 +139,8 @@ class ProcessStatus(object):
         self.supvisors = supvisors
         supvisors_shortcuts(self, ['address_mapper', 'info_source',
                                    'logger', 'options'])
+        # copy Supervisor method to self
+        ProcessStatus.update_description = SupervisorNamespaceRPCInterface._interpretProcessInfo
         # attributes
         self.application_name = application_name
         self.process_name = process_name
@@ -225,12 +226,17 @@ class ProcessStatus(object):
         """ Return the state as a string. """
         return ProcessStates._to_string(self.state)
 
-    def add_info(self, address, payload):
-        """ Insert a new process information in internal list. """
+    def add_info(self, address, process_info):
+        """ Insert a new process information in internal list.
+        process_info is a subset of the dict received from Supervisor.getProcessInfo.
+        it contains the attributes declared in supvisors.utils.__Payload_Keys.
+        """
         # keep date of last information received
+        # use local time here as there is no guarantee that addresses will be time synchonized
         self.last_event_time = int(time())
         # store information
-        info = self.infos[address] = payload
+        info = self.infos[address] = process_info
+        info['local_time'] = self.last_event_time
         self.update_uptime(info)
         self.logger.debug('adding {} at {}'.format(info, address))
         # reset extra_args
@@ -249,18 +255,23 @@ class ProcessStatus(object):
         # do not consider process event while not added through tick
         if address in self.infos:
             # keep date of last information received
+            # use local time here as there is no guarantee that addresses will be time synchonized
             self.last_event_time = int(time())
             # last received extra_args are always applicable
             self.extra_args = payload['extra_args']
             # refresh internal information
             info = self.infos[address]
-            self.logger.trace('inserting {} into {} at {}'
-                              .format(payload, info, address))
+            info['local_time'] = self.last_event_time
+            self.logger.trace('inserting {} into {} at {}'.format(payload, info, address))
             info.update(payload)
-            new_state = info['state']
+            # re-evaluate description using Supervisor function
+            info['description'] = self.update_description(info)
             # reset start time if process in a starting state
+            new_state = info['state']
             if new_state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
                 info['start'] = info['now']
+            if new_state in STOPPED_STATES:
+                info['stop'] = info['now']
             self.update_uptime(info)
             # update / check running addresses
             self.update_status(address, new_state, info['expected'])
@@ -270,12 +281,14 @@ class ProcessStatus(object):
                              ' wait for tick from {}'.format(self.process_name, address))
 
     def update_times(self, address, remote_time):
-        """ Update the time entries of the internal process information when
+        """ Update the internal process information when
         a new tick is received from the remote Supvisors instance. """
         if address in self.infos:
             info = self.infos[address]
             info['now'] = remote_time
             self.update_uptime(info)
+            # it may have an impact on the description depending on the process state
+            info['description'] = self.update_description(info)
 
     @staticmethod
     def update_uptime(info):
@@ -304,8 +317,8 @@ class ProcessStatus(object):
             elif self.running():
                 # addresses is empty for a running process
                 # action expected to fix the inconsistency
-                self.logger.warn('no more address for running process '
-                                 '{}'.format(self.namespec()))
+                self.logger.warn('no more address for running process {}'
+                                 .format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # notify the failure to dedicated handler, only if local
                 # address is master
@@ -316,8 +329,8 @@ class ProcessStatus(object):
                 # consider STOPPED now
                 self.state = ProcessStates.STOPPED
         else:
-            self.logger.debug('process {} still in conflict after address '
-                              'invalidation'.format(self.namespec()))
+            self.logger.debug('process {} still in conflict after address invalidation'
+                              .format(self.namespec()))
 
     def update_status(self, address, new_state, expected):
         """ Updates the state and list of running address iaw the new event. """
@@ -341,15 +354,13 @@ class ProcessStatus(object):
                 self.state = new_state
                 self.expected_exit = expected
         # log the new status
-        log_trace = 'Process {} is {}'.format(self.namespec(),
-                                              self.state_string())
+        log_trace = 'Process {} is {}'.format(self.namespec(), self.state_string())
         if self.addresses:
-            log_trace += ' at {}'.format(list(self.addresses))
+            log_trace += ' on {}'.format(list(self.addresses))
         self.logger.info(log_trace)
 
     def evaluate_conflict(self):
-        """ Gets a synthetic state if several processes are in a RUNNING-like
-        state. """
+        """ Gets a synthetic state if several processes are in a RUNNING-like state. """
         if self.conflicting():
             # several processes seems to be in a running state
             # so that becomes tricky

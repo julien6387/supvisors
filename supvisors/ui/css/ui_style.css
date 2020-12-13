@@ -25,12 +25,12 @@
     --vlight2-color: #506469;
     --th-color: #053035;
     --tr-color: #305050;
-    --trselected-color: #9f9;
     --selected-color: #00e6b0;
     --border-color: #82aaaf;
     --ok-color: #33ff33;
     --stable-color: dodgerblue;
     --error-color: #ff3333;
+    --blink-color: orangered;
 }
 
 
@@ -44,12 +44,6 @@ html, body, #body_block {
 
 body {
     margin: auto;
-    color: var(--text-color);
-}
-
-a {
-    text-decoration: none;
-    color: var(--text-color);
 }
 
 /* fake a background transparency because smoke image is too dark */
@@ -78,7 +72,6 @@ body::after {
     flex-direction: column;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
-
 #left_side header, #left_side header a {
    text-align: center;
    color: var(--title-color);
@@ -89,10 +82,12 @@ nav {
     display: flex;
     flex-direction: column;
     overflow: auto;
+    color: var(--text-color);
 }
 
 #left_side footer {
     font-style: italic;
+    color: var(--text-color);
 }
 
 #left_side footer a {
@@ -111,6 +106,7 @@ nav {
     flex: 1;
     display: flex;
     flex-direction: column;
+    color: var(--text-color);
 }
 
 #right_side header {
@@ -245,12 +241,17 @@ nav ul, p {
     font-size: .8em;
 }
 
+a {
+    text-decoration: none;
+    color: var(--text-color);
+}
 
 /*
  * Blink Style
+ *
  */
-.blink {
-    color: orangered;
+#left_side header a.blink {
+    color: var(--blink-color);
     animation: blinker 1.2s linear infinite;
 }
 
@@ -402,12 +403,12 @@ th {
     background-color: var(--th-color);
 }
 
-tr {
-    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
+.brightened {
+    background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
 }
 
-tr.shaded {
-    background-image: linear-gradient(180deg, var(--vlight1-color), var(--vlight2-color), var(--vlight1-color));
+.shaded {
+    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
 }
 
 /* fix first columns sizes (button actions have a fixed contents) */

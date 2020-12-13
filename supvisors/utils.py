@@ -49,8 +49,7 @@ class EventHeaders:
 class DeferredRequestHeaders:
     """ Enumeration class for the headers of deferred XML-RPC messages
     sent to MainLoop."""
-    CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, \
-    SHUTDOWN = range(6)
+    CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
 # used to convert enumeration-like value to string and vice-versa
@@ -124,7 +123,8 @@ def simple_gmtime(now=None):
 
 
 # Keys of information kept from Supervisor
-__Payload_Keys = ('name', 'group', 'state', 'start', 'now', 'pid')
+__Payload_Keys = ('name', 'group', 'state', 'start', 'stop', 'now', 'pid',
+                  'description', 'spawnerr')
 
 
 def extract_process_info(info):

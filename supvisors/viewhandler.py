@@ -39,6 +39,7 @@ def test_matplotlib_import():
     except ImportError:
         return None
 
+
 # keep matplotlib availability information at once
 PLOT_CLASS = test_matplotlib_import()
 
@@ -214,29 +215,55 @@ class ViewHandler(MeldView):
             elt.replace('--')
 
     def write_process_start_button(self, tr_elt, namespec, state):
-        """ Write the configuration of the start button of a process. """
-        self._write_process_button(tr_elt, 'start_a_mid', 'start', namespec, state, STOPPED_STATES)
+        """ Write the configuration of the start button of a process.
+        The action will be handled by the local supvisors. """
+        self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name,
+                                   'start', namespec, state, STOPPED_STATES)
 
     def write_process_stop_button(self, tr_elt, namespec, state):
-        """ Write the configuration of the stop button of a process. """
-        self._write_process_button(tr_elt, 'stop_a_mid', 'stop', namespec, state, RUNNING_STATES)
+        """ Write the configuration of the stop button of a process.
+        The action will be handled by the local supvisors. """
+        self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name,
+                                   'stop', namespec, state, RUNNING_STATES)
 
     def write_process_restart_button(self, tr_elt, namespec, state):
-        """ Write the configuration of the restart button of a process. """
-        self._write_process_button(tr_elt, 'restart_a_mid', 'restart', namespec, state, RUNNING_STATES)
+        """ Write the configuration of the restart button of a process.
+        The action will be handled by the local supvisors. """
+        self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name,
+                                   'restart', namespec, state, RUNNING_STATES)
 
-    def _write_process_button(self, tr_elt, elt_name, action, namespec, state, state_list):
+    def write_process_clear_button(self, tr_elt, namespec, action_address):
+        """ Write the configuration of the clear logs button of a process.
+        This action must be sent to the relevant address. """
+        self._write_process_button(tr_elt, 'clear_a_mid', action_address, self.page_name,
+                                   'clearlog', namespec, '', '')
+
+    def write_process_stdout_button(self, tr_elt, namespec, action_address):
+        """ Write the configuration of the tail stdout button of a process.
+        This action must be sent to the relevant address. """
+        # no action requested. page name is enough
+        self._write_process_button(tr_elt, 'tailout_a_mid', action_address, STDOUT_PAGE % quote(namespec),
+                                   '', namespec, '', '')
+
+    def write_process_stderr_button(self, tr_elt, namespec, action_address):
+        """ Write the configuration of the tail stderr button of a process.
+        This action must be sent to the relevant address. """
+        # no action requested. page name is enough
+        self._write_process_button(tr_elt, 'tailerr_a_mid', action_address, STDERR_PAGE % quote(namespec),
+                                   '', namespec, '', '')
+
+    def _write_process_button(self, tr_elt, elt_name, address, page, action, namespec,
+                              state, state_list):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
         if state in state_list:
             elt.attrib['class'] = 'button on'
-            parameters = {ACTION: action, NAMESPEC: namespec}
-            url = self.view_ctx.format_url('', self.page_name, **parameters)
+            url = self.view_ctx.format_url(address, page, **{ACTION: action, NAMESPEC: namespec})
             elt.attributes(href=url)
         else:
             elt.attrib['class'] = 'button off'
 
-    def write_common_process_status(self, tr_elt, item):
+    def write_common_process_status(self, tr_elt, item, action_address):
         """ Write the common part of a process status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
@@ -255,11 +282,15 @@ class ViewHandler(MeldView):
         self.write_process_start_button(tr_elt, namespec, process_state)
         self.write_process_stop_button(tr_elt, namespec, process_state)
         self.write_process_restart_button(tr_elt, namespec, process_state)
-        return self.view_ctx.parameters[PROCESS] == namespec
+        # manage log actions
+        self.write_process_clear_button(tr_elt, namespec, action_address)
+        self.write_process_stdout_button(tr_elt, namespec, action_address)
+        self.write_process_stderr_button(tr_elt, namespec, action_address)
 
     def write_detailed_process_cpu(self, stats_elt, proc_stats, nbcores):
         """ Write the CPU part of the detailed process status. """
         if proc_stats and len(proc_stats[0]) > 0:
+            # calculate stats
             avg, rate, (a, b), dev = get_stats(proc_stats[0])
             # print last CPU value of process
             elt = stats_elt.findmeld('pcpuval_td_mid')
@@ -323,15 +354,17 @@ class ViewHandler(MeldView):
         # get data from statistics module iaw period selection
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
-            proc_stats, nbcores = self.get_process_stats(namespec)
             # set CPU/MEM statistics
-            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats,
-                                                       nbcores)
+            proc_stats, nbcores = self.get_process_stats(namespec)
+            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, nbcores)
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(namespec)
+                # set row background
+                elt = stats_elt.findmeld('pstats_tr_mid')
+                elt.attrib['class'] = 'brightened'
                 # write CPU / Memory plots
                 self.write_process_plots(proc_stats)
         else:

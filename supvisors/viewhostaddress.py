@@ -111,12 +111,10 @@ class HostAddressView(StatusView):
         selected_cpu_id = self.view_ctx.parameters[CPU]
         iterator = root.findmeld('cpu_tr_mid').repeat(cpu_stats)
         shaded_tr = False
-        for cpu_id, (tr_element, single_cpu_stats) in enumerate(iterator):
-            selected_tr = False
+        for cpu_id, (tr_elt, single_cpu_stats) in enumerate(iterator):
             # set CPU id
-            elt = tr_element.findmeld('cpunum_a_mid')
+            elt = tr_elt.findmeld('cpunum_a_mid')
             if selected_cpu_id == cpu_id:
-                selected_tr = True
                 elt.attrib['class'] = 'button off active'
             else:
                 url = self.view_ctx.format_url('', self.page_name, **{CPU: cpu_id})
@@ -127,25 +125,26 @@ class HostAddressView(StatusView):
             if len(single_cpu_stats) > 0:
                 avg, rate, (a, b), dev = get_stats(single_cpu_stats)
                 # set last value with instant slope
-                elt = tr_element.findmeld('cpuval_td_mid')
+                elt = tr_elt.findmeld('cpuval_td_mid')
                 if rate is not None:
                     self.set_slope_class(elt, rate)
                 elt.content('{:.2f}'.format(single_cpu_stats[-1]))
                 # set mean value
-                elt = tr_element.findmeld('cpuavg_td_mid')
+                elt = tr_elt.findmeld('cpuavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
                 if a is not None:
                     # set slope of linear regression
-                    elt = tr_element.findmeld('cpuslope_td_mid')
+                    elt = tr_elt.findmeld('cpuslope_td_mid')
                     elt.content('{:.2f}'.format(a))
                 if dev is not None:
                     # set standard deviation
-                    elt = tr_element.findmeld('cpudev_td_mid')
+                    elt = tr_elt.findmeld('cpudev_td_mid')
                     elt.content('{:.2f}'.format(dev))
-            if selected_tr:
-                tr_element.attrib['class'] = 'selected'
-            elif shaded_tr:
-                tr_element.attrib['class'] = 'shaded'
+            # set row background
+            if shaded_tr:
+                tr_elt.attrib['class'] = 'shaded'
+            else:
+                tr_elt.attrib['class'] = 'brightened'
             shaded_tr = not shaded_tr
 
     def write_memory_statistics(self, root, mem_stats):
@@ -179,77 +178,76 @@ class HostAddressView(StatusView):
                             for lst in lsts]
         iterator = root.findmeld('intf_tr_mid').repeat(flatten_io_stats)
         rowspan, shaded_tr = True, False
-        for tr_element, (intf, single_io_stats) in iterator:
-            selected_tr = False
+        for tr_elt, (intf, single_io_stats) in iterator:
+            # set row background
+            if shaded_tr:
+                tr_elt.attrib['class'] = 'shaded'
+            else:
+                tr_elt.attrib['class'] = 'brightened'
             # set interface cell rowspan
-            elt = tr_element.findmeld('intf_td_mid')
+            elt = tr_elt.findmeld('intf_td_mid')
             if rowspan:
                 elt.attrib['rowspan'] = "2"
-                # set interface name
+                # apply shaded / brightened to td element too for background-image to work
+                if shaded_tr:
+                    elt.attrib['class'] = 'shaded'
+                else:
+                    elt.attrib['class'] = 'brightened'
+                # set interface name on a/href elt
                 elt = elt.findmeld('intf_a_mid')
+                elt.content(intf)
                 if intf_name == intf:
-                    selected_tr = True
                     elt.attrib['class'] = 'button off active'
                 else:
-                    url = self.view_ctx.format_url('', self.page_name,
-                                                   **{INTF: intf})
+                    url = self.view_ctx.format_url('', self.page_name, **{INTF: intf})
                     elt.attributes(href=url)
-                elt.content(intf)
             else:
-                if intf_name == intf:
-                    selected_tr = True
                 elt.replace('')
             # set interface direction
-            elt = tr_element.findmeld('intfrxtx_td_mid')
+            elt = tr_elt.findmeld('intfrxtx_td_mid')
             elt.content('Rx' if rowspan else 'Tx')
             if len(single_io_stats) > 0:
                 avg, rate, (a, b), dev = get_stats(single_io_stats)
                 # set last value
-                elt = tr_element.findmeld('intfval_td_mid')
+                elt = tr_elt.findmeld('intfval_td_mid')
                 if rate is not None:
                     self.set_slope_class(elt, rate)
                 elt.content('{:.2f}'.format(single_io_stats[-1]))
                 # set mean value
-                elt = tr_element.findmeld('intfavg_td_mid')
+                elt = tr_elt.findmeld('intfavg_td_mid')
                 elt.content('{:.2f}'.format(avg))
                 if a is not None:
                     # set slope of linear regression
-                    elt = tr_element.findmeld('intfslope_td_mid')
+                    elt = tr_elt.findmeld('intfslope_td_mid')
                     elt.content('{:.2f}'.format(a))
                 if dev is not None:
                     # set standard deviation
-                    elt = tr_element.findmeld('intfdev_td_mid')
+                    elt = tr_elt.findmeld('intfdev_td_mid')
                     elt.content('{:.2f}'.format(dev))
-            if selected_tr:
-                tr_element.attrib['class'] = 'selected'
-            elif shaded_tr:
-                tr_element.attrib['class'] = 'shaded'
             if not rowspan:
                 shaded_tr = not shaded_tr
             rowspan = not rowspan
 
     def _write_cpu_image(self, cpu_stats):
-        """ Write CPU data into Base64 image. """
+        """ Write CPU data into the dedicated buffer. """
         # get CPU data
         cpu_id = self.view_ctx.parameters[CPU]
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
-        stats_instance = self.view_ctx.get_address_stats()
         cpu_data = cpu_stats[cpu_id]
         # build image from data
         plt = PLOT_CLASS()
-        plt.add_plot('CPU #{}'.format(cpu_id_string),
-                     '%', cpu_data)
+        plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
         plt.export_image(address_cpu_img)
 
     def _write_mem_image(self, mem_stats):
-        """ Write MEM data into Base64 image. """
+        """ Write MEM data into the dedicated buffer. """
         # build image from data
         plt = PLOT_CLASS()
         plt.add_plot('MEM', '%', mem_stats)
         plt.export_image(address_mem_img)
 
     def _write_io_image(self, io_stats):
-        """ Write MEM data into Base64 image. """
+        """ Write MEM data into the dedicated buffer. """
         # get IO data
         intf_name = self.view_ctx.parameters[INTF]
         if intf_name:
@@ -257,10 +255,8 @@ class HostAddressView(StatusView):
             sent_data = io_stats[intf_name][1]
             # build image from data
             plt = PLOT_CLASS()
-            plt.add_plot('{} recv'.format(intf_name),
-                         'kbits/s', recv_data)
-            plt.add_plot('{} sent'.format(intf_name),
-                         'kbits/s', sent_data)
+            plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
+            plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)
             plt.export_image(address_io_img)
 
     def make_callback(self, namespec, action):

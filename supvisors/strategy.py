@@ -145,6 +145,8 @@ class SenicideStrategy(AbstractStrategy):
         most recently and stopping the others """
         for process in conflicts:
             # determine running address with lower uptime (the youngest)
+            # uptime is used as there is guarantee that addresses are time synchonized
+            # so comparing start dates may be irrelevant
             saved_address = min(process.addresses,
                                 key=lambda x: process.infos[x]['uptime'])
             self.logger.warn('senicide conciliation: keep {} at {}'.format(

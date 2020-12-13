@@ -415,56 +415,91 @@ class ViewContextTest(unittest.TestCase):
         # test with known address parameter but missing period
         self.assertIsNone(ctx.get_address_stats('10.0.0.1'))
 
-    @patch('supvisors.viewcontext.ViewContext.get_nbcores',
-           return_value=4)
-    @patch('supvisors.viewcontext.ViewContext.get_process_status',
-           return_value=Mock(addresses=[]))
-    def test_get_process_stats(self, mocked_status, mocked_core):
+    def test_get_process_last_info(self):
+        """ Test the get_process_last_info method. """
+        from supvisors.viewcontext import ViewContext
+        ctx = ViewContext(self.http_context)
+        # build common Mock
+        mocked_process = Mock(addresses=set(),
+                              infos={'10.0.0.1': {'local_time': 10},
+                                     '10.0.0.2': {'local_time': 30},
+                                     '10.0.0.3': {'local_time': 20}})
+        # test method return on non-running process and running requested
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual((None, None),
+                                  ctx.get_process_last_info('dummy_proc', True))
+        # test method return on non-running process and running not requested
+        # the method returns the
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
+                                  ctx.get_process_last_info('dummy_proc'))
+        # test method return on running process and running requested
+        mocked_process.addresses.add('10.0.0.3')
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual(('10.0.0.3', {'local_time': 20}),
+                                  ctx.get_process_last_info('dummy_proc', True))
+        # test method return on running process and running not requested
+        # same result as previous
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual(('10.0.0.3', {'local_time': 20}),
+                                  ctx.get_process_last_info('dummy_proc'))
+        # test method return on multiple running processes and running requested
+        mocked_process.addresses.add('10.0.0.2')
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
+                                  ctx.get_process_last_info('dummy_proc', True))
+        # test method return on running process and running not requested
+        # same result as previous
+        with patch('supvisors.viewcontext.ViewContext.get_process_status',
+                   return_value=mocked_process):
+            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
+                                  ctx.get_process_last_info('dummy_proc'))
+
+    @patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=4)
+    @patch('supvisors.viewcontext.ViewContext.get_process_last_info',
+           side_effect =((None, None), ('10.0.0.1', None)))
+    def test_get_process_stats(self, mocked_running_info, mocked_core):
         """ Test the get_process_stats method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
-        # reset mocks as they have been called in constructor
+        # reset mocks that have been called in constructor
         mocked_core.reset_mock()
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
         with patch.object(ctx, 'get_address_stats', return_value=mocked_find) \
                 as mocked_stats:
             # test with default running False
-            self.assertEqual(('mock stats', 4),
-                             ctx.get_process_stats('dummy_proc'))
-            self.assertEqual([], mocked_status.call_args_list)
+            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc'))
+            self.assertFalse(mocked_running_info.called)
             self.assertEqual([call(ctx.address)], mocked_core.call_args_list)
             self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
             self.assertEqual([call('dummy_proc')],
                              mocked_find.find_process_stats.call_args_list)
-            mocked_status.reset_mock()
+            mocked_running_info.reset_mock()
             mocked_core.reset_mock()
             mocked_stats.reset_mock()
             mocked_find.reset_mock()
-            # test with default running True, but corresponding to a process
-            # that is stopped
-            self.assertEqual(('mock stats', 4),
-                             ctx.get_process_stats('dummy_proc', True))
-            self.assertEqual([call('dummy_proc')], mocked_status.call_args_list)
-            self.assertEqual([call(None)], mocked_core.call_args_list)
-            self.assertEqual([call(None)], mocked_stats.call_args_list)
-            self.assertEqual([call('dummy_proc')],
-                             mocked_find.find_process_stats.call_args_list)
-            mocked_status.reset_mock()
+            # test with default running True, but corresponding to a process stopped
+            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc', True))
+            self.assertEqual([call('dummy_proc', True)], mocked_running_info.call_args_list)
+            self.assertEqual([call('127.0.0.1')], mocked_core.call_args_list)
+            self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
+            self.assertEqual([call('dummy_proc')], mocked_find.find_process_stats.call_args_list)
+            mocked_running_info.reset_mock()
             mocked_core.reset_mock()
             mocked_stats.reset_mock()
             mocked_find.reset_mock()
-            # test with default running True, but corresponding to a process
-            # that is running
-            mocked_status.return_value = Mock(addresses=['10.0.0.2',
-                                                         '10.0.0.1'])
-            self.assertEqual(('mock stats', 4),
-                             ctx.get_process_stats('dummy_proc', True))
-            self.assertEqual([call('dummy_proc')], mocked_status.call_args_list)
-            self.assertEqual([call('10.0.0.2')], mocked_core.call_args_list)
-            self.assertEqual([call('10.0.0.2')], mocked_stats.call_args_list)
-            self.assertEqual([call('dummy_proc')],
-                             mocked_find.find_process_stats.call_args_list)
+            # test with default running True, but corresponding to a process running
+            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc', True))
+            self.assertEqual([call('dummy_proc', True)], mocked_running_info.call_args_list)
+            self.assertEqual([call('10.0.0.1')], mocked_core.call_args_list)
+            self.assertEqual([call('10.0.0.1')], mocked_stats.call_args_list)
+            self.assertEqual([call('dummy_proc')], mocked_find.find_process_stats.call_args_list)
 
     def test_get_process_status(self):
         """ Test the get_process_status method. """

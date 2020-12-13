@@ -88,44 +88,37 @@ class ApplicationView(ViewHandler):
         if strategy == StartingStrategies.CONFIG:
             elt.attrib['class'] = 'button off active'
         else:
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **{ACTION: 'config'})
+            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'config'})
             elt.attributes(href=url)
         # MOST_LOADED strategy
         elt = root.findmeld('most_a_mid')
         if strategy == StartingStrategies.MOST_LOADED:
             elt.attrib['class'] = 'button off active'
         else:
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **{ACTION: 'most'})
+            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'most'})
             elt.attributes(href=url)
         # LESS_LOADED strategy
         elt = root.findmeld('less_a_mid')
         if strategy == StartingStrategies.LESS_LOADED:
             elt.attrib['class'] = 'button off active'
         else:
-            url = self.view_ctx.format_url('', self.page_name,
-                                           **{ACTION: 'less'})
+            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'less'})
             elt.attributes(href=url)
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
         # set hyperlinks for global actions
         elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'refresh'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
         elt.attributes(href=url)
         elt = root.findmeld('startapp_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'startapp'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})
         elt.attributes(href=url)
         elt = root.findmeld('stopapp_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'stopapp'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopapp'})
         elt.attributes(href=url)
         elt = root.findmeld('restartapp_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'restartapp'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)
 
     def write_contents(self, root):
@@ -136,8 +129,7 @@ class ApplicationView(ViewHandler):
         if namespec:
             status = self.view_ctx.get_process_status(namespec)
             if not status or status.application_name != self.application_name:
-                self.logger.warn('unselect Process Statistics for {}'
-                                 .format(namespec))
+                self.logger.warn('unselect Process Statistics for {}'.format(namespec))
                 # form parameter is not consistent. remove it
                 self.view_ctx.parameters[PROCESS] = ''
             else:
@@ -149,10 +141,18 @@ class ApplicationView(ViewHandler):
 
     def get_process_data(self):
         """ Collect sorted data on processes. """
+
+        def get_address_desc(namespec):
+            """ Return the description related to the instance of the process
+            having the most recent event among all addresses. """
+            address, info = self.view_ctx.get_process_last_info(namespec)
+            return address, info['description']
+
         data = [{'application_name': process.application_name,
                  'process_name': process.process_name,
                  'namespec': process.namespec(),
                  'running_list': list(process.addresses),
+                 'addr_desc': get_address_desc(process.namespec()),
                  'statename': process.state_string(),
                  'statecode': process.state,
                  'loading': process.rules.expected_loading}
@@ -160,59 +160,52 @@ class ApplicationView(ViewHandler):
         # re-arrange data
         return self.sort_processes_by_config(data)
 
-    def write_process_name(self, tr_elt, info):
+    def write_process(self, tr_elt, info):
         """ Rendering of the cell corresponding to the process name. """
+        # get the address where will be applied the log actions
+        action_address, description = info['addr_desc']
+        # print process name
         elt = tr_elt.findmeld('name_a_mid')
-        # tail action is NOT allowed if process is stopped
-        process_name = info['process_name']
-        address = next(iter(info['running_list']), None)
-        if address:
-            namespec = info['namespec']
-            url = self.view_ctx.format_url(address, TAIL_PAGE,
-                                           **{PROCESS: namespec})
-            elt.attributes(href=url)
-            elt.content(process_name)
-        else:
-            elt.replace(process_name)
-
-    def write_process_addresses(self, tr_elt, info):
-        """ Rendering of the cell corresponding to the running addresses of
-        the process. """
+        elt.content(info['process_name'])
+        url = self.view_ctx.format_url(action_address, TAIL_PAGE, **{PROCESS: info['namespec']})
+        elt.attributes(href=url)
+        # print description
+        elt = tr_elt.findmeld('desc_td_mid')
+        elt.content(description)
+        # print addresses where the process is running
         running_list = info['running_list']
         if running_list:
             running_li_mid = tr_elt.findmeld('running_li_mid')
             for li_elt, address in running_li_mid.repeat(running_list):
                 elt = li_elt.findmeld('running_a_mid')
+                elt.content(address)
                 url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
                 elt.attributes(href=url)
-                elt.content(address)
+                if address == action_address:
+                    elt.attrib['class'] = elt.attrib['class'] + ' active'
         else:
             elt = tr_elt.findmeld('running_ul_mid')
             elt.replace('')
 
     def write_process_table(self, root):
-        """ Rendering of the application processes managed through
-        Supervisor. """
+        """ Rendering of the application processes managed through Supervisor. """
         data = self.get_process_data()
         if data:
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
             for tr_elt, item in iterator:
-                # get first item in running list
-                running_list = item['running_list']
-                address = next(iter(running_list), None)
-                # write common status(shared between this application view
-                # and address view)
-                selected_tr = self.write_common_process_status(tr_elt, item)
                 # print process name and running addresses
-                self.write_process_name(tr_elt, item)
-                self.write_process_addresses(tr_elt, item)
+                self.write_process(tr_elt, item)
+                # write common status
+                # (shared between this application view and address view)
+                action_address = item['addr_desc'][0]
+                self.write_common_process_status(tr_elt, item, action_address)
                 # set line background and invert
-                if selected_tr:
-                    tr_elt.attrib['class'] = 'selected'
-                elif shaded_tr:
+                if shaded_tr:
                     tr_elt.attrib['class'] = 'shaded'
+                else:
+                    tr_elt.attrib['class'] = 'brightened'
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')
@@ -245,16 +238,18 @@ class ApplicationView(ViewHandler):
                 return self.stop_process_action(namespec)
             if action == 'restart':
                 return self.restart_process_action(strategy, namespec)
+            if action == 'clearlog':
+                return self.clearlog_process_action(namespec)
 
-    def refresh_action(self):
+    @staticmethod
+    def refresh_action():
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
     def set_starting_strategy(self, strategy):
         """ Update starting strategy. """
         self.supvisors.starter.strategy = strategy
-        return delayed_info('Starting strategy set to {}'
-                            .format(StartingStrategies._to_string(strategy)))
+        return delayed_info('Starting strategy set to {}'.format(StartingStrategies._to_string(strategy)))
 
     # Common processing for starting and stopping actions
     def start_action(self, strategy, rpc_name, arg_name, arg_type):
@@ -268,15 +263,13 @@ class ApplicationView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('{}: {}'.format(rpc_name, e.text))
+                except RPCError as exc:
+                    return error_message('{}: {}'.format(rpc_name, exc.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 if result:
-                    return info_message('{} {} started'
-                                        .format(arg_type, arg_name))
-                return warn_message('{} {} NOT started'
-                                    .format(arg_type, arg_name))
+                    return info_message('{} {} started'.format(arg_type, arg_name))
+                return warn_message('{} {} NOT started'.format(arg_type, arg_name))
 
             onwait.delay = 0.1
             return onwait
@@ -295,12 +288,11 @@ class ApplicationView(ViewHandler):
             def onwait():
                 try:
                     result = cb()
-                except RPCError as e:
-                    return error_message('{}: {}'.format(rpc_name, e.text))
+                except RPCError as exc:
+                    return error_message('{}: {}'.format(rpc_name, exc.text))
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('{} {} stopped'
-                                    .format(arg_type, arg_name))
+                return info_message('{} {} stopped'.format(arg_type, arg_name))
 
             onwait.delay = 0.1
             return onwait
@@ -311,34 +303,38 @@ class ApplicationView(ViewHandler):
     # Application actions
     def start_application_action(self, strategy):
         """ Start the application iaw the strategy. """
-        return self.start_action(strategy, 'start_application',
-                                 self.application_name, 'Application')
+        return self.start_action(strategy, 'start_application', self.application_name, 'Application')
 
     def restart_application_action(self, strategy):
         """ Restart the application iaw the strategy. """
-        return self.start_action(strategy, 'restart_application',
-                                 self.application_name, 'Application')
+        return self.start_action(strategy, 'restart_application', self.application_name, 'Application')
 
     def stop_application_action(self):
         """ Stop the application. """
-        return self.stop_action('stop_application',
-                                self.application_name, 'Application')
+        return self.stop_action('stop_application', self.application_name, 'Application')
 
     # Process actions
     def start_process_action(self, strategy, namespec):
         """ Start the process named namespec iaw the strategy. """
-
-        return self.start_action(strategy, 'start_process',
-                                 namespec, 'Process')
+        return self.start_action(strategy, 'start_process', namespec, 'Process')
 
     def restart_process_action(self, strategy, namespec):
         """ Restart the process named namespec iaw the strategy. """
-        return self.start_action(strategy, 'restart_process',
-                                 namespec, 'Process')
+        return self.start_action(strategy, 'restart_process', namespec, 'Process')
 
     def stop_process_action(self, namespec):
         """ Stop the process named namespec. """
         return self.stop_action('stop_process', namespec, 'Process')
+
+    def clearlog_process_action(self, namespec):
+        """ Can't call supervisor StatusView source code from application view.
+        Just do the same job. """
+        try:
+            rpc_intf = self.info_source.supervisor_rpc_interface
+            callback = rpc_intf.clearProcessLogs(namespec)
+        except RPCError as e:
+            return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))
+        return delayed_info('Log for %s cleared' % namespec)
 
     def get_process_stats(self, namespec):
         """ Get process statistics of running process. """

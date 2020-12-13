@@ -53,7 +53,7 @@ class ViewContext:
         """ Define attributes for statistics selection. """
         # store the HTML context
         self.http_context = context
-        # keep a reference to Supvisors logger and options
+        # keep references to Supvisors instance and attributes for readability
         self.supvisors = context.supervisord.supvisors
         supvisors_shortcuts(self, ['address_mapper', 'context', 'logger',
                                    'options', 'statistician'])
@@ -130,11 +130,9 @@ class ViewContext:
 
     def format_url(self, address_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(quote(address_name),
-                                     self.get_server_port()) \
+        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) \
             if address_name else ''
-        return '{}{}?{}'.format(url, page,
-                                self.url_parameters(**kwargs))
+        return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
 
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
@@ -157,6 +155,26 @@ class ViewContext:
         stats_address = address or self.address
         return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
 
+    def get_process_last_info(self, namespec, running=False):
+        """ Get the latest process info received from the process across all addresses.
+        A priority is given to the info coming from an address where the process is running.
+        If running is set to True, the priority is exclusive. """
+        address, info = None, None
+        status = self.get_process_status(namespec)
+        if status:
+            # search for process info where process is running
+            infos = dict(filter(lambda elem: elem[0] in status.addresses,
+                                status.infos.items()))
+            if not infos and not running:
+                # nothing found and running not requested: consider all process infos
+                infos = status.infos
+            # sort infos them by date (local_time is local time of latest received event)
+            sorted_infos = sorted(infos.items(),
+                                  key=lambda x: x[1]['local_time'],
+                                  reverse=True)
+            address, info = next(iter(sorted_infos), (None, None))
+        return address, info
+
     def get_process_stats(self, namespec, running=False):
         """ Get the statistics structure related to the process and the period
         selected. Get also the number of cores available on this address
@@ -164,12 +182,13 @@ class ViewContext:
         If running is set to True, process stats are taken from the address
         where the process is running (first in list if multiple).
         Otherwise, process stats are taken from the local address. """
-        stats_address = self.address
         # if running requested, find an address where the process is running
+        stats_address = self.address
         if running:
-            status = self.get_process_status(namespec)
-            if status:
-                stats_address = next(iter(status.addresses), None)
+            address, _ = self.get_process_last_info(namespec, True)
+            if address:
+                # replace local address only if running address has been found
+                stats_address = address
         # return the process statistics for this process
         address_stats = self.get_address_stats(stats_address)
         nb_cores = self.get_nbcores(stats_address)
@@ -185,8 +204,7 @@ class ViewContext:
             try:
                 return self.context.processes[namespec]
             except KeyError:
-                self.logger.debug('failed to get ProcessStatus from {}'
-                                  .format(namespec))
+                self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
 
     def _update_string(self, param, check_list, default_value=None):
         """ Extract application name from context. """
