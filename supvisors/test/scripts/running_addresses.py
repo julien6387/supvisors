@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -19,13 +19,15 @@
 
 import os
 import unittest
+import zmq
 
-from Queue import Empty
+from queue import Empty
 from socket import gethostname
 from supervisor import childutils
 
 from supvisors import rpcrequests
 from supvisors.ttypes import AddressStates
+from supvisors.client.subscriber import create_logger
 
 from scripts.event_queues import SupvisorsEventQueues
 
@@ -47,17 +49,19 @@ class RunningAddressesTest(unittest.TestCase):
         # check the number of running addresses
         addresses_info = self.local_supvisors.get_all_addresses_info()
         self.running_addresses = [info['address_name']
-            for info in addresses_info
-                if info['statecode'] == AddressStates.RUNNING]
+                                  for info in addresses_info
+                                  if info['statecode'] == AddressStates.RUNNING]
         self.assertEqual(3, len(self.running_addresses))
         # assumption is made that this test is run on Supvisors Master address
         self.assertEqual(gethostname(),
                          self.local_supvisors.get_master_address())
         # keep a reference to all RPC proxies
         self.proxies = {address: rpcrequests.getRPCInterface(address, os.environ)
-            for address in self.running_addresses}
+                        for address in self.running_addresses}
         # create the thread of event subscriber
-        self.evloop = SupvisorsEventQueues()
+        self.zcontext = zmq.Context.instance()
+        self.logger = create_logger(logfile=r'./log/running_addresses.log')
+        self.evloop = SupvisorsEventQueues(self.zcontext, self.logger)
         # start the thread
         self.evloop.start()
 
@@ -65,6 +69,9 @@ class RunningAddressesTest(unittest.TestCase):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
         self.evloop.join()
+        # close resources
+        self.logger.close()
+        self.zcontext.term()
 
     def _get_next_supvisors_event(self, timeout=15):
         """ Return next Supvisors status from queue. """

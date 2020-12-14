@@ -101,7 +101,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        self.logger.warn('New context: {}'. format(self.view_ctx.__dict__))
+        self.logger.debug('New context: {}'. format(self.view_ctx.__dict__))
 
     def write_nav(self, root, address=None, appli=None):
         """ Write the navigation menu. """
@@ -172,20 +172,22 @@ class ViewHandler(MeldView):
                 elt.attributes(href=url)
             elt.content('{}s'.format(item))
 
-    def write_common_process_cpu(self, tr_elt, namespec, proc_stats, nbcores):
-        """ Write the CPU part of the common process status. """
+    def write_common_process_cpu(self, tr_elt, info):
+        """ Write the CPU part of the common process status.
+        Statistics data comes from address. """
+        proc_stats = info['proc_stats']
         elt = tr_elt.findmeld('pcpu_a_mid')
         if proc_stats and len(proc_stats[0]) > 0:
             # print last CPU value of process
             cpuvalue = proc_stats[0][-1]
             if not self.supvisors.options.stats_irix_mode:
-                cpuvalue /= nbcores
+                cpuvalue /= info['nb_cores']
             elt.content('{:.2f}%'.format(cpuvalue))
-            if self.view_ctx.parameters[PROCESS] == namespec:
+            if self.view_ctx.parameters[PROCESS] == info['namespec']:
                 elt.attributes(href='#')
                 elt.attrib['class'] = 'button off active'
             else:
-                parameters = {PROCESS: namespec}
+                parameters = {PROCESS: info['namespec'], ADDRESS: info['address']}
                 url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'button on'
@@ -193,17 +195,20 @@ class ViewHandler(MeldView):
             # when no data, no not write link
             elt.replace('--')
 
-    def write_common_process_mem(self, tr_elt, namespec, proc_stats):
-        """ Write the MEM part of the common process status. """
+    def write_common_process_mem(self, tr_elt, info):
+        """ Write the MEM part of the common process status.
+        Statistics data comes from address. """
+        proc_stats = info['proc_stats']
         elt = tr_elt.findmeld('pmem_a_mid')
         if proc_stats and len(proc_stats[1]) > 0:
             # print last MEM value of process
-            elt.content('{:.2f}%'.format(proc_stats[1][-1]))
-            if self.view_ctx.parameters[PROCESS] == namespec:
+            memvalue = proc_stats[1][-1]
+            elt.content('{:.2f}%'.format(memvalue))
+            if self.view_ctx.parameters[PROCESS] == info['namespec']:
                 elt.attributes(href='#')
                 elt.attrib['class'] = 'button off active'
             else:
-                parameters = {PROCESS: namespec}
+                parameters = {PROCESS: info['namespec'], ADDRESS: info['address']}
                 url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'button on'
@@ -211,42 +216,44 @@ class ViewHandler(MeldView):
             # when no data, no not write link
             elt.replace('--')
 
-    def write_process_start_button(self, tr_elt, namespec, state):
+    def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'start_a_mid', '', self.page_name,
-                                   'start', namespec, state, STOPPED_STATES)
+                                   'start', info['namespec'], info['statecode'], STOPPED_STATES)
 
-    def write_process_stop_button(self, tr_elt, namespec, state):
+    def write_process_stop_button(self, tr_elt, info):
         """ Write the configuration of the stop button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'stop_a_mid', '', self.page_name,
-                                   'stop', namespec, state, RUNNING_STATES)
+                                   'stop', info['namespec'], info['statecode'], RUNNING_STATES)
 
-    def write_process_restart_button(self, tr_elt, namespec, state):
+    def write_process_restart_button(self, tr_elt, info):
         """ Write the configuration of the restart button of a process.
         The action will be handled by the local supvisors. """
         self._write_process_button(tr_elt, 'restart_a_mid', '', self.page_name,
-                                   'restart', namespec, state, RUNNING_STATES)
+                                   'restart', info['namespec'], info['statecode'], RUNNING_STATES)
 
-    def write_process_clear_button(self, tr_elt, namespec, action_address):
+    def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant address. """
-        self._write_process_button(tr_elt, 'clear_a_mid', action_address, self.page_name,
-                                   'clearlog', namespec, '', '')
+        self._write_process_button(tr_elt, 'clear_a_mid', info['address'], self.page_name,
+                                   'clearlog', info['namespec'], '', '')
 
-    def write_process_stdout_button(self, tr_elt, namespec, action_address):
+    def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant address. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailout_a_mid', action_address, STDOUT_PAGE % quote(namespec),
+        self._write_process_button(tr_elt, 'tailout_a_mid', info['address'],
+                                   STDOUT_PAGE % quote(info['namespec']),
                                    '', '', '', '')
 
-    def write_process_stderr_button(self, tr_elt, namespec, action_address):
+    def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant address. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailerr_a_mid', action_address, STDERR_PAGE % quote(namespec),
+        self._write_process_button(tr_elt, 'tailerr_a_mid', info['address'],
+                                   STDERR_PAGE % quote(info['namespec']),
                                    '', '', '', '')
 
     def _write_process_button(self, tr_elt, elt_name, address, page, action, namespec,
@@ -260,31 +267,32 @@ class ViewHandler(MeldView):
         else:
             elt.attrib['class'] = 'button off'
 
-    def write_common_process_status(self, tr_elt, item, action_address):
+    def write_common_process_status(self, tr_elt, info):
         """ Write the common part of a process status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = item['statename']
-        elt.content(item['statename'])
+        elt.attrib['class'] = info['statename']
+        elt.content(info['statename'])
+        # print description
+        elt = tr_elt.findmeld('desc_td_mid')
+        elt.content(info['description'])
         # print expected loading
         elt = tr_elt.findmeld('load_td_mid')
-        elt.content('{}%'.format(item['loading']))
+        elt.content('{}%'.format(info['loading']))
         # get data from statistics module iaw period selection
-        namespec = item['namespec']
-        proc_stats, nbcores = self.get_process_stats(namespec)
-        self.write_common_process_cpu(tr_elt, namespec, proc_stats, nbcores)
-        self.write_common_process_mem(tr_elt, namespec, proc_stats)
+        self.write_common_process_cpu(tr_elt, info)
+        self.write_common_process_mem(tr_elt, info)
         # manage actions iaw state
-        process_state = item['statecode']
-        self.write_process_start_button(tr_elt, namespec, process_state)
-        self.write_process_stop_button(tr_elt, namespec, process_state)
-        self.write_process_restart_button(tr_elt, namespec, process_state)
+        process_state = info['statecode']
+        self.write_process_start_button(tr_elt, info)
+        self.write_process_stop_button(tr_elt, info)
+        self.write_process_restart_button(tr_elt, info)
         # manage log actions
-        self.write_process_clear_button(tr_elt, namespec, action_address)
-        self.write_process_stdout_button(tr_elt, namespec, action_address)
-        self.write_process_stderr_button(tr_elt, namespec, action_address)
+        self.write_process_clear_button(tr_elt, info)
+        self.write_process_stdout_button(tr_elt, info)
+        self.write_process_stderr_button(tr_elt, info)
 
-    def write_detailed_process_cpu(self, stats_elt, proc_stats, nbcores):
+    def write_detailed_process_cpu(self, stats_elt, proc_stats, nb_cores):
         """ Write the CPU part of the detailed process status. """
         if proc_stats and len(proc_stats[0]) > 0:
             # calculate stats
@@ -295,7 +303,7 @@ class ViewHandler(MeldView):
                 self.set_slope_class(elt, rate)
             cpuvalue = proc_stats[0][-1]
             if not self.options.stats_irix_mode:
-                cpuvalue /= nbcores
+                cpuvalue /= nb_cores
             elt.content('{:.2f}%'.format(cpuvalue))
             # set mean value
             elt = stats_elt.findmeld('pcpuavg_td_mid')
@@ -332,7 +340,8 @@ class ViewHandler(MeldView):
                 elt.content('{:.2f}'.format(dev))
             return True
 
-    def write_process_plots(self, proc_stats):
+    @staticmethod
+    def write_process_plots(proc_stats):
         """ Write the CPU / Memory plots.
         (only if matplotlib is installed) """
         if HAS_PLOT:
@@ -346,23 +355,24 @@ class ViewHandler(MeldView):
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
 
-    def write_process_statistics(self, root):
+    def write_process_statistics(self, root, info):
         """ Display detailed statistics about the selected process. """
+        # update the statistics table
         stats_elt = root.findmeld('pstats_div_mid')
         # get data from statistics module iaw period selection
-        namespec = self.view_ctx.parameters[PROCESS]
+        namespec = info.get('namespec', None)
         if namespec:
             # set CPU/MEM statistics
-            proc_stats, nbcores = self.get_process_stats(namespec)
-            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, nbcores)
+            proc_stats = info['proc_stats']
+            done_cpu = self.write_detailed_process_cpu(stats_elt, proc_stats, info['nb_cores'])
             done_mem = self.write_detailed_process_mem(stats_elt, proc_stats)
             if done_cpu or done_mem:
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(namespec)
-                # set row background
-                elt = stats_elt.findmeld('pstats_tr_mid')
-                elt.attrib['class'] = 'brightened'
+                elt = stats_elt.findmeld('address_fig_mid')
+                if elt is not None:
+                    elt.content(info['address'])
                 # write CPU / Memory plots
                 self.write_process_plots(proc_stats)
         else:
@@ -385,10 +395,6 @@ class ViewHandler(MeldView):
             # post to write message
             if message is not None:
                 self.view_ctx.message(format_gravity_message(message))
-
-    def get_process_stats(self, namespec):
-        """ Get process statistics of process located on local address. """
-        return self.view_ctx.get_process_stats(namespec)
 
     @staticmethod
     def set_slope_class(elt, value):

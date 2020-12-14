@@ -217,7 +217,11 @@ class DummyHttpContext:
                      'action': 'test',
                      'address': '10.0.0.4',
                      'message': 'hi chaps',
-                     'gravity': 'none'}
+                     'gravity': 'none',
+                     'namespec': 'dummy_proc',
+                     'processname': 'dummy_proc',
+                     'appliname': 'dummy_appli',
+                     'intfname': 'eth0'}
         self.response = {'headers': {'Location': None}}
 
 

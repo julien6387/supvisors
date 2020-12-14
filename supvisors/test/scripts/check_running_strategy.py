@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from Queue import Empty
+from queue import Empty
 
 from supvisors.ttypes import StartingStrategies
 
@@ -298,9 +298,11 @@ class RunningFailureStrategyTest(RunningAddressesTest):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     # get arguments
     import argparse
+
     parser = argparse.ArgumentParser(
         description='Check the Supvisors running failure strategies.')
     parser.add_argument('-p', '--port', type=int, default=60002,

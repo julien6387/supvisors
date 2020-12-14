@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import argparse
 import sys
 import unittest
 
@@ -90,12 +91,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_copy_error_starting(self):
         """ Check the starting of the copy_error program. """
-        # define the expected events for the mount_disk program
+        # define the expected events for the copy_error program
         program = self.context.get_program('import_database:copy_error')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                            self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF,
-                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
         program.add_event(ProcessStateEvent(ProcessStates.FATAL))
         # test the events received are compliant
         self.check_events()
@@ -105,8 +104,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Program the stopping of the program.state program. """
         # define the expected events for the mount_disk program
         program = self.context.get_program('import_database:mount_disk')
-        program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STOPPING, self.HOST_01))
         program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # do NOT check the events received at this stage
         # stopping events will be mixed with the starting events
@@ -135,17 +133,15 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_movie_server_starting(self):
         """ Check the starting of the movie_server programs. """
         config = [('movie_server_01', self.HOST_01),
-                  ('movie_server_02', self.HOST_03),
-                  ('movie_server_03', self.HOST_02)]
+                  ('movie_server_02', self.HOST_02),
+                  ('movie_server_03', self.HOST_03)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
             program = application.get_program(program_name)
             if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                                    address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
-                                                    address))
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
         # check that the events received are compliant
@@ -155,17 +151,15 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
         config = [('register_movies_01', self.HOST_01),
-                  ('register_movies_02', self.HOST_03),
-                  ('register_movies_03', self.HOST_02)]
+                  ('register_movies_02', self.HOST_02),
+                  ('register_movies_03', self.HOST_03)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:
             program = application.get_program(program_name)
             if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                                    address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
-                                                    address))
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
                 program.add_event(ProcessStateEvent(ProcessStates.EXITED))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
@@ -175,8 +169,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_my_movies_starting(self):
         """ Check the starting of the my_movies application.
-        The manager process is started first, then the web_server,
-        finally the hmi.
+        The manager process is started first, then the web_server, finally the hmi.
         In the my_movies application, there should be a major_failure due to
         the web_server that is configured not to start. """
         # define 'my_movies' application
@@ -259,10 +252,11 @@ class CheckStartSequenceTest(CheckSequenceTest):
         program = Program('web_browser')
         application.add_program(program)
         # define the expected events for the web_browser program
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                            self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
-                                            self.HOST_01))
+        # WARN: if errors happen, like "AssertionError: 'RUNNING' != 'BACKOFF'"
+        # this is probably because there is an instance of firefox already running before supervisord has been started
+        # close it before the test
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
         # check that the events received are compliant
         self.check_events('web_movies')
         self.assertFalse(self.context.has_events('web_movies'))
@@ -271,11 +265,10 @@ class CheckStartSequenceTest(CheckSequenceTest):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     # get arguments
-    import argparse
-    parser = argparse.ArgumentParser(
-        description='Check the starting sequence using Supvisors events.')
+    parser = argparse.ArgumentParser(description='Check the starting sequence using Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()

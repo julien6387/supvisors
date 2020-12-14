@@ -58,13 +58,14 @@ class ViewContext:
         supvisors_shortcuts(self, ['address_mapper', 'context', 'logger',
                                    'options', 'statistician'])
         # keep reference to the local address
-        self.address = self.address_mapper.local_address
+        self.local_address = self.address_mapper.local_address
         # initialize parameters
         self.parameters = {}
         # extract parameters from context
         # WARN: period must be done before processname and cpuid
         # as it requires to be set to access statistics
         self.update_period()
+        self.update_address()
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
@@ -96,13 +97,19 @@ class ViewContext:
         default_value = next(iter(self.options.stats_periods))
         self._update_integer(PERIOD, self.options.stats_periods, default_value)
 
+    def update_address(self):
+        """ Extract address name context. """
+        # assign value found or default
+        self._update_string(ADDRESS, self.address_mapper.addresses, self.local_address)
+
     def update_application_name(self):
         """ Extract application name from context. """
         self._update_string(APPLI, list(self.context.applications.keys()))
 
     def update_process_name(self):
-        """ Extract process name from context. """
-        address_stats = self.get_address_stats()
+        """ Extract process name from context.
+        ApplicationView may select of another address. """
+        address_stats = self.get_address_stats(self.parameters[ADDRESS])
         named_pids = address_stats.proc.keys() if address_stats else []
         self._update_string(PROCESS, [x for x, _ in named_pids])
 
@@ -115,7 +122,8 @@ class ViewContext:
         self._update_integer(CPU, list(range(self.get_nbcores() + 1)))
 
     def update_interface_name(self):
-        """ Extract interface name from context. """
+        """ Extract interface name from context.
+        Only the HostAddressView displays interface data, so it's local. """
         address_stats = self.get_address_stats()
         interfaces = address_stats.io.keys() if address_stats else []
         default_value = next(iter(interfaces), None)
@@ -145,17 +153,17 @@ class ViewContext:
 
     def get_nbcores(self, address=None):
         """ Get the number of processors of the local address. """
-        stats_address = address or self.address
+        stats_address = address or self.local_address
         return self.statistician.nbcores.get(stats_address, 0)
 
     def get_address_stats(self, address=None):
         """ Get the statistics structure related to the address and the period selected.
         If no address is specified, local address is used. """
-        stats_address = address or self.address
+        stats_address = address or self.local_address
         return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
 
-    def get_process_last_info(self, namespec, running=False):
-        """ Get the latest process info received from the process across all addresses.
+    def get_process_last_desc(self, namespec, running=False):
+        """ Get the latest description received from the process across all addresses.
         A priority is given to the info coming from an address where the process is running.
         If running is set to True, the priority is exclusive. """
         address, info = None, None
@@ -172,28 +180,21 @@ class ViewContext:
                                   key=lambda x: x[1]['local_time'],
                                   reverse=True)
             address, info = next(iter(sorted_infos), (None, None))
-        return address, info
+        # return the address too
+        return address, info['description'] if info else None
 
-    def get_process_stats(self, namespec, running=False):
-        """ Get the statistics structure related to the process and the period
-        selected. Get also the number of cores available on this address
-        (useful for process CPU IRIX mode).
-        If running is set to True, process stats are taken from the address
-        where the process is running (first in list if multiple).
-        Otherwise, process stats are taken from the local address. """
-        # if running requested, find an address where the process is running
-        stats_address = self.address
-        if running:
-            address, _ = self.get_process_last_info(namespec, True)
-            if address:
-                # replace local address only if running address has been found
-                stats_address = address
+    def get_process_stats(self, namespec, address=None):
+        """ Get the statistics structure related to the process and the period selected.
+        Get also the number of cores available on this address (useful for process CPU IRIX mode). """
+        # use local address if not provided
+        if not address:
+            address = self.local_address
         # return the process statistics for this process
-        address_stats = self.get_address_stats(stats_address)
-        nb_cores = self.get_nbcores(stats_address)
+        address_stats = self.get_address_stats(address)
+        nb_cores = self.get_nbcores(address)
         if address_stats:
-            return address_stats.find_process_stats(namespec), nb_cores
-        return None, nb_cores
+            return nb_cores, address_stats.find_process_stats(namespec)
+        return nb_cores, None
 
     def get_process_status(self, namespec=None):
         """ Get the ProcessStatus instance related to the process named namespec.

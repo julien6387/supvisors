@@ -181,13 +181,11 @@ class SupervisorListener(object):
         self.fsm.on_authorization(address_name, boolean(authorized))
 
     def force_process_fatal(self, namespec):
-        """ Publishes a fake process event showing a FATAL state for
-        the process. """
+        """ Publishes a fake process event showing a FATAL state for the process. """
         self.force_process_state(namespec, ProcessStates.FATAL)
 
     def force_process_unknown(self, namespec):
-        """ Publishes a fake process event showing an UNKNOWN state for
-        the process. """
+        """ Publishes a fake process event showing an UNKNOWN state for the process. """
         self.force_process_state(namespec, ProcessStates.UNKNOWN)
 
     def force_process_state(self, namespec, state):

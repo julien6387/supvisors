@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -19,11 +19,15 @@
 
 import os
 import unittest
-from Queue import Empty
+import zmq
+
+from queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import split_namespec
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
+
+from supvisors.client.subscriber import create_logger
 from supvisors.ttypes import ApplicationStates, ProcessStates
 
 from scripts.event_queues import SupvisorsEventQueues
@@ -39,7 +43,7 @@ class ProcessStateEvent(object):
 
     @property
     def statename(self):
-        return ProcessStates._to_string(self.statecode)
+        return ProcessStates.to_string(self.statecode)
 
     def get_state(self):
         """ Return the state in a Supvisors / Supervisor format. """
@@ -75,7 +79,7 @@ class Application:
         """ Initialization of the attributes. """
         self.application_name = application_name
         # create dict of states / process_names
-        self.major_failure, self.minor_failure = (False, ) * 2
+        self.major_failure, self.minor_failure = (False,) * 2
         # event dictionary
         self.programs = {}
 
@@ -140,8 +144,8 @@ class Application:
         minor = False
         for program in self.programs.values():
             if not program.required and (program.state == ProcessStates.FATAL or
-                    (program.state == ProcessStates.EXITED and
-                     not program.expected_exit)):
+                                         (program.state == ProcessStates.EXITED and
+                                          not program.expected_exit)):
                 minor = True
         return minor and (self.is_running() or self.is_starting())
 
@@ -182,14 +186,14 @@ class SequenceChecker(SupvisorsEventQueues):
     """ The SequenceChecker is a python thread that connects to Supvisors
     and stores the application and process events received into queues. """
 
-    def __init__(self):
+    def __init__(self, zcontext, logger):
         """ Initialization of the attributes.
         Test relies on 3 addresses so theoretically, we only need 3
         notifications to know which address is RUNNING or not.
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
-        SupvisorsEventQueues.__init__(self)
+        SupvisorsEventQueues.__init__(self, zcontext, logger)
         # create a set of addresses
         self.addresses = set()
         # create queues to store messages
@@ -221,25 +225,29 @@ class CheckSequenceTest(unittest.TestCase):
     """ Common class used to check starting and stopping sequences. """
 
     def setUp(self):
-        """ The setUp starts the subscriber to the Supvisors events and
-        get the event queues. """
+        """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the addresses
         proxy = getRPCInterface(os.environ).supvisors
         addresses_info = proxy.get_all_addresses_info()
         self.HOST_01 = addresses_info[0]['address_name']
-        self.HOST_02 = addresses_info[1]['address_name']
-        self.HOST_03 = addresses_info[2]['address_name']
-        self.HOST_04 = addresses_info[3]['address_name']
+        self.HOST_02 = addresses_info[1]['address_name'] if len(addresses_info) > 1 else None
+        self.HOST_03 = addresses_info[2]['address_name'] if len(addresses_info) > 2 else None
+        self.HOST_04 = addresses_info[3]['address_name'] if len(addresses_info) > 3 else None
         # create a context
         self.context = Context()
         # create the thread of event subscriber
-        self.evloop = SequenceChecker()
+        self.zcontext = zmq.Context.instance()
+        self.logger = create_logger(logfile=r'./log/check_sequence.log')
+        self.evloop = SequenceChecker(self.zcontext, self.logger)
         self.evloop.start()
 
     def tearDown(self):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
         self.evloop.join()
+        # close resources
+        self.logger.close()
+        self.zcontext.term()
 
     def get_addresses(self):
         """ Wait for address_queue to put the list of active addresses. """
@@ -277,7 +285,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertIn(process_name, application.programs.keys())
         program = application.get_program(process_name)
         self.assertIsNotNone(program)
-       # pop next event and clean if necessary
+        # pop next event and clean if necessary
         state_event = program.pop_event()
         self.assertIsNotNone(state_event)
         # check the process' state
@@ -285,7 +293,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertEqual(state_event.statecode, event['statecode'])
         # check the running address
         if state_event.statecode in [ProcessStates.STOPPING] \
-            + list(RUNNING_STATES):
+                + list(RUNNING_STATES):
             self.assertListEqual([state_event.address], event['addresses'])
             program.address = state_event.address
         # update program state
@@ -321,3 +329,14 @@ class CheckSequenceTest(unittest.TestCase):
                          event['major_failure'])
         self.assertEqual(application.has_minor_failure(),
                          event['minor_failure'])
+
+    def assertItemsEqual(self, lst1, lst2):
+        """ Two lists are equal when they have the same size
+        and when all elements of one are in the other one. """
+        self.assertEqual(len(lst1), len(lst2))
+        self.assertTrue(all(item in lst2 for item in lst1))
+        self.assertTrue(all(item in lst1 for item in lst2))
+
+    def assertDictContainsSubset(self, subset, origin, **kwargs):
+        """ Create a dictionary with both and test that it's equal to origin. """
+        self.assertEqual(dict(origin, **subset), origin)

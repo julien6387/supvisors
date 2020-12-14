@@ -19,8 +19,8 @@
 
 import sys
 import unittest
-import xmlrpclib
 
+from supervisor.compat import xmlrpclib
 from supervisor.states import ProcessStates
 from supervisor.xmlrpc import Faults
 
