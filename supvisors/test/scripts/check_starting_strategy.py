@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -19,8 +19,8 @@
 
 import sys
 import unittest
-import xmlrpclib
 
+from supervisor.compat import xmlrpclib
 from supervisor.states import STOPPED_STATES
 from supervisor.xmlrpc import Faults
 
@@ -68,8 +68,8 @@ class StartingStrategyTest(RunningAddressesTest):
         """ Get the current loading status. """
         addresses_info = self.local_supvisors.get_all_addresses_info()
         self.loading = {info['address_name']: info['loading']
-            for info in addresses_info
-                if info['statecode'] == AddressStates.RUNNING}
+                        for info in addresses_info
+                        if info['statecode'] == AddressStates.RUNNING}
 
     def _start_converter(self, idx):
         """ Get the current loading status. """
@@ -195,9 +195,11 @@ class StartingStrategyTest(RunningAddressesTest):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     # get arguments
     import argparse
+
     parser = argparse.ArgumentParser(
         description='Check the Supvisors starting strategies.')
     parser.add_argument('-p', '--port', type=int, default=60002,

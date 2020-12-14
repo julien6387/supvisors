@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,10 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-import zmq
-
 from time import time
-from Queue import Empty, Queue
+from queue import Empty, Queue
 
 from supvisors.client.subscriber import SupvisorsEventInterface, create_logger
 
@@ -32,13 +30,10 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
 
     PORT = 60002
 
-    def __init__(self):
+    def __init__(self, zcontext, logger):
         """ Initialization of the attributes. """
         # create logger using a BoundIO
-        SupvisorsEventInterface.__init__(self,
-                                         zmq.Context.instance(),
-                                         self.PORT,
-                                         create_logger(logfile=None))
+        SupvisorsEventInterface.__init__(self, zcontext, self.PORT, logger)
         # create queues to store messages
         self.supvisors_queue = Queue()
         self.address_queue = Queue()
@@ -89,10 +84,11 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         except Empty:
             self.logger.debug('queue flushed')
 
-    def wait_until_event(self, queue, sub_event, timeout):
+    @staticmethod
+    def wait_until_event(queue, sub_event, timeout):
         """ Wait for a specific event on queue for max timeout in seconds. """
         end_date = time() + timeout
-        while (time() < end_date):
+        while time() < end_date:
             try:
                 event = queue.get(True, 0.5)
             except Empty:
@@ -101,19 +97,20 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
             if all(item in event.items() for item in sub_event.items()):
                 return event
 
-    def wait_until_events(self, queue, sub_events, timeout):
+    @staticmethod
+    def wait_until_events(queue, sub_events, timeout):
         """ Wait for a list of specific events on queue for max timeout
         in seconds. """
         events_received = []
         end_date = time() + timeout
-        while (time() < end_date):
+        while time() < end_date:
             try:
                 event = queue.get(True, 0.5)
             except Empty:
                 continue
             # add event to list if all items of a sub_event are in event
             sub_events_copy = sub_events[:]
-            for sub_event in sub_events_copy :
+            for sub_event in sub_events_copy:
                 if all(item in event.items() for item in sub_event.items()):
                     events_received.append(event)
                     sub_events.remove(sub_event)
