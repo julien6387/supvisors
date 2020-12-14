@@ -287,13 +287,11 @@ class RequestTest(unittest.TestCase):
         self.pusher.send_start_process('10.0.0.1', 'application:program',
                                        ['-extra', 'arguments'])
         request = self.receive('Start Process')
-        self.assertTupleEqual(
-            (DeferredRequestHeaders.START_PROCESS,
-             ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
-            request)
+        self.assertTupleEqual((DeferredRequestHeaders.START_PROCESS,
+                               ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
+                              request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_start_process('10.0.0.1', 'application:program',
                                            ['-extra', 'arguments'])
         # test that absence of puller does not block the pusher
@@ -314,8 +312,7 @@ class RequestTest(unittest.TestCase):
         self.assertTupleEqual((DeferredRequestHeaders.STOP_PROCESS,
                                ('10.0.0.1', 'application:program')), request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_stop_process('10.0.0.1', 'application:program')
         # test that absence of puller does not block the pusher
         # or raise any exception
@@ -331,11 +328,9 @@ class RequestTest(unittest.TestCase):
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_restart('10.0.0.1')
         request = self.receive('Restart')
-        self.assertTupleEqual((DeferredRequestHeaders.RESTART,
-                               ('10.0.0.1',)), request)
+        self.assertTupleEqual((DeferredRequestHeaders.RESTART, ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_restart('10.0.0.1')
         # test that absence of puller does not block the pusher
         # or raise any exception
@@ -351,11 +346,9 @@ class RequestTest(unittest.TestCase):
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_shutdown('10.0.0.1')
         request = self.receive('Shutdown')
-        self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN,
-                               ('10.0.0.1',)), request)
+        self.assertTupleEqual((DeferredRequestHeaders.SHUTDOWN, ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_shutdown('10.0.0.1')
         # test that absence of puller does not block the pusher
         # or raise any exception
@@ -392,13 +385,11 @@ class EventTest(unittest.TestCase):
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         # create publisher and subscriber
-        self.publisher = EventPublisher(
-            self.supvisors.options.event_port,
-            self.supvisors.logger)
-        self.subscriber = EventSubscriber(
-            zmq.Context.instance(),
-            self.supvisors.options.event_port,
-            self.supvisors.logger)
+        self.publisher = EventPublisher(self.supvisors.options.event_port,
+                                        self.supvisors.logger)
+        self.subscriber = EventSubscriber(zmq.Context.instance(),
+                                          self.supvisors.options.event_port,
+                                          self.supvisors.logger)
         # WARN: this subscriber does not include a subscription
         # when using a subscription, use a time sleep to give time
         # to PyZMQ to handle it

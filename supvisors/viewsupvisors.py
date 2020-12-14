@@ -70,8 +70,7 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
-        if self.fsm.state == SupvisorsStates.CONCILIATION and \
-                self.sup_ctx.conflicts():
+        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts

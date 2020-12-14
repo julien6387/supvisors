@@ -84,13 +84,11 @@ class HostAddressView(StatusView):
         elt.attributes(href=url)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'refresh'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
         elt.attributes(href=url)
         # configure stop all button
         elt = root.findmeld('stopall_a_mid')
-        url = self.view_ctx.format_url('', self.page_name,
-                                       **{ACTION: 'stopall'})
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
         elt.attributes(href=url)
 
     def write_contents(self, root):

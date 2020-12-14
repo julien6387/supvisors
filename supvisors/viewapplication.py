@@ -53,6 +53,7 @@ class ApplicationView(ViewHandler):
         of the current application. """
         self.write_nav(root, appli=self.application_name)
 
+    # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Application page. """
         # set address name
@@ -121,85 +122,57 @@ class ApplicationView(ViewHandler):
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)
 
+    # RIGHT SIDE / BODY part
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
-        self.write_process_table(root)
+        data = self.get_process_data()
+        self.write_process_table(root, data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
             status = self.view_ctx.get_process_status(namespec)
-            if not status or status.application_name != self.application_name:
+            if not status or status.stopped() or status.application_name != self.application_name:
                 self.logger.warn('unselect Process Statistics for {}'.format(namespec))
                 # form parameter is not consistent. remove it
                 self.view_ctx.parameters[PROCESS] = ''
-            else:
-                # additional information for title
-                elt = root.findmeld('address_fig_mid')
-                elt.content(next(iter(status.addresses), ''))
         # write selected Process Statistics
-        self.write_process_statistics(root)
-
-    def _get_address_desc(self, namespec):
-        """ Return the description related to the instance of the process
-        having the most recent event among all addresses. """
-        address, info = self.view_ctx.get_process_last_info(namespec)
-        return address, info['description']
+        namespec = self.view_ctx.parameters[PROCESS]
+        info = next(filter(lambda x: x['namespec'] == namespec, data), {})
+        self.write_process_statistics(root, info)
 
     def get_process_data(self):
         """ Collect sorted data on processes. """
-        data = [{'application_name': process.application_name,
-                 'process_name': process.process_name,
-                 'namespec': process.namespec(),
-                 'running_list': list(process.addresses),
-                 'addr_desc': self._get_address_desc(process.namespec()),
-                 'statename': process.state_string(),
-                 'statecode': process.state,
-                 'loading': process.rules.expected_loading}
-                for process in self.application.processes.values()]
+        data = []
+        for process in self.application.processes.values():
+            namespec = process.namespec()
+            address, description = self.view_ctx.get_process_last_desc(namespec)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, address)
+            data.append({'application_name': process.application_name,
+                         'process_name': process.process_name,
+                         'namespec': namespec,
+                         'address': address,
+                         'statename': process.state_string(),
+                         'statecode': process.state,
+                         'running_list': list(process.addresses),
+                         'description': description,
+                         'loading': process.rules.expected_loading,
+                         'nb_cores': nb_cores,
+                         'proc_stats': proc_stats})
         # re-arrange data
         return self.sort_processes_by_config(data)
 
-    def write_process(self, tr_elt, info):
-        """ Rendering of the cell corresponding to the process name. """
-        # get the address where will be applied the log actions
-        action_address, description = info['addr_desc']
-        # print process name
-        elt = tr_elt.findmeld('name_a_mid')
-        elt.content(info['process_name'])
-        url = self.view_ctx.format_url(action_address, TAIL_PAGE, **{PROCESS: info['namespec']})
-        elt.attributes(href=url)
-        # print description
-        elt = tr_elt.findmeld('desc_td_mid')
-        elt.content(description)
-        # print addresses where the process is running
-        running_list = info['running_list']
-        if running_list:
-            running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, address in running_li_mid.repeat(running_list):
-                elt = li_elt.findmeld('running_a_mid')
-                elt.content(address)
-                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
-                elt.attributes(href=url)
-                if address == action_address:
-                    elt.attrib['class'] = elt.attrib['class'] + ' active'
-        else:
-            elt = tr_elt.findmeld('running_ul_mid')
-            elt.replace('')
-
-    def write_process_table(self, root):
+    def write_process_table(self, root, data):
         """ Rendering of the application processes managed through Supervisor. """
-        data = self.get_process_data()
         if data:
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
-            for tr_elt, item in iterator:
-                # print process name and running addresses
-                self.write_process(tr_elt, item)
+            for tr_elt, info in iterator:
                 # write common status
                 # (shared between this application view and address view)
-                action_address = item['addr_desc'][0]
-                self.write_common_process_status(tr_elt, item, action_address)
+                self.write_common_process_status(tr_elt, info)
+                # print process name and running addresses
+                self.write_process(tr_elt, info)
                 # set line background and invert
                 if shaded_tr:
                     tr_elt.attrib['class'] = 'shaded'
@@ -210,6 +183,29 @@ class ApplicationView(ViewHandler):
             table = root.findmeld('table_mid')
             table.replace('No programs to manage')
 
+    def write_process(self, tr_elt, info):
+        """ Rendering of the cell corresponding to the process name. """
+        # print process name
+        elt = tr_elt.findmeld('name_a_mid')
+        elt.content(info['process_name'])
+        url = self.view_ctx.format_url(info['address'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        elt.attributes(href=url)
+        # print addresses where the process is running
+        running_list = info['running_list']
+        if running_list:
+            running_li_mid = tr_elt.findmeld('running_li_mid')
+            for li_elt, address in running_li_mid.repeat(running_list):
+                elt = li_elt.findmeld('running_a_mid')
+                elt.content(address)
+                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+                elt.attributes(href=url)
+                if address == info['address']:
+                    elt.attrib['class'] = elt.attrib['class'] + ' active'
+        else:
+            elt = tr_elt.findmeld('running_ul_mid')
+            elt.replace('')
+
+    # ACTIONS
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested. """
         if action == 'refresh':
@@ -334,7 +330,3 @@ class ApplicationView(ViewHandler):
         except RPCError as e:
             return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))
         return delayed_info('Log for %s cleared' % namespec)
-
-    def get_process_stats(self, namespec):
-        """ Get process statistics of running process. """
-        return self.view_ctx.get_process_stats(namespec, True)

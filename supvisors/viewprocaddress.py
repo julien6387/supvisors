@@ -52,6 +52,7 @@ class ProcAddressView(StatusView):
         address """
         self.write_nav(root, address=self.address)
 
+    # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Address page """
         # set address name
@@ -92,10 +93,23 @@ class ProcAddressView(StatusView):
                                        **{ACTION: 'stopall'})
         elt.attributes(href=url)
 
+    # RIGHT SIDE / BODY part
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
-        self.write_process_table(root)
-        self.write_process_statistics(root)
+        data = self.get_process_data()
+        self.write_process_table(root, data)
+        # check selected Process Statistics
+        namespec = self.view_ctx.parameters[PROCESS]
+        if namespec:
+            status = self.view_ctx.get_process_status(namespec)
+            if not status or self.view_ctx.local_address not in status.addresses:
+                self.logger.warn('unselect Process Statistics for {}'.format(namespec))
+                # form parameter is not consistent. remove it
+                self.view_ctx.parameters[PROCESS] = ''
+        # write selected Process Statistics
+        namespec = self.view_ctx.parameters[PROCESS]
+        info = next(filter(lambda x: x['namespec'] == namespec, data), {})
+        self.write_process_statistics(root, info)
 
     def get_process_data(self):
         """ Collect sorted data on processes. """
@@ -113,35 +127,36 @@ class ProcAddressView(StatusView):
                 namespec = make_namespec(info['group'], info['name'])
                 status = self.view_ctx.get_process_status(namespec)
                 loading = status.rules.expected_loading if status else '?'
+                nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
                 data.append({'application_name': info['group'],
                              'process_name': info['name'],
                              'namespec': namespec,
+                             'address': self.view_ctx.local_address,
                              'statename': info['statename'],
                              'statecode': info['state'],
-                             'desc': info['description'],
-                             'loading': loading})
+                             'description': info['description'],
+                             'loading': loading,
+                             'nb_cores': nb_cores,
+                             'proc_stats': proc_stats})
             # re-arrange data
             return self.sort_processes_by_config(data)
 
-    def write_process_table(self, root):
+    def write_process_table(self, root, data):
         """ Rendering of the processes managed through Supervisor """
-        data = self.get_process_data()
         if data:
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
-            for tr_elt, item in iterator:
-                self.write_common_process_status(tr_elt, item, self.address)
-                # print process name (tail allowed if STOPPED)
-                namespec = item['namespec']
-                process_name = item.get('processname', namespec)
+            for tr_elt, info in iterator:
+                # write common status
+                # (shared between this process view and application view)
+                self.write_common_process_status(tr_elt, info)
+                # print process name (as namespec)
+                namespec = info['namespec']
                 elt = tr_elt.findmeld('name_a_mid')
                 url = self.view_ctx.format_url(self.address, TAIL_PAGE, **{PROCESS: namespec})
                 elt.attributes(href=url)
-                elt.content(process_name)
-                # print description
-                elt = tr_elt.findmeld('desc_td_mid')
-                elt.content(item['desc'])
+                elt.content(namespec)
                 # set line background and invert
                 if shaded_tr:
                     tr_elt.attrib['class'] = 'shaded'
@@ -152,6 +167,7 @@ class ProcAddressView(StatusView):
             table = root.findmeld('table_mid')
             table.replace('No programs to manage')
 
+    # ACTION part
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested """
         if action == 'restartsup':

@@ -43,12 +43,9 @@ class ViewContextTest(unittest.TestCase):
         ctx = ViewContext(self.http_context)
         self.assertIs(ctx.http_context, self.http_context)
         self.assertIs(ctx.supvisors, self.http_context.supervisord.supvisors)
-        self.assertEqual(DummyAddressMapper().local_address, ctx.address)
-        self.assertDictEqual({'namespec': None,
-                              'period': 5,
-                              'appliname': None,
-                              'processname': None,
-                              'cpuid': 0,
+        self.assertEqual(DummyAddressMapper().local_address, ctx.local_address)
+        self.assertDictEqual({'address': '10.0.0.4', 'namespec': None, 'period': 5,
+                              'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None}, ctx.parameters)
 
     def test_get_server_port(self):
@@ -206,60 +203,79 @@ class ViewContextTest(unittest.TestCase):
                                    DummyOptions().stats_periods[0])],
                              mocked_update.call_args_list)
 
-    @patch('supvisors.viewcontext.ViewContext._update_string')
-    def test_update_application_name(self, mocked_update):
+    def test_update_address(self):
+        """ Test the update_address method. """
+        from supvisors.viewcontext import ViewContext, ADDRESS
+        ctx = ViewContext(self.http_context)
+        # reset parameter because called in constructor
+        del ctx.parameters[ADDRESS]
+        # test call with valid value
+        ctx.update_address()
+        self.assertEqual('10.0.0.4', ctx.parameters[ADDRESS])
+        # reset parameter
+        del ctx.parameters[ADDRESS]
+        # test call with invalid value
+        self.http_context.form[ADDRESS] = '192.168.1.1'
+        ctx.update_address()
+        self.assertEqual('127.0.0.1', ctx.parameters[ADDRESS])
+
+    def test_update_application_name(self):
         """ Test the update_application_name method. """
         from supvisors.viewcontext import ViewContext, APPLI
         ctx = ViewContext(self.http_context)
-        # reset mock because called in constructor
-        mocked_update.reset_mock()
-        # test call
-        with patch.dict(ctx.context.applications,
-                        {'abc': [], 'dummy_appli': []}, clear=True):
-            ctx.update_application_name()
-        # cannot rely on ordering for second parameter because of dict
-        # need to split checking
-        self.assertEqual(1, mocked_update.call_count)
-        mocked_call = mocked_update.call_args[0]
-        self.assertEqual(APPLI, mocked_call[0])
-        self.assertListEqual(['abc', 'dummy_appli'], mocked_call[1])
+        # reset parameter because called in constructor
+        del ctx.parameters[APPLI]
+        # test call with valid value
+        ctx.context.applications = {'abc': [], 'dummy_appli': []}
+        ctx.update_application_name()
+        # cannot rely on ordering for second parameter because of dict need to split checking
+        self.assertEqual('dummy_appli', ctx.parameters[APPLI])
+        # reset parameter
+        del ctx.parameters[APPLI]
+        # test call with invalid value
+        self.http_context.form[APPLI] = 'any_appli'
+        ctx.update_application_name()
+        self.assertEqual(None, ctx.parameters[APPLI])
 
-    @patch('supvisors.viewcontext.ViewContext.get_address_stats',
-           return_value=None)
-    @patch('supvisors.viewcontext.ViewContext._update_string')
-    def test_update_process_name(self, mocked_update, mocked_stats):
+    @patch('supvisors.viewcontext.ViewContext.get_address_stats', return_value=None)
+    def test_update_process_name(self, mocked_stats):
         """ Test the update_process_name method. """
         from supvisors.viewcontext import ViewContext, PROCESS
         ctx = ViewContext(self.http_context)
-        # reset mock because called in constructor
-        mocked_update.reset_mock()
-        # test call in case of process stats are not found
+        # reset parameter because called in constructor
+        del ctx.parameters[PROCESS]
+        # test call in case of address stats are not found
         ctx.update_process_name()
-        self.assertEqual([call(PROCESS, [])],
-                         mocked_update.call_args_list)
-        mocked_update.reset_mock()
-        # test call in case of process stats not found
-        mocked_stats.return_value = Mock(proc={('abc', 12): [],
-                                               ('dummy_proc', 345): []})
+        self.assertEqual(None, ctx.parameters[PROCESS])
+        # reset parameter
+        del ctx.parameters[PROCESS]
+        # test call when address stats are found and process in list
+        mocked_stats.return_value = Mock(proc={('abc', 12): [], ('dummy_proc', 345): []})
         ctx.update_process_name()
-        self.assertEqual(1, mocked_update.call_count)
-        call_args = mocked_update.call_args[0]
-        self.assertEqual(PROCESS, call_args[0])
-        self.assertListEqual(['abc', 'dummy_proc'], call_args[1])
+        self.assertEqual('dummy_proc', ctx.parameters[PROCESS])
+        # reset parameter
+        del ctx.parameters[PROCESS]
+        # test call when address stats are found and process not in list
+        self.http_context.form[PROCESS] = 'any_proc'
+        ctx.update_process_name()
+        self.assertEqual(None, ctx.parameters[PROCESS])
 
-    @patch('supvisors.viewcontext.ViewContext._update_string')
-    def test_update_namespec(self, mocked_update):
+    def test_update_namespec(self):
         """ Test the update_namespec method. """
         from supvisors.viewcontext import ViewContext, NAMESPEC
         ctx = ViewContext(self.http_context)
-        # reset mock because called in constructor
-        mocked_update.reset_mock()
-        # test call
-        with patch.dict(ctx.context.processes,
-                        {'abc': [], 'dummy_proc': []}, clear=True):
-            ctx.update_namespec()
-            self.assertListEqual([call(NAMESPEC, ['abc', 'dummy_proc'])],
-                                 mocked_update.call_args_list)
+        # reset parameter because called in constructor
+        del ctx.parameters[NAMESPEC]
+        # test call with valid parameter
+        ctx.context.processes = {'abc': [], 'dummy_proc': []}
+        ctx.update_namespec()
+        self.assertEqual('dummy_proc', ctx.parameters[NAMESPEC])
+        # reset parameter
+        del ctx.parameters[NAMESPEC]
+        # test call with invalid value
+        self.http_context.form[NAMESPEC] = 'any_proc'
+        ctx.update_namespec()
+        self.assertEqual(None, ctx.parameters[NAMESPEC])
 
     @patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=2)
     def test_update_cpu_id(self, _):
@@ -272,24 +288,35 @@ class ViewContextTest(unittest.TestCase):
             self.assertEqual([call(CPU, [0, 1, 2])],
                              mocked_update.call_args_list)
 
-    @patch('supvisors.viewcontext.ViewContext._update_string')
-    def test_update_interface_name(self, mocked_update):
+    @patch('supvisors.viewcontext.ViewContext.get_address_stats', return_value=None)
+    def test_update_interface_name(self, mocked_stats):
         """ Test the update_interface_name method. """
         from supvisors.viewcontext import ViewContext, INTF
         ctx = ViewContext(self.http_context)
-        # reset mock because called in constructor
-        mocked_update.reset_mock()
-        # test call
+        # reset parameter because called in constructor
+        del ctx.parameters[INTF]
+        # test call in case of address stats are not found
         ctx.update_interface_name()
-        self.assertEqual([call(INTF, [], None)],
-                         mocked_update.call_args_list)
+        self.assertEqual(None, ctx.parameters[INTF])
+        # reset parameter
+        del ctx.parameters[INTF]
+        # test call when address stats are found and process in list
+        mocked_stats.return_value = Mock(io={'lo': None})
+        ctx.update_interface_name()
+        self.assertEqual('lo', ctx.parameters[INTF])
+        # reset parameter
+        del ctx.parameters[INTF]
+        # test call when address stats are found and process not in list
+        mocked_stats.return_value = Mock(io={'lo': None, 'eth0': None})
+        ctx.update_interface_name()
+        self.assertEqual('eth0', ctx.parameters[INTF])
 
     def test_url_parameters(self):
         """ Test the url_parameters method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
         # test default
-        self.assertEqual('period=5', ctx.url_parameters())
+        self.assertEqual('period=5&amp;address=10.0.0.4', ctx.url_parameters())
         # update internal parameters
         ctx.parameters.update({'processname': 'dummy_proc',
                                'namespec': 'dummy_ns',
@@ -334,7 +361,7 @@ class ViewContextTest(unittest.TestCase):
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
         # test without address or arguments
-        self.assertEqual('index.html?period=5',
+        self.assertEqual('index.html?period=5&amp;address=10.0.0.4',
                          ctx.format_url(0, 'index.html'))
         # test with address and arguments
         url = ctx.format_url('10.0.0.1', 'index.html',
@@ -349,14 +376,13 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('extra=args',
-                                         'period=10',
+                                         'period=10&amp;address=10.0.0.4',
                                          'appliname=dummy_appli')))
 
     def test_message(self):
         """ Test the message method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
-        self.assertIsNone(self.http_context.response['headers']['Location'])
         ctx.message(('warning', 'not as expected'))
         # result depends on dict contents so ordering is unreliable
         url = self.http_context.response['headers']['Location']
@@ -367,7 +393,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('message=not%20as%20expected',
-                                         'period=5',
+                                         'period=5&amp;address=10.0.0.4',
                                          'gravity=warning')))
 
     def test_get_nbcores(self):
@@ -378,7 +404,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual(0, ctx.get_nbcores())
         # mock the structure
         stats = self.http_context.supervisord.supvisors.statistician
-        stats.nbcores[ctx.address] = 4
+        stats.nbcores[ctx.local_address] = 4
         # test new call
         self.assertEqual(4, ctx.get_nbcores())
         # test with unknown address
@@ -415,94 +441,69 @@ class ViewContextTest(unittest.TestCase):
         # test with known address parameter but missing period
         self.assertIsNone(ctx.get_address_stats('10.0.0.1'))
 
-    def test_get_process_last_info(self):
-        """ Test the get_process_last_info method. """
+    def test_get_process_last_desc(self):
+        """ Test the get_process_last_desc method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
         # build common Mock
         mocked_process = Mock(addresses=set(),
-                              infos={'10.0.0.1': {'local_time': 10},
-                                     '10.0.0.2': {'local_time': 30},
-                                     '10.0.0.3': {'local_time': 20}})
+                              infos={'10.0.0.1': {'local_time': 10, 'description': 'desc1'},
+                                     '10.0.0.2': {'local_time': 30, 'description': 'desc2'},
+                                     '10.0.0.3': {'local_time': 20, 'description': 'desc3'}})
         # test method return on non-running process and running requested
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
             self.assertTupleEqual((None, None),
-                                  ctx.get_process_last_info('dummy_proc', True))
+                                  ctx.get_process_last_desc('dummy_proc', True))
         # test method return on non-running process and running not requested
         # the method returns the
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
-            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
-                                  ctx.get_process_last_info('dummy_proc'))
+            self.assertTupleEqual(('10.0.0.2', 'desc2'),
+                                  ctx.get_process_last_desc('dummy_proc'))
         # test method return on running process and running requested
         mocked_process.addresses.add('10.0.0.3')
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
-            self.assertTupleEqual(('10.0.0.3', {'local_time': 20}),
-                                  ctx.get_process_last_info('dummy_proc', True))
+            self.assertTupleEqual(('10.0.0.3', 'desc3'),
+                                  ctx.get_process_last_desc('dummy_proc', True))
         # test method return on running process and running not requested
         # same result as previous
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
-            self.assertTupleEqual(('10.0.0.3', {'local_time': 20}),
-                                  ctx.get_process_last_info('dummy_proc'))
+            self.assertTupleEqual(('10.0.0.3', 'desc3'),
+                                  ctx.get_process_last_desc('dummy_proc'))
         # test method return on multiple running processes and running requested
         mocked_process.addresses.add('10.0.0.2')
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
-            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
-                                  ctx.get_process_last_info('dummy_proc', True))
+            self.assertTupleEqual(('10.0.0.2', 'desc2'),
+                                  ctx.get_process_last_desc('dummy_proc', True))
         # test method return on running process and running not requested
         # same result as previous
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
-            self.assertTupleEqual(('10.0.0.2', {'local_time': 30}),
-                                  ctx.get_process_last_info('dummy_proc'))
+            self.assertTupleEqual(('10.0.0.2', 'desc2'),
+                                  ctx.get_process_last_desc('dummy_proc'))
 
     @patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=4)
-    @patch('supvisors.viewcontext.ViewContext.get_process_last_info',
-           side_effect =((None, None), ('10.0.0.1', None)))
-    def test_get_process_stats(self, mocked_running_info, mocked_core):
+    def test_get_process_stats(self, mocked_core):
         """ Test the get_process_stats method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
         # reset mocks that have been called in constructor
         mocked_core.reset_mock()
         # patch get_address_stats so that it returns no result
-        with patch.object(ctx, 'get_address_stats', return_value=None):
-            self.assertEqual((None, 4), ctx.get_process_stats('dummy_proc'))
-        mocked_running_info.reset_mock()
+        with patch.object(ctx, 'get_address_stats', return_value=None) as mocked_stats:
+            self.assertEqual((4, None), ctx.get_process_stats('dummy_proc'))
+            self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
         mocked_core.reset_mock()
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
         with patch.object(ctx, 'get_address_stats', return_value=mocked_find) as mocked_stats:
-            # test with default running False
-            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc'))
-            self.assertFalse(mocked_running_info.called)
-            self.assertEqual([call(ctx.address)], mocked_core.call_args_list)
-            self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
-            self.assertEqual([call('dummy_proc')],
-                             mocked_find.find_process_stats.call_args_list)
-            mocked_running_info.reset_mock()
-            mocked_core.reset_mock()
-            mocked_stats.reset_mock()
-            mocked_find.reset_mock()
-            # test with default running True, but corresponding to a process stopped
-            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc', True))
-            self.assertEqual([call('dummy_proc', True)], mocked_running_info.call_args_list)
-            self.assertEqual([call('127.0.0.1')], mocked_core.call_args_list)
-            self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
-            self.assertEqual([call('dummy_proc')], mocked_find.find_process_stats.call_args_list)
-            mocked_running_info.reset_mock()
-            mocked_core.reset_mock()
-            mocked_stats.reset_mock()
-            mocked_find.reset_mock()
-            # test with default running True, but corresponding to a process running
-            self.assertEqual(('mock stats', 4), ctx.get_process_stats('dummy_proc', True))
-            self.assertEqual([call('dummy_proc', True)], mocked_running_info.call_args_list)
-            self.assertEqual([call('10.0.0.1')], mocked_core.call_args_list)
+            self.assertEqual((4, 'mock stats'), ctx.get_process_stats('dummy_proc', '10.0.0.1'))
             self.assertEqual([call('10.0.0.1')], mocked_stats.call_args_list)
+            self.assertEqual([call('10.0.0.1')], mocked_core.call_args_list)
             self.assertEqual([call('dummy_proc')], mocked_find.find_process_stats.call_args_list)
 
     def test_get_process_status(self):
