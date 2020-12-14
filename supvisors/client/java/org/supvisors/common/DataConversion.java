@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * The Class DataConversion.
@@ -61,7 +62,11 @@ public final class DataConversion {
      * @return List<String>: The list of String results.
      */
     public static List<String> arrayToStringList(final Object[] objectArray) {
-        return new ArrayList(Arrays.asList(objectArray));
+        List<String> list = new ArrayList<>(objectArray.length);
+        for (Object object : objectArray) {
+            list.add(Objects.toString(object, null));
+        }
+        return list;
     }
 
     /**
