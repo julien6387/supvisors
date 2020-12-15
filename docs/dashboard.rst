@@ -14,7 +14,7 @@ and the **Supvisors** extension provides its own web user interface, as a replac
 
 .. note:: *About the browser compliance*.
 
-    The CSS of the web pages has been written for Firefox ESR 45.4.0.
+    The CSS of the web pages has been written for Firefox ESR 60.3.0.
     The compatibility with other browsers or other versions of Firefox is unknown.
 
 All pages are divided into 3 parts:
