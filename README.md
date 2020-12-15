@@ -67,7 +67,7 @@ Supvisors can be installed with `pip install`:
 
 You can view the current **Supvisors** documentation [here](http://supvisors.readthedocs.io).
 
-[![Documentation Status](https://readthedocs.org/projects/supvisors/badge/?version=0.2)](https://supvisors.readthedocs.io/en/0.2/?badge=0.2)
+[![Documentation Status](https://readthedocs.org/projects/supvisors/badge/?version=master)](https://supvisors.readthedocs.io/en/master/?badge=master)
 
 You will find detailed installation and configuration documentation.
 
