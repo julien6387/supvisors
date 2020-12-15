@@ -168,21 +168,16 @@ It can be downloaded from the `Supvisors releases
 The *SupvisorsEventSubscriber* of the ``org.supvisors.event package`` is
 designed to receive the **Supvisors** events from the local **Supvisors** instance.
 A *SupvisorsEventListener* with a specialization of the methods ``onXxxStatus``
-must be attached to the *SupvisorsEventSubscriber* instance to receive the
-notifications.
+must be attached to the *SupvisorsEventSubscriber* instance to receive the notifications.
 
 It requires the following additional dependencies:
 
     * `JeroMQ <https://github.com/zeromq/jeromq>`_.
-    * `JSON-java <https://github.com/stleary/JSON-java>`_.
+    * `Gson <https://github.com/google/gson>`_.
 
-The binary JAR of `JeroMQ 0.3.6
-<https://mvnrepository.com/artifact/org.zeromq/jeromq/0.3.6>`_
-is available in the MAVEN repository.
+The binary JAR of JeroMQ 0.5.2 is available in the `JeroMQ MAVEN repository <https://mvnrepository.com/artifact/org.zeromq/jeromq/0.5.2>`_.
 
-The binary JAR of `JSON-java 20160810
-<https://mvnrepository.com/artifact/org.json/json/20160810>`_
-is available in the MAVEN repository.
+The binary JAR of Google Gson 2.8.6 is available in the `Gson MAVEN repository <https://mvnrepository.com/artifact/com.google.code.gson/gson/2.8.6>`_.
 
 .. code-block:: java
 
@@ -225,10 +220,3 @@ is available in the MAVEN repository.
     // start subscriber in thread
     Thread t = new Thread(subscriber);
     t.start();
-
-
-C++ Client
-~~~~~~~~~~
-
-Not implemented yet
-
