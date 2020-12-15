@@ -113,6 +113,7 @@ class SupvisorsServerOptions(ServerOptions):
         """ This method is overriden to:
             - add attributes to prepare the extra args functionality
             - store the program number of a homogeneous program.
+
         This is originally used in Supervisor to set the real program name
         from the format defined in the ini file. However, Supervisor does not
         keep this information in its internal structure. """
@@ -141,40 +142,25 @@ class SupvisorsServerOptions(ServerOptions):
         # get values
         opt = self.supvisors_options
         opt.address_list = list(OrderedDict.fromkeys(filter(
-            None, list_of_strings(parser.getdefault('address_list',
-                                                    gethostname())))))
+            None, list_of_strings(parser.getdefault('address_list', gethostname())))))
         opt.rules_file = parser.getdefault('rules_file', None)
         if opt.rules_file:
             opt.rules_file = existing_dirpath(opt.rules_file)
-        opt.internal_port = self.to_port_num(
-            parser.getdefault('internal_port', '65001'))
-        opt.event_port = self.to_port_num(
-            parser.getdefault('event_port', '65002'))
-        opt.auto_fence = boolean(
-            parser.getdefault('auto_fence', 'false'))
-        opt.synchro_timeout = self.to_timeout(
-            parser.getdefault('synchro_timeout', '15'))
-        opt.conciliation_strategy = self.to_conciliation_strategy(
-            parser.getdefault('conciliation_strategy', 'USER'))
-        opt.starting_strategy = self.to_starting_strategy(
-            parser.getdefault('starting_strategy', 'CONFIG'))
+        opt.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
+        opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
+        opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
+        opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
+        opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
+        opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
         # configure statistics
-        opt.stats_periods = self.to_periods(list_of_strings(
-            parser.getdefault('stats_periods', '10')))
-        opt.stats_histo = self.to_histo(
-            parser.getdefault('stats_histo', 200))
-        opt.stats_irix_mode = boolean(
-            parser.getdefault('stats_irix_mode', 'false'))
+        opt.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
+        opt.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
+        opt.stats_irix_mode = boolean(parser.getdefault('stats_irix_mode', 'false'))
         # configure logger
-        opt.logfile = existing_dirpath(
-            parser.getdefault('logfile', '{}.log'
-                              .format(SupvisorsServerOptions._Section)))
-        opt.logfile_maxbytes = byte_size(
-            parser.getdefault('logfile_maxbytes', '50MB'))
-        opt.logfile_backups = integer(
-            parser.getdefault('logfile_backups', 10))
-        opt.loglevel = logging_level(
-            parser.getdefault('loglevel', 'info'))
+        opt.logfile = existing_dirpath(parser.getdefault('logfile', '{}.log'.format(SupvisorsServerOptions._Section)))
+        opt.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
+        opt.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
+        opt.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
         # reset mysection and return original result
         parser.mysection = temp
         return configs
@@ -186,8 +172,7 @@ class SupvisorsServerOptions(ServerOptions):
         value = integer(value)
         if 0 < value <= 65535:
             return value
-        raise ValueError('invalid value for port: %d. '
-                         'expected in [1;65535]' % value)
+        raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
 
     @staticmethod
     def to_timeout(value):
@@ -195,8 +180,7 @@ class SupvisorsServerOptions(ServerOptions):
         value = integer(value)
         if 0 < value <= 1000:
             return value
-        raise ValueError('invalid value for synchro_timeout: %d. '
-                         'expected in [1;1000] (seconds)' % value)
+        raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000] (seconds)' % value)
 
     @staticmethod
     def to_conciliation_strategy(value):
@@ -222,20 +206,16 @@ class SupvisorsServerOptions(ServerOptions):
     def to_periods(value):
         """ Convert a string into a list of period values. """
         if len(value) == 0:
-            raise ValueError('unexpected number of stats_periods: {}. '
-                             'minimum is 1'.format(value))
+            raise ValueError('unexpected number of stats_periods: {}. minimum is 1'.format(value))
         if len(value) > 3:
-            raise ValueError('unexpected number of stats_periods: {}. '
-                             'maximum is 3'.format(value))
+            raise ValueError('unexpected number of stats_periods: {}. maximum is 3'.format(value))
         periods = []
         for val in value:
             period = integer(val)
             if 5 > period or period > 3600:
-                raise ValueError('invalid value for stats_periods: {}. '
-                                 'expected in [5;3600] (seconds)'.format(val))
+                raise ValueError('invalid value for stats_periods: {}. expected in [5;3600] (seconds)'.format(val))
             if period % 5 != 0:
-                raise ValueError('invalid value for stats_periods: %d. '
-                                 'expected multiple of 5' % period)
+                raise ValueError('invalid value for stats_periods: %d. expected multiple of 5' % period)
             periods.append(period)
         return sorted(filter(None, periods))
 
@@ -245,5 +225,4 @@ class SupvisorsServerOptions(ServerOptions):
         histo = integer(value)
         if 10 <= histo <= 1500:
             return histo
-        raise ValueError('invalid value for stats_histo: {}. '
-                         'expected in [10;1500] (seconds)'.format(value))
+        raise ValueError('invalid value for stats_histo: {}. expected in [10;1500] (seconds)'.format(value))
