@@ -12,7 +12,7 @@ The main features are:
       * the starting strategy of the processes,
       * the strategy to apply when a process crashes.
 
-![Image of Supvisors' Dashboard](https://github.com/julien6387/supvisors/blob/master/docs/images/supvisors_address_host_section.png)
+![Image of Supvisors' Dashboard](https://github.com/julien6387/supvisors/blob/master/docs/images/supvisors_address_process_section.png)
 
 
 ## Supported Platforms
