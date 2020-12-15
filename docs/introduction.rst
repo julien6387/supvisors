@@ -13,7 +13,7 @@ applications are distributed over several boards.
 This problematic comes with the following challenges:
 
     * have a detailed status of the application,
-    * have statistics about the resources taken by the application,
+    * have basic statistics about the resources taken by the application,
     * have a basic status of the boards,
     * start / stop processes dynamically,
     * distribute the same application according to different platforms,
@@ -36,28 +36,25 @@ free and open source solution that meets all these requirements.
 Supervisor_ can handle a part of these requirements but it only
 works on a single UNIX-like operating system.
 
-The Supervisor website references some `tools <http://supervisord.org/plugins.html>`_
-that deal with multiple Supervisor instances but they only consist in dashboards
-and none of them is focused on the application itself.
-Nevertheless, the extensibility of Supervisor made it possible to implement the
-missing requirements.
+The Supervisor website references some `third parties <http://supervisord.org/plugins.html>`_
+that deal with multiple Supervisor instances but they only consist in dashboards and none of them is focused on the application itself.
+Nevertheless, the extensibility of Supervisor made it possible to implement the missing requirements.
 
-In this documentation, a *Supvisors instance* refers to a *Supervisor instance*
-including a **Supvisors** extension.
+In this documentation, a *Supvisors instance* refers to a *Supervisor instance* including a **Supvisors** extension.
 
 
 Platform Requirements
 ---------------------
 
-**Supvisors** has been tested and is known to run on Linux (CentOS 7.2).
+**Supvisors** has been tested and is known to run on Linux (CentOS 8.3).
 
 **Supvisors** will not run at all under any version of Windows.
 
-**Supvisors** works with Python 2.7 or later but will not work under any
-version of Python 3.
+**Supvisors** works with Python 3.6 or later but will not work under any version of Python 2.
 
-The CSS of the Dashboard has been written for Firefox ESR 45.4.0.
-It has been re-tested successfully with Firefox ESR 60.3.0.
+A previous release of **Supvisors** (version 0.1, available on PyPi) works with Python 2.7 (and previous versions of Supervisor, i.e. 3.3.0) but is not maintained anymore.
+
+The CSS of the Dashboard has been written for Firefox ESR 60.3.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
 
 
@@ -111,8 +108,7 @@ Without an Internet access
 All the dependencies have to be installed prior to **Supvisors**.
 Refer to the documentation of the dependencies.
 
-Finally, get the latest release from `Supvisors releases
-<https://github.com/julien6387/supvisors/releases>`_,
+Finally, get the latest release from `Supvisors releases <https://github.com/julien6387/supvisors/releases>`_,
 unzip the archive and enter the directory :command:`supvisors-version`.
 
 Install **Supvisors** with the following command:
@@ -139,8 +135,7 @@ However, the Supervisor configuration file MUST:
     A script may be required to start Supervisor on several addresses if not configured
     to run automatically at startup (ssh loop for example).
 
-    All Supervisor instances should be started during a given lap of time so that
-    **Supvisors** works as expected.
+    All Supervisor instances should be started during a given lap of time so that **Supvisors** works as expected.
 
 .. _Supervisor: http://supervisord.org
 .. _PyZMQ: http://pyzmq.readthedocs.io
