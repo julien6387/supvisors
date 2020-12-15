@@ -228,12 +228,13 @@ Processes Section
 The Processes Section looks like the page provided by Supervisor.
 Indeed, it lists the programs that are configured in Supervisor, it presents their current state with an associated description and enables the user to perform some actions on them:
 
-    * log tail (with a refresh button, click on the name itself),
+    * log tail (with a refresh button, click on the program name itself),
     * Start,
     * Stop,
     * Restart,
     * Clear log,
-    * Tail log (auto-refreshed).
+    * Tail stdout log (auto-refreshed),
+    * Tail stderr log (auto-refreshed).
 
 **Supvisors** shows additional information for each process, such as:
 
@@ -323,6 +324,7 @@ The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis),
     * the address where it runs, if appropriate,
+    * the description (from Supervisor),
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``).
@@ -331,7 +333,10 @@ Like the `Address page`_, the Application page enables the user to perform some 
 
     * Start,
     * Stop,
-    * Restart.
+    * Restart,
+    * Clear log,
+    * Tail stdout log (auto-refreshed),
+    * Tail stderr log (auto-refreshed).
 
 The difference is that the process is not started necessarily on the address that displays this page.
 Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected in the header part to choose a relevant address.
