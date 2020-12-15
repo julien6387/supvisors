@@ -1,10 +1,34 @@
-0.2 (unreleased)
+0.2 (2020-12-14)
 ----------------
 
-* Fixed https://github.com/julien6387/supvisors/issues/72
-  The extra arguments are shared between all Supvisors instances.
+* Migration to Python 3.6
+  Versions of dependencies are refreshed, more particularly supervisor 4.2.1
 
-* Fixed some document formatting issues.
+* Updated CSS of Web UI
+
+* New action added to Host Process page of WebUI
+  'tail -f stderr' button
+
+* New information actions added to Application page of WebUI
+  'description' field
+  'clear logs', 'tail -f stdout', 'tail -f stderr' buttons
+
+* Fixed https://github.com/julien6387/supvisors/issues/75
+  Supvisors takes into account username and password of inet_http_server in the supervisord section
+
+* Fixed https://github.com/julien6387/supvisors/issues/17
+  The user selections on the web UI are passed to the URL
+
+* Fixed https://github.com/julien6387/supvisors/issues/72
+  The extra arguments are shared between all Supvisors instances
+
+* Fixed some document formatting issues
+
+* README.rst replaced with README.md
+
+* Coverage improved in tests
+
+* Docs target added to Travis-CI
 
 
 0.1 (2017-08-11)
