@@ -48,6 +48,7 @@ class AddressMapper(object):
 
     @addresses.setter
     def addresses(self, addr):
+        """ Determine usage name of local address among the addresses provided in option file. """
         self.logger.info('Expected addresses: {}'.format(addr))
         # store IP list as found in config file
         self._addresses = addr
