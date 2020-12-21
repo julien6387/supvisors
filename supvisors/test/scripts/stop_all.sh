@@ -9,7 +9,7 @@ pushd .
 cd $TEST_DIR
 
 # stop all instances
-for host in cliche01 cliche02
+for host in cliche81 cliche82 cliche83
 do
 	echo "stop Supervisor on host" $host
         ping -c 1 $host && ssh $host "cd $TEST_DIR ; supervisorctl shutdown"
