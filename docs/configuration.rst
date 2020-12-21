@@ -71,7 +71,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     When true, **Supvisors** won't try to reconnect to a **Supvisors** instance that has been inactive.
     This functionality is detailed in :ref:`auto_fencing`.
 
-    *Default*:  false.
+    *Default*:  ``false``.
 
     *Required*:  No.
 
@@ -80,7 +80,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     The internal port number used to publish local events to remote **Supvisors** instances.
     Events are published through a PyZMQ TCP socket.
 
-    *Default*:  65001.
+    *Default*:  ``65001``.
 
     *Required*:  No.
 
@@ -90,7 +90,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     The port number used to publish all **Supvisors** events (Address, Application and Process events).
     Events are published through a PyZMQ TCP socket. The protocol of this interface is explained in :ref:`event_interface`.
 
-    *Default*:  65002.
+    *Default*:  ``65002``.
 
     *Required*:  No.
 
@@ -99,7 +99,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     The time in seconds that **Supvisors** waits for all expected **Supvisors** instances to publish.
     This use of this option is detailed in :ref:`synchronizing`.
 
-    *Default*:  15.
+    *Default*:  ``15``.
 
     *Required*:  No.
 
@@ -126,17 +126,17 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``stats_periods``
 
     The list of periods for which the statistics will be provided in the **Supvisors** :ref:`dashboard`, separated by commas.
-    Up to 3 values are allowed in [5 ; 3600] seconds, each of them MUST be a multiple of 5.
+    Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of ``5``.
 
-    *Default*:  10.
+    *Default*:  ``10``.
 
     *Required*:  No.
 
 ``stats_histo``
 
-    The depth of the statistics history. Value in [10 ; 1500].
+    The depth of the statistics history. Value in [``10`` ; ``1500``].
 
-    *Default*:  200.
+    *Default*:  ``200``.
 
     *Required*:  No.
 
@@ -146,7 +146,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     If true, values are displayed in 'IRIX' mode.
     If false, values are displayed in 'Solaris' mode.
 
-    *Default*:  false.
+    *Default*:  ``false``.
 
     *Required*:  No.
 
@@ -156,33 +156,42 @@ These options are more detailed in
 
 ``logfile``
 
-    The absolute or relative path of the **Supvisors** log file.
+    The path to the **Supvisors** activity log of the supervisord process. This option can include the value %(here)s,
+    which expands to the directory in which the supervisord configuration file was found.
+    If ``logfile`` is unset or set to ``AUTO``, **Supvisors** will use the same logger as Supervisor. It makes it easier
+    to understand what happens when Supervisor and **Supvisors** output sequentially.
 
-    *Default*:  :file:`supvisors.log`.
+    *Default*:  ``AUTO``.
 
     *Required*:  No.
 
 ``logfile_maxbytes``
 
-    The maximum size of the **Supvisors** log file.
+    The maximum number of bytes that may be consumed by the **Supvisors** activity log file before it is rotated
+    (suffix multipliers like ``KB``, ``MB``, and ``GB`` can be used in the value).
+    Set this value to ``0`` to indicate an unlimited log size. No effect if ``logfile`` is unset or set to ``AUTO``.
 
-    *Default*:  50MB.
+    *Default*:  ``50MB``.
 
     *Required*:  No.
 
 ``logfile_backups``
 
-    The number of **Supvisors** backup log files.
+    The number of backups to keep around resulting from **Supvisors** activity log file rotation.
+    If set to ``0``, no backups will be kept. No effect if ``logfile`` is unset or set to ``AUTO``.
 
-    *Default*:  10.
+    *Default*:  ``10``.
 
     *Required*:  No.
 
 ``loglevel``
 
-    The logging level.
+    The logging level, dictating what is written to the **Supvisors** activity log.
+    One of [``critical``, ``error``, ``warn``, ``info``, ``debug``, ``trace``,  ``blather``.
+    See also: `supervisord Activity Log Levels <http://supervisord.org/logging.html#activity-log-levels>`_.
+    No effect if ``logfile`` is unset or set to ``AUTO``.
 
-    *Default*:  info.
+    *Default*:  ``info``.
 
     *Required*:  No.
 
@@ -252,7 +261,7 @@ the XML rules file before it is used.
 
 .. hint::
 
-    It is still possbile to validate the XML rules file manually.
+    It is still possible to validate the XML rules file manually.
     The XSD contents used to validate the XML can be found in the module ``supvisors.parser``.
     Once extracted to a file (here :file:`rules.xsd`), just use :command:`xmllint` to validate:
 
@@ -302,27 +311,27 @@ Here follows the definition of the rules applicable to a program.
     If true (resp. false), a failure of the program is considered major (resp. minor).
     This is quite informative and is mainly used to give the operational status of the application.
 
-    *Default*:  false.
+    *Default*:  ``false``.
 
     *Required*:  No.
 
 ``start_sequence``
 
     This element gives the starting rank of the program when the application is starting.
-    When <= 0, the program is not automatically started.
-    When > 0, the program is started automatically in the given order.
+    When <= ``0``, the program is not automatically started.
+    When > ``0``, the program is started automatically in the given order.
 
-    *Default*:  0.
+    *Default*:  ``0``.
 
     *Required*:  No.
 
 ``stop_sequence``
 
     This element gives the stopping rank of the program when the application is stopping.
-    When <= 0, the program is stopped immediately if running.
-    When > 0, the program is stopped in the given order.
+    When <= ``0``, the program is stopped immediately if running.
+    When > ``0``, the program is stopped in the given order.
 
-    *Default*:  0.
+    *Default*:  ``0``.
 
     *Required*:  No.
 
@@ -332,7 +341,7 @@ Here follows the definition of the rules applicable to a program.
     before starting the next sequence. This may be useful for scripts used to load a database,
     to mount disks, to prepare the application working directory, etc.
 
-    *Default*:  false.
+    *Default*:  ``false``.
 
     *Required*:  No.
 
@@ -354,7 +363,7 @@ Here follows the definition of the rules applicable to a program.
         It is recommended to give a value based on a average usage of the resources in worst case
         configuration and to add a margin corresponding to the standard deviation.
 
-    *Default*:  1.
+    *Default*:  ``1``.
 
     *Required*:  No.
 
@@ -400,7 +409,7 @@ Here follows the definition of the rules applicable to a program.
 ``pattern`` Rules
 ~~~~~~~~~~~~~~~~~
 
-It may be quite tedious to give these informations to each program, especially if multiple programs use common rules.
+It may be quite tedious to give all this information to each program, especially if multiple programs use common rules.
 So two mechanisms were put in place to help.
 
 The first is the ``pattern``. It can be used to configure a set of programs in a more flexible way than just
@@ -470,7 +479,8 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 .. attention::
 
     Addresses are chosen in accordance with the sequence given in ``address_list``.
-    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``cliche02`` and ``prg_01`` to ``cliche01``.
+    In the example above, if the two first addresses are swapped, ``prg_00`` will be addressed to ``cliche02``
+    and ``prg_01`` to ``cliche01``.
 
 .. attention::
 
@@ -530,20 +540,20 @@ Here follows the definition of the rules applicable to an application.
 ``start_sequence``
 
     This element gives the starting rank of the application in the ``DEPLOYMENT`` state, when applications are started automatically.
-    When <= 0, the application is not started.
-    When > 0, the application is started in the given order.
+    When <= ``0``, the application is not started.
+    When > ``0``, the application is started in the given order.
 
-    *Default*:  0.
+    *Default*:  ``0``.
 
     *Required*:  No.
 
 ``stop_sequence``
 
     This element gives the stopping rank of the application when all applications are stopped just before **Supvisors** is restarted or shut down.
-    When <= 0, **Supvisors** does nothing and let Supervisor do the job, i.e. stop everything in any order.
-    When > 0, **Supvisors** stops the application in the given order BEFORE the restart or shutdown of Supervisor is requested.
+    When <= ``0``, **Supvisors** does nothing and let Supervisor do the job, i.e. stop everything in any order.
+    When > ``0``, **Supvisors** stops the application in the given order BEFORE the restart or shutdown of Supervisor is requested.
 
-    *Default*:  0.
+    *Default*:  ``0``.
 
     *Required*:  No.
 
@@ -565,7 +575,7 @@ Here follows the definition of the rules applicable to an application.
         * ``STOP``: Stop the application.
         * ``CONTINUE``: Skip the failure and continue the application starting.
 
-    *Default*:  ABORT.
+    *Default*:  ``ABORT``.
 
     *Required*:  No.
 
