@@ -20,10 +20,12 @@
 import sys
 import unittest
 
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+
+from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.tests.base import DummySupervisor
+from supvisors.tests.base import DummySupervisor, DummyOptions
 
 
 class InitializerTest(unittest.TestCase):
@@ -60,6 +62,23 @@ class InitializerTest(unittest.TestCase):
         self.assertIsNotNone(supvisors.fsm)
         self.assertIsNotNone(supvisors.parser)
         self.assertIsNotNone(supvisors.listener)
+
+    def test_create_logger(self):
+        """ Test the create_logger method. """
+        from supvisors.initializer import Supvisors
+        # create mocked supvisors options
+        mocked_options = Mock(supvisors_options=DummyOptions())
+        with patch('supvisors.initializer.SupvisorsServerOptions',
+                   return_value=mocked_options):
+            # create Supvisors instance
+            supervisord = DummySupervisor()
+            supvisors = Supvisors(supervisord)
+            # test AUTO logfile
+            mocked_options.supvisors_options.logfile = Automatic
+            self.assertIs(supervisord.options.logger, supvisors.create_logger(supervisord))
+            # test defined logfile
+            mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
+            self.assertIsNot(supervisord.options.logger, supvisors.create_logger(supervisord))
 
     @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')

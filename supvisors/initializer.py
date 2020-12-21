@@ -18,6 +18,7 @@
 # ======================================================================
 
 from supervisor import loggers
+from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
 from supvisors.addressmapper import AddressMapper
@@ -47,17 +48,7 @@ class Supvisors(object):
         server_options.realize()
         self.options = server_options.supvisors_options
         # create logger
-        nodaemon = supervisord.options.nodaemon
-        silent = supervisord.options.silent
-        self.logger = loggers.getLogger(self.options.loglevel)
-        if nodaemon and not silent:
-            loggers.handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
-        loggers.handle_file(self.logger,
-                            self.options.logfile,
-                            Supvisors.LOGGER_FORMAT,
-                            rotating=not not self.options.logfile_maxbytes,
-                            maxbytes=self.options.logfile_maxbytes,
-                            backups=self.options.logfile_backups)
+        self.logger = self.create_logger(supervisord)
         # configure supervisor info source
         self.info_source = SupervisordSource(supervisord)
         # set addresses and check local address
@@ -65,7 +56,7 @@ class Supvisors(object):
         self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local host unexpected in address list: {}'
+                           'local host is expected in address list: {}'
                            .format(self.options.address_list))
         # create context data
         self.context = Context(self)
@@ -86,3 +77,25 @@ class Supvisors(object):
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
+
+    def create_logger(self, supervisord):
+        """ Create the logger that will be used in Supvisors.
+        If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
+        Else Supvisors will log in the file defined in option.
+        """
+        if self.options.logfile is Automatic:
+            # get Supervisord logger
+            return supervisord.options.logger
+        # create own Logger using Supervisor functions
+        nodaemon = supervisord.options.nodaemon
+        silent = supervisord.options.silent
+        logger = loggers.getLogger(self.options.loglevel)
+        if nodaemon and not silent:
+            loggers.handle_stdout(logger, Supvisors.LOGGER_FORMAT)
+        loggers.handle_file(logger,
+                            self.options.logfile,
+                            Supvisors.LOGGER_FORMAT,
+                            rotating=not not self.options.logfile_maxbytes,
+                            maxbytes=self.options.logfile_maxbytes,
+                            backups=self.options.logfile_backups)
+        return logger

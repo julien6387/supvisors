@@ -65,8 +65,7 @@ class SupvisorsOptionsTest(unittest.TestCase):
 
 
 class SupvisorsServerOptionsTest(unittest.TestCase):
-    """ Test case for the SupvisorsServerOptionsTest class
-    of the options module. """
+    """ Test case for the SupvisorsServerOptionsTest class of the options module. """
 
     common_error_message = 'invalid value for {}'
 
@@ -192,6 +191,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
 
     def test_default_options(self):
         """ Test the default values of options with empty Supvisors configuration. """
+        from supervisor.datatypes import Automatic
         from supvisors.ttypes import ConciliationStrategies, StartingStrategies
         server = self.create_server(DefaultOptionConfiguration)
         opt = server.supvisors_options
@@ -206,7 +206,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         self.assertListEqual([10], opt.stats_periods)
         self.assertEqual(200, opt.stats_histo)
         self.assertFalse(opt.stats_irix_mode)
-        self.assertEqual('supvisors.log', opt.logfile)
+        self.assertEqual(Automatic, opt.logfile)
         self.assertEqual(50 * 1024 * 1024, opt.logfile_maxbytes)
         self.assertEqual(10, opt.logfile_backups)
         self.assertEqual(20, opt.loglevel)
