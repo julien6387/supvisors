@@ -61,7 +61,7 @@ class ViewHandlerTest(unittest.TestCase):
     @patch('supvisors.viewhandler.MeldView.__call__',
            side_effect=(NOT_DONE_YET, {'body': u'html_body'}))
     def test_call(self, mocked_call):
-        """ Test the values set at construction. """
+        """ Test the call method. """
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
         # first call to MeldView returns NOT_DONE_YET
@@ -782,11 +782,13 @@ class ViewHandlerTest(unittest.TestCase):
         # test correct behaviour depending on environment
         try:
             import matplotlib
-            matplotlib.__name__
         except ImportError:
             self.assertFalse(test_matplotlib_import())
         else:
             self.assertTrue(test_matplotlib_import())
+            # force import error
+            with patch('matplotlib.get_backend', side_effect=ImportError):
+                self.assertFalse(test_matplotlib_import())
 
     def test_write_process_plots_no_plot(self):
         """ Test the write_process_plots method in the event of matplotlib import error. """

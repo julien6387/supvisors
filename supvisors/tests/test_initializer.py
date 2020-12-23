@@ -31,6 +31,15 @@ from supvisors.tests.base import DummySupervisor, DummyOptions
 class InitializerTest(unittest.TestCase):
     """ Test case for the initializer module. """
 
+    def setUp(self):
+        """ Close logger if any. """
+        self.logger = None
+
+    def tearDown(self):
+        """ Close logger if any. """
+        if self.logger:
+            self.logger.close()
+
     @patch('supvisors.initializer.Parser')
     @patch('supvisors.initializer.AddressMapper')
     @patch('supvisors.initializer.loggers')
@@ -76,9 +85,14 @@ class InitializerTest(unittest.TestCase):
             # test AUTO logfile
             mocked_options.supvisors_options.logfile = Automatic
             self.assertIs(supervisord.options.logger, supvisors.create_logger(supervisord))
+            # for the following, supervisord must be silent because of logger
+            # for unknown reason test_initalizer got this exception
+            # ValueError: I/O operation on closed file
+            supervisord.options.silent = True
             # test defined logfile
             mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
-            self.assertIsNot(supervisord.options.logger, supvisors.create_logger(supervisord))
+            self.logger = supvisors.create_logger(supervisord)
+            self.assertIsNot(supervisord.options.logger, self.logger)
 
     @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')
