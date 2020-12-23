@@ -1,10 +1,25 @@
+0.3 (2020-12-28)
+----------------
+
+* Fixed https://github.com/julien6387/supvisors/issues/81
+  When Supvisors logfile is set to AUTO, Supvisors uses the same logger as Supervisor
+
+* Documentation updated
+
+* Useless folder rsc_ref deleted
+
+* 'design' folder moved to a dedicated GitHub repository
+
+* Coverage improved in tests
+
+
 0.2 (2020-12-14)
 ----------------
 
 * Migration to Python 3.6
   Versions of dependencies are refreshed, more particularly supervisor 4.2.1
 
-* Updated CSS of Web UI
+* CSS of Web UI updated / simplified
 
 * New action added to Host Process page of WebUI
   'tail -f stderr' button
@@ -22,7 +37,7 @@
 * Fixed https://github.com/julien6387/supvisors/issues/72
   The extra arguments are shared between all Supvisors instances
 
-* Fixed some document formatting issues
+* Documentation formatting issues fixed
 
 * README.rst replaced with README.md
 
