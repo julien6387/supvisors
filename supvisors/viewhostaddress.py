@@ -17,23 +17,19 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.web import StatusView
-
-from supvisors.utils import (get_stats,
-                             simple_localtime,
-                             supvisors_shortcuts)
+from supvisors.utils import get_stats
 from supvisors.viewcontext import *
-from supvisors.viewhandler import HAS_PLOT, ViewHandler
+from supvisors.viewhandler import HAS_PLOT
 from supvisors.viewimage import (address_cpu_img,
                                  address_mem_img,
                                  address_io_img)
+from supvisors.viewsupstatus import SupvisorsAddressView
 from supvisors.webutils import *
 
 
-class HostAddressView(StatusView):
+class HostAddressView(SupvisorsAddressView):
     """ View renderer of the Host section of the Supvisors Address page.
-    Inheritance is made from supervisor.web.StatusView to benefit from
-    the action methods.
+    Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that the inheritance of StatusView has been patched dynamically
     in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
     inherits from ViewHandler instead of MeldView.
@@ -41,54 +37,7 @@ class HostAddressView(StatusView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        StatusView.__init__(self, context)
-        self.page_name = HOST_ADDRESS_PAGE
-
-    def render(self):
-        """ Catch render to force the use of ViewHandler's method. """
-        return ViewHandler.render(self)
-
-    def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection of the current address. """
-        self.write_nav(root, address=self.address)
-
-    def write_header(self, root):
-        """ Rendering of the header part of the Supvisors Address page. """
-        # set address name
-        elt = root.findmeld('address_mid')
-        if self.supvisors.context.master:
-            elt.attrib['class'] = 'master'
-        elt.content(self.address)
-        # set address state
-        status = self.supvisors.context.addresses[self.address]
-        elt = root.findmeld('state_mid')
-        elt.content(status.state_string())
-        # set loading
-        elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(status.loading()))
-        # set last tick date: remote_time and local_time should be identical
-        # since self is running on the 'remote' address
-        elt = root.findmeld('date_mid')
-        elt.content(simple_localtime(status.remote_time))
-        # write periods of statistics
-        self.write_periods(root)
-        # write actions related to address
-        self.write_address_actions(root)
-
-    def write_address_actions(self, root):
-        """ Write actions related to the address. """
-        # configure host address button
-        elt = root.findmeld('proc_a_mid')
-        url = self.view_ctx.format_url('', PROC_ADDRESS_PAGE)
-        elt.attributes(href=url)
-        # configure refresh button
-        elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
-        elt.attributes(href=url)
-        # configure stop all button
-        elt = root.findmeld('stopall_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})
-        elt.attributes(href=url)
+        SupvisorsAddressView.__init__(self, context, HOST_ADDRESS_PAGE)
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
@@ -250,24 +199,3 @@ class HostAddressView(StatusView):
             plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
             plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)
             plt.export_image(address_io_img)
-
-    def make_callback(self, namespec, action):
-        """ Triggers the action requested. """
-        if action == 'restartsup':
-            return self.restart_sup_action()
-        if action == 'shutdownsup':
-            return self.shutdown_sup_action()
-        return StatusView.make_callback(self, namespec, action)
-
-    def restart_sup_action(self):
-        """ Restart the local supervisor. """
-        self.supvisors.zmq.pusher.send_restart(self.address)
-        # cannot defer result as restart address is self address
-        # message is sent but it will be likely not displayed
-        return delayed_warn('Supervisor restart requested')
-
-    def shutdown_sup_action(self):
-        """ Shut down the local supervisor. """
-        self.supvisors.zmq.pusher.send_shutdown(self.address)
-        # cannot defer result if shutdown address is self address
-        return delayed_warn('Supervisor shutdown requested')

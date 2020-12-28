@@ -310,7 +310,7 @@ def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
     info = next((info.copy() for info in ProcessInfoDatabase
                  if info['name'] == name), None)
-    return extract_process_info(info)
+    return extract_process_info(info) if info else {}
 
 
 class CompatTestCase(unittest.TestCase):
