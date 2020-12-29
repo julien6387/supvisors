@@ -36,7 +36,7 @@ testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
-    README = open(os.path.join(here, 'README.rst')).read()
+    README = open(os.path.join(here, 'README.md')).read()
     CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 except:
     README = """Supvisors is a control system for distributed applications over multiple Supervisor instances. """
@@ -68,9 +68,9 @@ dist = setup(
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
     url="https://github.com/julien6387/supvisors",
-    download_url='https://github.com/julien6387/supvisors/archive/0.2.tar.gz',
+    download_url='https://github.com/julien6387/supvisors/archive/0.3.tar.gz',
     platforms=[
-        "CentOS 8.0"
+        "CentOS 8.3"
     ],
     packages=find_packages(),
     install_requires=requires,

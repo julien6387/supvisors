@@ -962,24 +962,15 @@ class ViewHandlerTest(unittest.TestCase):
                                   create_mock('yeux_01')])]
         # test ordering
         self.assertEqual(handler.sort_processes_by_config(processes),
-                         [{'application_name': 'crash',
-                           'process_name': 'segv'},
-                          {'application_name': 'crash',
-                           'process_name': 'late_segv'},
-                          {'application_name': 'firefox',
-                           'process_name': 'firefox'},
-                          {'application_name': 'sample_test_1',
-                           'process_name': 'xclock'},
-                          {'application_name': 'sample_test_1',
-                           'process_name': 'xlogo'},
-                          {'application_name': 'sample_test_1',
-                           'process_name': 'xfontsel'},
-                          {'application_name': 'sample_test_2',
-                           'process_name': 'yeux_00'},
-                          {'application_name': 'sample_test_2',
-                           'process_name': 'yeux_01'},
-                          {'application_name': 'sample_test_2',
-                           'process_name': 'sleep'}])
+                         [{'application_name': 'crash', 'process_name': 'segv'},
+                          {'application_name': 'crash', 'process_name': 'late_segv'},
+                          {'application_name': 'firefox', 'process_name': 'firefox'},
+                          {'application_name': 'sample_test_1', 'process_name': 'xclock'},
+                          {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
+                          {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
+                          {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
+                          {'application_name': 'sample_test_2', 'process_name': 'yeux_01'},
+                          {'application_name': 'sample_test_2', 'process_name': 'sleep'}])
 
 
 def test_suite():

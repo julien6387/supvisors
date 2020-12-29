@@ -99,10 +99,7 @@ class ProcAddressView(SupvisorsAddressView):
                 # print process name
                 self.write_process(tr_elt, info)
                 # set line background and invert
-                if shaded_tr:
-                    tr_elt.attrib['class'] = 'shaded'
-                else:
-                    tr_elt.attrib['class'] = 'brightened'
+                apply_shade(tr_elt, shaded_tr)
                 shaded_tr = not shaded_tr
         else:
             table = root.findmeld('table_mid')

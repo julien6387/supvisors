@@ -121,6 +121,15 @@ class InitializerTest(unittest.TestCase):
         self.assertIsNone(supvisors.parser)
 
 
+class ModuleInitTest(unittest.TestCase):
+    """ Test case for the supvisors package. """
+
+    def test_init(self):
+        """ Just import supvisors to test __init__.py file. """
+        import supvisors
+        self.assertEqual('supvisors', supvisors.__name__)
+
+
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 

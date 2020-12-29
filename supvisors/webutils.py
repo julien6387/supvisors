@@ -34,7 +34,6 @@ Info = 'info'
 Warn = 'warn'
 Error = 'erro'
 
-
 def format_gravity_message(message):
     """ Add a gravity to a message if not present."""
     if not isinstance(message, tuple):
@@ -105,3 +104,12 @@ def delayed_error(msg, address=None):
 
     on_wait.delay = 0.05
     return on_wait
+
+
+# common shade attribute
+def apply_shade(elt, shaded):
+    if shaded:
+        elt.attrib['class'] = 'shaded'
+    else:
+        elt.attrib['class'] = 'brightened'
+

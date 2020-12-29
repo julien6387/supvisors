@@ -77,11 +77,8 @@ class HostAddressView(SupvisorsAddressView):
         for cpu_id, (tr_elt, single_cpu_stats) in enumerate(iterator):
             self._write_processor_single_title(tr_elt, selected_cpu_id, cpu_id)
             self._write_processor_single_statistics(tr_elt, single_cpu_stats)
-            # set row background
-            if shaded_tr:
-                tr_elt.attrib['class'] = 'shaded'
-            else:
-                tr_elt.attrib['class'] = 'brightened'
+            # set row background and invert
+            apply_shade(tr_elt, shaded_tr)
             shaded_tr = not shaded_tr
 
     def write_memory_statistics(self, root, mem_stats):
@@ -96,11 +93,8 @@ class HostAddressView(SupvisorsAddressView):
         elt = tr_elt.findmeld('intf_td_mid')
         if rowspan:
             elt.attrib['rowspan'] = '2'
-            # apply shaded / brightened to td element too for background-image to work
-            if shaded_tr:
-                elt.attrib['class'] = 'shaded'
-            else:
-                elt.attrib['class'] = 'brightened'
+            # apply shade logic to td element too for background-image to work
+            apply_shade(elt, shaded_tr)
             # set interface name on a/href elt
             elt = elt.findmeld('intf_a_mid')
             elt.content(intf)
@@ -132,10 +126,7 @@ class HostAddressView(SupvisorsAddressView):
         rowspan, shaded_tr = True, False
         for tr_elt, (intf, single_io_stats) in iterator:
             # set row background
-            if shaded_tr:
-                tr_elt.attrib['class'] = 'shaded'
-            else:
-                tr_elt.attrib['class'] = 'brightened'
+            apply_shade(tr_elt, shaded_tr)
             # set interface cell rowspan
             self._write_network_single_title(tr_elt, selected_intf, intf, rowspan, shaded_tr)
             # set interface direction
