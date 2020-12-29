@@ -18,7 +18,6 @@
 # ======================================================================
 
 import os
-import unittest
 import zmq
 
 from queue import Empty
@@ -28,11 +27,12 @@ from supervisor import childutils
 from supvisors import rpcrequests
 from supvisors.ttypes import AddressStates
 from supvisors.client.subscriber import create_logger
+from supvisors.tests.base import CompatTestCase
 
 from scripts.event_queues import SupvisorsEventQueues
 
 
-class RunningAddressesTest(unittest.TestCase):
+class RunningAddressesTest(CompatTestCase):
     """ Intermediate layer for the check of initial conditions:
     - 3 running addresses.
 

@@ -73,17 +73,28 @@ class StartingStrategyTest(RunningAddressesTest):
 
     def _start_converter(self, idx):
         """ Get the current loading status. """
-        self.local_supvisors.start_process(self.strategy,
-                                           'my_movies:converter_0%d' % idx)
-        # wait for events
+        self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+        # wait for event STARTING
         event = self._get_next_process_event()
         self.assertDictContainsSubset({'group': 'my_movies',
                                        'name': 'converter_0%d' % idx,
                                        'state': 10}, event)
+        # wait for event RUNNING
         event = self._get_next_process_event()
         self.assertDictContainsSubset({'group': 'my_movies',
                                        'name': 'converter_0%d' % idx,
                                        'state': 20}, event)
+        # refresh the address loadings
+        self._refresh_loading()
+
+    def _start_converter_failed(self, idx):
+        """ Get the current loading status. """
+        self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+        # wait for event FATAL
+        event = self._get_next_process_event()
+        self.assertDictContainsSubset({'group': 'my_movies',
+                                       'name': 'converter_0%d' % idx,
+                                       'state': 200}, event)
         # refresh the address loadings
         self._refresh_loading()
 
@@ -95,46 +106,43 @@ class StartingStrategyTest(RunningAddressesTest):
         self.strategy = StartingStrategies.CONFIG
         # no address config for almost all converters (excepted 04 and 07)
         # so applicable order is the one defined in the supvisors section,
-        # i.e. cliche01, cliche03, cliche02, cliche04 (not running)
+        # i.e. cliche81, cliche83, cliche82, cliche84 (not running)
         # cliche01 is one at 15% initially
         self._start_converter(0)
         self.assertItemsEqual([40, 15, 5], self.loading.values())
         # continue with cliche01
         self._start_converter(1)
         self.assertItemsEqual([65, 15, 5], self.loading.values())
-        # there is still place on cliche01
+        # there is still place on cliche81
         # try with converter_04 to check the alt config
         self._start_converter(4)
         self.assertItemsEqual([65, 15, 30], self.loading.values())
-        # there is still place on cliche01
+        # there is still place on cliche81
         self._start_converter(2)
         self.assertItemsEqual([90, 15, 30], self.loading.values())
-        # cliche01 is full. cliche03 will be used now
+        # cliche81 is full. cliche83 will be used now
         self._start_converter(3)
         self.assertItemsEqual([90, 15, 55], self.loading.values())
-        # there is still place on cliche03
+        # there is still place on cliche83
         # try with converter_07 to check the alt config
-        # cliche01 is full, so second address in config will be used (cliche02)
+        # cliche81 is full, so second address in config will be used (cliche82)
         self._start_converter(7)
         self.assertItemsEqual([90, 40, 55], self.loading.values())
-        # there is still place on cliche03
+        # there is still place on cliche83
         self._start_converter(5)
         self.assertItemsEqual([90, 40, 80], self.loading.values())
-        # cliche01 is full. cliche02 will be used now
+        # cliche81 is full. cliche82 will be used now
         self._start_converter(6)
         self.assertItemsEqual([90, 65, 80], self.loading.values())
         self._start_converter(8)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
-        with self.assertRaises(xmlrpclib.Fault) as exc:
-            self._start_converter(9)
-        self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
+        self._start_converter_failed(9)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
 
     def test_less_loaded(self):
         """ Test the LESS_LOADED starting strategy.
-        Start converters and check they have been started on the address
-        having the lowest loading. """
+        Start converters and check they have been started on the address having the lowest loading. """
         print('### Testing LESS_LOADED starting strategy')
         self.strategy = StartingStrategies.LESS_LOADED
         self._start_converter(0)
@@ -156,15 +164,12 @@ class StartingStrategyTest(RunningAddressesTest):
         self._start_converter(8)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
-        with self.assertRaises(xmlrpclib.Fault) as exc:
-            self._start_converter(9)
-        self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
+        self._start_converter_failed(9)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
 
     def test_most_loaded(self):
         """ Test the MOST_LOADED starting strategy.
-        Start converters and check they have been started on the address
-        having the highest loading. """
+        Start converters and check they have been started on the address having the highest loading. """
         print('### Testing MOST_LOADED starting strategy')
         self.strategy = StartingStrategies.MOST_LOADED
         self._start_converter(0)
@@ -186,9 +191,7 @@ class StartingStrategyTest(RunningAddressesTest):
         self._start_converter(8)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
-        with self.assertRaises(xmlrpclib.Fault) as exc:
-            self._start_converter(9)
-        self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
+        self._start_converter_failed(9)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
 
 
@@ -200,10 +203,8 @@ if __name__ == '__main__':
     # get arguments
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description='Check the Supvisors starting strategies.')
-    parser.add_argument('-p', '--port', type=int, default=60002,
-                        help="the event port of Supvisors")
+    parser = argparse.ArgumentParser(description='Check the Supvisors starting strategies.')
+    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
     args = parser.parse_args()
     SupvisorsEventQueues.PORT = args.port
     # start unittest

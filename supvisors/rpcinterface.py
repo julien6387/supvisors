@@ -449,8 +449,7 @@ class RPCInterface(object):
         return cb
 
     def start_process(self, strategy, namespec, extra_args='', wait=True):
-        """ Start a process named namespec iaw the strategy and some of the
-        rules file.
+        """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
@@ -486,8 +485,7 @@ class RPCInterface(object):
         done = True
         for process in processes:
             done &= self.starter.start_process(strategy, process, extra_args)
-        self.logger.debug('startProcess {} done={}'
-                          .format(process.namespec(), done))
+        self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():

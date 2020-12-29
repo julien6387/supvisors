@@ -35,8 +35,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         """ Used to swallow process events related to this process. """
         # call parent
         RunningAddressesTest.setUp(self)
-        # as this process has just been started, STARTING / RUNNING events
-        # might be received
+        # as this process has just been started, STARTING / RUNNING events might be received
         # other events may be triggered from tearDown too
         has_events = True
         while has_events:
@@ -56,20 +55,17 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         """ The tearDown restarts the processes that may have been stopped,
         in accordance with initial configuration. """
         try:
-            self.local_supvisors.start_process(StartingStrategies.CONFIG,
-                                               'database:movie_server_01')
+            self.local_supvisors.start_process(StartingStrategies.CONFIG, 'database:movie_server_01')
         except:
             # exception is expected if process already running
             pass
         try:
-            self.local_supvisors.start_process(StartingStrategies.CONFIG,
-                                               'web_movies:web_browser')
+            self.local_supvisors.start_process(StartingStrategies.CONFIG, 'web_movies:web_browser')
         except:
             # exception is expected if process already running
             pass
         try:
-            self.local_supvisors.start_application(StartingStrategies.CONFIG,
-                                                   'my_movies')
+            self.local_supvisors.start_application(StartingStrategies.CONFIG, 'my_movies')
         except:
             # exception is expected if application already running
             pass
@@ -80,8 +76,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         """ Test the CONTINUE running failure strategy. """
         print('### Testing CONTINUE running failure strategy')
         # force the movie_server_01 to exit with a fake segmentation fault
-        self.local_supervisor.signalProcess('database:movie_server_01',
-                                            'SEGV')
+        self.local_supervisor.signalProcess('database:movie_server_01', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
         self.assertDictContainsSubset({'name': 'movie_server_01',
@@ -104,8 +99,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         """ Test the RESTART_PROCESS running failure strategy. """
         print('### Testing RESTART_PROCESS running failure strategy')
         # force the web_browser to exit with a fake segmentation fault
-        self.local_supervisor.signalProcess('web_movies:web_browser',
-                                            'SEGV')
+        self.local_supervisor.signalProcess('web_movies:web_browser', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
         self.assertDictContainsSubset({'name': 'web_browser',
@@ -119,8 +113,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'STOPPED'}, event)
         # STARTING / RUNNING events are expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_browser',
-                                       'state': 10}, event)
+        self.assertDictContainsSubset({'name': 'web_browser', 'state': 10}, event)
         # application should be starting
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'web_movies',
@@ -128,8 +121,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'minor_failure': False,
                                        'statename': 'STARTING'}, event)
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_browser',
-                                       'state': 20}, event)
+        self.assertDictContainsSubset({'name': 'web_browser', 'state': 20}, event)
         # application should be running
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'web_movies',
@@ -169,8 +161,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'RUNNING'}, event)
         # STOPPING / STOPPED events are expected for the manager
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager',
-                                       'state': 40}, event)
+        self.assertDictContainsSubset({'name': 'manager', 'state': 40}, event)
         # application should be stopping
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'my_movies',
@@ -178,8 +169,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'minor_failure': False,
                                        'statename': 'STOPPING'}, event)
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager',
-                                       'state': 0}, event)
+        self.assertDictContainsSubset({'name': 'manager', 'state': 0}, event)
         # application should be stopped
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'my_movies',
@@ -211,6 +201,8 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'state': 100}, event)
         # application should be still running with hmi but with major failure
         # because of required manager and web_server that are not running
+        # WARN: if minor_failure is detected True, check if check_starting_strategy has been run before
+        # converter_09 may be FATAL, leading to minor failure
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'my_movies',
                                        'major_failure': True,
@@ -218,8 +210,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'RUNNING'}, event)
         # STOPPING / STOPPED events are expected for the hmi
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi',
-                                       'state': 40}, event)
+        self.assertDictContainsSubset({'name': 'hmi', 'state': 40}, event)
         # application should be stopping
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'my_movies',
@@ -227,8 +218,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'minor_failure': False,
                                        'statename': 'STOPPING'}, event)
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi',
-                                       'state': 0}, event)
+        self.assertDictContainsSubset({'name': 'hmi', 'state': 0}, event)
         # application should be stopped
         event = self._get_next_application_status()
         self.assertDictContainsSubset({'application_name': 'my_movies',
@@ -237,8 +227,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'STOPPED'}, event)
         # STARTING / RUNNING events are expected for the manager
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager',
-                                       'state': 10}, event)
+        self.assertDictContainsSubset({'name': 'manager', 'state': 10}, event)
         # application should be starting, with major failure because of
         # required web_server that is not started yet
         event = self._get_next_application_status()
@@ -247,8 +236,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'minor_failure': False,
                                        'statename': 'STARTING'}, event)
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager',
-                                       'state': 20}, event)
+        self.assertDictContainsSubset({'name': 'manager', 'state': 20}, event)
         # application should be running, with major failure because of
         # required web_server that is not started yet
         event = self._get_next_application_status()
@@ -258,8 +246,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'RUNNING'}, event)
         # FATAL event is expected for the web_server
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_server',
-                                       'state': 200}, event)
+        self.assertDictContainsSubset({'name': 'web_server', 'state': 200}, event)
         # application should be still running, with major failure because of
         # web_server that cannot be started
         event = self._get_next_application_status()
@@ -269,8 +256,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'statename': 'RUNNING'}, event)
         # STARTING / RUNNING events are expected for the hmi
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi',
-                                       'state': 10}, event)
+        self.assertDictContainsSubset({'name': 'hmi', 'state': 10}, event)
         # application should be starting, with major failure because of
         # web_server that cannot be started
         event = self._get_next_application_status()
@@ -279,8 +265,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
                                        'minor_failure': False,
                                        'statename': 'STARTING'}, event)
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi',
-                                       'state': 20}, event)
+        self.assertDictContainsSubset({'name': 'hmi', 'state': 20}, event)
         # application should be running, with major failure because of
         # web_server that cannot be started
         event = self._get_next_application_status()
@@ -303,10 +288,8 @@ if __name__ == '__main__':
     # get arguments
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description='Check the Supvisors running failure strategies.')
-    parser.add_argument('-p', '--port', type=int, default=60002,
-                        help="the event port of Supvisors")
+    parser = argparse.ArgumentParser(description='Check the Supvisors running failure strategies.')
+    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
     args = parser.parse_args()
     SupvisorsEventQueues.PORT = args.port
     # start unittest
