@@ -81,4 +81,3 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 ## Contributing
 
 Not opened yet.
-

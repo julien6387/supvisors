@@ -64,6 +64,7 @@ dist = setup(
     version=supvisors_version,
     description="A Control System for Distributed Applications",
     long_description=README + '\n\n' + CHANGES,
+    long_description_content_type='text/markdown',
     classifiers=CLASSIFIERS,
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
