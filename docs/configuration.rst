@@ -437,7 +437,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     names ``prg`` and ``prg_``, **Supvisors** applies the rules associated to ``prg_`` when considering the program
     ``prg_00``.
 
-.. note:: *About the use of ``#`` in ``addresses``.*
+.. note:: *About the use of* ``#`` *in* ``addresses``.
 
     The intention is for a program that is meant to be started on each node in the address list.
     As an example, consider an extract of the following Supervisor configuration:
