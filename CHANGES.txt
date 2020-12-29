@@ -1,8 +1,11 @@
-0.3 (2020-12-30)
+0.3 (2020-12-29)
 ----------------
 
 * Fixed https://github.com/julien6387/supvisors/issues/81
   When Supvisors logfile is set to AUTO, Supvisors uses the same logger as Supervisor
+
+* Fixed https://github.com/julien6387/supvisors/issues/79
+  When FATAL or UNKNOWN Process state is forced by Supvisors, spawnerr was missing in the listener payload
 
 * Documentation updated
 
@@ -10,7 +13,7 @@
 
 * 'design' folder moved to a dedicated GitHub repository
 
-* Coverage improved in tests
+* 100% coverage reached in unit tests.
 
 
 0.2 (2020-12-14)
