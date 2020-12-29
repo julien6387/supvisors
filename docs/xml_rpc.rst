@@ -7,11 +7,9 @@ The **Supvisors** XML-RPC API is an extension of the Supervisor XML-RPC API.
 Detailed information can be found in the `Supervisor XML-RPC API Documentation
 <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
-The ``supvisors`` namespace has been added to the :command:`supervisord`
-XML-RPC interface.
+The ``supvisors`` namespace has been added to the :command:`supervisord` XML-RPC interface.
 
-The XML-RPC ``system.listMethods`` now provides the list of methods supported
-for both Supervisor and **Supvisors**.
+The XML-RPC ``system.listMethods`` now provides the list of methods supported for both Supervisor and **Supvisors**.
 An example is provided below.
 
 .. code-block:: python
@@ -20,10 +18,8 @@ An example is provided below.
 
 .. note::
 
-    In the following, the namespec refers to the full name of the process,
-    including the application name.
-    For example: ``X11:xclock``, where ``X11`` is the name of a Supervisor
-    group and ``xclock`` is the name
+    In the following, the namespec refers to the full name of the process, including the application name.
+    For example: ``X11:xclock``, where ``X11`` is the name of a Supervisor group and ``xclock`` is the name
     of a Supervisor program that is referenced in the group.
     In some cases, it can also refer to all the programs of the group.
     For example: ``X11:*``.
@@ -66,12 +62,12 @@ Status
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   The address of the **Supvisors** instance.
-            'statecode'	       ``int``   The state of the **Supvisors** instance, in [0;5].
-            'statename'	       ``str``   The string state of the **Supvisors** instance, in [``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
+            'address_name'     ``str``   The **Supvisors** instance node.
+            'statecode'	       ``int``   The **Supvisors** instance state, in [0;5].
+            'statename'	       ``str``   The **Supvisors** instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
             'remote_time'      ``int``   The date, in ms, of the last heartbeat received from the **Supvisors** instance, in the remote reference time.
             'local_time'       ``int``   The date, in ms, of the last heartbeat received from the **Supvisors** instance, in the local reference time.
-            'loading'          ``int``   The sum of the expected loading of the processes running on the address, in [0;100]%.
+            'loading'          ``int``   The sum of the expected loading of the processes running on the node, in [0;100]%.
             ================== ========= ===========
 
         .. automethod:: get_all_addresses_info()
@@ -81,9 +77,9 @@ Status
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'application_name' ``str``   The name of the application.
-            'statecode'        ``int``   The state of the application, in [0;4].
-            'statename'        ``str``   The string state of the application, in [``'UNKNOWN'``, ``'STOPPED'``, ``'STARTING'``, ``'STOPPING'``, ``'RUNNING'``].
+            'application_name' ``str``   The Application name.
+            'statecode'        ``int``   The Application state, in [0;4].
+            'statename'        ``str``   The Application state as string, in [``'UNKNOWN'``, ``'STOPPED'``, ``'STARTING'``, ``'STOPPING'``, ``'RUNNING'``].
             'major_failure'    ``bool``  ``True`` if at least one required process is not started.
             'minor_failure'    ``bool``  ``True`` if at least one optional process could not be started.
             ================== ========= ===========
@@ -95,11 +91,11 @@ Status
             ================== =============== ===========
             Key                Type            Description
             ================== =============== ===========
-            'application_name' ``str``         The name of the process' application.
-            'process_name'     ``str``         The name of the process.
-            'statecode'        ``int``         The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
-            'statename'        ``str``         The string state of the process, in [``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'``].
-            'addresses'        ``list(str)``   The list of all addresses where the process is running.
+            'application_name' ``str``         The Application name the process belongs to.
+            'process_name'     ``str``         The Process name.
+            'statecode'        ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+            'statename'        ``str``         The Process state as string, in [``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'``].
+            'addresses'        ``list(str)``   The list of all nodes where the process is running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
@@ -115,11 +111,11 @@ Status
             ================== =============== ===========
             Key                Type            Description
             ================== =============== ===========
-            'group'            ``str``         The name of the process' application.
-            'name'             ``str``         The name of the process.
-            'state'            ``int``         The state of the process, in {0, 10, 20, 30, 40, 100, 200, 1000}.
-            'start'            ``int``         The start date of the process.
-            'now'              ``int``         The current date of the process.
+            'group'            ``str``         The Application name the process belongs to.
+            'name'             ``str``         The Process name.
+            'state'            ``int``         The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+            'start'            ``int``         The Process start date.
+            'now'              ``int``         The Process current date.
             'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
@@ -131,9 +127,9 @@ Status
             =========================== =============== ===========
             Key                         Type            Description
             =========================== =============== ===========
-            'application_name'          ``str``         The name of the application.
-            'start_sequence'            ``int``         The starting rank of the application when starting all applications, in [0;127].
-            'stop_sequence'             ``int``         The stopping rank of the application when stopping all applications, in [0;127].
+            'application_name'          ``str``         The Application name.
+            'start_sequence'            ``int``         The Application starting rank when starting all applications, in [0;127].
+            'stop_sequence'             ``int``         The Application stopping rank when stopping all applications, in [0;127].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             =========================== =============== ===========
@@ -143,14 +139,14 @@ Status
             ========================== =============== ===========
             Key                        Type            Description
             ========================== =============== ===========
-            'application_name'         ``str``         The name of the process' application.
-            'process_name'             ``str``         The name of the process.
-            'addresses'                ``list(str)``   The list of all addresses where the process can be started.
-            'start_sequence'           ``int``         The starting rank of the process when starting the related application, in [0;127].
-            'stop_sequence'            ``int``         The stopping rank of the process when stopping the related application, in [0;127].
+            'application_name'         ``str``         The Application name the process belongs to.
+            'process_name'             ``str``         The Process name.
+            'addresses'                ``list(str)``   The list of all nodes where the process can be started.
+            'start_sequence'           ``int``         The Process starting rank when starting the related application, in [0;127].
+            'stop_sequence'            ``int``         The Process stopping rank when stopping the related application, in [0;127].
             'required'                 ``bool``        The importance of the process in the application.
             'wait_exit'                ``bool``        ``True`` if **Supvisors** has to wait for the process to exit before triggering the next starting phase.
-            'loading'                  ``int``         The expected loading of the process when ``RUNNING``, in [0;100]%.
+            'loading'                  ``int``         The Process expected loading when ``RUNNING``, in [0;100]%.
             'running_failure_strategy' ``str``         The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             ========================== =============== ===========
 
@@ -217,17 +213,15 @@ Python Client
 
 There are two possibilities to perform an XML-RPC from a python client.
 Both methods don't require any additional third party.
-However, it is assumed that the environment parameter contains the relevant
-HTTP configuration, as it would be set for a process spawed by Supervisor.
+However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be set for a process spawned by Supervisor.
 More particularly, it is expected that the following variables are set:
 
     * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server (ex: ``http://localhost:60000``),
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
 
-The first is to use the ``getRPCInterface`` of the ``supervisor.childutils``
-module.
-This is available in Supervisor but it works only for the local address.
+The first is to use the ``getRPCInterface`` of the ``supervisor.childutils`` module.
+This is available in Supervisor but it works only for the local node.
 
 .. code-block:: python
 
@@ -238,10 +232,8 @@ This is available in Supervisor but it works only for the local address.
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 
-The second possibility is to use the ``getRPCInterface`` of the
-``supvisors.rpcrequests`` module.
-This is available in **Supvisors** and works for all addresses with a
-Supervisor daemon running with the same HTTP configuration as the local one.
+The second possibility is to use the ``getRPCInterface`` of the ``supvisors.rpcrequests`` module.
+This is available in **Supvisors** and works for all nodes with a Supervisor daemon running with the same HTTP configuration as the local one.
 
 .. code-block:: python
 

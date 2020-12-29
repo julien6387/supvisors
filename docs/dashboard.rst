@@ -34,7 +34,7 @@ Common Menu
 Clicking on the 'Supvisors' title brings the `Main page`_ back or the `Conciliation page`_ if it blinks in red.
 The version of **Supvisors** is displayed underneath.
 
-Below is the Addresses part that lists all the addresses defined in the :ref:`supvisors_section` of the Supervisor configuration file.
+Below is the Addresses part that lists all the nodes defined in the :ref:`supvisors_section` of the Supervisor configuration file.
 The color gives the state of the Address, as seen by the **Supvisors** instance that is displaying this page:
 
     * grey for ``UNKNOWN``,
@@ -43,7 +43,7 @@ The color gives the state of the Address, as seen by the **Supvisors** instance 
     * green for ``RUNNING``,
     * red for ``ISOLATED``.
 
-Only the hyperlinks of the ``RUNNING`` addresses are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
+Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
 The **Supvisors** instance playing the role of "Master" is pointed out with the ✪ sign.
 
 Below is the Application part that lists all the applications defined through the
@@ -80,8 +80,7 @@ The state of **Supvisors** is displayed on the left side of the header:
     This is the **Supvisors** starting phase, waiting for all **Supvisors** instances to connect themselves.
     Refer to the :ref:`synchronizing` section for more details.
 
-    In this state, the **Supvisors** :ref:`xml_rpc` is restricted so that version, master and address
-    information only are available.
+    In this state, the **Supvisors** :ref:`xml_rpc` is restricted so that version, master and node information only are available.
 
 ``DEPLOYMENT``
 
@@ -140,20 +139,22 @@ On the right side, 3 buttons are available:
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every addresses, a box is displayed in the contents of the **Supvisors** Main Page.
+For every nodes, a box is displayed in the contents of the **Supvisors** Main Page.
 Each box contains:
 
-    * the address name, which is a hyperlink to the corresponding `Address Page`_ if the Address state is ``RUNNING``,
-    * the state of the Address, colored with the same rules used in the `Common Menu`_,
-    * the process loading of the Address,
-    * the list of all processes that are running on this address.
+    * the Address name, which is a hyperlink to the corresponding `Address Page`_ if the Address state is ``RUNNING``,
+    * the Address state, colored with the same rules used in the `Common Menu`_,
+    * the Address process loading,
+    * the list of all processes that are running on this node.
 
 
 Conciliation Page
 -----------------
 
-If the page is refreshed when **Supvisors** is in ``CONCILIATION`` state, the 'Supvisors' label in the top left of the `Common Menu`_ becomes red and blinks.
-This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section` of the Supervisor configuration file is different from ``USER``, as the other values will lead to an immediate conciliation of the conflicts.
+If the page is refreshed when **Supvisors** is in ``CONCILIATION`` state, the 'Supvisors' label in the top left
+of the `Common Menu`_ becomes red and blinks.
+This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section`
+of the Supervisor configuration file is different from ``USER``, as the other values will lead to an immediate conciliation of the conflicts.
 
 The Conciliation Page can be reached by clicking on this blinking red label.
 
@@ -176,8 +177,8 @@ A process conflict is raised when the same program is running on several hosts.
 So the table lists, for each conflict:
 
     * the name of the program incriminated,
-    * the list of addresses where it is running,
-    * the uptime of the corresponding process on each address,
+    * the list of nodes where it is running,
+    * the uptime of the corresponding process on each node,
     * for each process, a list of actions helping to the solving of this conflict:
 
         + Stop the process,
@@ -192,20 +193,21 @@ Address Page
 ------------
 
 The Address Page of **Supvisors** is a bit less "sparse" than the web page provided by Supervisor.
-It shows the status of the address, as seen by the local **Supvisors** instance.
-It also enables the user to command the processes declared on this address and provides statistics that may be useful at software integration time.
+It shows the status of the node, as seen by the local **Supvisors** instance.
+It also enables the user to command the processes declared on this node and provides statistics that may be useful at software integration time.
 
 Address Page Header
 ~~~~~~~~~~~~~~~~~~~
 
 The status of the Address is displayed on the left side of the header:
 
-    * the name of the address, marked with the ✪ sign if it corresponds to the "Master",
-    * the current loading of the processes running on this address,
-    * the state of this address,
-    * the date of the last tick received from Supervisor on this address.
+    * the Address name, marked with the ✪ sign if it corresponds to the "Master",
+    * the current loading of the processes running on this node,
+    * the Address state,
+    * the date of the last tick received from the Supervisor running on this node.
 
-In the middle of the header, the 'Statistics View' box enables the user to choose the information presented on this page. By default, the `Processes Section`_ is displayed. The other choice is the `Host Section`_.
+In the middle of the header, the 'Statistics View' box enables the user to choose the information presented on this page.
+By default, the `Processes Section`_ is displayed. The other choice is the `Host Section`_.
 The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
 
 Next to it, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
@@ -213,9 +215,9 @@ The periods can be updated in the :ref:`supvisors_section` of the Supervisor con
 
 On the right side, 4 buttons are available:
 
-    * |stop| stops all processes handled by Supervisor on this address,
-    * |restart| restarts Supervisor on this address,
-    * |shutdown| shuts down Supervisor on this address,
+    * |stop| stops all processes handled by Supervisor on this node,
+    * |restart| restarts Supervisor on this node,
+    * |shutdown| shuts down Supervisor on this node,
     * |refresh| refreshes the current page.
 
 Processes Section
@@ -226,9 +228,10 @@ Processes Section
     :align: center
 
 The Processes Section looks like the page provided by Supervisor.
-Indeed, it lists the programs that are configured in Supervisor, it presents their current state with an associated description and enables the user to perform some actions on them:
+Indeed, it lists the programs that are configured in Supervisor, it presents their current state with an associated
+description and enables the user to perform some actions on them:
 
-    * log tail (with a refresh button, click on the program name itself),
+    * Log tail (with a refresh button, click on the program name itself),
     * Start,
     * Stop,
     * Restart,
@@ -270,7 +273,7 @@ Host Section
     :alt: Host Section of Supvisors Address Page
     :align: center
 
-The Host Section contains CPU, Memory and Network statistics for the considered address.
+The Host Section contains CPU, Memory and Network statistics for the considered node.
 
 The CPU table shows statistics about the CPU on each core of the processor and about the average CPU of the processor.
 
@@ -284,7 +287,8 @@ Clicking on a button associated to the resource displays detailed statistics (gr
 Application Page
 ----------------
 
-The Application Page of **Supvisors** shows the status of the application, as seen by the requested **Supvisors** instance, enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.
+The Application Page of **Supvisors** shows the status of the application, as seen by the requested **Supvisors** instance,
+enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.
 
 .. image:: images/supvisors_application_page.png
     :alt: Supvisors Application page
@@ -304,11 +308,13 @@ The status of the Address is displayed on the left side of the header:
         + orange if ``RUNNING`` and at least one minor failure is detected, and no major failure,
         + green if ``RUNNING`` and no failure is detected.
 
-The second part of the header is the 'Starting strategy' box that enables the user to choose the strategy to start the application programs listed below.
+The second part of the header is the 'Starting strategy' box that enables the user to choose the strategy
+to start the application programs listed below.
 
 Strategies are detailed in :ref:`starting_strategy`.
 
-The third part of the header is the 'Statistics Period' box that enables the user to choose the period used for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
+The third part of the header is the 'Statistics Period' box that enables the user to choose the period used
+for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
 
 On the right side, 4 buttons are available:
 
@@ -323,7 +329,7 @@ Application Page Contents
 The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis),
-    * the address where it runs, if appropriate,
+    * the node where it runs, if appropriate,
     * the description (from Supervisor),
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
@@ -338,8 +344,9 @@ Like the `Address page`_, the Application page enables the user to perform some 
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
-The difference is that the process is not started necessarily on the address that displays this page.
-Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected in the header part to choose a relevant address.
+The difference is that the process is not started necessarily on the node that displays this page.
+Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected
+in the header part to choose a relevant node.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
