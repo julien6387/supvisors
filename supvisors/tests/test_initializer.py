@@ -20,14 +20,25 @@
 import sys
 import unittest
 
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+
+from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.tests.base import DummySupervisor
+from supvisors.tests.base import DummySupervisor, DummyOptions
 
 
 class InitializerTest(unittest.TestCase):
     """ Test case for the initializer module. """
+
+    def setUp(self):
+        """ Close logger if any. """
+        self.logger = None
+
+    def tearDown(self):
+        """ Close logger if any. """
+        if self.logger:
+            self.logger.close()
 
     @patch('supvisors.initializer.Parser')
     @patch('supvisors.initializer.AddressMapper')
@@ -61,6 +72,28 @@ class InitializerTest(unittest.TestCase):
         self.assertIsNotNone(supvisors.parser)
         self.assertIsNotNone(supvisors.listener)
 
+    def test_create_logger(self):
+        """ Test the create_logger method. """
+        from supvisors.initializer import Supvisors
+        # create mocked supvisors options
+        mocked_options = Mock(supvisors_options=DummyOptions())
+        with patch('supvisors.initializer.SupvisorsServerOptions',
+                   return_value=mocked_options):
+            # create Supvisors instance
+            supervisord = DummySupervisor()
+            supvisors = Supvisors(supervisord)
+            # test AUTO logfile
+            mocked_options.supvisors_options.logfile = Automatic
+            self.assertIs(supervisord.options.logger, supvisors.create_logger(supervisord))
+            # for the following, supervisord must be silent because of logger
+            # for unknown reason test_initalizer got this exception
+            # ValueError: I/O operation on closed file
+            supervisord.options.silent = True
+            # test defined logfile
+            mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
+            self.logger = supvisors.create_logger(supervisord)
+            self.assertIsNot(supervisord.options.logger, self.logger)
+
     @patch('supvisors.initializer.loggers')
     @patch('supvisors.initializer.SupvisorsServerOptions')
     def test_address_exception(self, *args, **kwargs):
@@ -86,6 +119,15 @@ class InitializerTest(unittest.TestCase):
         supvisors = Supvisors(supervisord)
         # test that parser exception is accepted
         self.assertIsNone(supvisors.parser)
+
+
+class ModuleInitTest(unittest.TestCase):
+    """ Test case for the supvisors package. """
+
+    def test_init(self):
+        """ Just import supvisors to test __init__.py file. """
+        import supvisors
+        self.assertEqual('supvisors', supvisors.__name__)
 
 
 def test_suite():

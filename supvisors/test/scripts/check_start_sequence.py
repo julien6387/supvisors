@@ -46,8 +46,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         self.assertFalse(self.context.has_events())
 
     def check_self_starting(self):
-        """ Test the events received that corresponds to the starting of
-        this process. """
+        """ Test the events received that corresponds to the starting of this process. """
         # define 'test' application
         application = Application('test')
         self.context.add_application(application)

@@ -30,21 +30,13 @@ class ProcessRules(object):
 
     Attributes are:
 
-        - addresses: the addresses where the process can be started
-            (all by default),
+        - addresses: the addresses where the process can be started (all by default),
         - start_sequence: the order in the starting sequence of the application,
         - stop_sequence: the order in the stopping sequence of the application,
-        - required: a status telling if the process is required within the
-            application,
-        - wait_exit: a status telling if Supvisors has to wait for the process
-            to exit before triggering the next phase in the starting sequence
-            of the application,
-        - expected_loading: the expected loading of the process on the
-            considered hardware (can be anything at the user discretion: CPU,
-            RAM, etc),
-        - running_failure_strategy: supersedes the application rule and defines
-            the strategy to apply when the process crashes when the application
-            is running.
+        - required: a status telling if the process is required within the application,
+        - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application,
+        - expected_loading: the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc),
+        - running_failure_strategy: supersedes the application rule and defines the strategy to apply when the process crashes when the application is running.
     """
 
     def __init__(self, supvisors):
@@ -67,17 +59,15 @@ class ProcessRules(object):
     def check_dependencies(self, namespec):
         """ Update rules after they have been read from the rules file.
 
-        A required process that is not in the starting sequence is forced to
-        optional.
+        A required process that is not in the starting sequence is forced to optional.
         If addresses are not defined, all addresses are applicable.
-        Supervisor autorestart is not compatible with RunningFailureStrategy
-        STOP / RESTART.
+        Supervisor autorestart is not compatible with RunningFailureStrategy STOP / RESTART.
         """
         # required MUST have start_sequence, so force to optional if
         # start_sequence is not set
         if self.required and self.start_sequence == 0:
-            self.logger.warn('{} - required forced to False because'
-                             ' no start_sequence defined'.format(namespec))
+            self.logger.warn('{} - required forced to False because no start_sequence defined'
+                             .format(namespec))
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
@@ -110,8 +100,7 @@ class ProcessRules(object):
                 'required': self.required,
                 'wait_exit': self.wait_exit,
                 'expected_loading': self.expected_loading,
-                'running_failure_strategy':
-                    RunningFailureStrategies.to_string(self.running_failure_strategy)}
+                'running_failure_strategy': RunningFailureStrategies.to_string(self.running_failure_strategy)}
 
 
 class ProcessStatus(object):
@@ -119,11 +108,9 @@ class ProcessStatus(object):
 
     Attributes are:
 
-        - application_name: the application name, or group name from a
-            Supervisor point of view,
+        - application_name: the application name, or group name from a Supervisor point of view,
         - process_name: the process name,
-        - state: the synthetic state of the process, same enumeration as
-            Supervisor,
+        - state: the synthetic state of the process, same enumeration as Supervisor,
         - expected_exit: a status telling if the process has exited expectantly,
         - last_event_time: the local date of the last information received,
         - extra_args: the additional arguments passed to the command line,
@@ -136,8 +123,7 @@ class ProcessStatus(object):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'info_source',
-                                   'logger', 'options'])
+        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger', 'options'])
         # copy Supervisor method to self
         ProcessStatus.update_description = SupervisorNamespaceRPCInterface._interpretProcessInfo
         # attributes
@@ -210,14 +196,12 @@ class ProcessStatus(object):
 
     def pid_running_on(self, address):
         """ Return True if process is RUNNING on address.
-        Different from running_on as it considers only the RUNNING state and
-        not STARTING or BACKOFF.
+        Different from running_on as it considers only the RUNNING state and not STARTING or BACKOFF.
         This is used by the statistics module that requires an existing PID. """
         return self.state == ProcessStates.RUNNING and address in self.addresses
 
     def conflicting(self):
-        """ Return True if the process is in a conflicting state (more than one
-        instance running). """
+        """ Return True if the process is in a conflicting state (more than one instance running). """
         return len(self.addresses) > 1
 
     # methods
@@ -245,8 +229,7 @@ class ProcessStatus(object):
         self.update_status(address, info['state'], info['expected'])
         # fix address rule
         if self.rules.addresses == ['#']:
-            if self.address_mapper.addresses.index(address) == \
-                    self.options.procnumbers[self.process_name]:
+            if self.address_mapper.addresses.index(address) == self.options.procnumbers[self.process_name]:
                 self.rules.addresses = [address]
 
     def update_info(self, address, payload):
@@ -276,8 +259,8 @@ class ProcessStatus(object):
             self.update_status(address, new_state, info['expected'])
             self.logger.debug('new process info: {}'.format(info))
         else:
-            self.logger.warn('ProcessEvent rejected for {}.'
-                             ' wait for tick from {}'.format(self.process_name, address))
+            self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'
+                             .format(self.process_name, address))
 
     def update_times(self, address, remote_time):
         """ Update the internal process information when
@@ -298,8 +281,7 @@ class ProcessStatus(object):
 
     def invalidate_address(self, address, is_master):
         """ Update status of a process that was running on a lost address. """
-        self.logger.debug('{} invalidateAddress {} / {}'.format(
-            self.namespec(), self.addresses, address))
+        self.logger.debug('{} invalidateAddress {} / {}'.format(self.namespec(), self.addresses, address))
         # reassign the difference between current set and parameter
         if address in self.addresses:
             self.addresses.remove(address)
@@ -316,8 +298,7 @@ class ProcessStatus(object):
             elif self.running():
                 # addresses is empty for a running process
                 # action expected to fix the inconsistency
-                self.logger.warn('no more address for running process {}'
-                                 .format(self.namespec()))
+                self.logger.warn('no more address for running process {}'.format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # notify the failure to dedicated handler, only if local
                 # address is master
@@ -346,8 +327,7 @@ class ProcessStatus(object):
         if not self.evaluate_conflict():
             # if zero element, state is the state of the program addressed
             if self.addresses:
-                self.state = next(self.infos[address]['state']
-                                  for address in self.addresses)
+                self.state = next(self.infos[address]['state'] for address in self.addresses)
                 self.expected_exit = True
             else:
                 self.state = new_state

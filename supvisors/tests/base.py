@@ -21,9 +21,11 @@ import os
 import random
 import unittest
 
+from socket import gethostname
 from unittest.mock import patch, Mock
 
-from supervisor.loggers import Logger
+from supervisor.datatypes import Automatic
+from supervisor.loggers import LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
@@ -49,7 +51,8 @@ class DummyOptions:
     """ Simple options with dummy attributes. """
 
     def __init__(self):
-        # configuration options
+        """ Configuration options. """
+        self.address_list = [gethostname()]
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
@@ -59,6 +62,11 @@ class DummyOptions:
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+        # logger options
+        self.logfile = Automatic
+        self.logfile_maxbytes = 10000
+        self.logfile_backups = 12
+        self.loglevel = LevelsByName.BLAT
         # additional process configuration
         self.procnumbers = {'xclock': 2}
 
@@ -67,7 +75,7 @@ class MockedSupvisors:
     """ Simple supvisors with all dummies. """
 
     def __init__(self):
-        # use a dummy address mapper and options
+        """ Use a dummy address mapper and options. """
         self.address_mapper = DummyAddressMapper()
         self.options = DummyOptions()
         # mock the context
@@ -86,10 +94,9 @@ class MockedSupvisors:
         # mock the supervisord source
         from supvisors.infosource import SupervisordSource
         self.info_source = Mock(spec=SupervisordSource)
-        self.info_source.get_env.return_value = {
-            'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
-            'SUPERVISOR_USERNAME': '',
-            'SUPERVISOR_PASSWORD': ''}
+        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+                                                 'SUPERVISOR_USERNAME': '',
+                                                 'SUPERVISOR_PASSWORD': ''}
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)
@@ -156,6 +163,7 @@ class DummyServerOptions:
         self.mood = 'mood'
         self.nodaemon = True
         self.silent = False
+        self.logger = Mock(spec=Logger)
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]
@@ -302,7 +310,7 @@ def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
     info = next((info.copy() for info in ProcessInfoDatabase
                  if info['name'] == name), None)
-    return extract_process_info(info)
+    return extract_process_info(info) if info else {}
 
 
 class CompatTestCase(unittest.TestCase):

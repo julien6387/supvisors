@@ -23,6 +23,8 @@ import unittest
 from time import ctime
 from types import FunctionType
 
+from unittest.mock import Mock
+
 from supvisors.tests.base import CompatTestCase
 
 
@@ -145,6 +147,17 @@ class WebUtilsTest(CompatTestCase):
         self.assertEqual(2, len(msg))
         self.assertEqual(gravity, msg[0])
         self.assertEqual(msg[1], 'another simple message at ' + ctime() + ' on 10.0.0.1')
+
+    def test_apply_shade(self):
+        """ Test the formatting of shaded / non-shaded elements. """
+        from supvisors.webutils import apply_shade
+        elt = Mock(attrib={})
+        # test shaded
+        apply_shade(elt, True)
+        self.assertEqual('shaded', elt.attrib['class'])
+        # test non-shaded
+        apply_shade(elt, False)
+        self.assertEqual('brightened', elt.attrib['class'])
 
 
 def test_suite():

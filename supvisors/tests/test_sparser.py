@@ -174,8 +174,7 @@ class CommonParserTest(unittest.TestCase):
 
     def assert_default_application_rules(self, rules):
         """ Check that rules contains default values. """
-        from supvisors.ttypes import (RunningFailureStrategies,
-                                      StartingFailureStrategies)
+        from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
         self.assert_application_rules(rules, 0, 0,
                                       StartingFailureStrategies.ABORT,
                                       RunningFailureStrategies.CONTINUE)

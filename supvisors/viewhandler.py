@@ -31,12 +31,14 @@ from supvisors.webutils import *
 
 
 # test matplotlib availability
+# calling get_backend is useless excepted for unit tests
 def test_matplotlib_import():
     try:
-        import matplotlib
-        return True
+        from matplotlib import get_backend
+        get_backend()
     except ImportError:
         return False
+    return True
 
 
 # keep matplotlib availability information at once

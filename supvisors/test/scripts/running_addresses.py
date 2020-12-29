@@ -18,7 +18,6 @@
 # ======================================================================
 
 import os
-import unittest
 import zmq
 
 from queue import Empty
@@ -28,11 +27,12 @@ from supervisor import childutils
 from supvisors import rpcrequests
 from supvisors.ttypes import AddressStates
 from supvisors.client.subscriber import create_logger
+from supvisors.tests.base import CompatTestCase
 
 from scripts.event_queues import SupvisorsEventQueues
 
 
-class RunningAddressesTest(unittest.TestCase):
+class RunningAddressesTest(CompatTestCase):
     """ Intermediate layer for the check of initial conditions:
     - 3 running addresses.
 
@@ -53,8 +53,7 @@ class RunningAddressesTest(unittest.TestCase):
                                   if info['statecode'] == AddressStates.RUNNING]
         self.assertEqual(3, len(self.running_addresses))
         # assumption is made that this test is run on Supvisors Master address
-        self.assertEqual(gethostname(),
-                         self.local_supvisors.get_master_address())
+        self.assertEqual(gethostname(), self.local_supvisors.get_master_address())
         # keep a reference to all RPC proxies
         self.proxies = {address: rpcrequests.getRPCInterface(address, os.environ)
                         for address in self.running_addresses}

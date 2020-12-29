@@ -37,8 +37,7 @@ class SupvisorsView(ViewHandler):
         * the state of Supvisors,
         * actions on Supvisors,
         * a synoptic of the processes running on the different addresses,
-        * in CONCILIATION state only, the synoptic is replaced by a table of
-        conflicts with tools to solve them.
+        * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
     def __init__(self, context):
@@ -64,7 +63,8 @@ class SupvisorsView(ViewHandler):
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
-        root.findmeld('state_mid').content(self.fsm.state_string())
+        elt = root.findmeld('state_mid')
+        elt.content(self.fsm.state_string())
 
     def write_contents(self, root):
         """ Rendering of the contents of the Supvisors main page.
@@ -92,8 +92,7 @@ class SupvisorsView(ViewHandler):
             # set address
             elt = div_elt.findmeld('address_tda_mid')
             if status.state == AddressStates.RUNNING:
-                # go to web page located on address, so as to reuse
-                # Supervisor StatusView
+                # go to web page located on address, so as to reuse Supervisor StatusView
                 url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'on'
@@ -123,90 +122,106 @@ class SupvisorsView(ViewHandler):
             elt.attributes(href=url)
             elt.content(item.title())
 
-    def write_conciliation_table(self, root):
-        """ Rendering of the conflicts table. """
-        div_elt = root.findmeld('conflicts_div_mid')
-        # get data for table
-        data = [{'namespec': process.namespec(),
+    def get_conciliation_data(self):
+        """ Get information about all conflicting processes. """
+        return [{'namespec': process.namespec(),
                  'rowspan': len(process.addresses) if idx == 0 else 0,
                  'address': address,
                  'uptime': process.infos[address]['uptime']}
                 for process in self.sup_ctx.conflicts()
                 for idx, address in enumerate(process.addresses)]
-        tr_mid = div_elt.findmeld('tr_mid')
+
+    def write_conciliation_table(self, root):
+        """ Rendering of the conflicts table. """
+        # get data for table
+        data = self.get_conciliation_data()
+        # get meld elements
+        div_elt = root.findmeld('conflicts_div_mid')
         shaded_tr = True
-        for tr_elt, item in tr_mid.repeat(data):
-            # first get the rowspan
+        for tr_elt, item in div_elt.findmeld('tr_mid').repeat(data):
+            # first get the rowspan and change shade when rowspan is 0 (first line of conflict)
             rowspan = item['rowspan']
             if rowspan:
                 shaded_tr = not shaded_tr
             # set row background
-            if shaded_tr:
-                tr_elt.attrib['class'] = 'shaded'
-            else:
-                tr_elt.attrib['class'] = 'brightened'
-            # set process name
-            elt = tr_elt.findmeld('name_td_mid')
-            if rowspan > 0:
-                namespec = item['namespec']
-                elt.attrib['rowspan'] = str(rowspan)
-                elt.content(namespec)
-                # apply shaded / brightened to td element too for background-image to work
-                if shaded_tr:
-                    elt.attrib['class'] = 'shaded'
-                else:
-                    elt.attrib['class'] = 'brightened'
-            else:
-                elt.replace('')
-            # set address
-            address = item['address']
-            elt = tr_elt.findmeld('caddress_a_mid')
-            url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+            apply_shade(tr_elt, shaded_tr)
+            # write information and actions
+            self._write_conflict_name(tr_elt, item, shaded_tr)
+            self._write_conflict_address(tr_elt, item)
+            self._write_conflict_uptime(tr_elt, item)
+            self._write_conflict_process_actions(tr_elt, item)
+            self._write_conflict_strategies(tr_elt, item, shaded_tr)
+
+    def _write_conflict_name(self, tr_elt, info, shaded_tr):
+        """ In a conflicts table, write the process name in conflict. """
+        elt = tr_elt.findmeld('name_td_mid')
+        rowspan = info['rowspan']
+        if rowspan > 0:
+            namespec = info['namespec']
+            elt.attrib['rowspan'] = str(rowspan)
+            elt.content(namespec)
+            # apply shade logic to td element too for background-image to work
+            apply_shade(elt, shaded_tr)
+        else:
+            elt.replace('')
+
+    def _write_conflict_address(self, tr_elt, info):
+        """ In a conflicts table, write the address where runs the process in conflict. """
+        address = info['address']
+        elt = tr_elt.findmeld('caddress_a_mid')
+        url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+        elt.attributes(href=url)
+        elt.content(address)
+
+    def _write_conflict_uptime(self, tr_elt, info):
+        """ In a conflicts table, write the uptime of the process in conflict. """
+        elt = tr_elt.findmeld('uptime_td_mid')
+        elt.content(simple_gmtime(info['uptime']))
+
+    def _write_conflict_process_actions(self, tr_elt, info):
+        """ In a conflicts table, write the actions that can be requested on the process in conflict. """
+        namespec = info['namespec']
+        address = info['address']
+        for action in self.process_methods.keys():
+            elt = tr_elt.findmeld(action + '_a_mid')
+            parameters = {NAMESPEC: namespec, ADDRESS: address, ACTION: action}
+            url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
-            elt.content(address)
-            # set uptime
-            elt = tr_elt.findmeld('uptime_td_mid')
-            elt.content(simple_gmtime(item['uptime']))
-            # set detailed process action links
-            for action in self.process_methods.keys():
-                elt = tr_elt.findmeld(action + '_a_mid')
-                parameters = {NAMESPEC: namespec,
-                              ADDRESS: address,
-                              ACTION: action}
-                url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
+
+    def _write_conflict_strategies(self, tr_elt, info, shaded_tr):
+        """ In a conflicts table, write the strategies that can be requested on the process in conflict. """
+        # extract info
+        namespec = info['namespec']
+        rowspan = info['rowspan']
+        # update element structure
+        td_elt = tr_elt.findmeld('strategy_td_mid')
+        if rowspan > 0:
+            # apply shade logic to td element too for background-image to work
+            apply_shade(td_elt, shaded_tr)
+            # fill the strategies
+            td_elt.attrib['rowspan'] = str(rowspan)
+            strategy_iterator = td_elt.findmeld('local_strategy_li_mid').repeat(self.strategies)
+            for li_elt, st_item in strategy_iterator:
+                elt = li_elt.findmeld('local_strategy_a_mid')
+                # conciliation requests MUST be sent to MASTER
+                master = self.sup_ctx.master_address
+                parameters = {NAMESPEC: namespec, ACTION: st_item}
+                url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
                 elt.attributes(href=url)
-            # set process action links
-            td_elt = tr_elt.findmeld('strategy_td_mid')
-            if rowspan > 0:
-                # apply shaded / brightened to td element too for background-image to work
-                if shaded_tr:
-                    td_elt.attrib['class'] = 'shaded'
-                else:
-                    td_elt.attrib['class'] = 'brightened'
-                # fill the strategies
-                td_elt.attrib['rowspan'] = str(rowspan)
-                strategy_iterator = td_elt.findmeld('local_strategy_li_mid').repeat(self.strategies)
-                for li_elt, st_item in strategy_iterator:
-                    elt = li_elt.findmeld('local_strategy_a_mid')
-                    # conciliation requests MUST be sent to MASTER
-                    master = self.sup_ctx.master_address
-                    parameters = {NAMESPEC: namespec, ACTION: st_item}
-                    url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
-                    elt.attributes(href=url)
-                    elt.content(st_item.title())
-            else:
-                td_elt.replace('')
+                elt.content(st_item.title())
+        else:
+            td_elt.replace('')
 
     def make_callback(self, namespec, action):
         """ Triggers processing iaw action requested. """
         # global actions (no parameter)
-        if action in self.global_methods.keys():
+        if action in self.global_methods:
             return self.global_methods[action]()
         # strategy actions
         if action in self.strategies:
             return self.conciliation_action(namespec, action.upper())
         # process actions
-        if action in self.process_methods.keys():
+        if action in self.process_methods:
             address = self.view_ctx.get_address()
             return self.process_methods[action](namespec, address)
 
@@ -264,27 +279,24 @@ class SupvisorsView(ViewHandler):
         def on_wait():
             if address in addresses:
                 return NOT_DONE_YET
-            return info_message('process {} stopped on {}'
-                                .format(namespec, address))
+            return info_message('process {} stopped on {}'.format(namespec, address))
 
         on_wait.delay = 0.1
         return on_wait
 
-    def keep_action(self, namespec, address):
-        """ Stop the conflicting processes excepted the one running
-        on address. """
+    def keep_action(self, namespec, kept_address):
+        """ Stop the conflicting processes excepted the one running on address. """
         # get running addresses of process
         addresses = self.sup_ctx.processes[namespec].addresses
         running_addresses = addresses.copy()
-        running_addresses.remove(address)
+        running_addresses.remove(kept_address)
         for address in running_addresses:
             self.supvisors.zmq.pusher.send_stop_process(address, namespec)
 
         def on_wait():
             if len(addresses) > 1:
                 return NOT_DONE_YET
-            return info_message('processes {} stopped but on {}'
-                                .format(namespec, address))
+            return info_message('processes {} stopped but on {}'.format(namespec, kept_address))
 
         on_wait.delay = 0.1
         return on_wait

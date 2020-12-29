@@ -14,6 +14,13 @@ The main features are:
 
 ![Image of Supvisors' Dashboard](https://github.com/julien6387/supvisors/blob/master/docs/images/supvisors_address_process_section.png)
 
+## Supervisor Enhancements
+
+By design, **Supvisors** proposes a fix to the following Supervisor issues:
+   * [#122 - supervisord Starts All Processes at the Same Time](https://github.com/Supervisor/supervisor/issues/122)
+   * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
+   * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
+   * [#1023 - Pass arguments to program when starting a job?](https://github.com/Supervisor/supervisor/issues/1023)
 
 ## Supported Platforms
 
@@ -71,7 +78,6 @@ You can view the current **Supvisors** documentation [here](http://supvisors.rea
 
 You will find detailed installation and configuration documentation.
 
-
 ## Reporting Bugs and Viewing the Source Repository
 
 Please report bugs in the [Github issue tracker](https://github.com/julien6387/supvisors/issues).
@@ -81,4 +87,3 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 ## Contributing
 
 Not opened yet.
-

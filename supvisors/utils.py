@@ -104,8 +104,7 @@ def simple_gmtime(now=None):
 
 
 # Keys of information kept from Supervisor
-__Payload_Keys = ('name', 'group', 'state', 'start', 'stop', 'now', 'pid',
-                  'description', 'spawnerr')
+__Payload_Keys = ('name', 'group', 'state', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
 
 
 def extract_process_info(info):
