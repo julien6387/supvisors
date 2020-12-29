@@ -118,7 +118,8 @@ class SupervisorListener(object):
                    'extra_args': event.process.config.extra_args,
                    'now': int(time.time()),
                    'pid': event.process.pid,
-                   'expected': event.expected}
+                   'expected': event.expected,
+                   'spawnerr': event.process.spawnerr}
         self.logger.debug('payload={}'.format(payload))
         self.publisher.send_process_event(payload)
 

@@ -53,8 +53,7 @@ class RunningAddressesTest(unittest.TestCase):
                                   if info['statecode'] == AddressStates.RUNNING]
         self.assertEqual(3, len(self.running_addresses))
         # assumption is made that this test is run on Supvisors Master address
-        self.assertEqual(gethostname(),
-                         self.local_supvisors.get_master_address())
+        self.assertEqual(gethostname(), self.local_supvisors.get_master_address())
         # keep a reference to all RPC proxies
         self.proxies = {address: rpcrequests.getRPCInterface(address, os.environ)
                         for address in self.running_addresses}

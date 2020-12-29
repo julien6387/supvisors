@@ -185,8 +185,7 @@ class SupervisordSource(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.supervisord.supvisors.logger.warn(
-                'Server running without any HTTP authentication checking')
+            self.supervisord.supvisors.logger.warn('Server running without any HTTP authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()
         self.httpserver.install_handler(defaulthandler, True)

@@ -114,9 +114,10 @@ class ListenerTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             listener.on_process(Tick60Event(0, None))
         # test process event
-        process = Mock(pid=1234, **{'config.name': 'dummy_process',
-                                    'config.extra_args': '-s test',
-                                    'group.config.name': 'dummy_group'})
+        process = Mock(pid=1234, spawnerr='resource not available',
+                       **{'config.name': 'dummy_process',
+                          'config.extra_args': '-s test',
+                          'group.config.name': 'dummy_group'})
         event = ProcessStateFatalEvent(process, '')
         listener.on_process(event)
         self.assertEqual([call({'name': 'dummy_process',
@@ -125,7 +126,8 @@ class ListenerTest(unittest.TestCase):
                                 'extra_args': '-s test',
                                 'now': 77,
                                 'pid': 1234,
-                                'expected': True})],
+                                'expected': True,
+                                'spawnerr': 'resource not available'})],
                          listener.publisher.send_process_event.call_args_list)
 
     @patch.dict('sys.modules',
