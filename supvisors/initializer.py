@@ -84,12 +84,14 @@ class Supvisors(object):
         Else Supvisors will log in the file defined in option.
         """
         if self.options.logfile is Automatic:
-            # get Supervisord logger
+            # use Supervisord logger
             return supervisord.options.logger
-        # create own Logger using Supervisor functions
+        # else create own Logger using Supervisor functions
         nodaemon = supervisord.options.nodaemon
         silent = supervisord.options.silent
         logger = loggers.getLogger(self.options.loglevel)
+        # tag the logger so that it is properly closed when exiting
+        logger.SUPVISORS = True
         if nodaemon and not silent:
             loggers.handle_stdout(logger, Supvisors.LOGGER_FORMAT)
         loggers.handle_file(logger,
