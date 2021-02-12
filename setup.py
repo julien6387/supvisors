@@ -69,7 +69,7 @@ dist = setup(
     author="Julien Le Cléach",
     author_email="julien.6387.dev@gmail.com",
     url="https://github.com/julien6387/supvisors",
-    download_url='https://github.com/julien6387/supvisors/archive/0.3.tar.gz',
+    download_url='https://github.com/julien6387/supvisors/archive/%s.tar.gz' % supvisors_version,
     platforms=[
         "CentOS 8.3"
     ],
