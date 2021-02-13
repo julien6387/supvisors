@@ -61,14 +61,28 @@ class ViewSupvisorsTest(CompatTestCase):
 
     def test_write_header(self):
         """ Test the write_header method. """
+        from supvisors.viewcontext import AUTO
         # patch context
         self.view.fsm.state_string.return_value = 'Running'
+        self.view.view_ctx = Mock(parameters={AUTO: False}, **{'format_url.return_value': 'an url'})
         # build root structure
-        mocked_mid = Mock()
-        mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-        # test call
+        mocked_state_mid = Mock()
+        mocked_refresh_mid = Mock(attrib={'class': 'button'})
+        mocked_root = Mock(**{'findmeld.side_effect': [mocked_state_mid, mocked_refresh_mid] * 2})
+        # test call with no auto-refresh
         self.view.write_header(mocked_root)
-        self.assertEqual([call('Running')], mocked_mid.content.call_args_list)
+        self.assertEqual([call('Running')], mocked_state_mid.content.call_args_list)
+        self.assertEqual([call(href='an url')], mocked_refresh_mid.attributes.call_args_list)
+        self.assertEqual('button', mocked_refresh_mid.attrib['class'])
+        # reset mocks
+        mocked_state_mid.content.reset_mock()
+        mocked_refresh_mid.attributes.reset_mock()
+        # test call with auto-refresh
+        self.view.view_ctx.parameters[AUTO] = True
+        self.view.write_header(mocked_root)
+        self.assertEqual([call('Running')], mocked_state_mid.content.call_args_list)
+        self.assertEqual([call(href='an url')], mocked_refresh_mid.attributes.call_args_list)
+        self.assertEqual('button active', mocked_refresh_mid.attrib['class'])
 
     @patch('supvisors.viewsupvisors.SupvisorsView.write_node_boxes')
     @patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')

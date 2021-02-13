@@ -229,7 +229,8 @@ class DummyHttpContext:
                      'namespec': 'dummy_proc',
                      'processname': 'dummy_proc',
                      'appliname': 'dummy_appli',
-                     'intfname': 'eth0'}
+                     'intfname': 'eth0',
+                     'auto': 'false'}
         self.response = {'headers': {'Location': None}}
 
 

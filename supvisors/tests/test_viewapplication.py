@@ -211,28 +211,34 @@ class ViewApplicationTest(unittest.TestCase):
 
     def test_write_application_actions(self):
         """ Test the write_application_actions method. """
+        from supvisors.viewcontext import AUTO
         from supvisors.webutils import APPLICATION_PAGE
         # patch the view context
-        self.view.view_ctx = Mock(**{'format_url.side_effect': ['a refresh url', 'a start url',
-                                                           'a stop url', 'a restart url']})
+        self.view.view_ctx = Mock(parameters={AUTO: False},
+                                  **{'format_url.side_effect': ['a refresh url', 'an auto-refresh url',
+                                                                'a start url', 'a stop url',
+                                                                'a restart url']})
         # patch the meld elements
-        actions_mid = (Mock(), Mock(), Mock(), Mock())
+        actions_mid = (Mock(), Mock(), Mock(), Mock(), Mock())
         mocked_root = Mock(**{'findmeld.side_effect': actions_mid})
         # test call
         self.view.write_application_actions(mocked_root)
         self.assertEqual([call('', APPLICATION_PAGE, action='refresh'),
+                          call('', APPLICATION_PAGE, action='refresh', auto=True),
                           call('', APPLICATION_PAGE, action='startapp'),
                           call('', APPLICATION_PAGE, action='stopapp'),
                           call('', APPLICATION_PAGE, action='restartapp')],
                          self.view.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='a refresh url')],
                          actions_mid[0].attributes.call_args_list)
-        self.assertEqual([call(href='a start url')],
+        self.assertEqual([call(href='an auto-refresh url')],
                          actions_mid[1].attributes.call_args_list)
-        self.assertEqual([call(href='a stop url')],
+        self.assertEqual([call(href='a start url')],
                          actions_mid[2].attributes.call_args_list)
-        self.assertEqual([call(href='a restart url')],
+        self.assertEqual([call(href='a stop url')],
                          actions_mid[3].attributes.call_args_list)
+        self.assertEqual([call(href='a restart url')],
+                         actions_mid[4].attributes.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
     @patch('supvisors.viewapplication.ApplicationView.write_process_table')

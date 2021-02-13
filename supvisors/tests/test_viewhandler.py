@@ -126,7 +126,6 @@ class ViewHandlerTest(unittest.TestCase):
         from supvisors.ttypes import SupvisorsStates
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
-        handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
         handler.fsm.state = SupvisorsStates.OPERATION
         # heavy patch on handler
@@ -151,22 +150,26 @@ class ViewHandlerTest(unittest.TestCase):
                          handler.write_header.call_args_list)
         self.assertEqual([call(mocked_root)],
                          handler.write_contents.call_args_list)
-        self.assertEqual([call('version_mid')],
+        self.assertEqual([call('auto_refresh_mid'), call('version_mid')],
                          mocked_root.findmeld.call_args_list)
         self.assertDictEqual({}, mocked_meld.attrib)
+        # check meta auto-refresh has been removed (iaw default in DummyHttpContext)
+        self.assertTrue(mocked_meld.deparent.called)
 
     @patch('supvisors.viewhandler.print_message')
     @patch('supvisors.viewhandler.ViewHandler.handle_action')
-    def test_render_no_conflict(self, mocked_action, _):
+    def test_render_conflict(self, mocked_action, _):
         """ Test the render method when Supervisor is in RUNNING state,
         when no action is in progress and conflicts are found. """
         from supvisors.ttypes import SupvisorsStates
+        from supvisors.viewcontext import AUTO
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
-        handler.context = self.http_context
         handler.info_source.supervisor_state = SupervisorStates.RUNNING
         handler.fsm.state = SupvisorsStates.CONCILIATION
         handler.sup_ctx.conflicts.return_value = ['conflict_1', 'conflict_2']
+        # test also the auto-refresh option. here activated
+        self.http_context.form[AUTO] = 'true'
         # heavy patch on handler
         # ViewHandler is designed to be used as a superclass in conjunction
         # with a MeldView subclass, so a few methods are expected to be defined
@@ -198,7 +201,6 @@ class ViewHandlerTest(unittest.TestCase):
         from supvisors.viewcontext import ViewContext
         from supvisors.viewhandler import ViewHandler
         handler = ViewHandler(self.http_context)
-        handler.context = self.http_context
         self.assertIsNone(handler.view_ctx)
         handler.handle_parameters()
         self.assertIsNotNone(handler.view_ctx)

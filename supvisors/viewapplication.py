@@ -108,16 +108,26 @@ class ApplicationView(ViewHandler):
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
-        # set hyperlinks for global actions
+        # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
         elt.attributes(href=url)
+        # configure auto-refresh button
+        auto_refresh = self.view_ctx.parameters[AUTO]
+        elt = root.findmeld('autorefresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
+        elt.attributes(href=url)
+        if auto_refresh:
+            elt.attrib['class'] = elt.attrib['class'] + ' active'
+        # configure start application button
         elt = root.findmeld('startapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})
         elt.attributes(href=url)
+        # configure stop application button
         elt = root.findmeld('stopapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopapp'})
         elt.attributes(href=url)
+        # configure restart application button
         elt = root.findmeld('restartapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)

@@ -107,19 +107,21 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
 
     def test_write_address_actions(self):
         """ Test the write_address_actions method. """
-        from supvisors.viewcontext import ACTION
+        from supvisors.viewcontext import ACTION, AUTO
         from supvisors.webutils import PROC_ADDRESS_PAGE, HOST_ADDRESS_PAGE
         # set context (meant to be set through render)
-        self.view.view_ctx = Mock(**{'format_url.return_value': 'http://addr:port/index.html?action'})
+        self.view.view_ctx = Mock(parameters={AUTO: True},
+                                  **{'format_url.return_value': 'http://addr:port/index.html?action'})
         # build root structure
-        mocked_mids = [Mock(attrib={}) for _ in range(3)]
+        mocked_mids = [Mock(attrib={'class': ''}) for _ in range(4)]
         mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
         # test call
         self.view.write_address_actions(mocked_root)
-        self.assertEqual([call('view_a_mid'), call('refresh_a_mid'), call('stopall_a_mid')],
+        self.assertEqual([call('view_a_mid'), call('refresh_a_mid'), call('autorefresh_a_mid'), call('stopall_a_mid')],
                          mocked_root.findmeld.call_args_list)
         self.assertEqual([call('', PROC_ADDRESS_PAGE),
                           call('', HOST_ADDRESS_PAGE, **{ACTION: 'refresh'}),
+                          call('', HOST_ADDRESS_PAGE, **{ACTION: 'refresh', AUTO: False}),
                           call('', HOST_ADDRESS_PAGE, **{ACTION: 'stopall'})],
                          self.view.view_ctx.format_url.call_args_list)
         for mocked_mid in mocked_mids:
@@ -133,10 +135,11 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         # test call with PROC_ADDRESS_PAGE as self.page_name
         self.view.page_name = PROC_ADDRESS_PAGE
         self.view.write_address_actions(mocked_root)
-        self.assertEqual([call('view_a_mid'), call('refresh_a_mid'), call('stopall_a_mid')],
+        self.assertEqual([call('view_a_mid'), call('refresh_a_mid'), call('autorefresh_a_mid'), call('stopall_a_mid')],
                          mocked_root.findmeld.call_args_list)
         self.assertEqual([call('', HOST_ADDRESS_PAGE),
                           call('', PROC_ADDRESS_PAGE, **{ACTION: 'refresh'}),
+                          call('', PROC_ADDRESS_PAGE, **{ACTION: 'refresh', AUTO: False}),
                           call('', PROC_ADDRESS_PAGE, **{ACTION: 'stopall'})],
                          self.view.view_ctx.format_url.call_args_list)
         for mocked_mid in mocked_mids:

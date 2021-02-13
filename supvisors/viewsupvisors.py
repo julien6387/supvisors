@@ -66,8 +66,11 @@ class SupvisorsView(ViewHandler):
         elt = root.findmeld('state_mid')
         elt.content(self.fsm.state_string())
         # set refresh button pressed if page auto-refresh is activated
+        auto_refresh = self.view_ctx.parameters[AUTO]
         elt = root.findmeld('autorefresh_a_mid')
-        if self.view_ctx.parameters[AUTO]:
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
+        elt.attributes(href=url)
+        if auto_refresh:
             elt.attrib['class'] = elt.attrib['class'] + ' active'
 
     def write_contents(self, root):
