@@ -82,6 +82,10 @@ class SupvisorsAddressView(StatusView):
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
         elt.attributes(href=url)
+        # configure refresh button
+        elt = root.findmeld('autorefresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'autorefresh'})
+        elt.attributes(href=url)
         # configure stop all button
         elt = root.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})

@@ -88,6 +88,10 @@ class ViewHandler(MeldView):
                 return NOT_DONE_YET
             # display result
             root = self.clone()
+            # set auto-refresh status
+            if not self.view_ctx.parameters[AUTO]:
+                root.findmeld('auto_refresh_mid').deparent()
+            # set bottom message
             print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
             # blink main title in conciliation state
             if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():

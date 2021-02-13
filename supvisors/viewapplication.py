@@ -73,7 +73,7 @@ class ApplicationView(ViewHandler):
                 elt.attrib['class'] = 'status_green'
         else:
             elt.attrib['class'] = 'status_empty'
-        # write periods of statistics
+        # write options
         self.write_starting_strategy(root)
         self.write_periods(root)
         # write actions related to application

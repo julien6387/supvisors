@@ -4,6 +4,7 @@
       xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
     <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="5" meld:id="auto_refresh_mid"/>
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
@@ -47,11 +48,20 @@
 
                 <div>
                     <ul class="linear">
-                        <li><a href="index.html?action=sup_restart"><img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/></a></li>
-                        <li><a href="index.html?action=sup_shutdown"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/></a></li>
+                        <li><a href="index.html?action=sup_restart">
+                            <img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/></a>
+                        </li>
+                        <li><a href="index.html?action=sup_shutdown">
+                            <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/></a>
+                        </li>
                     </ul>
                     <ul class="linear">
-                        <li><a href="index.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                        <li><a href="index.html?action=refresh" class="button on">
+                            <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a>
+                        </li>
+                        <li><a href="index.html?action=refresh?auto=true" meld:id="autorefresh_a_mid" class="button on">
+                            <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a>
+                        </li>
                     </ul>
                 </div>
             </header>

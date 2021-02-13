@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+from distutils.util import strtobool
 from urllib.parse import quote
 
 from supvisors.utils import supvisors_shortcuts
@@ -36,6 +37,7 @@ PROCESS = 'processname'
 NAMESPEC = 'namespec'
 CPU = 'cpuid'
 INTF = 'intfname'
+AUTO = 'auto'
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
@@ -65,6 +67,7 @@ class ViewContext:
         # WARN: period must be done before processname and cpuid
         # as it requires to be set to access statistics
         self.update_period()
+        self.update_auto_refresh()
         self.update_address()
         self.update_application_name()
         self.update_process_name()
@@ -97,8 +100,13 @@ class ViewContext:
         default_value = next(iter(self.options.stats_periods))
         self._update_integer(PERIOD, self.options.stats_periods, default_value)
 
+    def update_auto_refresh(self):
+        """ Extract auto refresh from context. """
+        # assign value found or default
+        self._update_boolean(AUTO, False)
+
     def update_address(self):
-        """ Extract address name context. """
+        """ Extract address name from context. """
         # assign value found or default
         self._update_string(ADDRESS, self.address_mapper.addresses, self.local_address)
 
@@ -207,7 +215,7 @@ class ViewContext:
                 self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
 
     def _update_string(self, param, check_list, default_value=None):
-        """ Extract application name from context. """
+        """ Extract information from context based on allowed values in check_list. """
         value = self.http_context.form.get(param)
         if value:
             # check that value is known to Supvisors
@@ -221,22 +229,35 @@ class ViewContext:
         self.parameters[param] = default_value
 
     def _update_integer(self, param, check_list, default_value=0):
-        """ Extract period from context. """
+        """ Extract information from context and convert to integer based on allowed values in check_list. """
         param_string = self.http_context.form.get(param)
         if param_string:
             try:
                 value = int(param_string)
             except ValueError:
-                self.message(error_message('{} is not an integer: {}'
-                                           .format(param, param_string)))
+                self.message(error_message('{} is not an integer: {}'.format(param, param_string)))
             else:
                 # check that value is defined in check list
                 if value in check_list:
                     # reset default_value
                     default_value = value
                 else:
-                    self.message(error_message('Incorrect {}: {}'
-                                               .format(param, param_string)))
+                    self.message(error_message('Incorrect {}: {}'.format(param, param_string)))
+        # assign value found or default
+        self.logger.debug('{} set to {}'.format(param, default_value))
+        self.parameters[param] = default_value
+
+    def _update_boolean(self, param, default_value=False):
+        """ Extract information from context and convert to boolean based on allowed values in check_list. """
+        param_string = self.http_context.form.get(param)
+        if param_string:
+            try:
+                value = strtobool(param_string)
+            except ValueError:
+                self.message(error_message('{} is not a boolean-like: {}'.format(param, param_string)))
+            else:
+                # reset default_value
+                default_value = value
         # assign value found or default
         self.logger.debug('{} set to {}'.format(param, default_value))
         self.parameters[param] = default_value

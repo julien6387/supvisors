@@ -44,15 +44,7 @@ html, body, #body_block {
 
 body {
     margin: auto;
-}
-
-/* fake a background transparency because smoke image is too dark */
-body::after {
-    content: "";
     background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-    top: 0; left: 0; bottom: 0; right: 0;
-    position: absolute;
-    z-index: -1;
 }
 
 #body_block {
