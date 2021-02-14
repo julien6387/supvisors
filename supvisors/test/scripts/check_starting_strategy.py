@@ -106,34 +106,34 @@ class StartingStrategyTest(RunningAddressesTest):
         self.strategy = StartingStrategies.CONFIG
         # no address config for almost all converters (excepted 04 and 07)
         # so applicable order is the one defined in the supvisors section,
-        # i.e. cliche81, cliche83, cliche82, cliche84 (not running)
-        # cliche01 is one at 15% initially
+        # i.e. cliche81, cliche82, cliche83, cliche84 (not running)
+        # cliche81 is at 15% initially
         self._start_converter(0)
         self.assertItemsEqual([40, 15, 5], self.loading.values())
-        # continue with cliche01
+        # continue with cliche81
         self._start_converter(1)
         self.assertItemsEqual([65, 15, 5], self.loading.values())
-        # there is still place on cliche81
-        # try with converter_04 to check the alt config
+        # try with converter_04 to check the alt config where cliche83 comes first
         self._start_converter(4)
         self.assertItemsEqual([65, 15, 30], self.loading.values())
         # there is still place on cliche81
         self._start_converter(2)
         self.assertItemsEqual([90, 15, 30], self.loading.values())
-        # cliche81 is full. cliche83 will be used now
+        # cliche81 is full. cliche82 will be used now
         self._start_converter(3)
-        self.assertItemsEqual([90, 15, 55], self.loading.values())
-        # there is still place on cliche83
+        self.assertItemsEqual([90, 40, 30], self.loading.values())
+        # there is still place on cliche82
         # try with converter_07 to check the alt config
-        # cliche81 is full, so second address in config will be used (cliche82)
+        # cliche81 is full, so second address in config will be used (cliche83)
         self._start_converter(7)
         self.assertItemsEqual([90, 40, 55], self.loading.values())
-        # there is still place on cliche83
+        # there is still place on cliche82
         self._start_converter(5)
-        self.assertItemsEqual([90, 40, 80], self.loading.values())
+        self.assertItemsEqual([90, 65, 55], self.loading.values())
         # cliche81 is full. cliche82 will be used now
         self._start_converter(6)
-        self.assertItemsEqual([90, 65, 80], self.loading.values())
+        self.assertItemsEqual([90, 90, 55], self.loading.values())
+        # cliche81 & cliche82 are full. cliche83 will be used now
         self._start_converter(8)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left

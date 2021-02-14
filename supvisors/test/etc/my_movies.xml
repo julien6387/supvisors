@@ -33,6 +33,10 @@
             <expected_loading>1</expected_loading>
         </program>
 
+        <pattern name="check_">
+            <addresses>cliche81</addresses>
+        </pattern>
+
     </application>
 
     <!-- import application -->
@@ -133,7 +137,7 @@
         </program>
 
         <program name="converter_07">
-            <addresses>cliche81,cliche82,cliche83</addresses>
+            <addresses>cliche81,cliche83,cliche82</addresses>
             <expected_loading>25</expected_loading>
         </program>
 
