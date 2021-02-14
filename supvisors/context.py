@@ -183,16 +183,13 @@ class Context(object):
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
                 if authorized:
-                    self.logger.info('local is authorized to deal with {}'
-                                     .format(address_name))
+                    self.logger.info('local is authorized to deal with {}'.format(address_name))
                     status.state = AddressStates.RUNNING
                 else:
-                    self.logger.warn('local is not authorized to deal with {}'
-                                     .format(address_name))
+                    self.logger.warn('local is not authorized to deal with {}'.format(address_name))
                     self.invalid(status)
         else:
-            self.logger.warn('got authorization from unexpected location={}'
-                             .format(address_name))
+            self.logger.warn('got authorization from unexpected location={}'.format(address_name))
 
     def on_tick_event(self, address_name, event):
         """ Method called upon reception of a tick event from the remote

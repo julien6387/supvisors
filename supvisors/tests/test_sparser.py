@@ -47,44 +47,37 @@ class CommonParserTest(unittest.TestCase):
         self.assertListEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
                              sorted(parser.patterns.keys()))
         # check unknown application
-        application = ApplicationStatus('dummy_application_X',
-                                        self.supvisors.logger)
+        application = ApplicationStatus('dummy_application_X', self.supvisors.logger)
         parser.load_application_rules(application)
         self.assert_default_application_rules(application.rules)
         # check first application
-        application = ApplicationStatus('dummy_application_A',
-                                        self.supvisors.logger)
+        application = ApplicationStatus('dummy_application_A', self.supvisors.logger)
         parser.load_application_rules(application)
         self.assert_default_application_rules(application.rules)
         # check second application
-        application = ApplicationStatus('dummy_application_B',
-                                        self.supvisors.logger)
+        application = ApplicationStatus('dummy_application_B', self.supvisors.logger)
         parser.load_application_rules(application)
         self.assert_application_rules(application.rules, 1, 4,
                                       StartingFailureStrategies.STOP,
                                       RunningFailureStrategies.RESTART_PROCESS)
         # check third application
-        application = ApplicationStatus('dummy_application_C',
-                                        self.supvisors.logger)
+        application = ApplicationStatus('dummy_application_C', self.supvisors.logger)
         parser.load_application_rules(application)
         self.assert_application_rules(application.rules, 20, 0,
                                       StartingFailureStrategies.ABORT,
                                       RunningFailureStrategies.STOP_APPLICATION)
         # check fourth application
-        application = ApplicationStatus('dummy_application_D',
-                                        self.supvisors.logger)
+        application = ApplicationStatus('dummy_application_D', self.supvisors.logger)
         parser.load_application_rules(application)
         self.assert_application_rules(application.rules, 0, 100,
                                       StartingFailureStrategies.CONTINUE,
                                       RunningFailureStrategies.RESTART_APPLICATION)
         # check program from unknown application: all default
-        process = ProcessStatus('dummy_application_X', 'dummy_program_X0',
-                                self.supvisors)
+        process = ProcessStatus('dummy_application_X', 'dummy_program_X0', self.supvisors)
         parser.load_process_rules(process)
         self.assert_default_process_rules(process.rules)
         # check unknown program from known application: all default
-        process = ProcessStatus('dummy_application_A', 'dummy_program_A0',
-                                self.supvisors)
+        process = ProcessStatus('dummy_application_A', 'dummy_program_A0', self.supvisors)
         parser.load_process_rules(process)
         self.assert_default_process_rules(process.rules)
         # check known program from known but not related application:

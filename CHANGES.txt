@@ -1,4 +1,4 @@
-0.4 (2021-xx-xx)
+0.4 (2021-02-14)
 ----------------
 
 * Auto-refresh button added to all pages

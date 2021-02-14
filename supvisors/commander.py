@@ -226,10 +226,8 @@ class Starter(Commander):
         self.current_jobs = {}
 
     def start_applications(self):
-        """ Plan and start the necessary jobs to start all the applications
-        having a start_sequence.
-        It uses the default strategy, as defined in the Supervisor
-        configuration file. """
+        """ Plan and start the necessary jobs to start all the applications having a start_sequence.
+        It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file. """
         self.logger.info('start all applications')
         # internal call: default strategy always used
         self.strategy = self.get_default_strategy()
@@ -242,13 +240,11 @@ class Starter(Commander):
         self.initial_jobs()
 
     def default_start_application(self, application):
-        """ Plan and start the necessary jobs to start the application in
-        parameter, with the default strategy. """
+        """ Plan and start the necessary jobs to start the application in parameter, with the default strategy. """
         return self.start_application(self.get_default_strategy(), application)
 
     def start_application(self, strategy, application):
-        """ Plan and start the necessary jobs to start the application in parameter,
-        with the strategy requested. """
+        """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested. """
         self.logger.info('start application {}'.format(application.application_name))
         # called from rpcinterface: strategy is a user choice
         self.strategy = strategy
