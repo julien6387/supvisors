@@ -146,17 +146,14 @@ class ViewContext:
 
     def format_url(self, address_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) \
-            if address_name else ''
+        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) if address_name else ''
         return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
 
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
         form = self.http_context.form
         args = {MESSAGE: message[1], GRAVITY: message[0]}
-        location = '{}{}?{}'.format(form[SERVER_URL],
-                                    form[PATH_TRANSLATED],
-                                    self.url_parameters(**args))
+        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(**args))
         self.http_context.response[HEADERS][LOCATION] = location
 
     def get_nbcores(self, address=None):

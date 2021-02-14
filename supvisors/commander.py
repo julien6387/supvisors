@@ -422,8 +422,7 @@ class Starter(Commander):
                                   process.rules.addresses,
                                   process.rules.expected_loading)
             if address:
-                self.logger.info('try to start {} at address={}'
-                                 .format(namespec, address))
+                self.logger.info('try to start {} at address={}'.format(namespec, address))
                 # use asynchronous xml rpc to start program
                 self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
                 # push to jobs and timestamp process
