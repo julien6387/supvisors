@@ -82,6 +82,7 @@ class SupvisorsView(ViewHandler):
             # write address boxes
             self.write_node_boxes(root)
 
+    # Standard part
     def _write_node_box_title(self, node_div_elt, status):
         """ Rendering of the node box title. """
         # set node name
@@ -137,15 +138,17 @@ class SupvisorsView(ViewHandler):
             # fill with running processes
             self._write_node_box_processes(node_div_elt, status)
 
+    # Conciliation part
     def write_conciliation_strategies(self, root):
         """ Rendering of the global conciliation actions. """
         div_elt = root.findmeld('conflicts_div_mid')
         global_strategy_li_mid = div_elt.findmeld('global_strategy_li_mid')
         for li_elt, item in global_strategy_li_mid.repeat(self.strategies):
             elt = li_elt.findmeld('global_strategy_a_mid')
-            # conciliation requests MUST be sent to MASTER
+            # conciliation requests MUST be sent to MASTER and namespec MUST be reset
             master = self.sup_ctx.master_address
-            url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **{ACTION: item})
+            parameters = {NAMESPEC: '', ACTION: item}
+            url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
             elt.content(item.title())
 
