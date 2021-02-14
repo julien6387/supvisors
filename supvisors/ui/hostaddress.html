@@ -3,6 +3,8 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="5" meld:id="meta_mid"/>
     <title>Supvisors status</title>
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
@@ -34,7 +36,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2020 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2021 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -68,27 +70,22 @@
 
                 <div>
                     <ul class="linear">
-                        <li>
-                            <a href="#" meld:id="stopall_a_mid">
-                                <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/>
-                            </a>
+                        <li><a href="#" meld:id="stopall_a_mid">
+                            <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a>
                         </li>
-                        <li>
-                            <a href="hostaddress.html?action=restartsup">
-                                <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/>
-                            </a>
+                        <li><a href="hostaddress.html?action=restartsup">
+                            <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a>
                         </li>
-                        <li>
-                            <a href="hostaddress.html?action=shutdownsup">
-                                <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/>
-                            </a>
+                        <li><a href="hostaddress.html?action=shutdownsup">
+                            <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a>
                         </li>
                     </ul>
                     <ul class="linear">
-                        <li>
-                            <a href="#" meld:id="refresh_a_mid" class="button on">
-                                <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/>
-                            </a>
+                        <li><a href="#" meld:id="refresh_a_mid" class="button on">
+                            <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a>
+                        </li>
+                        <li><a href="#" meld:id="autorefresh_a_mid" class="button on">
+                            <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a>
                         </li>
                     </ul>
                 </div>

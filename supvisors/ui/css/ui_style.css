@@ -44,15 +44,7 @@ html, body, #body_block {
 
 body {
     margin: auto;
-}
-
-/* fake a background transparency because smoke image is too dark */
-body::after {
-    content: "";
     background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-    top: 0; left: 0; bottom: 0; right: 0;
-    position: absolute;
-    z-index: -1;
 }
 
 #body_block {
@@ -469,36 +461,32 @@ table .desc, table.addr {
 
 
 /*
- * Style for addressBox (main page)
+ * Style for nodeBox (main page)
  */
-.addressBox {
+.nodeBox {
     display: flex;
     min-width: 200px;
     max-width: 30%;
-    min-height: 150px;
-    height: 150px;
+    min-height: 60px;
+    height: 60px;
 }
 
-.addressBox table {
+.nodeBox table {
     height: 100%;
     border: 3px ridge var(--border-color);
 }
 
-.addressBox th {
+.nodeBox th {
     height: 18px;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
 
-.addressBox td:nth-child(1) {
+.nodeBox td:nth-child(1) {
     vertical-align: top;
 }
 
-.addressBox tr {
-    background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
-}
-
-.addressBox .button {
-    display: inline-block;
+.nodeBox .button {
+    /*display: inline-block;*/
     padding: 2px 4px;
     margin-bottom: 4px;
     background-color: #007600;
@@ -506,7 +494,7 @@ table .desc, table.addr {
     cursor: default;
 }
 
-.addressBox td:nth-child(2) {
+.nodeBox td:nth-child(2) {
     text-align: center;
 }
 

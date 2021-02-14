@@ -56,8 +56,7 @@ class Supvisors(object):
         self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local host is expected in address list: {}'
-                           .format(self.options.address_list))
+                           'local host is expected in address list: {}'.format(self.options.address_list))
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -72,8 +71,8 @@ class Supvisors(object):
         # check parsing
         try:
             self.parser = Parser(self)
-        except:
-            self.logger.warn('cannot parse rules file: {}'.format(self.options.rules_file))
+        except Exception as exc:
+            self.logger.warn('cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
@@ -84,12 +83,14 @@ class Supvisors(object):
         Else Supvisors will log in the file defined in option.
         """
         if self.options.logfile is Automatic:
-            # get Supervisord logger
+            # use Supervisord logger
             return supervisord.options.logger
-        # create own Logger using Supervisor functions
+        # else create own Logger using Supervisor functions
         nodaemon = supervisord.options.nodaemon
         silent = supervisord.options.silent
         logger = loggers.getLogger(self.options.loglevel)
+        # tag the logger so that it is properly closed when exiting
+        logger.SUPVISORS = True
         if nodaemon and not silent:
             loggers.handle_stdout(logger, Supvisors.LOGGER_FORMAT)
         loggers.handle_file(logger,

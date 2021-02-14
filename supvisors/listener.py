@@ -103,7 +103,9 @@ class SupervisorListener(object):
         # unsubscribe from events
         events.clear()
         # finally, close logger
-        self.logger.close()
+        # WARN: only if it is not the supervisor one
+        if hasattr(self.logger, 'SUPVISORS'):
+            self.logger.close()
 
     def on_process(self, event):
         """ Called when a ProcessEvent is sent by the local Supervisor.

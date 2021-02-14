@@ -226,10 +226,8 @@ class Starter(Commander):
         self.current_jobs = {}
 
     def start_applications(self):
-        """ Plan and start the necessary jobs to start all the applications
-        having a start_sequence.
-        It uses the default strategy, as defined in the Supervisor
-        configuration file. """
+        """ Plan and start the necessary jobs to start all the applications having a start_sequence.
+        It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file. """
         self.logger.info('start all applications')
         # internal call: default strategy always used
         self.strategy = self.get_default_strategy()
@@ -242,28 +240,21 @@ class Starter(Commander):
         self.initial_jobs()
 
     def default_start_application(self, application):
-        """ Plan and start the necessary jobs to start the application in
-        parameter, with the default strategy. """
+        """ Plan and start the necessary jobs to start the application in parameter, with the default strategy. """
         return self.start_application(self.get_default_strategy(), application)
 
     def start_application(self, strategy, application):
-        """ Plan and start the necessary jobs to start the application in
-        parameter, with the strategy requested. """
-        self.logger.info('start application {}'
-                         .format(application.application_name))
+        """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested. """
+        self.logger.info('start application {}'.format(application.application_name))
         # called from rpcinterface: strategy is a user choice
         self.strategy = strategy
         # push program list in todo list and start work
         if application.stopped():
             self.store_application_start_sequence(application)
-            self.logger.debug('planned_sequence={}'
-                              .format(self.printable_planned_sequence()))
+            self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
             if self.planned_sequence:
-                # add application immediately to planned jobs
-                # if something in list
-                self.planned_jobs.update(
-                    self.planned_sequence.pop(
-                        min(self.planned_sequence.keys())))
+                # add application immediately to planned jobs if something in list
+                self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
                 self.process_application_jobs(application.application_name)
         # return True when started
         return not self.in_progress()
@@ -298,8 +289,7 @@ class Starter(Commander):
 
     def check_starting(self):
         """ Check the progress of the application starting. """
-        self.logger.debug('starting progress: planned_sequence={} '
-                          'planned_jobs={} current_jobs={}'
+        self.logger.debug('starting progress: planned_sequence={} planned_jobs={} current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
@@ -309,8 +299,7 @@ class Starter(Commander):
         commands = [command
                     for command_list in self.current_jobs.values()
                     for command in command_list]
-        self.logger.trace('now={} checking commands={}'
-                          .format(now, [str(command) for command in commands]))
+        self.logger.trace('now={} checking commands={}'.format(now, [str(command) for command in commands]))
         for command in commands:
             # depending on ini file, it may take a while before the process
             # enters in RUNNING state so just test that is in not in a
@@ -338,12 +327,9 @@ class Starter(Commander):
             self.on_event_in_sequence(command, jobs)
 
     def on_event_in_sequence(self, command, jobs):
-        """ Manages the impact of an event that is part of the starting
-        sequence. """
+        """ Manages the impact of an event that is part of the starting sequence. """
         process = command.process
-        if process.state in (ProcessStates.STOPPED,
-                             ProcessStates.STOPPING,
-                             ProcessStates.UNKNOWN):
+        if process.state in (ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN):
             # unexpected event in a starting phase:
             # someone has requested to stop the process as it is starting
             # remove from inProgress
@@ -359,15 +345,13 @@ class Starter(Commander):
                 jobs.remove(command)
         elif process.state == ProcessStates.BACKOFF:
             # something wrong happened, just wait
-            self.logger.warn('problems detected with {}'
-                             .format(process.namespec()))
+            self.logger.warn('problems detected with {}'.format(process.namespec()))
         elif process.state == ProcessStates.EXITED:
             # remove from inProgress
             jobs.remove(command)
             # an EXITED process is accepted if wait_exit is set
             if process.rules.wait_exit and process.expected_exit:
-                self.logger.info('expected exit for {}'
-                                 .format(process.namespec()))
+                self.logger.info('expected exit for {}'.format(process.namespec()))
             else:
                 self.process_failure(process)
         elif process.state == ProcessStates.FATAL:
@@ -383,24 +367,21 @@ class Starter(Commander):
             if process.application_name in self.planned_jobs:
                 self.process_application_jobs(process.application_name)
             else:
-                self.logger.info('starting completed for application {}'
-                                 .format(process.application_name))
+                self.logger.info('starting completed for application {}'.format(process.application_name))
                 # check if there are planned jobs
                 if not self.planned_jobs:
                     # trigger next sequence of applications
                     self.initial_jobs()
 
     def on_event_out_of_sequence(self, process):
-        """ Manages the impact of a crash event that is out of the starting
-        sequence.
+        """ Manages the impact of a crash event that is out of the starting sequence.
 
         Note: Keeping in mind the possible origins of the event:
             * a request performed by this Starter,
             * a request performed directly on any Supervisor (local or remote),
             * a request performed on a remote Supvisors,
         let's consider the following cases:
-            1) The application is in the planned sequence, or process is in
-            the planned jobs.
+            1) The application is in the planned sequence, or process is in the planned jobs.
                => do nothing, give a chance to this Starter.
             2) The process is NOT in the application planned jobs.
                The process was likely started previously in the sequence of
@@ -413,23 +394,20 @@ class Starter(Commander):
         # find the conditions of case 2
         if process.crashed() and process.application_name in self.planned_jobs:
             planned_application_jobs = self.planned_jobs[process.application_name]
-            planned_process_jobs = [
-                command.process
-                for commands in planned_application_jobs.values()
-                for command in commands]
+            planned_process_jobs = [command.process
+                                    for commands in planned_application_jobs.values()
+                                    for command in commands]
             if process not in planned_process_jobs:
                 self.process_failure(process)
 
     def store_application_start_sequence(self, application):
         """ Copy the start sequence and remove programs that are not meant
         to be started automatically, i.e. their start_sequence is 0. """
-        application_sequence = {
-            seq: [ProcessCommand(process) for process in processes]
-            for seq, processes in application.start_sequence.items()
-            if seq > 0}
+        application_sequence = {seq: [ProcessCommand(process) for process in processes]
+                                for seq, processes in application.start_sequence.items()
+                                if seq > 0}
         if len(application_sequence) > 0:
-            sequence = self.planned_sequence.setdefault(
-                application.rules.start_sequence, {})
+            sequence = self.planned_sequence.setdefault(application.rules.start_sequence, {})
             sequence[application.application_name] = application_sequence
 
     def process_job(self, command, jobs):
@@ -444,8 +422,7 @@ class Starter(Commander):
                                   process.rules.addresses,
                                   process.rules.expected_loading)
             if address:
-                self.logger.info('try to start {} at address={}'
-                                 .format(namespec, address))
+                self.logger.info('try to start {} at address={}'.format(namespec, address))
                 # use asynchronous xml rpc to start program
                 self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
                 # push to jobs and timestamp process

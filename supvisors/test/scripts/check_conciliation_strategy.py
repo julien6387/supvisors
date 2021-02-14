@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2017 Julien LE CLEACH
@@ -57,8 +57,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
     def tearDown(self):
         """ Back to initial status (one movie_server running on each address). """
         try:
-            self.local_supvisors.restart_application(StartingStrategies.CONFIG,
-                                                     'database')
+            self.local_supvisors.restart_application(StartingStrategies.CONFIG, 'database')
         except:
             print('### [ERROR] failed to restart database application')
         RunningAddressesTest.tearDown(self)
@@ -77,8 +76,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
             self._check_conciliation_user_restart()
             self._check_conciliation_user_running_failure()
         else:
-            print('### Testing Automatic conciliation with {}'.format(
-                strategies['conciliation']))
+            print('### Testing Automatic conciliation with {}'.format(strategies['conciliation']))
             self._check_conciliation_auto()
 
     def _check_conciliation_auto(self):
@@ -164,11 +162,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
         self.assertEqual(9, len(received_events))
         self.assertEqual([], expected_events)
         # 2. all movie_server programs shall be running after restart
-        expected_events = [{'name': 'movie_server_0%d' % (idx + 1),
-                            'state': 20}
+        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 20}
                            for idx in range(3)]
-        received_events = self.evloop.wait_until_events(
-            self.evloop.event_queue, expected_events, 10)
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(3, len(received_events))
         self.assertEqual([], expected_events)
         # check final status
@@ -206,13 +202,10 @@ class ConciliationStrategyTest(RunningAddressesTest):
             ConciliationStrategies.RUNNING_FAILURE)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager',
-                            'state': 0,
-                            'address': address}
+        expected_events = [{'name': 'manager', 'state': 0, 'address': address}
                            for address in self.running_addresses]
         expected_events.append({'name': 'hmi', 'state': 0})
-        received_events = self.evloop.wait_until_events(
-            self.evloop.event_queue, expected_events, 10)
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(4, len(received_events))
         self.assertEqual([], expected_events)
         # 3 processes to start (one FATAL)
@@ -220,8 +213,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         expected_events = [{'name': 'manager', 'state': 20},
                            {'name': 'web_server', 'state': 200},
                            {'name': 'hmi', 'state': 20}]
-        received_events = self.evloop.wait_until_events(
-            self.evloop.event_queue, expected_events, 10)
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(3, len(received_events))
         self.assertEqual([], expected_events)
         # check supvisors event: OPERATION state is expected
@@ -247,7 +239,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
                 try:
                     program = 'movie_server_0%d' % (idx + 1)
                     proxy.supervisor.startProcess('database:' + program)
-                except xmlrpclib.Fault, exc:
+                except xmlrpclib.Fault as exc:
                     self.assertEqual(Faults.ALREADY_STARTED, exc.faultCode)
                 else:
                     # confirm starting through events
@@ -282,7 +274,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         for address, proxy in self.proxies.items():
             try:
                 proxy.supervisor.startProcess('my_movies:manager')
-            except xmlrpclib.Fault, exc:
+            except xmlrpclib.Fault as exc:
                 self.assertEqual(Faults.ALREADY_STARTED, exc.faultCode)
             else:
                 # confirm starting through events
@@ -318,14 +310,15 @@ class ConciliationStrategyTest(RunningAddressesTest):
                 if info['statecode'] == ProcessStates.RUNNING}
         return running_processes
 
+
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == '__main__':
     # get arguments
     import argparse
-    parser = argparse.ArgumentParser(
-        description='Check the Supvisors conciliation strategies.')
+    parser = argparse.ArgumentParser(description='Check the Supvisors conciliation strategies.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()

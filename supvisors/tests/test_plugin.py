@@ -41,7 +41,7 @@ class PluginTest(unittest.TestCase):
             self.assertTrue(hasattr(Faults, enum))
 
     def test_update_views(self):
-        """ Test the values set at construction. """
+        """ Test the update_views function. """
         from supvisors.plugin import update_views
         from supvisors.viewsupvisors import SupvisorsView
         from supvisors.viewapplication import ApplicationView
@@ -90,7 +90,7 @@ class PluginTest(unittest.TestCase):
     @patch('supvisors.plugin.expand_faults')
     @patch('supvisors.plugin.RPCInterface')
     def test_make_rpc(self, mocked_rpc, mocked_expand, mocked_views):
-        """ Test the values set at construction. """
+        """ Test the make_supvisors_rpcinterface function. """
         from supvisors.plugin import make_supvisors_rpcinterface
         supervisord = DummySupervisor
         # save cleanup_fds function

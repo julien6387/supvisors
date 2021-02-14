@@ -46,7 +46,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual(DummyAddressMapper().local_address, ctx.local_address)
         self.assertDictEqual({'address': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
-                              'intfname': None}, ctx.parameters)
+                              'intfname': None, 'auto': False}, ctx.parameters)
 
     def test_get_server_port(self):
         """ Test the get_server_port method. """
@@ -122,7 +122,7 @@ class ViewContextTest(unittest.TestCase):
         """ Test the _update_string method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
-        # keep a copy of parmeters
+        # keep a copy of parameters
         ref_parameters = ctx.parameters.copy()
         # test with unknown parameter and no default value
         self.assertNotIn('dummy', self.http_context.form)
@@ -154,7 +154,7 @@ class ViewContextTest(unittest.TestCase):
         """ Test the _update_integer method. """
         from supvisors.viewcontext import ViewContext
         ctx = ViewContext(self.http_context)
-        # keep a copy of parmeters
+        # keep a copy of parameters
         ref_parameters = ctx.parameters.copy()
         # test with unknown parameter and no default value
         self.assertNotIn('dummy', self.http_context.form)
@@ -192,6 +192,37 @@ class ViewContextTest(unittest.TestCase):
         ref_parameters.update({'SERVER_PORT': 7777})
         self.assertDictEqual(ref_parameters, ctx.parameters)
 
+    def test_update_boolean(self):
+        """ Test the _update_boolean method. """
+        from supvisors.viewcontext import ViewContext
+        ctx = ViewContext(self.http_context)
+        # keep a copy of parameters
+        ref_parameters = ctx.parameters.copy()
+        # test with unknown parameter and no default value
+        self.assertNotIn('dummy', self.http_context.form)
+        ctx._update_boolean('dummy')
+        ref_parameters.update({'dummy': False})
+        self.assertDictEqual(ref_parameters, ctx.parameters)
+        # test with unknown parameter and default value
+        self.assertNotIn('dummy', self.http_context.form)
+        ctx._update_boolean('dummy', True)
+        ref_parameters.update({'dummy': True})
+        self.assertDictEqual(ref_parameters, ctx.parameters)
+        # test with known parameter, no default value and unexpected value
+        self.http_context.form['auto'] = 'unexpected value'
+        ctx._update_boolean('auto')
+        ref_parameters.update({'auto': False})
+        self.assertDictEqual(ref_parameters, ctx.parameters)
+        # test with known parameter, default value and unexpected value
+        ctx._update_boolean('auto', True)
+        ref_parameters.update({'auto': True})
+        self.assertDictEqual(ref_parameters, ctx.parameters)
+        # test with known parameter and expected value
+        self.http_context.form['auto'] = '1'
+        ctx._update_boolean('auto')
+        ref_parameters.update({'auto': True})
+        self.assertDictEqual(ref_parameters, ctx.parameters)
+
     def test_update_period(self):
         """ Test the update_period method. """
         from supvisors.viewcontext import ViewContext, PERIOD
@@ -218,6 +249,28 @@ class ViewContextTest(unittest.TestCase):
         self.http_context.form[ADDRESS] = '192.168.1.1'
         ctx.update_address()
         self.assertEqual('127.0.0.1', ctx.parameters[ADDRESS])
+
+    def test_update_auto_refresh(self):
+        """ Test the update_auto_refresh method. """
+        from supvisors.viewcontext import ViewContext, AUTO
+        ctx = ViewContext(self.http_context)
+        # reset parameter because called in constructor
+        del ctx.parameters[AUTO]
+        # test call with default valid value
+        ctx.update_auto_refresh()
+        self.assertFalse(ctx.parameters[AUTO])
+        # reset parameter
+        del ctx.parameters[AUTO]
+        # test call with other valid value
+        self.http_context.form[AUTO] = 't'
+        ctx.update_auto_refresh()
+        self.assertTrue(ctx.parameters[AUTO])
+        # reset parameter
+        del ctx.parameters[AUTO]
+        # test call with invalid value
+        self.http_context.form[AUTO] = 'not a boolean'
+        ctx.update_auto_refresh()
+        self.assertFalse(ctx.parameters[AUTO])
 
     def test_update_application_name(self):
         """ Test the update_application_name method. """

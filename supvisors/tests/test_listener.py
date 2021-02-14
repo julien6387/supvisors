@@ -96,6 +96,19 @@ class ListenerTest(unittest.TestCase):
         # create a main_loop patch
         listener.main_loop = Mock(**{'stop.return_value': None})
         with patch.object(self.supvisors.info_source, 'close_httpservers') as mocked_infosource:
+            # 1. test with unmarked logger, i.e. meant to be the supervisor logger
+            listener.on_stopping('')
+            self.assertEqual([], callbacks)
+            self.assertTrue(mocked_infosource.called)
+            self.assertTrue(listener.main_loop.stop.called)
+            self.assertTrue(self.supvisors.zmq.close.called)
+            self.assertFalse(self.supvisors.logger.close.called)
+            # reset mocks
+            mocked_infosource.reset_mock()
+            listener.main_loop.stop.reset_mock()
+            self.supvisors.zmq.close.reset_mock()
+            # 2. test with marked logger, i.e. meant to be the Supvisors logger
+            listener.logger.SUPVISORS = None
             listener.on_stopping('')
             self.assertEqual([], callbacks)
             self.assertTrue(mocked_infosource.called)

@@ -80,45 +80,75 @@ class SupvisorsView(ViewHandler):
             # remove conflicts table
             root.findmeld('conflicts_div_mid').replace('')
             # write address boxes
-            self.write_address_boxes(root)
+            self.write_node_boxes(root)
 
-    def write_address_boxes(self, root):
-        """ Rendering of the addresses boxes. """
-        address_div_mid = root.findmeld('address_div_mid')
+    # Standard part
+    def _write_node_box_title(self, node_div_elt, status):
+        """ Rendering of the node box title. """
+        # set node name
+        elt = node_div_elt.findmeld('node_tda_mid')
+        if status.state == AddressStates.RUNNING:
+            # go to web page located on address, so as to reuse Supervisor StatusView
+            url = self.view_ctx.format_url(status.address_name, PROC_ADDRESS_PAGE)
+            elt.attributes(href=url)
+            elt.attrib['class'] = 'on'
+        elt.content(status.address_name)
+        # set state
+        elt = node_div_elt.findmeld('state_td_mid')
+        elt.attrib['class'] = status.state_string() + ' state'
+        elt.content(status.state_string())
+        # set loading
+        elt = node_div_elt.findmeld('percent_td_mid')
+        elt.content('{}%'.format(status.loading()))
+
+    def _write_node_box_processes(self, node_div_elt, status):
+        """ Rendering of the node box running processes. """
+        appli_tr_mid = node_div_elt.findmeld('appli_tr_mid')
+        running_processes = status.running_processes()
+        application_names = {process.application_name for process in running_processes}
+        if application_names:
+            shaded_tr = False
+            for appli_tr_elt, application_name in appli_tr_mid.repeat(application_names):
+                # set row shading
+                apply_shade(appli_tr_elt, shaded_tr)
+                shaded_tr = not shaded_tr
+                # set application name
+                app_name_td_mid = appli_tr_elt.findmeld('app_name_td_mid')
+                app_name_td_mid.content(application_name)
+                # set running process list
+                process_li_mid = appli_tr_elt.findmeld('process_li_mid')
+                processes = filter(lambda x: x.application_name == application_name, running_processes)
+                for li_elt, process in process_li_mid.repeat(processes):
+                    process_a_mid = li_elt.findmeld('process_a_mid')
+                    process_a_mid.content(process.process_name)
+        else:
+            # keep an empty line
+            process_li_mid = appli_tr_mid.findmeld('process_li_mid')
+            process_li_mid.replace('')
+
+    def write_node_boxes(self, root):
+        """ Rendering of the node boxes. """
+        node_div_mid = root.findmeld('node_div_mid')
         addresses = self.address_mapper.addresses
-        for div_elt, address in address_div_mid.repeat(addresses):
-            # get address status from Supvisors context
-            status = self.sup_ctx.addresses[address]
-            # set address
-            elt = div_elt.findmeld('address_tda_mid')
-            if status.state == AddressStates.RUNNING:
-                # go to web page located on address, so as to reuse Supervisor StatusView
-                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
-                elt.attributes(href=url)
-                elt.attrib['class'] = 'on'
-            elt.content(address)
-            # set state
-            elt = div_elt.findmeld('state_td_mid')
-            elt.attrib['class'] = status.state_string() + ' state'
-            elt.content(status.state_string())
-            # set loading
-            elt = div_elt.findmeld('percent_td_mid')
-            elt.content('{}%'.format(status.loading()))
+        for node_div_elt, node in node_div_mid.repeat(addresses):
+            # get node status from Supvisors context
+            status = self.sup_ctx.addresses[node]
+            # write box_title
+            self._write_node_box_title(node_div_elt, status)
             # fill with running processes
-            process_li_mid = div_elt.findmeld('process_li_mid')
-            data = status.running_processes()
-            for li_elt, process in process_li_mid.repeat(data):
-                li_elt.content(process.namespec())
+            self._write_node_box_processes(node_div_elt, status)
 
+    # Conciliation part
     def write_conciliation_strategies(self, root):
         """ Rendering of the global conciliation actions. """
         div_elt = root.findmeld('conflicts_div_mid')
         global_strategy_li_mid = div_elt.findmeld('global_strategy_li_mid')
         for li_elt, item in global_strategy_li_mid.repeat(self.strategies):
             elt = li_elt.findmeld('global_strategy_a_mid')
-            # conciliation requests MUST be sent to MASTER
+            # conciliation requests MUST be sent to MASTER and namespec MUST be reset
             master = self.sup_ctx.master_address
-            url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **{ACTION: item})
+            parameters = {NAMESPEC: '', ACTION: item}
+            url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
             elt.content(item.title())
 

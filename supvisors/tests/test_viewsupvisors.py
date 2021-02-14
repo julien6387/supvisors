@@ -64,13 +64,13 @@ class ViewSupvisorsTest(CompatTestCase):
         # patch context
         self.view.fsm.state_string.return_value = 'Running'
         # build root structure
-        mocked_mid = Mock()
-        mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-        # test call
+        mocked_state_mid = Mock()
+        mocked_root = Mock(**{'findmeld.return_value': mocked_state_mid})
+        # test call with no auto-refresh
         self.view.write_header(mocked_root)
-        self.assertEqual([call('Running')], mocked_mid.content.call_args_list)
+        self.assertEqual([call('Running')], mocked_state_mid.content.call_args_list)
 
-    @patch('supvisors.viewsupvisors.SupvisorsView.write_address_boxes')
+    @patch('supvisors.viewsupvisors.SupvisorsView.write_node_boxes')
     @patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')
     @patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_strategies')
     def test_write_contents(self, mocked_strategies, mocked_conflicts, mocked_boxes):
@@ -102,61 +102,119 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertEqual([call('')], mocked_box_mid.replace.call_args_list)
         self.assertFalse(mocked_conflict_mid.replace.called)
 
-    def test_write_address_boxes(self):
-        """ Test the write_address_boxes method. """
+    def test_write_node_box_title(self):
+        """ Test the _write_node_box_title method. """
         from supvisors.ttypes import AddressStates
         # patch context
-        self.view.sup_ctx.addresses = {'10.0.0.1': Mock(state=AddressStates.RUNNING,
-                                                        **{'state_string.return_value': 'running',
-                                                           'loading.return_value': 17})}
+        mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.RUNNING,
+                             **{'state_string.return_value': 'running',
+                                'loading.return_value': 17})
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-        mocked_process = Mock(**{'namespec.return_value': 'dummy_proc'})
         # build root structure with one single element
-        mocked_address_mid = Mock(attrib={})
+        mocked_node_mid = Mock(attrib={})
         mocked_state_mid = Mock(attrib={})
         mocked_percent_mid = Mock(attrib={})
-        mocked_process_mid = Mock()
-        mocked_process_template = Mock(**{'repeat.return_value': [(mocked_process_mid, mocked_process)]})
-        mocked_box_mid = Mock(**{'findmeld.side_effect': [mocked_address_mid, mocked_state_mid,
-                                                          mocked_percent_mid, mocked_process_template] * 2})
-        mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid, '10.0.0.1')]})
-        mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
+        mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid,
+                                                       mocked_percent_mid] * 2})
         # test call in RUNNING state
-        self.view.write_address_boxes(mocked_root)
+        self.view._write_node_box_title(mocked_root, mocked_status)
         # test address element
-        self.assertEqual('on', mocked_address_mid.attrib['class'])
-        self.assertEqual([call(href='an url')], mocked_address_mid.attributes.call_args_list)
-        self.assertEqual([call('10.0.0.1')], mocked_address_mid.content.call_args_list)
+        self.assertEqual('on', mocked_node_mid.attrib['class'])
+        self.assertEqual([call(href='an url')], mocked_node_mid.attributes.call_args_list)
+        self.assertEqual([call('10.0.0.1')], mocked_node_mid.content.call_args_list)
         # test state element
         self.assertEqual('running state', mocked_state_mid.attrib['class'])
         self.assertEqual([call('running')], mocked_state_mid.content.call_args_list)
         # test loading element
         self.assertEqual([call('17%')], mocked_percent_mid.content.call_args_list)
-        # test process element
-        self.assertEqual([call('dummy_proc')], mocked_process_mid.content.call_args_list)
-        # reset mocks ans attributes
-        mocked_address_mid.reset_mock()
+        # reset mocks and attributes
+        mocked_node_mid.reset_mock()
         mocked_state_mid.reset_mock()
         mocked_percent_mid.reset_mock()
-        mocked_process_mid.content.reset_mock()
-        mocked_address_mid.attrib['class'] = ''
+        mocked_node_mid.attrib['class'] = ''
         mocked_state_mid.attrib['class'] = ''
         # test call in SILENT state
-        self.view.sup_ctx.addresses = {'10.0.0.1': Mock(state=AddressStates.SILENT,
-                                                        **{'state_string.return_value': 'silent',
-                                                           'loading.return_value': 0})}
-        self.view.write_address_boxes(mocked_root)
+        mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT,
+                             **{'state_string.return_value': 'silent',
+                                'loading.return_value': 0})
+        self.view._write_node_box_title(mocked_root, mocked_status)
         # test address element
-        self.assertEqual('', mocked_address_mid.attrib['class'])
-        self.assertFalse(mocked_address_mid.attributes.called)
-        self.assertEqual([call('10.0.0.1')], mocked_address_mid.content.call_args_list)
+        self.assertEqual('', mocked_node_mid.attrib['class'])
+        self.assertFalse(mocked_node_mid.attributes.called)
+        self.assertEqual([call('10.0.0.1')], mocked_node_mid.content.call_args_list)
         # test state element
         self.assertEqual('silent state', mocked_state_mid.attrib['class'])
         self.assertEqual([call('silent')], mocked_state_mid.content.call_args_list)
         # test loading element
         self.assertEqual([call('0%')], mocked_percent_mid.content.call_args_list)
-        # test process element
-        self.assertEqual([call('dummy_proc')], mocked_process_mid.content.call_args_list)
+
+    def test_write_node_box_processes(self):
+        """ Test the _write_node_box_processes method. """
+        # 1. patch context for no running process on node
+        mocked_status = Mock(**{'running_processes.return_value': {}})
+        # build root structure with one single element
+        mocked_process_li_mid = Mock()
+        mocked_appli_tr_mid = Mock(**{'findmeld.return_value': mocked_process_li_mid,
+                                      'repeat.return_value': None})
+        mocked_root = Mock(**{'findmeld.return_value': mocked_appli_tr_mid})
+        # test call with no running process
+        self.view._write_node_box_processes(mocked_root, mocked_status)
+        # test elements
+        self.assertFalse(mocked_appli_tr_mid.repeat.called)
+        self.assertEqual([call('')], mocked_process_li_mid.replace.call_args_list)
+        # 2. patch context for multiple running process on node
+        mocked_process_1 = Mock(application_name='dummy_appli', process_name='dummy_proc')
+        mocked_process_2 = Mock(application_name='other_appli', process_name='other_proc')
+        mocked_status = Mock(**{'running_processes.return_value': [mocked_process_1, mocked_process_2]})
+        # build root structure
+        mocked_name_mids = [Mock(), Mock()]
+        mocked_process_a_mids = [Mock(), Mock()]
+        mocked_process_li_mid = Mock(**{'findmeld.side_effect': mocked_process_a_mids})
+        mocked_process_template = Mock(**{'repeat.side_effect': [[(mocked_process_li_mid, mocked_process_1)],
+                                                                 [(mocked_process_li_mid, mocked_process_2)]]})
+        mocked_appli_tr_mids = [Mock(attrib={},
+                                     **{'findmeld.side_effect': [mocked_name_mids[0], mocked_process_template]}),
+                                Mock(attrib={},
+                                     **{'findmeld.side_effect': [mocked_name_mids[1], mocked_process_template]})]
+        mocked_appli_template = Mock(**{'findmeld.return_value': None,
+                                        'repeat.return_value': [(mocked_appli_tr_mids[0], 'dummy_appli'),
+                                                                (mocked_appli_tr_mids[1], 'other_appli')]})
+        mocked_root = Mock(**{'findmeld.return_value': mocked_appli_template})
+        # test call with 2 running processes
+        self.view._write_node_box_processes(mocked_root, mocked_status)
+        # test elements
+        self.assertFalse(mocked_appli_template.findmeld.called)
+        # test shade in mocked_appli_tr_mids
+        self.assertEqual('brightened', mocked_appli_tr_mids[0].attrib['class'])
+        self.assertEqual('shaded', mocked_appli_tr_mids[1].attrib['class'])
+        # test application names in mocked_name_mids
+        self.assertEqual([call('dummy_appli')], mocked_name_mids[0].content.call_args_list)
+        self.assertEqual([call('other_appli')], mocked_name_mids[1].content.call_args_list)
+        # test process elements in mocked_process_a_mids
+        self.assertEqual([call('dummy_proc')], mocked_process_a_mids[0].content.call_args_list)
+        self.assertEqual([call('other_proc')], mocked_process_a_mids[1].content.call_args_list)
+
+    @patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_processes')
+    @patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_title')
+    def test_write_node_boxes(self, mocked_box_title, mocked_box_processes):
+        """ Test the write_node_boxes method. """
+        # patch context
+        mocked_node_1 = Mock(address_name='10.0.0.1')
+        mocked_node_2 = Mock(address_name='10.0.0.2')
+        self.view.sup_ctx.addresses = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
+        self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+        # build root structure with one single element
+        mocked_box_mid_1 = Mock()
+        mocked_box_mid_2 = Mock()
+        mocked_address_template = Mock(**{'repeat.return_value': [(mocked_box_mid_1, '10.0.0.1'),
+                                                                  (mocked_box_mid_2, '10.0.0.2')]})
+        mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
+        # test call
+        self.view.write_node_boxes(mocked_root)
+        self.assertEqual([call(mocked_box_mid_1, mocked_node_1), call(mocked_box_mid_2, mocked_node_2)],
+                         mocked_box_title.call_args_list)
+        self.assertEqual([call(mocked_box_mid_1, mocked_node_1), call(mocked_box_mid_2, mocked_node_2)],
+                         mocked_box_processes.call_args_list)
 
     def test_write_conciliation_strategies(self):
         """ Test the write_conciliation_strategies method. """

@@ -1,3 +1,17 @@
+0.4 (2021-02-14)
+----------------
+
+* Auto-refresh button added to all pages
+
+* Main page reworked by adding a subdivision of application in node boxes
+
+* Fixed exception when exiting using Ctrl+c from shell
+
+* Fixed exception when rules files is not provided
+
+* Documentation updated
+
+
 0.3 (2020-12-29)
 ----------------
 

@@ -73,7 +73,7 @@ class ApplicationView(ViewHandler):
                 elt.attrib['class'] = 'status_green'
         else:
             elt.attrib['class'] = 'status_empty'
-        # write periods of statistics
+        # write options
         self.write_starting_strategy(root)
         self.write_periods(root)
         # write actions related to application
@@ -108,16 +108,15 @@ class ApplicationView(ViewHandler):
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
-        # set hyperlinks for global actions
-        elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
-        elt.attributes(href=url)
+        # configure start application button
         elt = root.findmeld('startapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'startapp'})
         elt.attributes(href=url)
+        # configure stop application button
         elt = root.findmeld('stopapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopapp'})
         elt.attributes(href=url)
+        # configure restart application button
         elt = root.findmeld('restartapp_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'restartapp'})
         elt.attributes(href=url)

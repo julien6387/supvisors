@@ -4,6 +4,7 @@
       xmlns:meld="https://github.com/Supervisor/supervisor">
 <head>
     <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="5" meld:id="meta_mid"/>
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
@@ -35,7 +36,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2020 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2021 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -47,31 +48,43 @@
 
                 <div>
                     <ul class="linear">
-                        <li><a href="index.html?action=sup_restart"><img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/></a></li>
-                        <li><a href="index.html?action=sup_shutdown"><img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/></a></li>
+                        <li><a href="index.html?action=sup_restart">
+                            <img src="img/restart_40.png" alt="Restart" title="Restart Supvisors"/></a>
+                        </li>
+                        <li><a href="index.html?action=sup_shutdown">
+                            <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supvisors"/></a>
+                        </li>
                     </ul>
                     <ul class="linear">
-                        <li><a href="index.html?action=refresh" class="button on"><img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a></li>
+                        <li><a href="#" meld:id="refresh_a_mid" class="button on">
+                            <img src="img/reload_30.png" alt="Refresh" title="Refresh page"/></a>
+                        </li>
+                        <li><a href="#" meld:id="autorefresh_a_mid" class="button on">
+                            <img src="img/auto_reload_30.png" alt="Auto-refresh" title="Auto-refresh page"/></a>
+                        </li>
                     </ul>
                 </div>
             </header>
 
             <div id="index_contents">
                 <div id="box_part" meld:id="boxes_div_mid">
-                    <div meld:id="address_div_mid" class="addressBox">
+                    <div meld:id="node_div_mid" class="nodeBox">
                         <table>
-                            <tr>
-                                <th><a href="#" meld:id="address_tda_mid" class="off">Address</a></th>
+                            <thead>
+                                <th><a href="#" meld:id="node_tda_mid" class="off">Node</a></th>
                                 <th meld:id="state_td_mid">State</th>
                                 <th meld:id="percent_td_mid">70%</th>
-                            </tr>
-                            <tr>
-                                <td colspan="3">
-                                    <ul class="linear">
-                                        <li meld:id="process_li_mid" class="button"></li>
-                                    </ul>
-                                </td>
-                            </tr>
+                            </thead>
+                            <tbody>
+                                <tr meld:id="appli_tr_mid">
+                                    <td meld:id="app_name_td_mid"></td>
+                                    <td colspan="2">
+                                        <ul class="vertical">
+                                            <li meld:id="process_li_mid"><a href="#" meld:id="process_a_mid" class="button"></a></li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -79,10 +92,16 @@
                 <div id="conflict_part" meld:id="conflicts_div_mid" class="horizontal_contents">
                     <div>
                         <table class="optionBox">
-                            <tr><th>Conciliation Strategies</th></tr>
-                            <tr><td><ul class="vertical">
-                                <li meld:id="global_strategy_li_mid"><a href="#" meld:id="global_strategy_a_mid" class="button on">--</a></li>
-                            </ul></td></tr>
+                            <tr>
+                                <th>Conciliation Strategies</th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <ul class="vertical">
+                                        <li meld:id="global_strategy_li_mid"><a href="#" meld:id="global_strategy_a_mid" class="button on">--</a></li>
+                                    </ul>
+                                </td>
+                            </tr>
                         </table>
                     </div>
 

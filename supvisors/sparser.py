@@ -148,36 +148,36 @@ class Parser(object):
             try:
                 rules.start_sequence = int(value)
                 if rules.start_sequence < 0:
-                    raise
-            except:
+                    raise ValueError
+            except (TypeError, ValueError):
                 rules.start_sequence = 0
             # get stop_sequence rule
             value = program_elt.findtext('stop_sequence')
             try:
                 rules.stop_sequence = int(value)
                 if rules.stop_sequence < 0:
-                    raise
-            except:
+                    raise ValueError
+            except (TypeError, ValueError):
                 rules.stop_sequence = 0
             # get required rule
             value = program_elt.findtext('required')
             try:
                 rules.required = boolean(value)
-            except:
+            except (TypeError, ValueError):
                 rules.required = False
             # get wait_exit rule
             value = program_elt.findtext('wait_exit')
             try:
                 rules.wait_exit = boolean(value)
-            except:
+            except (TypeError, ValueError):
                 rules.wait_exit = False
             # get expected_loading rule
             value = program_elt.findtext('expected_loading')
             try:
                 rules.expected_loading = int(value)
                 if not 0 <= rules.expected_loading <= 100:
-                    raise
-            except:
+                    raise ValueError
+            except (TypeError, ValueError):
                 rules.expected_loading = 1
             # get running_failure_strategy rule
             value = program_elt.findtext('running_failure_strategy')
@@ -222,8 +222,8 @@ class Parser(object):
             model = program_elt.findtext('reference')
             if model in self.models.keys():
                 program_elt = self.models[model]
-            self.logger.trace(
-                '{} - model search ({}) program element {}'.format(process.namespec(), model, program_elt))
+            self.logger.trace('{} - model search ({}) program element {}'
+                              .format(process.namespec(), model, program_elt))
         return program_elt
 
     def parse(self, filename):
