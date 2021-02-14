@@ -25,7 +25,7 @@ import zmq
 from unittest.mock import patch
 from supvisors.tests.base import MockedSupvisors
 
-SKIP_IT = True
+SKIP_IT = False
 
 
 class ZmqSocketTest(unittest.TestCase):

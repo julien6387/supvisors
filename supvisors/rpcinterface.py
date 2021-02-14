@@ -58,8 +58,7 @@ class RPCInterface(object):
     def get_supvisors_state(self):
         """ Return the state of **Supvisors**.
 
-        *@return* ``dict``: the state of **Supvisors** as an integer and a
-        string.
+        *@return* ``dict``: the state of **Supvisors** as an integer and a string.
         """
         return self.fsm.serial()
 
@@ -77,8 +76,7 @@ class RPCInterface(object):
             * in the ``DEPLOYMENT`` state, to start applications,
             * in the ``CONCILIATION`` state, to conciliate conflicts.
 
-        *@return* ``dict``: a structure containing data about the strategies
-        applied.
+        *@return* ``dict``: a structure containing data about the strategies applied.
         """
         options = self.supvisors.options
         return {'auto-fencing': options.auto_fence,
@@ -88,40 +86,32 @@ class RPCInterface(object):
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        all **Supvisors** instances.
+        *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
-        return [self.get_address_info(address_name)
-                for address_name in sorted(self.context.addresses.keys())]
+        return [self.get_address_info(node_name)
+                for node_name in sorted(self.context.addresses.keys())]
 
-    def get_address_info(self, address_name):
-        """ Get information about the **Supvisors** instance running on the
-        host named address_name.
+    def get_address_info(self, node):
+        """ Get information about the **Supvisors** instance running on the host named node.
 
-        *@param* ``str address_name``: the address name where the Supervisor
-        daemon is running.
+        *@param* ``str node``: the node where the Supervisor daemon is running.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_ADDRESS`` if address
-        name is unknown to **Supvisors**.
+        *@throws* ``RPCError``: with code ``Faults.BAD_ADDRESS`` if node is unknown to **Supvisors**.
 
-        *@return* ``dict``: a structure containing data about the **Supvisors**
-        instance.
+        *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
-            status = self.context.addresses[address_name]
+            status = self.context.addresses[node]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS,
-                           'address {} unknown in Supvisors'.format(address_name))
+            raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown in Supvisors'.format(node))
         return status.serial()
 
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if
-        **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
 
-        *@return* ``list(dict)``: a list of structures containing data about
-        all applications.
+        *@return* ``list(dict)``: a list of structures containing data about all applications.
         """
         self._check_from_deployment()
         return [self.get_application_info(application_name)
@@ -143,8 +133,7 @@ class RPCInterface(object):
         return self._get_application(application_name).serial()
 
     def get_application_rules(self, application_name):
-        """ Get the rules used to start / stop the application named
-        application_name.
+        """ Get the rules used to start / stop the application named application_name.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -163,8 +152,7 @@ class RPCInterface(object):
     def get_all_process_info(self):
         """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE``
-        if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -174,8 +162,7 @@ class RPCInterface(object):
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
-        It gives a synthetic status, based on the process information coming
-        from all the addresses where **Supvisors** is running.
+        It gives a synthetic status, based on the process information coming from all the addresses where **Supvisors** is running.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -194,9 +181,8 @@ class RPCInterface(object):
 
     def get_all_local_process_info(self):
         """ Get information about all processes located on this address.
-        It is a subset of ``supervisor.getProcessInfo``, used by
-        **Supvisors** in INITIALIZATION state, and giving the extra arguments
-        of the process.
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
+        and giving the extra arguments of the process.
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -206,9 +192,8 @@ class RPCInterface(object):
 
     def get_local_process_info(self, namespec):
         """ Get local information about a process named namespec.
-        It is a subset of ``supervisor.getProcessInfo``, used by
-        **Supvisors** in INITIALIZATION state, and giving the extra arguments
-        of the process.
+        It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
+        and giving the extra arguments of the process.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``).
 
