@@ -253,8 +253,7 @@ class RPCInterface(object):
 
     # RPC Command methods
     def start_application(self, strategy, application_name, wait=True):
-        """ Start the application named application_name iaw the strategy and
-        the rules file.
+        """ Start the application named application_name iaw the strategy and the rules file.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
 
@@ -287,8 +286,7 @@ class RPCInterface(object):
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
         done = self.starter.start_application(strategy, application)
-        self.logger.debug('start_application {} done={}'
-                          .format(application_name, done))
+        self.logger.debug('start_application {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -296,8 +294,7 @@ class RPCInterface(object):
                 if self.starter.in_progress():
                     return NOT_DONE_YET
                 if application.state != ApplicationStates.RUNNING:
-                    raise RPCError(Faults.ABNORMAL_TERMINATION,
-                                   application_name)
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, application_name)
                 return True
 
             onwait.delay = 0.5

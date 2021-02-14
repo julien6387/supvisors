@@ -262,6 +262,7 @@ class ViewContext:
         self.logger.debug('{} set to {}'.format(param, default_value))
         self.parameters[param] = default_value
 
+
     @staticmethod
     def cpu_id_to_string(idx):
         """ Get a printable form of cpu index. """

@@ -88,17 +88,8 @@ class ViewHandler(MeldView):
                 return NOT_DONE_YET
             # display result
             root = self.clone()
-            # set auto-refresh status
-            if not self.view_ctx.parameters[AUTO]:
-                root.findmeld('auto_refresh_mid').deparent()
-            # set bottom message
-            print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
-            # blink main title in conciliation state
-            if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
-                root.findmeld('supvisors_mid').attrib['class'] = 'blink'
-            # set Supvisors version
-            root.findmeld('version_mid').content(API_VERSION)
             # write navigation menu, page header and contents
+            self.write_common(root)
             self.write_navigation(root)
             self.write_header(root)
             self.write_contents(root)
@@ -108,6 +99,42 @@ class ViewHandler(MeldView):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
         self.logger.debug('New context: {}'. format(self.view_ctx.__dict__))
+
+    def write_common(self, root):
+        """ Common rendering of the Supvisors pages. """
+        # set auto-refresh status on page
+        auto_refresh = self.view_ctx.parameters[AUTO]
+        elt = root.findmeld('meta_mid')
+        if auto_refresh:
+            # consider to bind the statistics period to auto-refresh period
+            pass
+        else:
+            elt.deparent()
+        # configure Supvisors hyperlink
+        elt = root.findmeld('supvisors_mid')
+        url = self.view_ctx.format_url('', SUPVISORS_PAGE)
+        elt.attributes(href=url)
+        # blink main title in conciliation state
+        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+            elt.attrib['class'] = 'blink'
+        # set Supvisors version
+        root.findmeld('version_mid').content(API_VERSION)
+        # configure refresh button
+        elt = root.findmeld('refresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
+        elt.attributes(href=url)
+        # configure auto-refresh button
+        elt = root.findmeld('autorefresh_a_mid')
+        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
+        elt.attributes(href=url)
+        if auto_refresh:
+            elt.attrib['class'] = elt.attrib['class'] + ' active'
+        # set bottom message
+        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
+
+    def write_navigation(self, root):
+        """ Write the navigation menu.
+        Subclasses will define the write_nav parameters to be used. """
 
     def write_nav(self, root, address=None, appli=None):
         """ Write the navigation menu. """
@@ -163,6 +190,10 @@ class ViewHandler(MeldView):
                 elt.attrib['class'] = 'on'
             elt.content(item.application_name)
 
+    def write_header(self, root):
+        """ Write the header part of the page.
+        Subclasses will define what's to be done. """
+
     def write_periods(self, root):
         """ Write configured periods for statistics. """
         mid_elt = root.findmeld('period_li_mid')
@@ -177,6 +208,10 @@ class ViewHandler(MeldView):
                 url = self.view_ctx.format_url('', self.page_name, **parameters)
                 elt.attributes(href=url)
             elt.content('{}s'.format(item))
+
+    def write_contents(self, root):
+        """ Write the contents part of the page.
+        Subclasses will define what's to be done. """
 
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.

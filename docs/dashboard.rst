@@ -6,12 +6,6 @@ Dashboard
 Each Supervisor instance provides a `Web Server <http://supervisord.org/introduction.html#supervisor-components>`_
 and the **Supvisors** extension provides its own web user interface, as a replacement of the Supervisor one.
 
-.. attention::
-
-    **Pages are not auto-refreshed.**
-
-    The 'Refresh' button on the top right corner of all pages does the job.
-
 .. note:: *About the browser compliance*.
 
     The CSS of the web pages has been written for Firefox ESR 60.3.0.
@@ -134,7 +128,8 @@ On the right side, 3 buttons are available:
 
     * |restart| restarts **Supvisors** through all Supervisor instances,
     * |shutdown| shuts down **Supvisors** through all Supervisor instances,
-    * |refresh| refreshes the current page.
+    * |refresh| refreshes the current page,
+    * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
@@ -213,12 +208,13 @@ The periods can be updated in the :ref:`supvisors_section` of the Supervisor con
 Next to it, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
 The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
 
-On the right side, 4 buttons are available:
+On the right side, 5 buttons are available:
 
     * |stop| stops all processes handled by Supervisor on this node,
     * |restart| restarts Supervisor on this node,
     * |shutdown| shuts down Supervisor on this node,
-    * |refresh| refreshes the current page.
+    * |refresh| refreshes the current page,
+    * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
 Processes Section
 ~~~~~~~~~~~~~~~~~
@@ -321,7 +317,8 @@ On the right side, 4 buttons are available:
     * |start| starts the application,
     * |stop| stops the application,
     * |restart| restarts the application,
-    * |refresh| refreshes the current page.
+    * |refresh| refreshes the current page,
+    * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
 Application Page Contents
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -364,5 +361,8 @@ As previously, a click on the CPU or Memory measures shows detailed statistics a
     :alt: Shutdown button
 
 .. |refresh| image:: images/refresh_button.png
+    :alt: Refresh button
+
+.. |autorefresh| image:: images/autorefresh_button.png
     :alt: Refresh button
 
