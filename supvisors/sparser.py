@@ -149,7 +149,7 @@ class Parser(object):
                 rules.start_sequence = int(value)
                 if rules.start_sequence < 0:
                     raise
-            except:
+            except ValueError:
                 rules.start_sequence = 0
             # get stop_sequence rule
             value = program_elt.findtext('stop_sequence')
@@ -157,19 +157,19 @@ class Parser(object):
                 rules.stop_sequence = int(value)
                 if rules.stop_sequence < 0:
                     raise
-            except:
+            except ValueError:
                 rules.stop_sequence = 0
             # get required rule
             value = program_elt.findtext('required')
             try:
                 rules.required = boolean(value)
-            except:
+            except ValueError:
                 rules.required = False
             # get wait_exit rule
             value = program_elt.findtext('wait_exit')
             try:
                 rules.wait_exit = boolean(value)
-            except:
+            except ValueError:
                 rules.wait_exit = False
             # get expected_loading rule
             value = program_elt.findtext('expected_loading')
@@ -177,7 +177,7 @@ class Parser(object):
                 rules.expected_loading = int(value)
                 if not 0 <= rules.expected_loading <= 100:
                     raise
-            except:
+            except ValueError:
                 rules.expected_loading = 1
             # get running_failure_strategy rule
             value = program_elt.findtext('running_failure_strategy')

@@ -130,7 +130,8 @@ class Context(object):
             # create new instance
             application = ApplicationStatus(application_name, self.logger)
             # load rules from rules file
-            self.supvisors.parser.load_application_rules(application)
+            if self.supvisors.parser:
+                self.supvisors.parser.load_application_rules(application)
             # add new application to context
             self.applications[application_name] = application
         return application
@@ -146,14 +147,13 @@ class Context(object):
             process = self.processes[namespec]
         except KeyError:
             # create new instance
-            process = ProcessStatus(application_name, info['name'],
-                                    self.supvisors)
+            process = ProcessStatus(application_name, info['name'], self.supvisors)
             # apply default running failure strategy
             application = self.setdefault_application(process.application_name)
-            process.rules.running_failure_strategy = \
-                application.rules.running_failure_strategy
+            process.rules.running_failure_strategy = application.rules.running_failure_strategy
             # load rules from rules file
-            self.supvisors.parser.load_process_rules(process)
+            if self.supvisors.parser:
+                self.supvisors.parser.load_process_rules(process)
             # add new process to context
             application.add_process(process)
             self.processes[namespec] = process

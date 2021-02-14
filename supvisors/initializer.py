@@ -56,8 +56,7 @@ class Supvisors(object):
         self.address_mapper.addresses = self.options.address_list
         if not self.address_mapper.local_address:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local host is expected in address list: {}'
-                           .format(self.options.address_list))
+                           'local host is expected in address list: {}'.format(self.options.address_list))
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -72,8 +71,8 @@ class Supvisors(object):
         # check parsing
         try:
             self.parser = Parser(self)
-        except:
-            self.logger.warn('cannot parse rules file: {}'.format(self.options.rules_file))
+        except Exception as exc:
+            self.logger.warn('cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
