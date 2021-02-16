@@ -170,12 +170,13 @@ and in accordance with the rules defined for this program, i.e. the ``address_li
 
 
 Choosing a node
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 The following rules are applicable whatever the chosen strategy:
 
+    * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING`` or ``BACKOFF``,
     * the chosen node must be ``RUNNING``,
-    * the *loading* of the chosen address must not exceed 100% when adding the ``loading`` of the process to be started.
+    * the *loading* of the chosen node must not exceed 100% when adding the ``loading`` of the process to be started.
 
 The *loading* of the chosen node is defined as the sum of the ``loading`` of each process running on this address.
 
@@ -188,6 +189,10 @@ When applying the ``MOST_LOADED`` strategy, with respect of the common rules, **
 the ``address_list`` having the greatest expected *loading*.
 The aim is to maximize the loading of a node before starting to load another node.
 This strategy is more interesting when the resources are limited.
+
+When applying the ``LOCAL`` strategy, **Supvisors** chooses the local node provided that it is compliant with the ``address_list``.
+A typical use case is to start an HCI application on a given workstation, while other applications / services may be distributed
+over other nodes.
 
 
 Starting a process

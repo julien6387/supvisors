@@ -26,9 +26,7 @@ from supervisor.options import split_namespec
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import (ProcessStates,
-                              ConciliationStrategies,
-                              StartingStrategies)
+from supvisors.ttypes import (ProcessStates, ConciliationStrategies, StartingStrategies)
 from supvisors.utils import simple_localtime
 
 

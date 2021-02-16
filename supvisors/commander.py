@@ -32,25 +32,26 @@ class ProcessCommand(object):
 
     Attributes are:
         - process: the process wrapped,
+        - strategy: the strategy used to start the process if applicable,
         - request_time: the date when the command is requested,
         - ignore_wait_exit: used to command a process out of its application,
         - extra_args: additional arguments to the command line.
     """
 
-    def __init__(self, process):
+    def __init__(self, process, strategy=None):
         """ Initialization of the attributes. """
         self.process = process
+        self.strategy = strategy
         self.request_time = 0
         self.ignore_wait_exit = False
         self.extra_args = ''
 
     def __str__(self):
         """ Contents as string. """
-        return 'process={} state={} last_event_time={} ' \
-               'request_time={} ignore_wait_exit={} extra_args="{}"' \
-            .format(self.process.namespec(), self.process.state,
-                    self.process.last_event_time, self.request_time,
-                    self.ignore_wait_exit, self.extra_args)
+        return 'process={} state={} last_event_time={} strategy={} request_time={} ' \
+               'ignore_wait_exit={} extra_args="{}"' \
+            .format(self.process.namespec(), self.process.state, self.process.last_event_time,
+                    self.strategy, self.request_time,  self.ignore_wait_exit, self.extra_args)
 
     def timeout(self, now):
         """ Return True if there is still no event 5 seconds past the request. """
@@ -58,18 +59,14 @@ class ProcessCommand(object):
 
 
 class Commander(object):
-    """ Base class handling the starting / stopping of processes and
-    applications.
+    """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
-        - planned_sequence: the applications to be commanded, as a dictionary
-        of process commands, grouped by application sequence order,
-        application name and process sequence order,
-        - planned_jobs: the current sequence of applications to be commanded,
-        as a dictionary of process commands, grouped by application name and
-        process sequence order,
-        - current_jobs: a dictionary of process commands, grouped by
-        application name.
+        - planned_sequence: the applications to be commanded, as a dictionary of process commands,
+        grouped by application sequence order, application name and process sequence order,
+        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands,
+        grouped by application name and process sequence order,
+        - current_jobs: a dictionary of process commands, grouped by application name.
     """
 
     def __init__(self, supvisors):
@@ -85,8 +82,7 @@ class Commander(object):
 
     def in_progress(self):
         """ Return True if there are jobs planned or in progress. """
-        self.logger.debug('progress: planned_sequence={} planned_jobs={} '
-                          'current_jobs={}'
+        self.logger.debug('progress: planned_sequence={} planned_jobs={} current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
@@ -128,21 +124,18 @@ class Commander(object):
         """ Simple form of process_list, so that it can be printed. """
         return [command.process.namespec() for command in commands]
 
-    def get_process_command(self, process, jobs):
+    @staticmethod
+    def get_process_command(process, jobs):
         """ Get the process wrapper from list. """
-        return next((command for command in jobs
-                     if command.process == process), None)
+        return next((command for command in jobs if command.process == process), None)
 
     def initial_jobs(self):
         """ Initializes the planning of the jobs (start or stop). """
-        self.logger.debug('planned_sequence={}'
-                          .format(self.printable_planned_sequence()))
+        self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
         # pop lower application group from planned_sequence
         if self.planned_sequence:
-            self.planned_jobs = self.planned_sequence.pop(
-                min(self.planned_sequence.keys()))
-            self.logger.debug('planned_jobs={}'
-                              .format(self.printable_planned_jobs()))
+            self.planned_jobs = self.planned_sequence.pop(min(self.planned_sequence.keys()))
+            self.logger.debug('planned_jobs={}'.format(self.printable_planned_jobs()))
             # iterate on copy to avoid problems with deletions
             for application_name in list(self.planned_jobs.keys()):
                 self.process_application_jobs(application_name)
@@ -159,29 +152,22 @@ class Commander(object):
                 # pop lower group from sequence
                 group = sequence.pop(min(sequence.keys()))
                 self.logger.debug('application {} - next group: {}'
-                                  .format(application_name,
-                                          self.printable_command_list(group)))
+                                  .format(application_name, self.printable_command_list(group)))
                 for command in group:
                     self.logger.trace('{} - state={}'
-                                      .format(command.process.namespec(),
-                                              command.process.state_string()))
+                                      .format(command.process.namespec(), command.process.state_string()))
                     self.process_job(command, jobs)
-            self.logger.debug('current_jobs={}'
-                              .format(self.printable_current_jobs()))
-            # if nothing in progress when exiting the loop,
-            # delete application entry in current_jobs
+            self.logger.debug('current_jobs={}'.format(self.printable_current_jobs()))
+            # if nothing in progress when exiting the loop, delete application entry in current_jobs
             if not jobs:
-                self.logger.debug('no more jobs for application {}'
-                                  .format(application_name))
+                self.logger.debug('no more jobs for application {}'.format(application_name))
                 self.current_jobs.pop(application_name, None)
             # clean application job if its sequence is empty
             if not sequence:
-                self.logger.debug('all jobs planned for application {}'
-                                  .format(application_name))
+                self.logger.debug('all jobs planned for application {}'.format(application_name))
                 self.planned_jobs.pop(application_name, None)
         else:
-            self.logger.warn('application {} not found in jobs'
-                             .format(application_name))
+            self.logger.warn('application {} not found in jobs'.format(application_name))
 
     def process_job(self, command, jobs):
         """ Perform the action on process and push progress in jobs list.
@@ -190,30 +176,7 @@ class Commander(object):
 
 
 class Starter(Commander):
-    """ Class handling the starting of processes and applications.
-
-    Attributes are:
-        - strategy: the starting strategy applied, defaulted to the value
-        set in the Supervisor configuration file.
-    """
-
-    def __init__(self, supvisors):
-        """ Initialization of the attributes. """
-        Commander.__init__(self, supvisors)
-        self._strategy = self.get_default_strategy()
-
-    @property
-    def strategy(self):
-        """ Property for the 'strategy' attribute.
-        The setter is used to overload the default strategy (used in
-        rpcinterface and web page). """
-        return self._strategy
-
-    @strategy.setter
-    def strategy(self, strategy):
-        self.logger.info('start processes using strategy {}'.format(
-            StartingStrategies.to_string(strategy)))
-        self._strategy = strategy
+    """ Class handling the starting of processes and applications. """
 
     def get_default_strategy(self):
         """ Return the default starting strategy from options. """
@@ -228,14 +191,14 @@ class Starter(Commander):
     def start_applications(self):
         """ Plan and start the necessary jobs to start all the applications having a start_sequence.
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file. """
-        self.logger.info('start all applications')
+        strategy = self.get_default_strategy()
+        self.logger.info('start all applications using strategy {}'.format(StartingStrategies.to_string(strategy)))
         # internal call: default strategy always used
-        self.strategy = self.get_default_strategy()
         # starting initialization: push program list in todo list
         for application in self.supvisors.context.applications.values():
             # do not start an application that is not properly STOPPED
             if application.stopped() and application.rules.start_sequence > 0:
-                self.store_application_start_sequence(application)
+                self.store_application_start_sequence(application, strategy)
         # start work
         self.initial_jobs()
 
@@ -245,12 +208,11 @@ class Starter(Commander):
 
     def start_application(self, strategy, application):
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested. """
-        self.logger.info('start application {}'.format(application.application_name))
-        # called from rpcinterface: strategy is a user choice
-        self.strategy = strategy
+        self.logger.info('start application {} using strategy {}'
+                         .format(application.application_name, StartingStrategies.to_string(strategy)))
         # push program list in todo list and start work
         if application.stopped():
-            self.store_application_start_sequence(application)
+            self.store_application_start_sequence(application, strategy)
             self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
             if self.planned_sequence:
                 # add application immediately to planned jobs if something in list
@@ -260,20 +222,17 @@ class Starter(Commander):
         return not self.in_progress()
 
     def default_start_process(self, process):
-        """ Plan and start the necessary job to start the process in parameter,
-        with the default strategy.
+        """ Plan and start the necessary job to start the process in parameter, with the default strategy.
         Return False when starting not completed. """
         return self.start_process(self.get_default_strategy(), process)
 
     def start_process(self, strategy, process, extra_args=''):
-        """ Plan and start the necessary job to start the process in parameter,
-        with the strategy requested.
+        """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
         Return False when starting not completed. """
-        self.logger.info('start process {}'.format(process.namespec()))
-        # called from rpcinterface: strategy is a user choice
-        self.strategy = strategy
+        self.logger.info('start process {} using strategy {}'
+                         .format(process.namespec(), StartingStrategies.to_string(strategy)))
         # store extra arguments to be passed to the command line
-        command = ProcessCommand(process)
+        command = ProcessCommand(process, strategy)
         command.extra_args = extra_args
         # WARN: when starting a single process (outside the scope of an application starting),
         # do NOT consider the 'wait_exit' rule
@@ -293,30 +252,25 @@ class Starter(Commander):
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
-        # once the start_process has been called, a STARTING event is expected
-        # in less than 5 seconds
+        # once the start_process has been called, a STARTING event is expected in less than 5 seconds
         now = time.time()
         commands = [command
                     for command_list in self.current_jobs.values()
                     for command in command_list]
         self.logger.trace('now={} checking commands={}'.format(now, [str(command) for command in commands]))
         for command in commands:
-            # depending on ini file, it may take a while before the process
-            # enters in RUNNING state so just test that is in not in a
-            # STOPPED-like state 5 seconds after request_time
+            # depending on ini file, it may take a while before the process enters in RUNNING state
+            # so just test that is in not in a STOPPED-like state 5 seconds after request_time
             if command.process.stopped() and command.timeout(now):
                 # generate a FATAL event for this process
-                self.force_process_fatal(command.process.namespec(),
-                                         'Still stopped 5 seconds after start request')
+                self.force_process_fatal(command.process.namespec(), 'Still stopped 5 seconds after start request')
         # return True when starting is completed
         return not self.in_progress()
 
     def on_event(self, process):
-        """ Triggers the following of the start sequencing, depending on the
-        new process status. """
+        """ Triggers the following of the start sequencing, depending on the new process status. """
         try:
-            # first check if event is in the sequence logic,
-            # i.e. it corresponds to a process in current jobs
+            # first check if event is in the sequence logic, i.e. it corresponds to a process in current jobs
             jobs = self.current_jobs[process.application_name]
             command = self.get_process_command(process, jobs)
             assert command
@@ -400,10 +354,10 @@ class Starter(Commander):
             if process not in planned_process_jobs:
                 self.process_failure(process)
 
-    def store_application_start_sequence(self, application):
-        """ Copy the start sequence and remove programs that are not meant
-        to be started automatically, i.e. their start_sequence is 0. """
-        application_sequence = {seq: [ProcessCommand(process) for process in processes]
+    def store_application_start_sequence(self, application, strategy):
+        """ Copy the start sequence and remove programs that are not meant to be started automatically,
+        i.e. their start_sequence is 0. """
+        application_sequence = {seq: [ProcessCommand(process, strategy) for process in processes]
                                 for seq, processes in application.start_sequence.items()
                                 if seq > 0}
         if len(application_sequence) > 0:
@@ -418,7 +372,7 @@ class Starter(Commander):
         process = command.process
         if process.stopped():
             namespec = process.namespec()
-            address = get_address(self.supvisors, self.strategy,
+            address = get_address(self.supvisors, command.strategy,
                                   process.rules.addresses,
                                   process.rules.expected_loading)
             if address:
@@ -427,8 +381,7 @@ class Starter(Commander):
                 self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
                 # push to jobs and timestamp process
                 command.request_time = time.time()
-                self.logger.debug('{} requested to start at {}'
-                                  .format(namespec, get_asctime(command.request_time)))
+                self.logger.debug('{} requested to start at {}'.format(namespec, get_asctime(command.request_time)))
                 jobs.append(command)
                 starting = True
             else:
@@ -442,32 +395,26 @@ class Starter(Commander):
         application_name = process.application_name
         # impact of failure on application starting
         if process.rules.required:
-            self.logger.warn('starting failed for required {}'
-                             .format(process.process_name))
+            self.logger.warn('starting failed for required {}'.format(process.process_name))
             # get starting failure strategy of related application
             application = self.supvisors.context.applications[application_name]
             failure_strategy = application.rules.starting_failure_strategy
             # apply strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
-                self.logger.error('abort starting of application {}'
-                                  .format(application_name))
+                self.logger.error('abort starting of application {}'.format(application_name))
                 # remove failed application from starting
                 # do not remove application from current_jobs as requests
                 # have already been sent
                 self.planned_jobs.pop(application_name, None)
             elif failure_strategy == StartingFailureStrategies.STOP:
-                self.logger.error('stop application {}'
-                                  .format(application_name))
+                self.logger.error('stop application {}'.format(application_name))
                 self.planned_jobs.pop(application_name, None)
                 self.supvisors.stopper.stop_application(application)
             else:
-                self.logger.warn('continue starting of application {}'
-                                 .format(application_name))
+                self.logger.warn('continue starting of application {}'.format(application_name))
         else:
-            self.logger.warn('starting failed for optional {}'
-                             .format(process.process_name))
-            self.logger.warn('continue starting of application {}'
-                             .format(application_name))
+            self.logger.warn('starting failed for optional {}'.format(process.process_name))
+            self.logger.warn('continue starting of application {}'.format(application_name))
 
     def force_process_fatal(self, namespec, reason):
         """ Publish the process state as FATAL to all Supvisors instances. """
@@ -476,8 +423,7 @@ class Starter(Commander):
             # this call updates the Supervisor data model
             self.supvisors.info_source.force_process_fatal(namespec, reason)
         except KeyError:
-            self.logger.error('process {} unknown to this Supervisor.'
-                              .format(namespec))
+            self.logger.error('process {} unknown to this Supervisor'.format(namespec))
             # the Supvisors user is not forced to use the same process
             # configuration on all machines,
             # although it is strongly recommended to avoid troubles.
@@ -489,8 +435,7 @@ class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
 
     def stop_applications(self):
-        """ Plan and start the necessary jobs to stop all the applications
-        having a stop_sequence. """
+        """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
         self.logger.info('stop all applications')
         # stopping initialization: push program list in todo list
         for application in self.supvisors.context.applications.values():
@@ -533,11 +478,9 @@ class Stopper(Commander):
 
     def store_application_stop_sequence(self, application):
         """ Schedules the application processes to stop. """
-        application_sequence = {
-            seq: [ProcessCommand(process) for process in processes]
-            for seq, processes in application.stop_sequence.items()}
-        sequence = self.planned_sequence.setdefault(
-            application.rules.stop_sequence, {})
+        application_sequence = {seq: [ProcessCommand(process) for process in processes]
+                                for seq, processes in application.stop_sequence.items()}
+        sequence = self.planned_sequence.setdefault(application.rules.stop_sequence, {})
         sequence[application.application_name] = application_sequence
 
     def process_job(self, command, jobs):
@@ -547,22 +490,18 @@ class Stopper(Commander):
         if process.running():
             # use asynchronous xml rpc to stop program
             for address in process.addresses:
-                self.logger.info('stopping process {} on {}'
-                                 .format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(
-                    address, process.namespec())
+                self.logger.info('stopping process {} on {}'.format(process.namespec(), address))
+                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
             # push to jobs and timestamp process
             command.request_time = time.time()
             self.logger.debug('{} requested to stop at {}'
-                              .format(process.namespec(),
-                                      get_asctime(command.request_time)))
+                              .format(process.namespec(), get_asctime(command.request_time)))
             jobs.append(command)
             return True
 
     def check_stopping(self):
         """ Check the progress of the application stopping. """
-        self.logger.debug('stopping progress: planned_sequence={} '
-                          'planned_jobs={} current_jobs={}'
+        self.logger.debug('stopping progress: planned_sequence={} planned_jobs={} current_jobs={}'
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
@@ -572,35 +511,30 @@ class Stopper(Commander):
         commands = [command
                     for command_list in self.current_jobs.values()
                     for command in command_list]
-        self.logger.trace('now={} checking processes={}'
-                          .format(now, [command for command in commands]))
+        self.logger.trace('now={} checking processes={}'.format(now, [command for command in commands]))
         for command in commands:
             # depending on ini file, it may take a while before the process
             # enters in STOPPED state
             # so just test that is in not in a RUNNING-like state 5 seconds
             # after request_time
             if command.process.running() and command.timeout(now):
-                self.force_process_unknown(command.process.namespec(),
-                                           'Still running 5 seconds after stop request')
+                self.force_process_unknown(command.process.namespec(), 'Still running 5 seconds after stop request')
         # return True when starting is completed
         return not self.in_progress()
 
     def on_event(self, process):
-        """ Triggers the following of the stop sequencing, depending on
-        the new process status. """
+        """ Triggers the following of the stop sequencing, depending on the new process status. """
         # check if process event has an impact on stopping in progress
         if process.application_name in self.current_jobs:
             jobs = self.current_jobs[process.application_name]
-            self.logger.debug('jobs={}'
-                              .format(self.printable_command_list(jobs)))
+            self.logger.debug('jobs={}'.format(self.printable_command_list(jobs)))
             command = self.get_process_command(process, jobs)
             if command:
                 if process.running():
                     # several cases:
                     # 1) expected upon conciliation of a conflicting process
                     # 2) concurrent stopping / starting
-                    self.logger.warn('{} still running when stopping'
-                                     .format(process.namespec()))
+                    self.logger.warn('{} still running when stopping'.format(process.namespec()))
                 elif process.stopped():
                     # goal reached, whatever the state
                     jobs.remove(command)
@@ -614,8 +548,7 @@ class Stopper(Commander):
                     if process.application_name in self.planned_jobs:
                         self.process_application_jobs(process.application_name)
                     else:
-                        self.logger.info('application {} stopped'
-                                         .format(process.application_name))
+                        self.logger.info('application {} stopped'.format(process.application_name))
                         # check if there are planned jobs
                         if not self.planned_jobs:
                             # trigger next sequence of applications

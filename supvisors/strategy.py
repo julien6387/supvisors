@@ -29,7 +29,7 @@ class AbstractStrategy(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'logger'])
+        supvisors_shortcuts(self, ['address_mapper', 'context', 'logger'])
 
 
 # Strategy management for Starting
@@ -37,12 +37,11 @@ class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a starting strategy. """
 
     def is_loading_valid(self, address, expected_loading):
-        """ Return True and current loading if remote Supvisors instance is
-        active and can support the additional loading. """
+        """ Return True and current loading if remote Supvisors instance is active
+        and can support the additional loading. """
         if address in self.context.addresses.keys():
             status = self.context.addresses[address]
-            self.logger.trace('address {} state={}'.format(
-                address, status.state_string()))
+            self.logger.trace('address {} state={}'.format(address, status.state_string()))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
                 self.logger.debug('address={} loading={} expected_loading={}'
@@ -52,12 +51,10 @@ class AbstractStartingStrategy(AbstractStrategy):
         return False, 0
 
     def get_loading_and_validity(self, addresses, expected_loading):
-        """ Return the report of loading capability of all addresses iaw the
-        additional loading required. """
+        """ Return the report of loading capability of all addresses iaw the additional loading required. """
         if '*' in addresses:
-            addresses = self.supvisors.address_mapper.addresses
-        loading_validities = {address: self.is_loading_valid(address,
-                                                             expected_loading)
+            addresses = self.address_mapper.addresses
+        loading_validities = {address: self.is_loading_valid(address, expected_loading)
                               for address in addresses}
         self.logger.trace('loading_validities={}'.format(loading_validities))
         return loading_validities
@@ -73,36 +70,22 @@ class AbstractStartingStrategy(AbstractStrategy):
 
 
 class ConfigStrategy(AbstractStartingStrategy):
-    """ Strategy designed to choose the address using the order defined in the
-    configuration file. """
+    """ Strategy designed to choose the address using the order defined in the configuration file. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the first address that can support the additional loading
-        requested. """
-        self.logger.debug('addresses={} expected_loading={}'
-                          .format(addresses, expected_loading))
-        # returns the first remote in list that is capable of handling
-        # the loading
-        loading_validities = self.get_loading_and_validity(
-            addresses, expected_loading)
-        if '*' in addresses:
-            addresses = self.supvisors.address_mapper.addresses
-        return next((address for address in addresses
-                     if loading_validities[address][0]), None)
+        """ Choose the first address that can support the additional loading requested. """
+        self.logger.debug('ConfigStrategy: addresses={} expected_loading={}'.format(addresses, expected_loading))
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        return next((address for address, (validity, _) in loading_validities.items() if validity), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to share the loading among all the addresses. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the address having the lowest loading that can support
-        the additional loading requested """
-        self.logger.trace('addresses={} expectedLoading={}'.format(
-            addresses, expected_loading))
-        # returns the less loaded remote from list that is capable of handling
-        # the loading
-        loading_validities = self.get_loading_and_validity(
-            addresses, expected_loading)
+        """ Choose the address having the lowest loading that can support the additional loading requested. """
+        self.logger.trace('LessLoadedStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
         return sorted_addresses[0][0] if sorted_addresses else None
 
@@ -111,27 +94,34 @@ class MostLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to maximize the loading of an address. """
 
     def get_address(self, addresses, expected_loading):
-        """ Choose the address having the highest loading that can support
-        the additional loading requested """
-        self.logger.trace('addresses={} expectedLoading={}'.format(
-            addresses, expected_loading))
-        # returns the most loaded remote from list that is capable of
-        # handling the loading
-        loading_validities = self.get_loading_and_validity(addresses,
-                                                           expected_loading)
+        """ Choose the address having the highest loading that can support the additional loading requested. """
+        self.logger.trace('MostLoadedStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
         sorted_addresses = self.sort_valid_by_loading(loading_validities)
         return sorted_addresses[-1][0] if sorted_addresses else None
 
 
+class LocalStrategy(AbstractStartingStrategy):
+    """ Strategy designed to start the process on the local address. """
+
+    def get_address(self, addresses, expected_loading):
+        """ Choose the local address provided that it can support the additional loading requested. """
+        self.logger.trace('LocalStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
+        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
+        local_address = self.address_mapper.local_address
+        return local_address if loading_validities.get(local_address, (False,))[0] else None
+
+
 def get_address(supvisors, strategy, addresses, expected_loading):
-    """ Creates a strategy and let it find an address to start a process
-    having a defined loading. """
+    """ Creates a strategy and let it find an address to start a process having a defined loading. """
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
     if strategy == StartingStrategies.LESS_LOADED:
         instance = LessLoadedStrategy(supvisors)
     if strategy == StartingStrategies.MOST_LOADED:
         instance = MostLoadedStrategy(supvisors)
+    if strategy == StartingStrategies.LOCAL:
+        instance = LocalStrategy(supvisors)
     # apply strategy result
     return instance.get_address(addresses, expected_loading)
 

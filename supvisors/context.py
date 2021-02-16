@@ -160,8 +160,7 @@ class Context(object):
         return process
 
     def load_processes(self, address, all_info):
-        """ Load application dictionary from process info got from Supervisor
-        on address. """
+        """ Load application dictionary from process info got from Supervisor on address. """
         # get AddressStatus corresponding to address
         status = self.addresses[address]
         # store processes into their application entry

@@ -82,29 +82,15 @@ class ApplicationView(ViewHandler):
     def write_starting_strategy(self, root):
         """ Write applicable starting strategies. """
         # get the current strategy
-        strategy = self.supvisors.starter.strategy
+        strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        # CONFIG strategy
-        elt = root.findmeld('config_a_mid')
-        if strategy == StartingStrategies.CONFIG:
-            elt.attrib['class'] = 'button off active'
-        else:
-            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'config'})
-            elt.attributes(href=url)
-        # MOST_LOADED strategy
-        elt = root.findmeld('most_a_mid')
-        if strategy == StartingStrategies.MOST_LOADED:
-            elt.attrib['class'] = 'button off active'
-        else:
-            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'most'})
-            elt.attributes(href=url)
-        # LESS_LOADED strategy
-        elt = root.findmeld('less_a_mid')
-        if strategy == StartingStrategies.LESS_LOADED:
-            elt.attrib['class'] = 'button off active'
-        else:
-            url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'less'})
-            elt.attributes(href=url)
+        for str_strategy in StartingStrategies.strings():
+            elt = root.findmeld('%s_a_mid' % str_strategy.lower())
+            if strategy == str_strategy:
+                elt.attrib['class'] = 'button off active'
+            else:
+                url = self.view_ctx.format_url('', self.page_name, **{STRATEGY: str_strategy})
+                elt.attributes(href=url)
 
     def write_application_actions(self, root):
         """ Write actions related to the application. """
@@ -167,8 +153,7 @@ class ApplicationView(ViewHandler):
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
             for tr_elt, info in iterator:
-                # write common status
-                # (shared between this application view and address view)
+                # write common status (shared between this application view and address view)
                 self.write_common_process_status(tr_elt, info)
                 # print process name and running addresses
                 self.write_process(tr_elt, info)
@@ -206,14 +191,8 @@ class ApplicationView(ViewHandler):
         """ Triggers processing iaw action requested. """
         if action == 'refresh':
             return self.refresh_action()
-        if action == 'config':
-            return self.set_starting_strategy(StartingStrategies.CONFIG)
-        if action == 'most':
-            return self.set_starting_strategy(StartingStrategies.MOST_LOADED)
-        if action == 'less':
-            return self.set_starting_strategy(StartingStrategies.LESS_LOADED)
         # get current strategy
-        strategy = self.supvisors.starter.strategy
+        strategy = StartingStrategies.from_string(self.view_ctx.parameters[STRATEGY])
         if action == 'startapp':
             return self.start_application_action(strategy)
         if action == 'stopapp':
@@ -236,11 +215,6 @@ class ApplicationView(ViewHandler):
     def refresh_action():
         """ Refresh web page. """
         return delayed_info('Page refreshed')
-
-    def set_starting_strategy(self, strategy):
-        """ Update starting strategy. """
-        self.supvisors.starter.strategy = strategy
-        return delayed_info('Starting strategy set to {}'.format(StartingStrategies.to_string(strategy)))
 
     # Common processing for starting and stopping actions
     def start_action(self, strategy, rpc_name, arg_name, arg_type):

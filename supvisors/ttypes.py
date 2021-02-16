@@ -42,7 +42,7 @@ ProcessStates = enumeration_tools(supervisor.states.ProcessStates)
 @enumeration_tools
 class StartingStrategies:
     """ Applicable strategies that can be applied to start processes. """
-    CONFIG, LESS_LOADED, MOST_LOADED = range(3)
+    CONFIG, LESS_LOADED, MOST_LOADED, LOCAL = range(4)
 
 
 @enumeration_tools
@@ -54,23 +54,20 @@ class ConciliationStrategies:
 
 @enumeration_tools
 class StartingFailureStrategies:
-    """ Applicable strategies that can be applied on a failure of a starting
-    application. """
+    """ Applicable strategies that can be applied on a failure of a starting application. """
     ABORT, STOP, CONTINUE = range(3)
 
 
 @enumeration_tools
 class RunningFailureStrategies:
-    """ Applicable strategies that can be applied on a failure of a running
-    application. """
+    """ Applicable strategies that can be applied on a failure of a running application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
 
 @enumeration_tools
 class SupvisorsStates:
     """ Internal state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, \
-        SHUTTING_DOWN, SHUTDOWN = range(7)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 # Exceptions

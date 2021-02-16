@@ -105,7 +105,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``starting_strategy``
 
     The strategy used to start applications on nodes.
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
     The use of this option is detailed in :ref:`starting_strategy`.
 
     *Default*:  ``CONFIG``.

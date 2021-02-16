@@ -20,6 +20,7 @@
 from distutils.util import strtobool
 from urllib.parse import quote
 
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import supvisors_shortcuts
 from supvisors.webutils import error_message
 
@@ -32,6 +33,7 @@ ACTION = 'action'
 ADDRESS = 'address'
 
 PERIOD = 'period'
+STRATEGY = 'strategy'
 APPLI = 'appliname'
 PROCESS = 'processname'
 NAMESPEC = 'namespec'
@@ -67,6 +69,7 @@ class ViewContext:
         # WARN: period must be done before processname and cpuid
         # as it requires to be set to access statistics
         self.update_period()
+        self.update_strategy()
         self.update_auto_refresh()
         self.update_address()
         self.update_application_name()
@@ -99,6 +102,11 @@ class ViewContext:
         """ Extract period from context. """
         default_value = next(iter(self.options.stats_periods))
         self._update_integer(PERIOD, self.options.stats_periods, default_value)
+
+    def update_strategy(self):
+        """ Extract starting strategy from context. """
+        self._update_string(STRATEGY, StartingStrategies.strings(),
+                            StartingStrategies.to_string(StartingStrategies.CONFIG))
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """
@@ -213,51 +221,49 @@ class ViewContext:
 
     def _update_string(self, param, check_list, default_value=None):
         """ Extract information from context based on allowed values in check_list. """
-        value = self.http_context.form.get(param)
-        if value:
+        value = default_value
+        str_value = self.http_context.form.get(param)
+        if str_value:
             # check that value is known to Supvisors
-            if value in check_list:
-                # reset default_value
-                default_value = value
+            if str_value in check_list:
+                value = str_value
             else:
-                self.message(error_message('Incorrect {}: {}'.format(param, value)))
+                self.message(error_message('Incorrect {}: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, default_value))
-        self.parameters[param] = default_value
+        self.logger.debug('{} set to {}'.format(param, value))
+        self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
         """ Extract information from context and convert to integer based on allowed values in check_list. """
-        param_string = self.http_context.form.get(param)
-        if param_string:
+        value = default_value
+        str_value = self.http_context.form.get(param)
+        if str_value:
             try:
-                value = int(param_string)
+                int_value = int(str_value)
             except ValueError:
-                self.message(error_message('{} is not an integer: {}'.format(param, param_string)))
+                self.message(error_message('{} is not an integer: {}'.format(param, str_value)))
             else:
-                # check that value is defined in check list
-                if value in check_list:
-                    # reset default_value
-                    default_value = value
+                # check that int_value is defined in check list
+                if int_value in check_list:
+                    value = int_value
                 else:
-                    self.message(error_message('Incorrect {}: {}'.format(param, param_string)))
+                    self.message(error_message('Incorrect {}: {}'.format(param, int_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, default_value))
-        self.parameters[param] = default_value
+        self.logger.debug('{} set to {}'.format(param, value))
+        self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
         """ Extract information from context and convert to boolean based on allowed values in check_list. """
-        param_string = self.http_context.form.get(param)
-        if param_string:
+        value = default_value
+        str_value = self.http_context.form.get(param)
+        if str_value:
             try:
-                value = strtobool(param_string)
+                value = strtobool(str_value)
             except ValueError:
-                self.message(error_message('{} is not a boolean-like: {}'.format(param, param_string)))
-            else:
-                # reset default_value
-                default_value = value
+                self.message(error_message('{} is not a boolean-like: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, default_value))
-        self.parameters[param] = default_value
+        self.logger.debug('{} set to {}'.format(param, value))
+        self.parameters[param] = value
 
 
     @staticmethod
