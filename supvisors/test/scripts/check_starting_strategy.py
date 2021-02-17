@@ -20,9 +20,7 @@
 import sys
 import unittest
 
-from supervisor.compat import xmlrpclib
 from supervisor.states import STOPPED_STATES
-from supervisor.xmlrpc import Faults
 
 from supvisors.ttypes import AddressStates, StartingStrategies
 
@@ -37,6 +35,7 @@ class StartingStrategyTest(RunningAddressesTest):
         """ Get initial status. """
         RunningAddressesTest.setUp(self)
         # check the loading on running addresses
+        # initial state is cliche81=15% cliche82=15% cliche83=5%
         self._refresh_loading()
         self.assertItemsEqual([15, 15, 5], self.loading.values())
         # check that 10 converter programs are STOPPED
@@ -48,8 +47,7 @@ class StartingStrategyTest(RunningAddressesTest):
         # check that 10 converter programs are configured with loading 25
         processes_rules = self.local_supvisors.get_process_rules('my_movies:*')
         converters = [rules for rules in processes_rules
-                      if rules['process_name'].startswith('converter') and
-                      rules['expected_loading'] == 25]
+                      if rules['process_name'].startswith('converter') and rules['expected_loading'] == 25]
         self.assertEqual(10, len(converters))
 
     def tearDown(self):
@@ -59,7 +57,7 @@ class StartingStrategyTest(RunningAddressesTest):
             try:
                 program = 'my_movies:converter_0%d' % idx
                 self.local_supvisors.stop_process(program)
-            except:
+            except Exception:
                 pass
         # call parent
         RunningAddressesTest.tearDown(self)
@@ -107,7 +105,6 @@ class StartingStrategyTest(RunningAddressesTest):
         # no address config for almost all converters (excepted 04 and 07)
         # so applicable order is the one defined in the supvisors section,
         # i.e. cliche81, cliche82, cliche83, cliche84 (not running)
-        # cliche81 is at 15% initially
         self._start_converter(0)
         self.assertItemsEqual([40, 15, 5], self.loading.values())
         # continue with cliche81
@@ -194,6 +191,22 @@ class StartingStrategyTest(RunningAddressesTest):
         self._start_converter_failed(9)
         self.assertItemsEqual([90, 90, 80], self.loading.values())
 
+    def test_local(self):
+        """ Test the MOST_LOADED starting strategy.
+        Start converters and check they have been started on the address having the highest loading. """
+        print('### Testing MOST_LOADED starting strategy')
+        self.strategy = StartingStrategies.LOCAL
+        # this test should be started only from cliche81 so processes should be started only on cliche81
+        self._start_converter(0)
+        self.assertItemsEqual([40, 15, 5], self.loading.values())
+        self._start_converter(1)
+        self.assertItemsEqual([65, 15, 5], self.loading.values())
+        self._start_converter(2)
+        self.assertItemsEqual([90, 15, 5], self.loading.values())
+        # next converter cannot be started: no resource left
+        self._start_converter_failed(3)
+        self.assertItemsEqual([90, 15, 5], self.loading.values())
+
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
@@ -202,9 +215,8 @@ def test_suite():
 if __name__ == '__main__':
     # get arguments
     import argparse
-
     parser = argparse.ArgumentParser(description='Check the Supvisors starting strategies.')
-    parser.add_argument('-p', '--port', type=int, default=60002, help="the event port of Supvisors")
+    parser.add_argument('-p', '--port', type=int, default=60002, help='the event port of Supvisors')
     args = parser.parse_args()
     SupvisorsEventQueues.PORT = args.port
     # start unittest
