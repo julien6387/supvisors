@@ -96,6 +96,26 @@
                     <div class="vertical_contents">
                         <div>
                             <table>
+                                <caption>Memory Statistics</caption>
+                                <tr>
+                                    <th rowspan="2">
+                                        <a href="#" class="button off active">mem</a>
+                                    </th>
+                                    <th>Occ %</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr class="brightened">
+                                    <td meld:id="memval_td_mid">--</td>
+                                    <td meld:id="memavg_td_mid">--</td>
+                                    <td meld:id="memslope_td_mid">--</td>
+                                    <td meld:id="memdev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table>
                                 <caption>Processor Statistics</caption>
                                 <tr>
                                     <th>#</th>
@@ -115,36 +135,16 @@
                                 </tr>
                             </table>
                         </div>
-                        <div>
-                            <table>
-                                <caption>Memory Statistics</caption>
-                                <tr>
-                                    <th rowspan="2">
-                                        <a href="#" class="button off active">mem</a>
-                                    </th>
-                                    <th>Occ %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
-                                </tr>
-                                <tr class="brightened">
-                                    <td meld:id="memval_td_mid">--</td>
-                                    <td meld:id="memavg_td_mid">--</td>
-                                    <td meld:id="memslope_td_mid">--</td>
-                                    <td meld:id="memdev_td_mid">--</td>
-                                </tr>
-                            </table>
-                        </div>
                     </div>
-
-                    <figure>
-                        <img src="address_cpu.png" alt="Address CPU Graph"/>
-                        <figcaption>CPU loading</figcaption>
-                    </figure>
 
                     <figure>
                         <img src="address_mem.png" alt="Address Memory Graph"/>
                         <figcaption>Memory occupation</figcaption>
+                    </figure>
+
+                    <figure>
+                        <img src="address_cpu.png" alt="Address CPU Graph"/>
+                        <figcaption>CPU loading</figcaption>
                     </figure>
                 </div>
 
