@@ -179,7 +179,7 @@ nav {
 .vertical_contents {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: start;
 }
 
 

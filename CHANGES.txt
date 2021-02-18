@@ -6,6 +6,9 @@
 * Fixed https://github.com/julien6387/supvisors/issues/84
   In the Supvisors rules file, program rules can be defined using both model reference and attributes
 
+* The images and tables corresponding to Memory and Processor statistics have been inverted
+  Memory information has indeed a fixed complexity whereas Processor information depends on the number of cores
+
 * Documentation updated
 
 
