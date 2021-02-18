@@ -153,7 +153,8 @@ class Parser(object):
             self.logger.debug('process {} - rules {}'.format(process.namespec(), process.rules))
 
     def load_model_rules(self, program_elt: Any, rules: ProcessRules, loop_check: int) -> None:
-        """
+        """ Load the parameters found whatever it is given by a program or a model section.
+        If the section includes a reference to a model, it is loaded first and then eventually superseded by other attributes.
 
         :param program_elt: the XML element containing rules definition
         :param rules: the process structure used to store the rules found
