@@ -179,7 +179,7 @@ class Parser(object):
         self.load_sequence(program_elt, 'stop_sequence', rules)
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
-        self.load_loading(program_elt, 'expected_loading', rules)
+        self.load_loading(program_elt, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
     def get_program_element(self, process: ProcessStatus) -> Optional[Any]:
@@ -256,26 +256,26 @@ class Parser(object):
                 self.logger.warn('Not an integer for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_loading(self, elt: Any, attr_string: str, rules: ProcessRules) -> None:
+    def load_loading(self, elt: Any, rules: ProcessRules) -> None:
         """ Return the loading value found from the XML element.
         The value must be in [0 ; 100].
 
         :param elt: the XML element containing rules definition for an application or a program
-        :param attr_string: the XML tag searched and the name of the rule attribute
         :param rules: the structure used to store the rules found
         :return: None
         """
-        str_value = elt.findtext(attr_string)
-        try:
-            value = int(str_value)
-            if 0 <= value <= 100:
-                setattr(rules, attr_string, value)
-            else:
-                self.logger.warn('Invalid value for {} {}: {} (expected integer >= 0)'
-                                 .format(elt.get('name'), attr_string, value))
-        except (TypeError, ValueError):
-            self.logger.warn('Not an integer for {} {}: {}'
-                             .format(elt.get('name'), attr_string, str_value))
+        str_value = elt.findtext('expected_loading')
+        if str_value:
+            try:
+                value = int(str_value)
+                if 0 <= value <= 100:
+                    setattr(rules, 'expected_loading', value)
+                else:
+                    self.logger.warn('Invalid value for {} expected_loading: {} (expected integer in [0;100])'
+                                     .format(elt.get('name'), value))
+            except (TypeError, ValueError):
+                self.logger.warn('Not an integer for {} expected_loading: {}'
+                                 .format(elt.get('name'), str_value))
 
     def load_boolean(self, elt: Any, attr_string: str, rules: ProcessRules) -> None:
         """ Return the boolean value found from XML element.
