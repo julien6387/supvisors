@@ -112,7 +112,7 @@ InvalidXmlTest = b'''\
         <expected_loading>10</expected_loading>
     </model>
 
-     <model name="dummy_model_04">
+    <model name="dummy_model_04">
         <reference>dummy_model_01</reference>
     </model>
 
@@ -200,7 +200,6 @@ InvalidXmlTest = b'''\
             <reference>dummy_model_03</reference>
             <addresses>#</addresses>
             <start_sequence>3</start_sequence>
-            <stop_sequence>50</stop_sequence>
             <required>true</required>
             <wait_exit>false</wait_exit>
             <expected_loading>5</expected_loading>
@@ -261,8 +260,9 @@ XmlTest = b'''\
         <expected_loading>10</expected_loading>
     </model>
 
-     <model name="dummy_model_04">
+    <model name="dummy_model_04">
         <reference>dummy_model_01</reference>
+        <expected_loading>20</expected_loading>
     </model>
 
     <application name="dummy_application_A">
@@ -339,6 +339,7 @@ XmlTest = b'''\
 
         <pattern name="dummies_">
             <reference>dummy_model_03</reference>
+            <start_sequence>50</start_sequence>
         </pattern>
 
         <pattern name="dummies_01_">

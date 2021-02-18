@@ -66,14 +66,12 @@ class ProcessRules(object):
         # required MUST have start_sequence, so force to optional if
         # start_sequence is not set
         if self.required and self.start_sequence == 0:
-            self.logger.warn('{} - required forced to False because no start_sequence defined'
-                             .format(namespec))
+            self.logger.warn('{} - required forced to False because no start_sequence defined'.format(namespec))
             self.required = False
         # if no addresses, consider all addresses
         if not self.addresses:
             self.addresses = ['*']
-            self.logger.warn('{} - no address defined so all Supvisors'
-                             ' addresses are applicable'.format(namespec))
+            self.logger.warn('{} - no address defined so all Supvisors addresses are applicable'.format(namespec))
         # disable autorestart when RunningFailureStrategies is not CONTINUE
         if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
             if self.info_source.autorestart(namespec):

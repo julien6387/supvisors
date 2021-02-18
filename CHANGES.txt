@@ -1,3 +1,14 @@
+0.5 (2021-02-xx)
+----------------
+
+* New LOCAL starting strategy added to command the starting of an application on the local node only
+
+* Fixed https://github.com/julien6387/supvisors/issues/84
+  In the Supvisors rules file, program rules can be defined using both model reference and attributes
+
+* Documentation updated
+
+
 0.4 (2021-02-14)
 ----------------
 
