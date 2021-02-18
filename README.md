@@ -40,15 +40,14 @@ but is not maintained anymore.
 
 **Supvisors** has dependencies on:
 
-Package    | Release    | Optional
------------|------------|---------
-Supervisor | 4.2.1      |
-PyZMQ      | 20.0.0     |
-psutil     | 5.7.3      |     X
-netifaces  | 0.10.9     |     X
-matplotlib | 3.3.3      |     X
-lxml       | 4.6.2      |     X
-
+Package                                             | Release    | Optional
+----------------------------------------------------|------------|---------
+[Supervisor](http://supervisord.org)                | 4.2.1      |
+[PyZMQ](http://pyzmq.readthedocs.io)                | 20.0.0     |
+[psutil](https://pypi.python.org/pypi/psutil)       | 5.7.3      |     X
+[netifaces](https://pypi.python.org/pypi/netifaces) | 0.10.9     |     X
+[matplotlib](http://matplotlib.org)                 | 3.3.3      |     X
+[lxml](http://lxml.de)                              | 4.6.2      |     X
 
 Please note that some of these dependencies may have their own dependencies.
 
