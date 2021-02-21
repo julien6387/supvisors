@@ -5,10 +5,7 @@ matrix:
         - python: 3.6
           env: TOXENV=py36
           after_success:
-            - pwd
-            - coveralls --data_file .coverage
-            - python-codacy-coverage -r /tmp/cov-single.xml
-            - bash <(curl -s https://codecov.io/bash) -Z -c -f /tmp/cov-single.xml
+            - coveralls
         - python: 3.6
           env: TOXENV=docs
 
