@@ -242,8 +242,10 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         server = SupvisorsServerOptions()
         # this flag is required for supervisor to cope with unittest arguments
         server.positional_args_allowed = 1
-        with patch.object(ServerOptions, 'open', return_value=args[0]):
-            server.realize()
+        # remove pytest cov options
+        with patch.object(sys, 'argv', [sys.argv[0]]):
+            with patch.object(ServerOptions, 'open', return_value=args[0]):
+                server.realize()
         return server
 
 

@@ -42,7 +42,7 @@ class CommonParserTest(unittest.TestCase):
                                       StartingFailureStrategies)
         # test models & patterns
         self.assertListEqual(['dummy_model_01', 'dummy_model_02',
-                              'dummy_model_03', 'dummy_model_04'],
+                              'dummy_model_03', 'dummy_model_04', 'dummy_model_05'],
                              sorted(parser.models.keys()))
         self.assertListEqual(['dummies_', 'dummies_01_', 'dummies_02_'],
                              sorted(parser.patterns.keys()))
@@ -72,6 +72,10 @@ class CommonParserTest(unittest.TestCase):
         self.assert_application_rules(application.rules, 0, 100,
                                       StartingFailureStrategies.CONTINUE,
                                       RunningFailureStrategies.RESTART_APPLICATION)
+        # check loop application
+        application = ApplicationStatus('dummy_application_E', self.supvisors.logger)
+        parser.load_application_rules(application)
+        self.assert_default_application_rules(application.rules)
         # check program from unknown application: all default
         process = ProcessStatus('dummy_application_X', 'dummy_program_X0', self.supvisors)
         parser.load_process_rules(process)
@@ -152,6 +156,13 @@ class CommonParserTest(unittest.TestCase):
         self.assert_process_rules(process.rules,
                                   ['*'], None, 0, 0, False, False, 20,
                                   RunningFailureStrategies.STOP_APPLICATION)
+        # check multiple reference (over the maximum defined)
+        # almost all rules set to default, despite enf of chain is on dummy_model_01
+        process = ProcessStatus('dummy_application_E', 'dummy_program_E', self.supvisors)
+        parser.load_process_rules(process)
+        self.assert_process_rules(process.rules,
+                                  ['*'], None, 0, 0, False, False, 15,
+                                  RunningFailureStrategies.CONTINUE)
 
     def assert_default_application_rules(self, rules):
         """ Check that rules contains default values. """

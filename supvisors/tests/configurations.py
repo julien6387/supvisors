@@ -265,6 +265,11 @@ XmlTest = b'''\
         <expected_loading>20</expected_loading>
     </model>
 
+    <model name="dummy_model_05">
+        <reference>dummy_model_04</reference>
+        <expected_loading>15</expected_loading>
+    </model>
+
     <application name="dummy_application_A">
     </application>
 
@@ -355,6 +360,12 @@ XmlTest = b'''\
             <reference>dummy_model_04</reference>
         </pattern>
 
+    </application>
+
+    <application name="dummy_application_E">
+        <program name="dummy_program_E">
+            <reference>dummy_model_05</reference>
+        </program>
     </application>
 
 </root>
