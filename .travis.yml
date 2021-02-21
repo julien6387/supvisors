@@ -17,4 +17,4 @@ script:
     - travis_retry tox
 
 after_success:
-  - coveralls
+    - coveralls
