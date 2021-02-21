@@ -19,6 +19,9 @@
 
 import zmq
 
+from supervisor.loggers import Logger
+
+from supvisors.ttypes import Payload
 from supvisors.utils import *
 
 # Constant for Zmq sockets
@@ -37,12 +40,10 @@ class InternalEventPublisher(object):
 
         - logger: a reference to the Supvisors logger,
         - address: the address name where this process is running,
-        - socket: the ZeroMQ socket with a PUBLISH pattern,
-        bound on the internal_port defined in the ['supvisors'] section
-        of the Supervisor configuration file.
+        - socket: the ZeroMQ socket with a PUBLISH pattern, bound on the internal_port defined in the ['supvisors'] section of the Supervisor configuration file.
     """
 
-    def __init__(self, address, port, logger):
+    def __init__(self, address: str, port: int, logger: Logger) -> None:
         """ Initialization of the attributes. """
         # keep a reference to supvisors
         self.logger = logger
@@ -54,27 +55,24 @@ class InternalEventPublisher(object):
         self.logger.info('binding InternalEventPublisher to %s' % url)
         self.socket.bind(url)
 
-    def close(self):
+    def close(self) -> None:
         """ This method closes the PyZMQ socket. """
         self.socket.close(ZMQ_LINGER)
 
-    def send_tick_event(self, payload):
+    def send_tick_event(self, payload: Payload) -> None:
         """ Publishes the tick event with ZeroMQ. """
         self.logger.trace('send TickEvent {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.TICK,
-                                self.address, payload))
+        self.socket.send_pyobj((InternalEventHeaders.TICK, self.address, payload))
 
-    def send_process_event(self, payload):
+    def send_process_event(self, payload: Payload) -> None:
         """ Publishes the process event with ZeroMQ. """
         self.logger.trace('send ProcessEvent {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.PROCESS,
-                                self.address, payload))
+        self.socket.send_pyobj((InternalEventHeaders.PROCESS, self.address, payload))
 
-    def send_statistics(self, payload):
+    def send_statistics(self, payload: Payload) -> None:
         """ Publishes the statistics with ZeroMQ. """
         self.logger.trace('send Statistics {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.STATISTICS,
-                                self.address, payload))
+        self.socket.send_pyobj((InternalEventHeaders.STATISTICS, self.address, payload))
 
 
 class InternalEventSubscriber(object):
@@ -85,7 +83,7 @@ class InternalEventSubscriber(object):
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, addresses, port):
+    def __init__(self, addresses, port: int):
         """ Initialization of the attributes. """
         self.port = port
         self.socket = ZmqContext.socket(zmq.SUB)
@@ -95,7 +93,7 @@ class InternalEventSubscriber(object):
             self.socket.connect(url)
         self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
-    def close(self):
+    def close(self) -> None:
         """ This method closes the PyZMQ socket. """
         self.socket.close(ZMQ_LINGER)
 
@@ -103,9 +101,8 @@ class InternalEventSubscriber(object):
         """ Reception and pyobj de-serialization of one message. """
         return self.socket.recv_pyobj(zmq.NOBLOCK)
 
-    def disconnect(self, addresses):
-        """ This method disconnects from the PyZMQ socket all addresses
-        passed in parameter. """
+    def disconnect(self, addresses) -> None:
+        """ This method disconnects from the PyZMQ socket all addresses passed in parameter. """
         for address in addresses:
             url = 'tcp://{}:{}'.format(address, self.port)
             self.socket.disconnect(url)
@@ -118,38 +115,34 @@ class EventPublisher(object):
         """ Initialization of the attributes. """
         self.logger = logger
         self.socket = ZmqContext.socket(zmq.PUB)
-        # WARN: this is a local binding, only visible to processes
-        # located on the same address
+        # WARN: this is a local binding, only visible to processes located on the same address
         url = 'tcp://127.0.0.1:%d' % port
         self.logger.info('binding local Supvisors EventPublisher to %s' % url)
         self.socket.bind(url)
 
-    def close(self):
+    def close(self) -> None:
         """ This method closes the PyZMQ socket. """
         self.socket.close(ZMQ_LINGER)
 
-    def send_supvisors_status(self, status):
-        """ This method sends a serialized form of the supvisors status
-        through the socket. """
+    def send_supvisors_status(self, status: Payload) -> None:
+        """ This method sends a serialized form of the supvisors status through the socket. """
         self.logger.trace('send SupvisorsStatus {}'.format(status))
         self.socket.send_string(EventHeaders.SUPVISORS, zmq.SNDMORE)
-        self.socket.send_json(status.serial())
+        self.socket.send_json(status)
 
-    def send_address_status(self, status):
-        """ This method sends a serialized form of the address status
-        through the socket. """
-        self.logger.trace('send RemoteStatus {}'.format(status))
+    def send_address_status(self, status: Payload) -> None:
+        """ This method sends a serialized form of the address status through the socket. """
+        self.logger.trace('send AddressStatus {}'.format(status))
         self.socket.send_string(EventHeaders.ADDRESS, zmq.SNDMORE)
-        self.socket.send_json(status.serial())
+        self.socket.send_json(status)
 
-    def send_application_status(self, status):
-        """ This method sends a serialized form of the application status
-        through the socket. """
+    def send_application_status(self, status: Payload) -> None:
+        """ This method sends a serialized form of the application status through the socket. """
         self.logger.trace('send ApplicationStatus {}'.format(status))
         self.socket.send_string(EventHeaders.APPLICATION, zmq.SNDMORE)
-        self.socket.send_json(status.serial())
+        self.socket.send_json(status)
 
-    def send_process_event(self, address, event):
+    def send_process_event(self, address: str, event: Payload) -> None:
         """ This method sends a process event through the socket. """
         # build the event before it is sent
         evt = event.copy()
@@ -158,12 +151,11 @@ class EventPublisher(object):
         self.socket.send_string(EventHeaders.PROCESS_EVENT, zmq.SNDMORE)
         self.socket.send_json(evt)
 
-    def send_process_status(self, status):
-        """ This method sends a serialized form of the process status
-        through the socket. """
+    def send_process_status(self, status: Payload) -> None:
+        """ This method sends a serialized form of the process status through the socket. """
         self.logger.trace('send Process Status {}'.format(status))
         self.socket.send_string(EventHeaders.PROCESS_STATUS, zmq.SNDMORE)
-        self.socket.send_json(status.serial())
+        self.socket.send_json(status)
 
 
 class EventSubscriber(object):

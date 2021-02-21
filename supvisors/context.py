@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Sequence
+
 from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
@@ -202,8 +204,7 @@ class Context(object):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got tick {} from location={}'
-                                  .format(event, address_name))
+                self.logger.debug('got tick {} from location={}'.format(event, address_name))
                 # asynchronous port-knocking used to check if remote Supvisors
                 # instance considers local instance as isolated
                 if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
@@ -212,38 +213,31 @@ class Context(object):
                 # update internal times
                 status.update_times(event['when'], int(time()))
                 # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status)
+                self.supvisors.zmq.publisher.send_address_status(status.serial())
         else:
-            self.logger.warn('got tick from unexpected location={}'
-                             .format(address_name))
+            self.logger.warn('got tick from unexpected location={}'.format(address_name))
 
     def on_process_event(self, address_name, event):
-        """ Method called upon reception of a process event from the remote
-        Supvisors instance.
-        Supvisors checks that the handling of the event is valid in case of
-        auto fencing.
-        The method updates the ProcessStatus corresponding to the event, and
-        thus the wrapping ApplicationStatus.
+        """ Method called upon reception of a process event from the remote Supvisors instance.
+        Supvisors checks that the handling of the event is valid in case of auto fencing.
+        The method updates the ProcessStatus corresponding to the event, and thus the wrapping ApplicationStatus.
         Finally, the updated ProcessStatus and ApplicationStatus are published.
         """
         if self.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got event {} from location={}'
-                                  .format(event, address_name))
+                self.logger.debug('got event {} from location={}'.format(event, address_name))
                 try:
                     # get internal data
                     application = self.applications[event['group']]
                     process = application.processes[event['name']]
                     # update command line
-                    self.info_source.update_extra_args(process.namespec(),
-                                                       event['extra_args'])
+                    self.info_source.update_extra_args(process.namespec(), event['extra_args'])
                 except KeyError:
                     # process not found. normal when no tick yet received
                     # from this address
-                    self.logger.debug('reject event {} from location={}'
-                                      .format(event, address_name))
+                    self.logger.debug('reject event {} from location={}'.format(event, address_name))
                 else:
                     # refresh process info from process event
                     process.update_info(address_name, event)
@@ -253,30 +247,27 @@ class Context(object):
                     # publish process event, status and application status
                     publisher = self.supvisors.zmq.publisher
                     publisher.send_process_event(address_name, event)
-                    publisher.send_process_status(process)
-                    publisher.send_application_status(application)
+                    publisher.send_process_status(process.serial())
+                    publisher.send_application_status(application.serial())
                     return process
         else:
-            self.logger.error('got process event from unexpected location={}'
-                              .format(address_name))
+            self.logger.error('got process event from unexpected location={}'.format(address_name))
 
     def on_timer_event(self):
         """ Check that all Supvisors instances are still publishing.
-        Supvisors considers that there a Supvisors instance is not active
-        if no tick received in last 10s. """
+        Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
         for status in self.addresses.values():
-            if status.state == AddressStates.RUNNING and \
-                    (time() - status.local_time) > 10:
+            if status.state == AddressStates.RUNNING and (time() - status.local_time) > 10:
                 self.invalid(status)
                 # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status)
+                self.supvisors.zmq.publisher.send_address_status(status.serial())
 
-    def handle_isolation(self):
+    def handle_isolation(self) -> Sequence[str]:
         """ Move ISOLATING addresses to ISOLATED and publish related events. """
         addresses = self.isolating_addresses()
         for address in addresses:
             status = self.addresses[address]
             status.state = AddressStates.ISOLATED
             # publish AddressStatus event
-            self.supvisors.zmq.publisher.send_address_status(status)
+            self.supvisors.zmq.publisher.send_address_status(status.serial())
         return addresses

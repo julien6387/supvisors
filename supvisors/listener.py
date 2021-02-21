@@ -111,8 +111,7 @@ class SupervisorListener(object):
         """ Called when a ProcessEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        self.logger.debug('got Process event from supervisord: {} {}'
-                          .format(event_name, event))
+        self.logger.debug('got Process event from supervisord: {}'.format(event_name))
         # create payload from event
         payload = {'name': event.process.config.name,
                    'group': event.process.group.config.name,
@@ -129,7 +128,7 @@ class SupervisorListener(object):
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
         Then statistics are published and periodic task is triggered. """
-        self.logger.debug('got Tick event from supervisord: {}'.format(event))
+        self.logger.debug('got Tick event from supervisord: {}'.format(event.when))
         payload = {'when': event.when}
         self.publisher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
@@ -146,7 +145,7 @@ class SupervisorListener(object):
         """ Called when a RemoteCommunicationEvent is notified.
         This is used to sequence the events received from the Supvisors thread
         with the other events handled by the local Supervisor. """
-        self.logger.debug('got Remote event from supervisord: {}'.format(event))
+        self.logger.debug('got Remote event from supervisord: {} / {}'.format(event.type, event.data))
         if event.type == RemoteCommEvents.SUPVISORS_AUTH:
             self.authorization(event.data)
         elif event.type == RemoteCommEvents.SUPVISORS_EVENT:

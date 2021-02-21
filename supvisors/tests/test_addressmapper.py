@@ -92,7 +92,7 @@ class AddressMapperTest(CompatTestCase):
         # test that the same list with a different sequence is not filtered
         shuffle_lst1 = address_lst[:]
         random.shuffle(shuffle_lst1)
-        self.assertListEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
+        self.assertEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
         # test that an subset of the sequence is not filtered
         shuffle_lst2 = shuffle_lst1[:]
         shuffle_lst2.pop()

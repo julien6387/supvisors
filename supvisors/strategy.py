@@ -39,6 +39,7 @@ class AbstractStartingStrategy(AbstractStrategy):
     def is_loading_valid(self, address, expected_loading):
         """ Return True and current loading if remote Supvisors instance is active
         and can support the additional loading. """
+        self.logger.trace('is_loading_valid address={} expected_loading={}'.format(address, expected_loading))
         if address in self.context.addresses.keys():
             status = self.context.addresses[address]
             self.logger.trace('address {} state={}'.format(address, status.state_string()))
@@ -47,7 +48,7 @@ class AbstractStartingStrategy(AbstractStrategy):
                 self.logger.debug('address={} loading={} expected_loading={}'
                                   .format(address, loading, expected_loading))
                 return loading + expected_loading < 100, loading
-            self.logger.debug('address {} not RUNNING'.format(address))
+            self.logger.trace('address {} not RUNNING'.format(address))
         return False, 0
 
     def get_loading_and_validity(self, addresses, expected_loading):
@@ -74,7 +75,8 @@ class ConfigStrategy(AbstractStartingStrategy):
 
     def get_address(self, addresses, expected_loading):
         """ Choose the first address that can support the additional loading requested. """
-        self.logger.debug('ConfigStrategy: addresses={} expected_loading={}'.format(addresses, expected_loading))
+        self.logger.debug('ConfigStrategy: addresses={} expected_loading={}'
+                          .format(addresses, expected_loading))
         loading_validities = self.get_loading_and_validity(addresses, expected_loading)
         return next((address for address, (validity, _) in loading_validities.items() if validity), None)
 

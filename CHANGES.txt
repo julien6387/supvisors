@@ -3,11 +3,19 @@
 
 * New LOCAL starting strategy added to command the starting of an application on the local node only
 
+* Fixed https://github.com/julien6387/supvisors/issues/85
+  When using '#' in the Supvisors rules file, a subset of nodes can optionally be defined
+
 * Fixed https://github.com/julien6387/supvisors/issues/84
   In the Supvisors rules file, program rules can be defined using both model reference and attributes
 
-* The images and tables corresponding to Memory and Processor statistics have been inverted
-  Memory information has indeed a fixed complexity whereas Processor information depends on the number of cores
+* The layout of Web UI statistics sections has been rearranged
+
+* Type annotations are added progressively in source code
+
+* Start switching to pytest from unittest
+
+* Logs (especially Debug and Trace) updated to avoid objects to be printed, which is quite unreadable
 
 * Documentation updated
 
@@ -17,7 +25,7 @@
 
 * Auto-refresh button added to all pages
 
-* Main page reworked by adding a subdivision of application in node boxes
+* Web UI Main page reworked by adding a subdivision of application in node boxes
 
 * Fixed exception when exiting using Ctrl+c from shell
 

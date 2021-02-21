@@ -52,14 +52,15 @@ class ProcessRulesTest(unittest.TestCase):
         """ Test the string output. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False"
+        self.assertEqual("addresses=['*'] hash_addresses=None start_sequence=0 stop_sequence=0 required=False"
                          " wait_exit=False expected_loading=1 running_failure_strategy=CONTINUE", str(rules))
 
     def test_serial(self):
         """ Test the serialization of the ProcessRules object. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
+        self.assertDictEqual({'addresses': ['*'], 'hash_addresses': None,
+                              'start_sequence': 0, 'stop_sequence': 0,
                               'required': False, 'wait_exit': False, 'expected_loading': 1,
                               'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
@@ -115,22 +116,6 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.required)
         self.assertFalse(rules.wait_exit)
         self.assertEqual(5, rules.expected_loading)
-        # test empty addresses
-        rules.addresses = []
-        rules.start_sequence = 0
-        rules.stop_sequence = 0
-        rules.required = False
-        rules.wait_exit = False
-        rules.expected_loading = 0
-        # check dependencies
-        rules.check_dependencies('dummy')
-        # test that all addresses are applicable
-        self.assertListEqual(['*'], rules.addresses)
-        self.assertEqual(0, rules.start_sequence)
-        self.assertEqual(0, rules.stop_sequence)
-        self.assertFalse(rules.required)
-        self.assertFalse(rules.wait_exit)
-        self.assertEqual(0, rules.expected_loading)
 
     def test_dependency_rules_running_failure(self):
         """ Test the dependency related to running failure strategy in process rules.
@@ -306,7 +291,8 @@ class ProcessTest(unittest.TestCase):
         # 2. test that address is unchanged
         self.assertListEqual(['*'], process.rules.addresses)
         # update rules to test '#'
-        process.rules.addresses = ['#']
+        process.rules.hash_addresses = ['*']
+        process.rules.addresses = []
         # replace with an EXITED process info
         info = any_process_info_by_state(ProcessStates.EXITED)
         process.add_info('10.0.0.1', info)
@@ -321,10 +307,9 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.EXITED, process.state)
         self.assertTrue(process.expected_exit)
-        # the firefox process has a procnumber of 0 and address '10.0.0.1'
-        # has an index of 1
+        # the firefox process has a procnumber of 0 and address '10.0.0.1' has an index of 1
         # address rule remains unchanged
-        self.assertListEqual(['#'], process.rules.addresses)
+        self.assertEqual([], process.rules.addresses)
 
         # 3. add a RUNNING process info
         info = any_process_info_by_state(ProcessStates.RUNNING)

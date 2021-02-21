@@ -210,7 +210,7 @@ class Starter(Commander):
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested. """
         self.logger.info('start application {} using strategy {}'
                          .format(application.application_name, StartingStrategies.to_string(strategy)))
-        # push program list in todo list and start work
+        # push program list in job list and start work
         if application.stopped():
             self.store_application_start_sequence(application, strategy)
             self.logger.debug('planned_sequence={}'.format(self.printable_planned_sequence()))
@@ -237,7 +237,7 @@ class Starter(Commander):
         # WARN: when starting a single process (outside the scope of an application starting),
         # do NOT consider the 'wait_exit' rule
         command.ignore_wait_exit = True
-        # push program list in todo list and start work
+        # push program list in job list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
         starting = self.process_job(command, job)
         # upon failure, remove inProgress entry if empty

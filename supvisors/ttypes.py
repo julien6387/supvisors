@@ -19,6 +19,8 @@
 
 import supervisor.states
 
+from typing import Any, Mapping
+
 from supvisors.utils import *
 
 
@@ -79,3 +81,7 @@ class InvalidTransition(Exception):
 
     def __str__(self):
         return self.value
+
+
+# Types for annotations
+Payload = Mapping[str, Any]

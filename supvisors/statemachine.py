@@ -93,13 +93,11 @@ class InitializationState(AbstractState):
                 return SupvisorsStates.DEPLOYMENT
             self.logger.debug('still waiting for remote supvisors to synchronize')
         else:
-            self.logger.debug('local address {} still not RUNNING'
-                              .format(self.address))
+            self.logger.debug('local address {} still not RUNNING'.format(self.address))
         return SupvisorsStates.INITIALIZATION
 
     def exit(self):
-        """ When leaving the INITIALIZATION state, the working addresses are
-        defined.
+        """ When leaving the INITIALIZATION state, the working addresses are defined.
         One of them is elected as the MASTER. """
         # force state of missing Supvisors instances
         self.context.end_synchro()
@@ -111,8 +109,7 @@ class InitializationState(AbstractState):
 
 
 class DeploymentState(AbstractState):
-    """ In the DEPLOYMENT state, Supvisors starts automatically the
-    applications having a starting model. """
+    """ In the DEPLOYMENT state, Supvisors starts automatically the applications having a starting model. """
 
     def enter(self):
         """ When entering in the DEPLOYMENT state, define the start and stop sequences.
@@ -138,8 +135,7 @@ class OperationState(AbstractState):
 
     def next(self):
         """ Check that all addresses are still active.
-        Look after possible conflicts due to multiple running instances
-        of the same program. """
+        Look after possible conflicts due to multiple running instances of the same program. """
         # check eventual jobs in progress
         if self.starter.check_starting() and self.stopper.check_stopping():
             # check if master and local are still RUNNING
@@ -157,8 +153,7 @@ class ConciliationState(AbstractState):
     """ In the CONCILIATION state, Supvisors conciliates the conflicts. """
 
     def enter(self):
-        """ When entering in the CONCILIATION state,
-        conciliate automatically the conflicts.
+        """ When entering in the CONCILIATION state, conciliate automatically the conflicts.
         Only the MASTER can conciliate conflicts. """
         if self.context.master:
             conciliate_conflicts(self.supvisors,
@@ -188,8 +183,7 @@ class ConciliationState(AbstractState):
 
 
 class RestartingState(AbstractState):
-    """ In the RESTARTING state, Supvisors stops all applications before
-    triggering a full restart. """
+    """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
 
     def enter(self):
         """ When entering in the RESTARTING state, stop all applications. """
@@ -236,15 +230,13 @@ class ShutdownState(AbstractState):
 
 
 class FiniteStateMachine:
-    """ This class implements a very simple behaviour of FiniteStateMachine
-    based on a single event.
+    """ This class implements a very simple behaviour of FiniteStateMachine based on a single event.
     A state is able to evaluate itself for transitions. """
 
     def __init__(self, supvisors):
         """ Reset the state machine and the associated context """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'failure_handler', 'starter',
-                                   'stopper', 'logger'])
+        supvisors_shortcuts(self, ['context', 'failure_handler', 'starter', 'stopper', 'logger'])
         self.update_instance(SupvisorsStates.INITIALIZATION)
         self.instance.enter()
 
@@ -274,7 +266,7 @@ class FiniteStateMachine:
         self.instance = self.__StateInstances[state](self.supvisors)
         # publish SupvisorsStatus event
         if hasattr(self.supvisors, 'zmq'):
-            self.supvisors.zmq.publisher.send_supvisors_status(self)
+            self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
 
     def on_timer_event(self):
         """ Periodic task used to check if remote Supvisors instances
@@ -282,12 +274,11 @@ class FiniteStateMachine:
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
-        # fix failures if any (can happen after an address has been invalidated,
-        # a process crash or a conciliation request)
+        # fix failures if any (can happen after an address has been invalidated, a process crash
+        # or a conciliation request)
         self.failure_handler.trigger_jobs()
-        # check if new isolating remotes and return the list of
-        # newly isolated addresses
-        # FIXME: create an internal event to confirm that socket has been disonnected ?
+        # check if new isolating remotes and return the list of newly isolated addresses
+        # FIXME: create an internal event to confirm that socket has been disconnected ?
         return self.context.handle_isolation()
 
     def on_tick_event(self, address, when):
@@ -326,13 +317,11 @@ class FiniteStateMachine:
         self.context.on_authorization(address_name, authorized)
 
     def on_restart(self):
-        """ This event is used to transition the state machine
-        to the RESTARTING state. """
+        """ This event is used to transition the state machine to the RESTARTING state. """
         self.set_state(SupvisorsStates.RESTARTING)
 
     def on_shutdown(self):
-        """ This event is used to transition the state machine
-        to the SHUTTING_DOWN state. """
+        """ This event is used to transition the state machine to the SHUTTING_DOWN state. """
         self.set_state(SupvisorsStates.SHUTTING_DOWN)
 
     # serialization

@@ -343,7 +343,7 @@ XmlTest = b'''\
         </pattern>
 
         <pattern name="dummies_01_">
-            <addresses>#</addresses>
+            <addresses>#, 10.0.0.1, 10.0.0.5</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
             <required>false</required>

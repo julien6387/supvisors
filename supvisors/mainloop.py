@@ -23,12 +23,12 @@ import zmq
 from threading import Event, Thread
 from sys import stderr
 
+from supervisor.compat import xmlrpclib
+
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
-from supvisors.utils import (DeferredRequestHeaders,
-                             RemoteCommEvents)
-
+from supvisors.utils import DeferredRequestHeaders, RemoteCommEvents
 
 class SupvisorsMainLoop(Thread):
     """ Class for Supvisors main loop. All inputs are sequenced here.
@@ -89,25 +89,20 @@ class SupvisorsMainLoop(Thread):
 
     def check_events(self, subscriber, socks):
         """ Forward external Supervisor events to main thread. """
-        if subscriber.socket in socks and \
-                socks[subscriber.socket] == zmq.POLLIN:
+        if subscriber.socket in socks and socks[subscriber.socket] == zmq.POLLIN:
             try:
                 message = subscriber.receive()
             except:
                 print('[ERROR] failed to get data from subscriber', file=stderr)
             else:
-                # The events received are not processed directly in this thread
-                # because it would conflict with the processing in the
-                # Supervisor thread, as they use the same data.
-                # That's why a RemoteCommunicationEvent is used to push the
-                # event in the Supervisor thread.
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT,
-                                            json.dumps(message))
+                # The events received are not processed directly in this thread because it would conflict
+                # with the processing in the Supervisor thread, as they use the same data.
+                # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
     def check_requests(self, zmq_sockets, socks):
         """ Defer internal requests. """
-        if zmq_sockets.puller.socket in socks and \
-                socks[zmq_sockets.puller.socket] == zmq.POLLIN:
+        if zmq_sockets.puller.socket in socks and socks[zmq_sockets.puller.socket] == zmq.POLLIN:
             try:
                 header, body = zmq_sockets.puller.receive()
             except:
@@ -144,8 +139,7 @@ class SupvisorsMainLoop(Thread):
             remote_proxy = getRPCInterface(address_name, self.env)
             # check authorization
             status = remote_proxy.supvisors.get_address_info(address_name)
-            authorized = status['statecode'] not in [AddressStates.ISOLATING,
-                                                     AddressStates.ISOLATED]
+            authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
@@ -155,8 +149,7 @@ class SupvisorsMainLoop(Thread):
                                             json.dumps((address_name, all_info)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'address_name:{} authorized:{}'
-                                        .format(address_name, authorized))
+                                        'address_name:{} authorized:{}'.format(address_name, authorized))
         except:
             print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
 

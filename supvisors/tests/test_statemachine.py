@@ -383,20 +383,20 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Create a Supvisors-like structure. """
         self.supvisors = MockedSupvisors()
 
-    def test_creation(self):
+    @patch('supvisors.statemachine.InitializationState.enter')
+    def test_creation(self, mocked_enter):
         """ Test the values set at construction. """
         from supvisors.statemachine import InitializationState, FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
         # test that the INITIALIZATION state is triggered at creation
-        with patch('supvisors.statemachine.InitializationState.enter') as mocked_enter:
-            with patch.object(self.supvisors.zmq.publisher, 'send_supvisors_status') as mocked_publisher:
-                fsm = FiniteStateMachine(self.supvisors)
-                self.assertIs(self.supvisors, fsm.supvisors)
-                self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
-                self.assertIsInstance(fsm.instance, InitializationState)
-                self.assertEqual(1, mocked_enter.call_count)
-                self.assertEqual(1, mocked_publisher.call_count)
-                self.assertEqual(call(fsm), mocked_publisher.call_args)
+        mocked_publisher = self.supvisors.zmq.publisher.send_supvisors_status
+        fsm = FiniteStateMachine(self.supvisors)
+        self.assertIs(self.supvisors, fsm.supvisors)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
+        self.assertIsInstance(fsm.instance, InitializationState)
+        self.assertEqual(1, mocked_enter.call_count)
+        self.assertEqual(1, mocked_publisher.call_count)
+        self.assertEqual(call({'statecode': 0, 'statename': 'INITIALIZATION'}), mocked_publisher.call_args)
 
     def test_state_string(self):
         """ Test the string conversion of state machine. """
