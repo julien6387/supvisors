@@ -1,4 +1,6 @@
 # **Supvisors**
+[![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
+
 
 **Supvisors** is a Control System for Distributed Applications, based on
 multiple instances of Supervisor.
@@ -33,8 +35,6 @@ It will likely work fine on most UNIX systems.
 
 **Supvisors** 0.1 (available on PyPi) works with Python 2.7 (and former versions of Supervisor, i.e. 3.3.0)
 but is not maintained anymore.
-
-[![Build Status](https://travis-ci.org/julien6387/supvisors.svg?branch=master)](https://travis-ci.org/julien6387/supvisors)
 
 ## Dependencies
 
@@ -73,8 +73,6 @@ Supvisors can be installed with `pip install`:
 
 You can view the current **Supvisors** documentation [here](http://supvisors.readthedocs.io).
 
-[![Documentation Status](https://readthedocs.org/projects/supvisors/badge/?version=master)](https://supvisors.readthedocs.io/en/master/?badge=master)
-
 You will find detailed installation and configuration documentation.
 
 ## Reporting Bugs and Viewing the Source Repository
@@ -86,3 +84,13 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 ## Contributing
 
 Not opened yet.
+
+
+[ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master
+[ci-url]: https://travis-ci.org/julien6387/supvisors
+
+[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=dev-0.5
+[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=dev-0.5
+
+[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
+[docs-url]: https://supvisors.readthedocs.io/en/master/?badge=master
