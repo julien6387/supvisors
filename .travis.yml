@@ -5,12 +5,13 @@ matrix:
         - python: 3.6
           env: TOXENV=py36
           after_success:
+            - pip install coveralls
             - coveralls
         - python: 3.6
           env: TOXENV=docs
 
 install:
-    - travis_retry pip install tox
+    - pip install tox tox-travis
 
 script:
-    - travis_retry tox
+    - tox
