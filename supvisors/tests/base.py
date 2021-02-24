@@ -163,7 +163,7 @@ class DummyServerOptions:
         self.mood = 'mood'
         self.nodaemon = True
         self.silent = False
-        self.logger = Mock(spec=Logger)
+        self.logger = Mock(handlers=[Mock()])
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]

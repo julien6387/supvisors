@@ -47,9 +47,7 @@ class ProcessRules(object):
 
         :param supvisors: the global Supvisors structure.
         """
-        # TODO: think about adding a period for tasks
-        # period should be greater than startsecs
-        # autorestart should be False
+        # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
         # keep a reference to the Supvisors data
         self.supvisors = supvisors
         supvisors_shortcuts(self, ['info_source', 'logger'])

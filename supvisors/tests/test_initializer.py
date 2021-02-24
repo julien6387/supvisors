@@ -77,8 +77,7 @@ class InitializerTest(unittest.TestCase):
         from supvisors.initializer import Supvisors
         # create mocked supvisors options
         mocked_options = Mock(supvisors_options=DummyOptions())
-        with patch('supvisors.initializer.SupvisorsServerOptions',
-                   return_value=mocked_options):
+        with patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_options):
             # create Supvisors instance
             supervisord = DummySupervisor()
             supvisors = Supvisors(supervisord)
@@ -86,7 +85,7 @@ class InitializerTest(unittest.TestCase):
             mocked_options.supvisors_options.logfile = Automatic
             self.assertIs(supervisord.options.logger, supvisors.create_logger(supervisord))
             # for the following, supervisord must be silent because of logger
-            # for unknown reason test_initalizer got this exception
+            # for unknown reason test_initializer got this exception
             # ValueError: I/O operation on closed file
             supervisord.options.silent = True
             # test defined logfile

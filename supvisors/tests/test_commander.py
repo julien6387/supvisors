@@ -666,8 +666,8 @@ class StarterTest(CompatTestCase):
             jobs = []
             # call the process_jobs
             self.starter.process_job(command, jobs)
-            # starting methods are not called
-            self.assertListEqual([], jobs)
+            # starting methods are not called but job is in list though
+            self.assertListEqual([command], jobs)
             self.assertEqual(0, mocked_pusher.call_count)
             # failure method is called
             self.assertEqual([call('sample_test_1:xlogo', 'no resource available')],

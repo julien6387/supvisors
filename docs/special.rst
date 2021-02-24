@@ -194,6 +194,11 @@ When applying the ``LOCAL`` strategy, **Supvisors** chooses the local node provi
 A typical use case is to start an HCI application on a given workstation, while other applications / services may be distributed
 over other nodes.
 
+.. attention::
+
+    A consequence of choosing the ``LOCAL`` strategy as the default ``starting_strategy`` in the :ref:`supvisors_section`
+    is that no process will be started on other node than the Master node.
+
 
 Starting a process
 ~~~~~~~~~~~~~~~~~~
