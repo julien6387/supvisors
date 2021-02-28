@@ -1,7 +1,7 @@
 0.5 (2021-02-xx)
 ----------------
 
-* New option in the supvisors section to force the end of the synchro phase when a subset of nodes are active
+* New option 'force_synchro_if' to force the end of the synchronization phase when a subset of nodes are active
 
 * New LOCAL starting strategy added to command the starting of an application on the local node only
 
@@ -22,6 +22,8 @@
 * The layout of Web UI statistics sections has been rearranged
 
 * Fixed CSS style missing for CHECKING node state in tables
+
+* Star added to the node box of the Master instance on the main page
 
 * Type annotations are added progressively in source code
 
