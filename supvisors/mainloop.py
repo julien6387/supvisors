@@ -159,8 +159,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
-            print('[ERROR] failed to start process {} on {} with {}'.format(namespec, address_name, extra_args),
-                  file=stderr)
+            print('[ERROR] failed to start process {} on {} with extra_args="{}"'
+                  .format(namespec, address_name, extra_args), file=stderr)
 
     def stop_process(self, address_name, namespec):
         """ Stop process asynchronously. """

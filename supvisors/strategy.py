@@ -196,12 +196,10 @@ class StopStrategy(AbstractStrategy):
 
 
 class RestartStrategy(AbstractStrategy):
-    """ Strategy designed to stop all conflicting processes
-    and to restart a single instance. """
+    """ Strategy designed to stop all conflicting processes and to restart a single instance. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by notifying the failure handler
-        to restart the process. """
+        """ Conciliate the conflicts by notifying the failure handler to restart the process. """
         # add all processes to be restarted to the failure handler,
         # as it is in its design to restart a process
         for process in conflicts:
@@ -214,16 +212,16 @@ class RestartStrategy(AbstractStrategy):
 
 
 class FailureStrategy(AbstractStrategy):
-    """ Strategy designed to stop all conflicting processes and
-    to apply the running failure strategy related to the process. """
+    """ Strategy designed to stop all conflicting processes and to apply the running failure strategy
+    related to the process. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by notifying the failure handler
-        to apply the running failure strategy related to the process. """
+        """ Conciliate the conflicts by notifying the failure handler to apply the running failure strategy
+        related to the process. """
         # stop all processes and add them to the failure handler
         for process in conflicts:
             self.supvisors.stopper.stop_process(process)
-            self.logger.warn('failure conciliation: {}'.format(process.namespec()))
+            self.logger.warn('FailureStrategy.conciliate: failure conciliation: {}'.format(process.namespec()))
             self.supvisors.failure_handler.add_default_job(process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -252,19 +250,14 @@ class RunningFailureHandler(AbstractStrategy):
     """ Handler of running failures.
     The strategies are linked to the RunningFailureStrategies enumeration.
 
-    Any Supvisors instance may hold application processes with different
-    running failure strategies.
-    If the Supvisors instance becomes inactive, as seen from another Supvisors
-    instance, it could lead to have all possible strategies to apply on the
-    same application and related processes, which makes no sense.
+    Any Supvisors instance may hold application processes with different running failure strategies.
+    If the Supvisors instance becomes inactive, as seen from another Supvisors instance, it could lead
+    to have all possible strategies to apply on the same application and related processes, which makes no sense.
 
     So it has been chosen to give a priority to the strategies.
-    The highest priority is for the most restricting strategy, consisting in
-    stopping the application.
-    Then, the priority goes to the strategy having the highest impact, i.e.
-    restarting the application.
-    The lowest priority is for the most simple strategy consisting in restarting
-    only the involved process.
+    The highest priority is for the most restricting strategy, consisting in stopping the application.
+    Then, the priority goes to the strategy having the highest impact, i.e. restarting the application.
+    The lowest priority is for the most simple strategy consisting in restarting only the involved process.
 
     Attributes are:
 
@@ -303,24 +296,19 @@ class RunningFailureHandler(AbstractStrategy):
         application_name = process.application_name
         if strategy == RunningFailureStrategies.STOP_APPLICATION:
             self.stop_application_jobs.add(application_name)
-            self.restart_application_jobs = set(filter(
-                lambda x: x != application_name,
-                self.restart_application_jobs))
-            self.restart_process_jobs = set(filter(
-                lambda x: x.application_name != application_name,
-                self.restart_process_jobs))
-            self.continue_process_jobs = set(filter(
-                lambda x: x.application_name != application_name,
-                self.continue_process_jobs))
+            self.restart_application_jobs = set(filter(lambda x: x != application_name,
+                                                       self.restart_application_jobs))
+            self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
+                                                   self.restart_process_jobs))
+            self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
+                                                    self.continue_process_jobs))
         elif strategy == RunningFailureStrategies.RESTART_APPLICATION:
             if application_name not in self.stop_application_jobs:
                 self.restart_application_jobs.add(application_name)
-                self.restart_process_jobs = set(filter(
-                    lambda x: x.application_name != application_name,
-                    self.restart_process_jobs))
-                self.continue_process_jobs = set(filter(
-                    lambda x: x.application_name != application_name,
-                    self.continue_process_jobs))
+                self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
+                                                       self.restart_process_jobs))
+                self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
+                                                        self.continue_process_jobs))
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
             if application_name not in self.stop_application_jobs and \
                     application_name not in self.restart_application_jobs:
@@ -338,19 +326,20 @@ class RunningFailureHandler(AbstractStrategy):
         self.add_job(process.rules.running_failure_strategy, process)
 
     def trigger_jobs(self):
-        """ Trigger the configured strategy when a process of a running
-        application crashes. """
+        """ Trigger the configured strategy when a process of a running application crashes. """
         # consider applications to stop
         if self.stop_application_jobs:
             for application_name in self.stop_application_jobs:
-                self.logger.warn('stop application {}'.format(application_name))
+                self.logger.warn('RunningFailureHandler.trigger_jobs: stop application {}'
+                                 .format(application_name))
                 application = self.context.applications[application_name]
                 self.stopper.stop_application(application)
             self.stop_application_jobs = set()
         # consider applications to restart
         if self.restart_application_jobs:
             for application_name in self.restart_application_jobs:
-                self.logger.warn('restart application {}'.format(application_name))
+                self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'
+                                 .format(application_name))
                 application = self.context.applications[application_name]
                 self.stopper.stop_application(application)
                 # defer the application starting
@@ -359,7 +348,8 @@ class RunningFailureHandler(AbstractStrategy):
         # consider processes to restart
         if self.restart_process_jobs:
             for process in self.restart_process_jobs:
-                self.logger.warn('restart process {}'.format(process.namespec()))
+                self.logger.warn('RunningFailureHandler.trigger_jobs: restart process {}'
+                                 .format(process.namespec()))
                 self.stopper.stop_process(process)
                 # defer the process starting
                 self.start_process_jobs.add(process)
@@ -368,21 +358,21 @@ class RunningFailureHandler(AbstractStrategy):
         if self.start_application_jobs:
             for application in self.start_application_jobs.copy():
                 if application.stopped():
-                    self.logger.debug('start application {}'.format(
-                        application.application_name))
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: start application {}'
+                                      .format(application.application_name))
                     self.starter.default_start_application(application)
                     self.start_application_jobs.remove(application)
         # consider processes to start
         if self.start_process_jobs:
             for process in self.start_process_jobs.copy():
                 if process.stopped():
-                    self.logger.warn('restart process {}'.format(
-                        process.namespec()))
+                    self.logger.warn('RunningFailureHandler.trigger_jobs: start process {}'
+                                     .format(process.namespec()))
                     self.starter.default_start_process(process)
                     self.start_process_jobs.remove(process)
         # log only the continuation jobs
         if self.continue_process_jobs:
             for process in self.continue_process_jobs:
-                self.logger.info('continue despite of crashed process {}'.format(
-                    process.namespec()))
+                self.logger.info('RunningFailureHandler.trigger_jobs: continue despite of crashed process {}'
+                                 .format(process.namespec()))
             self.continue_process_jobs = set()

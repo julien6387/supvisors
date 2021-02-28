@@ -63,41 +63,58 @@ class ProcessCommandTest(CompatTestCase):
                          'strategy=0 request_time=4321 ignore_wait_exit=True '
                          'extra_args="-s test args"', str(command))
 
-    def test_timeout(self):
-        """ Test the timeout method. """
+    def test_timed_out(self):
+        """ Test the timed_out method. """
         from supvisors.commander import ProcessCommand
         command = ProcessCommand(Mock(last_event_time=100))
         command.request_time = 95
-        self.assertFalse(command.timeout(102))
+        self.assertFalse(command.timed_out(102))
         command.request_time = 101
-        self.assertFalse(command.timeout(102))
-        self.assertTrue(command.timeout(107))
+        self.assertFalse(command.timed_out(102))
+        self.assertTrue(command.timed_out(107))
         command.request_time = 99
-        self.assertTrue(command.timeout(106))
+        self.assertTrue(command.timed_out(106))
 
 
-def _create_process_command(group, name, supvisors):
-    """ Create a ProcessCommand from process info. """
-    from supvisors.commander import ProcessCommand
-    from supvisors.process import ProcessStatus
-    process = ProcessStatus(group, name, supvisors)
-    return ProcessCommand(process)
+class CommanderContextTest(CompatTestCase):
+
+    def setUp(self):
+        """ Create a Supvisors-like structure and test processes. """
+        self.supvisors = MockedSupvisors()
+        # store list for tests
+        self.command_list = []
+        for info in database_copy():
+            command = self._create_process_command(info['group'], info['name'])
+            command.process.add_info('10.0.0.1', info)
+            self.command_list.append(command)
+
+    def _create_process_command(self, group, name):
+        """ Create a ProcessCommand from process info. """
+        from supvisors.commander import ProcessCommand
+        from supvisors.process import ProcessStatus
+        process = ProcessStatus(group, name, self.supvisors)
+        return ProcessCommand(process)
+
+    def _get_test_command(self, process_name):
+        """ Return the first process corresponding to process_name. """
+        return next(command for command in self.command_list
+                    if command.process.process_name == process_name)
 
 
-class CommanderTest(CompatTestCase):
+class CommanderTest(CommanderContextTest):
     """ Test case for the Commander class of the commander module. """
 
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
+        CommanderContextTest.setUp(self)
         # create the instance to test
         from supvisors.commander import Commander
-        self.supvisors = MockedSupvisors()
         self.commander = Commander(self.supvisors)
         # store lists for tests
-        self.command_list_1 = [_create_process_command('appli_A', 'dummy_A1', self.supvisors),
-                               _create_process_command('appli_A', 'dummy_A2', self.supvisors),
-                               _create_process_command('appli_A', 'dummy_A3', self.supvisors)]
-        self.command_list_2 = [_create_process_command('appli_B', 'dummy_B1', self.supvisors)]
+        self.command_list_1 = [self._create_process_command('appli_A', 'dummy_A1'),
+                               self._create_process_command('appli_A', 'dummy_A2'),
+                               self._create_process_command('appli_A', 'dummy_A3')]
+        self.command_list_2 = [self._create_process_command('appli_B', 'dummy_B1')]
 
     def test_creation(self):
         """ Test the values set at construction. """
@@ -251,11 +268,11 @@ class CommanderTest(CompatTestCase):
         self.assertDictEqual({'then': {}, 'else': {}}, self.commander.planned_jobs)
         self.assertDictEqual({'then': []}, self.commander.current_jobs)
 
-    def test_initial_jobs(self):
-        """ Test the initial_jobs method. """
+    def test_trigger_jobs(self):
+        """ Test the trigger_jobs method. """
         # test with empty structure
         self.commander.planned_sequence = {}
-        self.commander.initial_jobs()
+        self.commander.trigger_jobs()
         self.assertDictEqual({}, self.commander.planned_jobs)
         # test with complex structure
         self.commander.planned_sequence = {0: {'if': {2: [], 0: self.command_list_1},
@@ -267,7 +284,7 @@ class CommanderTest(CompatTestCase):
             args[1].append(args[0])
 
         with patch.object(self.commander, 'process_job', side_effect=fill_jobs) as mocked_job:
-            self.commander.initial_jobs()
+            self.commander.trigger_jobs()
             # test impact on internal attributes
             self.assertDictEqual({3: {'else': {}}}, self.commander.planned_sequence)
             self.assertDictEqual({'if': {2: []}}, self.commander.planned_jobs)
@@ -275,26 +292,157 @@ class CommanderTest(CompatTestCase):
                                  self.commander.current_jobs)
             self.assertEqual(4, mocked_job.call_count)
 
+    @patch('supvisors.commander.Commander.trigger_jobs')
+    @patch('supvisors.commander.Commander.force_process_state')
+    @patch('supvisors.commander.Commander.after_event')
+    def test_check_progress(self, mocked_after: Mock, mocked_force: Mock, mocked_trigger: Mock):
+        """ Test the check_progress method. """
+        from supvisors.ttypes import ProcessStates
+        # test with no sequence in progress
+        self.assertTrue(self.commander.check_progress('stopped', ProcessStates.FATAL))
+        # test with no current jobs but planned sequence and no planned jobs
+        self.commander.planned_sequence = {3: {'else': {}}}
+        self.assertFalse(self.commander.check_progress('stopped', ProcessStates.FATAL))
+        self.assertEqual([call()], mocked_trigger.call_args_list)
+        mocked_trigger.reset_mock()
+        # test with no current jobs but planned sequence and planned jobs (unexpected case)
+        self.commander.planned_jobs = {'if': {2: []}}
+        self.assertFalse(self.commander.check_progress('stopped', ProcessStates.FATAL))
+        self.assertFalse(mocked_trigger.called)
+        # set test current_jobs
+        # xfontsel is RUNNING, xlogo is STOPPED, yeux_00 is EXITED, yeux_01 is RUNNING
+        self.commander.current_jobs = {'sample_test_1': [self._get_test_command('xfontsel'),
+                                                         self._get_test_command('xlogo')],
+                                       'sample_test_2': [self._get_test_command('yeux_00'),
+                                                         self._get_test_command('yeux_01')]}
+        # assign request_time to processes in current_jobs
+        for command_list in self.commander.current_jobs.values():
+            for command in command_list:
+                command.request_time = time.time()
+        # stopped processes have a recent request time: nothing done
+        completed = self.commander.check_progress('stopped', ProcessStates.FATAL)
+        self.assertFalse(completed)
+        self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
+                              'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']},
+                             self.commander.printable_current_jobs())
+        self.assertFalse(mocked_force.called)
+        self.assertFalse(mocked_after.called)
+        self.assertFalse(mocked_trigger.called)
+        # re-assign last_event_time and request_time to processes in current_jobs
+        for command_list in self.commander.current_jobs.values():
+            for command in command_list:
+                command.process.last_event_time = 0
+                command.request_time = 0
+        # stopped processes have an old request time: actions taken on state and sequence
+        completed = self.commander.check_progress('stopped', ProcessStates.FATAL)
+        self.assertFalse(completed)
+        self.assertEqual({'sample_test_1': ['sample_test_1:xfontsel'], 'sample_test_2': ['sample_test_2:yeux_01']},
+                         self.commander.printable_current_jobs())
+        reason = 'Still stopped 5 seconds after request'
+        self.assertEqual([call('sample_test_1:xlogo', ProcessStates.FATAL, reason),
+                          call('sample_test_2:yeux_00', ProcessStates.FATAL, reason)],
+                         mocked_force.call_args_list)
+        self.assertFalse(mocked_after.called)
+        self.assertFalse(mocked_trigger.called)
+        # reset mocks
+        mocked_force.reset_mock()
+        # re-assign request_time to processes in remaining current_jobs
+        for command_list in self.commander.current_jobs.values():
+            for command in command_list:
+                command.request_time = time.time()
+        # stopped processes have a recent request time: nothing done
+        completed = self.commander.check_progress('running', ProcessStates.UNKNOWN)
+        self.assertFalse(completed)
+        self.assertEqual({'sample_test_1': ['sample_test_1:xfontsel'], 'sample_test_2': ['sample_test_2:yeux_01']},
+                         self.commander.printable_current_jobs())
+        self.assertFalse(mocked_force.called)
+        self.assertFalse(mocked_after.called)
+        self.assertFalse(mocked_trigger.called)
+        # re-assign last_event_time and request_time to processes in current_jobs
+        for command_list in self.commander.current_jobs.values():
+            for command in command_list:
+                command.process.last_event_time = 0
+                command.request_time = 0
+        # stopped processes have an old request time: actions taken on state and sequence
+        completed = self.commander.check_progress('running', ProcessStates.UNKNOWN)
+        self.assertFalse(completed)
+        self.assertEqual({'sample_test_1': [], 'sample_test_2': []},
+                         self.commander.printable_current_jobs())
+        reason = 'Still running 5 seconds after request'
+        self.assertEqual([call('sample_test_1:xfontsel', ProcessStates.UNKNOWN, reason),
+                          call('sample_test_2:yeux_01', ProcessStates.UNKNOWN, reason)],
+                         mocked_force.call_args_list)
+        self.assertEqual([call('sample_test_1'), call('sample_test_2')], mocked_after.call_args_list)
+        self.assertFalse(mocked_trigger.called)
 
-class StarterTest(CompatTestCase):
+    @patch('supvisors.infosource.SupervisordSource.force_process_fatal')
+    @patch('supvisors.listener.SupervisorListener.force_process_fatal')
+    def test_force_process_fatal(self, mocked_listener, mocked_source):
+        """ Test the force_process_state method with a FATAL parameter. """
+        from supvisors.ttypes import ProcessStates
+        # test with FATAL and no info_source KeyError
+        self.commander.force_process_state('proc', ProcessStates.FATAL, 'any reason')
+        self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
+        self.assertFalse(mocked_listener.called)
+        mocked_source.reset_mock()
+        # test with FATAL and info_source KeyError
+        mocked_source.side_effect = KeyError
+        self.commander.force_process_state('proc', ProcessStates.FATAL, 'any reason')
+        self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
+        self.assertEqual([call(self.supvisors.listener, 'proc')], mocked_listener.call_args_list)
+
+    @patch('supvisors.infosource.SupervisordSource.force_process_unknown')
+    @patch('supvisors.listener.SupervisorListener.force_process_unknown')
+    def test_force_process_unknown(self, mocked_listener, mocked_source):
+        """ Test the force_process_state method with an UNKNOWN parameter. """
+        from supvisors.ttypes import ProcessStates
+        # test with UNKNOWN and no info_source KeyError
+        self.commander.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
+        self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
+        self.assertFalse(mocked_listener.called)
+        mocked_source.reset_mock()
+        # test with UNKNOWN and info_source KeyError
+        mocked_source.side_effect = KeyError
+        self.commander.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
+        self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
+        self.assertEqual([call(self.supvisors.listener, 'proc')], mocked_listener.call_args_list)
+
+    @patch('supvisors.commander.Commander.process_application_jobs')
+    @patch('supvisors.commander.Commander.trigger_jobs')
+    def test_after_event(self, mocked_trigger: Mock, mocked_process: Mock):
+        """ Test the after_event method. """
+        # prepare some context
+        self.commander.planned_jobs = {'if': {2: []}}
+        self.commander.current_jobs = {'if': [], 'then': [], 'else': []}
+        # test after_event when there are still planned jobs for application
+        self.commander.after_event('if')
+        self.assertNotIn('if', self.commander.current_jobs)
+        self.assertEqual([call('if')], mocked_process.call_args_list)
+        self.assertFalse(mocked_trigger.called)
+        # reset mocks
+        mocked_process.reset_mock()
+        # test after_event when there's no more planned jobs for this application
+        self.commander.after_event('then')
+        self.assertNotIn('then', self.commander.current_jobs)
+        self.assertFalse(mocked_process.called)
+        self.assertFalse(mocked_trigger.called)
+        # test after_event when there's no more planned jobs at all
+        self.commander.planned_jobs = {}
+        self.commander.after_event('else')
+        self.assertNotIn('else', self.commander.current_jobs)
+        self.assertFalse(mocked_process.called)
+        self.assertFalse(mocked_process.called)
+        self.assertEqual([call()], mocked_trigger.call_args_list)
+
+
+class StarterTest(CommanderContextTest):
     """ Test case for the Starter class of the commander module. """
 
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
+        CommanderContextTest.setUp(self)
         from supvisors.commander import Starter
-        self.supvisors = MockedSupvisors()
         self.starter = Starter(self.supvisors)
-        # store list for tests
-        self.command_list = []
-        for info in database_copy():
-            command = _create_process_command(info['group'], info['name'], self.supvisors)
-            command.process.add_info('10.0.0.1', info)
-            self.command_list.append(command)
-
-    def _get_test_command(self, process_name):
-        """ Return the process in database corresponding to process_name. """
-        return next(command for command in self.command_list
-                    if command.process.process_name == process_name)
 
     def test_creation(self):
         """ Test the values set at construction. """
@@ -303,7 +451,7 @@ class StarterTest(CompatTestCase):
 
     def test_abort(self):
         """ Test the abort method. """
-        # fill attributes
+        # prepare some context
         self.starter.planned_sequence = {3: {'else': {}}}
         self.starter.planned_jobs = {'if': {2: []}}
         self.starter.current_jobs = {'if': ['dummy_1', 'dummy_2'], 'then': ['dummy_3']}
@@ -401,21 +549,12 @@ class StarterTest(CompatTestCase):
         self.assertDictEqual({'appli_2': {1: ['proc_2']}}, self.starter.planned_jobs)
         self.assertEqual([call(application)], mocked_stopper.call_args_list)
 
-    def test_force_process_fatal(self):
-        """ Test the force_process_fatal method. """
-        # get patches
-        mocked_listener = self.supvisors.listener.force_process_fatal
-        mocked_source = self.supvisors.info_source.force_process_fatal
-        # test with no info_source exception
-        self.starter.force_process_fatal('proc', 'any reason')
-        self.assertEqual([call('proc', 'any reason')], mocked_source.call_args_list)
-        self.assertEqual(0, mocked_listener.call_count)
-        mocked_source.reset_mock()
-        # test with info_source exception
-        mocked_source.side_effect = KeyError
-        self.starter.force_process_fatal('proc', 'any reason')
-        self.assertEqual([call('proc', 'any reason')], mocked_source.call_args_list)
-        self.assertEqual([call('proc')], mocked_listener.call_args_list)
+    @patch('supvisors.commander.Commander.check_progress', return_value=True)
+    def test_check_starting(self, mocked_check: Mock):
+        """ Test the check_starting method. """
+        from supvisors.ttypes import ProcessStates
+        self.assertTrue(self.starter.check_starting())
+        self.assertEqual([call('stopped', ProcessStates.FATAL)], mocked_check.call_args_list)
 
     def test_on_event(self):
         """ Test the on_event method. """
@@ -447,12 +586,13 @@ class StarterTest(CompatTestCase):
                 self.assertEqual(0, mocked_out.call_count)
                 self.assertEqual([(call(command, jobs))], mocked_in.call_args_list)
 
-    def test_on_event_in_sequence(self):
+    @patch('supvisors.commander.Starter.process_failure')
+    @patch('supvisors.commander.Commander.after_event')
+    def test_on_event_in_sequence(self, mocked_after: Mock, mocked_failure: Mock):
         """ Test the on_event_in_sequence method. """
         from supvisors.application import ApplicationStatus
         from supvisors.ttypes import StartingFailureStrategies
-        # set test planned_jobs and current_jobs
-        self.starter.planned_jobs = {'sample_test_1': {}}
+        # set context for current_jobs
         for command in self.command_list:
             self.starter.current_jobs.setdefault(command.process.application_name, []).append(command)
         # add application context
@@ -462,95 +602,97 @@ class StarterTest(CompatTestCase):
         application = ApplicationStatus('sample_test_2', self.supvisors.logger)
         application.rules.starting_failure_strategy = StartingFailureStrategies.ABORT
         self.supvisors.context.applications['sample_test_2'] = application
-        # add patches to simplify test
-        with patch.object(self.starter, 'process_application_jobs') as mocked_process_jobs:
-            with patch.object(self.starter, 'initial_jobs') as mocked_init_jobs:
-                # with sample_test_1 application
-                # test STOPPED process
-                command = self._get_test_command('xlogo')
-                jobs = self.starter.current_jobs['sample_test_1']
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertFalse(command.ignore_wait_exit)
-                self.assertNotIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # test STOPPING process: xclock
-                command = self._get_test_command('xclock')
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertFalse(command.ignore_wait_exit)
-                self.assertNotIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # test RUNNING process: xfontsel (last process of this application)
-                command = self._get_test_command('xfontsel')
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertFalse(command.ignore_wait_exit)
-                self.assertNotIn('sample_test_1', self.starter.current_jobs)
-                self.assertEqual(1, mocked_process_jobs.call_count)
-                self.assertEqual(call('sample_test_1'), mocked_process_jobs.call_args)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # reset resources
-                mocked_process_jobs.reset_mock()
-                # with sample_test_2 application
-                # test RUNNING process: yeux_01
-                command = self._get_test_command('yeux_01')
-                jobs = self.starter.current_jobs['sample_test_2']
-                command.process.rules.wait_exit = True
-                command.ignore_wait_exit = True
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertNotIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # test EXITED / expected process: yeux_00
-                command = self._get_test_command('yeux_00')
-                command.process.rules.wait_exit = True
-                command.process.expected_exit = True
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertNotIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # test FATAL process: sleep (last process of this application)
-                command = self._get_test_command('sleep')
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertFalse(command.ignore_wait_exit)
-                self.assertNotIn('sample_test_2', self.starter.current_jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # with crash application
-                # test STARTING process: late_segv
-                command = self._get_test_command('late_segv')
-                jobs = self.starter.current_jobs['crash']
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # test BACKOFF process: segv (last process of this application)
-                command = self._get_test_command('segv')
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertIn(command, jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(0, mocked_init_jobs.call_count)
-                # with firefox application
-                # empty planned_jobs to trigger another behaviour
-                self.starter.planned_jobs = {}
-                # test EXITED / unexpected process: firefox
-                command = self._get_test_command('firefox')
-                jobs = self.starter.current_jobs['firefox']
-                command.process.rules.wait_exit = True
-                command.process.expected_exit = False
-                self.assertIn(command, jobs)
-                self.starter.on_event_in_sequence(command, jobs)
-                self.assertNotIn('firefox', self.starter.current_jobs)
-                self.assertEqual(0, mocked_process_jobs.call_count)
-                self.assertEqual(1, mocked_init_jobs.call_count)
+        # with sample_test_1 application
+        # test STOPPED process
+        command = self._get_test_command('xlogo')
+        jobs = self.starter.current_jobs['sample_test_1']
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertFalse(command.ignore_wait_exit)
+        self.assertNotIn(command, jobs)
+        self.assertEqual([call(command.process)], mocked_failure.call_args_list)
+        self.assertFalse(mocked_after.called)
+        # reset mocks
+        mocked_failure.reset_mock()
+        # test STOPPING process: xclock
+        command = self._get_test_command('xclock')
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertFalse(command.ignore_wait_exit)
+        self.assertNotIn(command, jobs)
+        self.assertEqual([call(command.process)], mocked_failure.call_args_list)
+        self.assertFalse(mocked_after.called)
+        # reset mocks
+        mocked_failure.reset_mock()
+        # test RUNNING process: xfontsel (last process of this application)
+        command = self._get_test_command('xfontsel')
+        self.assertIn(command, jobs)
+        self.assertFalse(command.process.rules.wait_exit)
+        self.assertFalse(command.ignore_wait_exit)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertNotIn(command, jobs)
+        self.assertFalse(mocked_failure.called)
+        self.assertEqual([call('sample_test_1')], mocked_after.call_args_list)
+        # reset mocks
+        mocked_after.reset_mock()
+        # with sample_test_2 application
+        # test RUNNING process: yeux_01
+        command = self._get_test_command('yeux_01')
+        jobs = self.starter.current_jobs['sample_test_2']
+        command.process.rules.wait_exit = True
+        command.ignore_wait_exit = True
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertNotIn(command, jobs)
+        self.assertFalse(mocked_failure.called)
+        self.assertFalse(mocked_after.called)
+        # test EXITED / expected process: yeux_00
+        command = self._get_test_command('yeux_00')
+        command.process.rules.wait_exit = True
+        command.process.expected_exit = True
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertNotIn(command, jobs)
+        self.assertFalse(mocked_failure.called)
+        self.assertFalse(mocked_after.called)
+        # test FATAL process: sleep (last process of this application)
+        command = self._get_test_command('sleep')
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertFalse(command.ignore_wait_exit)
+        self.assertNotIn(command, jobs)
+        self.assertEqual([call(command.process)], mocked_failure.call_args_list)
+        self.assertEqual([call('sample_test_2')], mocked_after.call_args_list)
+        # reset mocks
+        mocked_failure.reset_mock()
+        mocked_after.reset_mock()
+        # with crash application
+        # test STARTING process: late_segv
+        command = self._get_test_command('late_segv')
+        jobs = self.starter.current_jobs['crash']
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertIn(command, jobs)
+        self.assertFalse(mocked_failure.called)
+        self.assertFalse(mocked_after.called)
+        # test BACKOFF process: segv (last process of this application)
+        command = self._get_test_command('segv')
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertIn(command, jobs)
+        self.assertFalse(mocked_failure.called)
+        self.assertFalse(mocked_after.called)
+        # with firefox application
+        # test EXITED / unexpected process: firefox
+        command = self._get_test_command('firefox')
+        jobs = self.starter.current_jobs['firefox']
+        command.process.rules.wait_exit = True
+        command.process.expected_exit = False
+        self.assertIn(command, jobs)
+        self.starter.on_event_in_sequence(command, jobs)
+        self.assertIn('firefox', self.starter.current_jobs)
+        self.assertEqual([call(command.process)], mocked_failure.call_args_list)
+        self.assertEqual([call('firefox')], mocked_after.call_args_list)
 
     def test_on_event_out_of_sequence(self):
         """ Test how failure are raised in on_event_out_of_sequence method. """
@@ -585,93 +727,55 @@ class StarterTest(CompatTestCase):
             self.starter.on_event_out_of_sequence(command.process)
             self.assertEqual(0, mocked_failure.call_count)
 
-    def test_check_starting(self):
-        """ Test the check_starting method. """
-        # test with no jobs
-        completed = self.starter.check_starting()
-        self.assertTrue(completed)
-        # set test current_jobs
-        # xfontsel is RUNNING, xlogo is STOPPED, yeux_00 is EXITED, yeux_01 is RUNNING
-        self.starter.current_jobs = {'sample_test_1': [self._get_test_command('xfontsel'),
-                                                       self._get_test_command('xlogo')],
-                                     'sample_test_2': [self._get_test_command('yeux_00'),
-                                                       self._get_test_command('yeux_01')]}
-        # assign request_time to processes in current_jobs
-        for command_list in self.starter.current_jobs.values():
-            for command in command_list:
-                command.process.request_time = time.time()
-        # stopped processes have a recent request time: nothing done
-        with patch.object(self.starter, 'force_process_fatal') as mocked_force:
-            completed = self.starter.check_starting()
-            self.assertFalse(completed)
-            self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                                  'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']},
-                                 self.starter.printable_current_jobs())
-            self.assertEqual(0, mocked_force.call_count)
-        # re-assign last_event_time and request_time to processes
-        # in current_jobs
-        for command_list in self.starter.current_jobs.values():
-            for command in command_list:
-                command.process.last_event_time = 0
-                command.request_time = 0
-        # stopped processes have an old request time: process_failure called
-        with patch.object(self.starter, 'force_process_fatal') as mocked_force:
-            completed = self.starter.check_starting()
-            self.assertFalse(completed)
-            self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                                  'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']},
-                                 self.starter.printable_current_jobs())
-            str_error = 'Still stopped 5 seconds after start request'
-            self.assertItemsEqual([call('sample_test_1:xlogo', str_error), call('sample_test_2:yeux_00', str_error)],
-                                  mocked_force.call_args_list)
-
-    @patch('supvisors.commander.Starter.force_process_fatal')
-    def test_process_job(self, mocked_force):
+    @patch('supvisors.commander.Commander.force_process_state')
+    @patch('supvisors.commander.get_address')
+    def test_process_job(self, mocked_address: Mock, mocked_force: Mock):
         """ Test the process_job method. """
+        from supvisors.ttypes import ProcessStates
         # get patches
         mocked_pusher = self.supvisors.zmq.pusher.send_start_process
         # test with a possible starting address
-        with patch('supvisors.commander.get_address', return_value='10.0.0.1') as mocked_address:
-            # 1. test with running process
-            command = self._get_test_command('xfontsel')
-            command.ignore_wait_exit = True
-            jobs = []
-            # call the process_jobs
-            self.starter.process_job(command, jobs)
-            # starting methods are not called
-            self.assertListEqual([], jobs)
-            self.assertEqual(0, mocked_address.call_count)
-            self.assertEqual(0, mocked_pusher.call_count)
-            # failure method is not called
-            self.assertEqual(0, mocked_force.call_count)
-            # 2. test with stopped process
-            command = self._get_test_command('xlogo')
-            command.ignore_wait_exit = True
-            jobs = []
-            # call the process_jobs
-            self.starter.process_job(command, jobs)
-            # starting methods are called
-            self.assertListEqual([command], jobs)
-            self.assertEqual([call(self.supvisors, None, ['*'], 1)], mocked_address.call_args_list)
-            self.assertEqual(1, mocked_pusher.call_count)
-            self.assertEqual(call('10.0.0.1', 'sample_test_1:xlogo', ''), mocked_pusher.call_args)
-            mocked_pusher.reset_mock()
-            # failure method is not called
-            self.assertEqual(0, mocked_force.call_count)
+        mocked_address.return_value = '10.0.0.1'
+        # 1. test with running process
+        command = self._get_test_command('xfontsel')
+        command.ignore_wait_exit = True
+        jobs = []
+        # call the process_jobs
+        self.starter.process_job(command, jobs)
+        # starting methods are not called
+        self.assertListEqual([], jobs)
+        self.assertEqual(0, mocked_address.call_count)
+        self.assertEqual(0, mocked_pusher.call_count)
+        # failure method is not called
+        self.assertEqual(0, mocked_force.call_count)
+        # 2. test with stopped process
+        command = self._get_test_command('xlogo')
+        command.ignore_wait_exit = True
+        jobs = []
+        # call the process_jobs
+        self.starter.process_job(command, jobs)
+        # starting methods are called
+        self.assertListEqual([command], jobs)
+        self.assertEqual([call(self.supvisors, None, ['*'], 1)], mocked_address.call_args_list)
+        self.assertEqual(1, mocked_pusher.call_count)
+        self.assertEqual(call('10.0.0.1', 'sample_test_1:xlogo', ''), mocked_pusher.call_args)
+        mocked_pusher.reset_mock()
+        # failure method is not called
+        self.assertEqual(0, mocked_force.call_count)
         # test with no starting address
-        with patch('supvisors.commander.get_address', return_value=None):
-            # test with stopped process
-            command = self._get_test_command('xlogo')
-            command.ignore_wait_exit = True
-            jobs = []
-            # call the process_jobs
-            self.starter.process_job(command, jobs)
-            # starting methods are not called but job is in list though
-            self.assertListEqual([command], jobs)
-            self.assertEqual(0, mocked_pusher.call_count)
-            # failure method is called
-            self.assertEqual([call('sample_test_1:xlogo', 'no resource available')],
-                             mocked_force.call_args_list)
+        mocked_address.return_value = None
+        # test with stopped process
+        command = self._get_test_command('xlogo')
+        command.ignore_wait_exit = True
+        jobs = []
+        # call the process_jobs
+        self.starter.process_job(command, jobs)
+        # starting methods are not called but job is in list though
+        self.assertListEqual([command], jobs)
+        self.assertEqual(0, mocked_pusher.call_count)
+        # failure method is called
+        self.assertEqual([call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')],
+                         mocked_force.call_args_list)
 
     def test_start_process(self):
         """ Test the start_process method. """
@@ -812,80 +916,34 @@ class StarterTest(CompatTestCase):
             self.assertEqual(call('sample_test_2'), mocked_jobs.call_args)
 
 
-class StopperTest(CompatTestCase):
+class StopperTest(CommanderContextTest):
     """ Test case for the Stopper class of the commander module. """
 
     def setUp(self):
         """ Create a Supvisors-like structure and test processes. """
+        CommanderContextTest.setUp(self)
         from supvisors.commander import Stopper
-        self.supvisors = MockedSupvisors()
         self.stopper = Stopper(self.supvisors)
-        # store list for tests
-        self.command_list = []
-        for info in database_copy():
-            command = _create_process_command(
-                info['group'], info['name'], self.supvisors)
-            command.process.add_info('10.0.0.1', info)
-            self.command_list.append(command)
-
-    def _get_test_command(self, process_name):
-        """ Return the first process corresponding to process_name. """
-        return next(command for command in self.command_list
-                    if command.process.process_name == process_name)
 
     def test_creation(self):
         """ Test the values set at construction. """
         from supvisors.commander import Commander
         self.assertIsInstance(self.stopper, Commander)
 
-    @patch('supvisors.commander.Stopper.force_process_unknown')
-    def test_check_stopping(self, mocked_force):
+    @patch('supvisors.commander.Commander.check_progress', return_value=True)
+    def test_check_stopping(self, mocked_check: Mock):
         """ Test the check_stopping method. """
-        # test with no jobs
-        completed = self.stopper.check_stopping()
-        self.assertTrue(completed)
-        # set test current_jobs
-        # xfontsel is RUNNING, xlogo is STOPPED, yeux_00 is EXITED, yeux_01 is RUNNING
-        self.stopper.current_jobs = {'sample_test_1': [self._get_test_command('xfontsel'),
-                                                       self._get_test_command('xlogo')],
-                                     'sample_test_2': [self._get_test_command('yeux_00'),
-                                                       self._get_test_command('yeux_01')]}
-        # assign request_time to processes in current_jobs
-        for command_list in self.stopper.current_jobs.values():
-            for command in command_list:
-                command.request_time = time.time()
-        # processes have a recent request time: nothing done
-        completed = self.stopper.check_stopping()
-        self.assertFalse(completed)
-        self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                              'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']},
-                             self.stopper.printable_current_jobs())
-        self.assertEqual(0, mocked_force.call_count)
-        # re-assign request_time to processes in current_jobs
-        for command_list in self.stopper.current_jobs.values():
-            for command in command_list:
-                command.process.last_event_time = 0
-                command.request_time = 0
-        # processes have an old request time: process_failure called
-        completed = self.stopper.check_stopping()
-        self.assertFalse(completed)
-        self.assertDictEqual({'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                              'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']},
-                             self.stopper.printable_current_jobs())
-        str_error = 'Still running 5 seconds after stop request'
-        self.assertItemsEqual([call('sample_test_1:xfontsel', str_error),
-                               call('sample_test_2:yeux_01', str_error)],
-                              mocked_force.call_args_list)
+        from supvisors.ttypes import ProcessStates
+        self.assertTrue(self.stopper.check_stopping())
+        self.assertEqual([call('running', ProcessStates.UNKNOWN)], mocked_check.call_args_list)
 
-    @patch('supvisors.commander.Stopper.process_application_jobs')
-    @patch('supvisors.commander.Stopper.initial_jobs')
-    def test_on_event(self, mocked_init, mocked_process):
+    @patch('supvisors.commander.Stopper.after_event')
+    def test_on_event(self, mocked_after: Mock):
         """ Test the on_event method. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
         from supvisors.ttypes import ProcessStates
-        # set test planned_jobs and current_jobs
-        self.stopper.planned_jobs = {'sample_test_2': {}}
+        # set context in current_jobs
         for command in self.command_list:
             self.stopper.current_jobs.setdefault(command.process.application_name, []).append(command)
         # add application context
@@ -893,89 +951,69 @@ class StopperTest(CompatTestCase):
         self.supvisors.context.applications['sample_test_1'] = application
         application = ApplicationStatus('sample_test_2', self.supvisors.logger)
         self.supvisors.context.applications['sample_test_2'] = application
-        # try with unknown process
+        # try with unknown application
         process = ProcessStatus('dummy_application', 'dummy_process', self.supvisors)
         self.stopper.on_event(process)
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # with sample_test_1 application
         # test STOPPED process
         command = self._get_test_command('xlogo')
         self.assertIn(command, self.stopper.current_jobs['sample_test_1'])
         self.stopper.on_event(command.process)
         self.assertNotIn(command.process, self.stopper.current_jobs['sample_test_1'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # test STOPPING process: xclock
         command = self._get_test_command('xclock')
         self.assertIn(command, self.stopper.current_jobs['sample_test_1'])
         self.stopper.on_event(command.process)
         self.assertIn(command, self.stopper.current_jobs['sample_test_1'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # test RUNNING process: xfontsel
         command = self._get_test_command('xfontsel')
         self.assertIn(command, self.stopper.current_jobs['sample_test_1'])
         self.stopper.on_event(command.process)
         self.assertIn('sample_test_1', self.stopper.current_jobs.keys())
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # with sample_test_2 application
         # test EXITED / expected process: yeux_00
         command = self._get_test_command('yeux_00')
         self.assertIn(command, self.stopper.current_jobs['sample_test_2'])
         self.stopper.on_event(command.process)
         self.assertNotIn(command, self.stopper.current_jobs['sample_test_2'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # test FATAL process: sleep
         command = self._get_test_command('sleep')
         self.assertIn(command, self.stopper.current_jobs['sample_test_2'])
         self.stopper.on_event(command.process)
         self.assertIn('sample_test_2', self.stopper.current_jobs.keys())
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # test RUNNING process: yeux_01
         command = self._get_test_command('yeux_01')
         self.assertIn(command, self.stopper.current_jobs['sample_test_2'])
         self.stopper.on_event(command.process)
         self.assertIn(command, self.stopper.current_jobs['sample_test_2'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # force yeux_01 state and re-test
         command.process._state = ProcessStates.STOPPED
         self.assertIn(command, self.stopper.current_jobs['sample_test_2'])
         self.stopper.on_event(command.process)
-        self.assertNotIn('sample_test_2', self.stopper.current_jobs.keys())
-        self.assertEqual(1, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertNotIn(command, self.stopper.current_jobs['sample_test_2'])
+        self.assertEqual([call('sample_test_2')], mocked_after.call_args_list)
         # reset resources
-        mocked_process.reset_mock()
+        mocked_after.reset_mock()
         # with crash application
         # test STARTING process: late_segv
         command = self._get_test_command('late_segv')
         self.assertIn(command, self.stopper.current_jobs['crash'])
         self.stopper.on_event(command.process)
         self.assertIn(command, self.stopper.current_jobs['crash'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
         # test BACKOFF process: segv (last process of this application)
         command = self._get_test_command('segv')
         self.assertIn(command, self.stopper.current_jobs['crash'])
         self.stopper.on_event(command.process)
         self.assertIn(command, self.stopper.current_jobs['crash'])
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(0, mocked_init.call_count)
-        # with firefox application
-        # empty planned_jobs to trigger another behaviour
-        self.stopper.planned_jobs = {}
-        # test EXITED / unexpected process: firefox
-        command = self._get_test_command('firefox')
-        self.assertIn(command, self.stopper.current_jobs['firefox'])
-        self.stopper.on_event(command.process)
-        self.assertNotIn('firefox', self.stopper.current_jobs.keys())
-        self.assertEqual(0, mocked_process.call_count)
-        self.assertEqual(1, mocked_init.call_count)
+        self.assertFalse(mocked_after.called)
 
     def test_store_application_stop_sequence(self):
         """ Test the store_application_stop_sequence method. """
@@ -1003,25 +1041,6 @@ class StopperTest(CompatTestCase):
                                   'sample_test_2': {0: ['sample_test_2:yeux_00', 'sample_test_2:yeux_01'],
                                                     1: ['sample_test_2:sleep']}}},
                              self.stopper.printable_planned_sequence())
-
-    def test_force_process_unknown(self):
-        """ Test the force_process_unknown method. """
-        # get patches
-        mocked_listener = self.supvisors.listener.force_process_unknown
-        mocked_source = self.supvisors.info_source.force_process_unknown
-        # test with no info_source KeyError
-        self.stopper.force_process_unknown('proc', 'any reason')
-        self.assertEqual(1, mocked_source.call_count)
-        self.assertEqual([call('proc', 'any reason')], mocked_source.call_args_list)
-        self.assertEqual(0, mocked_listener.call_count)
-        mocked_source.reset_mock()
-        # test force_process_unknown with info_source KeyError
-        mocked_source.side_effect = KeyError
-        self.stopper.force_process_unknown('proc', 'any reason')
-        self.assertEqual(1, mocked_source.call_count)
-        self.assertEqual([call('proc', 'any reason')], mocked_source.call_args_list)
-        self.assertEqual([call('proc')], mocked_listener.call_args_list)
-
     def test_process_job(self):
         """ Test the process_job method. """
         # get patches

@@ -95,13 +95,14 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_copy_error_starting(self):
         """ Check the starting of the copy_error program. """
         # define the expected events for the copy_error program
-        program = self.context.get_program('import_database:copy_error')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.FATAL))
-        # test the events received are compliant
-        self.check_events()
-        self.assertFalse(self.context.has_events())
+        if all(node in self.addresses for node in [self.HOST_02, self.HOST_03]):
+            program = self.context.get_program('import_database:copy_error')
+            program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+            program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
+            program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+            # test the events received are compliant
+            self.check_events()
+            self.assertFalse(self.context.has_events())
 
     def check_mount_disk_stopping(self):
         """ Program the stopping of the program.state program. """

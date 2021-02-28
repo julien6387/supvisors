@@ -29,11 +29,11 @@ from supvisors.utils import supvisors_shortcuts
 class Context(object):
     """ The Context class holds the main data of Supvisors:
     - addresses: the dictionary of all AddressStatus (key is address),
-    - applications: the dictionary of all ApplicationStatus
-    (key is application name),
+    - applications: the dictionary of all ApplicationStatus (key is application name),
     - processes: the dictionary of all ProcessStatus (key is process namespec),
     - master_address: the address of the Supvisors master,
-    - master: a boolean telling if the local address is the master address. """
+    - master: a boolean telling if the local address is the master address.
+    """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
@@ -52,8 +52,7 @@ class Context(object):
     @property
     def master_address(self):
         """ Property for the 'master_address' attribute.
-        The setter sets the 'master' attribute to True if the master address
-        is the local address. """
+        The setter sets the 'master' attribute to True if the master address is the local address. """
         return self._master_address
 
     @master_address.setter
@@ -87,24 +86,21 @@ class Context(object):
                 if status.state in states]
 
     def invalid(self, status):
-        """ Declare SILENT or ISOLATING the AddressStatus in parameter,
-        according to the auto_fence option.
+        """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local address is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
-        if self.supvisors.options.auto_fence and \
-                status.address_name != self.address_mapper.local_address:
+        if self.supvisors.options.auto_fence and status.address_name != self.address_mapper.local_address:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
         # invalidate address in concerned processes
-        # if local Supvisors is master, failure handler will be notified
-        # for processes running on this address
+        # if local Supvisors is master, failure handler will be notified for processes running on this address
         for process in status.running_processes():
             process.invalidate_address(status.address_name, self.master)
 
     def end_synchro(self):
-        """ Declare as SILENT the AddressStatus that are still not responsive
-        at the end of the INITIALIZATION state of Supvisors. """
+        """ Declare as SILENT the AddressStatus that are still not responsive at the end
+        of the INITIALIZATION state of Supvisors. """
         # consider problem if no tick received at the end of synchro time
         for address in self.addresses.values():
             if address.state == AddressStates.UNKNOWN:
@@ -175,38 +171,37 @@ class Context(object):
             status.add_process(process)
 
     # methods on events
-    def on_authorization(self, address_name, authorized):
-        """ Method called upon reception of an authorization event telling
-        if the remote Supvisors instance
+    def on_authorization(self, address_name: str, authorized: bool) -> Optional[bool]:
+        """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events. """
         if self.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
                 if authorized:
-                    self.logger.info('local is authorized to deal with {}'.format(address_name))
+                    self.logger.info('Context.on_authorization: local is authorized to deal with {}'
+                                     .format(address_name))
                     status.state = AddressStates.RUNNING
-                else:
-                    self.logger.warn('local is not authorized to deal with {}'.format(address_name))
-                    self.invalid(status)
+                    return True
+                self.logger.warn('Context.on_authorization: local is not authorized to deal with {}'
+                                 .format(address_name))
+                self.invalid(status)
         else:
-            self.logger.warn('got authorization from unexpected location={}'.format(address_name))
+            self.logger.warn('Context.on_authorization: got authorization from unexpected location={}'
+                             .format(address_name))
 
     def on_tick_event(self, address_name, event):
-        """ Method called upon reception of a tick event from the remote
-        Supvisors instance, telling that it is active.
-        Supvisors checks that the handling of the event is valid in case of
-        auto fencing.
-        The method also updates the times of the corresponding AddressStatus
-        and the ProcessStatus depending on it.
+        """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
+        Supvisors checks that the handling of the event is valid in case of auto fencing.
+        The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
         if self.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got tick {} from location={}'.format(event, address_name))
-                # asynchronous port-knocking used to check if remote Supvisors
-                # instance considers local instance as isolated
+                self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, address_name))
+                # asynchronous port-knocking used to check if remote Supvisors instance considers
+                # the local instance as isolated
                 if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
                     status.state = AddressStates.CHECKING
                     self.supvisors.zmq.pusher.send_check_address(address_name)
@@ -215,7 +210,7 @@ class Context(object):
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
         else:
-            self.logger.warn('got tick from unexpected location={}'.format(address_name))
+            self.logger.warn('Context.on_tick_event: got tick from unexpected location={}'.format(address_name))
 
     def on_process_event(self, address_name, event):
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -227,7 +222,7 @@ class Context(object):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('got event {} from location={}'.format(event, address_name))
+                self.logger.debug('Context.on_process_event: got event {} from location={}'.format(event, address_name))
                 try:
                     # get internal data
                     application = self.applications[event['group']]
@@ -237,7 +232,8 @@ class Context(object):
                 except KeyError:
                     # process not found. normal when no tick yet received
                     # from this address
-                    self.logger.debug('reject event {} from location={}'.format(event, address_name))
+                    self.logger.debug('Context.on_process_event: reject event {} from location={}'
+                                      .format(event, address_name))
                 else:
                     # refresh process info from process event
                     process.update_info(address_name, event)
@@ -251,7 +247,8 @@ class Context(object):
                     publisher.send_application_status(application.serial())
                     return process
         else:
-            self.logger.error('got process event from unexpected location={}'.format(address_name))
+            self.logger.error('Context.on_process_event: got process event from unexpected location={}'
+                .format(address_name))
 
     def on_timer_event(self):
         """ Check that all Supvisors instances are still publishing.

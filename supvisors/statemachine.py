@@ -30,8 +30,7 @@ class AbstractState(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'failure_handler',
-                                   'logger', 'starter', 'stopper'])
+        supvisors_shortcuts(self, ['context', 'failure_handler', 'logger', 'starter', 'stopper'])
         self.address = supvisors.address_mapper.local_address
 
     def enter(self):
@@ -51,23 +50,24 @@ class AbstractState(object):
             if status.address_name != self.address:
                 if status.state == AddressStates.RUNNING:
                     func(status.address_name)
-                    self.logger.warn('supervisord {} on {}'
-                                     .format(func.__name__, status.address_name))
+                    self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
                 else:
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'
-                                     .format(func.__name__, status.address_name,
-                                             status.state_string()))
+                                     .format(func.__name__, status.address_name, status.state_string()))
         # send request to self supervisord
         func(self.address)
 
 
 class InitializationState(AbstractState):
-    """ In the INITIALIZATION state, Supvisors synchronizes to all known
-    instances. """
+    """ In the INITIALIZATION state, Supvisors synchronizes to all known instances. """
+
+    def __init__(self, supvisors):
+        """ Initialization of the attributes. """
+        AbstractState.__init__(self, supvisors)
+        self.start_date = 0
 
     def enter(self):
-        """ When entering in the INITIALIZATION state, reset the status of
-        addresses. """
+        """ When entering in the INITIALIZATION state, reset the status of addresses. """
         self.context.master_address = ''
         self.start_date = int(time())
         # clear any existing job
@@ -86,8 +86,7 @@ class InitializationState(AbstractState):
             if len(self.context.unknown_addresses()) == 0:
                 # synchro done if the state of all addresses is known
                 return SupvisorsStates.DEPLOYMENT
-            # if synchro timeout reached, stop synchro
-            # and work with known addresses
+            # if synchro timeout reached, stop synchro and work with known addresses
             if (time() - self.start_date) > self.supvisors.options.synchro_timeout:
                 self.logger.warn('synchro timed out')
                 return SupvisorsStates.DEPLOYMENT
@@ -101,10 +100,9 @@ class InitializationState(AbstractState):
         One of them is elected as the MASTER. """
         # force state of missing Supvisors instances
         self.context.end_synchro()
-        # arbitrarily choice : master address is the 'lowest' address
-        # among running addresses
+        # arbitrarily choice : master address is the 'lowest' address among running addresses
         addresses = self.context.running_addresses()
-        self.logger.info('working with boards {}'.format(addresses))
+        self.logger.info('working with nodes {}'.format(addresses))
         self.context.master_address = min(addresses)
 
 
@@ -124,9 +122,7 @@ class DeploymentState(AbstractState):
     def next(self):
         """ Wait for applications to be started. """
         if not self.context.master or self.starter.check_starting():
-            return SupvisorsStates.CONCILIATION \
-                if self.context.conflicting() \
-                else SupvisorsStates.OPERATION
+            return SupvisorsStates.CONCILIATION if self.context.conflicting() else SupvisorsStates.OPERATION
         return SupvisorsStates.DEPLOYMENT
 
 
@@ -237,6 +233,9 @@ class FiniteStateMachine:
         """ Reset the state machine and the associated context """
         self.supvisors = supvisors
         supvisors_shortcuts(self, ['context', 'failure_handler', 'starter', 'stopper', 'logger'])
+        self.state = SupvisorsStates.INITIALIZATION
+        self.instance = None
+        # Trigger first state / INITIALIZATION
         self.update_instance(SupvisorsStates.INITIALIZATION)
         self.instance.enter()
 
@@ -265,20 +264,19 @@ class FiniteStateMachine:
         self.state = state
         self.instance = self.__StateInstances[state](self.supvisors)
         # publish SupvisorsStatus event
-        if hasattr(self.supvisors, 'zmq'):
+        # the zmq does not exist yet for the first occurrence here
+        if self.supvisors.zmq:
             self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
 
     def on_timer_event(self):
-        """ Periodic task used to check if remote Supvisors instances
-        are still active.
+        """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
         self.context.on_timer_event()
         self.next()
-        # fix failures if any (can happen after an address has been invalidated, a process crash
-        # or a conciliation request)
+        # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
         self.failure_handler.trigger_jobs()
         # check if new isolating remotes and return the list of newly isolated addresses
-        # FIXME: create an internal event to confirm that socket has been disconnected ?
+        # TODO: create an internal event to confirm that socket has been disconnected ?
         return self.context.handle_isolation()
 
     def on_tick_event(self, address, when):
@@ -287,8 +285,7 @@ class FiniteStateMachine:
         # could call the same behaviour as on_timer_event if necessary
 
     def on_process_event(self, address, event):
-        """ This event is used to refresh the process data related
-        to the event and address.
+        """ This event is used to refresh the process data related to the event and address.
         This event also triggers the application starter and/or stopper. """
         process = self.context.on_process_event(address, event)
         if process:
@@ -299,22 +296,23 @@ class FiniteStateMachine:
             self.starter.on_event(process)
             # feed stopper with event
             self.stopper.on_event(process)
-            # only the master is allowed to trigger an automatic behaviour
-            # for a running failure
-            if self.context.master and process.crashed() and \
-                    not (starting or stopping):
+            # only the master is allowed to trigger an automatic behaviour for a running failure
+            if self.context.master and process.crashed() and not (starting or stopping):
                 self.failure_handler.add_default_job(process)
                 self.failure_handler.trigger_jobs()
 
     def on_process_info(self, address_name, info):
-        """ This event is used to fill the internal structures with processes
-        available on address. """
+        """ This event is used to fill the internal structures with processes available on node. """
         self.context.load_processes(address_name, info)
 
     def on_authorization(self, address_name, authorized):
-        """ This event is used to finalize the port-knocking
-        between Supvisors instances. """
+        """ This event is used to finalize the port-knocking between Supvisors instances.
+        When a new node comes in the group, back to INITIALIZATION for a new Master election and a possible deployment
+        """
         self.context.on_authorization(address_name, authorized)
+        #if self.context.on_authorization(address_name, authorized):
+        #    # TODO: check what happens if in the middle of a DEPLOYMENT phase
+        #    self.set_state(SupvisorsStates.INITIALIZATION)
 
     def on_restart(self):
         """ This event is used to transition the state machine to the RESTARTING state. """

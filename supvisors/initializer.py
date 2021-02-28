@@ -43,6 +43,8 @@ class Supvisors(object):
         """ Initialization of the attributes. """
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
+        # declare zmq context (will be created in listener)
+        self.zmq = None
         # get options from config file
         server_options = SupvisorsServerOptions()
         server_options.realize()
