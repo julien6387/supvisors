@@ -247,18 +247,14 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_process_info(process)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'
-                                        .format(process, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                     else:
                         info_list.extend(info)
             # print results
             if info_list:
-                max_appli = max(len(info['application_name'])
-                                for info in info_list) + 4
-                max_proc = max(len(info['process_name'])
-                               for info in info_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s' \
-                    .format(max_appli, max_proc)
+                max_appli = max(len(info['application_name']) for info in info_list) + 4
+                max_proc = max(len(info['process_name']) for info in info_list) + 4
+                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
                 for info in info_list:
                     line = template % {'appli': info['application_name'],
                                        'proc': info['process_name'],

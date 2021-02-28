@@ -20,7 +20,9 @@
 import sys
 import unittest
 
+from supervisor.compat import xmlrpclib
 from supervisor.states import STOPPED_STATES
+from supervisor.xmlrpc import Faults
 
 from supvisors.ttypes import AddressStates, StartingStrategies
 
@@ -41,8 +43,7 @@ class StartingStrategyTest(RunningAddressesTest):
         # check that 10 converter programs are STOPPED
         processes_info = self.local_supvisors.get_process_info('my_movies:*')
         converters = [info for info in processes_info
-                      if info['process_name'].startswith('converter') and
-                      info['statecode'] in STOPPED_STATES]
+                      if info['process_name'].startswith('converter') and info['statecode'] in STOPPED_STATES]
         self.assertEqual(10, len(converters))
         # check that 10 converter programs are configured with loading 25
         processes_rules = self.local_supvisors.get_process_rules('my_movies:*')
@@ -87,12 +88,13 @@ class StartingStrategyTest(RunningAddressesTest):
 
     def _start_converter_failed(self, idx):
         """ Get the current loading status. """
-        self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+        with self.assertRaises(xmlrpclib.Fault) as exc:
+            self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+        self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
+        self.assertEqual('ABNORMAL_TERMINATION: my_movies:converter_0%d' % idx, exc.exception.faultString)
         # wait for event FATAL
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'group': 'my_movies',
-                                       'name': 'converter_0%d' % idx,
-                                       'state': 200}, event)
+        self.assertDictContainsSubset({'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 200}, event)
         # refresh the address loadings
         self._refresh_loading()
 
@@ -192,9 +194,9 @@ class StartingStrategyTest(RunningAddressesTest):
         self.assertItemsEqual([90, 90, 80], self.loading.values())
 
     def test_local(self):
-        """ Test the MOST_LOADED starting strategy.
+        """ Test the LOCAL starting strategy.
         Start converters and check they have been started on the address having the highest loading. """
-        print('### Testing MOST_LOADED starting strategy')
+        print('### Testing LOCAL starting strategy')
         self.strategy = StartingStrategies.LOCAL
         # this test should be started only from cliche81 so processes should be started only on cliche81
         self._start_converter(0)

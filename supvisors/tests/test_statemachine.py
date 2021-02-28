@@ -37,8 +37,7 @@ class StateMachinesTest(unittest.TestCase):
         # assign addresses in context
         addresses = self.supvisors.context.addresses
         for address_name in self.supvisors.address_mapper.addresses:
-            addresses[address_name] = AddressStatus(address_name,
-                                                    self.supvisors.logger)
+            addresses[address_name] = AddressStatus(address_name, self.supvisors.logger)
         addresses['127.0.0.1']._state = AddressStates.RUNNING
         addresses['10.0.0.1']._state = AddressStates.SILENT
         addresses['10.0.0.2']._state = AddressStates.RUNNING
@@ -47,12 +46,12 @@ class StateMachinesTest(unittest.TestCase):
         addresses['10.0.0.5']._state = AddressStates.ISOLATED
 
     def test_abstract_state(self):
-        """ Test the Abstract state of the FSM. """
+        """ Test the Abstract state of the self.fsm. """
         from supvisors.statemachine import AbstractState
         state = AbstractState(self.supvisors)
         # check attributes at creation
         self.assertIs(self.supvisors, state.supvisors)
-        self.assertEqual('127.0.0.1', state.address)
+        self.assertEqual('127.0.0.1', state.address_name)
         # call empty methods
         state.enter()
         state.next()
@@ -65,7 +64,7 @@ class StateMachinesTest(unittest.TestCase):
                              mock_function.call_args_list)
 
     def test_initialization_state(self):
-        """ Test the Initialization state of the FSM. """
+        """ Test the Initialization state of the fsm. """
         from supvisors.statemachine import AbstractState, InitializationState
         from supvisors.ttypes import AddressStates, SupvisorsStates
         state = InitializationState(self.supvisors)
@@ -109,7 +108,7 @@ class StateMachinesTest(unittest.TestCase):
                 self.assertEqual('10.0.0.2', self.supvisors.context.master_address)
 
     def test_deployment_state(self):
-        """ Test the Deployment state of the FSM. """
+        """ Test the Deployment state of the fsm. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
         from supvisors.statemachine import AbstractState, DeploymentState
@@ -201,7 +200,7 @@ class StateMachinesTest(unittest.TestCase):
         state.exit()
 
     def test_operation_state(self):
-        """ Test the Operation state of the FSM. """
+        """ Test the Operation state of the fsm. """
         from supvisors.address import AddressStatus
         from supvisors.statemachine import AbstractState, OperationState
         from supvisors.ttypes import AddressStates, SupvisorsStates
@@ -248,7 +247,7 @@ class StateMachinesTest(unittest.TestCase):
         state.exit()
 
     def test_conciliation_state(self):
-        """ Test the Conciliation state of the FSM. """
+        """ Test the Conciliation state of the fsm. """
         from supvisors.address import AddressStatus
         from supvisors.statemachine import AbstractState, ConciliationState
         from supvisors.ttypes import AddressStates, SupvisorsStates
@@ -285,22 +284,18 @@ class StateMachinesTest(unittest.TestCase):
         addresses['127.0.0.1']._state = AddressStates.RUNNING
         addresses['10.0.0.3']._state = AddressStates.RUNNING
         # consider that no starting or stopping is in progress
-        with patch.object(self.supvisors.starter, 'check_starting',
-                          return_value=True):
-            with patch.object(self.supvisors.stopper, 'check_stopping',
-                              return_value=True):
+        with patch.object(self.supvisors.starter, 'check_starting', return_value=True):
+            with patch.object(self.supvisors.stopper, 'check_stopping', return_value=True):
                 # if local address and master address are RUNNING and
                 # conflict still detected, re-enter CONCILIATION
-                with patch.object(self.supvisors.context, 'conflicting',
-                                  return_value=True):
+                with patch.object(self.supvisors.context, 'conflicting', return_value=True):
                     with patch.object(state, 'enter') as mocked_enter:
                         result = state.next()
                         self.assertEqual(1, mocked_enter.call_count)
                         self.assertEqual(SupvisorsStates.CONCILIATION, result)
                 # transit to OPERATION if local address and master address
                 # are RUNNING and no conflict detected
-                with patch.object(self.supvisors.context, 'conflicting',
-                                  return_value=False):
+                with patch.object(self.supvisors.context, 'conflicting', return_value=False):
                     result = state.next()
                     self.assertEqual(SupvisorsStates.OPERATION, result)
                 # transit to INITIALIZATION state if the local address
@@ -316,7 +311,7 @@ class StateMachinesTest(unittest.TestCase):
         state.exit()
 
     def test_restarting_state(self):
-        """ Test the Restarting state of the FSM. """
+        """ Test the Restarting state of the fsm. """
         from supvisors.statemachine import AbstractState, RestartingState
         from supvisors.ttypes import SupvisorsStates
         state = RestartingState(self.supvisors)
@@ -341,7 +336,7 @@ class StateMachinesTest(unittest.TestCase):
             self.assertEqual(call(self.supvisors.zmq.pusher.send_restart), mocked_apply.call_args)
 
     def test_shutting_down_state(self):
-        """ Test the ShuttingDown state of the FSM. """
+        """ Test the ShuttingDown state of the fsm. """
         from supvisors.statemachine import AbstractState, ShuttingDownState
         from supvisors.ttypes import SupvisorsStates
         state = ShuttingDownState(self.supvisors)
@@ -366,7 +361,7 @@ class StateMachinesTest(unittest.TestCase):
             self.assertEqual(call(self.supvisors.zmq.pusher.send_shutdown), mocked_apply.call_args)
 
     def test_shutdown_state(self):
-        """ Test the ShutDown state of the FSM. """
+        """ Test the ShutDown state of the fsm. """
         from supvisors.statemachine import AbstractState, ShutdownState
         state = ShutdownState(self.supvisors)
         self.assertIsInstance(state, AbstractState)
@@ -381,44 +376,37 @@ class FiniteStateMachineTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a Supvisors-like structure. """
+        from supvisors.statemachine import FiniteStateMachine
+        # create state machine instance to be tested
         self.supvisors = MockedSupvisors()
+        self.fsm = FiniteStateMachine(self.supvisors)
 
-    @patch('supvisors.statemachine.InitializationState.enter')
-    def test_creation(self, mocked_enter):
+    @patch('supvisors.statemachine.FiniteStateMachine.update_instance')
+    def test_creation(self, mocked_update):
         """ Test the values set at construction. """
-        from supvisors.statemachine import InitializationState, FiniteStateMachine
+        from supvisors.statemachine import InitializationState
         from supvisors.ttypes import SupvisorsStates
         # test that the INITIALIZATION state is triggered at creation
         mocked_publisher = self.supvisors.zmq.publisher.send_supvisors_status
-        fsm = FiniteStateMachine(self.supvisors)
-        self.assertIs(self.supvisors, fsm.supvisors)
-        self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
-        self.assertIsInstance(fsm.instance, InitializationState)
-        self.assertEqual(1, mocked_enter.call_count)
-        self.assertEqual(1, mocked_publisher.call_count)
-        self.assertEqual(call({'statecode': 0, 'statename': 'INITIALIZATION'}), mocked_publisher.call_args)
+        self.assertIs(self.supvisors, self.fsm.supvisors)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
+        self.assertIsInstance(self.fsm.instance, InitializationState)
 
     def test_state_string(self):
         """ Test the string conversion of state machine. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
         # test string conversion for all states
         for state in SupvisorsStates.values():
-            fsm.state = state
-            self.assertEqual(SupvisorsStates.to_string(state), fsm.state_string())
+            self.fsm.state = state
+            self.assertEqual(SupvisorsStates.to_string(state), self.fsm.state_string())
 
     def test_serial(self):
         """ Test the serialization of state machine. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
         # test serialization for all states
         for state in SupvisorsStates.values():
-            fsm.state = state
-            self.assertDictEqual({'statecode': state, 'statename': SupvisorsStates.to_string(state)}, fsm.serial())
+            self.fsm.state = state
+            self.assertDictEqual({'statecode': state, 'statename': SupvisorsStates.to_string(state)}, self.fsm.serial())
 
     @patch('supvisors.statemachine.DeploymentState.exit')
     @patch('supvisors.statemachine.DeploymentState.next')
@@ -428,7 +416,6 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_simple_set_state(self, *args, **kwargs):
         """ Test single transitions of the state machine using set_state method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -438,24 +425,22 @@ class FiniteStateMachineTest(unittest.TestCase):
                 mocked.reset_mock()
 
         # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0, 0, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with identical state parameter
-        fsm.set_state(SupvisorsStates.INITIALIZATION)
+        self.fsm.set_state(SupvisorsStates.INITIALIZATION)
         compare_calls([0, 0, 0, 0, 0, 0])
-        self.assertIs(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
+        self.assertIs(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
         # test set_state with not authorized transition
-        fsm.set_state(SupvisorsStates.OPERATION)
+        self.fsm.set_state(SupvisorsStates.OPERATION)
         compare_calls([0, 0, 0, 0, 0, 0])
-        self.assertIs(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
+        self.assertIs(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
         # test set_state with authorized transition
-        fsm.set_state(SupvisorsStates.DEPLOYMENT)
+        self.fsm.set_state(SupvisorsStates.DEPLOYMENT)
         compare_calls([0, 0, 1, 1, 1, 0])
-        self.assertIsNot(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.DEPLOYMENT, fsm.state)
+        self.assertIsNot(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, self.fsm.state)
 
     @patch('supvisors.statemachine.OperationState.exit')
     @patch('supvisors.statemachine.OperationState.next')
@@ -468,7 +453,6 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_complex_set_state(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using set_state method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -477,22 +461,18 @@ class FiniteStateMachineTest(unittest.TestCase):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
 
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with authorized transition
-        fsm.set_state(SupvisorsStates.DEPLOYMENT)
+        self.fsm.set_state(SupvisorsStates.DEPLOYMENT)
         compare_calls([0, 0, 1, 1, 1, 1, 1, 1, 0])
-        self.assertIsNot(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.OPERATION, fsm.state)
+        self.assertIsNot(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.OPERATION, self.fsm.state)
 
     @patch('supvisors.statemachine.InitializationState.exit')
     @patch('supvisors.statemachine.InitializationState.next', return_value=0)
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_no_next(self, *args, **kwargs):
         """ Test no transition of the state machine using next_method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -501,15 +481,12 @@ class FiniteStateMachineTest(unittest.TestCase):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
 
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with authorized transition
-        fsm.next()
+        self.fsm.next()
         compare_calls([0, 1, 0])
-        self.assertIs(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.INITIALIZATION, fsm.state)
+        self.assertIs(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
 
     @patch('supvisors.statemachine.DeploymentState.exit')
     @patch('supvisors.statemachine.DeploymentState.next', return_value=1)
@@ -519,7 +496,6 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_simple_next(self, *args, **kwargs):
         """ Test single transition of the state machine using next_method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -528,15 +504,12 @@ class FiniteStateMachineTest(unittest.TestCase):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
 
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0, 0, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with authorized transition
-        fsm.next()
+        self.fsm.next()
         compare_calls([0, 1, 1, 1, 1, 0])
-        self.assertIsNot(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.DEPLOYMENT, fsm.state)
+        self.assertIsNot(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, self.fsm.state)
 
     @patch('supvisors.statemachine.ConciliationState.exit')
     @patch('supvisors.statemachine.ConciliationState.next')
@@ -549,7 +522,6 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_complex_next(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using next_method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -558,15 +530,12 @@ class FiniteStateMachineTest(unittest.TestCase):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
 
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with authorized transition
-        fsm.next()
+        self.fsm.next()
         compare_calls([0, 1, 1, 1, 1, 1, 1, 1, 0])
-        self.assertIsNot(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.CONCILIATION, fsm.state)
+        self.assertIsNot(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.CONCILIATION, self.fsm.state)
 
     @patch('supvisors.statemachine.ShutdownState.exit')
     @patch('supvisors.statemachine.ShutdownState.next')
@@ -588,7 +557,6 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_very_complex_next(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using next_method. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
 
         # function to compare call counts of mocked methods
@@ -597,59 +565,50 @@ class FiniteStateMachineTest(unittest.TestCase):
                 self.assertEqual(call_count, mocked.call_count)
                 mocked.reset_mock()
 
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        compare_calls([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        instance_ref = fsm.instance
+        instance_ref = self.fsm.instance
         # test set_state with authorized transition
-        fsm.next()
+        self.fsm.next()
         compare_calls([1, 2, 2, 2, 2, 2, 3, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 0])
-        self.assertIsNot(instance_ref, fsm.instance)
-        self.assertEqual(SupvisorsStates.SHUTDOWN, fsm.state)
+        self.assertIsNot(instance_ref, self.fsm.instance)
+        self.assertEqual(SupvisorsStates.SHUTDOWN, self.fsm.state)
 
     def test_update_instance(self):
         """ Test the recreation of the state instance, depending on the state. """
-        from supvisors.statemachine import (
-            InitializationState, DeploymentState, OperationState,
-            ConciliationState, RestartingState, ShuttingDownState,
-            ShutdownState, FiniteStateMachine)
+        from supvisors.statemachine import (InitializationState, DeploymentState, OperationState,
+                                            ConciliationState, RestartingState, ShuttingDownState, ShutdownState)
         from supvisors.ttypes import SupvisorsStates
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        with patch.object(self.supvisors.zmq.publisher,
-                          'send_supvisors_status') as mocked_publisher:
-            # create function for test comparison
-            def compare_state(state, klass):
-                fsm.update_instance(state)
-                # test the type of internal instance
-                self.assertIsInstance(fsm.instance, klass)
-                # test that internal instance is always recreated
-                self.assertIsNot(compare_state.instance_ref, fsm.instance)
-                compare_state.instance_ref = fsm.instance
-                # test that the state is reassigned
-                self.assertEqual(state, fsm.state)
-                # test that the state machine object is published
-                compare_state.cpt = compare_state.cpt + 1
-                self.assertEqual(compare_state.cpt, mocked_publisher.call_count)
+        # patch context
+        mocked_publisher = self.supvisors.zmq.publisher.send_supvisors_status = Mock()
+        self.supvisors.context.master = False
 
-            # add internal persistent variables to function
-            compare_state.instance_ref = fsm.instance
-            compare_state.cpt = 0
-            # test all states
-            compare_state(SupvisorsStates.INITIALIZATION, InitializationState)
-            compare_state(SupvisorsStates.DEPLOYMENT, DeploymentState)
-            compare_state(SupvisorsStates.OPERATION, OperationState)
-            compare_state(SupvisorsStates.CONCILIATION, ConciliationState)
-            compare_state(SupvisorsStates.RESTARTING, RestartingState)
-            compare_state(SupvisorsStates.SHUTTING_DOWN, ShuttingDownState)
-            compare_state(SupvisorsStates.SHUTDOWN, ShutdownState)
+        # create function for test comparison
+        def compare_state(state, klass):
+            self.fsm.update_instance(state)
+            # test the type of internal instance
+            self.assertIsInstance(self.fsm.instance, klass)
+            # test that internal instance is always recreated
+            self.assertIsNot(compare_state.instance_ref, self.fsm.instance)
+            compare_state.instance_ref = self.fsm.instance
+            # test that the state is reassigned
+            self.assertEqual(state, self.fsm.state)
+            # test that the state machine object is published
+            compare_state.cpt = compare_state.cpt + 1
+            self.assertEqual(compare_state.cpt, mocked_publisher.call_count)
+
+        # add internal persistent variables to function
+        compare_state.instance_ref = self.fsm.instance
+        compare_state.cpt = 0
+        # test all states
+        compare_state(SupvisorsStates.INITIALIZATION, InitializationState)
+        compare_state(SupvisorsStates.DEPLOYMENT, DeploymentState)
+        compare_state(SupvisorsStates.OPERATION, OperationState)
+        compare_state(SupvisorsStates.CONCILIATION, ConciliationState)
+        compare_state(SupvisorsStates.RESTARTING, RestartingState)
+        compare_state(SupvisorsStates.SHUTTING_DOWN, ShuttingDownState)
+        compare_state(SupvisorsStates.SHUTDOWN, ShutdownState)
 
     def test_timer_event(self):
-        """ Test the actions triggered in state machine upon reception
-        of a timer event. """
-        from supvisors.statemachine import FiniteStateMachine
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
+        """ Test the actions triggered in state machine upon reception of a timer event. """
         # apply patches
         mocked_isolation = self.supvisors.context.handle_isolation
         mocked_isolation.return_value = [2, 3]
@@ -658,8 +617,8 @@ class FiniteStateMachineTest(unittest.TestCase):
         # test that context on_timer_event is always called
         # test that fsm next is always called
         # test that result of context handle_isolation is always returned
-        with patch.object(fsm, 'next') as mocked_next:
-            result = fsm.on_timer_event()
+        with patch.object(self.fsm, 'next') as mocked_next:
+            result = self.fsm.on_timer_event()
             # check result: marked processes are started
             self.assertEqual([2, 3], result)
             self.assertEqual(1, mocked_next.call_count)
@@ -668,24 +627,16 @@ class FiniteStateMachineTest(unittest.TestCase):
             self.assertEqual(1, mocked_isolation.call_count)
 
     def test_tick_event(self):
-        """ Test the actions triggered in state machine upon reception
-        of a tick event. """
-        from supvisors.statemachine import FiniteStateMachine
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
+        """ Test the actions triggered in state machine upon reception of a tick event. """
         # inject tick event and test call to context on_tick_event
         with patch.object(self.supvisors.context, 'on_tick_event') as mocked_evt:
-            fsm.on_tick_event('10.0.0.1', 1234)
+            self.fsm.on_tick_event('10.0.0.1', 1234)
             self.assertEqual(1, mocked_evt.call_count)
             self.assertEqual(call('10.0.0.1', 1234), mocked_evt.call_args)
 
-    # FIWME: test calls to failure_handler + master + crashed
+    # FIXME: test calls to failure_handler + master + crashed
     def test_process_event(self):
-        """ Test the actions triggered in state machine upon reception
-        of a process event. """
-        from supvisors.statemachine import FiniteStateMachine
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
+        """ Test the actions triggered in state machine upon reception of a process event. """
         # prepare context
         process = Mock(application_name='appli')
         # get patches
@@ -699,9 +650,8 @@ class FiniteStateMachineTest(unittest.TestCase):
         mocked_start_has.return_value = False
         mocked_stop_has.return_value = False
         # test that context on_process_event is always called
-        # test that starter and stopper are not involved when corresponding
-        # process is not found
-        fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        # test that starter and stopper are not involved when corresponding process is not found
+        self.fsm.on_process_event('10.0.0.1', ['dummy_event'])
         self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
         self.assertEqual(0, mocked_start_has.call_count)
         self.assertEqual(0, mocked_stop_has.call_count)
@@ -713,9 +663,8 @@ class FiniteStateMachineTest(unittest.TestCase):
         # test that context on_process_event is always called
         # test that event is not pushed to starter and stopper
         # when a starting or stopping is not in progress
-        fsm.on_process_event('10.0.0.1', ['dummy_event'])
-        self.assertEqual([call('10.0.0.1', ['dummy_event'])],
-                         mocked_ctx.call_args_list)
+        self.fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
         self.assertEqual([call('appli')], mocked_start_has.call_args_list)
         self.assertEqual([call('appli')], mocked_stop_has.call_args_list)
         self.assertEqual([call(process)], mocked_start_evt.call_args_list)
@@ -731,68 +680,73 @@ class FiniteStateMachineTest(unittest.TestCase):
         # test that context on_process_event is always called
         # test that event is pushed to starter and stopper
         # when a starting or stopping is in progress
-        fsm.on_process_event('10.0.0.1', ['dummy_event'])
-        self.assertEqual([call('10.0.0.1', ['dummy_event'])],
-                         mocked_ctx.call_args_list)
+        self.fsm.on_process_event('10.0.0.1', ['dummy_event'])
+        self.assertEqual([call('10.0.0.1', ['dummy_event'])], mocked_ctx.call_args_list)
         self.assertEqual([call('appli')], mocked_start_has.call_args_list)
         self.assertEqual([call('appli')], mocked_stop_has.call_args_list)
         self.assertEqual([call(process)], mocked_start_evt.call_args_list)
         self.assertEqual([call(process)], mocked_stop_evt.call_args_list)
 
     def test_process_info(self):
-        """ Test the actions triggered in state machine upon reception
-        of a process information. """
-        from supvisors.statemachine import FiniteStateMachine
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
+        """ Test the actions triggered in state machine upon reception of a process information. """
         # inject process info and test call to context load_processes
-        with patch.object(self.supvisors.context,
-                          'load_processes') as mocked_load:
-            fsm.on_process_info('10.0.0.1', {'info': 'dummy_info'})
+        with patch.object(self.supvisors.context, 'load_processes') as mocked_load:
+            self.fsm.on_process_info('10.0.0.1', {'info': 'dummy_info'})
             self.assertEqual(1, mocked_load.call_count)
-            self.assertEqual(call('10.0.0.1', {'info': 'dummy_info'}),
-                             mocked_load.call_args)
+            self.assertEqual(call('10.0.0.1', {'info': 'dummy_info'}), mocked_load.call_args)
 
-    def test_authorization(self):
-        """ Test the actions triggered in state machine upon reception
-        of an authorization event. """
-        from supvisors.statemachine import FiniteStateMachine
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
-        # inject authorization event and test call to context on_authorization
-        with patch.object(self.supvisors.context,
-                          'on_authorization') as mocked_auth:
-            fsm.on_authorization('10.0.0.1', True)
-            self.assertEqual(1, mocked_auth.call_count)
-            self.assertEqual(call('10.0.0.1', True), mocked_auth.call_args)
+    def test_on_authorization(self):
+        """ Test the actions triggered in state machine upon reception of an authorization event. """
+        from supvisors.ttypes import SupvisorsStates
+        self.fsm.set_state(SupvisorsStates.OPERATION)
+        # prepare context
+        self.supvisors.context.master_address = ''
+        mocked_auth = self.fsm.context.on_authorization
+        mocked_auth.return_value = False
+        # test rejected authorization
+        self.fsm.on_authorization('10.0.0.1', False, '10.0.0.5')
+        self.assertEqual([call('10.0.0.1', False)], mocked_auth.call_args_list)
+        self.assertEqual('', self.supvisors.context.master_address)
+        # reset mocks
+        mocked_auth.reset_mock()
+        mocked_auth.return_value = True
+        # test authorization when to master address provided
+        self.fsm.on_authorization('10.0.0.1', True, '')
+        self.assertEqual(call('10.0.0.1', True), mocked_auth.call_args)
+        self.assertEqual('', self.supvisors.context.master_address)
+        # reset mocks
+        mocked_auth.reset_mock()
+        # test authorization and master address assignment
+        self.fsm.on_authorization('10.0.0.1', True, '10.0.0.5')
+        self.assertEqual(call('10.0.0.1', True), mocked_auth.call_args)
+        self.assertEqual('10.0.0.5', self.supvisors.context.master_address)
+        # reset mocks
+        mocked_auth.reset_mock()
+        # test authorization and master address assignment
+        self.fsm.on_authorization('10.0.0.1', True, '10.0.0.4')
+        self.assertEqual(call('10.0.0.1', True), mocked_auth.call_args)
+        self.assertEqual('10.0.0.5', self.supvisors.context.master_address)
+        self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
 
     def test_restart_event(self):
         """ Test the actions triggered in state machine upon reception
         of a restart event. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
         # inject restart event and test call to fsm set_state RESTARTING
-        with patch.object(fsm, 'set_state') as mocked_fsm:
-            fsm.on_restart()
+        with patch.object(self.fsm, 'set_state') as mocked_fsm:
+            self.fsm.on_restart()
             self.assertEqual(1, mocked_fsm.call_count)
-            self.assertEqual(call(SupvisorsStates.RESTARTING),
-                             mocked_fsm.call_args)
+            self.assertEqual(call(SupvisorsStates.RESTARTING), mocked_fsm.call_args)
 
     def test_shutdown_event(self):
         """ Test the actions triggered in state machine upon reception
         of a shutdown event. """
-        from supvisors.statemachine import FiniteStateMachine
         from supvisors.ttypes import SupvisorsStates
-        # create state machine instance
-        fsm = FiniteStateMachine(self.supvisors)
         # inject shutdown event and test call to fsm set_state SHUTTING_DOWN
-        with patch.object(fsm, 'set_state') as mocked_fsm:
-            fsm.on_shutdown()
+        with patch.object(self.fsm, 'set_state') as mocked_fsm:
+            self.fsm.on_shutdown()
             self.assertEqual(1, mocked_fsm.call_count)
-            self.assertEqual(call(SupvisorsStates.SHUTTING_DOWN),
-                             mocked_fsm.call_args)
+            self.assertEqual(call(SupvisorsStates.SHUTTING_DOWN), mocked_fsm.call_args)
 
 
 def test_suite():

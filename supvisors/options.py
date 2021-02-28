@@ -165,9 +165,9 @@ class SupvisorsServerOptions(ServerOptions):
     def to_timeout(value):
         """ Convert a string into a timeout value. """
         value = integer(value)
-        if 0 < value <= 1000:
+        if 15 <= value <= 1200:
             return value
-        raise ValueError('invalid value for synchro_timeout: %d. expected in [1;1000] (seconds)' % value)
+        raise ValueError('invalid value for synchro_timeout: %d. expected in [15;1200] (seconds)' % value)
 
     @staticmethod
     def to_conciliation_strategy(value):

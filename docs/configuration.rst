@@ -96,6 +96,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``synchro_timeout``
 
     The time in seconds that **Supvisors** waits for all expected **Supvisors** instances to publish.
+    Value in [``15`` ; ``1200``].
     This use of this option is detailed in :ref:`synchronizing`.
 
     *Default*:  ``15``.

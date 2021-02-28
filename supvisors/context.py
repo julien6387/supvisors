@@ -33,6 +33,7 @@ class Context(object):
     - processes: the dictionary of all ProcessStatus (key is process namespec),
     - master_address: the address of the Supvisors master,
     - master: a boolean telling if the local address is the master address.
+    - new: a boolean telling if this context has just been started.
     """
 
     def __init__(self, supvisors):
@@ -57,6 +58,7 @@ class Context(object):
 
     @master_address.setter
     def master_address(self, address):
+        self.logger.info('Context.master_address: {}'.format(address))
         self._master_address = address
         self.master = address == self.address_mapper.local_address
 
@@ -98,9 +100,11 @@ class Context(object):
         for process in status.running_processes():
             process.invalidate_address(status.address_name, self.master)
 
-    def end_synchro(self):
-        """ Declare as SILENT the AddressStatus that are still not responsive at the end
-        of the INITIALIZATION state of Supvisors. """
+    def end_synchro(self) -> None:
+        """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
+
+        :return: None
+        """
         # consider problem if no tick received at the end of synchro time
         for address in self.addresses.values():
             if address.state == AddressStates.UNKNOWN:
@@ -173,7 +177,12 @@ class Context(object):
     # methods on events
     def on_authorization(self, address_name: str, authorized: bool) -> Optional[bool]:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
-        authorizes the local Supvisors instance to process its events. """
+        authorizes the local Supvisors instance to process its events.
+
+        :param address_name: the node name from which comes the event
+        :param authorized: the node authorization status
+        :return: True if authorized both ways
+        """
         if self.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore

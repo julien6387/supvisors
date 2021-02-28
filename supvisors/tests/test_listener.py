@@ -207,8 +207,8 @@ class ListenerTest(unittest.TestCase):
         """ Test the processing of a Supvisors authorization. """
         from supvisors.listener import SupervisorListener
         listener = SupervisorListener(self.supvisors)
-        listener.authorization('address_name:10.0.0.5 authorized:False')
-        self.assertEqual([call('10.0.0.5', False)], listener.fsm.on_authorization.call_args_list)
+        listener.authorization('address_name:10.0.0.5 authorized:False master_address:10.0.0.1')
+        self.assertEqual([call('10.0.0.5', False, '10.0.0.1')], listener.fsm.on_authorization.call_args_list)
 
     def test_on_remote_event(self):
         """ Test the reception of a Supervisor remote comm event. """

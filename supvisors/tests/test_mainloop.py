@@ -172,65 +172,52 @@ class MainLoopTest(unittest.TestCase):
         self.assertEqual(0, mocked_send.call_count)
 
     @patch('supvisors.mainloop.stderr')
-    def test_check_address(self, mocked_stderr):
-        """ Test the protocol to get the processes handled by a remote
-        Supervisor. """
+    @patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
+    def test_check_address(self, mocked_evt: Mock, mocked_stderr: Mock):
+        """ Test the protocol to get the processes handled by a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         from supvisors.ttypes import AddressStates
         main_loop = SupvisorsMainLoop(self.supvisors)
-        # patch the main loop send_remote_comm_event
-        # test the check_address behaviour through the calls to internal events
-        with patch.object(main_loop, 'send_remote_comm_event') as mocked_evt:
-            # test rpc error: no event is sent to local Supervisor
-            self.mocked_rpc.side_effect = Exception
+        # test rpc error: no event is sent to local Supervisor
+        self.mocked_rpc.side_effect = Exception
+        main_loop.check_address('10.0.0.1')
+        self.assertEqual(2, self.mocked_rpc.call_count)
+        self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
+        self.assertEqual(0, mocked_evt.call_count)
+        # test with a mocked rpc interface
+        dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
+                       'now': 10, 'pid': 1234, 'spawnerr': ''}]
+        rpc_intf = DummyRpcInterface()
+        mocked_all = rpc_intf.supervisor.getAllProcessInfo = Mock()
+        mocked_local = rpc_intf.supvisors.get_all_local_process_info = Mock(return_value=dummy_info)
+        mocked_addr = rpc_intf.supvisors.get_address_info = Mock()
+        rpc_intf.supvisors.get_master_address = Mock(return_value='10.0.0.5')
+        self.mocked_rpc.return_value = rpc_intf
+        self.mocked_rpc.side_effect = None
+        self.mocked_rpc.reset_mock()
+        # test with address in isolation
+        for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
+            mocked_addr.return_value = {'statecode': state}
             main_loop.check_address('10.0.0.1')
-            self.assertEqual(2, self.mocked_rpc.call_count)
-            self.assertEqual(call('10.0.0.1', main_loop.env),
-                             self.mocked_rpc.call_args)
-            self.assertEqual(0, mocked_evt.call_count)
-            # test with a mocked rpc interface
-            rpc_intf = DummyRpcInterface()
-            self.mocked_rpc.side_effect = None
-            self.mocked_rpc.return_value = rpc_intf
+            self.assertEqual([call('10.0.0.1', main_loop.env)], self.mocked_rpc.call_args_list)
+            self.assertEqual([call('auth', 'address_name:10.0.0.1 authorized:False master_address:10.0.0.5')],
+                             mocked_evt.call_args_list)
+            self.assertFalse(mocked_all.called)
+            # reset counters
+            mocked_evt.reset_mock()
             self.mocked_rpc.reset_mock()
-            # test with address in isolation
-            with patch.object(rpc_intf.supervisor,
-                              'getAllProcessInfo') as mocked_supervisor:
-                for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-                    with patch.object(rpc_intf.supvisors, 'get_address_info',
-                                      return_value={'statecode': state}):
-                        main_loop.check_address('10.0.0.1')
-                        self.assertEqual(1, self.mocked_rpc.call_count)
-                        self.assertEqual(call('10.0.0.1', main_loop.env),
-                                         self.mocked_rpc.call_args)
-                        self.assertEqual(1, mocked_evt.call_count)
-                        self.assertEqual(call(
-                            'auth', 'address_name:10.0.0.1 authorized:False'),
-                            mocked_evt.call_args)
-                        self.assertEqual(0, mocked_supervisor.call_count)
-                        # reset counters
-                        mocked_evt.reset_mock()
-                        self.mocked_rpc.reset_mock()
-            # test with address not in isolation
-            dummy_info = [{'name': 'proc', 'group': 'appli',
-                           'state': 10, 'start': 5,
-                           'now': 10, 'pid': 1234, 'spawnerr': ''}]
-            with patch.object(rpc_intf.supvisors, 'get_all_local_process_info',
-                              return_value=dummy_info) as mocked_supervisor:
-                for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
-                              AddressStates.RUNNING, AddressStates.SILENT]:
-                    with patch.object(rpc_intf.supvisors, 'get_address_info',
-                                      return_value={'statecode': state}):
-                        main_loop.check_address('10.0.0.1')
-                        self.assertEqual(1, self.mocked_rpc.call_count)
-                        self.assertEqual(call('10.0.0.1', main_loop.env),
-                                         self.mocked_rpc.call_args)
-                        self.assertEqual(2, mocked_evt.call_count)
-                        self.assertEqual(1, mocked_supervisor.call_count)
-                        # reset counters
-                        mocked_evt.reset_mock()
-                        mocked_supervisor.reset_mock()
-                        self.mocked_rpc.reset_mock()
+        # test with address not in isolation
+        for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING, AddressStates.SILENT]:
+            mocked_addr.return_value = {'statecode': state}
+            main_loop.check_address('10.0.0.1')
+            self.assertEqual(1, self.mocked_rpc.call_count)
+            self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
+            self.assertEqual(2, mocked_evt.call_count)
+            self.assertEqual(1, mocked_local.call_count)
+            # reset counters
+            mocked_evt.reset_mock()
+            mocked_local.reset_mock()
+            self.mocked_rpc.reset_mock()
 
     @patch('supvisors.mainloop.stderr')
     def test_start_process(self, mocked_stderr):

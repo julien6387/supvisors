@@ -311,23 +311,23 @@ class RequestPusher(object):
         """ This method closes the PyZMQ socket. """
         self.socket.close(ZMQ_LINGER)
 
-    def send_check_address(self, address_name):
+    def send_check_address(self, address_name: str) -> None:
         """ Send request to check address. """
-        self.logger.trace('send CHECK_ADDRESS {}'.format(address_name))
+        self.logger.debug('RequestPusher.send_check_address: address_name={}'.format(address_name))
         try:
             self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS, (address_name,)),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('CHECK_ADDRESS not sent')
+            self.logger.error('RequestPusher.send_check_address: CHECK_ADDRESS not sent')
 
     def send_isolate_addresses(self, address_names):
         """ Send request to isolate address. """
-        self.logger.trace('send ISOLATE_ADDRESSES {}'.format(address_names))
+        self.logger.trace('RequestPusher.send_isolate_addresses: address_names={}'.format(address_names))
         try:
             self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_ADDRESSES, address_names),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('ISOLATE_ADDRESSES not sent')
+            self.logger.error('RequestPusher.send_isolate_addresses: ISOLATE_ADDRESSES not sent')
 
     def send_start_process(self, address_name, namespec, extra_args):
         """ Send request to start process. """

@@ -135,8 +135,7 @@ class DummyRpcInterface:
             assert(arg == supervisord)
             return MockedSupvisors()
 
-        with patch('supvisors.rpcinterface.Supvisors',
-                   side_effect=create_supvisors):
+        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
             self.supvisors = RPCInterface(supervisord)
 
 

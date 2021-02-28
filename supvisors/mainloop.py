@@ -21,14 +21,14 @@ import json
 import zmq
 
 from threading import Event, Thread
+from typing import Any
 from sys import stderr
-
-from supervisor.compat import xmlrpclib
 
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
 from supvisors.utils import DeferredRequestHeaders, RemoteCommEvents
+
 
 class SupvisorsMainLoop(Thread):
     """ Class for Supvisors main loop. All inputs are sequenced here.
@@ -36,10 +36,12 @@ class SupvisorsMainLoop(Thread):
 
     Attributes:
         - supvisors: a reference to the Supvisors context,
-        - loop: the infinite loop flag.
+        - stop_event: the event used to stop the thread,
+        - env: the environment variables linked to Supervisor security access,
+        - proxy: the proxy to the internal RPC interface.
     """
 
-    def __init__(self, supvisors):
+    def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
         # thread attributes
         Thread.__init__(self)
@@ -137,6 +139,8 @@ class SupvisorsMainLoop(Thread):
         """ Check isolation and get all process info asynchronously. """
         try:
             remote_proxy = getRPCInterface(address_name, self.env)
+            # get remote perception of master node
+            master_address = remote_proxy.supvisors.get_master_address()
             # check authorization
             status = remote_proxy.supvisors.get_address_info(address_name)
             authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
@@ -149,7 +153,8 @@ class SupvisorsMainLoop(Thread):
                                             json.dumps((address_name, all_info)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'address_name:{} authorized:{}'.format(address_name, authorized))
+                                        'address_name:{} authorized:{} master_address:{}'
+                                        .format(address_name, authorized, master_address))
         except:
             print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
 

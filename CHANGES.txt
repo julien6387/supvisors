@@ -3,6 +3,9 @@
 
 * New LOCAL starting strategy added to command the starting of an application on the local node only
 
+* Fixed https://github.com/julien6387/supvisors/issues/86
+  Under particular circumstances, Supvisors could have multiple master nodes
+
 * Fixed https://github.com/julien6387/supvisors/issues/85
   When using '#' in the Supvisors rules file, a subset of nodes can optionally be defined
 
@@ -11,9 +14,11 @@
 
 * The layout of Web UI statistics sections has been rearranged
 
+* Fixed CSS style missing for CHECKING node state in tables
+
 * Type annotations are added progressively in source code
 
-* Start switching to pytest from unittest
+* Start switching from unittest to pytest
 
 * Logs (especially Debug and Trace) updated to avoid objects to be printed, which is quite unreadable
 

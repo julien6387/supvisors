@@ -181,8 +181,8 @@ class SupervisorListener(object):
         """ Extract authorization and address from data and process event. """
         self.logger.trace('SupervisorListener.authorization: got authorization event: {}'.format(data))
         # split the line received
-        address_name, authorized = tuple(x.split(':')[1] for x in data.split())
-        self.fsm.on_authorization(address_name, boolean(authorized))
+        address_name, authorized, master_address = tuple(x.split(':')[1] for x in data.split())
+        self.fsm.on_authorization(address_name, boolean(authorized), master_address)
 
     def force_process_fatal(self, namespec: str):
         """ Publishes a fake process event showing a FATAL state for the process. """

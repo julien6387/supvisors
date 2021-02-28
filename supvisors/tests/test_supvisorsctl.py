@@ -27,6 +27,16 @@ from unittest.mock import call, patch, Mock
 from supervisor.compat import xmlrpclib
 from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
+import errno
+import socket
+import sys
+import unittest
+
+from unittest.mock import call, patch, Mock
+
+from supervisor.compat import xmlrpclib
+from supervisor.supervisorctl import Controller
+from supervisor.xmlrpc import Faults
 
 
 class ControllerPluginTest(unittest.TestCase):

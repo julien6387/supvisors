@@ -415,8 +415,11 @@ class Starter(Commander):
         # return True when started
         return not starting
 
-    def check_starting(self):
-        """ Check the progress of the application starting. """
+    def check_starting(self) -> bool:
+        """ Check the progress of the application starting.
+
+        :return: True when starting is completed
+        """
         return self.check_progress('stopped', ProcessStates.FATAL)
 
     def on_event(self, process):

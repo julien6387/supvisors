@@ -95,11 +95,11 @@ class ProcessRules(object):
 
     def serial(self) -> Payload:
         """ Get a serializable form of the process rules.
+        hash_addresses is not exported as used internally to resolve addresses.
 
         :return: the process rules in a dictionary
         """
         return {'addresses': self.addresses,
-                'hash_addresses': self.hash_addresses,
                 'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
                 'required': self.required,
@@ -129,7 +129,7 @@ class ProcessStatus(object):
 
         :param application_name: the name of the application the process belongs to
         :param process_name: the name of the process
-        :param supvisors: the global Supvisors structure.
+        :param supvisors: the global Supvisors structure
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
@@ -271,7 +271,7 @@ class ProcessStatus(object):
         :return: None
         """
         # keep date of last information received
-        # use local time here as there is no guarantee that addresses will be time synchonized
+        # use local time here as there is no guarantee that addresses will be time synchronized
         self.last_event_time = int(time())
         # store information
         info = self.infos[address] = process_info
@@ -435,7 +435,7 @@ class ProcessStatus(object):
         log_trace = 'Process {} is {}'.format(self.namespec(), self.state_string())
         if self.addresses:
             log_trace += ' on {}'.format(list(self.addresses))
-        self.logger.info(log_trace)
+        self.logger.debug(log_trace)
 
     def evaluate_conflict(self) -> Optional[bool]:
         """ Get a synthetic state if several processes are in a RUNNING-like state.

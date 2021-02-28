@@ -59,7 +59,7 @@ class ProcessRulesTest(unittest.TestCase):
         """ Test the serialization of the ProcessRules object. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertDictEqual({'addresses': ['*'], 'hash_addresses': None,
+        self.assertDictEqual({'addresses': ['*'],
                               'start_sequence': 0, 'stop_sequence': 0,
                               'required': False, 'wait_exit': False, 'expected_loading': 1,
                               'running_failure_strategy': 'CONTINUE'}, rules.serial())
