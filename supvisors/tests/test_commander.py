@@ -338,7 +338,7 @@ class CommanderTest(CommanderContextTest):
         self.assertFalse(completed)
         self.assertEqual({'sample_test_1': ['sample_test_1:xfontsel'], 'sample_test_2': ['sample_test_2:yeux_01']},
                          self.commander.printable_current_jobs())
-        reason = 'Still stopped 5 seconds after request'
+        reason = 'Still stopped 10 seconds after request'
         self.assertEqual([call('sample_test_1:xlogo', ProcessStates.FATAL, reason),
                           call('sample_test_2:yeux_00', ProcessStates.FATAL, reason)],
                          mocked_force.call_args_list)
@@ -368,7 +368,7 @@ class CommanderTest(CommanderContextTest):
         self.assertFalse(completed)
         self.assertEqual({'sample_test_1': [], 'sample_test_2': []},
                          self.commander.printable_current_jobs())
-        reason = 'Still running 5 seconds after request'
+        reason = 'Still running 10 seconds after request'
         self.assertEqual([call('sample_test_1:xfontsel', ProcessStates.UNKNOWN, reason),
                           call('sample_test_2:yeux_01', ProcessStates.UNKNOWN, reason)],
                          mocked_force.call_args_list)
