@@ -12,6 +12,8 @@
 * Fixed https://github.com/julien6387/supvisors/issues/84
   In the Supvisors rules file, program rules can be defined using both model reference and attributes
 
+* The Web UI uses the default starting strategy of the configuration file
+
 * The layout of Web UI statistics sections has been rearranged
 
 * Fixed CSS style missing for CHECKING node state in tables

@@ -66,8 +66,7 @@ class ViewContext:
         # initialize parameters
         self.parameters = {}
         # extract parameters from context
-        # WARN: period must be done before processname and cpuid
-        # as it requires to be set to access statistics
+        # WARN: period must be done before processname and cpuid as it requires to be set to access statistics
         self.update_period()
         self.update_strategy()
         self.update_auto_refresh()
@@ -106,7 +105,7 @@ class ViewContext:
     def update_strategy(self):
         """ Extract starting strategy from context. """
         self._update_string(STRATEGY, StartingStrategies.strings(),
-                            StartingStrategies.to_string(StartingStrategies.CONFIG))
+                            StartingStrategies.to_string(self.options.starting_strategy))
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """
