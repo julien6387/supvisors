@@ -56,6 +56,7 @@ class DummyOptions:
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
+        self.force_synchro_if = []
         self.auto_fence = True
         self.rules_file = ''
         self.starting_strategy = 0

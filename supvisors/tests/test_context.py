@@ -76,13 +76,14 @@ class ContextTest(CompatTestCase):
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
         # test initial states
-        self.assertListEqual(DummyAddressMapper().addresses, context.unknown_addresses())
-        self.assertListEqual([], context.running_addresses())
-        self.assertListEqual([], context.isolating_addresses())
-        self.assertListEqual([], context.isolation_addresses())
-        self.assertListEqual([], context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
-        self.assertListEqual([], context.addresses_by_states([AddressStates.SILENT]))
-        self.assertListEqual(DummyAddressMapper().addresses, context.addresses_by_states([AddressStates.UNKNOWN]))
+        self.assertEqual(DummyAddressMapper().addresses, context.unknown_addresses())
+        self.assertEqual([], context.unknown_forced_addresses())
+        self.assertEqual([], context.running_addresses())
+        self.assertEqual([], context.isolating_addresses())
+        self.assertEqual([], context.isolation_addresses())
+        self.assertEqual([], context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
+        self.assertEqual([], context.addresses_by_states([AddressStates.SILENT]))
+        self.assertEqual(DummyAddressMapper().addresses, context.addresses_by_states([AddressStates.UNKNOWN]))
         # change states
         context.addresses['127.0.0.1']._state = AddressStates.RUNNING
         context.addresses['10.0.0.1']._state = AddressStates.SILENT
@@ -90,17 +91,41 @@ class ContextTest(CompatTestCase):
         context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
         context.addresses['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertListEqual(['10.0.0.5'], context.unknown_addresses())
-        self.assertListEqual(['127.0.0.1', '10.0.0.4'], context.running_addresses())
-        self.assertListEqual(['10.0.0.2'], context.isolating_addresses())
-        self.assertListEqual(['10.0.0.2', '10.0.0.3'], context.isolation_addresses())
-        self.assertListEqual(['127.0.0.1', '10.0.0.3', '10.0.0.4'],
-                             context.addresses_by_states([AddressStates.RUNNING,
-                                                          AddressStates.ISOLATED]))
-        self.assertListEqual(['10.0.0.1'], context.addresses_by_states([AddressStates.SILENT]))
-        self.assertListEqual(['10.0.0.5'], context.addresses_by_states([AddressStates.UNKNOWN]))
+        self.assertEqual(['10.0.0.5'], context.unknown_addresses())
+        self.assertEqual([], context.unknown_forced_addresses())
+        self.assertEqual(['127.0.0.1', '10.0.0.4'], context.running_addresses())
+        self.assertEqual(['10.0.0.2'], context.isolating_addresses())
+        self.assertEqual(['10.0.0.2', '10.0.0.3'], context.isolation_addresses())
+        self.assertEqual(['127.0.0.1', '10.0.0.3', '10.0.0.4'],
+                         context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
+        self.assertEqual(['10.0.0.1'], context.addresses_by_states([AddressStates.SILENT]))
+        self.assertEqual(['10.0.0.5'], context.addresses_by_states([AddressStates.UNKNOWN]))
 
-    def random_fill_processes(self, context):
+    def test_unknown_forced_addresses(self):
+        """ Test the access to addresses in unknown state. """
+        from supvisors.context import Context
+        from supvisors.ttypes import AddressStates
+        self.supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
+        context = Context(self.supvisors)
+        # test initial states
+        self.assertEqual(DummyAddressMapper().addresses, context.unknown_addresses())
+        self.assertEqual(['10.0.0.1', '10.0.0.4'], context.unknown_forced_addresses())
+        # change states
+        context.addresses['127.0.0.1']._state = AddressStates.RUNNING
+        context.addresses['10.0.0.2']._state = AddressStates.ISOLATING
+        context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
+        context.addresses['10.0.0.4']._state = AddressStates.RUNNING
+        # test new states
+        self.assertEqual(['10.0.0.1', '10.0.0.5'], context.unknown_addresses())
+        self.assertEqual(['10.0.0.1'], context.unknown_forced_addresses())
+        # change states
+        context.addresses['10.0.0.1']._state = AddressStates.SILENT
+        # test new states
+        self.assertEqual(['10.0.0.5'], context.unknown_addresses())
+        self.assertEqual([], context.unknown_forced_addresses())
+
+    @staticmethod
+    def random_fill_processes( context):
         """ Pushes ProcessInfoDatabase process info in AddressStatus. """
         for info in database_copy():
             process = context.setdefault_process(info)

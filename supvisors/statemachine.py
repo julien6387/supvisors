@@ -41,7 +41,8 @@ class AbstractState(object):
         :param supvisors: the global Supvisors structure
         """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'failure_handler', 'logger', 'starter', 'stopper'])
+        supvisors_shortcuts(self, ['context', 'failure_handler', 'logger', 'options',
+                                   'starter', 'stopper'])
         self.address_name = supvisors.address_mapper.local_address
 
     def enter(self) -> None:
@@ -113,21 +114,32 @@ class InitializationState(AbstractState):
                 # do NOT use state setter as transition may be rejected
                 status._state = AddressStates.UNKNOWN
 
-    def next(self):
-        """ Wait for addresses to publish until all are active or timeout. """
+    def next(self) -> int:
+        """ Wait for nodes to publish until:
+            - all are active,
+            - or all defined in the optional *force_synchro_if* option are active,
+            - or timeout is reached.
+
+        :return: the new Supvisors state
+        """
         # cannot get out of this state without local supervisor RUNNING
         addresses = self.context.running_addresses()
         if self.address_name in addresses:
+            # synchro done if the state of all addresses is known
             if len(self.context.unknown_addresses()) == 0:
-                # synchro done if the state of all addresses is known
+                self.logger.info('InitializationState.next: all nodes are RUNNING')
+                return SupvisorsStates.DEPLOYMENT
+            # synchro done if the state of all forced addresses is known
+            if self.context.forced_addresses and len(self.context.unknown_forced_addresses()) == 0:
+                self.logger.info('InitializationState.next: all forced nodes are RUNNING')
                 return SupvisorsStates.DEPLOYMENT
             # if synchro timeout reached, stop synchro and work with known addresses
             if (time() - self.start_date) > self.supvisors.options.synchro_timeout:
-                self.logger.warn('synchro timed out')
+                self.logger.warn('InitializationState.next: synchro timed out')
                 return SupvisorsStates.DEPLOYMENT
-            self.logger.debug('still waiting for remote supvisors to synchronize')
+            self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
-            self.logger.debug('local address {} still not RUNNING'.format(self.address_name))
+            self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.address_name))
         return SupvisorsStates.INITIALIZATION
 
     def exit(self):

@@ -39,7 +39,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     The list of node names where **Supvisors** will be running, separated by commas.
 
-    *Default*:  None.
+    *Default*:  local host name.
 
     *Required*:  Yes.
 
@@ -100,6 +100,15 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
     This use of this option is detailed in :ref:`synchronizing`.
 
     *Default*:  ``15``.
+
+    *Required*:  No.
+
+``force_synchro_if``
+
+    The subset of ``address_list`` that will force the end of the synchronization phase in **Supvisors**, separated by commas.
+    If not set, **Supvisors** waits for all expected **Supvisors** instances to publish until ``synchro_timeout``.
+
+    *Default*:  None.
 
     *Required*:  No.
 

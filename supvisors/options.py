@@ -130,8 +130,8 @@ class SupvisorsServerOptions(ServerOptions):
         temp, parser.mysection = parser.mysection, SupvisorsServerOptions._Section
         # get values
         opt = self.supvisors_options
-        opt.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(
-            parser.getdefault('address_list', gethostname())))))
+        opt.address_list = filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))
+        opt.address_list = list(OrderedDict.fromkeys(opt.address_list))
         opt.rules_file = parser.getdefault('rules_file', None)
         if opt.rules_file:
             opt.rules_file = existing_dirpath(opt.rules_file)
@@ -139,7 +139,8 @@ class SupvisorsServerOptions(ServerOptions):
         opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
         opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
-        opt.force_synchro_if = list(filter(None, list_of_strings(parser.getdefault('force_synchro_if', None))))
+        opt.force_synchro_if = filter(None, list_of_strings(parser.getdefault('force_synchro_if', None)))
+        opt.force_synchro_if = [node for node in opt.force_synchro_if if node in opt.address_list]
         opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
         opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
         # configure statistics
@@ -157,16 +158,24 @@ class SupvisorsServerOptions(ServerOptions):
 
     # conversion utils (completion of supervisor.datatypes)
     @staticmethod
-    def to_port_num(value):
-        """ Convert a string into a port number. """
+    def to_port_num(value: str) -> int:
+        """ Convert a string into a port number, in [1;65535].
+
+        :param value: the port number as a string
+        :return: the port number as an integer
+        """
         value = integer(value)
         if 0 < value <= 65535:
             return value
         raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
 
     @staticmethod
-    def to_timeout(value):
-        """ Convert a string into a timeout value. """
+    def to_timeout(value: str) -> int:
+        """ Convert a string into a timeout value, in [15;1200].
+
+        :param value: the timeout as a string
+        :return: the timeout as an integer
+        """
         value = integer(value)
         if 15 <= value <= 1200:
             return value
@@ -210,8 +219,12 @@ class SupvisorsServerOptions(ServerOptions):
         return sorted(filter(None, periods))
 
     @staticmethod
-    def to_histo(value):
-        """ Convert a string into a value of historic depth. """
+    def to_histo(value: str) -> int:
+        """ Convert a string into a value of historic depth, in [10;1500].
+
+        :param value: the historic size as a string
+        :return: the historic size as an integer
+        """
         histo = integer(value)
         if 10 <= histo <= 1500:
             return histo

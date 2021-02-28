@@ -76,6 +76,7 @@ auto_fence=true
 internal_port=60001
 event_port=60002
 synchro_timeout=20
+force_synchro_if=cliche01,cliche03
 starting_strategy=MOST_LOADED
 conciliation_strategy=SENICIDE
 stats_periods=5,60,600

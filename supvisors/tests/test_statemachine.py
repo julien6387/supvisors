@@ -69,7 +69,7 @@ class StateMachinesTest(unittest.TestCase):
         from supvisors.ttypes import AddressStates, SupvisorsStates
         state = InitializationState(self.supvisors)
         self.assertIsInstance(state, AbstractState)
-        # test enter method: master and start_date are reset
+        # 1. test enter method: master and start_date are reset
         # test that all addresses that are not in an isolation state are reset to UNKNOWN
         state.enter()
         self.assertEqual('', state.context.master_address)
@@ -80,32 +80,48 @@ class StateMachinesTest(unittest.TestCase):
         self.assertEqual(AddressStates.ISOLATING, self.supvisors.context.addresses['10.0.0.3'].state)
         self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['10.0.0.4'].state)
         self.assertEqual(AddressStates.ISOLATED, self.supvisors.context.addresses['10.0.0.5'].state)
-        # test next method
+        # 2. test next method
         # test that Supvisors wait for all addresses to be running or a given timeout is reached
-        with patch.object(self.supvisors.context, 'running_addresses', return_value=[]):
-            # test case no address is running, especially local address
-            result = state.next()
-            self.assertEqual(SupvisorsStates.INITIALIZATION, result)
-        with patch.object(self.supvisors.context, 'running_addresses', return_value=['127.0.0.1', '10.0.0.2']):
-            with patch.object(self.supvisors.context, 'unknown_addresses', return_value=['10.0.0.1', '10.0.0.3']):
-                # test case where addresses are still unknown and timeout is not reached
-                result = state.next()
-                self.assertEqual(SupvisorsStates.INITIALIZATION, result)
-                # test case where addresses are still unknown and timeout is reached
-                state.start_date = time.time() - 11
-                result = state.next()
-                self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
-            with patch.object(self.supvisors.context, 'unknown_addresses', return_value=[]):
-                result = state.next()
-                self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
-        # test exit method
+        self.supvisors.context.forced_addresses = []
+        self.supvisors.context.running_addresses.return_value = []
+        # test case no address is running, especially local address
+        result = state.next()
+        self.assertEqual(SupvisorsStates.INITIALIZATION, result)
+        # test case where addresses are still unknown and timeout is not reached
+        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_addresses.return_value = ['10.0.0.1', '10.0.0.3']
+        self.supvisors.context.unknown_forced_addresses.return_value = []
+        result = state.next()
+        self.assertEqual(SupvisorsStates.INITIALIZATION, result)
+        # test case where no addresses are still unknown
+        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_addresses.return_value = []
+        self.supvisors.context.unknown_forced_addresses.return_value = []
+        result = state.next()
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
+        # test case where end of synchro is forced based on a subset of addresses
+        self.supvisors.context.forced_addresses = ['10.0.0.2', '10.0.0.4']
+        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_addresses.return_value = ['10.0.0.1', '10.0.0.3']
+        self.supvisors.context.unknown_forced_addresses.return_value = []
+        result = state.next()
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
+        # test case where addresses are still unknown and timeout is reached
+        self.supvisors.context.forced_addresses = []
+        state.start_date = time.time() - 11
+        result = state.next()
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
+        self.supvisors.context.unknown_addresses.return_value = []
+        result = state.next()
+        self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
+        # 3. test exit method
         # test that context end_synchro is called and master is the lowest string among address names
-        with patch.object(self.supvisors.context, 'running_addresses',
-                          return_value=['127.0.0.1', '10.0.0.2', '10.0.0.4']):
-            with patch.object(self.supvisors.context, 'end_synchro') as mocked_synchro:
-                state.exit()
-                self.assertEqual(1, mocked_synchro.call_count)
-                self.assertEqual('10.0.0.2', self.supvisors.context.master_address)
+        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+        self.supvisors.context.end_synchro.return_value = ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+        mocked_synchro = self.supvisors.context.end_synchro
+        state.exit()
+        self.assertEqual(1, mocked_synchro.call_count)
+        self.assertEqual('10.0.0.2', self.supvisors.context.master_address)
 
     def test_deployment_state(self):
         """ Test the Deployment state of the fsm. """
