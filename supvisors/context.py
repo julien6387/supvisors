@@ -29,6 +29,7 @@ from supvisors.utils import supvisors_shortcuts
 class Context(object):
     """ The Context class holds the main data of Supvisors:
     - addresses: the dictionary of all AddressStatus (key is address),
+    - forced_addresses: the dictionary of the minimal set of AddressStatus (key is address),
     - applications: the dictionary of all ApplicationStatus (key is application name),
     - processes: the dictionary of all ProcessStatus (key is process namespec),
     - master_address: the address of the Supvisors master,
@@ -41,10 +42,13 @@ class Context(object):
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         # shortcuts for readability
-        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger'])
+        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger', 'options'])
         # attributes
-        self.addresses = {address: AddressStatus(address, self.logger)
-                          for address in self.address_mapper.addresses}
+        self.addresses = {address_name: AddressStatus(address_name, self.logger)
+                          for address_name in self.address_mapper.addresses}
+        self.forced_addresses = {address_name: status
+                                 for address_name, status in self.addresses.items()
+                                 if address_name in self.options.force_synchro_if}
         self.applications = {}
         self.processes = {}
         self._master_address = ''
@@ -67,6 +71,12 @@ class Context(object):
         """ Return the AddressStatus instances in UNKNOWN state. """
         return self.addresses_by_states([AddressStates.UNKNOWN])
 
+    def unknown_forced_addresses(self):
+        """ Return the AddressStatus instances in UNKNOWN state. """
+        return [status.address_name
+                for status in self.forced_addresses.values()
+                if status.state == AddressStates.UNKNOWN]
+
     def running_addresses(self):
         """ Return the AddressStatus instances in RUNNING state. """
         return self.addresses_by_states([AddressStates.RUNNING])
@@ -78,8 +88,7 @@ class Context(object):
     def isolation_addresses(self):
         """ Return the AddressStatus instances in ISOLATING or ISOLATED
         state. """
-        return self.addresses_by_states([AddressStates.ISOLATING,
-                                         AddressStates.ISOLATED])
+        return self.addresses_by_states([AddressStates.ISOLATING, AddressStates.ISOLATED])
 
     def addresses_by_states(self, states):
         """ Return the AddressStatus instances sorted by state. """
