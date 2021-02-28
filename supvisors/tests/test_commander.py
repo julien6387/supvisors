@@ -70,10 +70,10 @@ class ProcessCommandTest(CompatTestCase):
         command.request_time = 95
         self.assertFalse(command.timed_out(102))
         command.request_time = 101
-        self.assertFalse(command.timed_out(102))
-        self.assertTrue(command.timed_out(107))
+        self.assertFalse(command.timed_out(108))
+        self.assertTrue(command.timed_out(112))
         command.request_time = 99
-        self.assertTrue(command.timed_out(106))
+        self.assertTrue(command.timed_out(111))
 
 
 class CommanderContextTest(CompatTestCase):
