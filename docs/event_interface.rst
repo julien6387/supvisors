@@ -93,12 +93,17 @@ Key	               Value
 'process_name'     The Process name.
 'statecode'        The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
 'statename'        The Process state as string, among { ``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'`` }.
-'expected_exit'    True if the exit status is expected (only when state is ``EXITED``).
+'expected_exit'    True if the exit status is expected (only when state is ``'EXITED'``).
 'last_event_time'  The date of the last process event received for this process, regardless of the originating **Supvisors** instance.
 'addresses'        The list of nodes where the process is running.
 'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
 
+.. hint::
+
+    The ``expected_exit`` information of this event provides an answer to the following Supervisor request:
+
+        * `#1150 - Why do event listeners not report the process exit status when stopped/crashed? <https://github.com/Supervisor/supervisor/issues/1150>`_
 
 Process event
 ~~~~~~~~~~~~~
