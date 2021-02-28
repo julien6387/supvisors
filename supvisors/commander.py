@@ -42,7 +42,7 @@ class ProcessCommand(object):
         - ignore_wait_exit: used to command a process out of its application,
         - extra_args: additional arguments to the command line.
     """
-    TIMEOUT = 5
+    TIMEOUT = 10
 
     def __init__(self, process: ProcessStatus, strategy: StartingStrategies = None) -> None:
         """ Initialization of the attributes.
@@ -66,7 +66,7 @@ class ProcessCommand(object):
                     self.strategy, self.request_time,  self.ignore_wait_exit, self.extra_args)
 
     def timed_out(self, now: int) -> bool:
-        """ Return True if there is still no event 5 seconds past the request.
+        """ Return True if there is still no event TIMEOUT seconds past the request.
 
         :param now: the current time
         :param timeout: the timeout duration
