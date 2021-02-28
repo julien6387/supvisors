@@ -31,7 +31,6 @@ class ProcessRules(object):
     """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
-
         - addresses: the nodes where the process can be started (all by default),
         - hash_addresses: when # rule is used, the process can be started on one of these nodes (to be resolved),
         - start_sequence: the order in the starting sequence of the application,
@@ -71,13 +70,15 @@ class ProcessRules(object):
         # required MUST have start_sequence, so force to optional if
         # start_sequence is not set
         if self.required and self.start_sequence == 0:
-            self.logger.warn('{} - required forced to False because no start_sequence defined'.format(namespec))
+            self.logger.warn('ProcessRules.check_dependencies: {} - required forced to False because '
+                             'no start_sequence defined'.format(namespec))
             self.required = False
         # disable autorestart when RunningFailureStrategies is not CONTINUE
         if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
             if self.info_source.autorestart(namespec):
                 self.info_source.disable_autorestart(namespec)
-                self.logger.warn('{} - autorestart disabled due to running failure strategy {}'
+                self.logger.warn('ProcessRules.check_dependencies: {} - autorestart disabled due to '
+                                 'running failure strategy {}'
                                  .format(namespec,
                                          RunningFailureStrategies.to_string(self.running_failure_strategy)))
 
@@ -112,7 +113,6 @@ class ProcessStatus(object):
     """ Class defining the status of a process of Supvisors.
 
     Attributes are:
-
         - application_name: the application name, or group name from a Supervisor point of view,
         - process_name: the process name,
         - state: the synthetic state of the process, same enumeration as Supervisor,
@@ -161,11 +161,12 @@ class ProcessStatus(object):
     def state(self, new_state: int) -> None:
         """ Setter of state attribute.
 
-        :param new_state: the new process stqte
+        :param new_state: the new process state
         :return: None
         """
         if self._state != new_state:
             self._state = new_state
+            self.logger.info('ProcessStatus.state: Process {} is {}'.format(self.namespec(), self.state_string()))
 
     @property
     def extra_args(self) -> str:
@@ -213,8 +214,7 @@ class ProcessStatus(object):
 
         :return: the crash status of the process
         """
-        return (self.state == ProcessStates.FATAL or
-                (self.state == ProcessStates.EXITED and not self.expected_exit))
+        return (self.state == ProcessStates.FATAL or (self.state == ProcessStates.EXITED and not self.expected_exit))
 
     def stopped(self) -> bool:
         """ Return True if the process is stopped, as designed in Supervisor.
@@ -277,7 +277,7 @@ class ProcessStatus(object):
         info = self.infos[address] = process_info
         info['local_time'] = self.last_event_time
         self.update_uptime(info)
-        self.logger.debug('adding {} at {}'.format(info, address))
+        self.logger.debug('ProcessStatus.add_info: adding {} at {}'.format(info, address))
         # reset extra_args
         info['extra_args'] = ''
         self.extra_args = ''
@@ -298,6 +298,8 @@ class ProcessStatus(object):
         :return: None
         """
         procnumber = self.options.procnumbers[self.process_name]
+        self.logger.debug('ProcessStatus.resolve_hash_address: namespec={} address={} procnumber={}'
+                          .format(self.namespec(), address, procnumber))
         if '*' in self.rules.hash_addresses:
             # all nodes defined in the supvisors section of the supervisor configuration file are applicable
             if self.address_mapper.addresses.index(address) == procnumber:
@@ -325,7 +327,8 @@ class ProcessStatus(object):
             # refresh internal information
             info = self.infos[address]
             info['local_time'] = self.last_event_time
-            self.logger.trace('inserting {} into {} at {}'.format(payload, info, address))
+            self.logger.trace('ProcessStatus.update_info: inserting {} into {} at {}'
+                              .format(payload, info, address))
             info.update(payload)
             # re-evaluate description using Supervisor function
             info['description'] = self.update_description(info)
@@ -338,9 +341,9 @@ class ProcessStatus(object):
             self.update_uptime(info)
             # update / check running addresses
             self.update_status(address, new_state, info['expected'])
-            self.logger.debug('new process info: {}'.format(info))
+            self.logger.debug('ProcessStatus.update_info: new process info: {}'.format(info))
         else:
-            self.logger.warn('ProcessEvent rejected for {}. wait for tick from {}'
+            self.logger.warn('ProcessStatus.update_info: ProcessEvent rejected for {}. wait for tick from {}'
                              .format(self.process_name, address))
 
     def update_times(self, address: str, remote_time: int) -> None:
@@ -376,7 +379,8 @@ class ProcessStatus(object):
         :param is_master: True if the local node is the Supvisors master
         :return: None
         """
-        self.logger.debug('{} invalidate_address {} / {}'.format(self.namespec(), self.addresses, address))
+        self.logger.debug('ProcessStatus.invalidate_address: {} in validate on {} / {}'
+                          .format(self.namespec(), self.addresses, address))
         # reassign the difference between current set and parameter
         if address in self.addresses:
             self.addresses.remove(address)
@@ -392,7 +396,8 @@ class ProcessStatus(object):
             elif self.running():
                 # addresses is empty for a running process
                 # action expected to fix the inconsistency
-                self.logger.warn('no more node for running process {}'.format(self.namespec()))
+                self.logger.warn('ProcessStatus.invalidate_address: no more node for running process {}'
+                                 .format(self.namespec()))
                 self.state = ProcessStates.FATAL
                 # notify the failure to dedicated handler, only if local address is master
                 if is_master:
@@ -402,7 +407,7 @@ class ProcessStatus(object):
                 # consider STOPPED now
                 self.state = ProcessStates.STOPPED
         else:
-            self.logger.debug('process {} still in conflict after node invalidation'
+            self.logger.debug('ProcessStatus.invalidate_address: process {} still in conflict after node invalidation'
                               .format(self.namespec()))
 
     def update_status(self, address: str, new_state: int, expected: bool) -> None:
@@ -432,7 +437,7 @@ class ProcessStatus(object):
                 self.state = new_state
                 self.expected_exit = expected
         # log the new status
-        log_trace = 'Process {} is {}'.format(self.namespec(), self.state_string())
+        log_trace = 'ProcessStatus.update_status: Process {} is {}'.format(self.namespec(), self.state_string())
         if self.addresses:
             log_trace += ' on {}'.format(list(self.addresses))
         self.logger.debug(log_trace)
@@ -445,7 +450,7 @@ class ProcessStatus(object):
         if self.conflicting():
             # several processes seems to be in a running state so that becomes tricky
             states = {self.infos[address]['state'] for address in self.addresses}
-            self.logger.debug('{} multiple states {} for nodes {}'
+            self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
                               .format(self.process_name,
                                       [ProcessStates.to_string(x) for x in states],
                                       list(self.addresses)))
@@ -461,5 +466,4 @@ class ProcessStatus(object):
         :param states: a list of all process states of the present process over all nodes
         :return: a running state if found in list, UNKNOWN otherwise
         """
-        return next((state for state in RUNNING_STATES if state in states),
-                    ProcessStates.UNKNOWN)
+        return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)

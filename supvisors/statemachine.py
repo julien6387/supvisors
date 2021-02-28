@@ -302,13 +302,13 @@ class FiniteStateMachine:
         while next_state != self.state and next_state in self.__Transitions[self.state]:
             self.instance.exit()
             self.update_instance(next_state)
-            self.logger.info('Supvisors in {}'.format(self.state_string()))
             next_state = self.instance.next()
 
     def update_instance(self, state):
         """ Change the current state.
         The method also triggers the publication of the change. """
         self.state = state
+        self.logger.info('FiniteStateMachine.update_instance: Supvisors in {}'.format(self.state_string()))
         self.instance = self.__StateInstances[state](self.supvisors)
         self.instance.enter()
         # publish SupvisorsStatus event
