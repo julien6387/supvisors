@@ -36,12 +36,13 @@ class SupvisorsOptions(object):
 
     Attributes are:
 
-        - address_list: list of host names or IP addresses where supvisors will be running,
+        - address_list: list of node names or IP addresses where supvisors will be running,
         - rules_file: absolute or relative path to the XML rules file,
         - internal_port: port number used to publish local events to remote Supvisors instances,
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
+        - force_synchro_if: subset of address_list that will force the end of syncho when all RUNNING,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running instances of the same program,
         - starting_strategy: strategy used to start processes on addresses,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
@@ -53,11 +54,11 @@ class SupvisorsOptions(object):
         - procnumbers: a dictionary giving the number of the program in a homogeneous group.
     """
 
-    _Options = ['address_list', 'rules_file', 'internal_port', 'event_port',
-                'auto_fence', 'synchro_timeout', 'conciliation_strategy',
-                'starting_strategy', 'stats_periods', 'stats_histo',
-                'stats_irix_mode', 'logfile', 'logfile_maxbytes',
-                'logfile_backups', 'loglevel']
+    _Options = ['address_list', 'rules_file', 'internal_port', 'event_port', 'auto_fence',
+                'synchro_timeout', 'force_synchro_if',
+                'conciliation_strategy', 'starting_strategy',
+                'stats_periods', 'stats_histo', 'stats_irix_mode',
+                'logfile', 'logfile_maxbytes', 'logfile_backups', 'loglevel']
 
     def __init__(self):
         """ Initialization of the attributes. """
@@ -69,12 +70,13 @@ class SupvisorsOptions(object):
 
     def __str__(self):
         """ Contents as string. """
-        return ('address_list={} rules_file={} internal_port={} event_port={} '
-                'auto_fence={} synchro_timeout={} conciliation_strategy={} '
+        return ('address_list={} rules_file={} internal_port={} event_port={} auto_fence={} '
+                'synchro_timeout={} force_synchro_if={} conciliation_strategy={} '
                 'starting_strategy={} stats_periods={} stats_histo={} '
                 'stats_irix_mode={} logfile={} logfile_maxbytes={} '
-                'logfile_backups={} loglevel={}'.format(self.address_list, self.rules_file, self.internal_port,
-                                                        self.event_port, self.auto_fence, self.synchro_timeout,
+                'logfile_backups={} loglevel={}'.format(self.address_list, self.rules_file,
+                                                        self.internal_port, self.event_port, self.auto_fence,
+                                                        self.synchro_timeout, self.force_synchro_if,
                                                         self.conciliation_strategy, self.starting_strategy,
                                                         self.stats_periods, self.stats_histo, self.stats_irix_mode,
                                                         self.logfile, self.logfile_maxbytes, self.logfile_backups,
@@ -128,8 +130,8 @@ class SupvisorsServerOptions(ServerOptions):
         temp, parser.mysection = parser.mysection, SupvisorsServerOptions._Section
         # get values
         opt = self.supvisors_options
-        opt.address_list = list(OrderedDict.fromkeys(filter(
-            None, list_of_strings(parser.getdefault('address_list', gethostname())))))
+        opt.address_list = list(OrderedDict.fromkeys(filter(None, list_of_strings(
+            parser.getdefault('address_list', gethostname())))))
         opt.rules_file = parser.getdefault('rules_file', None)
         if opt.rules_file:
             opt.rules_file = existing_dirpath(opt.rules_file)
@@ -137,6 +139,7 @@ class SupvisorsServerOptions(ServerOptions):
         opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
         opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
+        opt.force_synchro_if = list(filter(None, list_of_strings(parser.getdefault('force_synchro_if', None))))
         opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
         opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
         # configure statistics
