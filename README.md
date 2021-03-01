@@ -89,11 +89,11 @@ Not opened yet.
 [pypi-image]: https://badge.fury.io/py/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
-[ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=dev-0.5
-[ci-url]: https://travis-ci.org/julien6387/supvisors?branch=dev-0.5
+[ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master
+[ci-url]: https://travis-ci.org/julien6387/supvisors?branch=master
 
-[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=dev-0.5
-[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=dev-0.5
+[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=master
+[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=master
 
-[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=dev-0.5
-[docs-url]: https://supvisors.readthedocs.io/en/dev-0.5
+[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
+[docs-url]: https://supvisors.readthedocs.io/en/master

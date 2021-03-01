@@ -3,7 +3,7 @@
 
 * New option 'force_synchro_if' to force the end of the synchronization phase when a subset of nodes are active
 
-* New LOCAL starting strategy added to command the starting of an application on the local node only
+* New starting strategy LOCAL added to command the starting of an application on the local node only
 
 * Fixed https://github.com/julien6387/supvisors/issues/87
   Under particular circumstances, Supvisors could have multiple master nodes
