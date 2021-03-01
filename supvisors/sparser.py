@@ -302,7 +302,7 @@ class Parser(object):
         str_value = elt.findtext(attr_string)
         if str_value:
             try:
-                value = strtobool(str_value)
+                value = bool(strtobool(str_value))
                 setattr(rules, attr_string, value)
             except ValueError:
                 self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'

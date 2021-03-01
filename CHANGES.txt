@@ -1,4 +1,4 @@
-0.5 (2021-02-xx)
+0.5 (2021-03-01)
 ----------------
 
 * New option 'force_synchro_if' to force the end of the synchronization phase when a subset of nodes are active
