@@ -76,6 +76,7 @@ auto_fence=true
 internal_port=60001
 event_port=60002
 synchro_timeout=20
+force_synchro_if=cliche01,cliche03
 starting_strategy=MOST_LOADED
 conciliation_strategy=SENICIDE
 stats_periods=5,60,600
@@ -112,7 +113,7 @@ InvalidXmlTest = b'''\
         <expected_loading>10</expected_loading>
     </model>
 
-     <model name="dummy_model_04">
+    <model name="dummy_model_04">
         <reference>dummy_model_01</reference>
     </model>
 
@@ -200,7 +201,6 @@ InvalidXmlTest = b'''\
             <reference>dummy_model_03</reference>
             <addresses>#</addresses>
             <start_sequence>3</start_sequence>
-            <stop_sequence>50</stop_sequence>
             <required>true</required>
             <wait_exit>false</wait_exit>
             <expected_loading>5</expected_loading>
@@ -261,8 +261,14 @@ XmlTest = b'''\
         <expected_loading>10</expected_loading>
     </model>
 
-     <model name="dummy_model_04">
+    <model name="dummy_model_04">
         <reference>dummy_model_01</reference>
+        <expected_loading>20</expected_loading>
+    </model>
+
+    <model name="dummy_model_05">
+        <reference>dummy_model_04</reference>
+        <expected_loading>15</expected_loading>
     </model>
 
     <application name="dummy_application_A">
@@ -339,10 +345,11 @@ XmlTest = b'''\
 
         <pattern name="dummies_">
             <reference>dummy_model_03</reference>
+            <start_sequence>50</start_sequence>
         </pattern>
 
         <pattern name="dummies_01_">
-            <addresses>#</addresses>
+            <addresses>#, 10.0.0.1, 10.0.0.5</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
             <required>false</required>
@@ -354,6 +361,12 @@ XmlTest = b'''\
             <reference>dummy_model_04</reference>
         </pattern>
 
+    </application>
+
+    <application name="dummy_application_E">
+        <program name="dummy_program_E">
+            <reference>dummy_model_05</reference>
+        </program>
     </application>
 
 </root>

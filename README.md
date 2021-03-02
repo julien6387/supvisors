@@ -1,4 +1,6 @@
 # **Supvisors**
+[![PyPI version][pypi-image]][pypi-url] [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
+
 
 **Supvisors** is a Control System for Distributed Applications, based on
 multiple instances of Supervisor.
@@ -16,11 +18,12 @@ The main features are:
 
 ## Supervisor Enhancements
 
-By design, **Supvisors** proposes a fix to the following Supervisor issues:
+**Supvisors** proposes a fix to the following Supervisor issues:
    * [#122 - supervisord Starts All Processes at the Same Time](https://github.com/Supervisor/supervisor/issues/122)
    * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
    * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
    * [#1023 - Pass arguments to program when starting a job?](https://github.com/Supervisor/supervisor/issues/1023)
+   * [#1150 - Why do event listeners not report the process exit status when stopped/crashed?](https://github.com/Supervisor/supervisor/issues/1150)
 
 ## Supported Platforms
 
@@ -34,21 +37,18 @@ It will likely work fine on most UNIX systems.
 **Supvisors** 0.1 (available on PyPi) works with Python 2.7 (and former versions of Supervisor, i.e. 3.3.0)
 but is not maintained anymore.
 
-[![Build Status](https://travis-ci.org/julien6387/supvisors.svg?branch=master)](https://travis-ci.org/julien6387/supvisors)
-
 ## Dependencies
 
 **Supvisors** has dependencies on:
 
-Package    | Release    | Optional
------------|------------|---------
-Supervisor | 4.2.1      |
-PyZMQ      | 20.0.0     |
-psutil     | 5.7.3      |     X
-netifaces  | 0.10.9     |     X
-matplotlib | 3.3.3      |     X
-lxml       | 4.6.2      |     X
-
+Package                                             | Release    | Optional
+----------------------------------------------------|------------|---------
+[Supervisor](http://supervisord.org)                | 4.2.1      |
+[PyZMQ](http://pyzmq.readthedocs.io)                | 20.0.0     |
+[psutil](https://pypi.python.org/pypi/psutil)       | 5.7.3      |     X
+[netifaces](https://pypi.python.org/pypi/netifaces) | 0.10.9     |     X
+[matplotlib](http://matplotlib.org)                 | 3.3.3      |     X
+[lxml](http://lxml.de)                              | 4.6.2      |     X
 
 Please note that some of these dependencies may have their own dependencies.
 
@@ -74,8 +74,6 @@ Supvisors can be installed with `pip install`:
 
 You can view the current **Supvisors** documentation [here](http://supvisors.readthedocs.io).
 
-[![Documentation Status](https://readthedocs.org/projects/supvisors/badge/?version=master)](https://supvisors.readthedocs.io/en/master/?badge=master)
-
 You will find detailed installation and configuration documentation.
 
 ## Reporting Bugs and Viewing the Source Repository
@@ -87,3 +85,15 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 ## Contributing
 
 Not opened yet.
+
+[pypi-image]: https://badge.fury.io/py/supvisors.svg
+[pypi-url]: https://badge.fury.io/py/supvisors
+
+[ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master
+[ci-url]: https://travis-ci.org/julien6387/supvisors?branch=master
+
+[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=master
+[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=master
+
+[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
+[docs-url]: https://supvisors.readthedocs.io/en/master

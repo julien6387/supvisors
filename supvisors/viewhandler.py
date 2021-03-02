@@ -46,8 +46,7 @@ HAS_PLOT = test_matplotlib_import()
 
 
 class ViewHandler(MeldView):
-    """ Helper class to commonize rendering and behavior between handlers
-    inheriting from MeldView. """
+    """ Helper class to commonize rendering and behavior between handlers inheriting from MeldView. """
 
     def __init__(self, context):
         """ Initialization of the attributes. """
@@ -58,7 +57,7 @@ class ViewHandler(MeldView):
         self.supvisors = context.supervisord.supvisors
         supvisors_shortcuts(self, ['address_mapper', 'fsm', 'info_source',
                                    'logger', 'options', 'statistician'])
-        # cannot store context as it is or it would crush the http context
+        # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local address
         self.address = self.address_mapper.local_address
@@ -98,7 +97,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        self.logger.debug('New context: {}'. format(self.view_ctx.__dict__))
+        self.logger.debug('New context: {}'. format(self.view_ctx.parameters))
 
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """
@@ -158,14 +157,10 @@ class ViewHandler(MeldView):
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
                 if status.state == AddressStates.RUNNING:
-                    # go to web page located on address,
-                    # so as to reuse Supervisor StatusView
+                    # go to web page located on address, so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_ADDRESS_PAGE)
                     elt.attributes(href=url)
-                    elt.attrib['class'] = 'on' \
-                                          + (' master'
-                                             if item == self.sup_ctx.master_address
-                                             else '')
+                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_address else '')
                 else:
                     elt.attrib['class'] = 'off'
                 elt.content(item)
@@ -184,8 +179,7 @@ class ViewHandler(MeldView):
             if self.fsm.state == SupvisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
-                parameters = {APPLI: item.application_name}
-                url = self.view_ctx.format_url('', APPLICATION_PAGE, **parameters)
+                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name})
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'on'
             elt.content(item.application_name)
@@ -204,8 +198,7 @@ class ViewHandler(MeldView):
             if item == self.view_ctx.parameters[PERIOD]:
                 elt.attrib['class'] = 'button off active'
             else:
-                parameters = {PERIOD: item}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
+                url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
                 elt.attributes(href=url)
             elt.content('{}s'.format(item))
 
@@ -436,6 +429,10 @@ class ViewHandler(MeldView):
             # post to write message
             if message is not None:
                 self.view_ctx.message(format_gravity_message(message))
+
+    def make_callback(self, namespec, action):
+        """ Triggers processing iaw action requested.
+        Subclasses will define what's to be done. """
 
     @staticmethod
     def set_slope_class(elt, value):

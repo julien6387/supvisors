@@ -359,19 +359,6 @@ class RequestTest(unittest.TestCase):
             self.fail('unexpected exception')
 
 
-class Payload:
-    """ Dummy class just implementing a serial method. """
-
-    def __init__(self, data):
-        self.data = data
-
-    def copy(self):
-        return self.data.copy()
-
-    def serial(self):
-        return self.data
-
-
 class EventTest(unittest.TestCase):
     """ Test case for the EventPublisher and EventSubscriber classes
     of the supvisorszmq module. """
@@ -385,8 +372,7 @@ class EventTest(unittest.TestCase):
         self.supvisors = MockedSupvisors()
         # create the ZeroMQ context
         # create publisher and subscriber
-        self.publisher = EventPublisher(self.supvisors.options.event_port,
-                                        self.supvisors.logger)
+        self.publisher = EventPublisher(self.supvisors.options.event_port, self.supvisors.logger)
         self.subscriber = EventSubscriber(zmq.Context.instance(),
                                           self.supvisors.options.event_port,
                                           self.supvisors.logger)
@@ -398,21 +384,12 @@ class EventTest(unittest.TestCase):
         # so a timeout is set for reception
         self.subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
         # create test payloads
-        self.supvisors_payload = Payload({'state': 'running',
-                                          'version': '1.0'})
-        self.address_payload = Payload({'state': 'silent',
-                                        'name': 'cliche01',
-                                        'date': 1234})
-        self.application_payload = Payload({'state': 'starting',
-                                            'name': 'supvisors'})
-        self.process_payload = Payload({'state': 'running',
-                                        'process_name': 'plugin',
-                                        'application_name': 'supvisors',
-                                        'date': 1230})
-        self.event_payload = Payload({'state': 20,
-                                      'name': 'plugin',
-                                      'group': 'supvisors',
-                                      'now': 1230})
+        self.supvisors_payload = {'state': 'running', 'version': '1.0'}
+        self.address_payload = {'state': 'silent', 'name': 'cliche01', 'date': 1234}
+        self.application_payload = {'state': 'starting', 'name': 'supvisors'}
+        self.process_payload = {'state': 'running', 'process_name': 'plugin', 'application_name': 'supvisors',
+                                'date': 1230}
+        self.event_payload = {'state': 20, 'name': 'plugin', 'group': 'supvisors', 'now': 1230}
 
     def tearDown(self):
         """ Close the sockets. """
@@ -420,8 +397,7 @@ class EventTest(unittest.TestCase):
         self.subscriber.close()
 
     def check_reception(self, header=None, data=None):
-        """ The method tests that the message is received correctly
-        or not received at all. """
+        """ The method tests that the message is received correctly or not received at all. """
         if header and data:
             # check that subscriber receives the message
             try:
@@ -440,8 +416,7 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_supvisors_status(self.supvisors_payload)
         if subscribed:
-            self.check_reception(EventHeaders.SUPVISORS,
-                                 self.supvisors_payload.data)
+            self.check_reception(EventHeaders.SUPVISORS, self.supvisors_payload)
         else:
             self.check_reception()
 
@@ -451,8 +426,7 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_address_status(self.address_payload)
         if subscribed:
-            self.check_reception(EventHeaders.ADDRESS,
-                                 self.address_payload.data)
+            self.check_reception(EventHeaders.ADDRESS, self.address_payload)
         else:
             self.check_reception()
 
@@ -462,8 +436,7 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_application_status(self.application_payload)
         if subscribed:
-            self.check_reception(EventHeaders.APPLICATION,
-                                 self.application_payload.data)
+            self.check_reception(EventHeaders.APPLICATION, self.application_payload)
         else:
             self.check_reception()
 
@@ -473,7 +446,7 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_process_event('local_address', self.event_payload)
         if subscribed:
-            expected = self.event_payload.data
+            expected = self.event_payload
             expected['address'] = 'local_address'
             self.check_reception(EventHeaders.PROCESS_EVENT, expected)
         else:
@@ -485,8 +458,7 @@ class EventTest(unittest.TestCase):
         from supvisors.utils import EventHeaders
         self.publisher.send_process_status(self.process_payload)
         if subscribed:
-            self.check_reception(EventHeaders.PROCESS_STATUS,
-                                 self.process_payload.data)
+            self.check_reception(EventHeaders.PROCESS_STATUS, self.process_payload)
         else:
             self.check_reception()
 
@@ -503,8 +475,7 @@ class EventTest(unittest.TestCase):
 
     def test_no_subscription(self):
         """ Test the non-reception of messages when subscription is not set. """
-        # at this stage, no subscription has been set
-        # so nothing should be received
+        # at this stage, no subscription has been set so nothing should be received
         self.check_subscription(False, False, False, False, False)
 
     def test_subscription_supvisors_status(self):

@@ -20,7 +20,7 @@
 import sys
 import unittest
 
-from unittest.mock import call
+from unittest.mock import call, patch
 
 from supvisors.tests.base import (MockedSupvisors,
                                   any_stopped_process_info,
@@ -52,14 +52,15 @@ class ProcessRulesTest(unittest.TestCase):
         """ Test the string output. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertEqual("addresses=['*'] start_sequence=0 stop_sequence=0 required=False"
+        self.assertEqual("addresses=['*'] hash_addresses=None start_sequence=0 stop_sequence=0 required=False"
                          " wait_exit=False expected_loading=1 running_failure_strategy=CONTINUE", str(rules))
 
     def test_serial(self):
         """ Test the serialization of the ProcessRules object. """
         from supvisors.process import ProcessRules
         rules = ProcessRules(self.supvisors)
-        self.assertDictEqual({'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
+        self.assertDictEqual({'addresses': ['*'],
+                              'start_sequence': 0, 'stop_sequence': 0,
                               'required': False, 'wait_exit': False, 'expected_loading': 1,
                               'running_failure_strategy': 'CONTINUE'}, rules.serial())
 
@@ -115,22 +116,6 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.required)
         self.assertFalse(rules.wait_exit)
         self.assertEqual(5, rules.expected_loading)
-        # test empty addresses
-        rules.addresses = []
-        rules.start_sequence = 0
-        rules.stop_sequence = 0
-        rules.required = False
-        rules.wait_exit = False
-        rules.expected_loading = 0
-        # check dependencies
-        rules.check_dependencies('dummy')
-        # test that all addresses are applicable
-        self.assertListEqual(['*'], rules.addresses)
-        self.assertEqual(0, rules.start_sequence)
-        self.assertEqual(0, rules.stop_sequence)
-        self.assertFalse(rules.required)
-        self.assertFalse(rules.wait_exit)
-        self.assertEqual(0, rules.expected_loading)
 
     def test_dependency_rules_running_failure(self):
         """ Test the dependency related to running failure strategy in process rules.
@@ -275,7 +260,8 @@ class ProcessTest(unittest.TestCase):
         loaded = pickle.loads(dumped)
         self.assertDictEqual(serialized, loaded)
 
-    def test_add_info(self):
+    @patch('supvisors.process.ProcessStatus.resolve_hash_address')
+    def test_add_info(self, mocked_resolve):
         """ Test the addition of a process info into the ProcessStatus. """
         from supervisor.states import ProcessStates
         from supvisors.process import ProcessStatus
@@ -283,7 +269,6 @@ class ProcessTest(unittest.TestCase):
         info = process_info_by_name('xclock')
         info['extra_args'] = '-x dummy'
         self.assertNotIn('uptime', info)
-
         # 1. create ProcessStatus instance
         process = ProcessStatus(info['group'], info['name'], self.supvisors)
         process.extra_args = 'something else'
@@ -302,12 +287,8 @@ class ProcessTest(unittest.TestCase):
         # extra_args are reset when using add_info
         self.assertEqual('', process.extra_args)
         self.assertEqual('', info['extra_args'])
-
-        # 2. test that address is unchanged
-        self.assertListEqual(['*'], process.rules.addresses)
-        # update rules to test '#'
-        process.rules.addresses = ['#']
-        # replace with an EXITED process info
+        self.assertFalse(mocked_resolve.called)
+        # 2. replace with an EXITED process info
         info = any_process_info_by_state(ProcessStates.EXITED)
         process.add_info('10.0.0.1', info)
         # check last event info
@@ -321,11 +302,9 @@ class ProcessTest(unittest.TestCase):
         self.assertFalse(process.addresses)
         self.assertEqual(ProcessStates.EXITED, process.state)
         self.assertTrue(process.expected_exit)
-        # the firefox process has a procnumber of 0 and address '10.0.0.1'
-        # has an index of 1
-        # address rule remains unchanged
-        self.assertListEqual(['#'], process.rules.addresses)
-
+        self.assertFalse(mocked_resolve.called)
+        # update rules to test '#'
+        process.rules.hash_addresses = ['*']
         # 3. add a RUNNING process info
         info = any_process_info_by_state(ProcessStates.RUNNING)
         process.add_info('10.0.0.2', info)
@@ -339,9 +318,36 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual({'10.0.0.2'}, process.addresses)
         self.assertEqual(ProcessStates.RUNNING, process.state)
         self.assertTrue(process.expected_exit)
-        # the xfontsel process has a procnumber of 2 and address '10.0.0.2' has an index of 2
-        # address rule changes to '10.0.0.2'
+        self.assertTrue(mocked_resolve.called)
+
+    def test_resolve_hash_address(self):
+        """ Test the resolution of addresses when hash_address is set. """
+        from supvisors.process import ProcessStatus
+        # get a process info
+        # in mocked supvisors, xclock has a procnumber of 2
+        info = process_info_by_name('xclock')
+        process = ProcessStatus(info['group'], info['name'], self.supvisors)
+        # 1. update rules to test '#' with all nodes available
+        process.rules.hash_addresses = ['*']
+        process.rules.addresses = []
+        # address '10.0.0.1' has an index of 1 so address rule remains unchanged
+        process.resolve_hash_address('10.0.0.1')
+        self.assertEqual([], process.rules.addresses)
+        # address '10.0.0.2' has an index of 2 so address rule is set
+        process.resolve_hash_address('10.0.0.2')
         self.assertListEqual(['10.0.0.2'], process.rules.addresses)
+        # 2. update rules to test '#' with a subset of nodes available
+        process.rules.hash_addresses = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
+        process.rules.addresses = []
+        # here, address '10.0.0.2' is not even in list so address rule remains unchanged
+        process.resolve_hash_address('10.0.0.2')
+        self.assertListEqual([], process.rules.addresses)
+        # address '10.0.0.3' is in list but index is 1 so address rule remains unchanged
+        process.resolve_hash_address('10.0.0.3')
+        self.assertListEqual([], process.rules.addresses)
+        # address '10.0.0.5' is in list at index 2 so address rule is set
+        process.resolve_hash_address('10.0.0.5')
+        self.assertListEqual(['10.0.0.5'], process.rules.addresses)
 
     def test_update_info(self):
         """ Test the update of the ProcessStatus upon reception of a process event. """

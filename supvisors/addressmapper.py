@@ -28,8 +28,7 @@ class AddressMapper(object):
         - logger: a reference to the common logger,
         - addresses: the list of addresses defined in the Supvisors configuration file,
         - local_addresses: the list of known aliases of the current host, i.e. the host name and the IPv4 addresses,
-        - local_address: the usage name of the current host, i.e. the name in the known aliases corresponding
-        to an address of the Supvisors list. """
+        - local_address: the usage name of the current host, i.e. the name in the known aliases corresponding to an address of the Supvisors list. """
 
     def __init__(self, logger):
         """ Initialization of the attributes. """
@@ -52,7 +51,7 @@ class AddressMapper(object):
         self.logger.info('Expected addresses: {}'.format(addr))
         # store IP list as found in config file
         self._addresses = addr
-        # get IP list for local board
+        # get IP list for local node
         self.local_address = self.expected(self.local_addresses)
         self.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
 
@@ -61,8 +60,7 @@ class AddressMapper(object):
         return address in self._addresses
 
     def filter(self, address_list):
-        """ Returns a list of expected addresses from a list of names or ip addresses identifying
-        different locations. """
+        """ Returns a list of expected nodes from a list of names or ip addresses identifying different locations. """
         # filter unknown addresses
         addresses = [address for address in address_list if self.valid(address)]
         # remove duplicates keeping the same ordering

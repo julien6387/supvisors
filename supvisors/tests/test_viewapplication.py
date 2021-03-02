@@ -160,54 +160,28 @@ class ViewApplicationTest(unittest.TestCase):
     def test_write_starting_strategy(self):
         """ Test the write_starting_strategy method. """
         from supvisors.ttypes import StartingStrategies
+        from supvisors.viewcontext import STRATEGY
         # patch the view context
-        self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+        self.view.view_ctx = Mock(parameters={STRATEGY: 'CONFIG'}, **{'format_url.return_value': 'an url'})
         # patch the meld elements
-        config_mid = Mock(attrib={'class': ''})
-        most_mid = Mock(attrib={'class': ''})
-        less_mid = Mock(attrib={'class': ''})
-        mocked_root = Mock(**{'findmeld.side_effect': [config_mid,
-                                                       most_mid,
-                                                       less_mid] * 3})
-        # test call with CONFIG strategy
-        self.view.supvisors.starter.strategy = StartingStrategies.CONFIG
-        self.view.write_starting_strategy(mocked_root)
-        self.assertEqual('button off active', config_mid.attrib['class'])
-        self.assertEqual([], config_mid.attributes.call_args_list)
-        self.assertEqual('', most_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         most_mid.attributes.call_args_list)
-        self.assertEqual('', less_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         less_mid.attributes.call_args_list)
-        config_mid.attrib['class'] = ''
-        most_mid.attributes.reset_mock()
-        less_mid.attributes.reset_mock()
-        # test call with MOST_LOADED strategy
-        self.view.supvisors.starter.strategy = StartingStrategies.MOST_LOADED
-        self.view.write_starting_strategy(mocked_root)
-        self.assertEqual('', config_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         config_mid.attributes.call_args_list)
-        self.assertEqual('button off active', most_mid.attrib['class'])
-        self.assertEqual([], most_mid.attributes.call_args_list)
-        self.assertEqual('', less_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         less_mid.attributes.call_args_list)
-        most_mid.attrib['class'] = ''
-        config_mid.attributes.reset_mock()
-        less_mid.attributes.reset_mock()
-        # test call with LESS_LOADED strategy
-        self.view.supvisors.starter.strategy = StartingStrategies.LESS_LOADED
-        self.view.write_starting_strategy(mocked_root)
-        self.assertEqual('', config_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         config_mid.attributes.call_args_list)
-        self.assertEqual('', most_mid.attrib['class'])
-        self.assertEqual([call(href='an url')],
-                         most_mid.attributes.call_args_list)
-        self.assertEqual('button off active', less_mid.attrib['class'])
-        self.assertEqual([], less_mid.attributes.call_args_list)
+        strategy_mids = [Mock(attrib={'class': ''}) for _ in StartingStrategies.values()]
+        mocked_root = Mock(**{'findmeld.side_effect': strategy_mids * len(strategy_mids)})
+        # test all strategies in loop
+        for index, strategy in enumerate(StartingStrategies.strings()):
+            self.view.view_ctx.parameters[STRATEGY] = strategy
+            self.view.write_starting_strategy(mocked_root)
+            # other strategy_mids are not selected
+            for idx in range(len(strategy_mids)):
+                if idx == index:
+                    # strategy_mid at same index is selected
+                    self.assertEqual('button off active', strategy_mids[idx].attrib['class'])
+                    self.assertEqual([], strategy_mids[idx].attributes.call_args_list)
+                else:
+                    self.assertEqual('', strategy_mids[idx].attrib['class'])
+                    self.assertEqual([call(href='an url')], strategy_mids[idx].attributes.call_args_list)
+                # reset mocks
+                strategy_mids[idx].attrib['class'] = ''
+                strategy_mids[idx].attributes.reset_mock()
 
     def test_write_application_actions(self):
         """ Test the write_application_actions method. """
@@ -448,48 +422,37 @@ class ViewApplicationTest(unittest.TestCase):
            return_value='Stop application')
     @patch('supvisors.viewapplication.ApplicationView.start_application_action',
            return_value='Start application')
-    @patch('supvisors.viewapplication.ApplicationView.set_starting_strategy',
-           side_effect=['Config', 'Most', 'Less'])
     @patch('supvisors.viewapplication.ApplicationView.refresh_action',
            return_value='Refresh')
-    def test_make_callback(self, mocked_refresh, mocked_strategy,
-                           mocked_start_app, mocked_stop_app,
-                           mocked_restart_app, mocked_start_proc,
-                           mocked_stop_proc, mocked_restart_proc,
-                           mocked_clear_proc, mocked_delayed):
+    def test_make_callback(self, mocked_refresh, mocked_start_app, mocked_stop_app,
+                           mocked_restart_app, mocked_start_proc, mocked_stop_proc,
+                           mocked_restart_proc, mocked_clear_proc, mocked_delayed):
         """ Test the make_callback method. """
+        from supvisors.ttypes import StartingStrategies
+        from supvisors.viewcontext import STRATEGY
         # patch view context
-        self.view.supvisors.starter.strategy = 'starter strategy'
-        self.view.view_ctx = Mock(**{'get_process_status.return_value': None})
+        self.view.view_ctx = Mock(parameters={STRATEGY: 'LOCAL'},
+                                  **{'get_process_status.return_value': None})
         # test calls for different actions
         self.assertEqual('Refresh', self.view.make_callback('', 'refresh'))
-        self.assertEqual('Config', self.view.make_callback('', 'config'))
-        self.assertEqual('Most', self.view.make_callback('', 'most'))
-        self.assertEqual('Less', self.view.make_callback('', 'less'))
-        self.assertEqual('Start application',
-                         self.view.make_callback('', 'startapp'))
-        self.assertEqual([call('starter strategy')],
-                         mocked_start_app.call_args_list)
-        self.assertEqual('Stop application',
-                         self.view.make_callback('', 'stopapp'))
-        self.assertEqual([call()],
-                         mocked_stop_app.call_args_list)
-        self.assertEqual('Restart application',
-                         self.view.make_callback('', 'restartapp'))
-        self.assertEqual([call('starter strategy')],
-                         mocked_restart_app.call_args_list)
+        self.assertEqual('Start application', self.view.make_callback('', 'startapp'))
+        self.assertEqual([call(StartingStrategies.LOCAL)], mocked_start_app.call_args_list)
+        self.assertEqual('Stop application', self.view.make_callback('', 'stopapp'))
+        self.assertEqual([call()], mocked_stop_app.call_args_list)
+        self.assertEqual('Restart application', self.view.make_callback('', 'restartapp'))
+        self.assertEqual([call(StartingStrategies.LOCAL)], mocked_restart_app.call_args_list)
         self.assertEqual('Delayed', self.view.make_callback('dummy', 'anything'))
         # change view context for the remaining actions
         self.view.view_ctx.get_process_status.return_value = 'None'
         # test start process
         self.assertEqual('Start process', self.view.make_callback('dummy', 'start'))
-        self.assertEqual([call('starter strategy', 'dummy')], mocked_start_proc.call_args_list)
+        self.assertEqual([call(StartingStrategies.LOCAL, 'dummy')], mocked_start_proc.call_args_list)
         # test stop process
         self.assertEqual('Stop process', self.view.make_callback('dummy', 'stop'))
         self.assertEqual([call('dummy')], mocked_stop_proc.call_args_list)
         # test restart process
         self.assertEqual('Restart process', self.view.make_callback('dummy', 'restart'))
-        self.assertEqual([call('starter strategy', 'dummy')], mocked_restart_proc.call_args_list)
+        self.assertEqual([call(StartingStrategies.LOCAL, 'dummy')], mocked_restart_proc.call_args_list)
         # test clear logs process
         self.assertEqual('Clear process logs', self.view.make_callback('dummy', 'clearlog'))
         self.assertEqual([call('dummy')], mocked_clear_proc.call_args_list)
@@ -498,38 +461,23 @@ class ViewApplicationTest(unittest.TestCase):
     def test_refresh_action(self, mocked_delayed):
         """ Test the refresh_action method. """
         self.assertEqual('Delayed', self.view.refresh_action())
-        self.assertEqual([call('Page refreshed')],
-                         mocked_delayed.call_args_list)
-
-    @patch('supvisors.viewapplication.delayed_info', return_value='Delayed')
-    def test_set_starting_strategy(self, mocked_delayed):
-        """ Test the set_starting_strategy method. """
-        self.assertEqual('Delayed', self.view.set_starting_strategy(1))
-        self.assertEqual([call('Starting strategy set to LESS_LOADED')],
-                         mocked_delayed.call_args_list)
+        self.assertEqual([call('Page refreshed')], mocked_delayed.call_args_list)
 
 
 class ViewApplicationActionTest(unittest.TestCase):
-    """ Test case for the start/stop methods of the ApplicationView class of
-    the viewapplication module. """
+    """ Test case for the start/stop methods of the ApplicationView class of the viewapplication module. """
 
     def setUp(self):
         """ Create a common context and apply common patches. """
         from supvisors.viewapplication import ApplicationView
         self.view = ApplicationView(DummyHttpContext('ui/application.html'))
         # add the common patches
-        self.patches = [patch('supvisors.viewapplication.delayed_error',
-                              return_value='Delay err'),
-                        patch('supvisors.viewapplication.delayed_warn',
-                              return_value='Delay warn'),
-                        patch('supvisors.viewapplication.delayed_info',
-                              return_value='Delay info'),
-                        patch('supvisors.viewapplication.error_message',
-                              return_value='Msg err'),
-                        patch('supvisors.viewapplication.warn_message',
-                              return_value='Msg warn'),
-                        patch('supvisors.viewapplication.info_message',
-                              return_value='Msg info')]
+        self.patches = [patch('supvisors.viewapplication.delayed_error', return_value='Delay err'),
+                        patch('supvisors.viewapplication.delayed_warn', return_value='Delay warn'),
+                        patch('supvisors.viewapplication.delayed_info', return_value='Delay info'),
+                        patch('supvisors.viewapplication.error_message', return_value='Msg err'),
+                        patch('supvisors.viewapplication.warn_message', return_value='Msg warn'),
+                        patch('supvisors.viewapplication.info_message', return_value='Msg info')]
         self.mocked = [p.start() for p in self.patches]
 
     def tearDown(self):
@@ -538,8 +486,7 @@ class ViewApplicationActionTest(unittest.TestCase):
 
     def test_start_application_action(self):
         """ Test the start_application_action method. """
-        self.check_start_action('start_application',
-                                'start_application_action')
+        self.check_start_action('start_application', 'start_application_action')
 
     def test_stop_application_action(self):
         """ Test the stop_application_action method. """
@@ -547,8 +494,7 @@ class ViewApplicationActionTest(unittest.TestCase):
 
     def test_restart_application_action(self):
         """ Test the restart_application_action method. """
-        self.check_start_action('restart_application',
-                                'restart_application_action')
+        self.check_start_action('restart_application', 'restart_application_action')
 
     def test_start_process_action(self):
         """ Test the start_process_action method. """

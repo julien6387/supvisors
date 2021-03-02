@@ -1,9 +1,45 @@
+0.5 (2021-03-01)
+----------------
+
+* New option 'force_synchro_if' to force the end of the synchronization phase when a subset of nodes are active
+
+* New starting strategy LOCAL added to command the starting of an application on the local node only
+
+* Fixed https://github.com/julien6387/supvisors/issues/87
+  Under particular circumstances, Supvisors could have multiple master nodes
+
+* Fixed https://github.com/julien6387/supvisors/issues/86
+  The starting and stopping sequences may fail and block when a sub-sequence includes only unstartable programs
+
+* Fixed https://github.com/julien6387/supvisors/issues/85
+  When using '#' in the Supvisors rules file, a subset of nodes can optionally be defined
+
+* Fixed https://github.com/julien6387/supvisors/issues/84
+  In the Supvisors rules file, program rules can be defined using both model reference and attributes
+
+* The Web UI uses the default starting strategy of the configuration file
+
+* The layout of Web UI statistics sections has been rearranged
+
+* Fixed CSS style missing for CHECKING node state in tables
+
+* Star added to the node box of the Master instance on the main page
+
+* Type annotations are added progressively in source code
+
+* Start switching from unittest to pytest
+
+* Logs (especially Debug and Trace) updated to avoid objects to be printed, which is quite unreadable
+
+* Documentation updated
+
+
 0.4 (2021-02-14)
 ----------------
 
 * Auto-refresh button added to all pages
 
-* Main page reworked by adding a subdivision of application in node boxes
+* Web UI Main page reworked by adding a subdivision of application in node boxes
 
 * Fixed exception when exiting using Ctrl+c from shell
 

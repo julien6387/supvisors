@@ -171,8 +171,7 @@ class Context:
         return self.get_application(application_name).get_program(process_name)
 
     def has_events(self, application_name=None):
-        """ Return True if the programs of the application contain events
-        not received yet. """
+        """ Return True if the programs of the application contain events not received yet. """
         application_list = [self.get_application(application_name)] \
             if application_name else self.applications.values()
         for application in application_list:
@@ -292,8 +291,7 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertEqual(state_event.statename, event['statename'])
         self.assertEqual(state_event.statecode, event['statecode'])
         # check the running address
-        if state_event.statecode in [ProcessStates.STOPPING] \
-                + list(RUNNING_STATES):
+        if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
             self.assertListEqual([state_event.address], event['addresses'])
             program.address = state_event.address
         # update program state

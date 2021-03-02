@@ -36,13 +36,15 @@ from supvisors.strategy import RunningFailureHandler
 class Supvisors(object):
     """ The Supvisors class. """
 
-    # logger output
-    LOGGER_FORMAT = '%(asctime)s %(levelname)s %(message)s\n'
+    # logger output (use ';' as separator as easier to cut)
+    LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
     def __init__(self, supervisord):
         """ Initialization of the attributes. """
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
+        # declare zmq context (will be created in listener)
+        self.zmq = None
         # get options from config file
         server_options = SupvisorsServerOptions()
         server_options.realize()
@@ -83,8 +85,11 @@ class Supvisors(object):
         Else Supvisors will log in the file defined in option.
         """
         if self.options.logfile is Automatic:
-            # use Supervisord logger
-            return supervisord.options.logger
+            # use Supervisord logger but patch format anyway
+            logger = supervisord.options.logger
+            for handler in logger.handlers:
+                handler.setFormat(Supvisors.LOGGER_FORMAT)
+            return logger
         # else create own Logger using Supervisor functions
         nodaemon = supervisord.options.nodaemon
         silent = supervisord.options.silent

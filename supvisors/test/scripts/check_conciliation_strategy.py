@@ -32,8 +32,7 @@ from scripts.running_addresses import RunningAddressesTest
 
 class ConciliationStrategyTest(RunningAddressesTest):
     """ Test case to check the conciliation of Supvisors.
-    The aim is to test user and auto conciliation, depending on the
-    configuration.
+    The aim is to test user and auto conciliation, depending on the configuration.
     """
 
     def setUp(self):
@@ -44,8 +43,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # expected to be {'movie_server_01': ['cliche01'],
         #                 'movie_server_02': ['cliche03'],
         #                 'movie_server_03': ['cliche02']}
-        self.assertItemsEqual(self.running_processes.keys(),
-            ['movie_server_01', 'movie_server_02', 'movie_server_03'])
+        self.assertItemsEqual(self.running_processes.keys(), ['movie_server_01', 'movie_server_02', 'movie_server_03'])
         running_addresses = set()
         for addresses in self.running_processes.values():
             self.assertEqual(1, len(addresses))
@@ -66,7 +64,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         """ Check depending on the configuration. """
         # test depends on configuration
         strategies = self.local_proxy.supvisors.get_strategies()
-        strategy = ConciliationStrategies._from_string(strategies['conciliation'])
+        strategy = ConciliationStrategies.from_string(strategies['conciliation'])
         if strategy == ConciliationStrategies.USER:
             print('### Testing USER conciliation')
             self._check_conciliation_user_manual()

@@ -21,13 +21,13 @@ import json
 import zmq
 
 from threading import Event, Thread
+from typing import Any
 from sys import stderr
 
 from supvisors.rpcrequests import getRPCInterface
 from supvisors.supvisorszmq import SupvisorsZmq
 from supvisors.ttypes import AddressStates
-from supvisors.utils import (DeferredRequestHeaders,
-                             RemoteCommEvents)
+from supvisors.utils import DeferredRequestHeaders, RemoteCommEvents
 
 
 class SupvisorsMainLoop(Thread):
@@ -36,10 +36,12 @@ class SupvisorsMainLoop(Thread):
 
     Attributes:
         - supvisors: a reference to the Supvisors context,
-        - loop: the infinite loop flag.
+        - stop_event: the event used to stop the thread,
+        - env: the environment variables linked to Supervisor security access,
+        - proxy: the proxy to the internal RPC interface.
     """
 
-    def __init__(self, supvisors):
+    def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
         # thread attributes
         Thread.__init__(self)
@@ -89,25 +91,20 @@ class SupvisorsMainLoop(Thread):
 
     def check_events(self, subscriber, socks):
         """ Forward external Supervisor events to main thread. """
-        if subscriber.socket in socks and \
-                socks[subscriber.socket] == zmq.POLLIN:
+        if subscriber.socket in socks and socks[subscriber.socket] == zmq.POLLIN:
             try:
                 message = subscriber.receive()
             except:
                 print('[ERROR] failed to get data from subscriber', file=stderr)
             else:
-                # The events received are not processed directly in this thread
-                # because it would conflict with the processing in the
-                # Supervisor thread, as they use the same data.
-                # That's why a RemoteCommunicationEvent is used to push the
-                # event in the Supervisor thread.
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT,
-                                            json.dumps(message))
+                # The events received are not processed directly in this thread because it would conflict
+                # with the processing in the Supervisor thread, as they use the same data.
+                # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
     def check_requests(self, zmq_sockets, socks):
         """ Defer internal requests. """
-        if zmq_sockets.puller.socket in socks and \
-                socks[zmq_sockets.puller.socket] == zmq.POLLIN:
+        if zmq_sockets.puller.socket in socks and socks[zmq_sockets.puller.socket] == zmq.POLLIN:
             try:
                 header, body = zmq_sockets.puller.receive()
             except:
@@ -142,10 +139,11 @@ class SupvisorsMainLoop(Thread):
         """ Check isolation and get all process info asynchronously. """
         try:
             remote_proxy = getRPCInterface(address_name, self.env)
+            # get remote perception of master node
+            master_address = remote_proxy.supvisors.get_master_address()
             # check authorization
             status = remote_proxy.supvisors.get_address_info(address_name)
-            authorized = status['statecode'] not in [AddressStates.ISOLATING,
-                                                     AddressStates.ISOLATED]
+            authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
@@ -155,8 +153,8 @@ class SupvisorsMainLoop(Thread):
                                             json.dumps((address_name, all_info)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'address_name:{} authorized:{}'
-                                        .format(address_name, authorized))
+                                        'address_name:{} authorized:{} master_address:{}'
+                                        .format(address_name, authorized, master_address))
         except:
             print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
 
@@ -166,8 +164,8 @@ class SupvisorsMainLoop(Thread):
             proxy = getRPCInterface(address_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
-            print('[ERROR] failed to start process {} on {} with {}'.format(namespec, address_name, extra_args),
-                  file=stderr)
+            print('[ERROR] failed to start process {} on {} with extra_args="{}"'
+                  .format(namespec, address_name, extra_args), file=stderr)
 
     def stop_process(self, address_name, namespec):
         """ Stop process asynchronously. """

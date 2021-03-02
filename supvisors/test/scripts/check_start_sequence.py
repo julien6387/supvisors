@@ -62,13 +62,13 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_import_database_starting(self):
         """ Check the starting of the import_database application.
-        The mount_disk process is started first, then the copy_error
-        (failure expected).
+        The mount_disk process is started first, then the copy_error (failure expected).
         The application is configured to be stopped because of the failure. """
         # define 'import_database' application
         application = Application('import_database')
         self.context.add_application(application)
-        application.add_program(Program('mount_disk', True))
+        for program_name in ['mount_disk_00', 'mount_disk_01']:
+            application.add_program(Program(program_name, True))
         application.add_program(Program('copy_error', True))
         # check events
         self.check_mount_disk_starting()
@@ -77,31 +77,44 @@ class CheckStartSequenceTest(CheckSequenceTest):
 
     def check_mount_disk_starting(self):
         """ Check the starting of the mount_disk program. """
+        config = [('mount_disk_00', self.HOST_02),
+                  ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
-        program = self.context.get_program('import_database:mount_disk')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        application = self.context.get_application('import_database')
+        for program_name, address in config:
+            program = application.get_program(program_name)
+            if address in self.addresses:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+            else:
+                program.add_event(ProcessStateEvent(ProcessStates.FATAL, address))
         # check that the events received correspond to the expected
-        self.check_events()
-        self.assertFalse(self.context.has_events())
+        self.check_events('import_database')
+        self.assertFalse(self.context.has_events('import_database'))
 
     def check_copy_error_starting(self):
         """ Check the starting of the copy_error program. """
         # define the expected events for the copy_error program
-        program = self.context.get_program('import_database:copy_error')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.FATAL))
-        # test the events received are compliant
-        self.check_events()
-        self.assertFalse(self.context.has_events())
+        if all(node in self.addresses for node in [self.HOST_02, self.HOST_03]):
+            program = self.context.get_program('import_database:copy_error')
+            program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+            program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
+            program.add_event(ProcessStateEvent(ProcessStates.FATAL))
+            # test the events received are compliant
+            self.check_events()
+            self.assertFalse(self.context.has_events())
 
     def check_mount_disk_stopping(self):
         """ Program the stopping of the program.state program. """
+        config = [('mount_disk_00', self.HOST_02),
+                  ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
-        program = self.context.get_program('import_database:mount_disk')
-        program.add_event(ProcessStateEvent(ProcessStates.STOPPING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        application = self.context.get_application('import_database')
+        for program_name, address in config:
+            if address in self.addresses:
+                program = application.get_program(program_name)
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, address))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED, address))
         # do NOT check the events received at this stage
         # stopping events will be mixed with the starting events
         # of the following applications
@@ -114,13 +127,9 @@ class CheckStartSequenceTest(CheckSequenceTest):
         # define 'import_database' application
         application = Application('database')
         self.context.add_application(application)
-        for program_name in ['movie_server_01',
-                             'movie_server_02',
-                             'movie_server_03']:
+        for program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03']:
             application.add_program(Program(program_name))
-        for program_name in ['register_movies_01',
-                             'register_movies_02',
-                             'register_movies_03']:
+        for program_name in ['register_movies_01', 'register_movies_02', 'register_movies_03']:
             application.add_program(Program(program_name, False, True))
         # check events
         self.check_movie_server_starting()

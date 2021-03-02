@@ -166,10 +166,8 @@ public class SupvisorsXmlRpc {
      * @return HashMap<String, SupvisorsProcessEvent>: Information about the
      * processes, sorted by namespec.
      */
-    public HashMap<String, SupvisorsProcessEvent> getAllLocalProcessInfo()
-            throws XmlRpcException {
-        Object[] objectsArray = client.rpcCall(Namespace + "get_all_local_process_info",
-            null, Object[].class);
+    public HashMap<String, SupvisorsProcessEvent> getAllLocalProcessInfo() throws XmlRpcException {
+        Object[] objectsArray = client.rpcCall(Namespace + "get_all_local_process_info", null, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupvisorsProcessEvent.class);
     }
 
@@ -182,11 +180,9 @@ public class SupvisorsXmlRpc {
      * @return SupvisorsProcessEvent: Information about the process.
      * @throws XmlRpcException: with code BAD_NAME if namespec is unknown to Supvisors.
      */
-    public SupvisorsProcessEvent getLocalProcessInfo(final String namespec)
-            throws XmlRpcException {
+    public SupvisorsProcessEvent getLocalProcessInfo(final String namespec) throws XmlRpcException {
         Object[] params = new Object[]{namespec};
-        HashMap result = client.rpcCall(Namespace + "get_local_process_info",
-            params, HashMap.class);
+        HashMap result = client.rpcCall(Namespace + "get_local_process_info", params, HashMap.class);
         return new SupvisorsProcessEvent(result);
     }
 

@@ -22,6 +22,11 @@
         <expected_loading>5</expected_loading>
     </model>
 
+    <model name="converter">
+        <addresses>*</addresses>
+        <expected_loading>25</expected_loading>
+    </model>
+
     <!-- starter checking application -->
     <application name="test">
         <start_sequence>1</start_sequence>
@@ -44,13 +49,13 @@
         <start_sequence>2</start_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
-        <program name="mount_disk">
-            <addresses>cliche81</addresses>
+        <pattern name="mount_disk_">
+            <addresses>#,cliche82,cliche83,cliche84</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>2</stop_sequence>
             <required>true</required>
             <expected_loading>0</expected_loading>
-        </program>
+        </pattern>
 
         <program name="copy_error">
             <addresses>cliche81</addresses>
@@ -108,7 +113,7 @@
         </program>
 
         <program name="hmi">
-            <addresses>cliche82, cliche81</addresses>
+            <addresses>cliche82,cliche81</addresses>
             <start_sequence>3</start_sequence>
             <stop_sequence>1</stop_sequence>
             <expected_loading>10</expected_loading>
@@ -132,17 +137,17 @@
         </pattern>
 
         <program name="converter_04">
+            <reference>converter</reference>
             <addresses>cliche83,cliche81,cliche82</addresses>
-            <expected_loading>25</expected_loading>
         </program>
 
         <program name="converter_07">
+            <reference>converter</reference>
             <addresses>cliche81,cliche83,cliche82</addresses>
-            <expected_loading>25</expected_loading>
         </program>
 
         <pattern name="converter_">
-            <expected_loading>25</expected_loading>
+            <reference>converter</reference>
         </pattern>
 
      </application>

@@ -49,7 +49,7 @@ public final class DataConversion {
                 final T info = klass.getDeclaredConstructor(map.getClass()).newInstance(map);
                 infoMap.put(info.getName(), info);
             } catch (Exception exc) {
-                System.err.println("DataConversion: " + exc);
+                System.err.println("DataConversion: " + exc.getCause());
             }
         }
         return infoMap;

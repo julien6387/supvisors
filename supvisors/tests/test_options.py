@@ -42,6 +42,7 @@ class SupvisorsOptionsTest(unittest.TestCase):
         self.assertIsNone(opt.event_port)
         self.assertIsNone(opt.auto_fence)
         self.assertIsNone(opt.synchro_timeout)
+        self.assertIsNone(opt.force_synchro_if)
         self.assertIsNone(opt.conciliation_strategy)
         self.assertIsNone(opt.starting_strategy)
         self.assertIsNone(opt.stats_periods)
@@ -58,7 +59,7 @@ class SupvisorsOptionsTest(unittest.TestCase):
         opt = SupvisorsOptions()
         self.assertEqual('address_list=None rules_file=None '
                          'internal_port=None event_port=None auto_fence=None '
-                         'synchro_timeout=None conciliation_strategy=None '
+                         'synchro_timeout=None force_synchro_if=None conciliation_strategy=None '
                          'starting_strategy=None stats_periods=None stats_histo=None '
                          'stats_irix_mode=None logfile=None logfile_maxbytes=None '
                          'logfile_backups=None loglevel=None', str(opt))
@@ -94,10 +95,12 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, error_message):
             SupvisorsServerOptions.to_timeout('0')
         with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_timeout('1001')
+            SupvisorsServerOptions.to_timeout('14')
+        with self.assertRaisesRegex(ValueError, error_message):
+            SupvisorsServerOptions.to_timeout('1201')
         # test valid values
-        self.assertEqual(1, SupvisorsServerOptions.to_timeout('1'))
-        self.assertEqual(1000, SupvisorsServerOptions.to_timeout('1000'))
+        self.assertEqual(15, SupvisorsServerOptions.to_timeout('15'))
+        self.assertEqual(1200, SupvisorsServerOptions.to_timeout('1200'))
 
     def test_conciliation_strategy(self):
         """ Test the conversion of a string to a conciliation strategy. """
@@ -201,6 +204,7 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         self.assertEqual(65002, opt.event_port)
         self.assertFalse(opt.auto_fence)
         self.assertEqual(15, opt.synchro_timeout)
+        self.assertEqual([], opt.force_synchro_if)
         self.assertEqual(ConciliationStrategies.USER, opt.conciliation_strategy)
         self.assertEqual(StartingStrategies.CONFIG, opt.starting_strategy)
         self.assertListEqual([10], opt.stats_periods)
@@ -216,12 +220,13 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         from supvisors.ttypes import ConciliationStrategies, StartingStrategies
         server = self.create_server(DefinedOptionConfiguration)
         opt = server.supvisors_options
-        self.assertListEqual(['cliche01', 'cliche03', 'cliche02'], opt.address_list)
+        self.assertEqual(['cliche01', 'cliche03', 'cliche02'], opt.address_list)
         self.assertEqual('my_movies.xml', opt.rules_file)
         self.assertEqual(60001, opt.internal_port)
         self.assertEqual(60002, opt.event_port)
         self.assertTrue(opt.auto_fence)
         self.assertEqual(20, opt.synchro_timeout)
+        self.assertEqual(['cliche01', 'cliche03'], opt.force_synchro_if)
         self.assertEqual(ConciliationStrategies.SENICIDE, opt.conciliation_strategy)
         self.assertEqual(StartingStrategies.MOST_LOADED, opt.starting_strategy)
         self.assertListEqual([5, 60, 600], opt.stats_periods)
@@ -242,8 +247,10 @@ class SupvisorsServerOptionsTest(unittest.TestCase):
         server = SupvisorsServerOptions()
         # this flag is required for supervisor to cope with unittest arguments
         server.positional_args_allowed = 1
-        with patch.object(ServerOptions, 'open', return_value=args[0]):
-            server.realize()
+        # remove pytest cov options
+        with patch.object(sys, 'argv', [sys.argv[0]]):
+            with patch.object(ServerOptions, 'open', return_value=args[0]):
+                server.realize()
         return server
 
 

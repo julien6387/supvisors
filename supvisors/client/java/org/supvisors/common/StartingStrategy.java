@@ -23,7 +23,8 @@ package org.supvisors.common;
 public enum StartingStrategy {
     CONFIG(0),
     LESS_LOADED(1),
-    MOST_LOADED(2);
+    MOST_LOADED(2),
+    LOCAL(3);
 
     /** The strategy code. */
     private int strategyCode;

@@ -179,7 +179,7 @@ nav {
 .vertical_contents {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: start;
 }
 
 
@@ -503,7 +503,12 @@ table .desc, table.addr {
  * State gradients
  */
 table .UNKNOWN {
-    background-image: linear-gradient(165deg, grey, white);
+    background-image: linear-gradient(165deg, white, grey, grey, white);
+    color: black;
+}
+
+table .CHECKING {
+    background-image: linear-gradient(165deg, white, grey, green, white);
     color: black;
 }
 
@@ -513,12 +518,12 @@ table .STOPPED, table .EXITED, table .SILENT {
 }
 
 table .STARTING, table .BACKOFF {
-    background-image: linear-gradient(165deg, #cc0, green, white);
+    background-image: linear-gradient(165deg, white, #cc0, green, white);
     color: black;
 }
 
 table .STOPPING {
-    background-image: linear-gradient(165deg, green, #cc0, white);
+    background-image: linear-gradient(165deg, white, green, #cc0, white);
     color: black;
 }
 

@@ -34,78 +34,67 @@ class ViewContextTest(unittest.TestCase):
     url_attr_template = r'(.+=.+)'
 
     def setUp(self):
-        """ Create a logger that stores log traces. """
+        """ Create the instance to be tested. """
+        from supvisors.viewcontext import ViewContext
         self.http_context = DummyHttpContext('')
+        self.ctx = ViewContext(self.http_context)
+        self.maxDiff = None
 
     def test_init(self):
         """ Test the values set at construction. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertIs(ctx.http_context, self.http_context)
-        self.assertIs(ctx.supvisors, self.http_context.supervisord.supvisors)
-        self.assertEqual(DummyAddressMapper().local_address, ctx.local_address)
+        self.assertIs(self.ctx.http_context, self.http_context)
+        self.assertIs(self.ctx.supvisors, self.http_context.supervisord.supvisors)
+        self.assertEqual(DummyAddressMapper().local_address, self.ctx.local_address)
         self.assertDictEqual({'address': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
-                              'intfname': None, 'auto': False}, ctx.parameters)
+                              'intfname': None, 'auto': False, 'strategy': 'CONFIG'},
+                             self.ctx.parameters)
 
     def test_get_server_port(self):
         """ Test the get_server_port method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertEqual(7777, ctx.get_server_port())
+        self.assertEqual(7777, self.ctx.get_server_port())
 
     def test_get_action(self):
         """ Test the get_action method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertEqual('test', ctx.get_action())
+        self.assertEqual('test', self.ctx.get_action())
 
     def test_get_address(self):
         """ Test the get_address method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertEqual('10.0.0.4', ctx.get_address())
+        self.assertEqual('10.0.0.4', self.ctx.get_address())
 
     def test_get_message(self):
         """ Test the get_message method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertEqual('hi chaps', ctx.get_message())
+        self.assertEqual('hi chaps', self.ctx.get_message())
 
     def test_get_gravity(self):
         """ Test the get_gravity method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        self.assertEqual('none', ctx.get_gravity())
+        self.assertEqual('none', self.ctx.get_gravity())
 
     def test_url_parameters(self):
         """ Test the get_nb_cores method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # test default
-        self.assertEqual(ctx.url_parameters(),
-                         'period=5')
+        self.assertEqual(self.ctx.url_parameters(), 'period=5')
         # update internal parameters
-        ctx.parameters.update({'processname': 'dummy_proc',
-                               'namespec': 'dummy_ns',
-                               'address': '10.0.0.1',
-                               'cpuid': 3,
-                               'intfname': 'eth0',
-                               'appliname': 'dummy_appli',
-                               'period': 8})
+        self.ctx.parameters.update({'processname': 'dummy_proc',
+                                    'namespec': 'dummy_ns',
+                                    'address': '10.0.0.1',
+                                    'cpuid': 3,
+                                    'intfname': 'eth0',
+                                    'appliname': 'dummy_appli',
+                                    'period': 8})
         # test default
-        self.assertEqual(ctx.url_parameters(),
+        self.assertEqual(self.ctx.url_parameters(),
                          'processname=dummy_proc&amp;namespec=dummy_ns&amp;'
                          'address=10.0.0.1&amp;cpuid=3&amp;intfname=eth0&amp;'
                          'appliname=dummy_appli&amp;period=8')
         # test with extra arguments, overloading some
-        self.assertEqual(ctx.url_parameters(**{'extra': 'args',
-                                               'processname': 'cat',
-                                               'address': '127.0.0.1',
-                                               'cpuid': 1,
-                                               'intfname': 'lo',
-                                               'appliname': '',
-                                               'period': 0}),
+        self.assertEqual(self.ctx.url_parameters(**{'extra': 'args',
+                                                    'processname': 'cat',
+                                                    'address': '127.0.0.1',
+                                                    'cpuid': 1,
+                                                    'intfname': 'lo',
+                                                    'appliname': '',
+                                                    'period': 0}),
                          'namespec=dummy_ns&amp;extra=args&amp;'
                          'processname=cat&amp;address=127.0.0.1&amp;'
                          'cpuid=1&amp;intfname=lo')
@@ -366,22 +355,21 @@ class ViewContextTest(unittest.TestCase):
 
     def test_url_parameters(self):
         """ Test the url_parameters method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # test default
-        self.assertEqual('period=5&amp;address=10.0.0.4', ctx.url_parameters())
+        self.assertEqual('period=5&amp;strategy=CONFIG&amp;address=10.0.0.4', self.ctx.url_parameters())
         # update internal parameters
-        ctx.parameters.update({'processname': 'dummy_proc',
-                               'namespec': 'dummy_ns',
-                               'address': '10.0.0.1',
-                               'cpuid': 3,
-                               'intfname': 'eth0',
-                               'appliname': 'dummy_appli',
-                               'period': 8})
+        self.ctx.parameters.update({'processname': 'dummy_proc',
+                                    'namespec': 'dummy_ns',
+                                    'address': '10.0.0.1',
+                                    'cpuid': 3,
+                                    'intfname': 'eth0',
+                                    'appliname': 'dummy_appli',
+                                    'period': 8,
+                                    'strategy': 'CONFIG'})
         # test without additional parameters
-        url = ctx.url_parameters()
+        url = self.ctx.url_parameters()
         # result depends on dict contents so ordering is unreliable
-        regexp = r'&amp;'.join([self.url_attr_template for _ in range(7)])
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
@@ -391,12 +379,11 @@ class ViewContextTest(unittest.TestCase):
                                          'cpuid=3',
                                          'intfname=eth0',
                                          'appliname=dummy_appli',
-                                         'period=8')))
+                                         'period=8',
+                                         'strategy=CONFIG')))
         # test with additional parameters
-        url = ctx.url_parameters(**{'address': '127.0.0.1',
-                                    'intfname': 'lo',
-                                    'extra': 'args'})
-        regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
+        url = self.ctx.url_parameters(**{'address': '127.0.0.1', 'intfname': 'lo', 'extra': 'args'})
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(9)])
         matches = re.match(regexp, url)
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
@@ -407,20 +394,17 @@ class ViewContextTest(unittest.TestCase):
                                          'intfname=lo',
                                          'extra=args',
                                          'appliname=dummy_appli',
-                                         'period=8')))
+                                         'period=8',
+                                         'strategy=CONFIG')))
 
     def test_format_url(self):
         """ Test the format_url method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # test without address or arguments
-        self.assertEqual('index.html?period=5&amp;address=10.0.0.4',
-                         ctx.format_url(0, 'index.html'))
+        self.assertEqual('index.html?period=5&amp;strategy=CONFIG&amp;address=10.0.0.4',
+                         self.ctx.format_url(0, 'index.html'))
         # test with address and arguments
-        url = ctx.format_url('10.0.0.1', 'index.html',
-                             **{'period': 10,
-                                'appliname': 'dummy_appli',
-                                'extra': 'args'})
+        url = self.ctx.format_url('10.0.0.1', 'index.html',
+                                  **{'period': 10, 'appliname': 'dummy_appli', 'extra': 'args'})
         # result depends on dict contents so ordering is unreliable
         base_address = r'http://10.0.0.1:7777/index.html\?'
         parameters = r'&amp;'.join([self.url_attr_template for _ in range(3)])
@@ -429,14 +413,12 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('extra=args',
-                                         'period=10&amp;address=10.0.0.4',
+                                         'period=10&amp;strategy=CONFIG&amp;address=10.0.0.4',
                                          'appliname=dummy_appli')))
 
     def test_message(self):
         """ Test the message method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
-        ctx.message(('warning', 'not as expected'))
+        self.ctx.message(('warning', 'not as expected'))
         # result depends on dict contents so ordering is unreliable
         url = self.http_context.response['headers']['Location']
         base_address = r'http://10.0.0.1:7777/index.html\?'
@@ -446,32 +428,29 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('message=not%20as%20expected',
-                                         'period=5&amp;address=10.0.0.4',
+                                         'period=5&amp;strategy=CONFIG&amp;address=10.0.0.4',
                                          'gravity=warning')))
 
     def test_get_nbcores(self):
         """ Test the get_nb_cores method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # test default
-        self.assertEqual(0, ctx.get_nbcores())
+        self.assertEqual(0, self.ctx.get_nbcores())
         # mock the structure
         stats = self.http_context.supervisord.supvisors.statistician
-        stats.nbcores[ctx.local_address] = 4
+        stats.nbcores[self.ctx.local_address] = 4
         # test new call
-        self.assertEqual(4, ctx.get_nbcores())
+        self.assertEqual(4, self.ctx.get_nbcores())
         # test with unknown address
-        self.assertEqual(0, ctx.get_nbcores('10.0.0.1'))
+        self.assertEqual(0, self.ctx.get_nbcores('10.0.0.1'))
         # test with known address
         stats.nbcores['10.0.0.1'] = 8
-        self.assertEqual(8, ctx.get_nbcores('10.0.0.1'))
+        self.assertEqual(8, self.ctx.get_nbcores('10.0.0.1'))
 
     def test_get_address_stats(self):
         """ Test the get_address_stats method. """
-        from supvisors.viewcontext import ViewContext, PERIOD
-        ctx = ViewContext(self.http_context)
+        from supvisors.viewcontext import PERIOD
         # test default
-        self.assertIsNone(ctx.get_address_stats())
+        self.assertIsNone(self.ctx.get_address_stats())
         # add statistics data
         stats_data = self.http_context.supervisord.supvisors.statistician.data
         stats_data['127.0.0.1'] = {5: 'data for period 5 at 127.0.0.1',
@@ -479,25 +458,20 @@ class ViewContextTest(unittest.TestCase):
         stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
                                   10: 'data for period 10 at 10.0.0.1'}
         # test with default address
-        self.assertEqual('data for period 5 at 127.0.0.1',
-                         ctx.get_address_stats())
+        self.assertEqual('data for period 5 at 127.0.0.1', self.ctx.get_address_stats())
         # test with unknown address parameter
-        self.assertIsNone(ctx.get_address_stats('10.0.0.2'))
+        self.assertIsNone(self.ctx.get_address_stats('10.0.0.2'))
         # test with known address parameter and existing period
-        self.assertEqual('data for period 5 at 10.0.0.1',
-                         ctx.get_address_stats('10.0.0.1'))
+        self.assertEqual('data for period 5 at 10.0.0.1', self.ctx.get_address_stats('10.0.0.1'))
         # update period
-        ctx.parameters[PERIOD] = 8
+        self.ctx.parameters[PERIOD] = 8
         # test with default address and existing period
-        self.assertEqual('data for period 8 at 127.0.0.1',
-                         ctx.get_address_stats())
+        self.assertEqual('data for period 8 at 127.0.0.1', self.ctx.get_address_stats())
         # test with known address parameter but missing period
-        self.assertIsNone(ctx.get_address_stats('10.0.0.1'))
+        self.assertIsNone(self.ctx.get_address_stats('10.0.0.1'))
 
     def test_get_process_last_desc(self):
         """ Test the get_process_last_desc method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # build common Mock
         mocked_process = Mock(addresses=set(),
                               infos={'10.0.0.1': {'local_time': 10, 'description': 'desc1'},
@@ -507,80 +481,69 @@ class ViewContextTest(unittest.TestCase):
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
             self.assertTupleEqual((None, None),
-                                  ctx.get_process_last_desc('dummy_proc', True))
+                                  self.ctx.get_process_last_desc('dummy_proc', True))
         # test method return on non-running process and running not requested
         # the method returns the
-        with patch('supvisors.viewcontext.ViewContext.get_process_status',
-                   return_value=mocked_process):
+        with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.2', 'desc2'),
-                                  ctx.get_process_last_desc('dummy_proc'))
+                                  self.ctx.get_process_last_desc('dummy_proc'))
         # test method return on running process and running requested
         mocked_process.addresses.add('10.0.0.3')
-        with patch('supvisors.viewcontext.ViewContext.get_process_status',
-                   return_value=mocked_process):
+        with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.3', 'desc3'),
-                                  ctx.get_process_last_desc('dummy_proc', True))
+                                  self.ctx.get_process_last_desc('dummy_proc', True))
         # test method return on running process and running not requested
         # same result as previous
-        with patch('supvisors.viewcontext.ViewContext.get_process_status',
-                   return_value=mocked_process):
+        with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.3', 'desc3'),
-                                  ctx.get_process_last_desc('dummy_proc'))
+                                  self.ctx.get_process_last_desc('dummy_proc'))
         # test method return on multiple running processes and running requested
         mocked_process.addresses.add('10.0.0.2')
-        with patch('supvisors.viewcontext.ViewContext.get_process_status',
-                   return_value=mocked_process):
+        with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.2', 'desc2'),
-                                  ctx.get_process_last_desc('dummy_proc', True))
+                                  self.ctx.get_process_last_desc('dummy_proc', True))
         # test method return on running process and running not requested
         # same result as previous
-        with patch('supvisors.viewcontext.ViewContext.get_process_status',
-                   return_value=mocked_process):
+        with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.2', 'desc2'),
-                                  ctx.get_process_last_desc('dummy_proc'))
+                                  self.ctx.get_process_last_desc('dummy_proc'))
 
     @patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=4)
     def test_get_process_stats(self, mocked_core):
         """ Test the get_process_stats method. """
-        from supvisors.viewcontext import ViewContext
-        ctx = ViewContext(self.http_context)
         # reset mocks that have been called in constructor
         mocked_core.reset_mock()
         # patch get_address_stats so that it returns no result
-        with patch.object(ctx, 'get_address_stats', return_value=None) as mocked_stats:
-            self.assertEqual((4, None), ctx.get_process_stats('dummy_proc'))
+        with patch.object(self.ctx, 'get_address_stats', return_value=None) as mocked_stats:
+            self.assertEqual((4, None), self.ctx.get_process_stats('dummy_proc'))
             self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
         mocked_core.reset_mock()
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
-        with patch.object(ctx, 'get_address_stats', return_value=mocked_find) as mocked_stats:
-            self.assertEqual((4, 'mock stats'), ctx.get_process_stats('dummy_proc', '10.0.0.1'))
+        with patch.object(self.ctx, 'get_address_stats', return_value=mocked_find) as mocked_stats:
+            self.assertEqual((4, 'mock stats'), self.ctx.get_process_stats('dummy_proc', '10.0.0.1'))
             self.assertEqual([call('10.0.0.1')], mocked_stats.call_args_list)
             self.assertEqual([call('10.0.0.1')], mocked_core.call_args_list)
             self.assertEqual([call('dummy_proc')], mocked_find.find_process_stats.call_args_list)
 
     def test_get_process_status(self):
         """ Test the get_process_status method. """
-        from supvisors.viewcontext import ViewContext, NAMESPEC
-        ctx = ViewContext(self.http_context)
+        from supvisors.viewcontext import NAMESPEC
         # test with empty context and no process in http form
-        self.assertFalse(ctx.get_process_status())
-        self.assertFalse(ctx.get_process_status('abc'))
+        self.assertFalse(self.ctx.get_process_status())
+        self.assertFalse(self.ctx.get_process_status('abc'))
         # test with context
-        with patch.dict(ctx.context.processes,
+        with patch.dict(self.ctx.context.processes,
                         {'abc': {'process': 'abc'},
                          'dummy_proc': {'process': 'dummy_proc'}},
                         clear=True):
             # test with nothing in http form
-            self.assertFalse(ctx.get_process_status())
-            self.assertDictEqual({'process': 'abc'},
-                                 ctx.get_process_status('abc'))
+            self.assertFalse(self.ctx.get_process_status())
+            self.assertDictEqual({'process': 'abc'}, self.ctx.get_process_status('abc'))
             # test with namespec in http form
-            ctx.parameters[NAMESPEC] = 'abc'
-            self.assertDictEqual({'process': 'abc'},
-                                 ctx.get_process_status())
-            self.assertDictEqual({'process': 'dummy_proc'},
-                                 ctx.get_process_status('dummy_proc'))
+            self.ctx.parameters[NAMESPEC] = 'abc'
+            self.assertDictEqual({'process': 'abc'}, self.ctx.get_process_status())
+            self.assertDictEqual({'process': 'dummy_proc'}, self.ctx.get_process_status('dummy_proc'))
 
 
 def test_suite():

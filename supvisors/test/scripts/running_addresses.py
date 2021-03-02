@@ -63,11 +63,13 @@ class RunningAddressesTest(CompatTestCase):
         self.evloop = SupvisorsEventQueues(self.zcontext, self.logger)
         # start the thread
         self.evloop.start()
+        self.logger.info('Event loop created')
 
     def tearDown(self):
         """ The tearDown stops the subscriber to the Supvisors events. """
         self.evloop.stop()
         self.evloop.join()
+        self.logger.info('Event loop ended')
         # close resources
         self.logger.close()
         self.zcontext.term()

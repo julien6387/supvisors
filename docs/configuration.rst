@@ -39,7 +39,7 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 
     The list of node names where **Supvisors** will be running, separated by commas.
 
-    *Default*:  None.
+    *Default*:  local host name.
 
     *Required*:  Yes.
 
@@ -96,16 +96,26 @@ The parameters of **Supvisors** are set through an additional section ``[supviso
 ``synchro_timeout``
 
     The time in seconds that **Supvisors** waits for all expected **Supvisors** instances to publish.
+    Value in [``15`` ; ``1200``].
     This use of this option is detailed in :ref:`synchronizing`.
 
     *Default*:  ``15``.
 
     *Required*:  No.
 
+``force_synchro_if``
+
+    The subset of ``address_list`` that will force the end of the synchronization phase in **Supvisors**, separated by commas.
+    If not set, **Supvisors** waits for all expected **Supvisors** instances to publish until ``synchro_timeout``.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
 ``starting_strategy``
 
     The strategy used to start applications on nodes.
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED`` }.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
     The use of this option is detailed in :ref:`starting_strategy`.
 
     *Default*:  ``CONFIG``.
@@ -271,25 +281,17 @@ the XML rules file before it is used.
 ``program`` Rules
 ~~~~~~~~~~~~~~~~~
 
-The ``program`` rules must be included in ``application`` rules.
-Here follows the definition of the rules applicable to a program.
+The ``program`` element defines rules applicable to a program. This element must be included in an ``application`` element.
+Here follows the definition of the attributes and rules applicable to a ``program`` element.
 
 ``name``
 
-    This attribute gives the name of the program. A Supervisor program name is expected.
+    This attribute gives the name of the program.
+    It MUST correspond to a `Supervisor program name <http://supervisord.org/configuration.html#program-x-section-settings>`_.
 
     *Default*:  None.
 
     *Required*:  Yes.
-
-``reference``
-
-    This element gives the name of the applicable ``model``, defined in `model Rules`_.
-    This use of the ``reference`` element is exclusive to the use of the following elements.
-
-    *Default*:  None.
-
-    *Required*:  Only if none of the following elements is used.
 
 ``addresses``
 
@@ -306,7 +308,7 @@ Here follows the definition of the rules applicable to a program.
 ``required``
 
     This element gives the importance of the program for the application.
-    If true (resp. false), a failure of the program is considered major (resp. minor).
+    If ``true`` (resp. ``false``), a failure of the program is considered major (resp. minor).
     This is quite informative and is mainly used to give the operational status of the application.
 
     *Default*:  ``false``.
@@ -335,7 +337,7 @@ Here follows the definition of the rules applicable to a program.
 
 ``wait_exit``
 
-    If the value of this element is set to true, Supvisors waits for the process to exit before starting the next sequence.
+    If the value of this element is set to ``true``, **Supvisors** waits for the process to exit before starting the next sequence.
     This is particularly useful for scripts used to load a database, to mount disks, to prepare the application working directory, etc.
 
     *Default*:  ``false``.
@@ -351,18 +353,18 @@ Here follows the definition of the rules applicable to a program.
     When multiple nodes are available, the ``loading`` value helps to distribute processes over the available nodes,
     so that the system remains safe.
 
-    .. note:: *About the choice of a user estimation.*
-
-        Although **Supvisors** is taking measurements on each system where it is running, it has
-        been chosen not to use these figures for the loading purpose. Indeed, the resources consumption
-        of a process may be very variable in time and is not foreseeable.
-
-        It is recommended to give a value based on a average usage of the resources in worst case
-        configuration and to add a margin corresponding to the standard deviation.
-
     *Default*:  ``1``.
 
     *Required*:  No.
+
+    .. note:: *About the choice of an user estimation*
+
+        Although **Supvisors** may be taking measurements on each system where it is running, it has
+        been chosen not to use these figures for the loading purpose. Indeed, the resources consumption
+        of a process may be very variable in time and is not foreseeable.
+
+        It is recommended to give a value based on an average usage of the resources in the worst case
+        configuration and to add a margin corresponding to the standard deviation.
 
 ``running_failure_strategy``
 
@@ -375,20 +377,39 @@ Here follows the definition of the rules applicable to a program.
 
     *Required*:  No.
 
-.. attention:: *About the running failure strategy*.
+    .. attention:: *About the Running Failure Strategy*
 
-    This functionality is NOT compatible with the ``autostart`` parameter of the program configuration in Supervisor.
-    It is undesirable that Supervisor and **Supvisors** trigger a different behaviour for the same event.
-    So, unless the value of the running failure strategy is set to ``CONTINUE`` (default value), **Supvisors** forces
-    ``autostart=False`` in Supervisor internal model.
+        This functionality is NOT compatible with the ``autostart`` parameter of the program configuration in Supervisor.
+        It is undesirable that Supervisor and **Supvisors** trigger a different behaviour for the same event.
+        So, unless the value of the running failure strategy is set to ``CONTINUE`` (default value), **Supvisors** forces
+        ``autostart=False`` in Supervisor internal model.
 
-    ``RESTART_PROCESS`` is almost equivalent to ``autorestart=unexpected``, except that **Supvisors** may restart
-    the crashed program somewhere else, in accordance with the starting rules defined, instead of just restarting it
-    at the same location.
+        ``RESTART_PROCESS`` is almost equivalent to ``autorestart=unexpected``, except that **Supvisors** may restart
+        the crashed program somewhere else, in accordance with the starting rules defined, instead of just restarting it
+        on the same node.
 
-    There is no equivalent in **Supvisors** for ``autorestart=True``. Although there are workarounds for that,
-    it might be a future improvement.
+        There is no equivalent in **Supvisors** for ``autorestart=True``. Although there are workarounds for that,
+        it might be a future improvement.
 
+``reference``
+
+    This element gives the name of an applicable ``model``, as defined in `model Rules`_.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+    .. note:: *About referencing models*
+
+        The ``reference`` element can be combined with all the other elements described above.
+        The rules got from the referenced model are loaded first and then eventually superseded by any other rule
+        defined in the same program section.
+
+        A model can reference another model. In order to prevent infinite loops and to keep a reasonable complexity,
+        the maximum chain starting from the ``program`` section has been set to 3.
+        As a consequence, any rule may be superseded twice at a maximum.
+
+Here follows an example of a ``program`` definition:
 
 .. code-block:: xml
 
@@ -406,14 +427,14 @@ Here follows the definition of the rules applicable to a program.
 ``pattern`` Rules
 ~~~~~~~~~~~~~~~~~
 
-It may be quite tedious to give all this information to each program, especially if multiple programs use common rules.
+It may be quite tedious to give all this information to each program, especially if multiple programs use quite common rules.
 So two mechanisms were put in place to help.
 
-The first is the ``pattern``. It can be used to configure a set of programs in a more flexible way than just
+The first one is the ``pattern`` element. It can be used to configure a set of programs in a more flexible way than just
 considering homogeneous programs, like Supervisor does.
 
-Like the ``program`` element, the ``pattern`` must be included in ``application`` rules. The same options are applicable.
-The difference is in the ``name`` usage. For a pattern definition, a substring of any Supervisor program name is expected.
+Like the ``program`` element, the ``pattern`` element must be included in an ``application`` element. The same options are applicable.
+The difference is in the ``name`` usage. For a pattern definition, a substring of a Supervisor program name is expected.
 
 .. code-block:: xml
 
@@ -429,18 +450,18 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     In the previous example, the rules are applicable to every program names containing the ``"prg_"`` substring,
     so that it matches ``prg_00``, ``prg_dummy``, but also ``dummy_prg_2``.
 
-    As a general rule, when considering a program name, **Supvisors** applies a ``program`` definition, if found,
-    before trying to associate a ``pattern`` definition.
+    As a general rule when looking for program rules, **Supvisors** always searches for a ``program`` definition with
+    the exact program name, and if not found only, **Supvisors** tries to find a corresponding ``pattern`` definition.
 
     It also may happen that several patterns match the same program name. In this case, **Supvisors** chooses the pattern
-    with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough. So given two pattern
-    names ``prg`` and ``prg_``, **Supvisors** applies the rules associated to ``prg_`` when considering the program
-    ``prg_00``.
+    with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
+    So considering the program ``prg_00`` and the two matching pattern names ``prg`` and ``prg_``, **Supvisors** will
+    apply the rules related to ``prg_``.
 
-.. note:: *About the use of* ``#`` *in* ``addresses``.
+.. hint:: *About the use of* ``#`` *in* ``addresses``.
 
-    The intention is for a program that is meant to be started on each node in the address list.
-    As an example, consider an extract of the following Supervisor configuration:
+    This is designed for a program that is meant to be started on every nodes of the address list.
+    As an example, based on the following simplified Supervisor configuration:
 
     .. code-block:: ini
 
@@ -492,10 +513,10 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 ~~~~~~~~~~~~~~~
 
 The second mechanism is the ``model`` definition.
-The ``program`` definition is extended to a generic model, that can be defined outside the application scope,
-so that the same definition can be applied to multiple programs, in any application.
+The ``program`` rules definition is extended to a generic model, that can be defined outside of the application scope,
+so that the same rules definition can be applied to multiple programs, in any application.
 
-The same options are applicable, **excepting** the ``reference`` option, which doesn't make sense here.
+The same options are applicable, **including** the ``reference`` option.
 There is no particular expectation for the name attribute of a ``model``.
 
 Here follows an example of model:
@@ -504,6 +525,7 @@ Here follows an example of model:
 
     <model name="X11_model">
         <addresses>cliche01,cliche02,cliche03</addresses>
+        <start_sequence>1</start_sequence>
         <required>false</required>
         <wait_exit>false</wait_exit>
     </model>
@@ -518,17 +540,20 @@ Here follows examples of program and pattern definitions referencing a model:
 
     <pattern name="prg">
         <reference>X11_model</reference>
+        <!-- prg-like programs have the same rules as X11_model, but with required=true-->
+        <required>true</required>
     </pattern>
 
 
 ``application`` Rules
 ~~~~~~~~~~~~~~~~~~~~~
 
-Here follows the definition of the rules applicable to an application.
+Here follows the definition of the attributes and rules applicable to an ``application`` element.
 
 ``name``
 
-    This attribute gives the name of the application. A Supervisor group name is expected.
+    This attribute gives the name of the application.
+    It MUST correspond to a `Supervisor group name <http://supervisord.org/configuration.html#group-x-section-settings>`_.
 
     *Default*:  None.
 
@@ -561,7 +586,7 @@ Here follows the definition of the rules applicable to an application.
             * when calling Supervisor's ``restart`` or ``shutdown`` XML-RPC,
             * when stopping the :command:`supervisord` daemon.
 
-        It only works when calling **Supvisors**' ``restart`` or ``shutdown``.
+        It only works when calling **Supvisors**' ``restart`` or ``shutdown`` XML-RPC.
 
 ``starting_failure_strategy``
 
@@ -578,8 +603,8 @@ Here follows the definition of the rules applicable to an application.
 
 ``running_failure_strategy``
 
-    This element gives the strategy applied when any process of the application is unexpectedly stopped when the application is running.
-    This value can be superseded by the value set at program level.
+    This element gives the strategy applied when any process of the application is unexpectedly stopped when
+    the application is running. This value can be superseded by the value set at program level.
     The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
     and are detailed in :ref:`running_failure_strategy`.
 
@@ -589,7 +614,10 @@ Here follows the definition of the rules applicable to an application.
 
 ``program``
 
-    This element defines the program rules that are applicable to the unique program whose name correspond to the name attribute of the ``program`` element.
+    This element defines the program rules that are applicable to the program whose name correspond to the name
+    attribute of the ``program`` element. The program MUST be defined in the program list of
+    the `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
+    of the application considered here.
     Obviously, the definition of an application can include multiple ``program`` elements.
 
     *Default*:  None.
@@ -598,7 +626,8 @@ Here follows the definition of the rules applicable to an application.
 
 ``pattern``
 
-    This element defines the program rules that are applicable to all programs whose name matches the name attribute of the ``pattern`` element.
+    This element defines the program rules that are applicable to all programs whose name matches the name attribute
+    of the ``pattern`` element.
     Obviously, the definition of an application can include multiple ``program`` elements.
 
     *Default*:  None.
@@ -609,7 +638,7 @@ Here follows the definition of the rules applicable to an application.
 Rules File Example
 ~~~~~~~~~~~~~~~~~~
 
-Here follows a complete example of rules files. It is used in **Supvisors** tests.
+Here follows a complete example of rules files. It is used in **Supvisors** self tests.
 
 .. code-block:: xml
 

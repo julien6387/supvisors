@@ -33,11 +33,11 @@ from supvisors.webutils import *
 class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
-        * a navigation menu towards addresses contents and applications,
-        * the state of Supvisors,
-        * actions on Supvisors,
-        * a synoptic of the processes running on the different addresses,
-        * in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
+        - a navigation menu towards addresses contents and applications,
+        - the state of Supvisors,
+        - actions on Supvisors,
+        - a synoptic of the processes running on the different addresses,
+        - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
     def __init__(self, context):
@@ -88,10 +88,10 @@ class SupvisorsView(ViewHandler):
         # set node name
         elt = node_div_elt.findmeld('node_tda_mid')
         if status.state == AddressStates.RUNNING:
-            # go to web page located on address, so as to reuse Supervisor StatusView
+            # go to web page located on address
             url = self.view_ctx.format_url(status.address_name, PROC_ADDRESS_PAGE)
             elt.attributes(href=url)
-            elt.attrib['class'] = 'on'
+            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_address else '')
         elt.content(status.address_name)
         # set state
         elt = node_div_elt.findmeld('state_td_mid')
@@ -101,7 +101,8 @@ class SupvisorsView(ViewHandler):
         elt = node_div_elt.findmeld('percent_td_mid')
         elt.content('{}%'.format(status.loading()))
 
-    def _write_node_box_processes(self, node_div_elt, status):
+    @staticmethod
+    def _write_node_box_processes(node_div_elt, status):
         """ Rendering of the node box running processes. """
         appli_tr_mid = node_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()

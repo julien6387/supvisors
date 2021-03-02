@@ -94,27 +94,10 @@
             <div id="address_contents" meld:id="stats_div_mid">
                 <div class="horizontal_contents">
                     <div class="vertical_contents">
-                        <div>
-                            <table>
-                                <caption>Processor Statistics</caption>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Last %</th>
-                                    <th>Mean %</th>
-                                    <th>Slope %</th>
-                                    <th>SD %</th>
-                                </tr>
-                                <tr meld:id="cpu_tr_mid" class="brightened">
-                                    <td>
-                                        <a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a>
-                                    </td>
-                                    <td meld:id="cpuval_td_mid">--</td>
-                                    <td meld:id="cpuavg_td_mid">--</td>
-                                    <td meld:id="cpuslope_td_mid">--</td>
-                                    <td meld:id="cpudev_td_mid">--</td>
-                                </tr>
-                            </table>
-                        </div>
+                        <figure>
+                            <img src="address_mem.png" alt="Address Memory Graph"/>
+                            <figcaption>Memory occupation</figcaption>
+                        </figure>
                         <div>
                             <table>
                                 <caption>Memory Statistics</caption>
@@ -136,20 +119,38 @@
                             </table>
                         </div>
                     </div>
-
-                    <figure>
-                        <img src="address_cpu.png" alt="Address CPU Graph"/>
-                        <figcaption>CPU loading</figcaption>
-                    </figure>
-
-                    <figure>
-                        <img src="address_mem.png" alt="Address Memory Graph"/>
-                        <figcaption>Memory occupation</figcaption>
-                    </figure>
-                </div>
-
-                <div class="horizontal_contents">
                     <div class="vertical_contents">
+                        <figure>
+                            <img src="address_cpu.png" alt="Address CPU Graph"/>
+                            <figcaption>CPU loading</figcaption>
+                        </figure>
+                        <div>
+                            <table>
+                                <caption>Processor Statistics</caption>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Last %</th>
+                                    <th>Mean %</th>
+                                    <th>Slope %</th>
+                                    <th>SD %</th>
+                                </tr>
+                                <tr meld:id="cpu_tr_mid" class="brightened">
+                                    <td>
+                                        <a href="#" meld:id="cpunum_a_mid" class="button on">cpu#0</a>
+                                    </td>
+                                    <td meld:id="cpuval_td_mid">--</td>
+                                    <td meld:id="cpuavg_td_mid">--</td>
+                                    <td meld:id="cpuslope_td_mid">--</td>
+                                    <td meld:id="cpudev_td_mid">--</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="vertical_contents">
+                        <figure>
+                            <img src="address_io.png" alt="Address Network Graph"/>
+                            <figcaption>Network activity</figcaption>
+                        </figure>
                         <table>
                             <caption>Network Statistics</caption>
                             <tr>
@@ -172,11 +173,6 @@
                             </tr>
                         </table>
                     </div>
-
-                    <figure>
-                        <img src="address_io.png" alt="Address Network Graph"/>
-                        <figcaption>Network activity</figcaption>
-                    </figure>
                 </div>
             </div>
 

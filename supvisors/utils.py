@@ -47,8 +47,7 @@ class EventHeaders:
 
 # for deferred XML-RPC requests
 class DeferredRequestHeaders:
-    """ Enumeration class for the headers of deferred XML-RPC messages
-    sent to MainLoop."""
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
     CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
@@ -144,8 +143,7 @@ def get_linear_regression(xdata, ydata):
         sum_xx = float(sum(map(lambda x: x * x, xdata)))
         sum_products = float(sum([xdata[i] * ydata[i]
                                   for i in range(datasize)]))
-        a = (sum_products - sum_x * sum_y / datasize) / (
-                sum_xx - (sum_x * sum_x) / datasize)
+        a = (sum_products - sum_x * sum_y / datasize) / (sum_xx - (sum_x * sum_x) / datasize)
         b = (sum_y - a * sum_x) / datasize
         return a, b
 
@@ -164,7 +162,7 @@ def get_stats(lst):
     - the mean value,
     - the instant rate between the two last values,
     - the coefficients of the linear regression,
-    - the standard deviation, """
+    - the standard deviation. """
     rate, a, b, dev = (None,) * 4
     # calculate mean value
     avg = mean(lst)

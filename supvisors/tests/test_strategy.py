@@ -49,8 +49,9 @@ class StartingStrategyTest(CompatTestCase):
         addresses['10.0.0.3'] = create_status('10.0.0.3', AddressStates.RUNNING, 20)
         addresses['10.0.0.4'] = create_status('10.0.0.4', AddressStates.UNKNOWN, 0)
         addresses['10.0.0.5'] = create_status('10.0.0.5', AddressStates.RUNNING, 80)
-        # initialize dummy address mapper with all address names (keep the alpha order)
+        # initialize dummy address mapper with all address names (keep the alphabetic order)
         self.supvisors.address_mapper.addresses = sorted(addresses.keys())
+        self.supvisors.address_mapper.local_address = '10.0.0.1'
 
     def test_is_loading_valid(self):
         """ Test the validity of an address with an additional loading. """
@@ -84,11 +85,9 @@ class StartingStrategyTest(CompatTestCase):
                               '10.0.0.2': (False, 0), '10.0.0.3': (True, 20), '10.0.0.4': (False, 0),
                               '10.0.0.5': (False, 80)},
                              strategy.get_loading_and_validity(self.supvisors.context.addresses.keys(), 45))
-        self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (True, 20),
-                              '10.0.0.5': (False, 80)},
+        self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)},
                              strategy.get_loading_and_validity(['10.0.0.1', '10.0.0.3', '10.0.0.5'], 75))
-        self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (False, 20),
-                              '10.0.0.5': (False, 80)},
+        self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)},
                              strategy.get_loading_and_validity(['10.0.0.1', '10.0.0.3', '10.0.0.5'], 85))
 
     def test_sort_valid_by_loading(self):
@@ -98,8 +97,7 @@ class StartingStrategyTest(CompatTestCase):
         self.assertListEqual([('10.0.0.3', 20), ('10.0.0.1', 50), ('10.0.0.5', 80)],
                              strategy.sort_valid_by_loading({'10.0.0.0': (False, 0), '10.0.0.1': (True, 50),
                                                              '10.0.0.2': (False, 0), '10.0.0.3': (True, 20),
-                                                             '10.0.0.4': (False, 0),
-                                                             '10.0.0.5': (True, 80)}))
+                                                             '10.0.0.4': (False, 0), '10.0.0.5': (True, 80)}))
         self.assertListEqual([('10.0.0.3', 20)],
                              strategy.sort_valid_by_loading({'10.0.0.1': (False, 50), '10.0.0.3': (True, 20),
                                                              '10.0.0.5': (False, 80)}))
@@ -137,31 +135,35 @@ class StartingStrategyTest(CompatTestCase):
         self.assertEqual('10.0.0.3', strategy.get_address('*', 75))
         self.assertIsNone(strategy.get_address('*', 85))
 
+    def test_local_strategy(self):
+        """ Test the choice of an address according to the LOCAL strategy. """
+        from supvisors.strategy import LocalStrategy
+        strategy = LocalStrategy(self.supvisors)
+        # test LOCAL strategy with different values
+        self.assertEqual('10.0.0.1', strategy.address_mapper.local_address)
+        self.assertEqual('10.0.0.1', strategy.get_address('*', 15))
+        self.assertEqual('10.0.0.1', strategy.get_address('*', 45))
+        self.assertIsNone(strategy.get_address('*', 75))
+
     def test_get_address(self):
         """ Test the choice of an address according to a strategy. """
         from supvisors.ttypes import StartingStrategies
         from supvisors.strategy import get_address
         # test CONFIG strategy
-        self.assertEqual('10.0.0.1', get_address(self.supvisors,
-                                                 StartingStrategies.CONFIG, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors,
-                                                 StartingStrategies.CONFIG, '*', 75))
-        self.assertIsNone(get_address(self.supvisors,
-                                      StartingStrategies.CONFIG, '*', 85))
+        self.assertEqual('10.0.0.1', get_address(self.supvisors, StartingStrategies.CONFIG, '*', 15))
+        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.CONFIG, '*', 75))
+        self.assertIsNone(get_address(self.supvisors, StartingStrategies.CONFIG, '*', 85))
         # test LESS_LOADED strategy
-        self.assertEqual('10.0.0.3', get_address(self.supvisors,
-                                                 StartingStrategies.LESS_LOADED, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors,
-                                                 StartingStrategies.LESS_LOADED, '*', 75))
-        self.assertIsNone(get_address(self.supvisors,
-                                      StartingStrategies.LESS_LOADED, '*', 85))
+        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 15))
+        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 75))
+        self.assertIsNone(get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 85))
         # test MOST_LOADED strategy
-        self.assertEqual('10.0.0.5', get_address(self.supvisors,
-                                                 StartingStrategies.MOST_LOADED, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors,
-                                                 StartingStrategies.MOST_LOADED, '*', 75))
-        self.assertIsNone(get_address(self.supvisors,
-                                      StartingStrategies.MOST_LOADED, '*', 85))
+        self.assertEqual('10.0.0.5', get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 15))
+        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 75))
+        self.assertIsNone(get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 85))
+        # test LOCAL strategy
+        self.assertEqual('10.0.0.1', get_address(self.supvisors, StartingStrategies.LOCAL, '*', 15))
+        self.assertIsNone(get_address(self.supvisors, StartingStrategies.LOCAL, '*', 75))
 
 
 class ConciliationStrategyTest(CompatTestCase):
@@ -181,10 +183,8 @@ class ConciliationStrategyTest(CompatTestCase):
             process_status.namespec.return_value = name
             return process_status
 
-        self.conflicts = [create_process_status('conflict_1',
-                                                {'10.0.0.1': 5, '10.0.0.2': 10, '10.0.0.3': 15}),
-                          create_process_status('conflict_2',
-                                                {'10.0.0.4': 6, '10.0.0.2': 5, '10.0.0.0': 4})]
+        self.conflicts = [create_process_status('conflict_1', {'10.0.0.1': 5, '10.0.0.2': 10, '10.0.0.3': 15}),
+                          create_process_status('conflict_2', {'10.0.0.4': 6, '10.0.0.2': 5, '10.0.0.0': 4})]
 
     def test_senicide_strategy(self):
         """ Test the strategy that consists in stopping the oldest processes. """
@@ -454,10 +454,8 @@ class RunningFailureHandlerTest(CompatTestCase):
         continue_process = mocked_process('continue_process', False)
 
         # pre-fill sets
-        handler.stop_application_jobs = {'stop_application_A',
-                                         'stop_application_B'}
-        handler.restart_application_jobs = {'restart_application_A',
-                                            'restart_application_B'}
+        handler.stop_application_jobs = {'stop_application_A', 'stop_application_B'}
+        handler.restart_application_jobs = {'restart_application_A', 'restart_application_B'}
         handler.restart_process_jobs = {restart_process_1, restart_process_2}
         handler.continue_process_jobs = {continue_process}
         handler.start_application_jobs = {start_appli_A, start_appli_B}
