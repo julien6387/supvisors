@@ -377,6 +377,12 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
     *Required*:  No.
 
+    .. hint::
+
+        This strategy provides an answer to the following Supervisor request:
+
+            * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
+
     .. attention:: *About the Running Failure Strategy*
 
         This functionality is NOT compatible with the ``autostart`` parameter of the program configuration in Supervisor.
