@@ -159,6 +159,12 @@ Possible values are:
     * ``STOP_APPLICATION``: Stop the application.
     * ``RESTART_APPLICATION``: Restart the application.
 
+.. hint::
+
+   The ``STOP_APPLICATION`` strategy provides an answer to the following Supervisor request:
+
+      * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
+
 
 .. _starting_strategy:
 
