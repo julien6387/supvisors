@@ -22,6 +22,7 @@ The main features are:
    * [#122 - supervisord Starts All Processes at the Same Time](https://github.com/Supervisor/supervisor/issues/122)
    * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
    * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
+   * [#874 - Bring down one process when other process gets killed in a group](https://github.com/Supervisor/supervisor/issues/874)
    * [#1023 - Pass arguments to program when starting a job?](https://github.com/Supervisor/supervisor/issues/1023)
    * [#1150 - Why do event listeners not report the process exit status when stopped/crashed?](https://github.com/Supervisor/supervisor/issues/1150)
 
