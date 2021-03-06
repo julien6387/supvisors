@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Any
+
 from supervisor import loggers
 from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
@@ -34,13 +36,16 @@ from supvisors.strategy import RunningFailureHandler
 
 
 class Supvisors(object):
-    """ The Supvisors class. """
+    """ The Supvisors class used as a global structure passed to most Supvisors objects. """
 
     # logger output (use ';' as separator as easier to cut)
     LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
-    def __init__(self, supervisord):
-        """ Initialization of the attributes. """
+    def __init__(self, supervisord: Any) -> None:
+        """ Instantiation of all the Supvisors objects.
+
+        :param supervisord: the Supervisor global structure
+        """
         # store this instance in supervisord to ensure persistence
         supervisord.supvisors = self
         # declare zmq context (will be created in listener)
@@ -74,7 +79,8 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
+            self.logger.warn('Supvisors.__init__: cannot parse rules file: {} - {}'
+                             .format(self.options.rules_file, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

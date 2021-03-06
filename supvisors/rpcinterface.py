@@ -625,8 +625,7 @@ class RPCInterface(object):
         if self.fsm.state not in states:
             raise RPCError(Faults.BAD_SUPVISORS_STATE,
                            'Supvisors (state={}) not in state {} to perform request'
-                           .format(SupvisorsStates.to_string(self.supvisors.fsm.state),
-                                   [SupvisorsStates.to_string(state) for state in states]))
+                           .format(self.supvisors.fsm.state.name, [state.name for state in states]))
 
     def _get_application_process(self, namespec):
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.

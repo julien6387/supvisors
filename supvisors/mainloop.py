@@ -70,52 +70,38 @@ class SupvisorsMainLoop(Thread):
         """ Contents of the infinite loop. """
         # Create zmq sockets
         sockets = SupvisorsZmq(self.supvisors)
-        # create poller
-        poller = zmq.Poller()
-        # register sockets
-        poller.register(sockets.internal_subscriber.socket, zmq.POLLIN)
-        poller.register(sockets.puller.socket, zmq.POLLIN)
         # poll events forever
         while not self.stopping():
-            socks = dict(poller.poll(500))
+            poll_result = sockets.poll()
             # test stop condition again: if Supervisor is stopping,
             # any XML-RPC call would block this thread, and the other
             # because of the join
             if not self.stopping():
-                self.check_requests(sockets, socks)
-                self.check_events(sockets.internal_subscriber, socks)
+                self.check_requests(sockets, poll_result)
+                self.check_events(sockets, poll_result)
         # close resources gracefully
-        poller.unregister(sockets.puller.socket)
-        poller.unregister(sockets.internal_subscriber.socket)
         sockets.close()
 
-    def check_events(self, subscriber, socks):
+    def check_events(self, sockets, poll_result):
         """ Forward external Supervisor events to main thread. """
-        if subscriber.socket in socks and socks[subscriber.socket] == zmq.POLLIN:
-            try:
-                message = subscriber.receive()
-            except:
-                print('[ERROR] failed to get data from subscriber', file=stderr)
-            else:
-                # The events received are not processed directly in this thread because it would conflict
-                # with the processing in the Supervisor thread, as they use the same data.
-                # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
+        message = sockets.check_subscriber(poll_result)
+        if message:
+            # The events received are not processed directly in this thread because it would conflict
+            # with the processing in the Supervisor thread, as they use the same data.
+            # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
-    def check_requests(self, zmq_sockets, socks):
+    def check_requests(self, sockets, poll_result):
         """ Defer internal requests. """
-        if zmq_sockets.puller.socket in socks and socks[zmq_sockets.puller.socket] == zmq.POLLIN:
-            try:
-                header, body = zmq_sockets.puller.receive()
-            except:
-                print('[ERROR] failed to get data from puller', file=stderr)
+        message = sockets.check_puller(poll_result)
+        if message:
+            header, body = message
+            if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
+                # isolation request: disconnect the address from subscriber
+                sockets.subscriber.disconnect(body)
             else:
-                if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
-                    # isolation request: disconnect the address from subscriber
-                    zmq_sockets.internal_subscriber.disconnect(body)
-                else:
-                    # XML-RPC request
-                    self.send_request(header, body)
+                # XML-RPC request
+                self.send_request(header, body)
 
     def send_request(self, header, body):
         """ Perform the XML-RPC according to the header. """

@@ -287,10 +287,6 @@ class FiniteStateMachine:
         # Trigger first state / INITIALIZATION
         self.update_instance(SupvisorsStates.INITIALIZATION)
 
-    def state_string(self):
-        """ Return the supvisors state as a string. """
-        return SupvisorsStates.to_string(self.state)
-
     def next(self):
         """ Send the event to the state and transitions if possible.
         The state machine re-sends the event as long as it transitions. """
@@ -308,7 +304,7 @@ class FiniteStateMachine:
         """ Change the current state.
         The method also triggers the publication of the change. """
         self.state = state
-        self.logger.info('FiniteStateMachine.update_instance: Supvisors in {}'.format(self.state_string()))
+        self.logger.info('FiniteStateMachine.update_instance: Supvisors in {}'.format(self.state.name))
         self.instance = self.__StateInstances[state](self.supvisors)
         self.instance.enter()
         # publish SupvisorsStatus event
@@ -403,7 +399,7 @@ class FiniteStateMachine:
 
         :return: the Supvisors state as a dictionary
         """
-        return {'statecode': self.state, 'statename': self.state_string()}
+        return {'statecode': self.state, 'statename': self.state.name}
 
     # Map between state enumerations and classes
     __StateInstances = {

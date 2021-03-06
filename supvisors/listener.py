@@ -39,16 +39,14 @@ class SupervisorListener(object):
         - supvisors: a reference to the Supvisors context,
         - address: the address name where this process is running,
         - main_loop: the Supvisors' event thread,
-        - publisher: the ZeroMQ socket used to publish Supervisor events
-        to all Supvisors threads.
+        - publisher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads.
     """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
         # shortcuts for source code readability
-        supvisors_shortcuts(self, ['fsm', 'info_source',
-                                   'logger', 'statistician'])
+        supvisors_shortcuts(self, ['fsm', 'info_source', 'logger', 'statistician'])
         # test if statistics collector can be created for local host
         try:
             from supvisors.statscollector import instant_statistics
