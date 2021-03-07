@@ -56,27 +56,22 @@ class AddressStatus(object):
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info('Address {} is {}'.format(self.address_name, self.state_string()))
+                self.logger.info('Address {} is {}'.format(self.address_name, self.state.name))
             else:
                 raise InvalidTransition('Address: transition rejected {} to {}'.
-                                        format(self.state_string(),
-                                               AddressStates.to_string(new_state)))
+                                        format(self.state.name, new_state.name))
 
     # serialization
     def serial(self):
         """ Return a serializable form of the AddressStatus. """
         return {'address_name': self.address_name,
-                'statecode': self.state,
-                'statename': self.state_string(),
+                'statecode': self.state.value,
+                'statename': self.state.name,
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
                 'loading': self.loading()}
 
     # methods
-    def state_string(self):
-        """ Return the application state as a string. """
-        return AddressStates.to_string(self.state)
-
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]

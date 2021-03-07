@@ -79,97 +79,70 @@ class MainLoopTest(unittest.TestCase):
 
     @patch('supvisors.mainloop.SupvisorsMainLoop.check_events')
     @patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
-    @patch.multiple('supvisors.mainloop.zmq.Poller', register=DEFAULT,
-                    unregister=DEFAULT, poll=DEFAULT)
-    def test_run(self, check_evt, check_rqt, register, unregister, poll):
+    @patch('supvisors.supvisorszmq.SupvisorsZmq.poll')
+    def test_run(self, mocked_poll, mocked_req, mocked_evt):
         """ Test the running of the main loop thread. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # patch one loops
-        with patch.object(main_loop, 'stopping',
-                          side_effect=[False, False, True]):
+        with patch.object(main_loop, 'stopping', side_effect=[False, False, True]):
             main_loop.run()
-        # test that register was called twice
-        self.assertEqual(2, register.call_count)
         # test that poll was called once
-        self.assertEqual([call(500)], poll.call_args_list)
-        # test that check_events was called once
-        self.assertEqual(1, check_evt.call_count)
+        self.assertEqual([call()], mocked_poll.call_args_list)
         # test that check_requests was called once
-        self.assertEqual(1, check_rqt.call_count)
-        # test that unregister was called twice
-        self.assertEqual(2, unregister.call_count)
+        self.assertEqual(1, mocked_evt.call_count)
+        # test that check_events was called once
+        self.assertEqual(1, mocked_req.call_count)
 
-    @patch('supvisors.mainloop.stderr')
     @patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
-    def test_check_events(self, mocked_send, mocked_stderr):
+    def test_check_events(self, mocked_send: Mock):
         """ Test the processing of the events received. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
+        # prepare context
+        mocked_sockets = Mock(**{'check_subscriber.return_value': None})
         # test with empty socks
-        mocked_subscriber = Mock(socket='zmq socket')
-        socks = {}
-        main_loop.check_events(mocked_subscriber, socks)
-        self.assertEqual(0, mocked_subscriber.call_count)
-        self.assertEqual(0, mocked_send.call_count)
+        main_loop.check_events(mocked_sockets, 'poll result')
+        self.assertEqual([call('poll result')], mocked_sockets.check_subscriber.call_args_list)
+        self.assertFalse(mocked_send.called)
+        # reset mocks
+        mocked_sockets.check_subscriber.reset_mock()
         # test with appropriate socks but with exception
-        mocked_subscriber = Mock(
-            socket='zmq socket', **{'receive.side_effect': Exception})
-        socks = {'zmq socket': 1}
-        main_loop.check_events(mocked_subscriber, socks)
-        self.assertEqual(1, mocked_subscriber.receive.call_count)
-        self.assertEqual(0, mocked_send.call_count)
-        mocked_subscriber.receive.reset_mock()
-        # test with appropriate socks and without exception
-        mocked_subscriber = Mock(
-            socket='zmq socket', **{'receive.return_value': 'a zmq message'})
-        main_loop.check_events(mocked_subscriber, socks)
-        self.assertEqual(1, mocked_subscriber.receive.call_count)
-        self.assertEqual([call('event', '"a zmq message"')],
-                         mocked_send.call_args_list)
+        mocked_sockets.check_subscriber.return_value = 'a message'
+        main_loop.check_events(mocked_sockets, 'poll result')
+        self.assertEqual([call('poll result')], mocked_sockets.check_subscriber.call_args_list)
+        self.assertEqual([call('event', '"a message"')], mocked_send.call_args_list)
 
-    @patch('supvisors.mainloop.stderr')
     @patch('supvisors.mainloop.SupvisorsMainLoop.send_request')
-    def test_check_requests(self, mocked_send, mocked_stderr):
+    def test_check_requests(self, mocked_send):
         """ Test the processing of the requests received. """
         from supvisors.mainloop import SupvisorsMainLoop
+        from supvisors.utils import DeferredRequestHeaders
         main_loop = SupvisorsMainLoop(self.supvisors)
-        # mock parameters
-        mocked_sockets = Mock(
-            puller=Mock(socket='zmq socket',
-                        **{'receive.side_effect': Exception}),
-            internal_subscriber=Mock(**{'disconnect.return_value': None}))
-        mocked_receive = mocked_sockets.puller.receive
-        mocked_disconnect = mocked_sockets.internal_subscriber.disconnect
+        # prepare context
+        mocked_sockets = Mock(**{'check_puller.return_value': None})
         # test with empty socks
-        socks = {}
-        main_loop.check_requests(mocked_sockets, socks)
-        self.assertEqual(0, mocked_receive.call_count)
-        self.assertEqual(0, mocked_send.call_count)
-        self.assertEqual(0, mocked_disconnect.call_count)
+        main_loop.check_requests(mocked_sockets, 'poll result')
+        self.assertEqual([call('poll result')], mocked_sockets.check_puller.call_args_list)
+        self.assertFalse(mocked_sockets.disconnect_subscriber.called)
+        self.assertFalse(mocked_send.called)
+        # reset mocks
+        mocked_sockets.check_puller.reset_mock()
         # test with appropriate socks but with exception
-        socks = {'zmq socket': 1}
-        main_loop.check_requests(mocked_sockets, socks)
-        self.assertEqual(1, mocked_receive.call_count)
-        self.assertEqual(0, mocked_send.call_count)
-        self.assertEqual(0, mocked_disconnect.call_count)
-        mocked_receive.reset_mock()
-        # test with appropriate socks and without exception
-        mocked_receive.side_effect = None
-        mocked_receive.return_value = ('a zmq header', 'a zmq message')
-        main_loop.check_requests(mocked_sockets, socks)
-        self.assertEqual([call('a zmq header', 'a zmq message')],
-                         mocked_send.call_args_list)
-        self.assertEqual(0, mocked_disconnect.call_count)
-        mocked_receive.reset_mock()
-        mocked_send.reset_mock()
-        # test disconnection request
-        mocked_receive.return_value = (1, 'an address')
-        main_loop.check_requests(mocked_sockets, socks)
-        self.assertEqual(1, mocked_receive.call_count)
-        self.assertEqual([call('an address')],
-                         mocked_disconnect.call_args_list)
-        self.assertEqual(0, mocked_send.call_count)
+        mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_ADDRESSES, 'a message'
+        main_loop.check_requests(mocked_sockets, 'poll result')
+        self.assertEqual([call('poll result')], mocked_sockets.check_puller.call_args_list)
+        self.assertEqual([call('a message')], mocked_sockets.disconnect_subscriber.call_args_list)
+        self.assertFalse(mocked_send.called)
+        # reset mocks
+        mocked_sockets.check_puller.reset_mock()
+        mocked_sockets.disconnect_subscriber.reset_mock()
+        # test with appropriate socks but with exception
+        mocked_sockets.check_puller.return_value = 'event', 'a message'
+        main_loop.check_requests(mocked_sockets, 'poll result')
+        self.assertEqual([call('poll result')], mocked_sockets.check_puller.call_args_list)
+        self.assertFalse(mocked_sockets.disconnect_subscriber.called)
+        self.assertEqual([call('event', 'a message')], mocked_send.call_args_list)
 
     @patch('supvisors.mainloop.stderr')
     @patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')

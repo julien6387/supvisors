@@ -53,8 +53,8 @@ class ApplicationRules(object):
         """
         return 'start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}' \
             .format(self.start_sequence, self.stop_sequence,
-                    StartingFailureStrategies.to_string(self.starting_failure_strategy),
-                    RunningFailureStrategies.to_string(self.running_failure_strategy))
+                    self.starting_failure_strategy.name,
+                    self.running_failure_strategy.name)
 
     # serialization
     def serial(self) -> Payload:
@@ -64,8 +64,8 @@ class ApplicationRules(object):
         """
         return {'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
-                'starting_failure_strategy': StartingFailureStrategies.to_string(self.starting_failure_strategy),
-                'running_failure_strategy': RunningFailureStrategies.to_string(self.running_failure_strategy)}
+                'starting_failure_strategy': self.starting_failure_strategy.name,
+                'running_failure_strategy': self.running_failure_strategy.name}
 
 
 # ApplicationStatus class
@@ -141,7 +141,7 @@ class ApplicationStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('Application {} is {}'.format(self.application_name, self.state_string()))
+            self.logger.info('Application {} is {}'.format(self.application_name, self.state.name))
 
     # serialization
     def serial(self) -> Payload:
@@ -150,19 +150,12 @@ class ApplicationStatus(object):
         :return: the application status in a dictionary
         """
         return {'application_name': self.application_name,
-                'statecode': self.state,
-                'statename': self.state_string(),
+                'statecode': self.state.value,
+                'statename': self.state.name,
                 'major_failure': self.major_failure,
                 'minor_failure': self.minor_failure}
 
     # methods
-    def state_string(self) -> str:
-        """ Get the application state as a string.
-
-        :return: the application state as a string
-        """
-        return ApplicationStates.to_string(self.state)
-
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
 

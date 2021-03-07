@@ -51,37 +51,6 @@ class DeferredRequestHeaders:
     CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
-def enumeration_tools(cls):
-    """ Decorator for enumeration classes.
-    Add class attributes and methods for conversion between string and enum,
-    for listing enumeration values and strings. """
-
-    def to_string(cls, value):
-        """ Convert the enum value into a string. """
-        return cls.enum_map[value]
-
-    def from_string(cls, str_enum):
-        """ Convert a string into an enum value. """
-        return cls.string_map[str_enum]
-
-    def values(cls):
-        """ Return all enum values. """
-        return cls.enum_map.keys()
-
-    def strings(cls):
-        """ Return all enum values as string. """
-        return cls.string_map.keys()
-
-    setattr(cls, 'string_map', {x: y for x, y in cls.__dict__.items()
-                                 if not x.startswith('_')})
-    setattr(cls, 'enum_map', {y: x for x, y in cls.string_map.items()})
-    setattr(cls, 'to_string', classmethod(to_string))
-    setattr(cls, 'from_string', classmethod(from_string))
-    setattr(cls, 'values', classmethod(values))
-    setattr(cls, 'strings', classmethod(strings))
-    return cls
-
-
 def supvisors_shortcuts(instance, lst):
     """ Used to set shortcuts in object attributes against supvisors attributes. """
     for attr in lst:

@@ -152,8 +152,7 @@ class ViewHandler(MeldView):
                                   .format(item))
             else:
                 # set element class
-                li_elt.attrib['class'] = status.state_string() \
-                                         + (' active' if item == address else '')
+                li_elt.attrib['class'] = status.state.name + (' active' if item == address else '')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
                 if status.state == AddressStates.RUNNING:
@@ -172,8 +171,7 @@ class ViewHandler(MeldView):
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(list(applications)):
             # set element class
-            li_elt.attrib['class'] = item.state_string() \
-                                     + (' active' if item.application_name == appli else '')
+            li_elt.attrib['class'] = item.state.name + (' active' if item.application_name == appli else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
             if self.fsm.state == SupvisorsStates.INITIALIZATION:

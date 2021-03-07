@@ -29,6 +29,7 @@ from supervisor.loggers import LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import RUNNING_STATES, STOPPED_STATES
 
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
 
@@ -59,7 +60,7 @@ class DummyOptions:
         self.force_synchro_if = []
         self.auto_fence = True
         self.rules_file = ''
-        self.starting_strategy = 0
+        self.starting_strategy = StartingStrategies.CONFIG
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10

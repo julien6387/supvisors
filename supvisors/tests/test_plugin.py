@@ -37,8 +37,8 @@ class PluginTest(unittest.TestCase):
         # update Supervisor faults
         expand_faults()
         # test that enumerations are in Supervisor
-        for enum in SupvisorsFaults.strings():
-            self.assertTrue(hasattr(Faults, enum))
+        for x in SupvisorsFaults:
+            self.assertTrue(hasattr(Faults, x.name))
 
     def test_update_views(self):
         """ Test the update_views function. """

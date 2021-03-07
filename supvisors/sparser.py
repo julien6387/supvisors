@@ -19,6 +19,7 @@
 
 from collections import OrderedDict
 from distutils.util import strtobool
+from enum import Enum
 from io import StringIO
 from sys import stderr
 from typing import Any, Optional, Union
@@ -308,7 +309,7 @@ class Parser(object):
                 self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_enum(self, elt: Any, attr_string: str, klass, rules: Union[ApplicationRules, ProcessRules]) -> None:
+    def load_enum(self, elt: Any, attr_string: str, klass: Enum, rules: Union[ApplicationRules, ProcessRules]) -> None:
         """ Return the running_failure_strategy value found from XML element.
         The value MUST correspond to an enumeration value of RunningFailureStrategies.
 
@@ -321,10 +322,10 @@ class Parser(object):
         value = elt.findtext(attr_string)
         if value:
             try:
-                setattr(rules, attr_string, klass.from_string(value))
+                setattr(rules, attr_string, klass[value])
             except KeyError:
                 self.logger.warn('Pattern.load_enum: invalid value for {} {}: {} (expected in {})'
-                                 .format(elt.get('name'), attr_string, value, klass.strings()))
+                                 .format(elt.get('name'), attr_string, value, klass._member_names_))
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.

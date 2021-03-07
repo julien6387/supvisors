@@ -42,7 +42,7 @@ class AbstractStartingStrategy(AbstractStrategy):
         self.logger.trace('is_loading_valid address={} expected_loading={}'.format(address, expected_loading))
         if address in self.context.addresses.keys():
             status = self.context.addresses[address]
-            self.logger.trace('address {} state={}'.format(address, status.state_string()))
+            self.logger.trace('address {} state={}'.format(address, status.state.name))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
                 self.logger.debug('address={} loading={} expected_loading={}'

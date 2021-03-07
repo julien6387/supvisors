@@ -81,10 +81,11 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_strategies(self):
         """ Test the get_strategies RPC. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import ConciliationStrategies, StartingStrategies
         # prepare context
         self.supervisor.supvisors.options.auto_fence = True
-        self.supervisor.supvisors.options.conciliation_strategy = 1
-        self.supervisor.supvisors.options.starting_strategy = 2
+        self.supervisor.supvisors.options.conciliation_strategy = ConciliationStrategies.INFANTICIDE
+        self.supervisor.supvisors.options.starting_strategy = StartingStrategies.MOST_LOADED
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         self.assertDictEqual({'auto-fencing': True, 'starting': 'MOST_LOADED',
@@ -285,7 +286,7 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_start_application(self, mocked_check):
         """ Test the start_application RPC. """
         from supvisors.rpcinterface import RPCInterface
-        from supvisors.ttypes import ApplicationStates
+        from supvisors.ttypes import ApplicationStates, StartingStrategies
         # prepare context
         self.supervisor.supvisors.context.applications = {'appli_1': Mock()}
         # get patches
@@ -331,7 +332,7 @@ class RpcInterfaceTest(unittest.TestCase):
         result = rpc.start_application(0, 'appli_1', False)
         self.assertTrue(result)
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(0, application)], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.CONFIG, application)], mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         mocked_start.reset_mock()
@@ -341,7 +342,7 @@ class RpcInterfaceTest(unittest.TestCase):
         result = rpc.start_application(0, 'appli_1', False)
         self.assertFalse(result)
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(0, application)], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.CONFIG, application)], mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         mocked_start.reset_mock()
@@ -350,7 +351,7 @@ class RpcInterfaceTest(unittest.TestCase):
         result = rpc.start_application(0, 'appli_1')
         self.assertFalse(result)
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(0, application)], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.CONFIG, application)], mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         mocked_start.reset_mock()
@@ -360,7 +361,7 @@ class RpcInterfaceTest(unittest.TestCase):
         # result is a function for deferred result
         self.assertTrue(callable(deferred))
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(0, application)], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.CONFIG, application)], mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         # test returned function: return True when job in progress
         mocked_progress.return_value = True
@@ -617,6 +618,7 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_start_process(self, mocked_check):
         """ Test the start_process RPC. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import StartingStrategies
         # get patches
         mocked_start = self.supervisor.supvisors.starter.start_process
         mocked_progress = self.supervisor.supvisors.starter.in_progress
@@ -634,9 +636,8 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         # test RPC call with running process
-        rpc._get_application_process.return_value = (
-            None, Mock(**{'running.return_value': True,
-                          'namespec.return_value': 'proc1'}))
+        rpc._get_application_process.return_value = (None, Mock(**{'running.return_value': True,
+                                                                   'namespec.return_value': 'proc1'}))
         with self.assertRaises(RPCError) as exc:
             rpc.start_process(0, 'appli_1')
         self.assertEqual(Faults.ALREADY_STARTED, exc.exception.code)
@@ -674,8 +675,9 @@ class RpcInterfaceTest(unittest.TestCase):
         result = rpc.start_process(1, 'appli:*', 'argument list', False)
         self.assertTrue(result)
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(1, proc_1, 'argument list'),
-                          call(1, proc_2, 'argument list')], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.LESS_LOADED, proc_1, 'argument list'),
+                          call(StartingStrategies.LESS_LOADED, proc_2, 'argument list')],
+                         mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         mocked_start.reset_mock()
@@ -684,15 +686,17 @@ class RpcInterfaceTest(unittest.TestCase):
         result = rpc.start_process(1, 'appli:*', 'argument list', False)
         self.assertTrue(result)
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(1, proc_1, 'argument list'),
-                          call(1, proc_2, 'argument list')], mocked_start.call_args_list)
+        self.assertEqual([call(StartingStrategies.LESS_LOADED, proc_1, 'argument list'),
+                          call(StartingStrategies.LESS_LOADED, proc_2, 'argument list')],
+                         mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
         mocked_start.reset_mock()
         # test RPC call with wait and done
         result = rpc.start_process(2, 'appli:*', wait=True)
         self.assertTrue(result)
-        self.assertEqual([call(2, proc_1, ''), call(2, proc_2, '')],
+        self.assertEqual([call(StartingStrategies.MOST_LOADED, proc_1, ''),
+                          call(StartingStrategies.MOST_LOADED, proc_2, '')],
                          mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         mocked_check.reset_mock()
@@ -703,7 +707,8 @@ class RpcInterfaceTest(unittest.TestCase):
         # result is a function for deferred result
         self.assertTrue(callable(deferred))
         self.assertEqual([call()], mocked_check.call_args_list)
-        self.assertEqual([call(2, proc_1, ''), call(2, proc_2, '')],
+        self.assertEqual([call(StartingStrategies.MOST_LOADED, proc_1, ''),
+                          call(StartingStrategies.MOST_LOADED, proc_2, '')],
                          mocked_start.call_args_list)
         self.assertEqual(0, mocked_progress.call_count)
         # test returned function: return True when job in progress
@@ -908,8 +913,9 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_conciliate(self, mocked_check):
         """ Test the conciliate RPC. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import ConciliationStrategies, SupvisorsStates
         # set context and patches
-        self.supervisor.supvisors.fsm.state = 3
+        self.supervisor.supvisors.fsm.state = SupvisorsStates.CONCILIATION
         self.supervisor.supvisors.context.conflicts.return_value = [1, 2, 4]
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
@@ -922,14 +928,14 @@ class RpcInterfaceTest(unittest.TestCase):
             self.assertEqual('BAD_STRATEGY: a strategy', exc.exception.text)
             mocked_check.reset_mock()
             # test RPC call with USER strategy
-            self.assertFalse(rpc.conciliate(2))
+            self.assertFalse(rpc.conciliate(ConciliationStrategies.USER))
             self.assertEqual([call()], mocked_check.call_args_list)
             self.assertEqual(0, mocked_conciliate.call_count)
             mocked_check.reset_mock()
             # test RPC call with another strategy
             self.assertTrue(rpc.conciliate(1))
             self.assertEqual([call()], mocked_check.call_args_list)
-            self.assertEqual([call(self.supervisor.supvisors, 1, [1, 2, 4])],
+            self.assertEqual([call(self.supervisor.supvisors, ConciliationStrategies.INFANTICIDE, [1, 2, 4])],
                              mocked_conciliate.call_args_list)
 
     @patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
@@ -947,15 +953,16 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_check_state(self):
         """ Test the _check_state utility. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import SupvisorsStates
         # prepare context
-        self.supervisor.supvisors.fsm.state = 1
+        self.supervisor.supvisors.fsm.state = SupvisorsStates.DEPLOYMENT
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test there is no exception when internal state is in list
-        rpc._check_state([0, 1, 2])
+        rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION])
         # test there is an exception when internal state is not in list
         with self.assertRaises(RPCError) as exc:
-            rpc._check_state([0, 2])
+            rpc._check_state([SupvisorsStates.INITIALIZATION, SupvisorsStates.OPERATION])
         self.assertEqual(Faults.BAD_SUPVISORS_STATE, exc.exception.code)
         self.assertEqual("BAD_SUPVISORS_STATE: Supvisors (state=DEPLOYMENT) "
                          "not in state ['INITIALIZATION', 'OPERATION'] to perform request",
@@ -964,49 +971,54 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_check_from_deployment(self):
         """ Test the _check_from_deployment utility. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import SupvisorsStates
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test the call to _check_state
         with patch.object(rpc, '_check_state') as mocked_check:
             rpc._check_from_deployment()
-            self.assertListEqual([call([1, 2, 3, 4, 5])], mocked_check.call_args_list)
+            expected = [x for x in SupvisorsStates if 0 < x.value < 6]
+            self.assertListEqual([call(expected)], mocked_check.call_args_list)
 
     def test_check_operating_conciliation(self):
         """ Test the _check_operating_conciliation utility. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import SupvisorsStates
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test the call to _check_state
         with patch.object(rpc, '_check_state') as mocked_check:
             rpc._check_operating_conciliation()
-            self.assertListEqual([call([2, 3])], mocked_check.call_args_list)
+            self.assertListEqual([call([SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION])],
+                                 mocked_check.call_args_list)
 
     def test_check_operating(self):
         """ Test the _check_operating utility. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import SupvisorsStates
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test the call to _check_state
         with patch.object(rpc, '_check_state') as mocked_check:
             rpc._check_operating()
-            self.assertListEqual([call([2])], mocked_check.call_args_list)
+            self.assertListEqual([call([SupvisorsStates.OPERATION])], mocked_check.call_args_list)
 
     def test_check_conciliation(self):
         """ Test the _check_conciliation utility. """
         from supvisors.rpcinterface import RPCInterface
+        from supvisors.ttypes import SupvisorsStates
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test the call to _check_state
         with patch.object(rpc, '_check_state') as mocked_check:
             rpc._check_conciliation()
-            self.assertListEqual([call([3])], mocked_check.call_args_list)
+            self.assertListEqual([call([SupvisorsStates.CONCILIATION])], mocked_check.call_args_list)
 
     def test_get_application(self):
         """ Test the _get_application utility. """
         from supvisors.rpcinterface import RPCInterface
         # prepare context
-        self.supervisor.supvisors.context.applications = {
-            'appli_1': 'first application'}
+        self.supervisor.supvisors.context.applications = {'appli_1': 'first application'}
         # create RPC instance
         rpc = RPCInterface(self.supervisor)
         # test with known application

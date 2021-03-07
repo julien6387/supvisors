@@ -61,7 +61,7 @@ class ApplicationView(ViewHandler):
         elt.content(self.application_name)
         # set application state
         elt = root.findmeld('state_mid')
-        elt.content(self.application.state_string())
+        elt.content(self.application.state.name)
         # set LED iaw major/minor failures
         elt = root.findmeld('state_led_mid')
         if self.application.running():
@@ -84,7 +84,7 @@ class ApplicationView(ViewHandler):
         # get the current strategy
         strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        for str_strategy in StartingStrategies.strings():
+        for str_strategy in StartingStrategies._member_names_:
             elt = root.findmeld('%s_a_mid' % str_strategy.lower())
             if strategy == str_strategy:
                 elt.attrib['class'] = 'button off active'
@@ -192,7 +192,7 @@ class ApplicationView(ViewHandler):
         if action == 'refresh':
             return self.refresh_action()
         # get current strategy
-        strategy = StartingStrategies.from_string(self.view_ctx.parameters[STRATEGY])
+        strategy = StartingStrategies[self.view_ctx.parameters[STRATEGY]]
         if action == 'startapp':
             return self.start_application_action(strategy)
         if action == 'stopapp':

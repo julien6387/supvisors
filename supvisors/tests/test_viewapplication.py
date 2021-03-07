@@ -29,8 +29,7 @@ from supvisors.tests.base import DummyHttpContext
 
 
 class ViewApplicationTest(unittest.TestCase):
-    """ Test case for the ApplicationView class of the viewapplication
-    module. """
+    """ Test case for the ApplicationView class of the viewapplication module. """
 
     def setUp(self):
         """ Create the instance to be tested. """
@@ -85,22 +84,18 @@ class ViewApplicationTest(unittest.TestCase):
     @patch('supvisors.viewapplication.ApplicationView.write_starting_strategy')
     def test_write_header(self, mocked_strategy, mocked_period, mocked_action):
         """ Test the write_header method. """
+        from supvisors.ttypes import ApplicationStates
         self.view.application_name = 'dummy_appli'
-        self.view.application = Mock(**{'state_string.return_value': 'stopped',
-                                        'running.return_value': False})
+        self.view.application = Mock(state=ApplicationStates.STOPPED, **{'running.return_value': False})
         # patch the meld elements
         led_mid = Mock(attrib={'class': ''})
         state_mid = Mock()
         application_mid = Mock()
-        mocked_root = Mock(**{'findmeld.side_effect': [application_mid,
-                                                       state_mid,
-                                                       led_mid] * 4})
+        mocked_root = Mock(**{'findmeld.side_effect': [application_mid, state_mid, led_mid] * 4})
         # test call with stopped application
         self.view.write_header(mocked_root)
-        self.assertEqual([call('dummy_appli')],
-                         application_mid.content.call_args_list)
-        self.assertEqual([call('stopped')],
-                         state_mid.content.call_args_list)
+        self.assertEqual([call('dummy_appli')], application_mid.content.call_args_list)
+        self.assertEqual([call('STOPPED')], state_mid.content.call_args_list)
         self.assertEqual('status_empty', led_mid.attrib['class'])
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
@@ -111,15 +106,13 @@ class ViewApplicationTest(unittest.TestCase):
         mocked_period.reset_mock()
         mocked_action.reset_mock()
         # test call with running application and no failure
-        self.view.application = Mock(major_failure=False,
+        self.view.application = Mock(state=ApplicationStates.STARTING,
+                                     major_failure=False,
                                      minor_failure=False,
-                                     **{'state_string.return_value': 'starting',
-                                        'running.return_value': True})
+                                     **{'running.return_value': True})
         self.view.write_header(mocked_root)
-        self.assertEqual([call('dummy_appli')],
-                         application_mid.content.call_args_list)
-        self.assertEqual([call('starting')],
-                         state_mid.content.call_args_list)
+        self.assertEqual([call('dummy_appli')], application_mid.content.call_args_list)
+        self.assertEqual([call('STARTING')], state_mid.content.call_args_list)
         self.assertEqual('status_green', led_mid.attrib['class'])
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
@@ -132,10 +125,8 @@ class ViewApplicationTest(unittest.TestCase):
         # test call with running application and minor failure
         self.view.application.minor_failure = True
         self.view.write_header(mocked_root)
-        self.assertEqual([call('dummy_appli')],
-                         application_mid.content.call_args_list)
-        self.assertEqual([call('starting')],
-                         state_mid.content.call_args_list)
+        self.assertEqual([call('dummy_appli')], application_mid.content.call_args_list)
+        self.assertEqual([call('STARTING')], state_mid.content.call_args_list)
         self.assertEqual('status_yellow', led_mid.attrib['class'])
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
@@ -148,10 +139,8 @@ class ViewApplicationTest(unittest.TestCase):
         # test call with running application and major failure
         self.view.application.major_failure = True
         self.view.write_header(mocked_root)
-        self.assertEqual([call('dummy_appli')],
-                         application_mid.content.call_args_list)
-        self.assertEqual([call('starting')],
-                         state_mid.content.call_args_list)
+        self.assertEqual([call('dummy_appli')], application_mid.content.call_args_list)
+        self.assertEqual([call('STARTING')], state_mid.content.call_args_list)
         self.assertEqual('status_red', led_mid.attrib['class'])
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_strategy.call_args_list)
@@ -164,10 +153,10 @@ class ViewApplicationTest(unittest.TestCase):
         # patch the view context
         self.view.view_ctx = Mock(parameters={STRATEGY: 'CONFIG'}, **{'format_url.return_value': 'an url'})
         # patch the meld elements
-        strategy_mids = [Mock(attrib={'class': ''}) for _ in StartingStrategies.values()]
+        strategy_mids = [Mock(attrib={'class': ''}) for _ in StartingStrategies]
         mocked_root = Mock(**{'findmeld.side_effect': strategy_mids * len(strategy_mids)})
         # test all strategies in loop
-        for index, strategy in enumerate(StartingStrategies.strings()):
+        for index, strategy in enumerate(StartingStrategies._member_names_):
             self.view.view_ctx.parameters[STRATEGY] = strategy
             self.view.write_starting_strategy(mocked_root)
             # other strategy_mids are not selected
@@ -269,8 +258,7 @@ class ViewApplicationTest(unittest.TestCase):
         self.assertEqual('dummy_proc', self.view.view_ctx.parameters[PROCESS])
         self.assertEqual([call(mocked_root, {'namespec': 'dummy_proc'})], mocked_stats.call_args_list)
 
-    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config',
-           return_value=['process_2', 'process_1'])
+    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config', return_value=['process_2', 'process_1'])
     def test_get_process_data(self, mocked_sort):
         """ Test the get_process_data method. """
         # patch the selected application
@@ -278,16 +266,14 @@ class ViewApplicationTest(unittest.TestCase):
                          process_name='process_1',
                          addresses=set(),
                          state='stopped',
-                         rules=Mock(expected_loading=20),
-                         **{'namespec.return_value': 'namespec_1',
-                            'state_string.return_value': 'stopped'})
+                         rules=Mock(expected_loading=20), **{'namespec.return_value': 'namespec_1',
+                                                             'state_string.return_value': 'stopped'})
         process_2 = Mock(application_name='appli_2',
                          process_name='process_2',
                          addresses=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
                          state='running',
-                         rules=Mock(expected_loading=1),
-                         **{'namespec.return_value': 'namespec_2',
-                            'state_string.return_value': 'running'})
+                         rules=Mock(expected_loading=1), **{'namespec.return_value': 'namespec_2',
+                                                            'state_string.return_value': 'running'})
         self.view.application = Mock(processes={process_1.process_name: process_1,
                                                 process_2.process_name: process_2})
         # patch context

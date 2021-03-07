@@ -104,8 +104,7 @@ class ViewContext:
 
     def update_strategy(self):
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, StartingStrategies.strings(),
-                            StartingStrategies.to_string(self.options.starting_strategy))
+        self._update_string(STRATEGY, StartingStrategies._member_names_, self.options.starting_strategy.name)
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """

@@ -33,36 +33,6 @@ class UtilsTest(unittest.TestCase):
         """ Create a logger that stores log traces. """
         self.supvisors = MockedSupvisors()
 
-    def test_enum(self):
-        """ Test the enumeration tools. """
-        from supvisors.utils import enumeration_tools
-
-        @enumeration_tools
-        class DummyEnum:
-            ENUM_1, ENUM_2, ENUM_3 = range(3)
-
-        # test _to_string
-        self.assertEqual('ENUM_1', DummyEnum.to_string(DummyEnum.ENUM_1))
-        self.assertEqual('ENUM_2', DummyEnum.to_string(DummyEnum.ENUM_2))
-        self.assertEqual('ENUM_3', DummyEnum.to_string(DummyEnum.ENUM_3))
-        self.assertEqual('ENUM_1', DummyEnum.to_string(0))
-        self.assertEqual('ENUM_2', DummyEnum.to_string(1))
-        self.assertEqual('ENUM_3', DummyEnum.to_string(2))
-        with self.assertRaises(KeyError):
-            DummyEnum.to_string(-1)
-        # test _from_string
-        self.assertEqual(DummyEnum.ENUM_1, DummyEnum.from_string('ENUM_1'))
-        self.assertEqual(DummyEnum.ENUM_2, DummyEnum.from_string('ENUM_2'))
-        self.assertEqual(DummyEnum.ENUM_3, DummyEnum.from_string('ENUM_3'))
-        with self.assertRaises(KeyError):
-            DummyEnum.from_string('ENUM_0')
-        # test _values
-        self.assertListEqual([DummyEnum.ENUM_1, DummyEnum.ENUM_2, DummyEnum.ENUM_3],
-                             sorted(DummyEnum.values()))
-        # test _strings
-        self.assertListEqual(['ENUM_1', 'ENUM_2', 'ENUM_3'],
-                             sorted(DummyEnum.strings()))
-
     def test_shortcut(self):
         """ Test the shortcuts to supvisors data. """
         from supvisors.utils import supvisors_shortcuts

@@ -81,7 +81,7 @@ class AbstractState(object):
                     self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
                 else:
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'
-                                     .format(func.__name__, status.address_name, status.state_string()))
+                                     .format(func.__name__, status.address_name, status.state.name))
         # send request to self supervisord
         func(self.address_name)
 
@@ -399,7 +399,7 @@ class FiniteStateMachine:
 
         :return: the Supvisors state as a dictionary
         """
-        return {'statecode': self.state, 'statename': self.state.name}
+        return {'statecode': self.state.value, 'statename': self.state.name}
 
     # Map between state enumerations and classes
     __StateInstances = {

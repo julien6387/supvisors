@@ -233,6 +233,7 @@ class ConciliationStrategyTest(CompatTestCase):
     def test_restart_strategy(self):
         """ Test the strategy that consists in stopping all processes and restart a single one. """
         from supvisors.strategy import RestartStrategy
+        from supvisors.ttypes import RunningFailureStrategies
         # get patches
         mocked_add = self.supvisors.failure_handler.add_job
         mocked_trigger = self.supvisors.failure_handler.trigger_jobs
@@ -243,7 +244,8 @@ class ConciliationStrategyTest(CompatTestCase):
         self.assertEqual(0, self.supvisors.stopper.stop_process.call_count)
         self.assertEqual(0, self.supvisors.zmq.pusher.send_stop_process.call_count)
         # test failure_handler call
-        self.assertEqual([call(1, self.conflicts[0]), call(1, self.conflicts[1])],
+        self.assertEqual([call(RunningFailureStrategies.RESTART_PROCESS, self.conflicts[0]),
+                          call(RunningFailureStrategies.RESTART_PROCESS, self.conflicts[1])],
                          mocked_add.call_args_list)
         self.assertEqual(1, mocked_trigger.call_count)
 

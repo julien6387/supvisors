@@ -412,17 +412,17 @@ class FiniteStateMachineTest(unittest.TestCase):
         """ Test the string conversion of state machine. """
         from supvisors.ttypes import SupvisorsStates
         # test string conversion for all states
-        for state in SupvisorsStates.values():
+        for state in SupvisorsStates:
             self.fsm.state = state
-            self.assertEqual(SupvisorsStates.to_string(state), self.fsm.state_string())
+            self.assertEqual(state.name, self.fsm.state.name)
 
     def test_serial(self):
         """ Test the serialization of state machine. """
         from supvisors.ttypes import SupvisorsStates
         # test serialization for all states
-        for state in SupvisorsStates.values():
+        for state in SupvisorsStates:
             self.fsm.state = state
-            self.assertDictEqual({'statecode': state, 'statename': SupvisorsStates.to_string(state)}, self.fsm.serial())
+            self.assertDictEqual({'statecode': state.value, 'statename': state.name}, self.fsm.serial())
 
     @patch('supvisors.statemachine.DeploymentState.exit')
     @patch('supvisors.statemachine.DeploymentState.next')
@@ -462,7 +462,7 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.OperationState.next')
     @patch('supvisors.statemachine.OperationState.enter')
     @patch('supvisors.statemachine.DeploymentState.exit')
-    @patch('supvisors.statemachine.DeploymentState.next', return_value=2)
+    @patch('supvisors.statemachine.DeploymentState.next')
     @patch('supvisors.statemachine.DeploymentState.enter')
     @patch('supvisors.statemachine.InitializationState.exit')
     @patch('supvisors.statemachine.InitializationState.next')
@@ -470,6 +470,7 @@ class FiniteStateMachineTest(unittest.TestCase):
     def test_complex_set_state(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using set_state method. """
         from supvisors.ttypes import SupvisorsStates
+        args[4].return_value = SupvisorsStates.OPERATION
 
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
@@ -485,11 +486,12 @@ class FiniteStateMachineTest(unittest.TestCase):
         self.assertEqual(SupvisorsStates.OPERATION, self.fsm.state)
 
     @patch('supvisors.statemachine.InitializationState.exit')
-    @patch('supvisors.statemachine.InitializationState.next', return_value=0)
+    @patch('supvisors.statemachine.InitializationState.next')
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_no_next(self, *args, **kwargs):
         """ Test no transition of the state machine using next_method. """
         from supvisors.ttypes import SupvisorsStates
+        args[1].return_value = SupvisorsStates.INITIALIZATION
 
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
@@ -505,14 +507,16 @@ class FiniteStateMachineTest(unittest.TestCase):
         self.assertEqual(SupvisorsStates.INITIALIZATION, self.fsm.state)
 
     @patch('supvisors.statemachine.DeploymentState.exit')
-    @patch('supvisors.statemachine.DeploymentState.next', return_value=1)
+    @patch('supvisors.statemachine.DeploymentState.next')
     @patch('supvisors.statemachine.DeploymentState.enter')
     @patch('supvisors.statemachine.InitializationState.exit')
-    @patch('supvisors.statemachine.InitializationState.next', return_value=1)
+    @patch('supvisors.statemachine.InitializationState.next')
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_simple_next(self, *args, **kwargs):
         """ Test single transition of the state machine using next_method. """
         from supvisors.ttypes import SupvisorsStates
+        args[1].return_value = SupvisorsStates.DEPLOYMENT
+        args[4].return_value = SupvisorsStates.DEPLOYMENT
 
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
@@ -531,14 +535,16 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.ConciliationState.next')
     @patch('supvisors.statemachine.ConciliationState.enter')
     @patch('supvisors.statemachine.DeploymentState.exit')
-    @patch('supvisors.statemachine.DeploymentState.next', return_value=3)
+    @patch('supvisors.statemachine.DeploymentState.next')
     @patch('supvisors.statemachine.DeploymentState.enter')
     @patch('supvisors.statemachine.InitializationState.exit')
-    @patch('supvisors.statemachine.InitializationState.next', return_value=1)
+    @patch('supvisors.statemachine.InitializationState.next')
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_complex_next(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using next_method. """
         from supvisors.ttypes import SupvisorsStates
+        args[1].return_value = SupvisorsStates.DEPLOYMENT
+        args[4].return_value = SupvisorsStates.CONCILIATION
 
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):
@@ -557,23 +563,28 @@ class FiniteStateMachineTest(unittest.TestCase):
     @patch('supvisors.statemachine.ShutdownState.next')
     @patch('supvisors.statemachine.ShutdownState.enter')
     @patch('supvisors.statemachine.RestartingState.exit')
-    @patch('supvisors.statemachine.RestartingState.next', return_value=6)
+    @patch('supvisors.statemachine.RestartingState.next')
     @patch('supvisors.statemachine.RestartingState.enter')
     @patch('supvisors.statemachine.ConciliationState.exit')
-    @patch('supvisors.statemachine.ConciliationState.next', side_effect=[2, 2])
+    @patch('supvisors.statemachine.ConciliationState.next')
     @patch('supvisors.statemachine.ConciliationState.enter')
     @patch('supvisors.statemachine.OperationState.exit')
-    @patch('supvisors.statemachine.OperationState.next', side_effect=[3, 0, 4])
+    @patch('supvisors.statemachine.OperationState.next')
     @patch('supvisors.statemachine.OperationState.enter')
     @patch('supvisors.statemachine.DeploymentState.exit')
-    @patch('supvisors.statemachine.DeploymentState.next', side_effect=[2, 3])
+    @patch('supvisors.statemachine.DeploymentState.next')
     @patch('supvisors.statemachine.DeploymentState.enter')
     @patch('supvisors.statemachine.InitializationState.exit')
-    @patch('supvisors.statemachine.InitializationState.next', side_effect=[1, 1])
+    @patch('supvisors.statemachine.InitializationState.next')
     @patch('supvisors.statemachine.InitializationState.enter')
     def test_very_complex_next(self, *args, **kwargs):
         """ Test multiple transitions of the state machine using next_method. """
         from supvisors.ttypes import SupvisorsStates
+        args[1].side_effect = [SupvisorsStates.DEPLOYMENT, SupvisorsStates.DEPLOYMENT]
+        args[4].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]
+        args[7].side_effect = [SupvisorsStates.CONCILIATION, SupvisorsStates.INITIALIZATION, SupvisorsStates.RESTARTING]
+        args[10].side_effect = [SupvisorsStates.OPERATION, SupvisorsStates.OPERATION]
+        args[13].return_value = SupvisorsStates.SHUTDOWN
 
         # function to compare call counts of mocked methods
         def compare_calls(call_counts):

@@ -222,7 +222,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
-        self.assertEqual('silent', address_elt.attrib['class'])
+        self.assertEqual('SILENT', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([call('10.0.0.1')], href_elt.content.call_args_list)
@@ -235,7 +235,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
-        self.assertEqual('silent active', address_elt.attrib['class'])
+        self.assertEqual('SILENT active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([call('10.0.0.1')], href_elt.content.call_args_list)
@@ -256,7 +256,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
-        self.assertEqual('running', address_elt.attrib['class'])
+        self.assertEqual('RUNNING', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], href_elt.attributes.call_args_list)
@@ -274,7 +274,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
-        self.assertEqual('running active', address_elt.attrib['class'])
+        self.assertEqual('RUNNING active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], href_elt.attributes.call_args_list)
@@ -283,21 +283,21 @@ class ViewHandlerTest(unittest.TestCase):
 
     def test_write_nav_applications_initialization(self):
         """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
-        from supvisors.ttypes import SupvisorsStates
+        from supvisors.ttypes import ApplicationStates, SupvisorsStates
         self.handler.fsm.state = SupvisorsStates.INITIALIZATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
         mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
                                                       Mock(application_name='dummy_appli',
-                                                           **{'state_string.return_value': 'running'}))]})
+                                                           state=ApplicationStates.RUNNING))]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with application name different from parameter
         self.handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         self.handler.write_nav_applications(mocked_root, 'dumb_appli')
         self.assertListEqual(mocked_root.findmeld.call_args_list, [call('appli_li_mid')])
         self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
-        self.assertEqual('running', appli_elt.attrib['class'])
+        self.assertEqual('RUNNING', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')], appli_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([], self.handler.view_ctx.format_url.call_args_list)
@@ -311,7 +311,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_applications(mocked_root, 'dummy_appli')
         self.assertEqual([call('appli_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual(mocked_mid.repeat.call_args_list, [call([])])
-        self.assertEqual('running active', appli_elt.attrib['class'])
+        self.assertEqual('RUNNING active', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')], appli_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([], self.handler.view_ctx.format_url.call_args_list)
@@ -321,21 +321,21 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_nav_applications_operation(self):
         """ Test the write_nav_applications method with Supvisors in its
         OPERATION state. """
-        from supvisors.ttypes import SupvisorsStates
+        from supvisors.ttypes import ApplicationStates, SupvisorsStates
         self.handler.fsm.state = SupvisorsStates.OPERATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
         mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
                                                       Mock(application_name='dummy_appli',
-                                                           **{'state_string.return_value': 'running'}))]})
+                                                           state=ApplicationStates.RUNNING))]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with application name different from parameter
         self.handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         self.handler.write_nav_applications(mocked_root, 'dumb_appli')
         self.assertEqual([call('appli_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
-        self.assertEqual('running', appli_elt.attrib['class'])
+        self.assertEqual('RUNNING', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')], appli_elt.findmeld.call_args_list)
         self.assertEqual('on', href_elt.attrib['class'])
         self.assertEqual([call('', 'application.html', appliname='dummy_appli')],
@@ -352,7 +352,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.write_nav_applications(mocked_root, 'dummy_appli')
         self.assertEqual([call('appli_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertListEqual(mocked_mid.repeat.call_args_list, [call([])])
-        self.assertEqual('running active', appli_elt.attrib['class'])
+        self.assertEqual('RUNNING active', appli_elt.attrib['class'])
         self.assertEqual([call('appli_a_mid')], appli_elt.findmeld.call_args_list)
         self.assertEqual('on', href_elt.attrib['class'])
         self.assertEqual([call('', 'application.html', appliname='dummy_appli')],

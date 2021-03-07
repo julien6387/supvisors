@@ -185,20 +185,20 @@ class SupvisorsServerOptions(ServerOptions):
     def to_conciliation_strategy(value):
         """ Convert a string into a ConciliationStrategies enum. """
         try:
-            strategy = ConciliationStrategies.from_string(value)
+            strategy = ConciliationStrategies[value]
         except KeyError:
             raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'
-                             .format(value, ConciliationStrategies.strings()))
+                             .format(value, ConciliationStrategies._member_names_))
         return strategy
 
     @staticmethod
     def to_starting_strategy(value):
         """ Convert a string into a StartingStrategies enum. """
         try:
-            strategy = StartingStrategies.from_string(value)
+            strategy = StartingStrategies[value]
         except KeyError:
             raise ValueError('invalid value for starting_strategy: {}. expected in {}'
-                             .format(value, StartingStrategies.strings()))
+                             .format(value, StartingStrategies._member_names_))
         return strategy
 
     @staticmethod

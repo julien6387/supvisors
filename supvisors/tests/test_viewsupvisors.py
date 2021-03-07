@@ -25,6 +25,7 @@ from unittest.mock import call, patch, Mock
 
 from supvisors.tests.base import CompatTestCase
 
+
 class ViewSupvisorsTest(CompatTestCase):
     """ Test case for the viewsupvisors module. """
 
@@ -46,7 +47,7 @@ class ViewSupvisorsTest(CompatTestCase):
         # test strategy names
         from supvisors.ttypes import ConciliationStrategies
         for strategy in self.view.strategies:
-            self.assertIn(strategy.upper(), ConciliationStrategies.strings())
+            self.assertIn(strategy.upper(), ConciliationStrategies._member_names_)
         self.assertNotIn('user', self.view.strategies)
         # test action methods storage
         self.assertTrue(all(callable(cb)) for cb in self.view.global_methods.values())
@@ -61,14 +62,15 @@ class ViewSupvisorsTest(CompatTestCase):
 
     def test_write_header(self):
         """ Test the write_header method. """
+        from supvisors.ttypes import SupvisorsStates
         # patch context
-        self.view.fsm.state_string.return_value = 'Running'
+        self.view.fsm.state = SupvisorsStates.OPERATION
         # build root structure
         mocked_state_mid = Mock()
         mocked_root = Mock(**{'findmeld.return_value': mocked_state_mid})
         # test call with no auto-refresh
         self.view.write_header(mocked_root)
-        self.assertEqual([call('Running')], mocked_state_mid.content.call_args_list)
+        self.assertEqual([call('OPERATION')], mocked_state_mid.content.call_args_list)
 
     @patch('supvisors.viewsupvisors.SupvisorsView.write_node_boxes')
     @patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')
@@ -107,8 +109,7 @@ class ViewSupvisorsTest(CompatTestCase):
         from supvisors.ttypes import AddressStates
         # patch context
         mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.RUNNING,
-                             **{'state_string.return_value': 'running',
-                                'loading.return_value': 17})
+                             **{'loading.return_value': 17})
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure with one single element
         mocked_node_mid = Mock(attrib={})
@@ -123,8 +124,8 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertEqual([call(href='an url')], mocked_node_mid.attributes.call_args_list)
         self.assertEqual([call('10.0.0.1')], mocked_node_mid.content.call_args_list)
         # test state element
-        self.assertEqual('running state', mocked_state_mid.attrib['class'])
-        self.assertEqual([call('running')], mocked_state_mid.content.call_args_list)
+        self.assertEqual('RUNNING state', mocked_state_mid.attrib['class'])
+        self.assertEqual([call('RUNNING')], mocked_state_mid.content.call_args_list)
         # test loading element
         self.assertEqual([call('17%')], mocked_percent_mid.content.call_args_list)
         # reset mocks and attributes
@@ -135,16 +136,15 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_state_mid.attrib['class'] = ''
         # test call in SILENT state
         mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT,
-                             **{'state_string.return_value': 'silent',
-                                'loading.return_value': 0})
+                             **{'loading.return_value': 0})
         self.view._write_node_box_title(mocked_root, mocked_status)
         # test address element
         self.assertEqual('', mocked_node_mid.attrib['class'])
         self.assertFalse(mocked_node_mid.attributes.called)
         self.assertEqual([call('10.0.0.1')], mocked_node_mid.content.call_args_list)
         # test state element
-        self.assertEqual('silent state', mocked_state_mid.attrib['class'])
-        self.assertEqual([call('silent')], mocked_state_mid.content.call_args_list)
+        self.assertEqual('SILENT state', mocked_state_mid.attrib['class'])
+        self.assertEqual([call('SILENT')], mocked_state_mid.content.call_args_list)
         # test loading element
         self.assertEqual([call('0%')], mocked_percent_mid.content.call_args_list)
 

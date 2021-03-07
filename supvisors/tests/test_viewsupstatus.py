@@ -66,14 +66,15 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
     @patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
     def test_write_header(self, mocked_periods, mocked_actions, mocked_time):
         """ Test the write_header method. """
+        from supvisors.ttypes import AddressStates
         # set context (meant to be set through render)
         # build root structure
         mocked_mids = [Mock(attrib={}) for _ in range(4)]
         mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
         # first call tests with not master
         mocked_status = Mock(remote_time=3600,
-                             **{'state_string.return_value': 'running',
-                                'loading.return_value': 12})
+                             state=AddressStates.RUNNING,
+                             **{'loading.return_value': 12})
         self.view.supvisors.context.master = False
         self.view.supvisors.context.addresses['127.0.0.1'] = mocked_status
         self.view.write_header(mocked_root)
@@ -81,7 +82,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
                          mocked_root.findmeld.call_args_list)
         self.assertDictEqual({}, mocked_mids[0].attrib)
         self.assertEqual([call('127.0.0.1')], mocked_mids[0].content.call_args_list)
-        self.assertEqual([call('running')], mocked_mids[1].content.call_args_list)
+        self.assertEqual([call('RUNNING')], mocked_mids[1].content.call_args_list)
         self.assertEqual([call('12%')], mocked_mids[2].content.call_args_list)
         self.assertEqual([call('07:05:30')], mocked_mids[3].content.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_periods.call_args_list)
@@ -99,7 +100,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
                          mocked_root.findmeld.call_args_list)
         self.assertDictEqual({'class': 'master'}, mocked_mids[0].attrib)
         self.assertEqual([call('127.0.0.1')], mocked_mids[0].content.call_args_list)
-        self.assertEqual([call('running')], mocked_mids[1].content.call_args_list)
+        self.assertEqual([call('RUNNING')], mocked_mids[1].content.call_args_list)
         self.assertEqual([call('12%')], mocked_mids[2].content.call_args_list)
         self.assertEqual([call('07:05:30')], mocked_mids[3].content.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_periods.call_args_list)

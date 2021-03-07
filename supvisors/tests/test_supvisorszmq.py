@@ -20,9 +20,11 @@
 import sys
 import time
 import unittest
-import zmq
 
-from unittest.mock import patch
+import zmq
+from zmq.error import ZMQError
+
+from unittest.mock import call, patch, Mock
 from supvisors.tests.base import MockedSupvisors
 
 SKIP_IT = False
@@ -43,16 +45,13 @@ class ZmqSocketTest(unittest.TestCase):
     def test_internal_publish_subscribe(self):
         """ Test the ZeroMQ publish-subscribe sockets used internally
         in Supvisors. """
-        from supvisors.supvisorszmq import (InternalEventPublisher,
-                                            InternalEventSubscriber)
+        from supvisors.supvisorszmq import InternalEventPublisher, InternalEventSubscriber
         # create publisher and subscriber
-        publisher = InternalEventPublisher(
-            self.supvisors.address_mapper.local_address,
-            self.supvisors.options.internal_port,
-            self.supvisors.logger)
-        subscriber = InternalEventSubscriber(
-            self.supvisors.address_mapper.addresses,
-            self.supvisors.options.internal_port)
+        publisher = InternalEventPublisher(self.supvisors.address_mapper.local_address,
+                                           self.supvisors.options.internal_port,
+                                           self.supvisors.logger)
+        subscriber = InternalEventSubscriber(self.supvisors.address_mapper.addresses,
+                                             self.supvisors.options.internal_port)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
@@ -71,8 +70,7 @@ class ZmqSocketTest(unittest.TestCase):
         port = self.supvisors.options.event_port
         # create publisher and subscriber
         publisher = EventPublisher(port, self.supvisors.logger)
-        subscriber = EventSubscriber(zmq.Context.instance(), port,
-                                     self.supvisors.logger)
+        subscriber = EventSubscriber(zmq.Context.instance(), port, self.supvisors.logger)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
         self.assertFalse(subscriber.socket.closed)
@@ -108,24 +106,19 @@ class InternalEventTest(unittest.TestCase):
         """ Create a dummy supvisors, ZMQ context and sockets. """
         if SKIP_IT:
             raise unittest.SkipTest('DEBUG')
-        from supvisors.supvisorszmq import (InternalEventPublisher,
-                                            InternalEventSubscriber)
+        from supvisors.supvisorszmq import InternalEventPublisher, InternalEventSubscriber
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create publisher and subscriber
-        self.publisher = InternalEventPublisher(
-            self.supvisors.address_mapper.local_address,
-            self.supvisors.options.internal_port,
-            self.supvisors.logger)
-        self.subscriber = InternalEventSubscriber(
-            self.supvisors.address_mapper.addresses,
-            self.supvisors.options.internal_port)
+        self.publisher = InternalEventPublisher(self.supvisors.address_mapper.local_address,
+                                                self.supvisors.options.internal_port,
+                                                self.supvisors.logger)
+        self.subscriber = InternalEventSubscriber(self.supvisors.address_mapper.addresses,
+                                                  self.supvisors.options.internal_port)
         # socket configuration is meant to be blocking
-        # however, a failure would block the unit test,
-        # so a timeout is set for reception
+        # however, a failure would block the unit test, so a timeout is set for reception
         self.subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
-        # publisher does not wait for subscriber clients to work,
-        # so give some time for connections
+        # publisher does not wait for subscriber clients to work, so give some time for connections
         time.sleep(1)
 
     def tearDown(self):
@@ -157,8 +150,7 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK,
-                               local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
         # test local disconnection
         self.subscriber.disconnect([local_address])
         # send a tick event from the local publisher
@@ -177,8 +169,7 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK,
-                               local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
 
     def test_process_event(self):
         """ Test the publication and subscription of the process events. """
@@ -190,8 +181,7 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_process_event(payload)
         # check the reception of the process event
         msg = self.receive('Process')
-        self.assertTupleEqual((InternalEventHeaders.PROCESS,
-                               local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.PROCESS, local_address, payload), msg)
 
     def test_statistics(self):
         """ Test the publication and subscription of the statistics messages. """
@@ -203,8 +193,7 @@ class InternalEventTest(unittest.TestCase):
         self.publisher.send_statistics(payload)
         # check the reception of the statistics event
         msg = self.receive('Statistics')
-        self.assertTupleEqual((InternalEventHeaders.STATISTICS,
-                               local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.STATISTICS, local_address, payload), msg)
 
 
 class RequestTest(unittest.TestCase):
@@ -246,14 +235,11 @@ class RequestTest(unittest.TestCase):
         from supvisors.utils import DeferredRequestHeaders
         self.pusher.send_check_address('10.0.0.1')
         request = self.receive('Check Address')
-        self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS,
-                               ('10.0.0.1',)), request)
+        self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS, ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_check_address('10.0.0.1')
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
             self.pusher.send_check_address('10.0.0.1')
@@ -269,11 +255,9 @@ class RequestTest(unittest.TestCase):
         self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES,
                                (['10.0.0.1', '10.0.0.2'])), request)
         # test that the pusher socket is not blocking
-        with patch.object(self.pusher.socket, 'send_pyobj',
-                          side_effect=zmq.error.Again):
+        with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
             self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
@@ -284,22 +268,18 @@ class RequestTest(unittest.TestCase):
         """ The method tests that the 'Start Process' request is sent
         and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
-        self.pusher.send_start_process('10.0.0.1', 'application:program',
-                                       ['-extra', 'arguments'])
+        self.pusher.send_start_process('10.0.0.1', 'application:program', ['-extra', 'arguments'])
         request = self.receive('Start Process')
         self.assertTupleEqual((DeferredRequestHeaders.START_PROCESS,
                                ('10.0.0.1', 'application:program', ['-extra', 'arguments'])),
                               request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
-            self.pusher.send_start_process('10.0.0.1', 'application:program',
-                                           ['-extra', 'arguments'])
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+            self.pusher.send_start_process('10.0.0.1', 'application:program', ['-extra', 'arguments'])
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
-            self.pusher.send_start_process('10.0.0.1', 'application:program',
-                                           ['-extra', 'arguments'])
+            self.pusher.send_start_process('10.0.0.1', 'application:program', ['-extra', 'arguments'])
         except:
             self.fail('unexpected exception')
 
@@ -314,8 +294,7 @@ class RequestTest(unittest.TestCase):
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_stop_process('10.0.0.1', 'application:program')
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
             self.pusher.send_stop_process('10.0.0.1', 'application:program')
@@ -332,8 +311,7 @@ class RequestTest(unittest.TestCase):
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_restart('10.0.0.1')
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
             self.pusher.send_restart('10.0.0.1')
@@ -350,8 +328,7 @@ class RequestTest(unittest.TestCase):
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
             self.pusher.send_shutdown('10.0.0.1')
-        # test that absence of puller does not block the pusher
-        # or raise any exception
+        # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
             self.pusher.send_shutdown('10.0.0.1')
@@ -360,8 +337,7 @@ class RequestTest(unittest.TestCase):
 
 
 class EventTest(unittest.TestCase):
-    """ Test case for the EventPublisher and EventSubscriber classes
-    of the supvisorszmq module. """
+    """ Test case for the EventPublisher and EventSubscriber classes of the supvisorszmq module. """
 
     def setUp(self):
         """ Create a dummy supvisors and a ZMQ context. """
@@ -377,11 +353,9 @@ class EventTest(unittest.TestCase):
                                           self.supvisors.options.event_port,
                                           self.supvisors.logger)
         # WARN: this subscriber does not include a subscription
-        # when using a subscription, use a time sleep to give time
-        # to PyZMQ to handle it
+        # when using a subscription, use a time sleep to give time to PyZMQ to handle it
         # WARN: socket configuration is meant to be blocking
-        # however, a failure would block the unit test,
-        # so a timeout is set for reception
+        # however, a failure would block the unit test, so a timeout is set for reception
         self.subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
         # create test payloads
         self.supvisors_payload = {'state': 'running', 'version': '1.0'}
@@ -578,8 +552,7 @@ class SupervisorZmqTest(unittest.TestCase):
         # test all attribute types
         self.assertIsInstance(sockets.publisher, EventPublisher)
         self.assertFalse(sockets.publisher.socket.closed)
-        self.assertIsInstance(sockets.internal_publisher,
-                              InternalEventPublisher)
+        self.assertIsInstance(sockets.internal_publisher, InternalEventPublisher)
         self.assertFalse(sockets.internal_publisher.socket.closed)
         self.assertIsInstance(sockets.pusher, RequestPusher)
         self.assertFalse(sockets.pusher.socket.closed)
@@ -601,19 +574,82 @@ class SupvisorsZmqTest(unittest.TestCase):
 
     def test_creation_closure(self):
         """ Test the types of the attributes created. """
-        from supvisors.supvisorszmq import (SupvisorsZmq,
-                                            InternalEventSubscriber, RequestPuller)
+        from supvisors.supvisorszmq import SupvisorsZmq, InternalEventSubscriber, RequestPuller
         sockets = SupvisorsZmq(self.supvisors)
         # test all attribute types
-        self.assertIsInstance(sockets.internal_subscriber,
-                              InternalEventSubscriber)
-        self.assertFalse(sockets.internal_subscriber.socket.closed)
+        self.assertIsInstance(sockets.subscriber, InternalEventSubscriber)
+        self.assertFalse(sockets.subscriber.socket.closed)
         self.assertIsInstance(sockets.puller, RequestPuller)
         self.assertFalse(sockets.puller.socket.closed)
+        self.assertIn(sockets.puller.socket, sockets.poller._map)
+        self.assertIn(sockets.subscriber.socket, sockets.poller._map)
         # close the instance
         sockets.close()
-        self.assertTrue(sockets.internal_subscriber.socket.closed)
+        self.assertEqual({}, sockets.poller._map)
+        self.assertTrue(sockets.subscriber.socket.closed)
         self.assertTrue(sockets.puller.socket.closed)
+
+    def test_poll(self):
+        """ Test the poll method of the SupvisorsZmq class. """
+        from supvisors.supvisorszmq import SupvisorsZmq
+        sockets = SupvisorsZmq(self.supvisors)
+        self.assertEqual({}, sockets.poll())
+
+    @patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
+    def test_check_puller(self, mocked_check: Mock):
+        """ Test the check_puller method of the SupvisorsZmq class. """
+        from supvisors.supvisorszmq import SupvisorsZmq
+        sockets = SupvisorsZmq(self.supvisors)
+        param = Mock()
+        self.assertEqual('checked', sockets.check_puller(param))
+        self.assertEqual([call(sockets.puller, param)], mocked_check.call_args_list)
+
+    @patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
+    def test_check_subscriber(self, mocked_check: Mock):
+        """ Test the check_subscriber method of the SupvisorsZmq class. """
+        from supvisors.supvisorszmq import SupvisorsZmq
+        sockets = SupvisorsZmq(self.supvisors)
+        param = Mock()
+        self.assertEqual('checked', sockets.check_subscriber(param))
+        self.assertEqual([call(sockets.subscriber, param)], mocked_check.call_args_list)
+
+    @patch('builtins.print')
+    def test_check_socket(self, _):
+        """ Test the types of the attributes created. """
+        from supvisors.supvisorszmq import SupvisorsZmq
+        sockets = SupvisorsZmq(self.supvisors)
+        # prepare context
+        mocked_sockets = Mock(socket='socket', **{'receive.side_effect': ZMQError})
+        # test with empty poll result
+        poll_result = {}
+        # test with socket not in poll result
+        self.assertIsNone(sockets.check_socket(mocked_sockets, poll_result))
+        self.assertFalse(mocked_sockets.receive.called)
+        # test with socket in poll result but with pollout tag
+        poll_result = {'socket': zmq.POLLOUT}
+        self.assertIsNone(sockets.check_socket(mocked_sockets, poll_result))
+        self.assertFalse(mocked_sockets.receive.called)
+        # test with socket in poll result and with pollin tag
+        # test exception
+        poll_result = {'socket': zmq.POLLIN}
+        self.assertIsNone(sockets.check_socket(mocked_sockets, poll_result))
+        self.assertTrue(mocked_sockets.receive.called)
+        mocked_sockets.receive.reset_mock()
+        # test with socket in poll result and with pollin tag
+        # test normal behaviour
+        mocked_sockets.receive.side_effect = None
+        mocked_sockets.receive.return_value = 'message'
+        self.assertEqual('message', sockets.check_socket(mocked_sockets, poll_result))
+        self.assertTrue(mocked_sockets.receive.called)
+
+    @patch('supvisors.supvisorszmq.InternalEventSubscriber.disconnect')
+    def test_disconnect_subscriber(self, mocked_disconnect: Mock):
+        """ Test the types of the attributes created. """
+        from supvisors.supvisorszmq import SupvisorsZmq, InternalEventSubscriber, RequestPuller
+        sockets = SupvisorsZmq(self.supvisors)
+        # test disconnect on unknown address
+        sockets.disconnect_subscriber(['10.0.0.1'])
+        self.assertEqual([call(['10.0.0.1'])], mocked_disconnect.call_args_list)
 
 
 def test_suite():

@@ -21,6 +21,7 @@ import sys
 import time
 import unittest
 
+from supervisor.states import ProcessStates
 from unittest.mock import call, patch, Mock
 
 from supvisors.tests.base import MockedSupvisors, database_copy, CompatTestCase
@@ -297,7 +298,6 @@ class CommanderTest(CommanderContextTest):
     @patch('supvisors.commander.Commander.after_event')
     def test_check_progress(self, mocked_after: Mock, mocked_force: Mock, mocked_trigger: Mock):
         """ Test the check_progress method. """
-        from supvisors.ttypes import ProcessStates
         # test with no sequence in progress
         self.assertTrue(self.commander.check_progress('stopped', ProcessStates.FATAL))
         # test with no current jobs but planned sequence and no planned jobs
@@ -379,7 +379,6 @@ class CommanderTest(CommanderContextTest):
     @patch('supvisors.listener.SupervisorListener.force_process_fatal')
     def test_force_process_fatal(self, mocked_listener, mocked_source):
         """ Test the force_process_state method with a FATAL parameter. """
-        from supvisors.ttypes import ProcessStates
         # test with FATAL and no info_source KeyError
         self.commander.force_process_state('proc', ProcessStates.FATAL, 'any reason')
         self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
@@ -395,7 +394,6 @@ class CommanderTest(CommanderContextTest):
     @patch('supvisors.listener.SupervisorListener.force_process_unknown')
     def test_force_process_unknown(self, mocked_listener, mocked_source):
         """ Test the force_process_state method with an UNKNOWN parameter. """
-        from supvisors.ttypes import ProcessStates
         # test with UNKNOWN and no info_source KeyError
         self.commander.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
         self.assertEqual([call(self.supvisors.info_source, 'proc', 'any reason')], mocked_source.call_args_list)
@@ -552,7 +550,6 @@ class StarterTest(CommanderContextTest):
     @patch('supvisors.commander.Commander.check_progress', return_value=True)
     def test_check_starting(self, mocked_check: Mock):
         """ Test the check_starting method. """
-        from supvisors.ttypes import ProcessStates
         self.assertTrue(self.starter.check_starting())
         self.assertEqual([call('stopped', ProcessStates.FATAL)], mocked_check.call_args_list)
 
@@ -731,7 +728,6 @@ class StarterTest(CommanderContextTest):
     @patch('supvisors.commander.get_address')
     def test_process_job(self, mocked_address: Mock, mocked_force: Mock):
         """ Test the process_job method. """
-        from supvisors.ttypes import ProcessStates
         # get patches
         mocked_pusher = self.supvisors.zmq.pusher.send_start_process
         # test with a possible starting address
@@ -815,10 +811,10 @@ class StarterTest(CommanderContextTest):
             # get any other process
             yeux_command = self._get_test_command('yeux_00')
             # test that success complements current_jobs
-            start_result = self.starter.start_process(2, yeux_command.process, '')
+            start_result = self.starter.start_process(StartingStrategies.MOST_LOADED, yeux_command.process, '')
             self.assertEqual(1, mocked_jobs.call_count)
             args2, _ = mocked_jobs.call_args
-            self.assertEqual(2, args2[0].strategy)
+            self.assertEqual(StartingStrategies.MOST_LOADED, args2[0].strategy)
             self.assertEqual('', args2[0].extra_args)
             self.assertTrue(args2[0].ignore_wait_exit)
             self.assertDictEqual({'sample_test_1': [args1[0]], 'sample_test_2': [args2[0]]},
@@ -850,14 +846,14 @@ class StarterTest(CommanderContextTest):
         with patch.object(self.starter, 'process_application_jobs') as mocked_jobs:
             # test start_application on a running application
             appli._state = ApplicationStates.RUNNING
-            test_result = self.starter.start_application(1, appli)
+            test_result = self.starter.start_application(StartingStrategies.LESS_LOADED, appli)
             self.assertTrue(test_result)
             self.assertDictEqual({}, self.starter.planned_sequence)
             self.assertDictEqual({}, self.starter.planned_jobs)
             self.assertEqual(0, mocked_jobs.call_count)
             # test start_application on a stopped application
             appli._state = ApplicationStates.STOPPED
-            test_result = self.starter.start_application(1, appli)
+            test_result = self.starter.start_application(StartingStrategies.LESS_LOADED, appli)
             self.assertFalse(test_result)
             # only planned jobs and not current jobs because of process_application_jobs patch
             self.assertDictEqual({}, self.starter.planned_sequence)
@@ -933,7 +929,6 @@ class StopperTest(CommanderContextTest):
     @patch('supvisors.commander.Commander.check_progress', return_value=True)
     def test_check_stopping(self, mocked_check: Mock):
         """ Test the check_stopping method. """
-        from supvisors.ttypes import ProcessStates
         self.assertTrue(self.stopper.check_stopping())
         self.assertEqual([call('running', ProcessStates.UNKNOWN)], mocked_check.call_args_list)
 
@@ -942,7 +937,6 @@ class StopperTest(CommanderContextTest):
         """ Test the on_event method. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
-        from supvisors.ttypes import ProcessStates
         # set context in current_jobs
         for command in self.command_list:
             self.stopper.current_jobs.setdefault(command.process.application_name, []).append(command)

@@ -20,6 +20,7 @@
 import sys
 import unittest
 
+from supervisor.states import ProcessStates, _process_states_by_code
 from unittest.mock import call, patch
 
 from supvisors.tests.base import (MockedSupvisors,
@@ -38,6 +39,7 @@ class ProcessRulesTest(unittest.TestCase):
     def test_create(self):
         """ Test the values set at construction. """
         from supvisors.process import ProcessRules
+        from supvisors.ttypes import RunningFailureStrategies
         rules = ProcessRules(self.supvisors)
         self.assertIs(self.supvisors, rules.supvisors)
         self.assertListEqual(['*'], rules.addresses)
@@ -46,7 +48,7 @@ class ProcessRulesTest(unittest.TestCase):
         self.assertFalse(rules.required)
         self.assertFalse(rules.wait_exit)
         self.assertEqual(1, rules.expected_loading)
-        self.assertEqual(0, rules.running_failure_strategy)
+        self.assertEqual(RunningFailureStrategies.CONTINUE, rules.running_failure_strategy)
 
     def test_str(self):
         """ Test the string output. """
@@ -125,7 +127,7 @@ class ProcessRulesTest(unittest.TestCase):
         rules = ProcessRules(self.supvisors)
         # test that only the CONTINUE strategy keeps the autorestart
         mocked_disable = self.supvisors.info_source.disable_autorestart
-        for strategy in RunningFailureStrategies.values():
+        for strategy in RunningFailureStrategies:
             rules.running_failure_strategy = strategy
             rules.check_dependencies('dummy_process_1')
             if strategy == RunningFailureStrategies.CONTINUE:
@@ -535,10 +537,9 @@ class ProcessTest(unittest.TestCase):
     def test_update_uptime(self):
         """ Test the update of uptime entry in a Process info dictionary. """
         from supvisors.process import ProcessStatus
-        from supvisors.ttypes import ProcessStates
         # check times on a RUNNING process info
         info = {'start': 50, 'now': 75}
-        for state in ProcessStates.values():
+        for state in _process_states_by_code:
             info['state'] = state
             ProcessStatus.update_uptime(info)
             if state in [ProcessStates.RUNNING, ProcessStates.STOPPING]:

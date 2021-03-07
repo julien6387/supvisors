@@ -58,7 +58,7 @@ class SupvisorsAddressView(StatusView):
         # set address state
         status = self.sup_ctx.addresses[self.address]
         elt = root.findmeld('state_mid')
-        elt.content(status.state_string())
+        elt.content(status.state.name)
         # set loading
         elt = root.findmeld('percent_mid')
         elt.content('{}%'.format(status.loading()))

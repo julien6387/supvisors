@@ -19,12 +19,13 @@
 
 import os
 
+from enum import Enum
+
 from supervisor.options import ServerOptions
 from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
 from supvisors.rpcinterface import RPCInterface
-from supvisors.utils import enumeration_tools
 from supvisors.viewapplication import ApplicationView
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewhostaddress import HostAddressView
@@ -34,8 +35,7 @@ from supvisors.viewsupvisors import SupvisorsView
 
 
 # Supvisors related faults
-@enumeration_tools
-class SupvisorsFaults:
+class SupvisorsFaults(Enum):
     SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_EXTRA_ARGUMENTS = range(5)
 
 
@@ -44,9 +44,8 @@ FAULTS_OFFSET = 100
 
 def expand_faults():
     """ Expand supervisord Fault definition. """
-    for x, y in SupvisorsFaults.string_map.items():
-        if not x.startswith('__'):
-            setattr(Faults, x, y + FAULTS_OFFSET)
+    for x in SupvisorsFaults:
+        setattr(Faults, x.name, x.value + FAULTS_OFFSET)
 
 
 def update_views():

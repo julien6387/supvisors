@@ -28,7 +28,7 @@ from supvisors.utils import EventHeaders
 
 
 def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
-                  fmt='%(asctime)s %(levelname)s %(message)s\n',
+                  fmt='%(asctime)s;%(levelname)s;%(message)s\n',
                   rotating=True, maxbytes=10 * 1024 * 1024, backups=1, stdout=True):
     """ Return a Supervisor logger. """
     logger = loggers.getLogger(loglevel)
@@ -99,8 +99,7 @@ class SupvisorsEventInterface(threading.Thread):
                 try:
                     message = self.subscriber.receive()
                 except Exception as e:
-                    self.logger.error(
-                        'failed to get data from subscriber: {}'.format(e.message))
+                    self.logger.error('failed to get data from subscriber: {}'.format(e.message))
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])

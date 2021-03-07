@@ -21,9 +21,9 @@ from typing import AbstractSet, Any, Optional
 
 from supervisor.options import make_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import RUNNING_STATES, STOPPED_STATES
+from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from supvisors.ttypes import Payload, ProcessStates, RunningFailureStrategies
+from supvisors.ttypes import Payload, RunningFailureStrategies
 from supvisors.utils import *
 
 
@@ -79,8 +79,7 @@ class ProcessRules(object):
                 self.info_source.disable_autorestart(namespec)
                 self.logger.warn('ProcessRules.check_dependencies: {} - autorestart disabled due to '
                                  'running failure strategy {}'
-                                 .format(namespec,
-                                         RunningFailureStrategies.to_string(self.running_failure_strategy)))
+                                 .format(namespec, self.running_failure_strategy.name))
 
     def __str__(self) -> str:
         """ Get the process rules as string.
@@ -91,8 +90,7 @@ class ProcessRules(object):
                ' wait_exit={} expected_loading={} running_failure_strategy={}'. \
             format(self.addresses, self.hash_addresses,
                    self.start_sequence, self.stop_sequence, self.required,
-                   self.wait_exit, self.expected_loading,
-                   RunningFailureStrategies.to_string(self.running_failure_strategy))
+                   self.wait_exit, self.expected_loading, self.running_failure_strategy.name)
 
     def serial(self) -> Payload:
         """ Get a serializable form of the process rules.
@@ -106,7 +104,7 @@ class ProcessRules(object):
                 'required': self.required,
                 'wait_exit': self.wait_exit,
                 'expected_loading': self.expected_loading,
-                'running_failure_strategy': RunningFailureStrategies.to_string(self.running_failure_strategy)}
+                'running_failure_strategy': self.running_failure_strategy.name}
 
 
 class ProcessStatus(object):
@@ -258,10 +256,9 @@ class ProcessStatus(object):
     # methods
     def state_string(self) -> str:
         """ Get the process state as a string.
-
         :return: the process state as a string
         """
-        return ProcessStates.to_string(self.state)
+        return getProcessStateDescription(self.state)
 
     def add_info(self, address: str, process_info: Payload) -> None:
         """ Insert a new process information in internal list.
@@ -452,7 +449,7 @@ class ProcessStatus(object):
             states = {self.infos[address]['state'] for address in self.addresses}
             self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
                               .format(self.process_name,
-                                      [ProcessStates.to_string(x) for x in states],
+                                      [getProcessStateDescription(x) for x in states],
                                       list(self.addresses)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)

@@ -22,13 +22,14 @@ import time
 from typing import Any, Mapping, Sequence
 
 from supervisor.childutils import get_asctime
+from supervisor.states import ProcessStates, getProcessStateDescription
 
 from supvisors.application import ApplicationStatus
 from supvisors.infosource import SupervisordSource
 from supvisors.listener import SupervisorListener
 from supvisors.process import ProcessStatus
 from supvisors.strategy import get_address
-from supvisors.ttypes import ProcessStates, StartingStrategies, StartingFailureStrategies
+from supvisors.ttypes import StartingStrategies, StartingFailureStrategies
 from supvisors.utils import supvisors_shortcuts
 
 
@@ -63,7 +64,8 @@ class ProcessCommand(object):
         return 'process={} state={} last_event_time={} strategy={} request_time={} ' \
                'ignore_wait_exit={} extra_args="{}"' \
             .format(self.process.namespec(), self.process.state, self.process.last_event_time,
-                    self.strategy, self.request_time,  self.ignore_wait_exit, self.extra_args)
+                    self.strategy.value if self.strategy else 'None',
+                    self.request_time,  self.ignore_wait_exit, self.extra_args)
 
     def timed_out(self, now: int) -> bool:
         """ Return True if there is still no event TIMEOUT seconds past the request.
@@ -328,7 +330,7 @@ class Commander(object):
         """
         """  """
         # publish the process state to all Supvisors instances
-        state_string = ProcessStates.to_string(state)
+        state_string = getProcessStateDescription(state)
         self.logger.warn('Commander.force_process_state: force {} state to {}'.format(namespec, state_string))
         try:
             class_method = getattr(SupervisordSource, 'force_process_' + state_string.lower())
@@ -360,7 +362,7 @@ class Starter(Commander):
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file. """
         strategy = self.get_default_strategy()
         self.logger.info('Starter.start_applications: start all applications using strategy {}'
-                         .format(StartingStrategies.to_string(strategy)))
+                         .format(strategy.name))
         # internal call: default strategy always used
         # starting initialization: plan the whole sequence
         for application in self.supvisors.context.applications.values():
@@ -370,14 +372,14 @@ class Starter(Commander):
         # start work
         self.trigger_jobs()
 
-    def default_start_application(self, application):
+    def default_start_application(self, application: ApplicationStatus):
         """ Plan and start the necessary jobs to start the application in parameter, with the default strategy. """
         return self.start_application(self.get_default_strategy(), application)
 
-    def start_application(self, strategy, application):
+    def start_application(self, strategy: StartingStrategies, application: ApplicationStatus):
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested. """
         self.logger.info('Starter.start_application: start application {} using strategy {}'
-                         .format(application.application_name, StartingStrategies.to_string(strategy)))
+                         .format(application.application_name, strategy.name))
         # push program list in job list and start work
         if application.stopped():
             self.store_application_start_sequence(application, strategy)
@@ -399,7 +401,7 @@ class Starter(Commander):
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
         Return False when starting not completed. """
         self.logger.info('Starter.start_process: start process {} using strategy {}'
-                         .format(process.namespec(), StartingStrategies.to_string(strategy)))
+                         .format(process.namespec(), strategy.name))
         # store extra arguments to be passed to the command line
         command = ProcessCommand(process, strategy)
         command.extra_args = extra_args

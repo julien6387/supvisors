@@ -34,8 +34,6 @@ class AddressTest(CompatTestCase):
     def setUp(self):
         """ Create a logger that stores log traces. """
         self.supvisors = MockedSupvisors()
-        from supvisors.ttypes import AddressStates
-        self.all_states = AddressStates.values()
 
     def test_create(self):
         """ Test the values set at construction. """
@@ -55,7 +53,7 @@ class AddressTest(CompatTestCase):
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
-        for state in self.all_states:
+        for state in AddressStates:
             status._state = state
             self.assertTrue(status.in_isolation() and state in [AddressStates.ISOLATING, AddressStates.ISOLATED] or
                             not status.in_isolation() and state not in [AddressStates.ISOLATING,
@@ -86,14 +84,14 @@ class AddressTest(CompatTestCase):
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates, InvalidTransition
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
-        for state1 in self.all_states:
-            for state2 in self.all_states:
+        for state1 in AddressStates:
+            for state2 in AddressStates:
                 # check all possible transitions from each state
                 status._state = state1
                 if state2 in status._Transitions[state1]:
                     status.state = state2
                     self.assertEqual(state2, status.state)
-                    self.assertEqual(AddressStates.to_string(state2), status.state_string())
+                    self.assertEqual(state2.name, status.state.name)
                 elif state1 == state2:
                     self.assertEqual(state1, status.state)
                 else:

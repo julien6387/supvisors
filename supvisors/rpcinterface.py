@@ -79,8 +79,8 @@ class RPCInterface(object):
         """
         options = self.supvisors.options
         return {'auto-fencing': options.auto_fence,
-                'starting': StartingStrategies.to_string(options.starting_strategy),
-                'conciliation': ConciliationStrategies.to_string(options.conciliation_strategy)}
+                'starting': options.starting_strategy.name,
+                'conciliation': options.conciliation_strategy.name}
 
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
@@ -256,7 +256,9 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in StartingStrategies.values():
+        try:
+            strategy = StartingStrategies(strategy)
+        except ValueError:
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # check application is known
         if application_name not in self.context.applications.keys():
@@ -416,7 +418,7 @@ class RPCInterface(object):
             raise
         return cb
 
-    def start_process(self, strategy, namespec, extra_args='', wait=True):
+    def start_process(self, strategy: int, namespec, extra_args='', wait=True):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
@@ -440,7 +442,9 @@ class RPCInterface(object):
         """
         self._check_operating()
         # check strategy
-        if strategy not in StartingStrategies.values():
+        try:
+            strategy = StartingStrategies(strategy)
+        except ValueError:
             raise RPCError(Faults.BAD_STRATEGY, strategy)
         # check names
         application, process = self._get_application_process(namespec)
@@ -557,7 +561,7 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait  # deferred
 
-    def conciliate(self, strategy):
+    def conciliate(self, strategy: int):
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state, with a USER strategy.
 
         *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate.
@@ -571,7 +575,9 @@ class RPCInterface(object):
         """
         self._check_conciliation()
         # check strategy
-        if strategy not in ConciliationStrategies.values():
+        try:
+            strategy = ConciliationStrategies(strategy)
+        except ValueError:
             raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
         # trigger conciliation
         if strategy != ConciliationStrategies.USER:

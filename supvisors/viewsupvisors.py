@@ -45,9 +45,8 @@ class SupvisorsView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = {str.lower(x) for x in ConciliationStrategies.strings()}
-        user = ConciliationStrategies.to_string(ConciliationStrategies.USER)
-        self.strategies.remove(user.lower())
+        self.strategies = {str.lower(x) for x in ConciliationStrategies._member_names_}
+        self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
         self.global_methods = {'refresh': self.refresh_action,
                                'sup_restart': self.sup_restart_action,
@@ -64,7 +63,7 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
         elt = root.findmeld('state_mid')
-        elt.content(self.fsm.state_string())
+        elt.content(self.fsm.state.name)
 
     def write_contents(self, root):
         """ Rendering of the contents of the Supvisors main page.
@@ -95,8 +94,8 @@ class SupvisorsView(ViewHandler):
         elt.content(status.address_name)
         # set state
         elt = node_div_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = status.state_string() + ' state'
-        elt.content(status.state_string())
+        elt.attrib['class'] = status.state.name + ' state'
+        elt.content(status.state.name)
         # set loading
         elt = node_div_elt.findmeld('percent_td_mid')
         elt.content('{}%'.format(status.loading()))
@@ -336,13 +335,9 @@ class SupvisorsView(ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
-            conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies.from_string(action),
-                                 [self.sup_ctx.processes[namespec]])
+            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], [self.sup_ctx.processes[namespec]])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies.from_string(action),
-                                 self.sup_ctx.conflicts())
+            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], self.sup_ctx.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

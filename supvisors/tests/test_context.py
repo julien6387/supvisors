@@ -459,8 +459,7 @@ class ContextTest(CompatTestCase):
             self.assertEqual(state, address.state)
             self.assertEqual(5678, address.remote_time)
             self.assertEqual(0, mocked_check.call_count)
-            self.assertEqual(call({'address_name': '10.0.0.1', 'statecode': state,
-                                   'statename': AddressStates.to_string(state),
+            self.assertEqual(call({'address_name': '10.0.0.1', 'statecode': state.value, 'statename': state.name,
                                    'remote_time': 5678, 'local_time': 3600, 'loading': 0}),
                              mocked_send.call_args)
 
@@ -532,7 +531,7 @@ class ContextTest(CompatTestCase):
         context = Context(self.supvisors)
         mocked_send = self.supvisors.zmq.publisher.send_address_status
         # test address states excepting RUNNING: nothing happens
-        for _ in [x for x in AddressStates.values() if x != AddressStates.RUNNING]:
+        for _ in [x for x in AddressStates if x != AddressStates.RUNNING]:
             context.on_timer_event()
             for address in context.addresses.values():
                 self.assertEqual(AddressStates.UNKNOWN, address.state)

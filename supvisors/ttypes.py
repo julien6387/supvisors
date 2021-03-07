@@ -17,57 +17,43 @@
 # limitations under the License.
 # ======================================================================
 
-import supervisor.states
-
-from typing import Any, Mapping
-
-from supvisors.utils import *
+from enum import Enum
+from typing import Any, Mapping, Sequence
 
 
 # all enumerations
-@enumeration_tools
-class AddressStates:
+class AddressStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance """
     UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
 
 
-@enumeration_tools
-class ApplicationStates:
+class ApplicationStates(Enum):
     """ Class holding the possible enumeration values for an application state. """
     STOPPED, STARTING, RUNNING, STOPPING = range(4)
 
 
-# completion of supervisor ProcessStates definition
-ProcessStates = enumeration_tools(supervisor.states.ProcessStates)
-
-
-@enumeration_tools
-class StartingStrategies:
+class StartingStrategies(Enum):
     """ Applicable strategies that can be applied to start processes. """
     CONFIG, LESS_LOADED, MOST_LOADED, LOCAL = range(4)
 
 
-@enumeration_tools
-class ConciliationStrategies:
+class ConciliationStrategies(Enum):
     """ Applicable strategies that can be applied during a conciliation. """
     SENICIDE, INFANTICIDE, USER, STOP, RESTART, RUNNING_FAILURE = range(6)
     # TODO: change to STOP+RESTART PROCESS and add STOP+RESTART APPLICATION ?
 
 
-@enumeration_tools
-class StartingFailureStrategies:
+class StartingFailureStrategies(Enum):
     """ Applicable strategies that can be applied on a failure of a starting application. """
     ABORT, STOP, CONTINUE = range(3)
 
 
-@enumeration_tools
-class RunningFailureStrategies:
+class RunningFailureStrategies(Enum):
     """ Applicable strategies that can be applied on a failure of a running application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
 
-@enumeration_tools
-class SupvisorsStates:
+class SupvisorsStates(Enum):
     """ Internal state of Supvisors. """
     INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
 
@@ -85,3 +71,4 @@ class InvalidTransition(Exception):
 
 # Types for annotations
 Payload = Mapping[str, Any]
+NodeNameList = Sequence[str]

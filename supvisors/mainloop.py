@@ -18,7 +18,6 @@
 # ======================================================================
 
 import json
-import zmq
 
 from threading import Event, Thread
 from typing import Any
@@ -42,7 +41,10 @@ class SupvisorsMainLoop(Thread):
     """
 
     def __init__(self, supvisors: Any) -> None:
-        """ Initialization of the attributes. """
+        """ Initialization of the attributes.
+
+        :param supvisors: the Supvisors global structure
+        """
         # thread attributes
         Thread.__init__(self)
         # create stop event
@@ -53,20 +55,25 @@ class SupvisorsMainLoop(Thread):
         # create a XML-RPC client to the local Supervisor instance
         self.proxy = getRPCInterface('localhost', self.env)
 
-    def stopping(self):
-        """ Access to the loop attribute (used to drive tests on run method). """
+    def stopping(self) -> bool:
+        """ Access to the loop attribute (used to drive tests on run method).
+
+        :return: the condition to stop the main loop
+        """
         return self.stop_event.is_set()
 
-    def stop(self):
-        """ Request to stop the infinite loop by resetting its flag. """
+    def stop(self) -> None:
+        """ Request to stop the infinite loop by resetting its flag.
+
+        :return: None
+        """
         if self.is_alive():
             self.stop_event.set()
-            # the thread cannot be blocked in a XML-RPC call because of the
-            # close_httpservers called just before this stop
-            # so join is expected to end properly
+            # the thread cannot be blocked in a XML-RPC call because of the close_httpservers called
+            # just before this stop so join is expected to end properly
             self.join()
 
-    def run(self):
+    def run(self) -> None:
         """ Contents of the infinite loop. """
         # Create zmq sockets
         sockets = SupvisorsZmq(self.supvisors)
@@ -98,7 +105,7 @@ class SupvisorsMainLoop(Thread):
             header, body = message
             if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
                 # isolation request: disconnect the address from subscriber
-                sockets.subscriber.disconnect(body)
+                sockets.disconnect_subscriber(body)
             else:
                 # XML-RPC request
                 self.send_request(header, body)

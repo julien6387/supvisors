@@ -23,10 +23,11 @@ import socket
 from supervisor import xmlrpc
 from supervisor.compat import xmlrpclib
 from supervisor.options import split_namespec
+from supervisor.states import getProcessStateDescription
 from supervisor.supervisorctl import ControllerPluginBase
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import (ProcessStates, ConciliationStrategies, StartingStrategies)
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 from supvisors.utils import simple_localtime
 
 
@@ -313,7 +314,7 @@ class ControllerPlugin(ControllerPluginBase):
                     line = template % {
                         'appli': info['group'],
                         'proc': info['name'],
-                        'state': ProcessStates.to_string(info['state']),
+                        'state': getProcessStateDescription(info['state']),
                         'start': start_time,
                         'now': now_time,
                         'pid': info['pid'],
@@ -418,10 +419,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_application()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_application()
                 return
             applications = args[1:]
@@ -487,10 +488,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_restart_application()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_restart_application()
                 return
             applications = args[1:]
@@ -549,10 +550,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_process()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -593,10 +594,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_process_args()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_process_args()
                 return
             namespec = args[1]
@@ -651,10 +652,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_restart_process()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_restart_process()
                 return
             processes = args[1:]
@@ -692,10 +693,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_conciliate()
                 return
             try:
-                strategy = ConciliationStrategies.from_string(args[0])
+                strategy = ConciliationStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for conciliate. use one of {}'
-                                .format(ConciliationStrategies.strings()))
+                                .format(ConciliationStrategies._member_names_))
                 self.help_conciliate()
                 return
             try:
