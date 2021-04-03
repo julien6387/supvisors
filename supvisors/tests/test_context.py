@@ -101,7 +101,7 @@ class ContextTest(CompatTestCase):
         context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
         context.addresses['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertEqual(['10.0.0.5'], context.unknown_addresses())
+        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_addresses())
         self.assertEqual([], context.unknown_forced_addresses())
         self.assertEqual(['127.0.0.1', '10.0.0.4'], context.running_addresses())
         self.assertEqual(['10.0.0.2'], context.isolating_addresses())
@@ -126,12 +126,12 @@ class ContextTest(CompatTestCase):
         context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
         context.addresses['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertEqual(['10.0.0.1', '10.0.0.5'], context.unknown_addresses())
+        self.assertEqual(['10.0.0.1', '10.0.0.2', '10.0.0.5'], context.unknown_addresses())
         self.assertEqual(['10.0.0.1'], context.unknown_forced_addresses())
         # change states
         context.addresses['10.0.0.1']._state = AddressStates.SILENT
         # test new states
-        self.assertEqual(['10.0.0.5'], context.unknown_addresses())
+        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_addresses())
         self.assertEqual([], context.unknown_forced_addresses())
 
     @staticmethod

@@ -482,7 +482,7 @@ class ControllerPluginTest(unittest.TestCase):
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_start_process_args, plugin.do_start_process_args,
                          'LESS_LOADED appli_2:proc_3 a list of arguments',
-                         [call(StartingStrategies.LESS_LOADED, 'appli_2:proc_3', 'a list of arguments')])
+                         [call(1, 'appli_2:proc_3', 'a list of arguments')])
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
     def test_stop_process(self, mocked_check):
@@ -498,8 +498,7 @@ class ControllerPluginTest(unittest.TestCase):
                                  ('appli_1:*', 'appli_2:*'),
                                  'appli_2:proc_3 appli_1:proc_1', ('appli_2:proc_3', 'appli_1:proc_1'))
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
-           return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
     def test_conciliate(self, mocked_check):
         """ Test the conciliate request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -520,7 +519,7 @@ class ControllerPluginTest(unittest.TestCase):
         mocked_rpc = plugin.supvisors().conciliate
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_conciliate, plugin.do_conciliate,
-                         'SENICIDE', [call(ConciliationStrategies.SENICIDE)])
+                         'SENICIDE', [call(0)])
 
     @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
            return_value=True)
@@ -623,22 +622,19 @@ class ControllerPluginTest(unittest.TestCase):
         # first possibility: use no name
         self._check_call(mocked_check, mocked_rpc,
                          help_cmd, do_cmd, 'LESS_LOADED',
-                         [call(StartingStrategies.LESS_LOADED, all_result[0]),
-                          call(StartingStrategies.LESS_LOADED, all_result[1])])
+                         [call(1, all_result[0]), call(1, all_result[1])])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # second possiblity: use 'all'
         self._check_call(mocked_check, mocked_rpc,
                          help_cmd, do_cmd, 'MOST_LOADED all',
-                         [call(StartingStrategies.MOST_LOADED, all_result[0]),
-                          call(StartingStrategies.MOST_LOADED, all_result[1])])
+                         [call(2, all_result[0]), call(2, all_result[1])])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # test help and request for starting a selection
         self._check_call(mocked_check, mocked_rpc,
                          help_cmd, do_cmd, 'CONFIG ' + sel_args,
-                         [call(StartingStrategies.CONFIG, sel_result[0]),
-                          call(StartingStrategies.CONFIG, sel_result[1])])
+                         [call(0, sel_result[0]), call(0, sel_result[1])])
         # test help and request with get_all_applications_info error
         mocked_appli.reset_mock()
         mocked_appli.side_effect = xmlrpclib.Fault('0', 'error')
@@ -694,7 +690,7 @@ class ControllerPluginTest(unittest.TestCase):
         if mocked_rpc:
             self.assertEqual(rpc_result, mocked_rpc.call_args_list)
             mocked_rpc.reset_mock()
-        # test ouput (with no error)
+        # test output (with no error)
         self.check_output_error(False)
         # test request error
         mocked_rpc.side_effect = xmlrpclib.Fault('0', 'error')
@@ -708,7 +704,7 @@ class ControllerPluginTest(unittest.TestCase):
         if mocked_rpc:
             self.assertEqual(rpc_result, mocked_rpc.call_args_list)
             mocked_rpc.reset_mock()
-        # test ouput (with error)
+        # test output (with error)
         self.check_output_error(True)
 
     def check_output_error(self, error):
