@@ -52,23 +52,33 @@ class ContextTest(CompatTestCase):
             self.assertIsInstance(address, AddressStatus)
         self.assertDictEqual({}, context.applications)
         self.assertDictEqual({}, context.processes)
-        self.assertEqual('', context._master_address)
-        self.assertFalse(context.master)
+        self.assertEqual('', context._master_node_name)
+        self.assertFalse(context._is_master)
+        self.assertFalse(context.master_operational)
 
-    def test_master_address(self):
+    def test_master_node_name(self):
         """ Test the access to master address. """
         from supvisors.context import Context
         context = Context(self.supvisors)
-        self.assertEqual('', context.master_address)
-        self.assertFalse(context.master)
-        context.master_address = '10.0.0.1'
-        self.assertEqual('10.0.0.1', context.master_address)
-        self.assertEqual('10.0.0.1', context._master_address)
-        self.assertFalse(context.master)
-        context.master_address = '127.0.0.1'
-        self.assertEqual('127.0.0.1', context.master_address)
-        self.assertEqual('127.0.0.1', context._master_address)
-        self.assertTrue(context.master)
+        self.assertEqual('127.0.0.1', context.address_mapper.local_address)
+        self.assertEqual('', context.master_node_name)
+        self.assertFalse(context.is_master)
+        self.assertFalse(context._is_master)
+        self.assertFalse(context.master_operational)
+        context.master_operational = True
+        context.master_node_name = '10.0.0.1'
+        self.assertEqual('10.0.0.1', context.master_node_name)
+        self.assertEqual('10.0.0.1', context._master_node_name)
+        self.assertFalse(context.is_master)
+        self.assertFalse(context._is_master)
+        self.assertFalse(context.master_operational)
+        context.master_operational = True
+        context.master_node_name = '127.0.0.1'
+        self.assertEqual('127.0.0.1', context.master_node_name)
+        self.assertEqual('127.0.0.1', context._master_node_name)
+        self.assertTrue(context.is_master)
+        self.assertTrue(context._is_master)
+        self.assertFalse(context.master_operational)
 
     def test_addresses_by_state(self):
         """ Test the access to addresses in unknown state. """
@@ -424,7 +434,7 @@ class ContextTest(CompatTestCase):
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
-        mocked_check = self.supvisors.zmq.pusher.send_check_address
+        mocked_check = self.supvisors.zmq.pusher.send_check_node
         mocked_send = self.supvisors.zmq.publisher.send_address_status
         # check no exception with unknown address
         context.on_tick_event('10.0.0.0', {})

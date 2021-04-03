@@ -369,7 +369,7 @@ class ViewSupvisorsTest(CompatTestCase):
         """ Test the _write_conflict_strategies method. """
         from supvisors.webutils import SUPVISORS_PAGE
         # patch context
-        self.view.sup_ctx.master_address = '10.0.0.1'
+        self.view.sup_ctx.master_node_name = '10.0.0.1'
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure with one single element
         mocked_a_mid = Mock()

@@ -159,7 +159,7 @@ class ViewHandler(MeldView):
                     # go to web page located on address, so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_ADDRESS_PAGE)
                     elt.attributes(href=url)
-                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_address else '')
+                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_node_name else '')
                 else:
                     elt.attrib['class'] = 'off'
                 elt.content(item)

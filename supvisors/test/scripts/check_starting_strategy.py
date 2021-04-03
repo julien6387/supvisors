@@ -68,11 +68,11 @@ class StartingStrategyTest(RunningAddressesTest):
         addresses_info = self.local_supvisors.get_all_addresses_info()
         self.loading = {info['address_name']: info['loading']
                         for info in addresses_info
-                        if info['statecode'] == AddressStates.RUNNING}
+                        if info['statecode'] == AddressStates.RUNNING.value}
 
     def _start_converter(self, idx):
         """ Get the current loading status. """
-        self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+        self.local_supvisors.start_process(self.strategy.value, 'my_movies:converter_0%d' % idx)
         # wait for event STARTING
         event = self._get_next_process_event()
         self.assertDictContainsSubset({'group': 'my_movies',
@@ -89,7 +89,7 @@ class StartingStrategyTest(RunningAddressesTest):
     def _start_converter_failed(self, idx):
         """ Get the current loading status. """
         with self.assertRaises(xmlrpclib.Fault) as exc:
-            self.local_supvisors.start_process(self.strategy, 'my_movies:converter_0%d' % idx)
+            self.local_supvisors.start_process(self.strategy.value, 'my_movies:converter_0%d' % idx)
         self.assertEqual(Faults.ABNORMAL_TERMINATION, exc.exception.faultCode)
         self.assertEqual('ABNORMAL_TERMINATION: my_movies:converter_0%d' % idx, exc.exception.faultString)
         # wait for event FATAL

@@ -46,8 +46,6 @@ class Supvisors(object):
 
         :param supervisord: the Supervisor global structure
         """
-        # store this instance in supervisord to ensure persistence
-        supervisord.supvisors = self
         # declare zmq context (will be created in listener)
         self.zmq = None
         # get options from config file

@@ -19,16 +19,15 @@
 
 import os
 
+from enum import Enum
+from typing import Type, Union
+
 from supervisor.http import NOT_DONE_YET
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.initializer import Supvisors
 from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (ApplicationStates,
-                              ConciliationStrategies,
-                              StartingStrategies,
-                              SupvisorsStates)
+from supvisors.ttypes import ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates
 from supvisors.utils import extract_process_info, supvisors_shortcuts
 
 # get Supvisors version from file
@@ -41,9 +40,15 @@ with open(version_txt, 'r') as ver:
 class RPCInterface(object):
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
 
-    def __init__(self, supervisord):
-        # create a new Supvisors instance
-        self.supvisors = Supvisors(supervisord)
+    # type for any enumeration RPC parameter
+    StrategyType = Union[str, int]
+
+    def __init__(self, supvisors):
+        """ Initialization of the attributes.
+
+        :param supvisors: the global Supvisors structure
+        """
+        self.supvisors = supvisors
         supvisors_shortcuts(self, ['context', 'fsm', 'info_source', 'logger', 'starter', 'stopper'])
 
     # RPC Status methods
@@ -66,7 +71,7 @@ class RPCInterface(object):
 
         *@return* ``str``: the IPv4 address or host name.
         """
-        return self.context.master_address
+        return self.context.master_node_name
 
     def get_strategies(self):
         """ Get the default strategies applied by **Supvisors**:
@@ -235,10 +240,10 @@ class RPCInterface(object):
                 if process.conflicting()]
 
     # RPC Command methods
-    def start_application(self, strategy, application_name, wait=True):
+    def start_application(self, strategy: StrategyType, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -255,11 +260,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error or nothing to start.
         """
         self._check_operating()
-        # check strategy
-        try:
-            strategy = StartingStrategies(strategy)
-        except ValueError:
-            raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+        strategy_enum = self._get_starting_strategy(strategy)
         # check application is known
         if application_name not in self.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, application_name)
@@ -270,7 +271,7 @@ class RPCInterface(object):
         # TODO: develop a predictive model to check if starting can be achieved
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
-        done = self.starter.start_application(strategy, application)
+        done = self.starter.start_application(strategy_enum, application)
         self.logger.debug('start_application {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
@@ -328,10 +329,10 @@ class RPCInterface(object):
         # if done is True, nothing to do
         return not done
 
-    def restart_application(self, strategy, application_name, wait=True):
+    def restart_application(self, strategy: StrategyType, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -347,6 +348,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
 
         def onwait():
             # first wait for application to be stopped
@@ -357,7 +359,7 @@ class RPCInterface(object):
                 if value is True:
                     # done. request start application
                     onwait.waitstop = False
-                    value = self.start_application(strategy, application_name, wait)
+                    value = self.start_application(strategy_enum, application_name, wait)
                     if type(value) is bool:
                         return value
                     # deferred job to wait for application to be started
@@ -418,11 +420,11 @@ class RPCInterface(object):
             raise
         return cb
 
-    def start_process(self, strategy: int, namespec, extra_args='', wait=True):
+    def start_process(self, strategy: StrategyType, namespec, extra_args='', wait=True):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``,``group:name``, or ``group:*``).
 
@@ -441,11 +443,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
-        # check strategy
-        try:
-            strategy = StartingStrategies(strategy)
-        except ValueError:
-            raise RPCError(Faults.BAD_STRATEGY, strategy)
+        strategy_enum = self._get_starting_strategy(strategy)
         # check names
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
@@ -456,7 +454,7 @@ class RPCInterface(object):
         # start all processes
         done = True
         for process in processes:
-            done &= self.starter.start_process(strategy, process, extra_args)
+            done &= self.starter.start_process(strategy_enum, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
@@ -516,11 +514,11 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def restart_process(self, strategy, namespec, extra_args='', wait=True):
+    def restart_process(self, strategy: StrategyType, namespec, extra_args='', wait=True):
         """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -538,6 +536,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
 
         def onwait():
             # first wait for process to be stopped
@@ -547,7 +546,7 @@ class RPCInterface(object):
                 if value is True:
                     # done. request start application
                     onwait.waitstop = False
-                    value = self.start_process(strategy, namespec, extra_args, wait)
+                    value = self.start_process(strategy_enum, namespec, extra_args, wait)
                     if type(value) is bool:
                         return value
                     # deferred job to wait for application to be started
@@ -561,10 +560,10 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait  # deferred
 
-    def conciliate(self, strategy: int):
+    def conciliate(self, strategy: StrategyType):
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state, with a USER strategy.
 
-        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate.
+        *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate, as a string or as a value.
 
         *@throws* ``RPCError``:
 
@@ -574,14 +573,10 @@ class RPCInterface(object):
         *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
         """
         self._check_conciliation()
-        # check strategy
-        try:
-            strategy = ConciliationStrategies(strategy)
-        except ValueError:
-            raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+        strategy_enum = self._get_conciliation_strategy(strategy)
         # trigger conciliation
         if strategy != ConciliationStrategies.USER:
-            conciliate_conflicts(self.supvisors, strategy, self.context.conflicts())
+            conciliate_conflicts(self.supvisors, strategy_enum, self.context.conflicts())
             return True
         return False
 
@@ -608,6 +603,29 @@ class RPCInterface(object):
         return True
 
     # utilities
+    @staticmethod
+    def _get_starting_strategy(strategy: StrategyType) -> StartingStrategies:
+        """ Check if the strategy given can fit to a StartingStrategies enum. """
+        return RPCInterface._get_strategy(strategy, StartingStrategies)
+
+    @staticmethod
+    def _get_conciliation_strategy(strategy: StrategyType) -> ConciliationStrategies:
+        """ Check if the strategy given can fit to a ConciliationStrategies enum. """
+        return RPCInterface._get_strategy(strategy, ConciliationStrategies)
+
+    @staticmethod
+    def _get_strategy(strategy: StrategyType, enum_klass: Type[Enum]) -> Enum:
+        """ Check if the strategy given can fit to string or value of the StartingStrategies enum. """
+        # check by string
+        try:
+            return enum_klass[strategy]
+        except KeyError:
+            # check by value
+            try:
+                return enum_klass(strategy)
+            except ValueError:
+                raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+
     def _check_from_deployment(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
         self._check_state([SupvisorsStates.DEPLOYMENT,

@@ -25,6 +25,7 @@ from supervisor.options import ServerOptions
 from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
+from supvisors.initializer import Supvisors
 from supvisors.rpcinterface import RPCInterface
 from supvisors.viewapplication import ApplicationView
 from supvisors.viewhandler import ViewHandler
@@ -88,15 +89,13 @@ def update_views():
 
 def cleanup_fds(self):
     """ This is a patch of the Supervisor cleanup_fds in ServerOptions.
-    The default version is a bit raw and closes all file descriptors of
-    the process, including the PyZmq ones, which leads to a low-level crash
-    in select/poll.
-    So, given that the issue has never been met with Supvisors and waiting for
-    a better solution in Supervisor (a TODO exists in source code), the
-    clean-up is disabled in Supvisors. """
+    The default version is a bit raw and closes all file descriptors of the process, including the PyZmq ones,
+    which leads to a low-level crash in select/poll.
+    So, given that the issue has never been met with Supvisors and waiting for a better solution in Supervisor
+    (a TODO exists in source code), the clean-up is disabled in Supvisors. """
 
 
-def make_supvisors_rpcinterface(supervisord, **config):
+def make_supvisors_rpcinterface(supervisord, **config) -> RPCInterface:
     """ Supervisor entry point. """
     # update Supervisor Fault definition
     expand_faults()
@@ -109,5 +108,7 @@ def make_supvisors_rpcinterface(supervisord, **config):
     #    * waiting for Supervisor#1273 to be fixed
     #    * to benefit from the commonalities done in supvisors.ViewHandler
     StatusView.__bases__ = (ViewHandler,)
+    # store the Supvisors instance in supervisord instance to ensure persistence
+    supervisord.supvisors = Supvisors(supervisord)
     # create and return handler
-    return RPCInterface(supervisord)
+    return RPCInterface(supervisord.supvisors)

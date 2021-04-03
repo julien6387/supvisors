@@ -41,7 +41,7 @@ class ListenerTest(unittest.TestCase):
         # check attributes
         self.assertIs(self.supvisors, listener.supvisors)
         self.assertIsNone(listener.collector)
-        self.assertEqual('127.0.0.1', listener.address)
+        self.assertEqual('127.0.0.1', listener.local_node)
         self.assertIsNone(listener.publisher)
         self.assertIsNone(listener.main_loop)
         # test that callbacks are set in Supervisor
@@ -51,17 +51,15 @@ class ListenerTest(unittest.TestCase):
         self.assertIn((Tick5Event, listener.on_tick), callbacks)
         self.assertIn((RemoteCommunicationEvent, listener.on_remote_event), callbacks)
 
-    @patch.dict('sys.modules',
-                **{'supvisors.statscollector': Mock(
-                    **{'instant_statistics.side_effect': lambda: True})})
-    def test_creation(self):
+    @patch('supvisors.statscollector.instant_statistics')
+    def test_creation(self, mocked_collector):
         """ Test the values set at construction. """
         from supvisors.listener import SupervisorListener
         listener = SupervisorListener(self.supvisors)
         # check attributes
         self.assertIs(self.supvisors, listener.supvisors)
-        self.assertTrue(listener.collector())
-        self.assertEqual('127.0.0.1', listener.address)
+        self.assertIs(mocked_collector, listener.collector)
+        self.assertEqual('127.0.0.1', listener.local_node)
         self.assertIsNone(listener.publisher)
         self.assertIsNone(listener.main_loop)
         # test that callbacks are set in Supervisor
@@ -143,10 +141,9 @@ class ListenerTest(unittest.TestCase):
                                 'spawnerr': 'resource not available'})],
                          listener.publisher.send_process_event.call_args_list)
 
-    @patch.dict('sys.modules',
-                **{'supvisors.statscollector': Mock(
-                    **{'instant_statistics.return_value': (8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {})})})
-    def test_on_tick(self):
+    @patch('supvisors.statscollector.instant_statistics',
+           return_value=(8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))
+    def test_on_tick(self, mocked_collector):
         """ Test the reception of a Supervisor TICK event. """
         from supvisors.listener import SupervisorListener
         listener = SupervisorListener(self.supvisors)
@@ -167,7 +164,7 @@ class ListenerTest(unittest.TestCase):
                          listener.publisher.send_statistics.call_args_list)
         self.assertEqual([call()], listener.fsm.on_timer_event.call_args_list)
         self.assertEqual([call(['10.0.0.1', '10.0.0.4'])],
-                         self.supvisors.zmq.pusher.send_isolate_addresses.call_args_list)
+                         self.supvisors.zmq.pusher.send_isolate_nodes.call_args_list)
 
     def test_unstack_event(self):
         """ Test the processing of a Supvisors event. """
@@ -178,21 +175,32 @@ class ListenerTest(unittest.TestCase):
         self.assertEqual([call('10.0.0.1', 'data')],
                          listener.fsm.on_tick_event.call_args_list)
         self.assertFalse(listener.fsm.on_process_event.called)
+        self.assertFalse(listener.fsm.on_state_event.called)
         self.assertFalse(listener.statistician.push_statistics.called)
         listener.fsm.on_tick_event.reset_mock()
         # test process event
         listener.unstack_event('[1, "10.0.0.2", {"name": "dummy"}]')
         self.assertFalse(listener.fsm.on_tick_event.called)
-        self.assertEqual([call('10.0.0.2', {"name": "dummy"})],
+        self.assertEqual([call('10.0.0.2', {'name': 'dummy'})],
                          listener.fsm.on_process_event.call_args_list)
+        self.assertFalse(listener.fsm.on_state_event.called)
         self.assertFalse(listener.statistician.push_statistics.called)
         listener.fsm.on_process_event.reset_mock()
         # test statistics event
         listener.unstack_event('[2, "10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]')
         self.assertFalse(listener.fsm.on_tick_event.called)
         self.assertFalse(listener.fsm.on_process_event.called)
-        self.assertEqual([call('10.0.0.3', [0, [[20, 30]], {"lo": [100, 200]}, {}])],
+        self.assertFalse(listener.fsm.on_state_event.called)
+        self.assertEqual([call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])],
                          listener.statistician.push_statistics.call_args_list)
+        listener.statistician.push_statistics.reset_mock()
+        # test state event
+        listener.unstack_event('[3, "10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]')
+        self.assertFalse(listener.fsm.on_tick_event.called)
+        self.assertFalse(listener.fsm.on_process_event.called)
+        self.assertEqual([call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})],
+                         listener.fsm.on_state_event.call_args_list)
+        self.assertFalse(listener.statistician.push_statistics.called)
 
     def test_unstack_info(self):
         """ Test the processing of a Supvisors information. """
@@ -206,9 +214,11 @@ class ListenerTest(unittest.TestCase):
     def test_authorization(self):
         """ Test the processing of a Supvisors authorization. """
         from supvisors.listener import SupervisorListener
+        from supvisors.ttypes import SupvisorsStates
         listener = SupervisorListener(self.supvisors)
-        listener.authorization('address_name:10.0.0.5 authorized:False master_address:10.0.0.1')
-        self.assertEqual([call('10.0.0.5', False, '10.0.0.1')], listener.fsm.on_authorization.call_args_list)
+        listener.authorization('info1:10.0.0.5 info2:False info3:10.0.0.1 info4:SHUTTING_DOWN')
+        self.assertEqual([call('10.0.0.5', False, '10.0.0.1', SupvisorsStates.SHUTTING_DOWN)],
+                         listener.fsm.on_authorization.call_args_list)
 
     def test_on_remote_event(self):
         """ Test the reception of a Supervisor remote comm event. """

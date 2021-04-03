@@ -88,20 +88,24 @@ class PluginTest(unittest.TestCase):
 
     @patch('supvisors.plugin.update_views')
     @patch('supvisors.plugin.expand_faults')
+    @patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
     @patch('supvisors.plugin.RPCInterface')
-    def test_make_rpc(self, mocked_rpc, mocked_expand, mocked_views):
+    def test_make_rpc(self, mocked_rpc, mocked_supvisors, mocked_expand, mocked_views):
         """ Test the make_supvisors_rpcinterface function. """
+        from supvisors.initializer import Supvisors
         from supvisors.plugin import make_supvisors_rpcinterface
-        supervisord = DummySupervisor
+        supervisord = DummySupervisor()
         # save cleanup_fds function
         from supervisor.options import ServerOptions
         cleanup = ServerOptions.cleanup_fds
-        # test the calls to previous functions
+        # create the RPC interface
         make_supvisors_rpcinterface(supervisord)
-        self.assertEqual([call(supervisord)], mocked_rpc.call_args_list)
+        # test the calls to previous functions
+        self.assertEqual('a Supvisors instance', supervisord.supvisors)
+        self.assertEqual([call(supervisord.supvisors)], mocked_rpc.call_args_list)
         self.assertEqual([call()], mocked_expand.call_args_list)
         self.assertEqual([call()], mocked_views.call_args_list)
-        # test cleanup_fds replacement
+        # test inclusion of Supvisors into Supervisor
         self.assertIsNot(cleanup, ServerOptions.cleanup_fds)
 
 

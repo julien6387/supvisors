@@ -67,16 +67,14 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
     def test_write_header(self, mocked_periods, mocked_actions, mocked_time):
         """ Test the write_header method. """
         from supvisors.ttypes import AddressStates
-        # set context (meant to be set through render)
         # build root structure
         mocked_mids = [Mock(attrib={}) for _ in range(4)]
         mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
         # first call tests with not master
-        mocked_status = Mock(remote_time=3600,
-                             state=AddressStates.RUNNING,
+        mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING,
                              **{'loading.return_value': 12})
-        self.view.supvisors.context.master = False
-        self.view.supvisors.context.addresses['127.0.0.1'] = mocked_status
+        self.view.sup_ctx.is_master = False
+        self.view.sup_ctx.addresses['127.0.0.1'] = mocked_status
         self.view.write_header(mocked_root)
         self.assertEqual([call('address_mid'), call('state_mid'), call('percent_mid'), call('date_mid')],
                          mocked_root.findmeld.call_args_list)
@@ -94,7 +92,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         for mocked_mid in mocked_mids:
             mocked_mid.content.reset_mock()
         # second call tests with master
-        self.view.supvisors.context.master = True
+        self.view.sup_ctx.is_master = True
         self.view.write_header(mocked_root)
         self.assertEqual([call('address_mid'), call('state_mid'), call('percent_mid'), call('date_mid')],
                          mocked_root.findmeld.call_args_list)

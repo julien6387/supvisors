@@ -25,10 +25,10 @@ from queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import split_namespec
-from supervisor.states import RUNNING_STATES, STOPPED_STATES
+from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
 from supvisors.client.subscriber import create_logger
-from supvisors.ttypes import ApplicationStates, ProcessStates
+from supvisors.ttypes import ApplicationStates
 
 from scripts.event_queues import SupvisorsEventQueues
 
@@ -43,7 +43,7 @@ class ProcessStateEvent(object):
 
     @property
     def statename(self):
-        return ProcessStates.to_string(self.statecode)
+        return getProcessStateDescription(self.statecode)
 
     def get_state(self):
         """ Return the state in a Supvisors / Supervisor format. """
@@ -187,8 +187,7 @@ class SequenceChecker(SupvisorsEventQueues):
 
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes.
-        Test relies on 3 addresses so theoretically, we only need 3
-        notifications to know which address is RUNNING or not.
+        Test relies on 3 addresses so theoretically, only 3 notifications are needed to know the running nodes.
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
@@ -308,25 +307,19 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertIsNotNone(application)
         # check event contents in accordance with context
         if application.is_starting():
-            self.assertDictContainsSubset(
-                {'statename': 'STARTING',
-                 'statecode': ApplicationStates.STARTING}, event)
+            self.assertDictContainsSubset({'statename': 'STARTING', 'statecode': ApplicationStates.STARTING.value},
+                                          event)
         elif application.is_stopping():
-            self.assertDictContainsSubset(
-                {'statename': 'STOPPING',
-                 'statecode': ApplicationStates.STOPPING}, event)
+            self.assertDictContainsSubset({'statename': 'STOPPING', 'statecode': ApplicationStates.STOPPING.value},
+                                          event)
         elif application.is_running():
-            self.assertDictContainsSubset(
-                {'statename': 'RUNNING',
-                 'statecode': ApplicationStates.RUNNING}, event)
+            self.assertDictContainsSubset({'statename': 'RUNNING', 'statecode': ApplicationStates.RUNNING.value},
+                                          event)
         else:
-            self.assertDictContainsSubset(
-                {'statename': 'STOPPED',
-                 'statecode': ApplicationStates.STOPPED}, event)
-        self.assertEqual(application.has_major_failure(),
-                         event['major_failure'])
-        self.assertEqual(application.has_minor_failure(),
-                         event['minor_failure'])
+            self.assertDictContainsSubset({'statename': 'STOPPED', 'statecode': ApplicationStates.STOPPED.value},
+                                          event)
+        self.assertEqual(application.has_major_failure(), event['major_failure'])
+        self.assertEqual(application.has_minor_failure(), event['minor_failure'])
 
     def assertItemsEqual(self, lst1, lst2):
         """ Two lists are equal when they have the same size

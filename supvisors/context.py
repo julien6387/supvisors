@@ -17,17 +17,16 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Sequence
-
 from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
-from supvisors.ttypes import AddressStates
+from supvisors.ttypes import AddressStates, NodeNameList
 from supvisors.utils import supvisors_shortcuts
 
 
 class Context(object):
     """ The Context class holds the main data of Supvisors:
+
     - addresses: the dictionary of all AddressStatus (key is address),
     - forced_addresses: the dictionary of the minimal set of AddressStatus (key is address),
     - applications: the dictionary of all ApplicationStatus (key is application name),
@@ -51,31 +50,36 @@ class Context(object):
                                  if address_name in self.options.force_synchro_if}
         self.applications = {}
         self.processes = {}
-        self._master_address = ''
-        self.master = False
+        # master attributes
+        self._master_node_name = ''
+        self._is_master = False
+        self.master_operational = False
 
     @property
-    def master_address(self):
-        """ Property for the 'master_address' attribute.
-        The setter sets the 'master' attribute to True if the master address is the local address. """
-        return self._master_address
+    def master_node_name(self):
+        return self._master_node_name
 
-    @master_address.setter
-    def master_address(self, address):
-        self.logger.info('Context.master_address: {}'.format(address))
-        self._master_address = address
-        self.master = address == self.address_mapper.local_address
+    @property
+    def is_master(self):
+        return self._is_master
+
+    @master_node_name.setter
+    def master_node_name(self, node_name):
+        self.logger.info('Context.master_node_name: {}'.format(node_name))
+        self._master_node_name = node_name
+        self._is_master = node_name == self.address_mapper.local_address
+        self.master_operational = False
 
     # methods on addresses
     def unknown_addresses(self):
         """ Return the AddressStatus instances in UNKNOWN state. """
-        return self.addresses_by_states([AddressStates.UNKNOWN])
+        return self.addresses_by_states([AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING])
 
     def unknown_forced_addresses(self):
         """ Return the AddressStatus instances in UNKNOWN state. """
         return [status.address_name
                 for status in self.forced_addresses.values()
-                if status.state == AddressStates.UNKNOWN]
+                if status.state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING]]
 
     def running_addresses(self):
         """ Return the AddressStatus instances in RUNNING state. """
@@ -107,7 +111,7 @@ class Context(object):
         # invalidate address in concerned processes
         # if local Supvisors is master, failure handler will be notified for processes running on this address
         for process in status.running_processes():
-            process.invalidate_address(status.address_name, self.master)
+            process.invalidate_address(status.address_name, self.is_master)
 
     def end_synchro(self) -> None:
         """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
@@ -208,27 +212,27 @@ class Context(object):
             self.logger.warn('Context.on_authorization: got authorization from unexpected location={}'
                              .format(address_name))
 
-    def on_tick_event(self, address_name, event):
+    def on_tick_event(self, node_name, event):
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
-        if self.address_mapper.valid(address_name):
-            status = self.addresses[address_name]
+        if self.address_mapper.valid(node_name):
+            status = self.addresses[node_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
-                self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, address_name))
+                self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
                 # asynchronous port-knocking used to check if remote Supvisors instance considers
                 # the local instance as isolated
                 if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
                     status.state = AddressStates.CHECKING
-                    self.supvisors.zmq.pusher.send_check_address(address_name)
+                    self.supvisors.zmq.pusher.send_check_node(node_name)
                 # update internal times
                 status.update_times(event['when'], int(time()))
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
         else:
-            self.logger.warn('Context.on_tick_event: got tick from unexpected location={}'.format(address_name))
+            self.logger.warn('Context.on_tick_event: got tick from unexpected location={}'.format(node_name))
 
     def on_process_event(self, address_name, event):
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -277,7 +281,7 @@ class Context(object):
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
 
-    def handle_isolation(self) -> Sequence[str]:
+    def handle_isolation(self) -> NodeNameList:
         """ Move ISOLATING addresses to ISOLATED and publish related events. """
         addresses = self.isolating_addresses()
         for address in addresses:

@@ -88,7 +88,6 @@ class SupvisorsServerOptions(ServerOptions):
     supervisor configuration file.
 
     Attributes are:
-
         - supvisors_options: the instance holding all Supvisors options,
         - _Section: constant for the name of the Supvisors section in the Supervisor configuration file.
     """

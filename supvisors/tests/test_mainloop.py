@@ -129,7 +129,7 @@ class MainLoopTest(unittest.TestCase):
         # reset mocks
         mocked_sockets.check_puller.reset_mock()
         # test with appropriate socks but with exception
-        mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_ADDRESSES, 'a message'
+        mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_NODES, 'a message'
         main_loop.check_requests(mocked_sockets, 'poll result')
         self.assertEqual([call('poll result')], mocked_sockets.check_puller.call_args_list)
         self.assertEqual([call('a message')], mocked_sockets.disconnect_subscriber.call_args_list)
@@ -146,14 +146,14 @@ class MainLoopTest(unittest.TestCase):
 
     @patch('supvisors.mainloop.stderr')
     @patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
-    def test_check_address(self, mocked_evt: Mock, mocked_stderr: Mock):
+    def test_check_node(self, mocked_evt: Mock, mocked_stderr: Mock):
         """ Test the protocol to get the processes handled by a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         from supvisors.ttypes import AddressStates
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error: no event is sent to local Supervisor
         self.mocked_rpc.side_effect = Exception
-        main_loop.check_address('10.0.0.1')
+        main_loop.check_node('10.0.0.1')
         self.assertEqual(2, self.mocked_rpc.call_count)
         self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
         self.assertEqual(0, mocked_evt.call_count)
@@ -165,16 +165,17 @@ class MainLoopTest(unittest.TestCase):
         mocked_local = rpc_intf.supvisors.get_all_local_process_info = Mock(return_value=dummy_info)
         mocked_addr = rpc_intf.supvisors.get_address_info = Mock()
         rpc_intf.supvisors.get_master_address = Mock(return_value='10.0.0.5')
+        rpc_intf.supvisors.get_supvisors_state = Mock(return_value={'statename': 'RUNNING'})
         self.mocked_rpc.return_value = rpc_intf
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.reset_mock()
         # test with address in isolation
         for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
             mocked_addr.return_value = {'statecode': state}
-            main_loop.check_address('10.0.0.1')
+            main_loop.check_node('10.0.0.1')
             self.assertEqual([call('10.0.0.1', main_loop.env)], self.mocked_rpc.call_args_list)
-            self.assertEqual([call('auth', 'address_name:10.0.0.1 authorized:False master_address:10.0.0.5')],
-                             mocked_evt.call_args_list)
+            expected = 'node_name:10.0.0.1 authorized:False master_node_name:10.0.0.5 supvisors_state:RUNNING'
+            self.assertEqual([call('auth', expected)], mocked_evt.call_args_list)
             self.assertFalse(mocked_all.called)
             # reset counters
             mocked_evt.reset_mock()
@@ -182,7 +183,7 @@ class MainLoopTest(unittest.TestCase):
         # test with address not in isolation
         for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING, AddressStates.SILENT]:
             mocked_addr.return_value = {'statecode': state}
-            main_loop.check_address('10.0.0.1')
+            main_loop.check_node('10.0.0.1')
             self.assertEqual(1, self.mocked_rpc.call_count)
             self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
             self.assertEqual(2, mocked_evt.call_count)
@@ -194,55 +195,45 @@ class MainLoopTest(unittest.TestCase):
 
     @patch('supvisors.mainloop.stderr')
     def test_start_process(self, mocked_stderr):
-        """ Test the protocol to start a process handled by a remote
-        Supervisor. """
+        """ Test the protocol to start a process handled by a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error
         self.mocked_rpc.side_effect = Exception
         main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
         self.assertEqual(2, self.mocked_rpc.call_count)
-        self.assertEqual(call('10.0.0.1', main_loop.env),
-                         self.mocked_rpc.call_args)
+        self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
         # test with a mocked rpc interface
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supvisors,
-                          'start_args') as mocked_supvisors:
+        with patch.object(rpc_intf.supvisors, 'start_args') as mocked_supvisors:
             main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
             self.assertEqual(3, self.mocked_rpc.call_count)
-            self.assertEqual(call('10.0.0.1', main_loop.env),
-                             self.mocked_rpc.call_args)
+            self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
             self.assertEqual(1, mocked_supvisors.call_count)
-            self.assertEqual(call('dummy_process', 'extra args', False),
-                             mocked_supvisors.call_args)
+            self.assertEqual(call('dummy_process', 'extra args', False), mocked_supvisors.call_args)
 
     @patch('supvisors.mainloop.stderr')
-    def test_stop_process(self, mocked_stderr):
-        """ Test the protocol to stop a process handled by a remote
-        Supervisor. """
+    def test_stop_process(self, _):
+        """ Test the protocol to stop a process handled by a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
         # test rpc error
         self.mocked_rpc.side_effect = Exception
         main_loop.stop_process('10.0.0.1', 'dummy_process')
         self.assertEqual(2, self.mocked_rpc.call_count)
-        self.assertEqual(call('10.0.0.1', main_loop.env),
-                         self.mocked_rpc.call_args)
+        self.assertEqual(call('10.0.0.1', main_loop.env),  self.mocked_rpc.call_args)
         # test with a mocked rpc interface
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supervisor,
-                          'stopProcess') as mocked_supervisor:
+        with patch.object(rpc_intf.supervisor, 'stopProcess') as mocked_supervisor:
             main_loop.stop_process('10.0.0.1', 'dummy_process')
             self.assertEqual(3, self.mocked_rpc.call_count)
-            self.assertEqual(call('10.0.0.1', main_loop.env),
-                             self.mocked_rpc.call_args)
+            self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
             self.assertEqual(1, mocked_supervisor.call_count)
-            self.assertEqual(call('dummy_process', False),
-                             mocked_supervisor.call_args)
+            self.assertEqual(call('dummy_process', False), mocked_supervisor.call_args)
 
     @patch('supvisors.mainloop.stderr')
     def test_restart(self, mocked_stderr):
@@ -253,23 +244,20 @@ class MainLoopTest(unittest.TestCase):
         self.mocked_rpc.side_effect = Exception
         main_loop.restart('10.0.0.1')
         self.assertEqual(2, self.mocked_rpc.call_count)
-        self.assertEqual(call('10.0.0.1', main_loop.env),
-                         self.mocked_rpc.call_args)
+        self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
         # test with a mocked rpc interface
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
         self.mocked_rpc.return_value = rpc_intf
-        with patch.object(rpc_intf.supervisor,
-                          'restart') as mocked_supervisor:
+        with patch.object(rpc_intf.supervisor, 'restart') as mocked_supervisor:
             main_loop.restart('10.0.0.1')
             self.assertEqual(3, self.mocked_rpc.call_count)
-            self.assertEqual(call('10.0.0.1', main_loop.env),
-                             self.mocked_rpc.call_args)
+            self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
             self.assertEqual(1, mocked_supervisor.call_count)
             self.assertEqual(call(), mocked_supervisor.call_args)
 
     @patch('supvisors.mainloop.stderr')
-    def test_shutdown(self, mocked_stderr):
+    def test_shutdown(self, _):
         """ Test the protocol to shutdown a remote Supervisor. """
         from supvisors.mainloop import SupvisorsMainLoop
         main_loop = SupvisorsMainLoop(self.supvisors)
@@ -277,8 +265,7 @@ class MainLoopTest(unittest.TestCase):
         self.mocked_rpc.side_effect = Exception
         main_loop.shutdown('10.0.0.1')
         self.assertEqual(2, self.mocked_rpc.call_count)
-        self.assertEqual(call('10.0.0.1', main_loop.env),
-                         self.mocked_rpc.call_args)
+        self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
         # test with a mocked rpc interface
         rpc_intf = DummyRpcInterface()
         self.mocked_rpc.side_effect = None
@@ -286,8 +273,7 @@ class MainLoopTest(unittest.TestCase):
         with patch.object(rpc_intf.supervisor, 'shutdown') as mocked_shutdown:
             main_loop.shutdown('10.0.0.1')
             self.assertEqual(3, self.mocked_rpc.call_count)
-            self.assertEqual(call('10.0.0.1', main_loop.env),
-                             self.mocked_rpc.call_args)
+            self.assertEqual(call('10.0.0.1', main_loop.env), self.mocked_rpc.call_args)
             self.assertEqual(1, mocked_shutdown.call_count)
             self.assertEqual(call(), mocked_shutdown.call_args)
 
@@ -328,29 +314,24 @@ class MainLoopTest(unittest.TestCase):
         from supvisors.utils import DeferredRequestHeaders
         main_loop = SupvisorsMainLoop(self.supvisors)
         # patch main loop subscriber
-        with patch.multiple(main_loop, check_address=DEFAULT,
+        with patch.multiple(main_loop, check_node=DEFAULT,
                             start_process=DEFAULT, stop_process=DEFAULT,
                             restart=DEFAULT, shutdown=DEFAULT) as mocked_loop:
             # test check address
-            self.check_call(main_loop, mocked_loop, 'check_address',
-                            DeferredRequestHeaders.CHECK_ADDRESS,
-                            ('10.0.0.2',))
+            self.check_call(main_loop, mocked_loop, 'check_node',
+                            DeferredRequestHeaders.CHECK_NODE, ('10.0.0.2',))
             # test start process
             self.check_call(main_loop, mocked_loop, 'start_process',
-                            DeferredRequestHeaders.START_PROCESS,
-                            ('10.0.0.2', 'dummy_process', 'extra args'))
+                            DeferredRequestHeaders.START_PROCESS, ('10.0.0.2', 'dummy_process', 'extra args'))
             # test stop process
             self.check_call(main_loop, mocked_loop, 'stop_process',
-                            DeferredRequestHeaders.STOP_PROCESS,
-                            ('10.0.0.2', 'dummy_process'))
+                            DeferredRequestHeaders.STOP_PROCESS, ('10.0.0.2', 'dummy_process'))
             # test restart
             self.check_call(main_loop, mocked_loop, 'restart',
-                            DeferredRequestHeaders.RESTART,
-                            ('10.0.0.2',))
+                            DeferredRequestHeaders.RESTART, ('10.0.0.2',))
             # test shutdown
             self.check_call(main_loop, mocked_loop, 'shutdown',
-                            DeferredRequestHeaders.SHUTDOWN,
-                            ('10.0.0.2',))
+                            DeferredRequestHeaders.SHUTDOWN, ('10.0.0.2',))
 
 
 def test_suite():

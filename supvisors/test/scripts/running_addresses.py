@@ -34,7 +34,7 @@ from scripts.event_queues import SupvisorsEventQueues
 
 class RunningAddressesTest(CompatTestCase):
     """ Intermediate layer for the check of initial conditions:
-    - 3 running addresses.
+        - 3 running addresses.
 
     Proxies to XML-RPC servers are opened.
     The thread of Event queues is started.
@@ -50,7 +50,7 @@ class RunningAddressesTest(CompatTestCase):
         addresses_info = self.local_supvisors.get_all_addresses_info()
         self.running_addresses = [info['address_name']
                                   for info in addresses_info
-                                  if info['statecode'] == AddressStates.RUNNING]
+                                  if info['statecode'] == AddressStates.RUNNING.value]
         self.assertEqual(3, len(self.running_addresses))
         # assumption is made that this test is run on Supvisors Master address
         self.assertEqual(gethostname(), self.local_supvisors.get_master_address())

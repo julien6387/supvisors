@@ -22,22 +22,19 @@ from time import gmtime, localtime, strftime, time
 
 
 class InternalEventHeaders:
-    """ Enumeration class for the headers in messages between Listener
-    and MainLoop. """
-    TICK, PROCESS, STATISTICS = range(3)
+    """ Enumeration class for the headers in messages between Listener and MainLoop. """
+    TICK, PROCESS, STATISTICS, STATE = range(4)
 
 
 class RemoteCommEvents:
-    """ Strings used for remote communication between the Supvisors main loop
-    and the listener. """
+    """ Strings used for remote communication between the Supvisors main loop and the listener. """
     SUPVISORS_AUTH = u'auth'
     SUPVISORS_EVENT = u'event'
     SUPVISORS_INFO = u'info'
 
 
 class EventHeaders:
-    """ Strings used as headers in messages between EventPublisher
-    and Supvisors' Client. """
+    """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
     SUPVISORS = u'supvisors'
     ADDRESS = u'address'
     APPLICATION = u'application'
@@ -48,7 +45,7 @@ class EventHeaders:
 # for deferred XML-RPC requests
 class DeferredRequestHeaders:
     """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_ADDRESS, ISOLATE_ADDRESSES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
+    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
 def supvisors_shortcuts(instance, lst):

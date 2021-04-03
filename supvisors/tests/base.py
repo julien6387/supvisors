@@ -122,23 +122,13 @@ class DummyRpcHandler:
 
 
 class DummyRpcInterface:
-    """ Simple RPC proxy. """
+    """ Simple RPC mock. """
 
     def __init__(self):
         from supvisors.rpcinterface import RPCInterface
-        supervisord = DummySupervisor()
         # create rpc interfaces to have a skeleton
-        # create a Supervisor RPC interface
-        self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
-
-        # create a mocked Supvisors RPC interface
-        def create_supvisors(arg):
-            # arg is supervisord
-            assert(arg == supervisord)
-            return MockedSupvisors()
-
-        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
-            self.supvisors = RPCInterface(supervisord)
+        self.supervisor = SupervisorNamespaceRPCInterface(DummySupervisor())
+        self.supvisors = RPCInterface(MockedSupvisors())
 
 
 class DummyHttpServer:

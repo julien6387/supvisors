@@ -195,6 +195,18 @@ class InternalEventTest(unittest.TestCase):
         msg = self.receive('Statistics')
         self.assertTupleEqual((InternalEventHeaders.STATISTICS, local_address, payload), msg)
 
+    def test_state_event(self):
+        """ Test the publication and subscription of the operational event. """
+        from supvisors.utils import InternalEventHeaders
+        # get the local node
+        local_node = self.supvisors.address_mapper.local_address
+        # send a process event
+        payload = {'statecode': 10, 'statename': 'running'}
+        self.publisher.send_state_event(payload)
+        # check the reception of the process event
+        msg = self.receive('State')
+        self.assertTupleEqual((InternalEventHeaders.STATE, local_node, payload), msg)
+
 
 class RequestTest(unittest.TestCase):
     """ Test case for the InternalEventPublisher and InternalEventSubscriber
@@ -229,38 +241,37 @@ class RequestTest(unittest.TestCase):
         except zmq.Again:
             self.fail('Failed to get {} request'.format(event_type))
 
-    def test_check_address(self):
+    def test_check_node(self):
         """ The method tests that the 'Check Address' request is sent
         and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
-        self.pusher.send_check_address('10.0.0.1')
+        self.pusher.send_check_node('10.0.0.1')
         request = self.receive('Check Address')
-        self.assertTupleEqual((DeferredRequestHeaders.CHECK_ADDRESS, ('10.0.0.1',)), request)
+        self.assertTupleEqual((DeferredRequestHeaders.CHECK_NODE, ('10.0.0.1',)), request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
-            self.pusher.send_check_address('10.0.0.1')
+            self.pusher.send_check_node('10.0.0.1')
         # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
-            self.pusher.send_check_address('10.0.0.1')
+            self.pusher.send_check_node('10.0.0.1')
         except:
             self.fail('unexpected exception')
 
-    def test_isolate_addresses(self):
-        """ The method tests that the 'Isolate Addresses' request is sent
-        and received correctly. """
+    def test_isolate_nodes(self):
+        """ The method tests that the 'Isolate Nodes' request is sent and received correctly. """
         from supvisors.utils import DeferredRequestHeaders
-        self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
+        self.pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
         request = self.receive('Isolate Addresses')
-        self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_ADDRESSES,
+        self.assertTupleEqual((DeferredRequestHeaders.ISOLATE_NODES,
                                (['10.0.0.1', '10.0.0.2'])), request)
         # test that the pusher socket is not blocking
         with patch.object(self.pusher.socket, 'send_pyobj', side_effect=zmq.error.Again):
-            self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
+            self.pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
         # test that absence of puller does not block the pusher or raise any exception
         self.puller.close()
         try:
-            self.pusher.send_isolate_addresses(['10.0.0.1', '10.0.0.2'])
+            self.pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
         except:
             self.fail('unexpected exception')
 
@@ -577,16 +588,16 @@ class SupvisorsZmqTest(unittest.TestCase):
         from supvisors.supvisorszmq import SupvisorsZmq, InternalEventSubscriber, RequestPuller
         sockets = SupvisorsZmq(self.supvisors)
         # test all attribute types
-        self.assertIsInstance(sockets.subscriber, InternalEventSubscriber)
-        self.assertFalse(sockets.subscriber.socket.closed)
+        self.assertIsInstance(sockets.internal_subscriber, InternalEventSubscriber)
+        self.assertFalse(sockets.internal_subscriber.socket.closed)
         self.assertIsInstance(sockets.puller, RequestPuller)
         self.assertFalse(sockets.puller.socket.closed)
         self.assertIn(sockets.puller.socket, sockets.poller._map)
-        self.assertIn(sockets.subscriber.socket, sockets.poller._map)
+        self.assertIn(sockets.internal_subscriber.socket, sockets.poller._map)
         # close the instance
         sockets.close()
         self.assertEqual({}, sockets.poller._map)
-        self.assertTrue(sockets.subscriber.socket.closed)
+        self.assertTrue(sockets.internal_subscriber.socket.closed)
         self.assertTrue(sockets.puller.socket.closed)
 
     def test_poll(self):
@@ -611,7 +622,7 @@ class SupvisorsZmqTest(unittest.TestCase):
         sockets = SupvisorsZmq(self.supvisors)
         param = Mock()
         self.assertEqual('checked', sockets.check_subscriber(param))
-        self.assertEqual([call(sockets.subscriber, param)], mocked_check.call_args_list)
+        self.assertEqual([call(sockets.internal_subscriber, param)], mocked_check.call_args_list)
 
     @patch('builtins.print')
     def test_check_socket(self, _):

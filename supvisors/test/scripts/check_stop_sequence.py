@@ -22,6 +22,7 @@ import signal
 import sys
 import unittest
 
+from supervisor.states import *
 from supervisor.childutils import getRPCInterface
 
 from scripts.event_queues import SupvisorsEventQueues
@@ -81,10 +82,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         """ Check the start sequence of the converter program. """
         # define the expected events for this process
         program = self.context.get_program('my_movies:converter_05')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                            self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
-                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -105,10 +104,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         application = self.context.get_application('my_movies')
         # check processes in stop_sequence 0
         for program in application.programs.values():
-            if program.program_name not in ['hmi', 'manager'] and \
-                program.state in RUNNING_STATES:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                    program.address))
+            if program.program_name not in ['hmi', 'manager'] and program.state in RUNNING_STATES:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, program.address))
                 program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -116,8 +113,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # check processes in stop_sequence 1
         program = application.get_program('hmi')
         if program.state in RUNNING_STATES:
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                program.address))
+            program.add_event(ProcessStateEvent(ProcessStates.STOPPING, program.address))
             program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -125,8 +121,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # check processes in stop_sequence 2
         program = application.get_program('manager')
         if program.state in RUNNING_STATES:
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                program.address))
+            program.add_event(ProcessStateEvent(ProcessStates.STOPPING, program.address))
             program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -138,12 +133,9 @@ class CheckStopSequenceTest(CheckSequenceTest):
         application = self.context.get_application('database')
         # check movie_server_processes
         for program in application.programs.values():
-            if program.program_name in ['movie_server_01',
-                                        'movie_server_02',
-                                        'movie_server_03'] and \
-                program.state in RUNNING_STATES:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                    program.address))
+            if program.program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03'] \
+                    and program.state in RUNNING_STATES:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, program.address))
                 program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -156,17 +148,16 @@ class CheckStopSequenceTest(CheckSequenceTest):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     # catch supervisor termination signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # get arguments
     import argparse
-    parser = argparse.ArgumentParser(
-        description='Check the stopping sequence using Supvisors events.')
+    parser = argparse.ArgumentParser(description='Check the stopping sequence using Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()
     SupvisorsEventQueues.PORT = args.port
     # start unittest
     unittest.main(defaultTest='test_suite')
-

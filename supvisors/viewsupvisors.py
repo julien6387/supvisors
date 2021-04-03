@@ -90,7 +90,7 @@ class SupvisorsView(ViewHandler):
             # go to web page located on address
             url = self.view_ctx.format_url(status.address_name, PROC_ADDRESS_PAGE)
             elt.attributes(href=url)
-            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_address else '')
+            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_node_name else '')
         elt.content(status.address_name)
         # set state
         elt = node_div_elt.findmeld('state_td_mid')
@@ -146,7 +146,7 @@ class SupvisorsView(ViewHandler):
         for li_elt, item in global_strategy_li_mid.repeat(self.strategies):
             elt = li_elt.findmeld('global_strategy_a_mid')
             # conciliation requests MUST be sent to MASTER and namespec MUST be reset
-            master = self.sup_ctx.master_address
+            master = self.sup_ctx.master_node_name
             parameters = {NAMESPEC: '', ACTION: item}
             url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
@@ -234,7 +234,7 @@ class SupvisorsView(ViewHandler):
             for li_elt, st_item in strategy_iterator:
                 elt = li_elt.findmeld('local_strategy_a_mid')
                 # conciliation requests MUST be sent to MASTER
-                master = self.sup_ctx.master_address
+                master = self.sup_ctx.master_node_name
                 parameters = {NAMESPEC: namespec, ACTION: st_item}
                 url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
                 elt.attributes(href=url)

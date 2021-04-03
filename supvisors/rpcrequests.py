@@ -17,12 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.compat import xmlrpclib
+from typing import Mapping
 
+from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import SupervisorTransport
 
+from supvisors.rpcinterface import RPCInterface
 
-def getRPCInterface(address, env):
+
+def getRPCInterface(node_name: str, env: Mapping[str, str]) -> RPCInterface:
     """ The getRPCInterface creates a proxy to a supervisor XML-RPC server.
     Information about the HTTP configuration is required in env. """
     # get configuration info from env
@@ -37,8 +40,8 @@ def getRPCInterface(address, env):
         raise ValueError('Incompatible protocol for Supvisors: serverurl={}'.format(serverurl))
     # replace address in URL
     serverurl = serverurl.split(':')
-    serverurl[1] = '//' + address
+    serverurl[1] = '//' + node_name
     serverurl = ':'.join(serverurl)
     # create transport and return proxy
     transport = SupervisorTransport(username, password, serverurl)
-    return xmlrpclib.ServerProxy('http://{}'.format(address), transport)
+    return xmlrpclib.ServerProxy('http://{}'.format(node_name), transport)

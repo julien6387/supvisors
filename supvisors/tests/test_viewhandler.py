@@ -270,7 +270,7 @@ class ViewHandlerTest(unittest.TestCase):
         href_elt.content.reset_mock()
         # test call with address status set in context, RUNNING,
         # identical to parameter and MASTER
-        self.handler.sup_ctx.master_address = '10.0.0.1'
+        self.handler.sup_ctx.master_node_name = '10.0.0.1'
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)

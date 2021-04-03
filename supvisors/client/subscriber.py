@@ -125,7 +125,7 @@ class SupvisorsEventInterface(threading.Thread):
 
     def on_address_status(self, data):
         """ Just logs the contents of the Address Status message. """
-        self.logger.info('got Address Status message: {}'.format(data))
+        self.logger.info('got AddressStatus message: {}'.format(data))
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """

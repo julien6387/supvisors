@@ -103,7 +103,7 @@ class SupvisorsMainLoop(Thread):
         message = sockets.check_puller(poll_result)
         if message:
             header, body = message
-            if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
+            if header == DeferredRequestHeaders.ISOLATE_NODES:
                 # isolation request: disconnect the address from subscriber
                 sockets.disconnect_subscriber(body)
             else:
@@ -112,44 +112,44 @@ class SupvisorsMainLoop(Thread):
 
     def send_request(self, header, body):
         """ Perform the XML-RPC according to the header. """
-        if header == DeferredRequestHeaders.CHECK_ADDRESS:
-            address_name, = body
-            self.check_address(address_name)
+        if header == DeferredRequestHeaders.CHECK_NODE:
+            node_name, = body
+            self.check_node(node_name)
         elif header == DeferredRequestHeaders.START_PROCESS:
-            address_name, namespec, extra_args = body
-            self.start_process(address_name, namespec, extra_args)
+            node_name, namespec, extra_args = body
+            self.start_process(node_name, namespec, extra_args)
         elif header == DeferredRequestHeaders.STOP_PROCESS:
-            address_name, namespec = body
-            self.stop_process(address_name, namespec)
+            node_name, namespec = body
+            self.stop_process(node_name, namespec)
         elif header == DeferredRequestHeaders.RESTART:
-            address_name, = body
-            self.restart(address_name)
+            node_name, = body
+            self.restart(node_name)
         elif header == DeferredRequestHeaders.SHUTDOWN:
-            address_name, = body
-            self.shutdown(address_name)
+            node_name, = body
+            self.shutdown(node_name)
 
-    def check_address(self, address_name):
+    def check_node(self, node_name):
         """ Check isolation and get all process info asynchronously. """
         try:
-            remote_proxy = getRPCInterface(address_name, self.env)
-            # get remote perception of master node
-            master_address = remote_proxy.supvisors.get_master_address()
+            supvisors_rpc = getRPCInterface(node_name, self.env).supvisors
+            # get remote perception of master node and state
+            master_node_name = supvisors_rpc.get_master_address()
+            supvisors_state = supvisors_rpc.get_supvisors_state()
             # check authorization
-            status = remote_proxy.supvisors.get_address_info(address_name)
+            status = supvisors_rpc.get_address_info(node_name)
             authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
-                all_info = remote_proxy.supvisors.get_all_local_process_info()
-                # post internally
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO,
-                                            json.dumps((address_name, all_info)))
+                all_info = supvisors_rpc.get_all_local_process_info()
+                # post to local Supvisors
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((node_name, all_info)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'address_name:{} authorized:{} master_address:{}'
-                                        .format(address_name, authorized, master_address))
+                                        'node_name:{} authorized:{} master_node_name:{} supvisors_state:{}'
+                                        .format(node_name, authorized, master_node_name, supvisors_state['statename']))
         except:
-            print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
 
     def start_process(self, address_name, namespec, extra_args):
         """ Start process asynchronously. """

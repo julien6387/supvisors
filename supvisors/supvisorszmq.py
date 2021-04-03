@@ -96,6 +96,15 @@ class InternalEventPublisher(object):
         self.logger.trace('send Statistics {}'.format(payload))
         self.socket.send_pyobj((InternalEventHeaders.STATISTICS, self.node_name, payload))
 
+    def send_state_event(self, payload: Payload) -> None:
+        """ Publish the Master state event with PyZmq.
+
+        :param payload: the payload to publish
+        :return: None
+        """
+        self.logger.trace('send Supvisors state {}'.format(payload))
+        self.socket.send_pyobj((InternalEventHeaders.STATE, self.node_name, payload))
+
 
 class InternalEventSubscriber(object):
     """ Class for subscription to Listener events.
@@ -436,31 +445,31 @@ class RequestPusher(object):
         """
         self.socket.close(ZMQ_LINGER)
 
-    def send_check_address(self, node_name: str) -> None:
+    def send_check_node(self, node_name: str) -> None:
         """ Send request to check authorization to deal with the node.
 
-        :param node_name: the node name
+        :param node_name: the node name to check
         :return: None
         """
-        self.logger.debug('RequestPusher.send_check_address: address_name={}'.format(node_name))
+        self.logger.debug('RequestPusher.send_check_node: node_name={}'.format(node_name))
         try:
-            self.socket.send_pyobj((DeferredRequestHeaders.CHECK_ADDRESS, (node_name,)),
+            self.socket.send_pyobj((DeferredRequestHeaders.CHECK_NODE, (node_name,)),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('RequestPusher.send_check_address: CHECK_ADDRESS not sent')
+            self.logger.error('RequestPusher.send_check_node: CHECK_NODE not sent')
 
-    def send_isolate_addresses(self, node_names: NodeNameList) -> None:
+    def send_isolate_nodes(self, node_names: NodeNameList) -> None:
         """ Send request to isolate nodes.
 
         :param node_names: the nodes to isolate
         :return: Node
         """
-        self.logger.trace('RequestPusher.send_isolate_addresses: node_names={}'.format(node_names))
+        self.logger.trace('RequestPusher.send_isolate_nodes: node_names={}'.format(node_names))
         try:
-            self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_ADDRESSES, node_names),
+            self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_NODES, node_names),
                                    zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('RequestPusher.send_isolate_addresses: ISOLATE_ADDRESSES not sent')
+            self.logger.error('RequestPusher.send_isolate_nodes: ISOLATE_NODES not sent')
 
     def send_start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Send request to start process.
@@ -562,13 +571,13 @@ class SupvisorsZmq(object):
         :param supvisors: the Supvisors global structure
         """
         # create zmq sockets
-        self.subscriber = InternalEventSubscriber(supvisors.address_mapper.addresses,
-                                                  supvisors.options.internal_port)
+        self.internal_subscriber = InternalEventSubscriber(supvisors.address_mapper.addresses,
+                                                           supvisors.options.internal_port)
         self.puller = RequestPuller()
         # create poller
         self.poller = zmq.Poller()
         # register sockets to poller
-        self.poller.register(self.subscriber.socket, zmq.POLLIN)
+        self.poller.register(self.internal_subscriber.socket, zmq.POLLIN)
         self.poller.register(self.puller.socket, zmq.POLLIN)
 
     def poll(self) -> PollResult:
@@ -592,7 +601,7 @@ class SupvisorsZmq(object):
         :param poll_result: the result of the polling
         :return: the message received if any
         """
-        return SupvisorsZmq.check_socket(self.subscriber, poll_result)
+        return SupvisorsZmq.check_socket(self.internal_subscriber, poll_result)
 
     @staticmethod
     def check_socket(sup_socket: SupvisorsSockets, poll_result: PollResult) -> Optional[Any]:
@@ -614,7 +623,7 @@ class SupvisorsZmq(object):
         :param node_name: the name of the node to disconnect
         :return: None
         """
-        self.subscriber.disconnect(node_name)
+        self.internal_subscriber.disconnect(node_name)
 
     def close(self) -> None:
         """ Close the poller and the sockets.
@@ -623,7 +632,7 @@ class SupvisorsZmq(object):
         """
         # unregister sockets from poller
         self.poller.unregister(self.puller.socket)
-        self.poller.unregister(self.subscriber.socket)
+        self.poller.unregister(self.internal_subscriber.socket)
         # close sockets
         self.puller.close()
-        self.subscriber.close()
+        self.internal_subscriber.close()

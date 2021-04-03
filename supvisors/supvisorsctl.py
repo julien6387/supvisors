@@ -435,7 +435,7 @@ class ControllerPlugin(ControllerPluginBase):
                     applications = []
             for application in applications:
                 try:
-                    result = self.supvisors().start_application(strategy, application)
+                    result = self.supvisors().start_application(strategy.value, application)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -504,7 +504,7 @@ class ControllerPlugin(ControllerPluginBase):
                     applications = []
             for application in applications:
                 try:
-                    self.supvisors().restart_application(strategy, application)
+                    self.supvisors().restart_application(strategy.value, application)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -566,7 +566,7 @@ class ControllerPlugin(ControllerPluginBase):
                     processes = []
             for process in processes:
                 try:
-                    result = self.supvisors().start_process(strategy, process)
+                    result = self.supvisors().start_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -602,7 +602,7 @@ class ControllerPlugin(ControllerPluginBase):
                 return
             namespec = args[1]
             try:
-                result = self.supvisors().start_process(strategy, namespec, ' '.join(args[2:]))
+                result = self.supvisors().start_process(strategy.value, namespec, ' '.join(args[2:]))
             except xmlrpclib.Fault as e:
                 self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
             else:
@@ -668,7 +668,7 @@ class ControllerPlugin(ControllerPluginBase):
                     processes = []
             for process in processes:
                 try:
-                    result = self.supvisors().restart_process(strategy, process)
+                    result = self.supvisors().restart_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -700,7 +700,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_conciliate()
                 return
             try:
-                result = self.supvisors().conciliate(strategy)
+                result = self.supvisors().conciliate(strategy.value)
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:

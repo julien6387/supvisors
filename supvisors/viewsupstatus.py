@@ -52,7 +52,7 @@ class SupvisorsAddressView(StatusView):
         """ Rendering of the header part of the Supvisors Address page. """
         # set address name
         elt = root.findmeld('address_mid')
-        if self.sup_ctx.master:
+        if self.sup_ctx.is_master:
             elt.attrib['class'] = 'master'
         elt.content(self.address)
         # set address state

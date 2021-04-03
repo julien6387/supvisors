@@ -26,18 +26,15 @@ from supervisor.states import ProcessStates
 
 
 class SupervisordSource(object):
-    """ Supvisors is started in Supervisor so Supervisor internal data is
-    available from the supervisord instance.
-    Sometimes Supvisors needs to update dynamically this internal data.
-    """
+    """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord instance. """
 
     def __init__(self, supervisord):
         """ Initialization of the attributes. """
         self.supervisord = supervisord
         self.server_config = supervisord.options.server_configs[0]
         # server MUST be http, not unix
-        serverSection = self.server_config['section']
-        if serverSection != 'inet_http_server':
+        server_section = self.server_config['section']
+        if server_section != 'inet_http_server':
             raise ValueError('inet_http_server expected in config file: {}'
                              .format(supervisord.configfile))
         # shortcuts (not available yet)
@@ -46,11 +43,9 @@ class SupervisordSource(object):
 
     @property
     def supervisor_rpc_interface(self):
-        # need to get internal Supervisor RPC handler to call behavior from
-        # Supvisors
+        # need to get internal Supervisor RPC handler to call behavior from Supvisors
         # XML-RPC call in an other XML-RPC call on the same server is blocking
-        # so, not very proud of the following lines but could not access it
-        # any other way
+        # so, not very proud of the following lines but could not access it any other way
         if not self._supervisor_rpc_interface:
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
@@ -63,7 +58,7 @@ class SupervisordSource(object):
     def supvisors_rpc_interface(self):
         if not self._supvisors_rpc_interface:
             handler = self.httpserver.handlers[0]
-            # if authentication used, handler is wrapped
+            # if authentication is used, handler is wrapped
             if self.username:
                 handler = handler.handler
             self._supvisors_rpc_interface = handler.rpcinterface.supvisors
@@ -95,8 +90,7 @@ class SupervisordSource(object):
         return self.supervisord.options.mood
 
     def get_env(self):
-        """ Return a simple environment that can be used for the configuration
-        of the XML-RPC client. """
+        """ Return a simple environment that can be used for the configuration of the XML-RPC client. """
         return {'SUPERVISOR_SERVER_URL': self.serverurl,
                 'SUPERVISOR_USERNAME': self.username,
                 'SUPERVISOR_PASSWORD': self.password}
@@ -110,14 +104,13 @@ class SupervisordSource(object):
 
     def close_httpservers(self):
         """ Call the close_httpservers of Supervisor.
-        This is called when receiving the Supervisor stopping event in order
-        to force the termination of any asynchronous job. """
+        This is called when receiving the Supervisor stopping event in order to force the termination
+        of any asynchronous job. """
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
     def get_group_config(self, application_name):
-        """ This method returns the group configuration related to an
-        application. """
+        """ This method returns the group configuration related to an application. """
         # WARN: the following line may throw a KeyError exception
         return self.supervisord.process_groups[application_name].config
 
@@ -152,13 +145,12 @@ class SupervisordSource(object):
             config.command += ' ' + extra_args
 
     def get_extra_args(self, namespec):
-        """ Return the extra arguments passed to the command line of the
-        process named namespec. """
+        """ Return the extra arguments passed to the command line of the process named namespec. """
         return self.get_process_config(namespec).extra_args
 
     def force_process_fatal(self, namespec, reason):
-        """ This method forces the FATAL process state into Supervisor
-        internal data and dispatches process event to event listeners. """
+        """ This method forces the FATAL process state into Supervisor internal data and dispatches
+        process event to event listeners. """
         process = self.get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
@@ -166,8 +158,8 @@ class SupervisordSource(object):
         process.give_up()
 
     def force_process_unknown(self, namespec, reason):
-        """ This method forces the UNKNOWN process state into Supervisor
-        internal data and dispatches process event to event listeners. """
+        """ This method forces the UNKNOWN process state into Supervisor internal data and dispatches
+        process event to event listeners. """
         process = self.get_process(namespec)
         process.spawnerr = reason
         process.change_state(ProcessStates.UNKNOWN)

@@ -50,8 +50,6 @@ class InitializerTest(unittest.TestCase):
         # create Supvisors instance
         supervisord = DummySupervisor()
         supvisors = Supvisors(supervisord)
-        # test inclusion of Supvisors into Supervisor
-        self.assertIs(supvisors, supervisord.supvisors)
         # test calls
         self.assertTrue(args[0].called)
         self.assertTrue(args[1].getLogger.called)

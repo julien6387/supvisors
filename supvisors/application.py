@@ -38,7 +38,7 @@ class ApplicationRules(object):
         - running_failure_strategy: defines the default strategy (in RunningFailureStrategies) to apply when a required process crashes when the application is running.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """ Initialization of the attributes.
         """
         self.start_sequence = 0
@@ -68,7 +68,6 @@ class ApplicationRules(object):
                 'running_failure_strategy': self.running_failure_strategy.name}
 
 
-# ApplicationStatus class
 class ApplicationStatus(object):
     """ Class defining the status of an application in Supvisors.
 
@@ -120,12 +119,12 @@ class ApplicationStatus(object):
     def stopped(self) -> bool:
         """ Return True if the application is stopped.
 
-        :return: the running status of the process
+        :return: the stopped status of the process
         """
         return self.state == ApplicationStates.STOPPED
 
     @property
-    def state(self):
+    def state(self) -> ApplicationStates:
         """ Getter of state attribute.
 
          :return: the application state
@@ -141,7 +140,7 @@ class ApplicationStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('Application {} is {}'.format(self.application_name, self.state.name))
+            self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
 
     # serialization
     def serial(self) -> Payload:
@@ -160,7 +159,7 @@ class ApplicationStatus(object):
         """ Add a new process to the process list.
 
         :param process: the process status to be added to the application
-        :return:
+        :return: None
         """
         self.processes[process.process_name] = process
 
@@ -185,7 +184,7 @@ class ApplicationStatus(object):
         for process in self.processes.values():
             self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
             self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
-        self.logger.debug('Application {}: start_sequence={} stop_sequence={}'
+        self.logger.debug('ApplicationStatus.update_sequences: application_name={} start_sequence={} stop_sequence={}'
                           .format(self.application_name,
                                   self.printable_sequence(self.start_sequence),
                                   self.printable_sequence(self.stop_sequence)))
@@ -197,11 +196,10 @@ class ApplicationStatus(object):
         """
         starting, running, stopping, major_failure, minor_failure = (False,) * 5
         for process in self.processes.values():
-            self.logger.trace('Process {}: state={} required={} exit_expected={}'
-                              .format(process.namespec(),
-                                      process.state_string(),
-                                      process.rules.required,
-                                      process.expected_exit))
+            self.logger.trace('ApplicationStatus.update_status: application_name={} process={} state={}'
+                              ' required={} exit_expected={}'
+                              .format(self.application_name, process.namespec(), process.state_string(),
+                                      process.rules.required, process.expected_exit))
             if process.state == ProcessStates.RUNNING:
                 running = True
             elif process.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
@@ -211,20 +209,19 @@ class ApplicationStatus(object):
                 stopping = True
             elif process.state in STOPPED_STATES:
                 if process.rules.required:
-                    # any required stopped process is a major failure for a
-                    # running application
-                    # exception is made for an EXITED process with an expected
-                    # exit code
+                    # any required stopped process is a major failure for a running application
+                    # exception is made for an EXITED process with an expected exit code
                     if process.state != ProcessStates.EXITED or not process.expected_exit:
                         major_failure = True
                 else:
-                    # an optional process is a minor failure for a running
-                    # application when its state is FATAL or unexpectedly EXITED
+                    # an optional process is a minor failure for a running application
+                    # when its state is FATAL or unexpectedly EXITED
                     if ((process.state == ProcessStates.FATAL) or
                             (process.state == ProcessStates.EXITED and not process.expected_exit)):
                         minor_failure = True
             # all other STOPPED-like states are considered normal
-        self.logger.trace('Application {}: starting={} running={} stopping={} major_failure={} minor_failure={}'
+        self.logger.trace('ApplicationStatus.update_status: application_name={} starting={} running={} stopping={}'
+                          ' major_failure={} minor_failure={}'
                           .format(self.application_name, starting, running, stopping, major_failure, minor_failure))
         # apply rules for state
         if starting:
@@ -238,3 +235,5 @@ class ApplicationStatus(object):
         # update major_failure and minor_failure status (only for running applications)
         self.major_failure = major_failure and self.running()
         self.minor_failure = minor_failure and self.running()
+        self.logger.debug('Application {}: major_failure={} minor_failure={}'
+                          .format(self.application_name, self.major_failure, self.minor_failure))
