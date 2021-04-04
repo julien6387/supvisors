@@ -3,6 +3,9 @@
 
 * Python Enum used for enumerations (not available in Python 2.7)
 
+* Fixed https://github.com/julien6387/supvisors/issues/91
+  Fix CSS style on process tables in HTML
+
 * Fixed https://github.com/julien6387/supvisors/issues/90
   The Master Supvisors node drives the transition to OPERATION
 
