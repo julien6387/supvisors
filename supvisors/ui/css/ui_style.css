@@ -418,16 +418,14 @@ table .desc, table.addr {
 
 
 /* style for a table of processes */
-#processes th {
-    text-align: left;
-}
-
-#processes td:nth-child(2), #processes th:nth-child(2),
-#processes td:nth-child(n+4), #processes th:nth-child(n+4) {
+#node_processes td:nth-child(2), #node_processes th:nth-child(2),
+#node_processes td:nth-child(n+4), #node_processes th:nth-child(n+4),
+#app_processes td:nth-child(3), #app_processes td:nth-child(2),
+#app_processes td:nth-child(n+5) {
     text-align: center;
 }
 
-#processes td:nth-child(4) {
+#node_processes td:nth-child(4), #app_processes td:nth-child(5) {
     font-style: italic;
 }
 
@@ -435,10 +433,6 @@ table .desc, table.addr {
 #process_right_side th, #process_right_side td {
     text-align: center;
     vertical-align:middle;
-}
-
-#application td:nth-child(2), #application td:nth-child(n+4) {
-    text-align: center;
 }
 
 
