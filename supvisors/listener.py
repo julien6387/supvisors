@@ -27,7 +27,7 @@ from supervisor.states import ProcessStates, _process_states_by_code
 
 from supvisors.mainloop import SupvisorsMainLoop
 from supvisors.ttypes import SupvisorsStates
-from supvisors.utils import supvisors_shortcuts, InternalEventHeaders, RemoteCommEvents
+from supvisors.utils import InternalEventHeaders, RemoteCommEvents
 from supvisors.supvisorszmq import SupervisorZmq
 
 # get reverted map for ProcessStates
@@ -49,16 +49,15 @@ class SupervisorListener(object):
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        # shortcuts for source code readability
-        supvisors_shortcuts(self, ['fsm', 'info_source', 'logger', 'statistician'])
+        self.logger = supvisors.logger
         # test if statistics collector can be created for local host
         try:
             from supvisors.statscollector import instant_statistics
-            self.collector = instant_statistics
         except ImportError:
             self.logger.warn('SupervisorListener.init: psutil not installed')
             self.logger.warn('SupervisorListener.init: this Supvisors will not publish statistics')
-            self.collector = None
+            instant_statistics = None
+        self.collector = instant_statistics
         # other attributes
         self.local_node = self.supvisors.address_mapper.local_address
         self.publisher = None
@@ -75,9 +74,9 @@ class SupervisorListener(object):
         This method start the Supvisors main loop. """
         self.logger.info('SupervisorListener.on_running: local supervisord is RUNNING')
         # replace the default handler for web ui
-        self.info_source.replace_default_handler()
+        self.supvisors.info_source.replace_default_handler()
         # update Supervisor internal data for extra_args
-        self.info_source.prepare_extra_args()
+        self.supvisors.info_source.prepare_extra_args()
         # create zmq sockets
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
         # keep a reference to the internal events publisher
@@ -93,7 +92,7 @@ class SupervisorListener(object):
         self.logger.warn('local supervisord is STOPPING')
         # force Supervisor to close HTTP servers
         # this will prevent any pending XML-RPC request to block the main loop
-        self.info_source.close_httpservers()
+        self.supvisors.info_source.close_httpservers()
         # stop the main loop
         self.logger.info('SupervisorListener.on_stopping: request to stop main loop')
         self.main_loop.stop()
@@ -137,7 +136,7 @@ class SupervisorListener(object):
             stats = self.collector(status.pid_processes())
             self.publisher.send_statistics(stats)
         # periodic task
-        addresses = self.fsm.on_timer_event()
+        addresses = self.supvisors.fsm.on_timer_event()
         # pushes isolated addresses to main loop
         self.supvisors.zmq.pusher.send_isolate_nodes(addresses)
 
@@ -160,34 +159,35 @@ class SupervisorListener(object):
         if event_type == InternalEventHeaders.TICK:
             self.logger.trace('SupervisorListener.unstack_event: got tick event from {}: {}'
                               .format(event_node, event_data))
-            self.fsm.on_tick_event(event_node, event_data)
+            self.supvisors.fsm.on_tick_event(event_node, event_data)
         elif event_type == InternalEventHeaders.PROCESS:
             self.logger.trace('SupervisorListener.unstack_event: got process event from {}: {}'
                               .format(event_node, event_data))
-            self.fsm.on_process_event(event_node, event_data)
+            self.supvisors.fsm.on_process_event(event_node, event_data)
         elif event_type == InternalEventHeaders.STATISTICS:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace('SupervisorListener.unstack_event: got statistics event from {}: {}'
                               .format(event_node, event_data))
-            self.statistician.push_statistics(event_node, event_data)
+            self.supvisors.statistician.push_statistics(event_node, event_data)
         elif event_type == InternalEventHeaders.STATE:
             self.logger.trace('SupervisorListener.unstack_event: got OPERATION event from {}'
                               .format(event_node))
-            self.fsm.on_state_event(event_node, event_data)
+            self.supvisors.fsm.on_state_event(event_node, event_data)
 
     def unstack_info(self, message: str):
         """ Unstack the process info received. """
         # unstack the queue for process info
         address_name, info = json.loads(message)
         self.logger.trace('SupervisorListener.unstack_info: got process info event from {}'.format(address_name))
-        self.fsm.on_process_info(address_name, info)
+        self.supvisors.fsm.on_process_info(address_name, info)
 
     def authorization(self, data):
         """ Extract authorization and address from data and process event. """
         self.logger.trace('SupervisorListener.authorization: got authorization event: {}'.format(data))
         # split the line received
         node_name, authorized, master_node_name, supvisors_state = tuple(x.split(':')[1] for x in data.split())
-        self.fsm.on_authorization(node_name, boolean(authorized), master_node_name, SupvisorsStates[supvisors_state])
+        self.supvisors.fsm.on_authorization(node_name, boolean(authorized), master_node_name,
+                                            SupvisorsStates[supvisors_state])
 
     def force_process_fatal(self, namespec: str):
         """ Publishes a fake process event showing a FATAL state for the process. """

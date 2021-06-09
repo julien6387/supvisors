@@ -44,7 +44,6 @@ class ContextTest(CompatTestCase):
         from supvisors.context import Context
         context = Context(self.supvisors)
         self.assertIs(self.supvisors, context.supvisors)
-        self.assertIs(self.supvisors.address_mapper, context.address_mapper)
         self.assertIs(self.supvisors.logger, context.logger)
         self.assertItemsEqual(DummyAddressMapper().addresses, context.addresses.keys())
         for address_name, address in context.addresses.items():
@@ -60,7 +59,7 @@ class ContextTest(CompatTestCase):
         """ Test the access to master address. """
         from supvisors.context import Context
         context = Context(self.supvisors)
-        self.assertEqual('127.0.0.1', context.address_mapper.local_address)
+        self.assertEqual('127.0.0.1', context.supvisors.address_mapper.local_address)
         self.assertEqual('', context.master_node_name)
         self.assertFalse(context.is_master)
         self.assertFalse(context._is_master)

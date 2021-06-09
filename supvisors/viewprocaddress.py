@@ -27,8 +27,7 @@ from supvisors.webutils import *
 
 class ProcAddressView(SupvisorsAddressView):
     """ View renderer of the Process section of the Supvisors Address page.
-    Inheritance is made from supervisor.web.StatusView to benefit from
-    the action methods.
+    Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that the inheritance of StatusView has been patched dynamically
     in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
     inherits from ViewHandler instead of MeldView.
@@ -60,7 +59,7 @@ class ProcAddressView(SupvisorsAddressView):
         """ Collect sorted data on processes. """
         # use Supervisor to get local information on all processes
         data = []
-        rpc_intf = self.info_source.supervisor_rpc_interface
+        rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:

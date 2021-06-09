@@ -18,11 +18,10 @@
 # ======================================================================
 
 from time import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import AddressStates, SupvisorsStates, NodeNameList, Payload
-from supvisors.utils import supvisors_shortcuts
 
 
 class AbstractState(object):
@@ -39,8 +38,8 @@ class AbstractState(object):
         :param supvisors: the global Supvisors structure
         """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'failure_handler', 'logger', 'options',
-                                   'starter', 'stopper'])
+        self.context = supvisors.context
+        self.logger = supvisors.logger
         self.address_name = supvisors.address_mapper.local_address
 
     def enter(self) -> None:
@@ -50,7 +49,7 @@ class AbstractState(object):
         :return: None
         """
 
-    def next(self) -> None:
+    def next(self) -> Optional[SupvisorsStates]:
         """ Actions performed upon reception of an event.
         May be redefined in subclasses.
 
@@ -107,7 +106,7 @@ class InitializationState(AbstractState):
         self.context.master_node_name = ''
         self.start_date = int(time())
         # clear any existing job
-        self.failure_handler.clear_jobs()
+        self.supvisors.failure_handler.clear_jobs()
         # re-init addresses that are not isolated
         for status in self.context.addresses.values():
             if not status.in_isolation():
@@ -169,7 +168,7 @@ class DeploymentState(AbstractState):
             application.update_status()
         # only the Supvisors master starts applications
         if self.context.is_master:
-            self.starter.start_applications()
+            self.supvisors.starter.start_applications()
 
     def next(self) -> SupvisorsStates:
         """ 2 conditions to exit the state:
@@ -178,7 +177,7 @@ class DeploymentState(AbstractState):
 
         :return: the new Supvisors state
         """
-        if self.context.is_master and self.starter.check_starting() \
+        if self.context.is_master and self.supvisors.starter.check_starting() \
                 or not self.context.is_master and self.context.master_operational:
             return SupvisorsStates.OPERATION
         return SupvisorsStates.DEPLOYMENT
@@ -199,7 +198,7 @@ class OperationState(AbstractState):
         """ Check that all addresses are still active.
         Look after possible conflicts due to multiple running instances of the same program. """
         # check eventual jobs in progress
-        if self.starter.check_starting() and self.stopper.check_stopping():
+        if self.supvisors.starter.check_starting() and self.supvisors.stopper.check_stopping():
             # check if master and local are still RUNNING
             if self.context.addresses[self.address_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
@@ -226,7 +225,7 @@ class ConciliationState(AbstractState):
         """ Check that all addresses are still active.
         Wait for all conflicts to be conciliated. """
         # check eventual jobs in progress
-        if self.starter.check_starting() and self.stopper.check_stopping():
+        if self.supvisors.starter.check_starting() and self.supvisors.stopper.check_stopping():
             # check if master and local are still RUNNING
             if self.context.addresses[self.address_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
@@ -247,14 +246,14 @@ class RestartingState(AbstractState):
 
     def enter(self) -> None:
         """ When entering in the RESTARTING state, stop all applications. """
-        self.failure_handler.clear_jobs()
-        self.starter.abort()
-        self.stopper.stop_applications()
+        self.supvisors.failure_handler.clear_jobs()
+        self.supvisors.starter.abort()
+        self.supvisors.stopper.stop_applications()
 
     def next(self) -> SupvisorsStates:
         """ Wait for all processes to be stopped. """
         # check eventual jobs in progress
-        if self.stopper.check_stopping():
+        if self.supvisors.stopper.check_stopping():
             return SupvisorsStates.SHUTDOWN
         return SupvisorsStates.RESTARTING
 
@@ -268,14 +267,14 @@ class ShuttingDownState(AbstractState):
 
     def enter(self):
         """ When entering in the SHUTTING_DOWN state, stop all applications. """
-        self.failure_handler.clear_jobs()
-        self.starter.abort()
-        self.stopper.stop_applications()
+        self.supvisors.failure_handler.clear_jobs()
+        self.supvisors.starter.abort()
+        self.supvisors.stopper.stop_applications()
 
     def next(self):
         """ Wait for all processes to be stopped. """
         # check eventual jobs in progress
-        if self.stopper.check_stopping():
+        if self.supvisors.stopper.check_stopping():
             return SupvisorsStates.SHUTDOWN
         return SupvisorsStates.SHUTTING_DOWN
 
@@ -298,9 +297,10 @@ class FiniteStateMachine:
         :param supvisors: the Supvisors global structure
         """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['context', 'failure_handler', 'starter', 'stopper', 'logger'])
+        self.context = supvisors.context
+        self.logger = supvisors.logger
         self.state = None
-        self.instance = AbstractState(self.supvisors)
+        self.instance = AbstractState(supvisors)
         # Trigger first state / INITIALIZATION
         self.set_state(SupvisorsStates.INITIALIZATION)
 
@@ -340,7 +340,7 @@ class FiniteStateMachine:
         self.context.on_timer_event()
         self.next()
         # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
-        self.failure_handler.trigger_jobs()
+        self.supvisors.failure_handler.trigger_jobs()
         # check if new isolating remotes and return the list of newly isolated addresses
         # TODO: create an internal event to confirm that socket has been disconnected ?
         return self.context.handle_isolation()
@@ -361,16 +361,16 @@ class FiniteStateMachine:
         process = self.context.on_process_event(node_name, event)
         if process:
             # check if event is related to a starting or stopping application
-            starting = self.starter.has_application(process.application_name)
-            stopping = self.stopper.has_application(process.application_name)
+            starting = self.supvisors.starter.has_application(process.application_name)
+            stopping = self.supvisors.stopper.has_application(process.application_name)
             # feed starter with event
-            self.starter.on_event(process)
+            self.supvisors.starter.on_event(process)
             # feed stopper with event
-            self.stopper.on_event(process)
+            self.supvisors.stopper.on_event(process)
             # only the master is allowed to trigger an automatic behaviour for a running failure
             if self.context.is_master and process.crashed() and not (starting or stopping):
-                self.failure_handler.add_default_job(process)
-                self.failure_handler.trigger_jobs()
+                self.supvisors.failure_handler.add_default_job(process)
+                self.supvisors.failure_handler.trigger_jobs()
 
     def on_state_event(self, node_name, event: Payload) -> None:
         """ This event is used to get te operational state of the master node.

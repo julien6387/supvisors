@@ -150,7 +150,7 @@ class ListenerTest(unittest.TestCase):
         # create patches
         listener.publisher = Mock(**{'send_tick_event.return_value': None,
                                      'send_statistics.return_value': None})
-        listener.fsm.on_timer_event.return_value = ['10.0.0.1', '10.0.0.4']
+        listener.supvisors.fsm.on_timer_event.return_value = ['10.0.0.1', '10.0.0.4']
         self.supvisors.context.addresses['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
         # test non-process event
         with self.assertRaises(AttributeError):
@@ -162,7 +162,7 @@ class ListenerTest(unittest.TestCase):
                          listener.publisher.send_tick_event.call_args_list)
         self.assertEqual([call((8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))],
                          listener.publisher.send_statistics.call_args_list)
-        self.assertEqual([call()], listener.fsm.on_timer_event.call_args_list)
+        self.assertEqual([call()], listener.supvisors.fsm.on_timer_event.call_args_list)
         self.assertEqual([call(['10.0.0.1', '10.0.0.4'])],
                          self.supvisors.zmq.pusher.send_isolate_nodes.call_args_list)
 
@@ -173,34 +173,34 @@ class ListenerTest(unittest.TestCase):
         # test tick event
         listener.unstack_event('[0, "10.0.0.1", "data"]')
         self.assertEqual([call('10.0.0.1', 'data')],
-                         listener.fsm.on_tick_event.call_args_list)
-        self.assertFalse(listener.fsm.on_process_event.called)
-        self.assertFalse(listener.fsm.on_state_event.called)
-        self.assertFalse(listener.statistician.push_statistics.called)
-        listener.fsm.on_tick_event.reset_mock()
+                         listener.supvisors.fsm.on_tick_event.call_args_list)
+        self.assertFalse(listener.supvisors.fsm.on_process_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_state_event.called)
+        self.assertFalse(listener.supvisors.statistician.push_statistics.called)
+        listener.supvisors.fsm.on_tick_event.reset_mock()
         # test process event
         listener.unstack_event('[1, "10.0.0.2", {"name": "dummy"}]')
-        self.assertFalse(listener.fsm.on_tick_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_tick_event.called)
         self.assertEqual([call('10.0.0.2', {'name': 'dummy'})],
-                         listener.fsm.on_process_event.call_args_list)
-        self.assertFalse(listener.fsm.on_state_event.called)
-        self.assertFalse(listener.statistician.push_statistics.called)
-        listener.fsm.on_process_event.reset_mock()
+                         listener.supvisors.fsm.on_process_event.call_args_list)
+        self.assertFalse(listener.supvisors.fsm.on_state_event.called)
+        self.assertFalse(listener.supvisors.statistician.push_statistics.called)
+        listener.supvisors.fsm.on_process_event.reset_mock()
         # test statistics event
         listener.unstack_event('[2, "10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]')
-        self.assertFalse(listener.fsm.on_tick_event.called)
-        self.assertFalse(listener.fsm.on_process_event.called)
-        self.assertFalse(listener.fsm.on_state_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_tick_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_process_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_state_event.called)
         self.assertEqual([call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])],
-                         listener.statistician.push_statistics.call_args_list)
-        listener.statistician.push_statistics.reset_mock()
+                         listener.supvisors.statistician.push_statistics.call_args_list)
+        listener.supvisors.statistician.push_statistics.reset_mock()
         # test state event
         listener.unstack_event('[3, "10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]')
-        self.assertFalse(listener.fsm.on_tick_event.called)
-        self.assertFalse(listener.fsm.on_process_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_tick_event.called)
+        self.assertFalse(listener.supvisors.fsm.on_process_event.called)
         self.assertEqual([call('10.0.0.1', {'statecode': 10, 'statename': 'RUNNING'})],
-                         listener.fsm.on_state_event.call_args_list)
-        self.assertFalse(listener.statistician.push_statistics.called)
+                         listener.supvisors.fsm.on_state_event.call_args_list)
+        self.assertFalse(listener.supvisors.statistician.push_statistics.called)
 
     def test_unstack_info(self):
         """ Test the processing of a Supvisors information. """
@@ -209,7 +209,7 @@ class ListenerTest(unittest.TestCase):
         # test info event
         listener.unstack_info('["10.0.0.4", {"name": "dummy"}]')
         self.assertEqual([call('10.0.0.4', {"name": "dummy"})],
-                         listener.fsm.on_process_info.call_args_list)
+                         listener.supvisors.fsm.on_process_info.call_args_list)
 
     def test_authorization(self):
         """ Test the processing of a Supvisors authorization. """
@@ -218,7 +218,7 @@ class ListenerTest(unittest.TestCase):
         listener = SupervisorListener(self.supvisors)
         listener.authorization('info1:10.0.0.5 info2:False info3:10.0.0.1 info4:SHUTTING_DOWN')
         self.assertEqual([call('10.0.0.5', False, '10.0.0.1', SupvisorsStates.SHUTTING_DOWN)],
-                         listener.fsm.on_authorization.call_args_list)
+                         listener.supvisors.fsm.on_authorization.call_args_list)
 
     def test_on_remote_event(self):
         """ Test the reception of a Supervisor remote comm event. """

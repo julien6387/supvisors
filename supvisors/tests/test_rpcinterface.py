@@ -421,7 +421,7 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertFalse(deferred())
         self.assertFalse(deferred.waitstop)
         self.assertEqual(0, mocked_stop.call_count)
-        self.assertEqual([call(StartingStrategies.CONFIG, 'appli', 'wait')], mocked_start.call_args_list)
+        self.assertEqual([call(0, 'appli', 'wait')], mocked_start.call_args_list)
         mocked_start.reset_mock()
         # test RPC call with sub_RPC calls returning jobs
         # test with mocking functions telling that the jobs are not completed
@@ -451,7 +451,7 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual(NOT_DONE_YET, deferred())
         self.assertFalse(deferred.waitstop)
         self.assertEqual(0, mocked_stop.call_count)
-        self.assertEqual([call(StartingStrategies.CONFIG, 'appli', 'wait')], mocked_start.call_args_list)
+        self.assertEqual([call(0, 'appli', 'wait')], mocked_start.call_args_list)
         self.assertEqual([call()], mocked_stop_job.call_args_list)
         self.assertEqual(0, mocked_start_job.call_count)
         mocked_stop_job.reset_mock()
@@ -751,7 +751,7 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertFalse(deferred())
         self.assertFalse(deferred.waitstop)
         self.assertEqual(0, mocked_stop.call_count)
-        self.assertEqual([call(StartingStrategies.CONFIG, 'appli:*', 'arg list', 'wait')], mocked_start.call_args_list)
+        self.assertEqual([call(0, 'appli:*', 'arg list', 'wait')], mocked_start.call_args_list)
         mocked_start.reset_mock()
         # test RPC call with sub_RPC calls returning jobs
         # test with mocking functions telling that the jobs are not completed
@@ -781,7 +781,7 @@ class RpcInterfaceTest(unittest.TestCase):
         self.assertEqual(NOT_DONE_YET, deferred())
         self.assertFalse(deferred.waitstop)
         self.assertEqual(0, mocked_stop.call_count)
-        self.assertEqual([call(StartingStrategies.CONFIG, 'appli:*', '', 'wait')], mocked_start.call_args_list)
+        self.assertEqual([call(0, 'appli:*', '', 'wait')], mocked_start.call_args_list)
         self.assertEqual([call()], mocked_stop_job.call_args_list)
         self.assertEqual(0, mocked_start_job.call_count)
         mocked_stop_job.reset_mock()

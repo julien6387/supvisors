@@ -497,7 +497,7 @@ class ViewApplicationActionTest(unittest.TestCase):
     def check_start_action(self, rpc_name, action_name, *args):
         """ Test the method named action_name. """
         # get methods involved
-        rpc_call = getattr(self.view.info_source.supvisors_rpc_interface, rpc_name)
+        rpc_call = getattr(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
         action = getattr(self.view, action_name)
         # test call with error on main RPC call
         rpc_call.side_effect = RPCError('failed RPC')
@@ -533,7 +533,7 @@ class ViewApplicationActionTest(unittest.TestCase):
     def check_stop_action(self, rpc_name, action_name, *args):
         """ Test the stop-like method named action_name. """
         # get methods involved
-        rpc_call = getattr(self.view.info_source.supvisors_rpc_interface, rpc_name)
+        rpc_call = getattr(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
         action = getattr(self.view, action_name)
         # test call with error on main RPC call
         rpc_call.side_effect = RPCError('failed RPC')
@@ -564,7 +564,7 @@ class ViewApplicationActionTest(unittest.TestCase):
     def test_clearlog_process_action(self):
         """ Test the clearlog_process_action method. """
         # get rpc involved (mock)
-        rpc_call = self.view.info_source.supervisor_rpc_interface.clearProcessLogs
+        rpc_call = self.view.supvisors.info_source.supervisor_rpc_interface.clearProcessLogs
         # test call with error on main RPC call
         rpc_call.side_effect = RPCError(777, 'failed RPC')
         self.assertEqual('Delay err', self.view.clearlog_process_action('namespec'))

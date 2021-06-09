@@ -140,7 +140,7 @@ class StartingStrategyTest(CompatTestCase):
         from supvisors.strategy import LocalStrategy
         strategy = LocalStrategy(self.supvisors)
         # test LOCAL strategy with different values
-        self.assertEqual('10.0.0.1', strategy.address_mapper.local_address)
+        self.assertEqual('10.0.0.1', strategy.supvisors.address_mapper.local_address)
         self.assertEqual('10.0.0.1', strategy.get_address('*', 15))
         self.assertEqual('10.0.0.1', strategy.get_address('*', 45))
         self.assertIsNone(strategy.get_address('*', 75))

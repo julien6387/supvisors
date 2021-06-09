@@ -24,7 +24,7 @@ from supervisor.web import MeldView
 
 from supvisors.rpcinterface import API_VERSION
 from supvisors.ttypes import AddressStates, SupvisorsStates
-from supvisors.utils import get_stats, supvisors_shortcuts
+from supvisors.utils import get_stats
 from supvisors.viewcontext import *
 from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import *
@@ -55,12 +55,11 @@ class ViewHandler(MeldView):
         # add Supvisors shortcuts
         # WARN: do not shortcut Supvisors context as it is already used by MeldView
         self.supvisors = context.supervisord.supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'fsm', 'info_source',
-                                   'logger', 'options', 'statistician'])
+        self.logger = self.supvisors.logger
         # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local address
-        self.address = self.address_mapper.local_address
+        self.address = self.supvisors.address_mapper.local_address
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -78,7 +77,7 @@ class ViewHandler(MeldView):
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
         # clone the template and set navigation menu
-        if self.info_source.supervisor_state == SupervisorStates.RUNNING:
+        if self.supvisors.info_source.supervisor_state == SupervisorStates.RUNNING:
             # manage parameters
             self.handle_parameters()
             # manage action
@@ -114,7 +113,7 @@ class ViewHandler(MeldView):
         url = self.view_ctx.format_url('', SUPVISORS_PAGE)
         elt.attributes(href=url)
         # blink main title in conciliation state
-        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             elt.attrib['class'] = 'blink'
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
@@ -143,7 +142,7 @@ class ViewHandler(MeldView):
     def write_nav_addresses(self, root, address):
         """ Write the address part of the navigation menu. """
         mid_elt = root.findmeld('address_li_mid')
-        address_names = self.address_mapper.addresses
+        address_names = self.supvisors.address_mapper.addresses
         for li_elt, item in mid_elt.repeat(address_names):
             try:
                 status = self.sup_ctx.addresses[item]
@@ -174,7 +173,7 @@ class ViewHandler(MeldView):
             li_elt.attrib['class'] = item.state.name + (' active' if item.application_name == appli else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
-            if self.fsm.state == SupvisorsStates.INITIALIZATION:
+            if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
                 url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name})
@@ -189,7 +188,7 @@ class ViewHandler(MeldView):
     def write_periods(self, root):
         """ Write configured periods for statistics. """
         mid_elt = root.findmeld('period_li_mid')
-        periods = self.options.stats_periods
+        periods = self.supvisors.options.stats_periods
         for li_elt, item in mid_elt.repeat(periods):
             # print period button
             elt = li_elt.findmeld('period_a_mid')
@@ -315,7 +314,6 @@ class ViewHandler(MeldView):
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
         # manage actions iaw state
-        process_state = info['statecode']
         self.write_process_start_button(tr_elt, info)
         self.write_process_stop_button(tr_elt, info)
         self.write_process_restart_button(tr_elt, info)
@@ -334,7 +332,7 @@ class ViewHandler(MeldView):
             if rate is not None:
                 self.set_slope_class(elt, rate)
             cpuvalue = proc_stats[0][-1]
-            if not self.options.stats_irix_mode:
+            if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= nb_cores
             elt.content('{:.2f}%'.format(cpuvalue))
             # set mean value
@@ -450,11 +448,10 @@ class ViewHandler(MeldView):
         sorted_processes = []
         if processes:
             # get the list of applications, sorted alphabetically
-            application_list = sorted({process['application_name']
-                                       for process in processes})
+            application_list = sorted({process['application_name'] for process in processes})
             for application_name in application_list:
                 # get supervisor configuration for application
-                group_config = self.info_source.get_group_config(application_name)
+                group_config = self.supvisors.info_source.get_group_config(application_name)
                 # get process name ordering in this configuration
                 ordering = [proc.name for proc in group_config.process_configs]
                 # add processes known to supervisor, using the same ordering
@@ -463,8 +460,7 @@ class ViewHandler(MeldView):
                                      proc['process_name'] in ordering],
                                     key=lambda x: ordering.index(x['process_name']))
                 sorted_processes.extend(known_list)
-                # add processes unknown to supervisor, using the alphabetical
-                # ordering
+                # add processes unknown to supervisor, using the alphabetical ordering
                 unknown_list = sorted([proc for proc in processes
                                        if proc['application_name'] == application_name and
                                        proc['process_name'] not in ordering],

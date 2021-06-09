@@ -114,7 +114,7 @@ class ViewProcAddressTest(unittest.TestCase):
                                   **{'get_process_status.side_effect': [None, process_status],
                                      'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
         # test RPC Error
-        with patch.object(self.view.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
+        with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
                           side_effect=RPCError('failed RPC')):
             self.assertEqual([], self.view.get_process_data())
 
@@ -123,7 +123,7 @@ class ViewProcAddressTest(unittest.TestCase):
             return next((info.copy() for info in ProcessInfoDatabase
                          if info['name'] == name), {})
 
-        with patch.object(self.view.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
+        with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
                           return_value=[process_info_by_name('xfontsel'),
                                         process_info_by_name('segv')]):
             self.assertEqual(['process_2', 'process_1'], self.view.get_process_data())

@@ -30,7 +30,6 @@ from supvisors.listener import SupervisorListener
 from supvisors.process import ProcessStatus
 from supvisors.strategy import get_address
 from supvisors.ttypes import StartingStrategies, StartingFailureStrategies
-from supvisors.utils import supvisors_shortcuts
 
 
 class ProcessCommand(object):
@@ -48,7 +47,8 @@ class ProcessCommand(object):
     def __init__(self, process: ProcessStatus, strategy: StartingStrategies = None) -> None:
         """ Initialization of the attributes.
 
-        :param supvisors: the global Supvisors structure.
+        :param process: the process status to wrap
+        :param strategy: the applicable starting strategy
         """
         self.process = process
         self.strategy = strategy
@@ -107,8 +107,7 @@ class Commander(object):
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        # shortcuts for readability
-        supvisors_shortcuts(self, ['logger'])
+        self.logger = supvisors.logger
         # attributes
         self.planned_sequence: Commander.PlannedSequence = {}
         self.planned_jobs: Commander.PlannedJobs = {}

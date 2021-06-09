@@ -21,7 +21,6 @@ from supvisors.address import *
 from supvisors.application import ApplicationStatus
 from supvisors.process import *
 from supvisors.ttypes import AddressStates, NodeNameList
-from supvisors.utils import supvisors_shortcuts
 
 
 class Context(object):
@@ -40,14 +39,13 @@ class Context(object):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        # shortcuts for readability
-        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger', 'options'])
+        self.logger = supvisors.logger
         # attributes
         self.addresses = {address_name: AddressStatus(address_name, self.logger)
-                          for address_name in self.address_mapper.addresses}
+                          for address_name in self.supvisors.address_mapper.addresses}
         self.forced_addresses = {address_name: status
                                  for address_name, status in self.addresses.items()
-                                 if address_name in self.options.force_synchro_if}
+                                 if address_name in self.supvisors.options.force_synchro_if}
         self.applications = {}
         self.processes = {}
         # master attributes
@@ -67,7 +65,7 @@ class Context(object):
     def master_node_name(self, node_name):
         self.logger.info('Context.master_node_name: {}'.format(node_name))
         self._master_node_name = node_name
-        self._is_master = node_name == self.address_mapper.local_address
+        self._is_master = node_name == self.supvisors.address_mapper.local_address
         self.master_operational = False
 
     # methods on addresses
@@ -104,7 +102,7 @@ class Context(object):
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local address is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
-        if self.supvisors.options.auto_fence and status.address_name != self.address_mapper.local_address:
+        if self.supvisors.options.auto_fence and status.address_name != self.supvisors.address_mapper.local_address:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
@@ -196,7 +194,7 @@ class Context(object):
         :param authorized: the node authorization status
         :return: True if authorized both ways
         """
-        if self.address_mapper.valid(address_name):
+        if self.supvisors.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
@@ -217,7 +215,7 @@ class Context(object):
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
-        if self.address_mapper.valid(node_name):
+        if self.supvisors.address_mapper.valid(node_name):
             status = self.addresses[node_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
@@ -240,7 +238,7 @@ class Context(object):
         The method updates the ProcessStatus corresponding to the event, and thus the wrapping ApplicationStatus.
         Finally, the updated ProcessStatus and ApplicationStatus are published.
         """
-        if self.address_mapper.valid(address_name):
+        if self.supvisors.address_mapper.valid(address_name):
             status = self.addresses[address_name]
             # ISOLATED address is not updated anymore
             if not status.in_isolation():
@@ -250,7 +248,7 @@ class Context(object):
                     application = self.applications[event['group']]
                     process = application.processes[event['name']]
                     # update command line
-                    self.info_source.update_extra_args(process.namespec(), event['extra_args'])
+                    self.supvisors.info_source.update_extra_args(process.namespec(), event['extra_args'])
                 except KeyError:
                     # process not found. normal when no tick yet received
                     # from this address
@@ -270,7 +268,7 @@ class Context(object):
                     return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected location={}'
-                .format(address_name))
+                              .format(address_name))
 
     def on_timer_event(self):
         """ Check that all Supvisors instances are still publishing.

@@ -64,7 +64,7 @@ class ViewSupvisorsTest(CompatTestCase):
         """ Test the write_header method. """
         from supvisors.ttypes import SupvisorsStates
         # patch context
-        self.view.fsm.state = SupvisorsStates.OPERATION
+        self.view.supvisors.fsm.state = SupvisorsStates.OPERATION
         # build root structure
         mocked_state_mid = Mock()
         mocked_root = Mock(**{'findmeld.return_value': mocked_state_mid})
@@ -79,7 +79,7 @@ class ViewSupvisorsTest(CompatTestCase):
         """ Test the write_contents method. """
         from supvisors.ttypes import SupvisorsStates
         # patch context
-        self.view.fsm.state = SupvisorsStates.OPERATION
+        self.view.supvisors.fsm.state = SupvisorsStates.OPERATION
         self.view.sup_ctx.conflicts.return_value = True
         # build root structure
         mocked_box_mid = Mock()
@@ -96,7 +96,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_boxes.reset_mock()
         mocked_conflict_mid.replace.reset_mock()
         # test call in conciliation state
-        self.view.fsm.state = SupvisorsStates.CONCILIATION
+        self.view.supvisors.fsm.state = SupvisorsStates.CONCILIATION
         self.view.write_contents(mocked_root)
         self.assertEqual([call(mocked_root)], mocked_strategies.call_args_list)
         self.assertEqual([call(mocked_root)], mocked_conflicts.call_args_list)
@@ -476,7 +476,7 @@ class ViewSupvisorsTest(CompatTestCase):
         from supervisor.http import NOT_DONE_YET
         from supervisor.xmlrpc import RPCError
         # test RPC error
-        with patch.object(self.view.info_source.supvisors_rpc_interface, rpc_name,
+        with patch.object(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
                           side_effect=RPCError('failed RPC')) as mocked_rpc:
             self.assertEqual('delayed error', method_cb())
         self.assertTrue(mocked_derror.called)
@@ -486,7 +486,7 @@ class ViewSupvisorsTest(CompatTestCase):
         # reset mocks
         mocked_derror.reset_mock()
         # test direct result
-        with patch.object(self.view.info_source.supvisors_rpc_interface, rpc_name,
+        with patch.object(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
                           return_value='not callable object') as mocked_rpc:
             self.assertEqual('delayed info', method_cb())
         self.assertFalse(mocked_derror.called)
@@ -497,7 +497,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_dinfo.reset_mock()
         # test delayed result with RPC error
         mocked_onwait = Mock(side_effect=RPCError('failed RPC'))
-        with patch.object(self.view.info_source.supvisors_rpc_interface, rpc_name,
+        with patch.object(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
                           return_value=mocked_onwait) as mocked_rpc:
             cb = method_cb()
         self.assertTrue(callable(cb))
@@ -510,7 +510,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_error.reset_mock()
         # test delayed / uncompleted result
         mocked_onwait = Mock(return_value=NOT_DONE_YET)
-        with patch.object(self.view.info_source.supvisors_rpc_interface, rpc_name,
+        with patch.object(self.view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
                           return_value=mocked_onwait) as mocked_rpc:
             cb = method_cb()
         self.assertTrue(callable(cb))
@@ -521,7 +521,7 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertFalse(mocked_info.called)
         # test delayed / completed result
         mocked_onwait = Mock(return_value='done')
-        with patch.object(self.view.info_source.supvisors_rpc_interface, 'shutdown',
+        with patch.object(self.view.supvisors.info_source.supvisors_rpc_interface, 'shutdown',
                           return_value=mocked_onwait) as mocked_rpc:
             cb = method_cb()
         self.assertTrue(callable(cb))

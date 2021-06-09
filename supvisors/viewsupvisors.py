@@ -63,13 +63,13 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
         elt = root.findmeld('state_mid')
-        elt.content(self.fsm.state.name)
+        elt.content(self.supvisors.fsm.state.name)
 
     def write_contents(self, root):
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
-        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             # remove address boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
@@ -129,7 +129,7 @@ class SupvisorsView(ViewHandler):
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
         node_div_mid = root.findmeld('node_div_mid')
-        addresses = self.address_mapper.addresses
+        addresses = self.supvisors.address_mapper.addresses
         for node_div_elt, node in node_div_mid.repeat(addresses):
             # get node status from Supvisors context
             status = self.sup_ctx.addresses[node]
@@ -263,7 +263,7 @@ class SupvisorsView(ViewHandler):
     def sup_restart_action(self):
         """ Restart all Supervisor instances. """
         try:
-            cb = self.info_source.supvisors_rpc_interface.restart()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.restart()
         except RPCError as e:
             return delayed_error('restart: {}'.format(e))
         if callable(cb):
@@ -283,7 +283,7 @@ class SupvisorsView(ViewHandler):
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
         try:
-            cb = self.info_source.supvisors_rpc_interface.shutdown()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.shutdown()
         except RPCError as e:
             return delayed_error('shutdown: {}'.format(e))
         if callable(cb):

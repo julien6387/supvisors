@@ -18,7 +18,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Mapping, Sequence
+from typing import Any, Dict, Sequence, TypeVar
 
 
 # all enumerations
@@ -70,5 +70,7 @@ class InvalidTransition(Exception):
 
 
 # Types for annotations
-Payload = Mapping[str, Any]
+EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
+EnumType = TypeVar('EnumType', bound='Enum')
+Payload = Dict[str, Any]
 NodeNameList = Sequence[str]

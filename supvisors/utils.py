@@ -48,12 +48,6 @@ class DeferredRequestHeaders:
     CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
 
 
-def supvisors_shortcuts(instance, lst):
-    """ Used to set shortcuts in object attributes against supvisors attributes. """
-    for attr in lst:
-        setattr(instance, attr, getattr(instance.supvisors, attr))
-
-
 def simple_localtime(now=None):
     """ Returns the local time as a string, without the date. """
     if now is None:

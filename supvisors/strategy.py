@@ -21,7 +21,6 @@ from supvisors.ttypes import (AddressStates,
                               ConciliationStrategies,
                               StartingStrategies,
                               RunningFailureStrategies)
-from supvisors.utils import supvisors_shortcuts
 
 
 class AbstractStrategy(object):
@@ -29,7 +28,7 @@ class AbstractStrategy(object):
 
     def __init__(self, supvisors):
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'context', 'logger'])
+        self.logger = supvisors.logger
 
 
 # Strategy management for Starting
@@ -40,8 +39,8 @@ class AbstractStartingStrategy(AbstractStrategy):
         """ Return True and current loading if remote Supvisors instance is active
         and can support the additional loading. """
         self.logger.trace('is_loading_valid address={} expected_loading={}'.format(address, expected_loading))
-        if address in self.context.addresses.keys():
-            status = self.context.addresses[address]
+        if address in self.supvisors.context.addresses.keys():
+            status = self.supvisors.context.addresses[address]
             self.logger.trace('address {} state={}'.format(address, status.state.name))
             if status.state == AddressStates.RUNNING:
                 loading = status.loading()
@@ -54,7 +53,7 @@ class AbstractStartingStrategy(AbstractStrategy):
     def get_loading_and_validity(self, addresses, expected_loading):
         """ Return the report of loading capability of all addresses iaw the additional loading required. """
         if '*' in addresses:
-            addresses = self.address_mapper.addresses
+            addresses = self.supvisors.address_mapper.addresses
         loading_validities = {address: self.is_loading_valid(address, expected_loading)
                               for address in addresses}
         self.logger.trace('loading_validities={}'.format(loading_validities))
@@ -110,12 +109,13 @@ class LocalStrategy(AbstractStartingStrategy):
         """ Choose the local address provided that it can support the additional loading requested. """
         self.logger.trace('LocalStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
         loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        local_address = self.address_mapper.local_address
+        local_address = self.supvisors.address_mapper.local_address
         return local_address if loading_validities.get(local_address, (False,))[0] else None
 
 
 def get_address(supvisors, strategy, addresses, expected_loading):
     """ Creates a strategy and let it find an address to start a process having a defined loading. """
+    instance = None
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
     if strategy == StartingStrategies.LESS_LOADED:
@@ -125,7 +125,7 @@ def get_address(supvisors, strategy, addresses, expected_loading):
     if strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
     # apply strategy result
-    return instance.get_address(addresses, expected_loading)
+    return instance.get_address(addresses, expected_loading) if instance else None
 
 
 # Strategy management for Conciliation
@@ -229,6 +229,7 @@ class FailureStrategy(AbstractStrategy):
 
 def conciliate_conflicts(supvisors, strategy, conflicts):
     """ Creates a strategy and let it conciliate the conflicts. """
+    instance = None
     if strategy == ConciliationStrategies.SENICIDE:
         instance = SenicideStrategy(supvisors)
     elif strategy == ConciliationStrategies.INFANTICIDE:
@@ -242,7 +243,8 @@ def conciliate_conflicts(supvisors, strategy, conflicts):
     elif strategy == ConciliationStrategies.RUNNING_FAILURE:
         instance = FailureStrategy(supvisors)
     # apply strategy to conflicts
-    instance.conciliate(conflicts)
+    if instance:
+        instance.conciliate(conflicts)
 
 
 # Strategy management for a Running Failure
@@ -271,7 +273,6 @@ class RunningFailureHandler(AbstractStrategy):
 
     def __init__(self, supvisors):
         AbstractStrategy.__init__(self, supvisors)
-        supvisors_shortcuts(self, ['starter', 'stopper'])
         # the initial jobs
         self.stop_application_jobs = set()
         self.restart_application_jobs = set()
@@ -332,16 +333,16 @@ class RunningFailureHandler(AbstractStrategy):
             for application_name in self.stop_application_jobs:
                 self.logger.warn('RunningFailureHandler.trigger_jobs: stop application {}'
                                  .format(application_name))
-                application = self.context.applications[application_name]
-                self.stopper.stop_application(application)
+                application = self.supvisors.context.applications[application_name]
+                self.supvisors.stopper.stop_application(application)
             self.stop_application_jobs = set()
         # consider applications to restart
         if self.restart_application_jobs:
             for application_name in self.restart_application_jobs:
                 self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'
                                  .format(application_name))
-                application = self.context.applications[application_name]
-                self.stopper.stop_application(application)
+                application = self.supvisors.context.applications[application_name]
+                self.supvisors.stopper.stop_application(application)
                 # defer the application starting
                 self.start_application_jobs.add(application)
             self.restart_application_jobs = set()
@@ -350,7 +351,7 @@ class RunningFailureHandler(AbstractStrategy):
             for process in self.restart_process_jobs:
                 self.logger.warn('RunningFailureHandler.trigger_jobs: restart process {}'
                                  .format(process.namespec()))
-                self.stopper.stop_process(process)
+                self.supvisors.stopper.stop_process(process)
                 # defer the process starting
                 self.start_process_jobs.add(process)
             self.restart_process_jobs = set()
@@ -360,7 +361,7 @@ class RunningFailureHandler(AbstractStrategy):
                 if application.stopped():
                     self.logger.debug('RunningFailureHandler.trigger_jobs: start application {}'
                                       .format(application.application_name))
-                    self.starter.default_start_application(application)
+                    self.supvisors.starter.default_start_application(application)
                     self.start_application_jobs.remove(application)
         # consider processes to start
         if self.start_process_jobs:
@@ -368,7 +369,7 @@ class RunningFailureHandler(AbstractStrategy):
                 if process.stopped():
                     self.logger.warn('RunningFailureHandler.trigger_jobs: start process {}'
                                      .format(process.namespec()))
-                    self.starter.default_start_process(process)
+                    self.supvisors.starter.default_start_process(process)
                     self.start_process_jobs.remove(process)
         # log only the continuation jobs
         if self.continue_process_jobs:

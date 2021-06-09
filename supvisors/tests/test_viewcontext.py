@@ -268,7 +268,7 @@ class ViewContextTest(unittest.TestCase):
         # reset parameter because called in constructor
         del ctx.parameters[APPLI]
         # test call with valid value
-        ctx.context.applications = {'abc': [], 'dummy_appli': []}
+        ctx.supvisors.context.applications = {'abc': [], 'dummy_appli': []}
         ctx.update_application_name()
         # cannot rely on ordering for second parameter because of dict need to split checking
         self.assertEqual('dummy_appli', ctx.parameters[APPLI])
@@ -309,7 +309,7 @@ class ViewContextTest(unittest.TestCase):
         # reset parameter because called in constructor
         del ctx.parameters[NAMESPEC]
         # test call with valid parameter
-        ctx.context.processes = {'abc': [], 'dummy_proc': []}
+        ctx.supvisors.context.processes = {'abc': [], 'dummy_proc': []}
         ctx.update_namespec()
         self.assertEqual('dummy_proc', ctx.parameters[NAMESPEC])
         # reset parameter
@@ -533,7 +533,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertFalse(self.ctx.get_process_status())
         self.assertFalse(self.ctx.get_process_status('abc'))
         # test with context
-        with patch.dict(self.ctx.context.processes,
+        with patch.dict(self.ctx.supvisors.context.processes,
                         {'abc': {'process': 'abc'},
                          'dummy_proc': {'process': 'dummy_proc'}},
                         clear=True):

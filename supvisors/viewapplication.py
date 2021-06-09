@@ -220,7 +220,7 @@ class ApplicationView(ViewHandler):
     def start_action(self, strategy, rpc_name, arg_name, arg_type):
         """ Start/Restart an application or a process iaw the strategy. """
         try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
+            rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(strategy, arg_name)
         except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
@@ -245,7 +245,7 @@ class ApplicationView(ViewHandler):
     def stop_action(self, rpc_name, arg_name, arg_type):
         """ Stop an application or a process. """
         try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
+            rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(arg_name)
         except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
@@ -295,7 +295,7 @@ class ApplicationView(ViewHandler):
         """ Can't call supervisor StatusView source code from application view.
         Just do the same job. """
         try:
-            rpc_intf = self.info_source.supervisor_rpc_interface
+            rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
             rpc_intf.clearProcessLogs(namespec)
         except RPCError as e:
             return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))

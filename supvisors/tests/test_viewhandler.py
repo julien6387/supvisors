@@ -81,7 +81,7 @@ class ViewHandlerTest(unittest.TestCase):
         mocked_root = Mock(**{'write_xhtmlstring.return_value': 'xhtml'})
         mocked_clone.return_value = mocked_root
         # 1. test render call when Supervisor is not RUNNING
-        self.handler.info_source.supervisor_state = SupervisorStates.RESTARTING
+        self.handler.supvisors.info_source.supervisor_state = SupervisorStates.RESTARTING
         self.assertFalse(self.handler.render())
         self.assertIsNone(self.handler.view_ctx)
         self.assertFalse(mocked_action.call_count)
@@ -90,7 +90,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertFalse(self.handler.write_header.call_count)
         self.assertFalse(self.handler.write_contents.call_count)
         # 2. test render call when Supervisor is RUNNING and an action is in progress
-        self.handler.info_source.supervisor_state = SupervisorStates.RUNNING
+        self.handler.supvisors.info_source.supervisor_state = SupervisorStates.RUNNING
         mocked_action.return_value = NOT_DONE_YET
         self.assertEqual(NOT_DONE_YET, self.handler.render())
         self.assertIsNotNone(self.handler.view_ctx)
@@ -141,7 +141,7 @@ class ViewHandlerTest(unittest.TestCase):
         mocked_root = Mock(**{'findmeld.side_effect': [mocked_meta, mocked_supv, mocked_version,
                                                        mocked_refresh, mocked_autorefresh] * 2})
         # 1. test no conflict and auto-refresh
-        self.handler.fsm.state = SupvisorsStates.OPERATION
+        self.handler.supvisors.fsm.state = SupvisorsStates.OPERATION
         self.handler.write_common(mocked_root)
         self.assertEqual([call('meta_mid'), call('supvisors_mid'), call('version_mid'),
                           call('refresh_a_mid'), call('autorefresh_a_mid')],
@@ -167,7 +167,7 @@ class ViewHandlerTest(unittest.TestCase):
         mocked_autorefresh.attrib['class'] = 'button'
         mocked_msg.reset_mock()
         # 2. test conflicts and no auto-refresh
-        self.handler.fsm.state = SupvisorsStates.CONCILIATION
+        self.handler.supvisors.fsm.state = SupvisorsStates.CONCILIATION
         self.handler.view_ctx.parameters[AUTO] = False
         self.handler.write_common(mocked_root)
         self.assertEqual([call('meta_mid'), call('supvisors_mid'), call('version_mid'),
@@ -204,7 +204,7 @@ class ViewHandlerTest(unittest.TestCase):
         # test call with no address status in context
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
         self.assertEqual([], address_elt.findmeld.call_args_list)
 
     def test_write_nav_addresses_silent_address(self):
@@ -221,7 +221,7 @@ class ViewHandlerTest(unittest.TestCase):
                                                           **{'state_string.return_value': 'silent'})
         self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
         self.assertEqual('SILENT', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
@@ -234,7 +234,7 @@ class ViewHandlerTest(unittest.TestCase):
         # and identical to parameter
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
         self.assertEqual('SILENT active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
@@ -255,7 +255,7 @@ class ViewHandlerTest(unittest.TestCase):
                                                           **{'state_string.return_value': 'running'})
         self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
         self.assertEqual('RUNNING', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
@@ -273,7 +273,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.sup_ctx.master_node_name = '10.0.0.1'
         self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
         self.assertEqual('RUNNING active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
@@ -284,7 +284,7 @@ class ViewHandlerTest(unittest.TestCase):
     def test_write_nav_applications_initialization(self):
         """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
         from supvisors.ttypes import ApplicationStates, SupvisorsStates
-        self.handler.fsm.state = SupvisorsStates.INITIALIZATION
+        self.handler.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -322,7 +322,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_nav_applications method with Supvisors in its
         OPERATION state. """
         from supvisors.ttypes import ApplicationStates, SupvisorsStates
-        self.handler.fsm.state = SupvisorsStates.OPERATION
+        self.handler.supvisors.fsm.state = SupvisorsStates.OPERATION
         # patch the meld elements
         href_elt = Mock(attrib={})
         appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -372,7 +372,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
         self.handler.write_periods(mocked_root)
         self.assertEqual([call('period_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.options.stats_periods)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.options.stats_periods)], mocked_mid.repeat.call_args_list)
         self.assertEqual([call('period_a_mid')], period_elt.findmeld.call_args_list)
         self.assertEqual('button off active', href_elt.attrib['class'])
         self.assertEqual([], self.handler.view_ctx.format_url.call_args_list)
@@ -387,7 +387,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.handler.view_ctx.parameters[PERIOD] = 10
         self.handler.write_periods(mocked_root)
         self.assertEqual([call('period_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.options.stats_periods)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.options.stats_periods)], mocked_mid.repeat.call_args_list)
         self.assertEqual([call('period_a_mid')], period_elt.findmeld.call_args_list)
         self.assertEqual('', href_elt.attrib['class'])
         self.assertEqual([call('', None, period=5)], self.handler.view_ctx.format_url.call_args_list)
@@ -418,7 +418,7 @@ class ViewHandlerTest(unittest.TestCase):
         tr_elt.findmeld.reset_mock()
         cell_elt.replace.reset_mock()
         # test with filled stats on selected process, irix mode
-        self.handler.options.stats_irix_mode = True
+        self.handler.supvisors.options.stats_irix_mode = True
         info = {'namespec': 'dummy_proc', 'proc_stats': [[10, 20]], 'nb_cores': 2}
         self.handler.write_common_process_cpu(tr_elt, info)
         self.assertEqual([call('pcpu_a_mid')], tr_elt.findmeld.call_args_list)
@@ -430,7 +430,7 @@ class ViewHandlerTest(unittest.TestCase):
         cell_elt.content.reset_mock()
         cell_elt.attributes.reset_mock()
         # test with filled stats on not selected process, solaris mode
-        self.handler.options.stats_irix_mode = False
+        self.handler.supvisors.options.stats_irix_mode = False
         info = {'namespec': 'dummy', 'address': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
         self.handler.write_common_process_cpu(tr_elt, info)
         self.assertEqual([call('pcpu_a_mid')], tr_elt.findmeld.call_args_list)
@@ -622,7 +622,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertFalse(self.handler.write_detailed_process_cpu(stats_elt, [], 4))
         self.assertFalse(self.handler.write_detailed_process_cpu(stats_elt, ([], []), 4))
         # test call with irix mode
-        self.handler.options.stats_irix_mode = True
+        self.handler.supvisors.options.stats_irix_mode = True
         self.assertTrue(self.handler.write_detailed_process_cpu(stats_elt, proc_stats, 4))
         self.assertEqual('decrease', val_elt.attrib['class'])
         self.assertEqual([call('13.00%')], val_elt.content.call_args_list)
@@ -635,7 +635,7 @@ class ViewHandlerTest(unittest.TestCase):
         dev_elt.content.reset_mock()
         # test call with solaris mode
         proc_stats = ([10, 16, 24],)
-        self.handler.options.stats_irix_mode = False
+        self.handler.supvisors.options.stats_irix_mode = False
         self.assertTrue(self.handler.write_detailed_process_cpu(stats_elt, proc_stats, 4))
         self.assertEqual('increase', val_elt.attrib['class'])
         self.assertEqual([call('6.00%')], val_elt.content.call_args_list)
@@ -656,7 +656,7 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertFalse(self.handler.write_detailed_process_mem(stats_elt, [], ))
         self.assertFalse(self.handler.write_detailed_process_mem(stats_elt, ([], [])))
         # test call with irix mode
-        self.handler.options.stats_irix_mode = True
+        self.handler.supvisors.options.stats_irix_mode = True
         self.assertTrue(self.handler.write_detailed_process_mem(stats_elt, proc_stats))
         self.assertEqual('stable', val_elt.attrib['class'])
         self.assertEqual([call('32.00%')], val_elt.content.call_args_list)
@@ -824,7 +824,7 @@ class ViewHandlerTest(unittest.TestCase):
             type(proc).name = PropertyMock(return_value=proc_name)
             return proc
 
-        self.handler.info_source.get_group_config.side_effect = [
+        self.handler.supvisors.info_source.get_group_config.side_effect = [
             # first group is crash
             # late_segv is forgotten to test ordering with unknown processes
             Mock(process_configs=[create_mock('segv')]),

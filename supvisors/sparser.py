@@ -19,7 +19,6 @@
 
 from collections import OrderedDict
 from distutils.util import strtobool
-from enum import Enum
 from io import StringIO
 from sys import stderr
 from typing import Any, Optional, Union
@@ -28,8 +27,7 @@ from supervisor.datatypes import list_of_strings
 
 from supvisors.application import ApplicationStatus, ApplicationRules
 from supvisors.process import ProcessStatus, ProcessRules
-from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
-from supvisors.utils import supvisors_shortcuts
+from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies, EnumClassType
 
 # XSD contents for XML validation
 XSDContents = StringIO('''\
@@ -108,7 +106,7 @@ class Parser(object):
         :param supvisors: the global Supvisors structure.
         """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['logger'])
+        self.logger = supvisors.logger
         self.tree = self.parse(supvisors.options.rules_file)
         self.root = self.tree.getroot()
         # get models
@@ -309,7 +307,8 @@ class Parser(object):
                 self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_enum(self, elt: Any, attr_string: str, klass: Enum, rules: Union[ApplicationRules, ProcessRules]) -> None:
+    def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType,
+                  rules: Union[ApplicationRules, ProcessRules]) -> None:
         """ Return the running_failure_strategy value found from XML element.
         The value MUST correspond to an enumeration value of RunningFailureStrategies.
 

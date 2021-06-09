@@ -18,6 +18,7 @@
 # ======================================================================
 
 import math
+import pytest
 import sys
 import unittest
 
@@ -32,21 +33,6 @@ class UtilsTest(unittest.TestCase):
     def setUp(self):
         """ Create a logger that stores log traces. """
         self.supvisors = MockedSupvisors()
-
-    def test_shortcut(self):
-        """ Test the shortcuts to supvisors data. """
-        from supvisors.utils import supvisors_shortcuts
-        # test with existing attributes
-        supvisors_shortcuts(self, ['address_mapper', 'fsm', 'logger',
-                                   'requester', 'statistician'])
-        self.assertIs(self.address_mapper, self.supvisors.address_mapper)
-        self.assertIs(self.fsm, self.supvisors.fsm)
-        self.assertIs(self.statistician, self.supvisors.statistician)
-        self.assertIs(self.requester, self.supvisors.requester)
-        self.assertIs(self.logger, self.supvisors.logger)
-        # test with unknown attributes
-        with self.assertRaises(AttributeError):
-            supvisors_shortcuts(self, ['addresser', 'logging'])
 
     def test_localtime(self):
         """ Test the display of local time. """

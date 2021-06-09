@@ -49,7 +49,7 @@ class ProcessRules(object):
         # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
         # keep a reference to the Supvisors data
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['info_source', 'logger'])
+        self.logger = supvisors.logger
         # attributes
         self.addresses = ['*']
         self.hash_addresses = None
@@ -75,8 +75,8 @@ class ProcessRules(object):
             self.required = False
         # disable autorestart when RunningFailureStrategies is not CONTINUE
         if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
-            if self.info_source.autorestart(namespec):
-                self.info_source.disable_autorestart(namespec)
+            if self.supvisors.info_source.autorestart(namespec):
+                self.supvisors.info_source.disable_autorestart(namespec)
                 self.logger.warn('ProcessRules.check_dependencies: {} - autorestart disabled due to '
                                  'running failure strategy {}'
                                  .format(namespec, self.running_failure_strategy.name))
@@ -87,10 +87,10 @@ class ProcessRules(object):
         :return: the printable process rules
         """
         return 'addresses={} hash_addresses={} start_sequence={} stop_sequence={} required={}' \
-               ' wait_exit={} expected_loading={} running_failure_strategy={}'. \
-            format(self.addresses, self.hash_addresses,
-                   self.start_sequence, self.stop_sequence, self.required,
-                   self.wait_exit, self.expected_loading, self.running_failure_strategy.name)
+               ' wait_exit={} expected_loading={} running_failure_strategy={}' \
+            .format(self.addresses, self.hash_addresses,
+                    self.start_sequence, self.stop_sequence, self.required,
+                    self.wait_exit, self.expected_loading, self.running_failure_strategy.name)
 
     def serial(self) -> Payload:
         """ Get a serializable form of the process rules.
@@ -131,9 +131,7 @@ class ProcessStatus(object):
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'info_source', 'logger', 'options'])
-        # copy to self the Supervisor method use to describe the process status
-        ProcessStatus.update_description = SupervisorNamespaceRPCInterface._interpretProcessInfo
+        self.logger = supvisors.logger
         # attributes
         self.application_name = application_name
         self.process_name = process_name
@@ -183,7 +181,7 @@ class ProcessStatus(object):
         """
         if self._extra_args != new_args:
             self._extra_args = new_args
-            self.info_source.update_extra_args(self.namespec(), new_args)
+            self.supvisors.info_source.update_extra_args(self.namespec(), new_args)
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
@@ -212,7 +210,7 @@ class ProcessStatus(object):
 
         :return: the crash status of the process
         """
-        return (self.state == ProcessStates.FATAL or (self.state == ProcessStates.EXITED and not self.expected_exit))
+        return self.state == ProcessStates.FATAL or (self.state == ProcessStates.EXITED and not self.expected_exit)
 
     def stopped(self) -> bool:
         """ Return True if the process is stopped, as designed in Supervisor.
@@ -252,6 +250,16 @@ class ProcessStatus(object):
         :return: the conflict status of the process
         """
         return len(self.addresses) > 1
+
+    @staticmethod
+    def update_description(process_info: Payload) -> str:
+        """ Return the Supervisor way to describe the process status.
+
+        :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
+        :return: the description of the process status
+        """
+        """  """
+        return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, process_info)
 
     # methods
     def state_string(self) -> str:
@@ -294,12 +302,12 @@ class ProcessStatus(object):
         :param address: the node from which the process information has been received
         :return: None
         """
-        procnumber = self.options.procnumbers[self.process_name]
+        procnumber = self.supvisors.options.procnumbers[self.process_name]
         self.logger.debug('ProcessStatus.resolve_hash_address: namespec={} address={} procnumber={}'
                           .format(self.namespec(), address, procnumber))
         if '*' in self.rules.hash_addresses:
             # all nodes defined in the supvisors section of the supervisor configuration file are applicable
-            if self.address_mapper.addresses.index(address) == procnumber:
+            if self.supvisors.address_mapper.addresses.index(address) == procnumber:
                 self.rules.addresses = [address]
         else:
             # the subset of applicable nodes is the second element of rules addresses
@@ -317,15 +325,15 @@ class ProcessStatus(object):
         # do not consider process event while not added through tick
         if address in self.infos:
             # keep date of last information received
-            # use local time here as there is no guarantee that addresses will be time synchonized
+            # use local time here as there is no guarantee that nodes will be time synchronized
             self.last_event_time = int(time())
             # last received extra_args are always applicable
             self.extra_args = payload['extra_args']
             # refresh internal information
             info = self.infos[address]
             info['local_time'] = self.last_event_time
-            self.logger.trace('ProcessStatus.update_info: inserting {} into {} at {}'
-                              .format(payload, info, address))
+            self.logger.trace('ProcessStatus.update_info: in {}, inserting {} into {} at {}'
+                              .format(self.namespec(), payload, info, address))
             info.update(payload)
             # re-evaluate description using Supervisor function
             info['description'] = self.update_description(info)

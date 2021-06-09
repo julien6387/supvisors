@@ -21,7 +21,6 @@ from distutils.util import strtobool
 from urllib.parse import quote
 
 from supvisors.ttypes import StartingStrategies
-from supvisors.utils import supvisors_shortcuts
 from supvisors.webutils import error_message
 
 # form parameters
@@ -57,12 +56,11 @@ class ViewContext:
         """ Define attributes for statistics selection. """
         # store the HTML context
         self.http_context = context
-        # keep references to Supvisors instance and attributes for readability
+        # keep references to Supvisors instance
         self.supvisors = context.supervisord.supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'context', 'logger',
-                                   'options', 'statistician'])
+        self.logger = self.supvisors.logger
         # keep reference to the local address
-        self.local_address = self.address_mapper.local_address
+        self.local_address = self.supvisors.address_mapper.local_address
         # initialize parameters
         self.parameters = {}
         # extract parameters from context
@@ -99,12 +97,12 @@ class ViewContext:
 
     def update_period(self):
         """ Extract period from context. """
-        default_value = next(iter(self.options.stats_periods))
-        self._update_integer(PERIOD, self.options.stats_periods, default_value)
+        default_value = next(iter(self.supvisors.options.stats_periods))
+        self._update_integer(PERIOD, self.supvisors.options.stats_periods, default_value)
 
     def update_strategy(self):
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, StartingStrategies._member_names_, self.options.starting_strategy.name)
+        self._update_string(STRATEGY, StartingStrategies._member_names_, self.supvisors.options.starting_strategy.name)
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """
@@ -114,11 +112,11 @@ class ViewContext:
     def update_address(self):
         """ Extract address name from context. """
         # assign value found or default
-        self._update_string(ADDRESS, self.address_mapper.addresses, self.local_address)
+        self._update_string(ADDRESS, self.supvisors.address_mapper.addresses, self.local_address)
 
     def update_application_name(self):
         """ Extract application name from context. """
-        self._update_string(APPLI, list(self.context.applications.keys()))
+        self._update_string(APPLI, list(self.supvisors.context.applications.keys()))
 
     def update_process_name(self):
         """ Extract process name from context.
@@ -129,7 +127,7 @@ class ViewContext:
 
     def update_namespec(self):
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, list(self.context.processes.keys()))
+        self._update_string(NAMESPEC, list(self.supvisors.context.processes.keys()))
 
     def update_cpu_id(self):
         """ Extract CPU id from context. """
@@ -165,13 +163,13 @@ class ViewContext:
     def get_nbcores(self, address=None):
         """ Get the number of processors of the local address. """
         stats_address = address or self.local_address
-        return self.statistician.nbcores.get(stats_address, 0)
+        return self.supvisors.statistician.nbcores.get(stats_address, 0)
 
     def get_address_stats(self, address=None):
         """ Get the statistics structure related to the address and the period selected.
         If no address is specified, local address is used. """
         stats_address = address or self.local_address
-        return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
+        return self.supvisors.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
 
     def get_process_last_desc(self, namespec, running=False):
         """ Get the latest description received from the process across all addresses.
@@ -213,7 +211,7 @@ class ViewContext:
         namespec = namespec or self.parameters[NAMESPEC]
         if namespec:
             try:
-                return self.context.processes[namespec]
+                return self.supvisors.context.processes[namespec]
             except KeyError:
                 self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
 

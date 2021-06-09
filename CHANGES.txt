@@ -3,6 +3,8 @@
 
 * Python Enum used for enumerations (not available in Python 2.7)
 
+* remove supvisors_shortcuts from source code to get rid of warnings raised by IDE
+
 * Fixed https://github.com/julien6387/supvisors/issues/91
   Fix CSS style on process tables in HTML
 
