@@ -264,16 +264,16 @@ class ViewApplicationTest(unittest.TestCase):
         # patch the selected application
         process_1 = Mock(application_name='appli_1',
                          process_name='process_1',
-                         addresses=set(),
+                         running_nodes=set(),
                          state='stopped',
-                         rules=Mock(expected_loading=20), **{'namespec.return_value': 'namespec_1',
-                                                             'state_string.return_value': 'stopped'})
+                         rules=Mock(expected_load=20), **{'namespec.return_value': 'namespec_1',
+                                                          'state_string.return_value': 'stopped'})
         process_2 = Mock(application_name='appli_2',
                          process_name='process_2',
-                         addresses=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
+                         running_nodes=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
                          state='running',
-                         rules=Mock(expected_loading=1), **{'namespec.return_value': 'namespec_2',
-                                                            'state_string.return_value': 'running'})
+                         rules=Mock(expected_load=1), **{'namespec.return_value': 'namespec_2',
+                                                         'state_string.return_value': 'running'})
         self.view.application = Mock(processes={process_1.process_name: process_1,
                                                 process_2.process_name: process_2})
         # patch context
@@ -285,23 +285,23 @@ class ViewApplicationTest(unittest.TestCase):
         data1 = {'application_name': 'appli_1',
                  'process_name': 'process_1',
                  'namespec': 'namespec_1',
-                 'address': '10.0.0.1',
+                 'node_name': '10.0.0.1',
                  'statename': 'stopped',
                  'statecode': 'stopped',
-                 'running_list': [],
+                 'running_nodes': [],
                  'description': 'something',
-                 'loading': 20,
+                 'expected_load': 20,
                  'nb_cores': 4,
                  'proc_stats': mocked_stats}
         data2 = {'application_name': 'appli_2',
                  'process_name': 'process_2',
                  'namespec': 'namespec_2',
-                 'address': '10.0.0.1',
-                 'running_list': ['10.0.0.1', '10.0.0.3'],
+                 'node_name': '10.0.0.1',
+                 'running_nodes': ['10.0.0.1', '10.0.0.3'],
                  'description': 'something',
                  'statename': 'running',
                  'statecode': 'running',
-                 'loading': 1,
+                 'expected_load': 1,
                  'nb_cores': 4,
                  'proc_stats': mocked_stats}
         self.assertEqual(1, mocked_sort.call_count)
@@ -313,12 +313,12 @@ class ViewApplicationTest(unittest.TestCase):
 
     def test_write_process(self):
         """ Test the write_process method. """
-        from supvisors.webutils import PROC_ADDRESS_PAGE, TAIL_PAGE
+        from supvisors.webutils import PROC_NODE_PAGE, TAIL_PAGE
         # create a process-like dict
         info = {'process_name': 'proc1',
                 'namespec': 'dummy_appli:dummy_proc',
-                'running_list': [],
-                'address': '10.0.0.2'}
+                'running_nodes': [],
+                'node_name': '10.0.0.2'}
         # patch the view context
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # patch the meld elements
@@ -343,15 +343,15 @@ class ViewApplicationTest(unittest.TestCase):
         self.view.view_ctx.format_url.reset_mock()
         running_ul_mid.replace.reset_mock()
         # test call with running process
-        info['running_list'] = {'10.0.0.1'}
-        info['address'] = '10.0.0.1'
+        info['running_nodes'] = {'10.0.0.1'}
+        info['node_name'] = '10.0.0.1'
         self.view.write_process(tr_elt, info)
         self.assertEqual([call('name_a_mid'), call('running_ul_mid'), call('name_a_mid'), call('running_li_mid')],
                          tr_elt.findmeld.call_args_list)
         self.assertEqual([call('proc1')], name_mid.content.call_args_list)
         self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
         self.assertEqual([call('10.0.0.1', TAIL_PAGE, processname=info['namespec']),
-                          call('10.0.0.1', PROC_ADDRESS_PAGE)],
+                          call('10.0.0.1', PROC_NODE_PAGE)],
                          self.view.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
         self.assertEqual([call('proc1')], name_mid.content.call_args_list)

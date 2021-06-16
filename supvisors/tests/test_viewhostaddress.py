@@ -40,8 +40,8 @@ class ViewHostAddressTest(unittest.TestCase):
 
     def test_init(self):
         """ Test the values set at construction. """
-        from supvisors.webutils import HOST_ADDRESS_PAGE
-        self.assertEqual(HOST_ADDRESS_PAGE, self.view.page_name)
+        from supvisors.webutils import HOST_NODE_PAGE
+        self.assertEqual(HOST_NODE_PAGE, self.view.page_name)
 
     @patch('supvisors.viewhostaddress.HostAddressView._write_io_image')
     @patch('supvisors.viewhostaddress.HostAddressView._write_mem_image')
@@ -55,7 +55,8 @@ class ViewHostAddressTest(unittest.TestCase):
         from supvisors import viewhostaddress
         # set context (meant to be set through render)
         dummy_stats = Mock(cpu='cpu', mem='mem', io='io')
-        self.view.view_ctx = Mock(**{'get_address_stats.return_value': dummy_stats})        # replace root structure
+        self.view.view_ctx = Mock(**{'get_node_stats.return_value': dummy_stats})
+        # replace root structure
         mocked_root = Mock()
         # in first test, HAS_PLOT is False
         viewhostaddress.HAS_PLOT = False

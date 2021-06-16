@@ -41,7 +41,7 @@ class ListenerTest(unittest.TestCase):
         # check attributes
         self.assertIs(self.supvisors, listener.supvisors)
         self.assertIsNone(listener.collector)
-        self.assertEqual('127.0.0.1', listener.local_node)
+        self.assertEqual('127.0.0.1', listener.local_node_name)
         self.assertIsNone(listener.publisher)
         self.assertIsNone(listener.main_loop)
         # test that callbacks are set in Supervisor
@@ -59,7 +59,7 @@ class ListenerTest(unittest.TestCase):
         # check attributes
         self.assertIs(self.supvisors, listener.supvisors)
         self.assertIs(mocked_collector, listener.collector)
-        self.assertEqual('127.0.0.1', listener.local_node)
+        self.assertEqual('127.0.0.1', listener.local_node_name)
         self.assertIsNone(listener.publisher)
         self.assertIsNone(listener.main_loop)
         # test that callbacks are set in Supervisor
@@ -151,7 +151,7 @@ class ListenerTest(unittest.TestCase):
         listener.publisher = Mock(**{'send_tick_event.return_value': None,
                                      'send_statistics.return_value': None})
         listener.supvisors.fsm.on_timer_event.return_value = ['10.0.0.1', '10.0.0.4']
-        self.supvisors.context.addresses['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
+        self.supvisors.context.nodes['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
         # test non-process event
         with self.assertRaises(AttributeError):
             listener.on_tick(ProcessStateFatalEvent(None, ''))

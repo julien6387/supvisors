@@ -130,6 +130,7 @@ class Parser(object):
         application_elt = self.root.find('./application[@name="{}"]'.format(application.application_name))
         if application_elt is not None:
             rules = application.rules
+            rules.default = False
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
@@ -179,12 +180,12 @@ class Parser(object):
             # WARN: recursive call, counter decreased
             self.load_model_rules(model_elt, rules, loop_check - 1)
         # other attributes found may be used to complete or supersede the possible model
-        self.load_program_addresses(program_elt, rules)
+        self.load_program_nodes(program_elt, rules)
         self.load_sequence(program_elt, 'start_sequence', rules)
         self.load_sequence(program_elt, 'stop_sequence', rules)
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
-        self.load_loading(program_elt, rules)
+        self.load_expected_loading(program_elt, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
     def get_program_element(self, process: ProcessStatus) -> Optional[Any]:
@@ -221,8 +222,8 @@ class Parser(object):
         model = elt.findtext('reference')
         return self.models.get(model, None)
 
-    def load_program_addresses(self, elt: Any, rules: ProcessRules) -> None:
-        """ Get the addresses where the program is authorized to run.
+    def load_program_nodes(self, elt: Any, rules: ProcessRules) -> None:
+        """ Get the nodes where the program is authorized to run.
 
         :param elt: the XML element containing rules definition for a program
         :param rules: the process structure used to store the rules found
@@ -231,21 +232,21 @@ class Parser(object):
         value = elt.findtext('addresses')
         if value:
             # sort and trim list of values
-            addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            if '#' in addresses:
-                # process cannot be started anywhere until hash address is resolved
-                rules.addresses = []
+            node_names = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
+            if '#' in node_names:
+                # process cannot be started anywhere until hash node is resolved
+                rules.node_names = []
                 # if '#' is alone or associated to '*', the logic is applicable to all addresses
-                if len(addresses) == 1 or '*' in addresses:
-                    rules.hash_addresses = ['*']
+                if len(node_names) == 1 or '*' in node_names:
+                    rules.hash_node_names = ['*']
                 else:
-                    # '#' is applicable to a subset of addresses
-                    addresses.remove('#')
-                    rules.hash_addresses = addresses
-            elif '*' in addresses:
-                rules.addresses = ['*']
+                    # '#' is applicable to a subset of node names
+                    node_names.remove('#')
+                    rules.hash_node_names = node_names
+            elif '*' in node_names:
+                rules.node_names = ['*']
             else:
-                rules.addresses = self.supvisors.address_mapper.filter(addresses)
+                rules.node_names = self.supvisors.address_mapper.filter(node_names)
 
     def load_sequence(self, elt: Any, attr_string: str, rules: Union[ApplicationRules, ProcessRules]) -> None:
         """ Return the sequence value found from the XML element.
@@ -269,8 +270,8 @@ class Parser(object):
                 self.logger.warn('Parser.load_sequence: not an integer for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_loading(self, elt: Any, rules: ProcessRules) -> None:
-        """ Return the loading value found from the XML element.
+    def load_expected_loading(self, elt: Any, rules: ProcessRules) -> None:
+        """ Return the expected_loading value found from the XML element.
         The value must be in [0 ; 100].
 
         :param elt: the XML element containing rules definition for an application or a program
@@ -282,12 +283,12 @@ class Parser(object):
             try:
                 value = int(str_value)
                 if 0 <= value <= 100:
-                    setattr(rules, 'expected_loading', value)
+                    setattr(rules, 'expected_load', value)
                 else:
-                    self.logger.warn('Parser.load_sequence: invalid value for {} expected_loading: {}'
+                    self.logger.warn('Parser.load_expected_loading: invalid value for {} expected_loading: {}'
                                      '(expected integer in [0;100])'.format(elt.get('name'), value))
             except (TypeError, ValueError):
-                self.logger.warn('Parser.load_sequence: not an integer for {} expected_loading: {}'
+                self.logger.warn('Parser.load_expected_loading: not an integer for {} expected_loading: {}'
                                  .format(elt.get('name'), str_value))
 
     def load_boolean(self, elt: Any, attr_string: str, rules: ProcessRules) -> None:

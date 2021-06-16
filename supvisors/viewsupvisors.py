@@ -88,7 +88,7 @@ class SupvisorsView(ViewHandler):
         elt = node_div_elt.findmeld('node_tda_mid')
         if status.state == AddressStates.RUNNING:
             # go to web page located on address
-            url = self.view_ctx.format_url(status.address_name, PROC_ADDRESS_PAGE)
+            url = self.view_ctx.format_url(status.address_name, PROC_NODE_PAGE)
             elt.attributes(href=url)
             elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_node_name else '')
         elt.content(status.address_name)
@@ -96,9 +96,9 @@ class SupvisorsView(ViewHandler):
         elt = node_div_elt.findmeld('state_td_mid')
         elt.attrib['class'] = status.state.name + ' state'
         elt.content(status.state.name)
-        # set loading
+        # set node current load
         elt = node_div_elt.findmeld('percent_td_mid')
-        elt.content('{}%'.format(status.loading()))
+        elt.content('{}%'.format(status.get_load()))
 
     @staticmethod
     def _write_node_box_processes(node_div_elt, status):
@@ -129,10 +129,10 @@ class SupvisorsView(ViewHandler):
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
         node_div_mid = root.findmeld('node_div_mid')
-        addresses = self.supvisors.address_mapper.addresses
-        for node_div_elt, node in node_div_mid.repeat(addresses):
+        node_names = self.supvisors.address_mapper.node_names
+        for node_div_elt, node_name in node_div_mid.repeat(node_names):
             # get node status from Supvisors context
-            status = self.sup_ctx.addresses[node]
+            status = self.sup_ctx.nodes[node_name]
             # write box_title
             self._write_node_box_title(node_div_elt, status)
             # fill with running processes
@@ -199,7 +199,7 @@ class SupvisorsView(ViewHandler):
         """ In a conflicts table, write the address where runs the process in conflict. """
         address = info['address']
         elt = tr_elt.findmeld('caddress_a_mid')
-        url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+        url = self.view_ctx.format_url(address, PROC_NODE_PAGE)
         elt.attributes(href=url)
         elt.content(address)
 
@@ -214,7 +214,7 @@ class SupvisorsView(ViewHandler):
         address = info['address']
         for action in self.process_methods.keys():
             elt = tr_elt.findmeld(action + '_a_mid')
-            parameters = {NAMESPEC: namespec, ADDRESS: address, ACTION: action}
+            parameters = {NAMESPEC: namespec, NODE: address, ACTION: action}
             url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
 
@@ -252,8 +252,8 @@ class SupvisorsView(ViewHandler):
             return self.conciliation_action(namespec, action.upper())
         # process actions
         if action in self.process_methods:
-            address = self.view_ctx.get_address()
-            return self.process_methods[action](namespec, address)
+            node_name = self.view_ctx.get_address()
+            return self.process_methods[action](namespec, node_name)
 
     @staticmethod
     def refresh_action():

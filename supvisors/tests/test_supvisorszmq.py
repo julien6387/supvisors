@@ -47,10 +47,10 @@ class ZmqSocketTest(unittest.TestCase):
         in Supvisors. """
         from supvisors.supvisorszmq import InternalEventPublisher, InternalEventSubscriber
         # create publisher and subscriber
-        publisher = InternalEventPublisher(self.supvisors.address_mapper.local_address,
+        publisher = InternalEventPublisher(self.supvisors.address_mapper.local_node_name,
                                            self.supvisors.options.internal_port,
                                            self.supvisors.logger)
-        subscriber = InternalEventSubscriber(self.supvisors.address_mapper.addresses,
+        subscriber = InternalEventSubscriber(self.supvisors.address_mapper.node_names,
                                              self.supvisors.options.internal_port)
         # check that the ZMQ sockets are ready
         self.assertFalse(publisher.socket.closed)
@@ -110,10 +110,10 @@ class InternalEventTest(unittest.TestCase):
         # the dummy Supvisors is used for addresses and ports
         self.supvisors = MockedSupvisors()
         # create publisher and subscriber
-        self.publisher = InternalEventPublisher(self.supvisors.address_mapper.local_address,
+        self.publisher = InternalEventPublisher(self.supvisors.address_mapper.local_node_name,
                                                 self.supvisors.options.internal_port,
                                                 self.supvisors.logger)
-        self.subscriber = InternalEventSubscriber(self.supvisors.address_mapper.addresses,
+        self.subscriber = InternalEventSubscriber(self.supvisors.address_mapper.node_names,
                                                   self.supvisors.options.internal_port)
         # socket configuration is meant to be blocking
         # however, a failure would block the unit test, so a timeout is set for reception
@@ -139,20 +139,19 @@ class InternalEventTest(unittest.TestCase):
         """ Test the disconnection of subscribers. """
         from supvisors.utils import InternalEventHeaders
         # get the local address
-        local_address = self.supvisors.address_mapper.local_address
+        local_node_name = self.supvisors.address_mapper.local_node_name
         # test remote disconnection
-        address = next(address
-                       for address in self.supvisors.address_mapper.addresses
-                       if address != local_address)
-        self.subscriber.disconnect([address])
+        node_name = next(node_name for node_name in self.supvisors.address_mapper.node_names
+                         if node_name != local_node_name)
+        self.subscriber.disconnect([node_name])
         # send a tick event from the local publisher
         payload = {'date': 1000}
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK, local_node_name, payload), msg)
         # test local disconnection
-        self.subscriber.disconnect([local_address])
+        self.subscriber.disconnect([local_node_name])
         # send a tick event from the local publisher
         self.publisher.send_tick_event(payload)
         # check the non-reception of the tick event
@@ -163,49 +162,49 @@ class InternalEventTest(unittest.TestCase):
         """ Test the publication and subscription of the messages. """
         from supvisors.utils import InternalEventHeaders
         # get the local address
-        local_address = self.supvisors.address_mapper.local_address
+        local_node_name = self.supvisors.address_mapper.local_node_name
         # send a tick event
         payload = {'date': 1000}
         self.publisher.send_tick_event(payload)
         # check the reception of the tick event
         msg = self.receive('Tick')
-        self.assertTupleEqual((InternalEventHeaders.TICK, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.TICK, local_node_name, payload), msg)
 
     def test_process_event(self):
         """ Test the publication and subscription of the process events. """
         from supvisors.utils import InternalEventHeaders
         # get the local address
-        local_address = self.supvisors.address_mapper.local_address
+        local_node_name = self.supvisors.address_mapper.local_node_name
         # send a process event
         payload = {'name': 'dummy_program', 'state': 'running'}
         self.publisher.send_process_event(payload)
         # check the reception of the process event
         msg = self.receive('Process')
-        self.assertTupleEqual((InternalEventHeaders.PROCESS, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.PROCESS, local_node_name, payload), msg)
 
     def test_statistics(self):
         """ Test the publication and subscription of the statistics messages. """
         from supvisors.utils import InternalEventHeaders
         # get the local address
-        local_address = self.supvisors.address_mapper.local_address
+        local_node_name = self.supvisors.address_mapper.local_node_name
         # send a statistics event
         payload = {'cpu': 15, 'mem': 5, 'io': (1234, 4321)}
         self.publisher.send_statistics(payload)
         # check the reception of the statistics event
         msg = self.receive('Statistics')
-        self.assertTupleEqual((InternalEventHeaders.STATISTICS, local_address, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.STATISTICS, local_node_name, payload), msg)
 
     def test_state_event(self):
         """ Test the publication and subscription of the operational event. """
         from supvisors.utils import InternalEventHeaders
         # get the local node
-        local_node = self.supvisors.address_mapper.local_address
+        local_node_name = self.supvisors.address_mapper.local_node_name
         # send a process event
         payload = {'statecode': 10, 'statename': 'running'}
         self.publisher.send_state_event(payload)
         # check the reception of the process event
         msg = self.receive('State')
-        self.assertTupleEqual((InternalEventHeaders.STATE, local_node, payload), msg)
+        self.assertTupleEqual((InternalEventHeaders.STATE, local_node_name, payload), msg)
 
 
 class RequestTest(unittest.TestCase):

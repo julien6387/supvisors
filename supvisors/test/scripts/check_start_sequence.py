@@ -156,8 +156,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
         config = [('register_movies_01', self.HOST_01),
-                  ('register_movies_02', self.HOST_02),
-                  ('register_movies_03', self.HOST_03)]
+                  ('register_movies_02', self.HOST_03)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
         for program_name, address in config:

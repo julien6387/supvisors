@@ -21,8 +21,8 @@ from time import ctime
 
 # HTML page names
 SUPVISORS_PAGE = 'index.html'
-HOST_ADDRESS_PAGE = 'hostaddress.html'
-PROC_ADDRESS_PAGE = 'procaddress.html'
+HOST_NODE_PAGE = 'hostaddress.html'
+PROC_NODE_PAGE = 'procaddress.html'
 APPLICATION_PAGE = 'application.html'
 TAIL_PAGE = 'tail.html'
 STDOUT_PAGE = 'logtail/%s'

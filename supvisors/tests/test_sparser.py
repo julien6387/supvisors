@@ -38,8 +38,7 @@ class CommonParserTest(unittest.TestCase):
         """ Test the parsing of a valid XML. """
         from supvisors.application import ApplicationStatus
         from supvisors.process import ProcessStatus
-        from supvisors.ttypes import (RunningFailureStrategies,
-                                      StartingFailureStrategies)
+        from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
         # test models & patterns
         self.assertListEqual(['dummy_model_01', 'dummy_model_02',
                               'dummy_model_03', 'dummy_model_04', 'dummy_model_05'],
@@ -186,16 +185,16 @@ class CommonParserTest(unittest.TestCase):
                                   ['*'], None, 0, 0, False, False, 1,
                                   RunningFailureStrategies.CONTINUE)
 
-    def assert_process_rules(self, rules, addresses, hash_addresses, start, stop, required,
-                             wait, loading, running_strategy):
+    def assert_process_rules(self, rules, nodes, hash_nodes, start, stop, required,
+                             wait, expected_load, running_strategy):
         """ Test the process rules. """
-        self.assertEqual(addresses, rules.addresses)
-        self.assertEqual(hash_addresses, rules.hash_addresses)
+        self.assertEqual(nodes, rules.node_names)
+        self.assertEqual(hash_nodes, rules.hash_node_names)
         self.assertEqual(start, rules.start_sequence)
         self.assertEqual(stop, rules.stop_sequence)
         self.assertEqual(required, rules.required)
         self.assertEqual(wait, rules.wait_exit)
-        self.assertEqual(loading, rules.expected_loading)
+        self.assertEqual(expected_load, rules.expected_load)
         self.assertEqual(running_strategy, rules.running_failure_strategy)
 
 

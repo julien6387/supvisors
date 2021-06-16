@@ -725,13 +725,13 @@ class StarterTest(CommanderContextTest):
             self.assertEqual(0, mocked_failure.call_count)
 
     @patch('supvisors.commander.Commander.force_process_state')
-    @patch('supvisors.commander.get_address')
-    def test_process_job(self, mocked_address: Mock, mocked_force: Mock):
+    @patch('supvisors.commander.get_node')
+    def test_process_job(self, mocked_node_getter: Mock, mocked_force: Mock):
         """ Test the process_job method. """
         # get patches
         mocked_pusher = self.supvisors.zmq.pusher.send_start_process
         # test with a possible starting address
-        mocked_address.return_value = '10.0.0.1'
+        mocked_node_getter.return_value = '10.0.0.1'
         # 1. test with running process
         command = self._get_test_command('xfontsel')
         command.ignore_wait_exit = True
@@ -740,11 +740,11 @@ class StarterTest(CommanderContextTest):
         self.starter.process_job(command, jobs)
         # starting methods are not called
         self.assertListEqual([], jobs)
-        self.assertEqual(0, mocked_address.call_count)
+        self.assertEqual(0, mocked_node_getter.call_count)
         self.assertEqual(0, mocked_pusher.call_count)
         # failure method is not called
         self.assertEqual(0, mocked_force.call_count)
-        # 2. test with stopped process
+        # 2.a test with stopped process
         command = self._get_test_command('xlogo')
         command.ignore_wait_exit = True
         jobs = []
@@ -752,14 +752,14 @@ class StarterTest(CommanderContextTest):
         self.starter.process_job(command, jobs)
         # starting methods are called
         self.assertListEqual([command], jobs)
-        self.assertEqual([call(self.supvisors, None, ['*'], 1)], mocked_address.call_args_list)
+        self.assertEqual([call(self.supvisors, None, ['10.0.0.1'], 1)], mocked_node_getter.call_args_list)
         self.assertEqual(1, mocked_pusher.call_count)
         self.assertEqual(call('10.0.0.1', 'sample_test_1:xlogo', ''), mocked_pusher.call_args)
         mocked_pusher.reset_mock()
         # failure method is not called
         self.assertEqual(0, mocked_force.call_count)
-        # test with no starting address
-        mocked_address.return_value = None
+        # 3. test with no starting address
+        mocked_node_getter.return_value = None
         # test with stopped process
         command = self._get_test_command('xlogo')
         command.ignore_wait_exit = True
@@ -1035,6 +1035,7 @@ class StopperTest(CommanderContextTest):
                                   'sample_test_2': {0: ['sample_test_2:yeux_00', 'sample_test_2:yeux_01'],
                                                     1: ['sample_test_2:sleep']}}},
                              self.stopper.printable_planned_sequence())
+
     def test_process_job(self):
         """ Test the process_job method. """
         # get patches

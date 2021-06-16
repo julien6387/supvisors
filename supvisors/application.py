@@ -32,6 +32,7 @@ class ApplicationRules(object):
     """ Definition of the rules for starting an application, iaw rules file.
 
     Attributes are:
+        - default: True if not overwritten by rules file
         - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state (0 means: no automatic start),
         - stop_sequence: defines the order of this application when stopping all the applications (0 means: immediate stop),
         - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply when a required process cannot be started during the starting of the application,
@@ -39,8 +40,8 @@ class ApplicationRules(object):
     """
 
     def __init__(self) -> None:
-        """ Initialization of the attributes.
-        """
+        """ Initialization of the attributes. """
+        self.default = True
         self.start_sequence = 0
         self.stop_sequence = 0
         self.starting_failure_strategy = StartingFailureStrategies.ABORT

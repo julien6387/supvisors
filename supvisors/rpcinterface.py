@@ -93,7 +93,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
         return [self.get_address_info(node_name)
-                for node_name in sorted(self.supvisors.context.addresses.keys())]
+                for node_name in sorted(self.supvisors.context.nodes.keys())]
 
     def get_address_info(self, node):
         """ Get information about the **Supvisors** instance running on the host named node.
@@ -105,9 +105,9 @@ class RPCInterface(object):
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
-            status = self.supvisors.context.addresses[node]
+            status = self.supvisors.context.nodes[node]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS, 'address {} unknown to Supvisors'.format(node))
+            raise RPCError(Faults.BAD_ADDRESS, 'node {} unknown to Supvisors'.format(node))
         return status.serial()
 
     def get_all_applications_info(self):
@@ -166,7 +166,7 @@ class RPCInterface(object):
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
-        It gives a synthetic status, based on the process information coming from all the addresses where **Supvisors** is running.
+        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors** is running.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -184,7 +184,7 @@ class RPCInterface(object):
         return [proc.serial() for proc in application.processes.values()]
 
     def get_all_local_process_info(self):
-        """ Get information about all processes located on this address.
+        """ Get information about all processes located on this node.
         It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
         and giving the extra arguments of the process.
 
@@ -243,7 +243,7 @@ class RPCInterface(object):
     def start_application(self, strategy: StrategyType, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -332,7 +332,7 @@ class RPCInterface(object):
     def restart_application(self, strategy: StrategyType, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -422,7 +422,7 @@ class RPCInterface(object):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose addresses, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``,``group:name``, or ``group:*``).
 

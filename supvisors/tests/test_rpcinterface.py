@@ -77,20 +77,20 @@ class RpcInterfaceTest(unittest.TestCase):
     def test_address_info(self):
         """ Test the get_address_info self.rpc. """
         # prepare context
-        self.supvisors.context.addresses = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info'})}
+        self.supvisors.context.nodes = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info'})}
         # test with known address
         self.assertEqual('address_info', self.rpc.get_address_info('10.0.0.1'))
         # test with unknown address
         with self.assertRaises(RPCError) as exc:
             self.rpc.get_address_info('10.0.0.0')
         self.assertEqual(Faults.BAD_ADDRESS, exc.exception.code)
-        self.assertEqual('BAD_ADDRESS: address 10.0.0.0 unknown to Supvisors', exc.exception.text)
+        self.assertEqual('BAD_ADDRESS: node 10.0.0.0 unknown to Supvisors', exc.exception.text)
 
     def test_all_addresses_info(self):
         """ Test the get_all_addresses_info self.rpc. """
         # prepare context
-        self.supvisors.context.addresses = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info_1'}),
-                                            '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
+        self.supvisors.context.nodes = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info_1'}),
+                                        '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
         # test call
         self.assertListEqual(['address_info_1', 'address_info_2'], self.rpc.get_all_addresses_info())
 

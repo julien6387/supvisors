@@ -124,7 +124,7 @@ class AddressTest(CompatTestCase):
         # get current process times
         ref_data = {process.namespec(): (process.state, info['now'], info['uptime'])
                     for process in status.processes.values()
-                    for info in [process.infos['10.0.0.1']]}
+                    for info in [process.info_map['10.0.0.1']]}
         # update times and check
         now = int(time.time())
         status.update_times(now + 10, now)
@@ -133,7 +133,7 @@ class AddressTest(CompatTestCase):
         # test process times: only RUNNING and STOPPING have a positive uptime
         new_data = {process.namespec(): (process.state, info['now'], info['uptime'])
                     for process in status.processes.values()
-                    for info in [process.infos['10.0.0.1']]}
+                    for info in [process.info_map['10.0.0.1']]}
         for namespec, new_info in new_data.items():
             ref_info = ref_data[namespec]
             self.assertEqual(new_info[0], ref_info[0])
@@ -169,8 +169,8 @@ class AddressTest(CompatTestCase):
         self.assertItemsEqual([('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)],
                               status.pid_processes())
 
-    def test_loading(self):
-        """ Test the loading method. """
+    def test_get_load(self):
+        """ Test the get_load method. """
         from supvisors.address import AddressStatus
         from supvisors.process import ProcessStatus
         status = AddressStatus('10.0.0.1', self.supvisors.logger)
@@ -179,15 +179,15 @@ class AddressTest(CompatTestCase):
             process.add_info('10.0.0.1', info)
             status.add_process(process)
         # check the loading of the address: gives 5 (1 per running process) by default because no rule has been loaded
-        self.assertEqual(4, status.loading())
+        self.assertEqual(4, status.get_load())
         # change expected_loading of any stopped process
         process = random.choice([proc for proc in status.processes.values() if proc.stopped()])
-        process.rules.expected_loading = 50
-        self.assertEqual(4, status.loading())
+        process.rules.expected_load = 50
+        self.assertEqual(4, status.get_load())
         # change expected_loading of any running process
         process = random.choice([proc for proc in status.processes.values() if proc.running()])
-        process.rules.expected_loading = 50
-        self.assertEqual(53, status.loading())
+        process.rules.expected_load = 50
+        self.assertEqual(53, status.get_load())
 
 
 def test_suite():

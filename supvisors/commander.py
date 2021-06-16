@@ -28,7 +28,7 @@ from supvisors.application import ApplicationStatus
 from supvisors.infosource import SupervisordSource
 from supvisors.listener import SupervisorListener
 from supvisors.process import ProcessStatus
-from supvisors.strategy import get_address
+from supvisors.strategy import get_node
 from supvisors.ttypes import StartingStrategies, StartingFailureStrategies
 
 
@@ -523,14 +523,14 @@ class Starter(Commander):
             starting = True
             # find node iaw strategy
             namespec = process.namespec()
-            address = get_address(self.supvisors, command.strategy, process.rules.addresses,
-                                  process.rules.expected_loading)
-            if address:
-                self.logger.info('Starter.process_job: request starting of {} at address={}'.format(namespec, address))
+            node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
+                                 process.rules.expected_load)
+            if node_name:
+                self.logger.info('Starter.process_job: request starting of {} at node={}'.format(namespec, node_name))
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(address, namespec, command.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(node_name, namespec, command.extra_args)
                 self.logger.debug('Starter.process_job: {} requested to start on {} at {}'
-                                  .format(namespec, address, get_asctime(command.request_time)))
+                                  .format(namespec, node_name, get_asctime(command.request_time)))
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(namespec))
                 self.force_process_state(namespec, ProcessStates.FATAL, 'no resource available')
@@ -618,9 +618,9 @@ class Stopper(Commander):
         process = command.process
         if process.running():
             # use asynchronous xml rpc to stop program
-            for address in process.addresses:
-                self.logger.info('Stopper.process_job: stopping process {} on {}'.format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(address, process.namespec())
+            for node_name in process.running_nodes:
+                self.logger.info('Stopper.process_job: stopping process {} on {}'.format(process.namespec(), node_name))
+                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec())
             # push to jobs and timestamp process
             command.request_time = time.time()
             self.logger.debug('Stopper.process_job: {} requested to stop at {}'

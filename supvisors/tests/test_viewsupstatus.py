@@ -35,8 +35,8 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         # create the instance to be tested
         from supvisors.tests.base import DummyHttpContext
         from supvisors.viewsupstatus import SupvisorsAddressView
-        from supvisors.webutils import HOST_ADDRESS_PAGE
-        self.view = SupvisorsAddressView(DummyHttpContext('ui/hostaddress.html'), HOST_ADDRESS_PAGE)
+        from supvisors.webutils import HOST_NODE_PAGE
+        self.view = SupvisorsAddressView(DummyHttpContext('ui/hostaddress.html'), HOST_NODE_PAGE)
 
     def test_init(self):
         """ Test the values set at construction. """
@@ -45,8 +45,8 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         for klass in [StatusView, ViewHandler, MeldView]:
             self.assertIsInstance(self.view, klass)
         # test parameter page name
-        from supvisors.webutils import HOST_ADDRESS_PAGE
-        self.assertEqual(HOST_ADDRESS_PAGE, self.view.page_name)
+        from supvisors.webutils import HOST_NODE_PAGE
+        self.assertEqual(HOST_NODE_PAGE, self.view.page_name)
 
     def test_render(self):
         """ Test the render method. """
@@ -59,7 +59,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         with patch.object(self.view, 'write_nav') as mocked_nav:
             mocked_root = Mock()
             self.view.write_navigation(mocked_root)
-            self.assertEqual([call(mocked_root, address='127.0.0.1')], mocked_nav.call_args_list)
+            self.assertEqual([call(mocked_root, node_name='127.0.0.1')], mocked_nav.call_args_list)
 
     @patch('supvisors.viewsupstatus.simple_localtime', return_value='07:05:30')
     @patch('supvisors.viewsupstatus.SupvisorsAddressView.write_address_actions')
@@ -72,9 +72,9 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
         # first call tests with not master
         mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING,
-                             **{'loading.return_value': 12})
+                             **{'get_load.return_value': 12})
         self.view.sup_ctx.is_master = False
-        self.view.sup_ctx.addresses['127.0.0.1'] = mocked_status
+        self.view.sup_ctx.nodes['127.0.0.1'] = mocked_status
         self.view.write_header(mocked_root)
         self.assertEqual([call('address_mid'), call('state_mid'), call('percent_mid'), call('date_mid')],
                          mocked_root.findmeld.call_args_list)
@@ -107,7 +107,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
     def test_write_address_actions(self):
         """ Test the write_address_actions method. """
         from supvisors.viewcontext import ACTION
-        from supvisors.webutils import PROC_ADDRESS_PAGE, HOST_ADDRESS_PAGE
+        from supvisors.webutils import PROC_NODE_PAGE, HOST_NODE_PAGE
         # set context (meant to be set through render)
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure
@@ -117,7 +117,7 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         # test call
         self.view.write_address_actions(mocked_root)
         self.assertEqual([call('view_a_mid'), call('stopall_a_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call('', PROC_ADDRESS_PAGE), call('', HOST_ADDRESS_PAGE, **{ACTION: 'stopall'})],
+        self.assertEqual([call('', PROC_NODE_PAGE), call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})],
                          self.view.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], mocked_view_mid.attributes.call_args_list)
         self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)
@@ -127,11 +127,11 @@ class ViewSupvisorsStatusTest(unittest.TestCase):
         mocked_view_mid.attributes.reset_mock()
         mocked_stop_mid.attributes.reset_mock()
         # test call with PROC_ADDRESS_PAGE as self.page_name
-        self.view.page_name = PROC_ADDRESS_PAGE
+        self.view.page_name = PROC_NODE_PAGE
         self.view.write_address_actions(mocked_root)
         self.assertEqual([call('view_a_mid'), call('stopall_a_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call('', HOST_ADDRESS_PAGE),
-                          call('', PROC_ADDRESS_PAGE, **{ACTION: 'stopall'})],
+        self.assertEqual([call('', HOST_NODE_PAGE),
+                          call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})],
                          self.view.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], mocked_view_mid.attributes.call_args_list)
         self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)

@@ -40,7 +40,7 @@ class AbstractState(object):
         self.supvisors = supvisors
         self.context = supvisors.context
         self.logger = supvisors.logger
-        self.address_name = supvisors.address_mapper.local_address
+        self.local_node_name = supvisors.address_mapper.local_node_name
 
     def enter(self) -> None:
         """ Actions performed when entering the state.
@@ -63,7 +63,7 @@ class AbstractState(object):
         :return: None
         """
 
-    def apply_addresses_func(self, func: Callable[[str], None]) -> None:
+    def apply_nodes_func(self, func: Callable[[str], None]) -> None:
         """ Perform the action func on all addresses.
         The local address is the last to be performed.
 
@@ -71,8 +71,8 @@ class AbstractState(object):
         :return: None
         """
         # send func request to all locals (but self address)
-        for status in self.context.addresses.values():
-            if status.address_name != self.address_name:
+        for status in self.context.nodes.values():
+            if status.address_name != self.local_node_name:
                 if status.state == AddressStates.RUNNING:
                     func(status.address_name)
                     self.logger.warn('supervisord {} on {}'.format(func.__name__, status.address_name))
@@ -80,7 +80,7 @@ class AbstractState(object):
                     self.logger.info('cannot {} supervisord on {}: Remote state is {}'
                                      .format(func.__name__, status.address_name, status.state.name))
         # send request to self supervisord
-        func(self.address_name)
+        func(self.local_node_name)
 
 
 class InitializationState(AbstractState):
@@ -108,7 +108,7 @@ class InitializationState(AbstractState):
         # clear any existing job
         self.supvisors.failure_handler.clear_jobs()
         # re-init addresses that are not isolated
-        for status in self.context.addresses.values():
+        for status in self.context.nodes.values():
             if not status.in_isolation():
                 # do NOT use state setter as transition may be rejected
                 status._state = AddressStates.UNKNOWN
@@ -122,14 +122,14 @@ class InitializationState(AbstractState):
         :return: the new Supvisors state
         """
         # cannot get out of this state without local supervisor RUNNING
-        addresses = self.context.running_addresses()
-        if self.address_name in addresses:
+        running_nodes = self.context.running_nodes()
+        if self.local_node_name in running_nodes:
             # synchro done if the state of all nodes is known
-            if len(self.context.unknown_addresses()) == 0:
+            if len(self.context.unknown_nodes()) == 0:
                 self.logger.info('InitializationState.next: all nodes are RUNNING')
                 return SupvisorsStates.DEPLOYMENT
             # synchro done if the state of all forced nodes is known
-            if self.context.forced_addresses and len(self.context.unknown_forced_addresses()) == 0:
+            if self.context.forced_nodes and len(self.context.unknown_forced_nodes()) == 0:
                 self.logger.info('InitializationState.next: all forced nodes are RUNNING')
                 return SupvisorsStates.DEPLOYMENT
             # if synchro timeout reached, stop synchro and work with known nodes
@@ -138,7 +138,7 @@ class InitializationState(AbstractState):
                 return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
-            self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.address_name))
+            self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.local_node_name))
         return SupvisorsStates.INITIALIZATION
 
     def exit(self) -> None:
@@ -150,7 +150,7 @@ class InitializationState(AbstractState):
         # force state of missing Supvisors instances
         self.context.end_synchro()
         # arbitrarily choice : master address is the 'lowest' address among running addresses
-        nodes = self.context.running_addresses()
+        nodes = self.context.running_nodes()
         self.logger.info('InitializationState.exit: working with nodes {}'.format(nodes))
         # elect master node among working nodes only if not fixed before
         if not self.context.master_node_name:
@@ -200,9 +200,9 @@ class OperationState(AbstractState):
         # check eventual jobs in progress
         if self.supvisors.starter.check_starting() and self.supvisors.stopper.check_stopping():
             # check if master and local are still RUNNING
-            if self.context.addresses[self.address_name].state != AddressStates.RUNNING:
+            if self.context.nodes[self.local_node_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
-            if self.context.addresses[self.context.master_node_name].state != AddressStates.RUNNING:
+            if self.context.nodes[self.context.master_node_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
             # check duplicated processes
             if self.context.conflicting():
@@ -227,9 +227,9 @@ class ConciliationState(AbstractState):
         # check eventual jobs in progress
         if self.supvisors.starter.check_starting() and self.supvisors.stopper.check_stopping():
             # check if master and local are still RUNNING
-            if self.context.addresses[self.address_name].state != AddressStates.RUNNING:
+            if self.context.nodes[self.local_node_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
-            if self.context.addresses[self.context.master_node_name].state != AddressStates.RUNNING:
+            if self.context.nodes[self.context.master_node_name].state != AddressStates.RUNNING:
                 return SupvisorsStates.INITIALIZATION
             # back to OPERATION when there is no conflict anymore
             if not self.context.conflicting():
@@ -259,7 +259,7 @@ class RestartingState(AbstractState):
 
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the full restart. """
-        self.apply_addresses_func(self.supvisors.zmq.pusher.send_restart)
+        self.apply_nodes_func(self.supvisors.zmq.pusher.send_restart)
 
 
 class ShuttingDownState(AbstractState):
@@ -280,7 +280,7 @@ class ShuttingDownState(AbstractState):
 
     def exit(self):
         """ When leaving the SHUTTING_DOWN state, request the full shutdown. """
-        self.apply_addresses_func(self.supvisors.zmq.pusher.send_shutdown)
+        self.apply_nodes_func(self.supvisors.zmq.pusher.send_shutdown)
 
 
 class ShutdownState(AbstractState):

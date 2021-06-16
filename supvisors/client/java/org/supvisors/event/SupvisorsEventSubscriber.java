@@ -304,7 +304,7 @@ public class SupvisorsEventSubscriber implements Runnable {
                     subscriber.stop();
                 }
 
-            }, 200000);
+            }, 60000);
 
             // wait for the thread to end
             t.join();

@@ -151,39 +151,38 @@ class SupvisorsMainLoop(Thread):
         except:
             print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
 
-    def start_process(self, address_name, namespec, extra_args):
+    def start_process(self, node_name, namespec, extra_args):
         """ Start process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
             print('[ERROR] failed to start process {} on {} with extra_args="{}"'
-                  .format(namespec, address_name, extra_args), file=stderr)
+                  .format(namespec, node_name, extra_args), file=stderr)
 
-    def stop_process(self, address_name, namespec):
+    def stop_process(self, node_name, namespec):
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.stopProcess(namespec, False)
         except:
-            print('[ERROR] failed to stop process {} on {}'.format(namespec, address_name),
-                  file=stderr)
+            print('[ERROR] failed to stop process {} on {}'.format(namespec, node_name), file=stderr)
 
-    def restart(self, address_name):
+    def restart(self, node_name):
         """ Restart a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.restart()
         except:
-            print('[ERROR] failed to restart address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to restart address {}'.format(node_name), file=stderr)
 
-    def shutdown(self, address_name):
+    def shutdown(self, node_name):
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.shutdown()
         except:
-            print('[ERROR] failed to shutdown address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to shutdown address {}'.format(node_name), file=stderr)
 
     def send_remote_comm_event(self, event_type, event_data):
         """ Shortcut for the use of sendRemoteCommEvent. """

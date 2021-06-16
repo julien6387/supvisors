@@ -55,7 +55,7 @@ class ViewHandlerTest(unittest.TestCase):
                       self.http_context.supervisord.supvisors)
         self.assertIs(self.handler.sup_ctx,
                       self.http_context.supervisord.supvisors.context)
-        self.assertEqual(DummyAddressMapper().local_address, self.handler.address)
+        self.assertEqual(DummyAddressMapper().local_node_name, self.handler.local_node_name)
         self.assertIsNone(self.handler.view_ctx)
 
     @patch('supvisors.viewhandler.MeldView.__call__',
@@ -186,42 +186,40 @@ class ViewHandlerTest(unittest.TestCase):
         self.assertEqual([call(mocked_root, 'severe', 'a message')], mocked_msg.call_args_list)
 
     @patch('supvisors.viewhandler.ViewHandler.write_nav_applications')
-    @patch('supvisors.viewhandler.ViewHandler.write_nav_addresses')
+    @patch('supvisors.viewhandler.ViewHandler.write_nav_nodes')
     def test_write_nav(self, mocked_addr, mocked_appli):
         """ Test the write_nav method. """
         self.handler.write_nav('root', 'address', 'appli')
         self.assertEqual([call('root', 'address')], mocked_addr.call_args_list)
         self.assertEqual([call('root', 'appli')], mocked_appli.call_args_list)
 
-    def test_write_nav_addresses_address_error(self):
-        """ Test the write_nav_addresses method with an address not existing
-        in supvisors context. """
+    def test_write_nav_nodes_address_error(self):
+        """ Test the write_nav_nodes method with an address not existing in supvisors context. """
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
         mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
         # test call with no address status in context
-        self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
+        self.handler.write_nav_nodes(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.node_names)], mocked_mid.repeat.call_args_list)
         self.assertEqual([], address_elt.findmeld.call_args_list)
 
-    def test_write_nav_addresses_silent_address(self):
-        """ Test the write_nav_addresses method using a SILENT address. """
+    def test_write_nav_nodes_silent_address(self):
+        """ Test the write_nav_nodes method using a SILENT address. """
         from supvisors.ttypes import AddressStates
         # patch the meld elements
         href_elt = Mock(attrib={})
         address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
         mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
         mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-        # test call with address status set in context, SILENT
-        # and different from parameter
-        self.handler.sup_ctx.addresses['10.0.0.1'] = Mock(state=AddressStates.SILENT,
-                                                          **{'state_string.return_value': 'silent'})
-        self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
+        # test call with address status set in context, SILENT and different from parameter
+        self.handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=AddressStates.SILENT,
+                                                      **{'state_string.return_value': 'silent'})
+        self.handler.write_nav_nodes(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.node_names)], mocked_mid.repeat.call_args_list)
         self.assertEqual('SILENT', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
@@ -230,18 +228,17 @@ class ViewHandlerTest(unittest.TestCase):
         mocked_mid.repeat.reset_mock()
         address_elt.findmeld.reset_mock()
         href_elt.content.reset_mock()
-        # test call with address status set in context, SILENT
-        # and identical to parameter
-        self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
+        # test call with address status set in context, SILENT and identical to parameter
+        self.handler.write_nav_nodes(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.node_names)], mocked_mid.repeat.call_args_list)
         self.assertEqual('SILENT active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual('off', href_elt.attrib['class'])
         self.assertEqual([call('10.0.0.1')], href_elt.content.call_args_list)
 
-    def test_write_nav_addresses_running_address(self):
-        """ Test the write_nav_addresses method using a RUNNING address. """
+    def test_write_nav_nodes_running_address(self):
+        """ Test the write_nav_nodes method using a RUNNING address. """
         from supvisors.ttypes import AddressStates
         # patch the meld elements
         href_elt = Mock(attrib={})
@@ -251,11 +248,11 @@ class ViewHandlerTest(unittest.TestCase):
         # test call with address status set in context, RUNNING,
         # different from parameter and not MASTER
         self.handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-        self.handler.sup_ctx.addresses['10.0.0.1'] = Mock(state=AddressStates.RUNNING,
-                                                          **{'state_string.return_value': 'running'})
-        self.handler.write_nav_addresses(mocked_root, '10.0.0.2')
+        self.handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=AddressStates.RUNNING,
+                                                      **{'state_string.return_value': 'running'})
+        self.handler.write_nav_nodes(mocked_root, '10.0.0.2')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.node_names)], mocked_mid.repeat.call_args_list)
         self.assertEqual('RUNNING', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
@@ -271,9 +268,9 @@ class ViewHandlerTest(unittest.TestCase):
         # test call with address status set in context, RUNNING,
         # identical to parameter and MASTER
         self.handler.sup_ctx.master_node_name = '10.0.0.1'
-        self.handler.write_nav_addresses(mocked_root, '10.0.0.1')
+        self.handler.write_nav_nodes(mocked_root, '10.0.0.1')
         self.assertEqual([call('address_li_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call(self.handler.supvisors.address_mapper.addresses)], mocked_mid.repeat.call_args_list)
+        self.assertEqual([call(self.handler.supvisors.address_mapper.node_names)], mocked_mid.repeat.call_args_list)
         self.assertEqual('RUNNING active', address_elt.attrib['class'])
         self.assertEqual([call('address_a_mid')], address_elt.findmeld.call_args_list)
         self.assertEqual([call('10.0.0.1', 'procaddress.html')], self.handler.view_ctx.format_url.call_args_list)
@@ -431,12 +428,12 @@ class ViewHandlerTest(unittest.TestCase):
         cell_elt.attributes.reset_mock()
         # test with filled stats on not selected process, solaris mode
         self.handler.supvisors.options.stats_irix_mode = False
-        info = {'namespec': 'dummy', 'address': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
+        info = {'namespec': 'dummy', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
         self.handler.write_common_process_cpu(tr_elt, info)
         self.assertEqual([call('pcpu_a_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
         self.assertEqual([call('15.00%')], cell_elt.content.call_args_list)
-        self.assertEqual([call('', None, processname='dummy', address='10.0.0.1')],
+        self.assertEqual([call('', None, processname='dummy', node='10.0.0.1')],
                          self.handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], cell_elt.attributes.call_args_list)
         self.assertEqual('button on', cell_elt.attrib['class'])
@@ -476,12 +473,12 @@ class ViewHandlerTest(unittest.TestCase):
         cell_elt.content.reset_mock()
         cell_elt.attributes.reset_mock()
         # test with filled stats on not selected process
-        info = {'namespec': 'dummy', 'address': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
+        info = {'namespec': 'dummy', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
         self.handler.write_common_process_mem(tr_elt, info)
         self.assertEqual([call('pmem_a_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([], cell_elt.replace.call_args_list)
         self.assertEqual([call('30.00%')], cell_elt.content.call_args_list)
-        self.assertEqual([call('', None, processname='dummy', address='10.0.0.2')],
+        self.assertEqual([call('', None, processname='dummy', node='10.0.0.2')],
                          self.handler.view_ctx.format_url.call_args_list)
         self.assertEqual([call(href='an url')], cell_elt.attributes.call_args_list)
         self.assertEqual('button on', cell_elt.attrib['class'])
@@ -522,7 +519,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_clear_button method. """
         self.handler.page_name = 'My Page'
         # test call indirection
-        info = {'namespec': 'dummy_proc', 'address': '10.0.0.1'}
+        info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
         self.handler.write_process_clear_button('elt', info)
         self.assertEqual([call('elt', 'clear_a_mid', '10.0.0.1', 'My Page', 'clearlog', 'dummy_proc', '', '')],
                          mocked_button.call_args_list)
@@ -532,7 +529,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_stdout_button method. """
         self.handler.page_name = 'My Page'
         # test call indirection
-        info = {'namespec': 'dummy_proc', 'address': '10.0.0.1'}
+        info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
         self.handler.write_process_stdout_button('elt', info)
         self.assertEqual([call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc', '', '', '', '')],
                          mocked_button.call_args_list)
@@ -542,7 +539,7 @@ class ViewHandlerTest(unittest.TestCase):
         """ Test the write_process_stderr_button method. """
         self.handler.page_name = 'My Page'
         # test call indirection
-        info = {'namespec': 'dummy_proc', 'address': '10.0.0.1'}
+        info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
         self.handler.write_process_stderr_button('elt', info)
         self.assertEqual([call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr', '', '', '', '')],
                          mocked_button.call_args_list)
@@ -591,7 +588,7 @@ class ViewHandlerTest(unittest.TestCase):
         load_elt = Mock(attrib={'class': ''})
         tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, desc_elt, load_elt]})
         # test call on selected process
-        param = {'namespec': 'dummy_proc', 'loading': 35, 'statename': 'running', 'statecode': 7,
+        param = {'namespec': 'dummy_proc', 'expected_load': 35, 'statename': 'running', 'statecode': 7,
                  'description': 'something'}
         self.handler.write_common_process_status(tr_elt, param)
         self.assertEqual([call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')],
@@ -735,7 +732,7 @@ class ViewHandlerTest(unittest.TestCase):
         root_elt.findmeld.reset_mock()
         stats_elt.replace.reset_mock()
         # test call with namespec selection and no stats found
-        info = {'namespec': 'dummy_proc', 'address': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+        info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
         self.handler.write_process_statistics(root_elt, info)
         self.assertEqual([call('pstats_div_mid')], root_elt.findmeld.call_args_list)
         self.assertEqual([], stats_elt.replace.call_args_list)
@@ -811,10 +808,9 @@ class ViewHandlerTest(unittest.TestCase):
     def test_sort_processes_by_config(self):
         """ Test the sort_processes_by_config method. """
         # test empty parameter
-        self.assertEqual([], self.handler.sort_processes_by_config(None))
+        self.assertEqual([], self.handler.sort_processes_by_config([]))
         # build process list
-        processes = [{'application_name': info['group'],
-                      'process_name': info['name']}
+        processes = [{'application_name': info['group'], 'process_name': info['name']}
                      for info in ProcessInfoDatabase]
         shuffle(processes)
 
@@ -828,16 +824,15 @@ class ViewHandlerTest(unittest.TestCase):
             # first group is crash
             # late_segv is forgotten to test ordering with unknown processes
             Mock(process_configs=[create_mock('segv')]),
-            # next group is firefox
-            Mock(process_configs=[create_mock('firefox')]),
+            # next group is firefox - but let's consider that the group is unknown
+            # this could happen when dealing with a remote Supervisor having different configuration files
+            KeyError,
             # next group is sample_test_1
             # xfontsel is forgotten to test ordering with unknown processes
-            Mock(process_configs=[create_mock('xclock'),
-                                  create_mock('xlogo')]),
+            Mock(process_configs=[create_mock('xclock'), create_mock('xlogo')]),
             # next group is sample_test_2
             # sleep is forgotten to test ordering with unknown processes
-            Mock(process_configs=[create_mock('yeux_00'),
-                                  create_mock('yeux_01')])]
+            Mock(process_configs=[create_mock('yeux_00'), create_mock('yeux_01')])]
         # test ordering
         self.assertEqual(self.handler.sort_processes_by_config(processes),
                          [{'application_name': 'crash', 'process_name': 'segv'},

@@ -41,10 +41,10 @@ class AddressMapperTest(CompatTestCase):
         from supvisors.addressmapper import AddressMapper
         mapper = AddressMapper(self.logger)
         self.assertIs(self.logger, mapper.logger)
-        self.assertFalse(mapper.addresses)
-        self.assertIsNone(mapper.local_address)
+        self.assertFalse(mapper.node_names)
+        self.assertIsNone(mapper.local_node_name)
         # check that hostname is part of the local addresses
-        self.assertIn(socket.gethostname(), mapper.local_addresses)
+        self.assertIn(socket.gethostname(), mapper.local_node_references)
 
     def test_addresses(self):
         """ Test the storage of the expected addresses. """
@@ -53,16 +53,16 @@ class AddressMapperTest(CompatTestCase):
         # set addresses with hostname inside (IP addresses are not valid on purpose)
         hostname = socket.gethostname()
         address_lst = [hostname, '292.168.0.1', '292.168.0.2']
-        mapper.addresses = address_lst
-        self.assertListEqual(address_lst, mapper.addresses)
+        mapper.node_names = address_lst
+        self.assertListEqual(address_lst, mapper.node_names)
         # check that hostname is the local address
-        self.assertEqual(hostname, mapper.local_address)
+        self.assertEqual(hostname, mapper.local_node_name)
         # set addresses with invalid IP addresses only
         address_lst = ['292.168.0.1', '292.168.0.2']
-        mapper.addresses = address_lst
-        self.assertListEqual(address_lst, mapper.addresses)
+        mapper.node_names = address_lst
+        self.assertListEqual(address_lst, mapper.node_names)
         # check that the local address is not set
-        self.assertIsNone(mapper.local_address)
+        self.assertIsNone(mapper.local_node_name)
 
     def test_valid(self):
         """ Test the valid method. """
@@ -75,7 +75,7 @@ class AddressMapperTest(CompatTestCase):
         self.assertFalse(mapper.valid('192.168.0.3'))
         # set addresses
         address_lst = [hostname, '192.168.0.1', '192.168.0.2']
-        mapper.addresses = address_lst
+        mapper.node_names = address_lst
         # test the validity of addresses
         self.assertTrue(mapper.valid(hostname))
         self.assertTrue(mapper.valid('192.168.0.1'))
@@ -87,10 +87,10 @@ class AddressMapperTest(CompatTestCase):
         mapper = AddressMapper(self.logger)
         # set addresses with hostname inside (IP addresses are not valid on purpose)
         hostname = socket.gethostname()
-        address_lst = [hostname, '292.168.0.1', '292.168.0.2']
-        mapper.addresses = address_lst
+        node_lst = [hostname, '292.168.0.1', '292.168.0.2']
+        mapper.node_names = node_lst
         # test that the same list with a different sequence is not filtered
-        shuffle_lst1 = address_lst[:]
+        shuffle_lst1 = node_lst[:]
         random.shuffle(shuffle_lst1)
         self.assertEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
         # test that an subset of the sequence is not filtered
@@ -107,8 +107,8 @@ class AddressMapperTest(CompatTestCase):
         mapper = AddressMapper(self.logger)
         # set addresses with hostname inside (IP addresses are not valid on purpose)
         hostname = socket.gethostname()
-        address_lst = ['292.168.0.1', '292.168.0.2', hostname]
-        mapper.addresses = address_lst
+        node_lst = ['292.168.0.1', '292.168.0.2', hostname]
+        mapper.node_names = node_lst
         # find expected address from list of aliases of the same address
         alias_lst = ['292.168.0.1', '10.0.200.1', '66.51.20.300']
         self.assertEqual('292.168.0.1', mapper.expected(alias_lst))

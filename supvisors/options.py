@@ -100,9 +100,7 @@ class SupvisorsServerOptions(ServerOptions):
         self.supvisors_options = SupvisorsOptions()
 
     def _processes_from_section(self, parser, section, group_name, klass=None):
-        """ This method is overridden to:
-            - add attributes to prepare the extra args functionality
-            - store the program number of a homogeneous program.
+        """ This method is overridden to: store the program number of a homogeneous program.
 
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.

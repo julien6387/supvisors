@@ -295,7 +295,7 @@ class StatisticsCompilerTest(CompatTestCase):
         from supvisors.statscompiler import StatisticsCompiler, StatisticsInstance
         compiler = StatisticsCompiler(self.supvisors)
         # check compiler contents at initialisation
-        self.assertItemsEqual(self.supvisors.address_mapper.addresses, compiler.data.keys())
+        self.assertItemsEqual(self.supvisors.address_mapper.node_names, compiler.data.keys())
         for period_instance in compiler.data.values():
             self.assertItemsEqual(self.supvisors.options.stats_periods, period_instance.keys())
             for period, instance in period_instance.items():

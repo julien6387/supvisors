@@ -59,7 +59,7 @@ class SupervisorListener(object):
             instant_statistics = None
         self.collector = instant_statistics
         # other attributes
-        self.local_node = self.supvisors.address_mapper.local_address
+        self.local_node_name = self.supvisors.address_mapper.local_node_name
         self.publisher = None
         self.main_loop = None
         # subscribe to internal events
@@ -132,7 +132,7 @@ class SupervisorListener(object):
         self.publisher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
         if self.collector:
-            status = self.supvisors.context.addresses[self.local_node]
+            status = self.supvisors.context.nodes[self.local_node_name]
             stats = self.collector(status.pid_processes())
             self.publisher.send_statistics(stats)
         # periodic task

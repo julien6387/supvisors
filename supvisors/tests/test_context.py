@@ -45,8 +45,8 @@ class ContextTest(CompatTestCase):
         context = Context(self.supvisors)
         self.assertIs(self.supvisors, context.supvisors)
         self.assertIs(self.supvisors.logger, context.logger)
-        self.assertItemsEqual(DummyAddressMapper().addresses, context.addresses.keys())
-        for address_name, address in context.addresses.items():
+        self.assertItemsEqual(DummyAddressMapper().node_names, context.nodes.keys())
+        for address_name, address in context.nodes.items():
             self.assertEqual(address_name, address.address_name)
             self.assertIsInstance(address, AddressStatus)
         self.assertDictEqual({}, context.applications)
@@ -59,7 +59,7 @@ class ContextTest(CompatTestCase):
         """ Test the access to master address. """
         from supvisors.context import Context
         context = Context(self.supvisors)
-        self.assertEqual('127.0.0.1', context.supvisors.address_mapper.local_address)
+        self.assertEqual('127.0.0.1', context.supvisors.address_mapper.local_node_name)
         self.assertEqual('', context.master_node_name)
         self.assertFalse(context.is_master)
         self.assertFalse(context._is_master)
@@ -79,68 +79,68 @@ class ContextTest(CompatTestCase):
         self.assertTrue(context._is_master)
         self.assertFalse(context.master_operational)
 
-    def test_addresses_by_state(self):
+    def test_nodes_by_states(self):
         """ Test the access to addresses in unknown state. """
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
         # test initial states
-        self.assertEqual(DummyAddressMapper().addresses, context.unknown_addresses())
-        self.assertEqual([], context.unknown_forced_addresses())
-        self.assertEqual([], context.running_addresses())
-        self.assertEqual([], context.isolating_addresses())
-        self.assertEqual([], context.isolation_addresses())
-        self.assertEqual([], context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
-        self.assertEqual([], context.addresses_by_states([AddressStates.SILENT]))
-        self.assertEqual(DummyAddressMapper().addresses, context.addresses_by_states([AddressStates.UNKNOWN]))
+        self.assertEqual(DummyAddressMapper().node_names, context.unknown_nodes())
+        self.assertEqual([], context.unknown_forced_nodes())
+        self.assertEqual([], context.running_nodes())
+        self.assertEqual([], context.isolating_nodes())
+        self.assertEqual([], context.isolation_nodes())
+        self.assertEqual([], context.nodes_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
+        self.assertEqual([], context.nodes_by_states([AddressStates.SILENT]))
+        self.assertEqual(DummyAddressMapper().node_names, context.nodes_by_states([AddressStates.UNKNOWN]))
         # change states
-        context.addresses['127.0.0.1']._state = AddressStates.RUNNING
-        context.addresses['10.0.0.1']._state = AddressStates.SILENT
-        context.addresses['10.0.0.2']._state = AddressStates.ISOLATING
-        context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
-        context.addresses['10.0.0.4']._state = AddressStates.RUNNING
+        context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+        context.nodes['10.0.0.1']._state = AddressStates.SILENT
+        context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
+        context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+        context.nodes['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_addresses())
-        self.assertEqual([], context.unknown_forced_addresses())
-        self.assertEqual(['127.0.0.1', '10.0.0.4'], context.running_addresses())
-        self.assertEqual(['10.0.0.2'], context.isolating_addresses())
-        self.assertEqual(['10.0.0.2', '10.0.0.3'], context.isolation_addresses())
+        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_nodes())
+        self.assertEqual([], context.unknown_forced_nodes())
+        self.assertEqual(['127.0.0.1', '10.0.0.4'], context.running_nodes())
+        self.assertEqual(['10.0.0.2'], context.isolating_nodes())
+        self.assertEqual(['10.0.0.2', '10.0.0.3'], context.isolation_nodes())
         self.assertEqual(['127.0.0.1', '10.0.0.3', '10.0.0.4'],
-                         context.addresses_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
-        self.assertEqual(['10.0.0.1'], context.addresses_by_states([AddressStates.SILENT]))
-        self.assertEqual(['10.0.0.5'], context.addresses_by_states([AddressStates.UNKNOWN]))
+                         context.nodes_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]))
+        self.assertEqual(['10.0.0.1'], context.nodes_by_states([AddressStates.SILENT]))
+        self.assertEqual(['10.0.0.5'], context.nodes_by_states([AddressStates.UNKNOWN]))
 
-    def test_unknown_forced_addresses(self):
+    def test_unknown_forced_nodes(self):
         """ Test the access to addresses in unknown state. """
         from supvisors.context import Context
         from supvisors.ttypes import AddressStates
         self.supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
         context = Context(self.supvisors)
         # test initial states
-        self.assertEqual(DummyAddressMapper().addresses, context.unknown_addresses())
-        self.assertEqual(['10.0.0.1', '10.0.0.4'], context.unknown_forced_addresses())
+        self.assertEqual(DummyAddressMapper().node_names, context.unknown_nodes())
+        self.assertEqual(['10.0.0.1', '10.0.0.4'], context.unknown_forced_nodes())
         # change states
-        context.addresses['127.0.0.1']._state = AddressStates.RUNNING
-        context.addresses['10.0.0.2']._state = AddressStates.ISOLATING
-        context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
-        context.addresses['10.0.0.4']._state = AddressStates.RUNNING
+        context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+        context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
+        context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+        context.nodes['10.0.0.4']._state = AddressStates.RUNNING
         # test new states
-        self.assertEqual(['10.0.0.1', '10.0.0.2', '10.0.0.5'], context.unknown_addresses())
-        self.assertEqual(['10.0.0.1'], context.unknown_forced_addresses())
+        self.assertEqual(['10.0.0.1', '10.0.0.2', '10.0.0.5'], context.unknown_nodes())
+        self.assertEqual(['10.0.0.1'], context.unknown_forced_nodes())
         # change states
-        context.addresses['10.0.0.1']._state = AddressStates.SILENT
+        context.nodes['10.0.0.1']._state = AddressStates.SILENT
         # test new states
-        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_addresses())
-        self.assertEqual([], context.unknown_forced_addresses())
+        self.assertEqual(['10.0.0.2', '10.0.0.5'], context.unknown_nodes())
+        self.assertEqual([], context.unknown_forced_nodes())
 
     @staticmethod
-    def random_fill_processes( context):
+    def random_fill_processes(context):
         """ Pushes ProcessInfoDatabase process info in AddressStatus. """
         for info in database_copy():
             process = context.setdefault_process(info)
-            address_name = random.choice(list(context.addresses.keys()))
-            process.add_info(address_name, info)
-            context.addresses[address_name].add_process(process)
+            node_name = random.choice(list(context.nodes.keys()))
+            process.add_info(node_name, info)
+            context.nodes[node_name].add_process(process)
 
     def test_invalid(self):
         """ Test the invalidation of an address. """
@@ -150,12 +150,12 @@ class ContextTest(CompatTestCase):
 
         def check_address_status(address_name, new_state):
             # get address status
-            address_status = context.addresses[address_name]
+            address_status = context.nodes[address_name]
             # check initial state
             self.assertEqual(AddressStates.UNKNOWN, address_status.state)
             # invalidate address
-            proc_1 = Mock(**{'invalidate_address.return_value': None})
-            proc_2 = Mock(**{'invalidate_address.return_value': None})
+            proc_1 = Mock(**{'invalidate_node.return_value': None})
+            proc_2 = Mock(**{'invalidate_node.return_value': None})
             with patch.object(address_status, 'running_processes',
                               return_value=[proc_1, proc_2]) as mocked_running:
                 context.invalid(address_status)
@@ -163,10 +163,8 @@ class ContextTest(CompatTestCase):
             self.assertEqual(new_state, address_status.state)
             # test calls to process methods
             self.assertEqual([call()], mocked_running.call_args_list)
-            self.assertEqual([call(address_name, False)],
-                             proc_1.invalidate_address.call_args_list)
-            self.assertEqual([call(address_name, False)],
-                             proc_2.invalidate_address.call_args_list)
+            self.assertEqual([call(address_name, False)], proc_1.invalidate_node.call_args_list)
+            self.assertEqual([call(address_name, False)], proc_2.invalidate_node.call_args_list)
             # restore address state
             address_status._state = AddressStates.UNKNOWN
 
@@ -187,35 +185,28 @@ class ContextTest(CompatTestCase):
         from supvisors.ttypes import AddressStates
         context = Context(self.supvisors)
         # choose two addresses and change their state
-        for address_status in context.addresses.values():
+        for address_status in context.nodes.values():
             self.assertEqual(AddressStates.UNKNOWN, address_status.state)
-        context.addresses['10.0.0.2']._state = AddressStates.RUNNING
-        context.addresses['10.0.0.4']._state = AddressStates.ISOLATED
+        context.nodes['10.0.0.2']._state = AddressStates.RUNNING
+        context.nodes['10.0.0.4']._state = AddressStates.ISOLATED
         # call end of synchro with auto_fence activated
         context.end_synchro()
         # check that UNKNOWN addresses became ISOLATING, but local address
-        self.assertEqual(AddressStates.SILENT,
-                         context.addresses['127.0.0.1'].state)
-        self.assertEqual(AddressStates.ISOLATING,
-                         context.addresses['10.0.0.1'].state)
-        self.assertEqual(AddressStates.ISOLATING,
-                         context.addresses['10.0.0.3'].state)
-        self.assertEqual(AddressStates.ISOLATING,
-                         context.addresses['10.0.0.5'].state)
+        self.assertEqual(AddressStates.SILENT, context.nodes['127.0.0.1'].state)
+        self.assertEqual(AddressStates.ISOLATING, context.nodes['10.0.0.1'].state)
+        self.assertEqual(AddressStates.ISOLATING, context.nodes['10.0.0.3'].state)
+        self.assertEqual(AddressStates.ISOLATING, context.nodes['10.0.0.5'].state)
         # reset states and set (local excepted)
-        context.addresses['10.0.0.1']._state = AddressStates.UNKNOWN
-        context.addresses['10.0.0.3']._state = AddressStates.UNKNOWN
-        context.addresses['10.0.0.5']._state = AddressStates.UNKNOWN
+        context.nodes['10.0.0.1']._state = AddressStates.UNKNOWN
+        context.nodes['10.0.0.3']._state = AddressStates.UNKNOWN
+        context.nodes['10.0.0.5']._state = AddressStates.UNKNOWN
         with patch.object(self.supvisors.options, 'auto_fence', False):
             # call end of synchro with auto_fencing deactivated
             context.end_synchro()
         # check that UNKNOWN addresses became SILENT
-        self.assertEqual(AddressStates.SILENT,
-                         context.addresses['10.0.0.1'].state)
-        self.assertEqual(AddressStates.SILENT,
-                         context.addresses['10.0.0.3'].state)
-        self.assertEqual(AddressStates.SILENT,
-                         context.addresses['10.0.0.5'].state)
+        self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.1'].state)
+        self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.3'].state)
+        self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.5'].state)
 
     def test_conflicts(self):
         """ Test the detection of conflicting processes. """
@@ -230,7 +221,7 @@ class ContextTest(CompatTestCase):
         process1 = next(process
                         for process in context.processes.values()
                         if process.running())
-        process1.addresses.update(context.addresses.keys())
+        process1.running_nodes.update(context.nodes.keys())
         # test conflict is detected
         self.assertTrue(context.conflicting())
         self.assertListEqual([process1], context.conflicts())
@@ -238,17 +229,17 @@ class ContextTest(CompatTestCase):
         process2 = next(process
                         for process in context.processes.values()
                         if process.stopped())
-        process2.addresses.update(context.addresses.keys())
+        process2.running_nodes.update(context.nodes.keys())
         # test conflict is detected
         self.assertTrue(context.conflicting())
         self.assertListEqual([process1, process2], context.conflicts())
         # empty addresses of first process list
-        process1.addresses.clear()
+        process1.running_nodes.clear()
         # test conflict is still detected
         self.assertTrue(context.conflicting())
         self.assertListEqual([process2], context.conflicts())
         # empty addresses of second process list
-        process2.addresses.clear()
+        process2.running_nodes.clear()
         # test no conflict
         self.assertFalse(context.conflicting())
         self.assertListEqual([], context.conflicts())
@@ -297,8 +288,7 @@ class ContextTest(CompatTestCase):
                               'dummy_application_2:dummy_process_2': process2},
                              context.processes)
         # get application
-        dummy_info3 = {'group': process1.application_name,
-                       'name': process1.process_name}
+        dummy_info3 = {'group': process1.application_name, 'name': process1.process_name}
         process3 = context.setdefault_process(dummy_info3)
         self.assertIs(process1, process3)
         # check application and process list
@@ -315,7 +305,7 @@ class ContextTest(CompatTestCase):
         # check application list
         self.assertDictEqual({}, context.applications)
         self.assertDictEqual({}, context.processes)
-        for address in context.addresses.values():
+        for address in context.nodes.values():
             self.assertDictEqual({}, address.processes)
         # load ProcessInfoDatabase in unknown address
         with self.assertRaises(KeyError):
@@ -330,7 +320,7 @@ class ContextTest(CompatTestCase):
                                'sample_test_2:yeux_00', 'sample_test_2:yeux_01',
                                'crash:late_segv', 'crash:segv', 'firefox'],
                               context.processes.keys())
-        self.assertDictEqual(context.addresses['10.0.0.1'].processes,
+        self.assertDictEqual(context.nodes['10.0.0.1'].processes,
                              context.processes)
         # load ProcessInfoDatabase in other known address
         context.load_processes('10.0.0.2', database_copy())
@@ -342,7 +332,7 @@ class ContextTest(CompatTestCase):
                                'sample_test_2:yeux_00', 'sample_test_2:yeux_01',
                                'crash:late_segv', 'crash:segv', 'firefox'],
                               context.processes.keys())
-        self.assertDictEqual(context.addresses['10.0.0.2'].processes,
+        self.assertDictEqual(context.nodes['10.0.0.2'].processes,
                              context.processes)
         # load different database in other known address
         info = any_process_info()
@@ -360,21 +350,21 @@ class ContextTest(CompatTestCase):
                                'dummy_application:dummy_process'],
                               context.processes.keys())
         self.assertItemsEqual(['dummy_application:dummy_process'],
-                              context.addresses['10.0.0.4'].processes.keys())
+                              context.nodes['10.0.0.4'].processes.keys())
         # equality lost between processes in addresses and processes in context
         self.assertNotIn(list(context.processes.keys()),
-                         list(context.addresses['10.0.0.1'].processes.keys()))
+                         list(context.nodes['10.0.0.1'].processes.keys()))
         self.assertNotIn(list(context.processes.keys()),
-                         list(context.addresses['10.0.0.2'].processes.keys()))
+                         list(context.nodes['10.0.0.2'].processes.keys()))
         self.assertNotIn(list(context.processes.keys()),
-                         list(context.addresses['10.0.0.4'].processes.keys()))
-        self.assertDictContainsSubset(context.addresses['10.0.0.1'].processes,
+                         list(context.nodes['10.0.0.4'].processes.keys()))
+        self.assertDictContainsSubset(context.nodes['10.0.0.1'].processes,
                                       context.processes)
-        self.assertDictContainsSubset(context.addresses['10.0.0.1'].processes,
+        self.assertDictContainsSubset(context.nodes['10.0.0.1'].processes,
                                       context.processes)
-        self.assertDictContainsSubset(context.addresses['10.0.0.2'].processes,
+        self.assertDictContainsSubset(context.nodes['10.0.0.2'].processes,
                                       context.processes)
-        self.assertDictContainsSubset(context.addresses['10.0.0.4'].processes,
+        self.assertDictContainsSubset(context.nodes['10.0.0.4'].processes,
                                       context.processes)
 
     def test_authorization(self):
@@ -387,45 +377,40 @@ class ContextTest(CompatTestCase):
         # check no change with known address in isolation
         for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
             for authorization in [True, False]:
-                context.addresses['10.0.0.1']._state = state
+                context.nodes['10.0.0.1']._state = state
                 context.on_authorization('10.0.0.1', authorization)
-                self.assertEqual(state, context.addresses['10.0.0.1'].state)
+                self.assertEqual(state, context.nodes['10.0.0.1'].state)
         # check exception if authorized and current state not CHECKING
         for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-            context.addresses['10.0.0.2']._state = state
+            context.nodes['10.0.0.2']._state = state
             with self.assertRaises(InvalidTransition):
                 context.on_authorization('10.0.0.2', True)
-            self.assertEqual(state, context.addresses['10.0.0.2'].state)
+            self.assertEqual(state, context.nodes['10.0.0.2'].state)
         # check state becomes RUNNING if authorized and current state in CHECKING
         for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
-            context.addresses['10.0.0.2']._state = state
+            context.nodes['10.0.0.2']._state = state
             context.on_authorization('10.0.0.2', True)
-            self.assertEqual(AddressStates.RUNNING,
-                             context.addresses['10.0.0.2'].state)
+            self.assertEqual(AddressStates.RUNNING, context.nodes['10.0.0.2'].state)
         # check state becomes ISOLATING if not authorized and auto fencing
         # activated
-        for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
-                      AddressStates.RUNNING]:
-            context.addresses['10.0.0.4']._state = state
+        for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING]:
+            context.nodes['10.0.0.4']._state = state
             context.on_authorization('10.0.0.4', False)
-            self.assertEqual(AddressStates.ISOLATING,
-                             context.addresses['10.0.0.4'].state)
+            self.assertEqual(AddressStates.ISOLATING, context.nodes['10.0.0.4'].state)
         # check exception if not authorized and auto fencing activated and
         # current is SILENT
-        context.addresses['10.0.0.4']._state = AddressStates.SILENT
+        context.nodes['10.0.0.4']._state = AddressStates.SILENT
         with self.assertRaises(InvalidTransition):
             context.on_authorization('10.0.0.4', True)
-        self.assertEqual(AddressStates.SILENT,
-                         context.addresses['10.0.0.4'].state)
+        self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.4'].state)
         # check state becomes SILENT if not authorized and auto fencing
         # deactivated
         with patch.object(self.supvisors.options, 'auto_fence', False):
             for state in [AddressStates.UNKNOWN, AddressStates.CHECKING,
                           AddressStates.SILENT, AddressStates.RUNNING]:
-                context.addresses['10.0.0.5']._state = state
+                context.nodes['10.0.0.5']._state = state
                 context.on_authorization('10.0.0.5', False)
-                self.assertEqual(AddressStates.SILENT,
-                                 context.addresses['10.0.0.5'].state)
+                self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.5'].state)
 
     @patch('supvisors.context.time', return_value=3600)
     def test_tick_event(self, _):
@@ -440,7 +425,7 @@ class ContextTest(CompatTestCase):
         self.assertEqual(0, mocked_check.call_count)
         self.assertEqual(0, mocked_send.call_count)
         # get address status used for tests
-        address = context.addresses['10.0.0.1']
+        address = context.nodes['10.0.0.1']
         # check no change with known address in isolation
         for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
             address._state = state
@@ -479,20 +464,25 @@ class ContextTest(CompatTestCase):
         from supvisors.ttypes import AddressStates, ApplicationStates
         context = Context(self.supvisors)
         mocked_publisher = self.supvisors.zmq.publisher
+        mocked_update_args = self.supvisors.info_source.update_extra_args
         # check no exception with unknown address
         result = context.on_process_event('10.0.0.0', {})
         self.assertIsNone(result)
-        self.assertEqual(0, mocked_publisher.send_application_status.call_count)
-        self.assertEqual(0, mocked_publisher.send_process_status.call_count)
+        self.assertFalse(mocked_update_args.called)
+        self.assertFalse(mocked_publisher.send_process_event.called)
+        self.assertFalse(mocked_publisher.send_process_status.called)
+        self.assertFalse(mocked_publisher.send_application_status.called)
         # get address status used for tests
-        address = context.addresses['10.0.0.1']
+        address = context.nodes['10.0.0.1']
         # check no change with known address in isolation
         for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
             address._state = state
             result = context.on_process_event('10.0.0.1', {})
             self.assertIsNone(result)
-            self.assertEqual(0, mocked_publisher.send_application_status.call_count)
-            self.assertEqual(0, mocked_publisher.send_process_status.call_count)
+            self.assertFalse(mocked_update_args.called)
+            self.assertFalse(mocked_publisher.send_process_event.called)
+            self.assertFalse(mocked_publisher.send_process_status.called)
+            self.assertFalse(mocked_publisher.send_application_status.called)
         # check no exception with unknown process
         for state in [AddressStates.UNKNOWN, AddressStates.SILENT,
                       AddressStates.CHECKING, AddressStates.RUNNING]:
@@ -500,8 +490,10 @@ class ContextTest(CompatTestCase):
             result = context.on_process_event('10.0.0.1', {'groupname': 'dummy_application',
                                                            'processname': 'dummy_process'})
             self.assertIsNone(result)
-            self.assertEqual(0, mocked_publisher.send_application_status.call_count)
-            self.assertEqual(0, mocked_publisher.send_process_status.call_count)
+            self.assertFalse(mocked_update_args.called)
+            self.assertFalse(mocked_publisher.send_process_event.called)
+            self.assertFalse(mocked_publisher.send_process_status.called)
+            self.assertFalse(mocked_publisher.send_application_status.called)
         # fill context with one process
         dummy_info = {'group': 'dummy_application',
                       'name': 'dummy_process',
@@ -522,15 +514,19 @@ class ContextTest(CompatTestCase):
             self.assertIs(process, result)
             self.assertEqual(10, process.state)
             self.assertEqual(ApplicationStates.STARTING, application.state)
-            self.assertEqual(call({'application_name': 'dummy_application',
-                                   'statecode': 1, 'statename': 'STARTING',
-                                   'major_failure': False, 'minor_failure': False}),
-                             mocked_publisher.send_application_status.call_args)
+            self.assertEqual(call('dummy_application:dummy_process', ''), mocked_update_args.call_args)
+            self.assertEqual(call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
+                                               'state': 10, 'now': 2345, 'extra_args': ''}),
+                             mocked_publisher.send_process_event.call_args)
             self.assertEqual(call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                                    'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
                                    'last_event_time': 1234, 'addresses': ['10.0.0.1'],
                                    'extra_args': ''}),
                              mocked_publisher.send_process_status.call_args)
+            self.assertEqual(call({'application_name': 'dummy_application',
+                                   'statecode': 1, 'statename': 'STARTING',
+                                   'major_failure': False, 'minor_failure': False}),
+                             mocked_publisher.send_application_status.call_args)
 
     @patch('supvisors.context.time', return_value=3600)
     def test_timer_event(self, mocked_time):
@@ -542,49 +538,49 @@ class ContextTest(CompatTestCase):
         # test address states excepting RUNNING: nothing happens
         for _ in [x for x in AddressStates if x != AddressStates.RUNNING]:
             context.on_timer_event()
-            for address in context.addresses.values():
+            for address in context.nodes.values():
                 self.assertEqual(AddressStates.UNKNOWN, address.state)
             self.assertEqual(0, mocked_send.call_count)
         # test RUNNING address state with recent local_time
         test_addresses = ['10.0.0.1', '10.0.0.3', '10.0.0.5']
         for address_name in test_addresses:
-            address = context.addresses[address_name]
+            address = context.nodes[address_name]
             address._state = AddressStates.RUNNING
             address.local_time = time.time()
         context.on_timer_event()
         for address_name in test_addresses:
-            self.assertEqual(AddressStates.RUNNING, context.addresses[address_name].state)
-        for address_name in [x for x in context.addresses.keys()
+            self.assertEqual(AddressStates.RUNNING, context.nodes[address_name].state)
+        for address_name in [x for x in context.nodes.keys()
                              if x not in test_addresses]:
-            self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
+            self.assertEqual(AddressStates.UNKNOWN, context.nodes[address_name].state)
         self.assertEqual(0, mocked_send.call_count)
         # test RUNNING address state with one recent local_time and with auto_fence activated
-        address1 = context.addresses['10.0.0.3']
+        address1 = context.nodes['10.0.0.3']
         address1.local_time = mocked_time.return_value - 100
         context.on_timer_event()
         self.assertEqual(AddressStates.ISOLATING, address1.state)
         for address_name in [x for x in test_addresses if x != '10.0.0.3']:
-            self.assertEqual(AddressStates.RUNNING, context.addresses[address_name].state)
-        for address_name in [x for x in context.addresses.keys()
+            self.assertEqual(AddressStates.RUNNING, context.nodes[address_name].state)
+        for address_name in [x for x in context.nodes.keys()
                              if x not in test_addresses]:
-            self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
+            self.assertEqual(AddressStates.UNKNOWN, context.nodes[address_name].state)
         self.assertEqual(call({'address_name': '10.0.0.3', 'statecode': 4, 'statename': 'ISOLATING',
                                'remote_time': 0, 'local_time': address1.local_time, 'loading': 0}),
                          mocked_send.call_args)
         # test with one other recent local_time and with auto_fence deactivated
         self.supvisors.options.auto_fence = False
         mocked_send.reset_mock()
-        address2 = context.addresses['10.0.0.5']
+        address2 = context.nodes['10.0.0.5']
         address2.local_time = mocked_time.return_value - 100
-        address3 = context.addresses['10.0.0.1']
+        address3 = context.nodes['10.0.0.1']
         address3.local_time = mocked_time.return_value - 100
         context.on_timer_event()
         self.assertEqual(AddressStates.SILENT, address2.state)
         self.assertEqual(AddressStates.SILENT, address3.state)
         self.assertEqual(AddressStates.ISOLATING, address1.state)
-        for address_name in [x for x in context.addresses.keys()
+        for address_name in [x for x in context.nodes.keys()
                              if x not in test_addresses]:
-            self.assertEqual(AddressStates.UNKNOWN, context.addresses[address_name].state)
+            self.assertEqual(AddressStates.UNKNOWN, context.nodes[address_name].state)
         send_calls = mocked_send.call_args_list
         payload2 = {'address_name': '10.0.0.5', 'statecode': 3, 'statename': 'SILENT',
                     'remote_time': 0, 'local_time': address2.local_time, 'loading': 0}
@@ -600,20 +596,20 @@ class ContextTest(CompatTestCase):
         context = Context(self.supvisors)
         with patch.object(self.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
             # update address states
-            context.addresses['127.0.0.1']._state = AddressStates.CHECKING
-            context.addresses['10.0.0.1']._state = AddressStates.RUNNING
-            context.addresses['10.0.0.2']._state = AddressStates.SILENT
-            context.addresses['10.0.0.3']._state = AddressStates.ISOLATED
-            context.addresses['10.0.0.4']._state = AddressStates.ISOLATING
-            context.addresses['10.0.0.5']._state = AddressStates.ISOLATING
+            context.nodes['127.0.0.1']._state = AddressStates.CHECKING
+            context.nodes['10.0.0.1']._state = AddressStates.RUNNING
+            context.nodes['10.0.0.2']._state = AddressStates.SILENT
+            context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+            context.nodes['10.0.0.4']._state = AddressStates.ISOLATING
+            context.nodes['10.0.0.5']._state = AddressStates.ISOLATING
             # call method and check result
             result = context.handle_isolation()
-            self.assertEqual(AddressStates.CHECKING, context.addresses['127.0.0.1'].state)
-            self.assertEqual(AddressStates.RUNNING, context.addresses['10.0.0.1'].state)
-            self.assertEqual(AddressStates.SILENT, context.addresses['10.0.0.2'].state)
-            self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.3'].state)
-            self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.4'].state)
-            self.assertEqual(AddressStates.ISOLATED, context.addresses['10.0.0.5'].state)
+            self.assertEqual(AddressStates.CHECKING, context.nodes['127.0.0.1'].state)
+            self.assertEqual(AddressStates.RUNNING, context.nodes['10.0.0.1'].state)
+            self.assertEqual(AddressStates.SILENT, context.nodes['10.0.0.2'].state)
+            self.assertEqual(AddressStates.ISOLATED, context.nodes['10.0.0.3'].state)
+            self.assertEqual(AddressStates.ISOLATED, context.nodes['10.0.0.4'].state)
+            self.assertEqual(AddressStates.ISOLATED, context.nodes['10.0.0.5'].state)
             self.assertListEqual(['10.0.0.4', '10.0.0.5'], result)
             # check calls to publisher.send_address_status
             self.assertListEqual([call({'address_name': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',

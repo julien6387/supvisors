@@ -116,10 +116,9 @@ class SupervisordSource(object):
 
     def get_process(self, namespec):
         """ This method returns the process configuration related to a namespec. """
-        # WARN: the following line may throw a KeyError exception
+        # WARN: the method may throw a KeyError exception
         application_name, process_name = split_namespec(namespec)
-        group = self.supervisord.process_groups[application_name]
-        return group.processes[process_name]
+        return self.supervisord.process_groups[application_name].processes[process_name]
 
     def get_process_config(self, namespec):
         """ This method returns the process configuration related to a namespec. """

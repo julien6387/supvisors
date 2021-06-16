@@ -28,14 +28,13 @@ from supvisors.webutils import *
 class ProcAddressView(SupvisorsAddressView):
     """ View renderer of the Process section of the Supvisors Address page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
-    Note that the inheritance of StatusView has been patched dynamically
-    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
-    inherits from ViewHandler instead of MeldView.
+    Note that StatusView inheritance has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
+    so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsAddressView.__init__(self, context, PROC_ADDRESS_PAGE)
+        SupvisorsAddressView.__init__(self, context, PROC_NODE_PAGE)
 
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
@@ -46,8 +45,9 @@ class ProcAddressView(SupvisorsAddressView):
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
             status = self.view_ctx.get_process_status(namespec)
-            if not status or self.view_ctx.local_address not in status.addresses:
+            if not status or self.view_ctx.local_node_name not in status.running_nodes:
                 self.logger.warn('unselect Process Statistics for {}'.format(namespec))
+                # form parameter is not consistent. remove it
                 # form parameter is not consistent. remove it
                 self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
@@ -63,23 +63,23 @@ class ProcAddressView(SupvisorsAddressView):
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
-            self.logger.warn('failed to get all process info from {}: {}'
-                             .format(self.address, e.text))
+            self.logger.warn('ProcAddressView.get_process_data: failed to get all process info from {}: {}'
+                             .format(self.local_node_name, e.text))
             return data
         # extract what is useful to display
         for info in all_info:
             namespec = make_namespec(info['group'], info['name'])
             status = self.view_ctx.get_process_status(namespec)
-            loading = status.rules.expected_loading if status else '?'
+            expected_load = status.rules.expected_load if status else '?'
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             data.append({'application_name': info['group'],
                          'process_name': info['name'],
                          'namespec': namespec,
-                         'address': self.view_ctx.local_address,
+                         'node_name': self.view_ctx.local_node_name,
                          'statename': info['statename'],
                          'statecode': info['state'],
                          'description': info['description'],
-                         'loading': loading,
+                         'expected_load': expected_load,
                          'nb_cores': nb_cores,
                          'proc_stats': proc_stats})
         # re-arrange data
@@ -110,5 +110,5 @@ class ProcAddressView(SupvisorsAddressView):
         namespec = info['namespec']
         elt = tr_elt.findmeld('name_a_mid')
         elt.content(namespec)
-        url = self.view_ctx.format_url(self.address, TAIL_PAGE, **{PROCESS: namespec})
+        url = self.view_ctx.format_url(self.local_node_name, TAIL_PAGE, **{PROCESS: namespec})
         elt.attributes(href=url)

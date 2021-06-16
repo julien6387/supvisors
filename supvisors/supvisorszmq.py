@@ -538,7 +538,7 @@ class SupervisorZmq(object):
         :param supvisors: the Supvisors global structure
         """
         self.publisher = EventPublisher(supvisors.options.event_port, supvisors.logger)
-        self.internal_publisher = InternalEventPublisher(supvisors.address_mapper.local_address,
+        self.internal_publisher = InternalEventPublisher(supvisors.address_mapper.local_node_name,
                                                          supvisors.options.internal_port,
                                                          supvisors.logger)
         self.pusher = RequestPusher(supvisors.logger)
@@ -571,7 +571,7 @@ class SupvisorsZmq(object):
         :param supvisors: the Supvisors global structure
         """
         # create zmq sockets
-        self.internal_subscriber = InternalEventSubscriber(supvisors.address_mapper.addresses,
+        self.internal_subscriber = InternalEventSubscriber(supvisors.address_mapper.node_names,
                                                            supvisors.options.internal_port)
         self.puller = RequestPuller()
         # create poller

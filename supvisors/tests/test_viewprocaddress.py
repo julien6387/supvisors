@@ -47,11 +47,11 @@ class ViewProcAddressTest(unittest.TestCase):
         # test instance inheritance
         from supvisors.viewhandler import ViewHandler
         from supvisors.viewsupstatus import SupvisorsAddressView
-        from supvisors.webutils import PROC_ADDRESS_PAGE
+        from supvisors.webutils import PROC_NODE_PAGE
         for klass in [SupvisorsAddressView, StatusView, ViewHandler, MeldView]:
             self.assertIsInstance(self.view, klass)
         # test default page name
-        self.assertEqual(PROC_ADDRESS_PAGE, self.view.page_name)
+        self.assertEqual(PROC_NODE_PAGE, self.view.page_name)
 
     @patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
     @patch('supvisors.viewprocaddress.ProcAddressView.write_process_table')
@@ -62,7 +62,7 @@ class ViewProcAddressTest(unittest.TestCase):
         """ Test the write_contents method. """
         from supvisors.viewcontext import PROCESS
         # patch context
-        self.view.view_ctx = Mock(parameters={PROCESS: None}, local_address='10.0.0.1',
+        self.view.view_ctx = Mock(parameters={PROCESS: None}, local_node_name='10.0.0.1',
                                   **{'get_process_status.return_value': None})
         # patch the meld elements
         mocked_root = Mock()
@@ -86,7 +86,7 @@ class ViewProcAddressTest(unittest.TestCase):
         mocked_stats.reset_mock()
         # test call with process selected but not running on considered address
         self.view.view_ctx.parameters[PROCESS] = 'dummy_proc'
-        self.view.view_ctx.get_process_status.return_value = Mock(addresses={'10.0.0.2'})
+        self.view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.2'})
         self.view.write_contents(mocked_root)
         self.assertEqual([call()], mocked_data.call_args_list)
         self.assertEqual([call(mocked_root, [{'namespec': 'dummy_proc'}])], mocked_table.call_args_list)
@@ -97,20 +97,19 @@ class ViewProcAddressTest(unittest.TestCase):
         mocked_stats.reset_mock()
         # test call with process selected and running
         self.view.view_ctx.parameters[PROCESS] = 'dummy_proc'
-        self.view.view_ctx.get_process_status.return_value = Mock(addresses={'10.0.0.1'})
+        self.view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.1'})
         self.view.write_contents(mocked_root)
         self.assertEqual([call()], mocked_data.call_args_list)
         self.assertEqual([call(mocked_root, [{'namespec': 'dummy_proc'}])], mocked_table.call_args_list)
         self.assertEqual('dummy_proc', self.view.view_ctx.parameters[PROCESS])
         self.assertEqual([call(mocked_root, {'namespec': 'dummy_proc'})], mocked_stats.call_args_list)
 
-    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config',
-           return_value=['process_2', 'process_1'])
+    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config', return_value=['process_2', 'process_1'])
     def test_get_process_data(self, mocked_sort):
         """ Test the get_process_data method. """
         # patch context
-        process_status = Mock(rules=Mock(expected_loading=17))
-        self.view.view_ctx = Mock(local_address='10.0.0.1',
+        process_status = Mock(rules=Mock(expected_load=17))
+        self.view.view_ctx = Mock(local_node_name='10.0.0.1',
                                   **{'get_process_status.side_effect': [None, process_status],
                                      'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
         # test RPC Error
@@ -120,8 +119,7 @@ class ViewProcAddressTest(unittest.TestCase):
 
         # test using base process info
         def process_info_by_name(name):
-            return next((info.copy() for info in ProcessInfoDatabase
-                         if info['name'] == name), {})
+            return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), {})
 
         with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
                           return_value=[process_info_by_name('xfontsel'),
@@ -131,21 +129,21 @@ class ViewProcAddressTest(unittest.TestCase):
             data1 = {'application_name': 'sample_test_1',
                      'process_name': 'xfontsel',
                      'namespec': 'sample_test_1:xfontsel',
-                     'address': '10.0.0.1',
+                     'node_name': '10.0.0.1',
                      'statename': 'RUNNING',
                      'statecode': 20,
                      'description': 'pid 80879, uptime 0:01:19',
-                     'loading': '?',
+                     'expected_load': '?',
                      'nb_cores': 2,
                      'proc_stats': 'stats #1'}
             data2 = {'application_name': 'crash',
                      'process_name': 'segv',
                      'namespec': 'crash:segv',
-                     'address': '10.0.0.1',
+                     'node_name': '10.0.0.1',
                      'statename': 'BACKOFF',
                      'statecode': 30,
                      'description': 'Exited too quickly (process log may have details)',
-                     'loading': 17,
+                     'expected_load': 17,
                      'nb_cores': 8,
                      'proc_stats': 'stats #2'}
             self.assertEqual(1, mocked_sort.call_count)
@@ -191,7 +189,7 @@ class ViewProcAddressTest(unittest.TestCase):
 
     def test_write_process(self):
         """ Test the write_process method. """
-        from supvisors.webutils import PROC_ADDRESS_PAGE, TAIL_PAGE
+        from supvisors.webutils import TAIL_PAGE
         # create a process-like dict
         info = {'namespec': 'dummy_appli:dummy_proc'}
         # patch the view context

@@ -37,12 +37,12 @@ class HostAddressView(SupvisorsAddressView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsAddressView.__init__(self, context, HOST_ADDRESS_PAGE)
+        SupvisorsAddressView.__init__(self, context, HOST_NODE_PAGE)
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection
-        stats_instance = self.view_ctx.get_address_stats()
+        stats_instance = self.view_ctx.get_node_stats()
         self.write_processor_statistics(root, stats_instance.cpu)
         self.write_memory_statistics(root, stats_instance.mem)
         self.write_network_statistics(root, stats_instance.io)

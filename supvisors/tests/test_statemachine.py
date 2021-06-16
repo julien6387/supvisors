@@ -34,16 +34,16 @@ class StateMachinesTest(unittest.TestCase):
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
         self.supvisors = MockedSupvisors()
-        # assign addresses in context
-        addresses = self.supvisors.context.addresses
-        for address_name in self.supvisors.address_mapper.addresses:
-            addresses[address_name] = AddressStatus(address_name, self.supvisors.logger)
-        addresses['127.0.0.1']._state = AddressStates.RUNNING
-        addresses['10.0.0.1']._state = AddressStates.SILENT
-        addresses['10.0.0.2']._state = AddressStates.RUNNING
-        addresses['10.0.0.3']._state = AddressStates.ISOLATING
-        addresses['10.0.0.4']._state = AddressStates.RUNNING
-        addresses['10.0.0.5']._state = AddressStates.ISOLATED
+        # assign addresses to context
+        nodes = self.supvisors.context.nodes
+        for node_name in self.supvisors.address_mapper.node_names:
+            nodes[node_name] = AddressStatus(node_name, self.supvisors.logger)
+        nodes['127.0.0.1']._state = AddressStates.RUNNING
+        nodes['10.0.0.1']._state = AddressStates.SILENT
+        nodes['10.0.0.2']._state = AddressStates.RUNNING
+        nodes['10.0.0.3']._state = AddressStates.ISOLATING
+        nodes['10.0.0.4']._state = AddressStates.RUNNING
+        nodes['10.0.0.5']._state = AddressStates.ISOLATED
 
     def test_abstract_state(self):
         """ Test the Abstract state of the self.fsm. """
@@ -51,7 +51,7 @@ class StateMachinesTest(unittest.TestCase):
         state = AbstractState(self.supvisors)
         # check attributes at creation
         self.assertIs(self.supvisors, state.supvisors)
-        self.assertEqual('127.0.0.1', state.address_name)
+        self.assertEqual('127.0.0.1', state.local_node_name)
         # call empty methods
         state.enter()
         state.next()
@@ -59,7 +59,7 @@ class StateMachinesTest(unittest.TestCase):
         # test apply_addresses_func method
         mock_function = Mock()
         mock_function.__name__ = 'dummy_name'
-        state.apply_addresses_func(mock_function)
+        state.apply_nodes_func(mock_function)
         self.assertListEqual([call('10.0.0.2'), call('10.0.0.4'), call('127.0.0.1')],
                              mock_function.call_args_list)
 
@@ -70,53 +70,53 @@ class StateMachinesTest(unittest.TestCase):
         state = InitializationState(self.supvisors)
         self.assertIsInstance(state, AbstractState)
         # 1. test enter method: master and start_date are reset
-        # test that all addresses that are not in an isolation state are reset to UNKNOWN
+        # test that all nodes that are not in an isolation state are reset to UNKNOWN
         state.enter()
         self.assertEqual('', state.context.master_node_name)
         self.assertGreaterEqual(int(time.time()), state.start_date)
-        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['127.0.0.1'].state)
-        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['10.0.0.1'].state)
-        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['10.0.0.2'].state)
-        self.assertEqual(AddressStates.ISOLATING, self.supvisors.context.addresses['10.0.0.3'].state)
-        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.addresses['10.0.0.4'].state)
-        self.assertEqual(AddressStates.ISOLATED, self.supvisors.context.addresses['10.0.0.5'].state)
+        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.nodes['127.0.0.1'].state)
+        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.nodes['10.0.0.1'].state)
+        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.nodes['10.0.0.2'].state)
+        self.assertEqual(AddressStates.ISOLATING, self.supvisors.context.nodes['10.0.0.3'].state)
+        self.assertEqual(AddressStates.UNKNOWN, self.supvisors.context.nodes['10.0.0.4'].state)
+        self.assertEqual(AddressStates.ISOLATED, self.supvisors.context.nodes['10.0.0.5'].state)
         # 2. test next method
-        # test that Supvisors wait for all addresses to be running or a given timeout is reached
-        self.supvisors.context.forced_addresses = []
-        self.supvisors.context.running_addresses.return_value = []
-        # test case no address is running, especially local address
+        # test that Supvisors wait for all nodes to be running or a given timeout is reached
+        self.supvisors.context.forced_nodes = []
+        self.supvisors.context.running_nodes.return_value = []
+        # test case no node is running, especially local node
         result = state.next()
         self.assertEqual(SupvisorsStates.INITIALIZATION, result)
         # test case where addresses are still unknown and timeout is not reached
-        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
-        self.supvisors.context.unknown_addresses.return_value = ['10.0.0.1', '10.0.0.3']
-        self.supvisors.context.unknown_forced_addresses.return_value = []
+        self.supvisors.context.running_nodes.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_nodes.return_value = ['10.0.0.1', '10.0.0.3']
+        self.supvisors.context.unknown_forced_nodes.return_value = []
         result = state.next()
         self.assertEqual(SupvisorsStates.INITIALIZATION, result)
         # test case where no addresses are still unknown
-        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
-        self.supvisors.context.unknown_addresses.return_value = []
-        self.supvisors.context.unknown_forced_addresses.return_value = []
+        self.supvisors.context.running_nodes.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_nodes.return_value = []
+        self.supvisors.context.unknown_forced_nodes.return_value = []
         result = state.next()
         self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
         # test case where end of synchro is forced based on a subset of addresses
-        self.supvisors.context.forced_addresses = ['10.0.0.2', '10.0.0.4']
-        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2']
-        self.supvisors.context.unknown_addresses.return_value = ['10.0.0.1', '10.0.0.3']
-        self.supvisors.context.unknown_forced_addresses.return_value = []
+        self.supvisors.context.forced_nodes = ['10.0.0.2', '10.0.0.4']
+        self.supvisors.context.running_nodes.return_value = ['127.0.0.1', '10.0.0.2']
+        self.supvisors.context.unknown_nodes.return_value = ['10.0.0.1', '10.0.0.3']
+        self.supvisors.context.unknown_forced_nodes.return_value = []
         result = state.next()
         self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
         # test case where addresses are still unknown and timeout is reached
-        self.supvisors.context.forced_addresses = []
+        self.supvisors.context.forced_nodes = []
         state.start_date = time.time() - 11
         result = state.next()
         self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
-        self.supvisors.context.unknown_addresses.return_value = []
+        self.supvisors.context.unknown_nodes.return_value = []
         result = state.next()
         self.assertEqual(SupvisorsStates.DEPLOYMENT, result)
         # 3. test exit method
         # test that context end_synchro is called and master is the lowest string among address names
-        self.supvisors.context.running_addresses.return_value = ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+        self.supvisors.context.running_nodes.return_value = ['127.0.0.1', '10.0.0.2', '10.0.0.4']
         self.supvisors.context.end_synchro.return_value = ['127.0.0.1', '10.0.0.2', '10.0.0.4']
         mocked_synchro = self.supvisors.context.end_synchro
         state.exit()
@@ -225,13 +225,13 @@ class StateMachinesTest(unittest.TestCase):
             result = state.next()
             self.assertEqual(SupvisorsStates.OPERATION, result)
         # create address context
-        for address_name in self.supvisors.address_mapper.addresses:
-            address = AddressStatus(address_name, self.supvisors.logger)
-            self.supvisors.context.addresses[address_name] = address
+        for node_name in self.supvisors.address_mapper.node_names:
+            status = AddressStatus(node_name, self.supvisors.logger)
+            self.supvisors.context.nodes[node_name] = status
         # declare local and master address running
         self.supvisors.context.master_node_name = '10.0.0.3'
-        self.supvisors.context.addresses['127.0.0.1']._state = AddressStates.RUNNING
-        self.supvisors.context.addresses['10.0.0.3']._state = AddressStates.RUNNING
+        self.supvisors.context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+        self.supvisors.context.nodes['10.0.0.3']._state = AddressStates.RUNNING
         # consider that no starting or stopping is in progress
         with patch.object(self.supvisors.starter, 'check_starting', return_value=True):
             with patch.object(self.supvisors.stopper, 'check_stopping', return_value=True):
@@ -244,11 +244,11 @@ class StateMachinesTest(unittest.TestCase):
                     result = state.next()
                     self.assertEqual(SupvisorsStates.CONCILIATION, result)
                 # transit to INITIALIZATION state if the local address or master address is not RUNNING
-                self.supvisors.context.addresses['127.0.0.1']._state = AddressStates.SILENT
+                self.supvisors.context.nodes['127.0.0.1']._state = AddressStates.SILENT
                 result = state.next()
                 self.assertEqual(SupvisorsStates.INITIALIZATION, result)
-                self.supvisors.context.addresses['127.0.0.1']._state = AddressStates.RUNNING
-                self.supvisors.context.addresses['10.0.0.3']._state = AddressStates.SILENT
+                self.supvisors.context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+                self.supvisors.context.nodes['10.0.0.3']._state = AddressStates.SILENT
                 result = state.next()
                 self.assertEqual(SupvisorsStates.INITIALIZATION, result)
         # no exit implementation. just call it without test
@@ -287,14 +287,13 @@ class StateMachinesTest(unittest.TestCase):
         result = state.next()
         self.assertEqual(SupvisorsStates.CONCILIATION, result)
         # create address context
-        addresses = self.supvisors.context.addresses
-        for address_name in self.supvisors.address_mapper.addresses:
-            address = AddressStatus(address_name, self.supvisors.logger)
-            addresses[address_name] = address
+        nodes = self.supvisors.context.nodes
+        for address_name in self.supvisors.address_mapper.node_names:
+            nodes[address_name] = AddressStatus(address_name, self.supvisors.logger)
         # declare local and master address running
         self.supvisors.context.master_node_name = '10.0.0.3'
-        addresses['127.0.0.1']._state = AddressStates.RUNNING
-        addresses['10.0.0.3']._state = AddressStates.RUNNING
+        nodes['127.0.0.1']._state = AddressStates.RUNNING
+        nodes['10.0.0.3']._state = AddressStates.RUNNING
         # consider that no starting or stopping is in progress
         self.supvisors.starter.check_starting.return_value = True
         self.supvisors.stopper.check_stopping.return_value = True
@@ -309,11 +308,11 @@ class StateMachinesTest(unittest.TestCase):
         result = state.next()
         self.assertEqual(SupvisorsStates.OPERATION, result)
         # transit to INITIALIZATION state if the local address or master address is not RUNNING
-        addresses['127.0.0.1']._state = AddressStates.SILENT
+        nodes['127.0.0.1']._state = AddressStates.SILENT
         result = state.next()
         self.assertEqual(SupvisorsStates.INITIALIZATION, result)
-        addresses['127.0.0.1']._state = AddressStates.RUNNING
-        addresses['10.0.0.3']._state = AddressStates.SILENT
+        nodes['127.0.0.1']._state = AddressStates.RUNNING
+        nodes['10.0.0.3']._state = AddressStates.SILENT
         result = state.next()
         self.assertEqual(SupvisorsStates.INITIALIZATION, result)
     # no exit implementation. just call it without test
@@ -339,7 +338,7 @@ class StateMachinesTest(unittest.TestCase):
             result = state.next()
             self.assertEqual(SupvisorsStates.RESTARTING, result)
         # test exit method: call to pusher send_restart for all addresses
-        with patch.object(state, 'apply_addresses_func') as mocked_apply:
+        with patch.object(state, 'apply_nodes_func') as mocked_apply:
             state.exit()
             self.assertEqual(1, mocked_apply.call_count)
             self.assertEqual(call(self.supvisors.zmq.pusher.send_restart), mocked_apply.call_args)
@@ -364,7 +363,7 @@ class StateMachinesTest(unittest.TestCase):
             result = state.next()
             self.assertEqual(SupvisorsStates.SHUTTING_DOWN, result)
         # test exit method: call to pusher send_shutdown for all addresses
-        with patch.object(state, 'apply_addresses_func') as mocked_apply:
+        with patch.object(state, 'apply_nodes_func') as mocked_apply:
             state.exit()
             self.assertEqual(1, mocked_apply.call_count)
             self.assertEqual(call(self.supvisors.zmq.pusher.send_shutdown), mocked_apply.call_args)
@@ -388,7 +387,7 @@ class FiniteStateMachineTest(unittest.TestCase):
         from supvisors.statemachine import FiniteStateMachine
         # create state machine instance to be tested
         self.supvisors = MockedSupvisors()
-        self.supvisors.context.running_addresses.return_value = {}
+        self.supvisors.context.running_nodes.return_value = {}
         self.fsm = FiniteStateMachine(self.supvisors)
 
     def test_creation(self):

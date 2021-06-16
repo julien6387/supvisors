@@ -67,7 +67,7 @@ class AddressStatus(object):
                 'statename': self.state.name,
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
-                'loading': self.loading()}
+                'loading': self.get_load()}
 
     # methods
     def in_isolation(self):
@@ -99,17 +99,16 @@ class AddressStatus(object):
     def pid_processes(self):
         """ Return the process running on the address and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
-        return [(process.namespec(), process.infos[self.address_name]['pid'])
+        return [(process.namespec(), process.info_map[self.address_name]['pid'])
                 for process in self.processes.values()
                 if process.pid_running_on(self.address_name)]
 
-    def loading(self):
-        """ Return the loading of the address, by summing the declared loading of the processes running
-        on that node. """
-        loading = sum(process.rules.expected_loading
-                      for process in self.running_processes())
-        self.logger.debug('AddressStatus.loading: address={} loading={}'.format(self.address_name, loading))
-        return loading
+    def get_load(self):
+        """ Return the loading of the node, by summing the declared load of the processes running on that node. """
+        node_load = sum(process.rules.expected_load
+                        for process in self.running_processes())
+        self.logger.debug('AddressStatus.get_load: node_name={} node_load={}'.format(self.address_name, node_load))
+        return node_load
 
     # dictionary for transitions
     _Transitions = {AddressStates.UNKNOWN: (AddressStates.CHECKING, AddressStates.ISOLATING, AddressStates.SILENT),

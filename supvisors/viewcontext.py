@@ -29,7 +29,7 @@ SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
 ACTION = 'action'
-ADDRESS = 'address'
+NODE = 'node'
 
 PERIOD = 'period'
 STRATEGY = 'strategy'
@@ -59,8 +59,8 @@ class ViewContext:
         # keep references to Supvisors instance
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
-        # keep reference to the local address
-        self.local_address = self.supvisors.address_mapper.local_address
+        # keep reference to the local node
+        self.local_node_name = self.supvisors.address_mapper.local_node_name
         # initialize parameters
         self.parameters = {}
         # extract parameters from context
@@ -68,7 +68,7 @@ class ViewContext:
         self.update_period()
         self.update_strategy()
         self.update_auto_refresh()
-        self.update_address()
+        self.update_node_name()
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
@@ -83,9 +83,9 @@ class ViewContext:
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)
 
-    def get_address(self):
-        """ Extract address from context form. """
-        return self.http_context.form.get(ADDRESS)
+    def get_node_name(self):
+        """ Extract node name from context form. """
+        return self.http_context.form.get(NODE)
 
     def get_message(self):
         """ Extract message from context form. """
@@ -109,10 +109,10 @@ class ViewContext:
         # assign value found or default
         self._update_boolean(AUTO, False)
 
-    def update_address(self):
-        """ Extract address name from context. """
+    def update_node_name(self):
+        """ Extract node name from context. """
         # assign value found or default
-        self._update_string(ADDRESS, self.supvisors.address_mapper.addresses, self.local_address)
+        self._update_string(NODE, self.supvisors.address_mapper.node_names, self.local_node_name)
 
     def update_application_name(self):
         """ Extract application name from context. """
@@ -120,9 +120,9 @@ class ViewContext:
 
     def update_process_name(self):
         """ Extract process name from context.
-        ApplicationView may select of another address. """
-        address_stats = self.get_address_stats(self.parameters[ADDRESS])
-        named_pids = address_stats.proc.keys() if address_stats else []
+        ApplicationView may select instance from another node. """
+        stats_node = self.get_node_stats(self.parameters[NODE])
+        named_pids = stats_node.proc.keys() if stats_node else []
         self._update_string(PROCESS, [x for x, _ in named_pids])
 
     def update_namespec(self):
@@ -136,8 +136,8 @@ class ViewContext:
     def update_interface_name(self):
         """ Extract interface name from context.
         Only the HostAddressView displays interface data, so it's local. """
-        address_stats = self.get_address_stats()
-        interfaces = address_stats.io.keys() if address_stats else []
+        stats_node = self.get_node_stats()
+        interfaces = stats_node.io.keys() if stats_node else []
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
@@ -148,9 +148,9 @@ class ViewContext:
                              for key, value in parameters.items()
                              if value])
 
-    def format_url(self, address_name, page, **kwargs):
+    def format_url(self, node_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) if address_name else ''
+        url = 'http://{}:{}/'.format(quote(node_name), self.get_server_port()) if node_name else ''
         return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
 
     def message(self, message):
@@ -160,49 +160,48 @@ class ViewContext:
         location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(**args))
         self.http_context.response[HEADERS][LOCATION] = location
 
-    def get_nbcores(self, address=None):
-        """ Get the number of processors of the local address. """
-        stats_address = address or self.local_address
-        return self.supvisors.statistician.nbcores.get(stats_address, 0)
+    def get_nbcores(self, node_name=None):
+        """ Get the number of processors of the local node. """
+        stats_node = node_name or self.local_node_name
+        return self.supvisors.statistician.nbcores.get(stats_node, 0)
 
-    def get_address_stats(self, address=None):
-        """ Get the statistics structure related to the address and the period selected.
-        If no address is specified, local address is used. """
-        stats_address = address or self.local_address
-        return self.supvisors.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
+    def get_node_stats(self, node_name=None):
+        """ Get the statistics structure related to the node and the period selected.
+        If no node name is specified, local node name is used. """
+        stats_node = node_name or self.local_node_name
+        return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
 
     def get_process_last_desc(self, namespec, running=False):
-        """ Get the latest description received from the process across all addresses.
-        A priority is given to the info coming from an address where the process is running.
+        """ Get the latest description received from the process across all nodes.
+        A priority is given to the info coming from a node where the process is running.
         If running is set to True, the priority is exclusive. """
-        address, info = None, None
+        node_name, info = None, None
         status = self.get_process_status(namespec)
         if status:
             # search for process info where process is running
-            infos = dict(filter(lambda elem: elem[0] in status.addresses,
-                                status.infos.items()))
-            if not infos and not running:
-                # nothing found and running not requested: consider all process infos
-                infos = status.infos
-            # sort infos them by date (local_time is local time of latest received event)
-            sorted_infos = sorted(infos.items(),
-                                  key=lambda x: x[1]['local_time'],
-                                  reverse=True)
-            address, info = next(iter(sorted_infos), (None, None))
-        # return the address too
-        return address, info['description'] if info else None
+            info_map = dict(filter(lambda elem: elem[0] in status.running_nodes, status.info_map.items()))
+            if not info_map and not running:
+                # nothing found and running not requested: consider all process info
+                info_map = status.info_map
+            # sort info_map them by date (local_time is local time of latest received event)
+            sorted_info_map = sorted(info_map.items(),
+                                     key=lambda x: x[1]['local_time'],
+                                     reverse=True)
+            node_name, info = next(iter(sorted_info_map), (None, None))
+        # return the node name too
+        return node_name, info['description'] if info else None
 
-    def get_process_stats(self, namespec, address=None):
+    def get_process_stats(self, namespec, node_name=None):
         """ Get the statistics structure related to the process and the period selected.
-        Get also the number of cores available on this address (useful for process CPU IRIX mode). """
-        # use local address if not provided
-        if not address:
-            address = self.local_address
+        Get also the number of cores available on this node (useful for process CPU IRIX mode). """
+        # use local node name if not provided
+        if not node_name:
+            node_name = self.local_node_name
         # return the process statistics for this process
-        address_stats = self.get_address_stats(address)
-        nb_cores = self.get_nbcores(address)
-        if address_stats:
-            return nb_cores, address_stats.find_process_stats(namespec)
+        node_stats = self.get_node_stats(node_name)
+        nb_cores = self.get_nbcores(node_name)
+        if node_stats:
+            return nb_cores, node_stats.find_process_stats(namespec)
         return nb_cores, None
 
     def get_process_status(self, namespec=None):
@@ -226,7 +225,7 @@ class ViewContext:
             else:
                 self.message(error_message('Incorrect {}: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('{} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
@@ -245,7 +244,7 @@ class ViewContext:
                 else:
                     self.message(error_message('Incorrect {}: {}'.format(param, int_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('{} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
@@ -258,7 +257,7 @@ class ViewContext:
             except ValueError:
                 self.message(error_message('{} is not a boolean-like: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('{} set to {}'.format(param, value))
         self.parameters[param] = value
 
 

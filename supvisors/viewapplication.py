@@ -56,7 +56,7 @@ class ApplicationView(ViewHandler):
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Application page. """
-        # set address name
+        # set application name
         elt = root.findmeld('application_mid')
         elt.content(self.application_name)
         # set application state
@@ -130,17 +130,17 @@ class ApplicationView(ViewHandler):
         data = []
         for process in self.application.processes.values():
             namespec = process.namespec()
-            address, description = self.view_ctx.get_process_last_desc(namespec)
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, address)
+            node_name, description = self.view_ctx.get_process_last_desc(namespec)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
             data.append({'application_name': process.application_name,
                          'process_name': process.process_name,
                          'namespec': namespec,
-                         'address': address,
+                         'node_name': node_name,
                          'statename': process.state_string(),
                          'statecode': process.state,
-                         'running_list': list(process.addresses),
+                         'running_nodes': list(process.running_nodes),
                          'description': description,
-                         'loading': process.rules.expected_loading,
+                         'expected_load': process.rules.expected_load,
                          'nb_cores': nb_cores,
                          'proc_stats': proc_stats})
         # re-arrange data
@@ -153,9 +153,9 @@ class ApplicationView(ViewHandler):
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
             for tr_elt, info in iterator:
-                # write common status (shared between this application view and address view)
+                # write common status (shared between this application view and node view)
                 self.write_common_process_status(tr_elt, info)
-                # print process name and running addresses
+                # print process name and running nodes
                 self.write_process(tr_elt, info)
                 # set line background and invert
                 apply_shade(tr_elt, shaded_tr)
@@ -169,18 +169,18 @@ class ApplicationView(ViewHandler):
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content(info['process_name'])
-        url = self.view_ctx.format_url(info['address'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
         elt.attributes(href=url)
-        # print addresses where the process is running
-        running_list = info['running_list']
-        if running_list:
+        # print nodes where the process is running
+        running_nodes = info['running_nodes']
+        if running_nodes:
             running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, address in running_li_mid.repeat(running_list):
+            for li_elt, node_name in running_li_mid.repeat(running_nodes):
                 elt = li_elt.findmeld('running_a_mid')
-                elt.content(address)
-                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+                elt.content(node_name)
+                url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
                 elt.attributes(href=url)
-                if address == info['address']:
+                if node_name == info['node_name']:
                     elt.attrib['class'] = elt.attrib['class'] + ' active'
         else:
             elt = tr_elt.findmeld('running_ul_mid')

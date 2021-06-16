@@ -34,18 +34,17 @@ from supvisors.utils import extract_process_info
 
 
 class DummyAddressMapper:
-    """ Simple address mapper with an empty addresses list. """
+    """ Simple address mapper. """
 
     def __init__(self):
-        self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3',
-                          '10.0.0.4', '10.0.0.5']
-        self.local_address = '127.0.0.1'
+        self.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.local_node_name = '127.0.0.1'
 
-    def filter(self, address_list):
-        return address_list
+    def filter(self, node_names):
+        return node_names
 
-    def valid(self, address):
-        return address in self.addresses
+    def valid(self, node_name):
+        return node_name in self.node_names
 
 
 class DummyOptions:
@@ -84,7 +83,7 @@ class MockedSupvisors:
         from supvisors.context import Context
         self.context = Mock(spec=Context)
         self.context.__init__()
-        self.context.addresses = {}
+        self.context.nodes = {}
         self.context.applications = {}
         self.context.processes = {}
         # simple mocks
@@ -214,7 +213,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'address': '10.0.0.4',
+                     'node': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',

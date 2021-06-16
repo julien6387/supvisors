@@ -44,8 +44,8 @@ class ViewContextTest(unittest.TestCase):
         """ Test the values set at construction. """
         self.assertIs(self.ctx.http_context, self.http_context)
         self.assertIs(self.ctx.supvisors, self.http_context.supervisord.supvisors)
-        self.assertEqual(DummyAddressMapper().local_address, self.ctx.local_address)
-        self.assertDictEqual({'address': '10.0.0.4', 'namespec': None, 'period': 5,
+        self.assertEqual(DummyAddressMapper().local_node_name, self.ctx.local_node_name)
+        self.assertDictEqual({'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG'},
                              self.ctx.parameters)
@@ -58,9 +58,9 @@ class ViewContextTest(unittest.TestCase):
         """ Test the get_action method. """
         self.assertEqual('test', self.ctx.get_action())
 
-    def test_get_address(self):
-        """ Test the get_address method. """
-        self.assertEqual('10.0.0.4', self.ctx.get_address())
+    def test_get_node_name(self):
+        """ Test the get_node_name method. """
+        self.assertEqual('10.0.0.4', self.ctx.get_node_name())
 
     def test_get_message(self):
         """ Test the get_message method. """
@@ -71,33 +71,48 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual('none', self.ctx.get_gravity())
 
     def test_url_parameters(self):
-        """ Test the get_nb_cores method. """
+        """ Test the url_parameters method. """
         # test default
-        self.assertEqual(self.ctx.url_parameters(), 'period=5')
+        self.assertEqual('period=5&amp;strategy=CONFIG&amp;node=10.0.0.4', self.ctx.url_parameters())
         # update internal parameters
         self.ctx.parameters.update({'processname': 'dummy_proc',
                                     'namespec': 'dummy_ns',
-                                    'address': '10.0.0.1',
+                                    'node': '10.0.0.1',
                                     'cpuid': 3,
                                     'intfname': 'eth0',
                                     'appliname': 'dummy_appli',
-                                    'period': 8})
-        # test default
-        self.assertEqual(self.ctx.url_parameters(),
-                         'processname=dummy_proc&amp;namespec=dummy_ns&amp;'
-                         'address=10.0.0.1&amp;cpuid=3&amp;intfname=eth0&amp;'
-                         'appliname=dummy_appli&amp;period=8')
-        # test with extra arguments, overloading some
-        self.assertEqual(self.ctx.url_parameters(**{'extra': 'args',
-                                                    'processname': 'cat',
-                                                    'address': '127.0.0.1',
-                                                    'cpuid': 1,
-                                                    'intfname': 'lo',
-                                                    'appliname': '',
-                                                    'period': 0}),
-                         'namespec=dummy_ns&amp;extra=args&amp;'
-                         'processname=cat&amp;address=127.0.0.1&amp;'
-                         'cpuid=1&amp;intfname=lo')
+                                    'period': 8,
+                                    'strategy': 'CONFIG'})
+        # test without additional parameters
+        url = self.ctx.url_parameters()
+        # result depends on dict contents so ordering is unreliable
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('processname=dummy_proc',
+                                         'namespec=dummy_ns',
+                                         'node=10.0.0.1',
+                                         'cpuid=3',
+                                         'intfname=eth0',
+                                         'appliname=dummy_appli',
+                                         'period=8',
+                                         'strategy=CONFIG')))
+        # test with additional parameters
+        url = self.ctx.url_parameters(**{'node': '127.0.0.1', 'intfname': 'lo', 'extra': 'args'})
+        regexp = r'&amp;'.join([self.url_attr_template for _ in range(9)])
+        matches = re.match(regexp, url)
+        self.assertIsNotNone(matches)
+        self.assertSequenceEqual(sorted(matches.groups()),
+                                 sorted(('processname=dummy_proc',
+                                         'namespec=dummy_ns',
+                                         'node=127.0.0.1',
+                                         'cpuid=3',
+                                         'intfname=lo',
+                                         'extra=args',
+                                         'appliname=dummy_appli',
+                                         'period=8',
+                                         'strategy=CONFIG')))
 
     def test_cpu_id_to_string(self):
         """ Test the cpu_id_to_string method. """
@@ -223,21 +238,21 @@ class ViewContextTest(unittest.TestCase):
                                    DummyOptions().stats_periods[0])],
                              mocked_update.call_args_list)
 
-    def test_update_address(self):
-        """ Test the update_address method. """
-        from supvisors.viewcontext import ViewContext, ADDRESS
+    def test_update_node_name(self):
+        """ Test the update_node_name method. """
+        from supvisors.viewcontext import ViewContext, NODE
         ctx = ViewContext(self.http_context)
         # reset parameter because called in constructor
-        del ctx.parameters[ADDRESS]
+        del ctx.parameters[NODE]
         # test call with valid value
-        ctx.update_address()
-        self.assertEqual('10.0.0.4', ctx.parameters[ADDRESS])
+        ctx.update_node_name()
+        self.assertEqual('10.0.0.4', ctx.parameters[NODE])
         # reset parameter
-        del ctx.parameters[ADDRESS]
+        del ctx.parameters[NODE]
         # test call with invalid value
-        self.http_context.form[ADDRESS] = '192.168.1.1'
-        ctx.update_address()
-        self.assertEqual('127.0.0.1', ctx.parameters[ADDRESS])
+        self.http_context.form[NODE] = '192.168.1.1'
+        ctx.update_node_name()
+        self.assertEqual('127.0.0.1', ctx.parameters[NODE])
 
     def test_update_auto_refresh(self):
         """ Test the update_auto_refresh method. """
@@ -279,7 +294,7 @@ class ViewContextTest(unittest.TestCase):
         ctx.update_application_name()
         self.assertEqual(None, ctx.parameters[APPLI])
 
-    @patch('supvisors.viewcontext.ViewContext.get_address_stats', return_value=None)
+    @patch('supvisors.viewcontext.ViewContext.get_node_stats', return_value=None)
     def test_update_process_name(self, mocked_stats):
         """ Test the update_process_name method. """
         from supvisors.viewcontext import ViewContext, PROCESS
@@ -330,7 +345,7 @@ class ViewContextTest(unittest.TestCase):
             self.assertEqual([call(CPU, [0, 1, 2])],
                              mocked_update.call_args_list)
 
-    @patch('supvisors.viewcontext.ViewContext.get_address_stats', return_value=None)
+    @patch('supvisors.viewcontext.ViewContext.get_node_stats', return_value=None)
     def test_update_interface_name(self, mocked_stats):
         """ Test the update_interface_name method. """
         from supvisors.viewcontext import ViewContext, INTF
@@ -353,54 +368,10 @@ class ViewContextTest(unittest.TestCase):
         ctx.update_interface_name()
         self.assertEqual('eth0', ctx.parameters[INTF])
 
-    def test_url_parameters(self):
-        """ Test the url_parameters method. """
-        # test default
-        self.assertEqual('period=5&amp;strategy=CONFIG&amp;address=10.0.0.4', self.ctx.url_parameters())
-        # update internal parameters
-        self.ctx.parameters.update({'processname': 'dummy_proc',
-                                    'namespec': 'dummy_ns',
-                                    'address': '10.0.0.1',
-                                    'cpuid': 3,
-                                    'intfname': 'eth0',
-                                    'appliname': 'dummy_appli',
-                                    'period': 8,
-                                    'strategy': 'CONFIG'})
-        # test without additional parameters
-        url = self.ctx.url_parameters()
-        # result depends on dict contents so ordering is unreliable
-        regexp = r'&amp;'.join([self.url_attr_template for _ in range(8)])
-        matches = re.match(regexp, url)
-        self.assertIsNotNone(matches)
-        self.assertSequenceEqual(sorted(matches.groups()),
-                                 sorted(('processname=dummy_proc',
-                                         'namespec=dummy_ns',
-                                         'address=10.0.0.1',
-                                         'cpuid=3',
-                                         'intfname=eth0',
-                                         'appliname=dummy_appli',
-                                         'period=8',
-                                         'strategy=CONFIG')))
-        # test with additional parameters
-        url = self.ctx.url_parameters(**{'address': '127.0.0.1', 'intfname': 'lo', 'extra': 'args'})
-        regexp = r'&amp;'.join([self.url_attr_template for _ in range(9)])
-        matches = re.match(regexp, url)
-        self.assertIsNotNone(matches)
-        self.assertSequenceEqual(sorted(matches.groups()),
-                                 sorted(('processname=dummy_proc',
-                                         'namespec=dummy_ns',
-                                         'address=127.0.0.1',
-                                         'cpuid=3',
-                                         'intfname=lo',
-                                         'extra=args',
-                                         'appliname=dummy_appli',
-                                         'period=8',
-                                         'strategy=CONFIG')))
-
     def test_format_url(self):
         """ Test the format_url method. """
         # test without address or arguments
-        self.assertEqual('index.html?period=5&amp;strategy=CONFIG&amp;address=10.0.0.4',
+        self.assertEqual('index.html?period=5&amp;strategy=CONFIG&amp;node=10.0.0.4',
                          self.ctx.format_url(0, 'index.html'))
         # test with address and arguments
         url = self.ctx.format_url('10.0.0.1', 'index.html',
@@ -413,7 +384,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('extra=args',
-                                         'period=10&amp;strategy=CONFIG&amp;address=10.0.0.4',
+                                         'period=10&amp;strategy=CONFIG&amp;node=10.0.0.4',
                                          'appliname=dummy_appli')))
 
     def test_message(self):
@@ -428,7 +399,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertIsNotNone(matches)
         self.assertSequenceEqual(sorted(matches.groups()),
                                  sorted(('message=not%20as%20expected',
-                                         'period=5&amp;strategy=CONFIG&amp;address=10.0.0.4',
+                                         'period=5&amp;strategy=CONFIG&amp;node=10.0.0.4',
                                          'gravity=warning')))
 
     def test_get_nbcores(self):
@@ -437,7 +408,7 @@ class ViewContextTest(unittest.TestCase):
         self.assertEqual(0, self.ctx.get_nbcores())
         # mock the structure
         stats = self.http_context.supervisord.supvisors.statistician
-        stats.nbcores[self.ctx.local_address] = 4
+        stats.nbcores[self.ctx.local_node_name] = 4
         # test new call
         self.assertEqual(4, self.ctx.get_nbcores())
         # test with unknown address
@@ -446,11 +417,11 @@ class ViewContextTest(unittest.TestCase):
         stats.nbcores['10.0.0.1'] = 8
         self.assertEqual(8, self.ctx.get_nbcores('10.0.0.1'))
 
-    def test_get_address_stats(self):
-        """ Test the get_address_stats method. """
+    def test_get_node_stats(self):
+        """ Test the get_node_stats method. """
         from supvisors.viewcontext import PERIOD
         # test default
-        self.assertIsNone(self.ctx.get_address_stats())
+        self.assertIsNone(self.ctx.get_node_stats())
         # add statistics data
         stats_data = self.http_context.supervisord.supvisors.statistician.data
         stats_data['127.0.0.1'] = {5: 'data for period 5 at 127.0.0.1',
@@ -458,25 +429,25 @@ class ViewContextTest(unittest.TestCase):
         stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
                                   10: 'data for period 10 at 10.0.0.1'}
         # test with default address
-        self.assertEqual('data for period 5 at 127.0.0.1', self.ctx.get_address_stats())
+        self.assertEqual('data for period 5 at 127.0.0.1', self.ctx.get_node_stats())
         # test with unknown address parameter
-        self.assertIsNone(self.ctx.get_address_stats('10.0.0.2'))
+        self.assertIsNone(self.ctx.get_node_stats('10.0.0.2'))
         # test with known address parameter and existing period
-        self.assertEqual('data for period 5 at 10.0.0.1', self.ctx.get_address_stats('10.0.0.1'))
+        self.assertEqual('data for period 5 at 10.0.0.1', self.ctx.get_node_stats('10.0.0.1'))
         # update period
         self.ctx.parameters[PERIOD] = 8
         # test with default address and existing period
-        self.assertEqual('data for period 8 at 127.0.0.1', self.ctx.get_address_stats())
+        self.assertEqual('data for period 8 at 127.0.0.1', self.ctx.get_node_stats())
         # test with known address parameter but missing period
-        self.assertIsNone(self.ctx.get_address_stats('10.0.0.1'))
+        self.assertIsNone(self.ctx.get_node_stats('10.0.0.1'))
 
     def test_get_process_last_desc(self):
         """ Test the get_process_last_desc method. """
         # build common Mock
-        mocked_process = Mock(addresses=set(),
-                              infos={'10.0.0.1': {'local_time': 10, 'description': 'desc1'},
-                                     '10.0.0.2': {'local_time': 30, 'description': 'desc2'},
-                                     '10.0.0.3': {'local_time': 20, 'description': 'desc3'}})
+        mocked_process = Mock(running_nodes=set(),
+                              info_map={'10.0.0.1': {'local_time': 10, 'description': 'desc1'},
+                                        '10.0.0.2': {'local_time': 30, 'description': 'desc2'},
+                                        '10.0.0.3': {'local_time': 20, 'description': 'desc3'}})
         # test method return on non-running process and running requested
         with patch('supvisors.viewcontext.ViewContext.get_process_status',
                    return_value=mocked_process):
@@ -488,7 +459,7 @@ class ViewContextTest(unittest.TestCase):
             self.assertTupleEqual(('10.0.0.2', 'desc2'),
                                   self.ctx.get_process_last_desc('dummy_proc'))
         # test method return on running process and running requested
-        mocked_process.addresses.add('10.0.0.3')
+        mocked_process.running_nodes.add('10.0.0.3')
         with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.3', 'desc3'),
                                   self.ctx.get_process_last_desc('dummy_proc', True))
@@ -498,7 +469,7 @@ class ViewContextTest(unittest.TestCase):
             self.assertTupleEqual(('10.0.0.3', 'desc3'),
                                   self.ctx.get_process_last_desc('dummy_proc'))
         # test method return on multiple running processes and running requested
-        mocked_process.addresses.add('10.0.0.2')
+        mocked_process.running_nodes.add('10.0.0.2')
         with patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process):
             self.assertTupleEqual(('10.0.0.2', 'desc2'),
                                   self.ctx.get_process_last_desc('dummy_proc', True))
@@ -514,13 +485,13 @@ class ViewContextTest(unittest.TestCase):
         # reset mocks that have been called in constructor
         mocked_core.reset_mock()
         # patch get_address_stats so that it returns no result
-        with patch.object(self.ctx, 'get_address_stats', return_value=None) as mocked_stats:
+        with patch.object(self.ctx, 'get_node_stats', return_value=None) as mocked_stats:
             self.assertEqual((4, None), self.ctx.get_process_stats('dummy_proc'))
             self.assertEqual([call('127.0.0.1')], mocked_stats.call_args_list)
         mocked_core.reset_mock()
         # patch get_address_stats
         mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
-        with patch.object(self.ctx, 'get_address_stats', return_value=mocked_find) as mocked_stats:
+        with patch.object(self.ctx, 'get_node_stats', return_value=mocked_find) as mocked_stats:
             self.assertEqual((4, 'mock stats'), self.ctx.get_process_stats('dummy_proc', '10.0.0.1'))
             self.assertEqual([call('10.0.0.1')], mocked_stats.call_args_list)
             self.assertEqual([call('10.0.0.1')], mocked_core.call_args_list)

@@ -35,23 +35,21 @@ class StartingStrategyTest(CompatTestCase):
         from supvisors.address import AddressStatus
         from supvisors.ttypes import AddressStates
 
-        def create_status(name, address_state, loading):
-            address_status = Mock(spec=AddressStatus,
-                                  address_name=name,
-                                  state=address_state)
-            address_status.loading.return_value = loading
-            return address_status
+        def create_status(name, node_state, load):
+            status = Mock(spec=AddressStatus, address_name=name, state=node_state)
+            status.get_load.return_value = load
+            return status
 
-        addresses = self.supvisors.context.addresses
-        addresses['10.0.0.0'] = create_status('10.0.0.0', AddressStates.SILENT, 0)
-        addresses['10.0.0.1'] = create_status('10.0.0.1', AddressStates.RUNNING, 50)
-        addresses['10.0.0.2'] = create_status('10.0.0.2', AddressStates.ISOLATED, 0)
-        addresses['10.0.0.3'] = create_status('10.0.0.3', AddressStates.RUNNING, 20)
-        addresses['10.0.0.4'] = create_status('10.0.0.4', AddressStates.UNKNOWN, 0)
-        addresses['10.0.0.5'] = create_status('10.0.0.5', AddressStates.RUNNING, 80)
+        nodes = self.supvisors.context.nodes
+        nodes['10.0.0.0'] = create_status('10.0.0.0', AddressStates.SILENT, 0)
+        nodes['10.0.0.1'] = create_status('10.0.0.1', AddressStates.RUNNING, 50)
+        nodes['10.0.0.2'] = create_status('10.0.0.2', AddressStates.ISOLATED, 0)
+        nodes['10.0.0.3'] = create_status('10.0.0.3', AddressStates.RUNNING, 20)
+        nodes['10.0.0.4'] = create_status('10.0.0.4', AddressStates.UNKNOWN, 0)
+        nodes['10.0.0.5'] = create_status('10.0.0.5', AddressStates.RUNNING, 80)
         # initialize dummy address mapper with all address names (keep the alphabetic order)
-        self.supvisors.address_mapper.addresses = sorted(addresses.keys())
-        self.supvisors.address_mapper.local_address = '10.0.0.1'
+        self.supvisors.address_mapper.node_names = sorted(nodes.keys())
+        self.supvisors.address_mapper.local_node_name = '10.0.0.1'
 
     def test_is_loading_valid(self):
         """ Test the validity of an address with an additional loading. """
@@ -77,14 +75,15 @@ class StartingStrategyTest(CompatTestCase):
         from supvisors.strategy import AbstractStartingStrategy
         strategy = AbstractStartingStrategy(self.supvisors)
         # test valid addresses with different additional loadings
+        node_names = self.supvisors.address_mapper.node_names
         self.assertDictEqual({'10.0.0.0': (False, 0), '10.0.0.1': (True, 50),
                               '10.0.0.2': (False, 0), '10.0.0.3': (True, 20), '10.0.0.4': (False, 0),
                               '10.0.0.5': (True, 80)},
-                             strategy.get_loading_and_validity('*', 15))
+                             strategy.get_loading_and_validity(node_names, 15))
         self.assertDictEqual({'10.0.0.0': (False, 0), '10.0.0.1': (True, 50),
                               '10.0.0.2': (False, 0), '10.0.0.3': (True, 20), '10.0.0.4': (False, 0),
                               '10.0.0.5': (False, 80)},
-                             strategy.get_loading_and_validity(self.supvisors.context.addresses.keys(), 45))
+                             strategy.get_loading_and_validity(self.supvisors.context.nodes.keys(), 45))
         self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)},
                              strategy.get_loading_and_validity(['10.0.0.1', '10.0.0.3', '10.0.0.5'], 75))
         self.assertDictEqual({'10.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)},
@@ -110,60 +109,66 @@ class StartingStrategyTest(CompatTestCase):
         from supvisors.strategy import ConfigStrategy
         strategy = ConfigStrategy(self.supvisors)
         # test CONFIG strategy with different values
-        self.assertEqual('10.0.0.1', strategy.get_address('*', 15))
-        self.assertEqual('10.0.0.1', strategy.get_address('*', 45))
-        self.assertEqual('10.0.0.3', strategy.get_address('*', 75))
-        self.assertIsNone(strategy.get_address('*', 85))
+        node_names = self.supvisors.address_mapper.node_names
+        self.assertEqual('10.0.0.1', strategy.get_node(node_names, 15))
+        self.assertEqual('10.0.0.1', strategy.get_node(node_names, 45))
+        self.assertEqual('10.0.0.3', strategy.get_node(node_names, 75))
+        self.assertIsNone(strategy.get_node(node_names, 85))
 
     def test_less_loaded_strategy(self):
         """ Test the choice of an address according to the LESS_LOADED strategy. """
         from supvisors.strategy import LessLoadedStrategy
         strategy = LessLoadedStrategy(self.supvisors)
         # test LESS_LOADED strategy with different values
-        self.assertEqual('10.0.0.3', strategy.get_address('*', 15))
-        self.assertEqual('10.0.0.3', strategy.get_address('*', 45))
-        self.assertEqual('10.0.0.3', strategy.get_address('*', 75))
-        self.assertIsNone(strategy.get_address('*', 85))
+        node_names = self.supvisors.address_mapper.node_names
+        self.assertEqual('10.0.0.3', strategy.get_node(node_names, 15))
+        self.assertEqual('10.0.0.3', strategy.get_node(node_names, 45))
+        self.assertEqual('10.0.0.3', strategy.get_node(node_names, 75))
+        self.assertIsNone(strategy.get_node(node_names, 85))
 
     def test_most_loaded_strategy(self):
         """ Test the choice of an address according to the MOST_LOADED strategy. """
         from supvisors.strategy import MostLoadedStrategy
         strategy = MostLoadedStrategy(self.supvisors)
         # test MOST_LOADED strategy with different values
-        self.assertEqual('10.0.0.5', strategy.get_address('*', 15))
-        self.assertEqual('10.0.0.1', strategy.get_address('*', 45))
-        self.assertEqual('10.0.0.3', strategy.get_address('*', 75))
-        self.assertIsNone(strategy.get_address('*', 85))
+        node_names = self.supvisors.address_mapper.node_names
+        self.assertEqual('10.0.0.5', strategy.get_node(node_names, 15))
+        self.assertEqual('10.0.0.1', strategy.get_node(node_names, 45))
+        self.assertEqual('10.0.0.3', strategy.get_node(node_names, 75))
+        self.assertIsNone(strategy.get_node(node_names, 85))
 
     def test_local_strategy(self):
         """ Test the choice of an address according to the LOCAL strategy. """
         from supvisors.strategy import LocalStrategy
         strategy = LocalStrategy(self.supvisors)
         # test LOCAL strategy with different values
-        self.assertEqual('10.0.0.1', strategy.supvisors.address_mapper.local_address)
-        self.assertEqual('10.0.0.1', strategy.get_address('*', 15))
-        self.assertEqual('10.0.0.1', strategy.get_address('*', 45))
-        self.assertIsNone(strategy.get_address('*', 75))
+        node_names = self.supvisors.address_mapper.node_names
+        self.assertEqual('10.0.0.1', strategy.supvisors.address_mapper.local_node_name)
+        self.assertEqual('10.0.0.1', strategy.get_node(node_names, 15))
+        self.assertEqual('10.0.0.1', strategy.get_node(node_names, 45))
+        self.assertIsNone(strategy.get_node(node_names, 75))
 
-    def test_get_address(self):
-        """ Test the choice of an address according to a strategy. """
+    def test_get_node(self):
+        """ Test the choice of a node according to a strategy. """
         from supvisors.ttypes import StartingStrategies
-        from supvisors.strategy import get_address
+        from supvisors.strategy import get_node
         # test CONFIG strategy
-        self.assertEqual('10.0.0.1', get_address(self.supvisors, StartingStrategies.CONFIG, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.CONFIG, '*', 75))
-        self.assertIsNone(get_address(self.supvisors, StartingStrategies.CONFIG, '*', 85))
+        node_names = self.supvisors.address_mapper.node_names
+        self.assertEqual('10.0.0.1', get_node(self.supvisors, StartingStrategies.CONFIG, node_names, 15))
+        self.assertEqual('10.0.0.3', get_node(self.supvisors, StartingStrategies.CONFIG, node_names, 75))
+        self.assertIsNone(get_node(self.supvisors, StartingStrategies.CONFIG, node_names, 85))
         # test LESS_LOADED strategy
-        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 75))
-        self.assertIsNone(get_address(self.supvisors, StartingStrategies.LESS_LOADED, '*', 85))
+        self.assertEqual('10.0.0.3', get_node(self.supvisors, StartingStrategies.LESS_LOADED, node_names, 15))
+        self.assertEqual('10.0.0.3', get_node(self.supvisors, StartingStrategies.LESS_LOADED, node_names, 75))
+        self.assertIsNone(get_node(self.supvisors, StartingStrategies.LESS_LOADED, node_names, 85))
         # test MOST_LOADED strategy
-        self.assertEqual('10.0.0.5', get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 15))
-        self.assertEqual('10.0.0.3', get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 75))
-        self.assertIsNone(get_address(self.supvisors, StartingStrategies.MOST_LOADED, '*', 85))
+        self.assertEqual('10.0.0.5', get_node(self.supvisors, StartingStrategies.MOST_LOADED, node_names, 15))
+        self.assertEqual('10.0.0.3', get_node(self.supvisors, StartingStrategies.MOST_LOADED, node_names, 75))
+        self.assertIsNone(get_node(self.supvisors, StartingStrategies.MOST_LOADED, node_names, 85))
+        self.assertIsNone(get_node(self.supvisors, StartingStrategies.MOST_LOADED, node_names, 85))
         # test LOCAL strategy
-        self.assertEqual('10.0.0.1', get_address(self.supvisors, StartingStrategies.LOCAL, '*', 15))
-        self.assertIsNone(get_address(self.supvisors, StartingStrategies.LOCAL, '*', 75))
+        self.assertEqual('10.0.0.1', get_node(self.supvisors, StartingStrategies.LOCAL, node_names, 15))
+        self.assertIsNone(get_node(self.supvisors, StartingStrategies.LOCAL, node_names, 75))
 
 
 class ConciliationStrategyTest(CompatTestCase):
@@ -175,11 +180,11 @@ class ConciliationStrategyTest(CompatTestCase):
         self.supvisors = MockedSupvisors()
 
         # create conflicting processes
-        def create_process_status(name, timed_addresses):
+        def create_process_status(name, timed_nodes):
             process_status = Mock(spec=ProcessStatus, process_name=name,
-                                  addresses=set(timed_addresses.keys()),
-                                  infos={address_name: {'uptime': time}
-                                         for address_name, time in timed_addresses.items()})
+                                  running_nodes=set(timed_nodes.keys()),
+                                  info_map={address_name: {'uptime': time}
+                                            for address_name, time in timed_nodes.items()})
             process_status.namespec.return_value = name
             return process_status
 

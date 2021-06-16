@@ -109,7 +109,7 @@ class ViewSupvisorsTest(CompatTestCase):
         from supvisors.ttypes import AddressStates
         # patch context
         mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.RUNNING,
-                             **{'loading.return_value': 17})
+                             **{'get_load.return_value': 17})
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure with one single element
         mocked_node_mid = Mock(attrib={})
@@ -136,7 +136,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_state_mid.attrib['class'] = ''
         # test call in SILENT state
         mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT,
-                             **{'loading.return_value': 0})
+                             **{'get_load.return_value': 0})
         self.view._write_node_box_title(mocked_root, mocked_status)
         # test address element
         self.assertEqual('', mocked_node_mid.attrib['class'])
@@ -201,7 +201,7 @@ class ViewSupvisorsTest(CompatTestCase):
         # patch context
         mocked_node_1 = Mock(address_name='10.0.0.1')
         mocked_node_2 = Mock(address_name='10.0.0.2')
-        self.view.sup_ctx.addresses = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
+        self.view.sup_ctx.nodes = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure with one single element
         mocked_box_mid_1 = Mock()
@@ -321,7 +321,7 @@ class ViewSupvisorsTest(CompatTestCase):
 
     def test_write_conflict_address(self):
         """ Test the _write_conflict_address method. """
-        from supvisors.webutils import PROC_ADDRESS_PAGE
+        from supvisors.webutils import PROC_NODE_PAGE
         # patch context
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # build root structure with one single element
@@ -332,7 +332,7 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertEqual([call('caddress_a_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(href='an url')], mocked_addr_mid.attributes.call_args_list)
         self.assertEqual([call('10.0.0.1')], mocked_addr_mid.content.call_args_list)
-        self.assertEqual([call('10.0.0.1', PROC_ADDRESS_PAGE)], self.view.view_ctx.format_url.call_args_list)
+        self.assertEqual([call('10.0.0.1', PROC_NODE_PAGE)], self.view.view_ctx.format_url.call_args_list)
 
     def test_write_conflict_uptime(self):
         """ Test the _write_conflict_uptime method. """
@@ -361,8 +361,8 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertEqual([call('pstop_a_mid'), call('pkeep_a_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)
         self.assertEqual([call(href='an url')], mocked_keep_mid.attributes.call_args_list)
-        self.assertEqual([call('', SUPVISORS_PAGE, action='pstop', address='10.0.0.1', namespec='dummy_proc'),
-                          call('', SUPVISORS_PAGE, action='pkeep', address='10.0.0.1', namespec='dummy_proc')],
+        self.assertEqual([call('', SUPVISORS_PAGE, action='pstop', node='10.0.0.1', namespec='dummy_proc'),
+                          call('', SUPVISORS_PAGE, action='pkeep', node='10.0.0.1', namespec='dummy_proc')],
                          self.view.view_ctx.format_url.call_args_list)
 
     def test_write_conflict_strategies(self):
