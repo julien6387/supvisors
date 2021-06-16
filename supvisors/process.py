@@ -108,10 +108,15 @@ class ProcessRules(object):
             # TODO: check case where procnumber > len node list
             if '*' in self.hash_node_names:
                 # all nodes defined in the supvisors section of the supervisor configuration file are applicable
-                self.node_names = [self.supvisors.address_mapper.node_names[procnumber]]
+                ref_node_names = self.supvisors.address_mapper.node_names
             else:
-                # the subset of applicable nodes is the second element of rules addresses
-                self.node_names = [self.hash_node_names[procnumber]]
+                # the subset of applicable nodes is the second element of rule addresses
+                ref_node_names = self.hash_node_names
+            if procnumber < len(ref_node_names):
+                self.node_names = [ref_node_names[procnumber]]
+            else:
+                self.logger.warn('ProcessStatus.check_hash_nodes: namespec={} has more instances than applicable nodes'
+                                 .format(namespec))
 
     def check_dependencies(self, namespec: str) -> None:
         """ Update rules after they have been read from the rules file.

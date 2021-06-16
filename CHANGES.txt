@@ -3,6 +3,11 @@
 
 * Python Enum used for enumerations (not available in Python 2.7)
 
+* Improve Supvisors stability when dealing with remote programs undefined locally
+
+* Fixed issue related to https://github.com/julien6387/supvisors/issues/85
+  An exception was raised when program procnum was greater than the list of applicable nodes
+
 * Remove supvisors_shortcuts from source code to get rid of IDE warnings
 
 * Fixed https://github.com/julien6387/supvisors/issues/91

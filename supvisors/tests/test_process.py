@@ -145,6 +145,11 @@ class ProcessRulesTest(unittest.TestCase):
         # here, at index 2 of this list, '10.0.0.5' can be found
         rules.check_hash_nodes('sample_test_1:xclock')
         self.assertListEqual(['10.0.0.5'], rules.node_names)
+        # 4. test the case where procnumber is greater than the subset list of nodes available
+        rules.hash_node_names = ['10.0.0.1']
+        rules.node_names = []
+        rules.check_hash_nodes('sample_test_1:xclock')
+        self.assertListEqual([], rules.node_names)
 
     @patch('supvisors.process.ProcessRules.check_hash_nodes')
     @patch('supvisors.process.ProcessRules.check_autorestart')

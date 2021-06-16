@@ -77,7 +77,7 @@
         </pattern>
 
         <pattern name="register_movies_">
-            <addresses>#,cliche81,cliche82,cliche83</addresses>
+            <addresses>#,cliche81,cliche83</addresses>
             <start_sequence>2</start_sequence>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>

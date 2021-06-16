@@ -527,6 +527,26 @@ class ContextTest(CompatTestCase):
                                    'statecode': 1, 'statename': 'STARTING',
                                    'major_failure': False, 'minor_failure': False}),
                              mocked_publisher.send_application_status.call_args)
+        # check degraded behaviour with process to Supvisors but unknown to Supervisor (remote program)
+        # basically same check as previous, just being confident that no exception is raise dby the method
+        mocked_update_args.side_effect = KeyError
+        result = context.on_process_event('10.0.0.1', dummy_event)
+        self.assertIs(process, result)
+        self.assertEqual(10, process.state)
+        self.assertEqual(ApplicationStates.STARTING, application.state)
+        self.assertEqual(call('dummy_application:dummy_process', ''), mocked_update_args.call_args)
+        self.assertEqual(call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
+                                           'state': 10, 'now': 2345, 'extra_args': ''}),
+                         mocked_publisher.send_process_event.call_args)
+        self.assertEqual(call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
+                               'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
+                               'last_event_time': 1234, 'addresses': ['10.0.0.1'],
+                               'extra_args': ''}),
+                         mocked_publisher.send_process_status.call_args)
+        self.assertEqual(call({'application_name': 'dummy_application',
+                               'statecode': 1, 'statename': 'STARTING',
+                               'major_failure': False, 'minor_failure': False}),
+                         mocked_publisher.send_application_status.call_args)
 
     @patch('supvisors.context.time', return_value=3600)
     def test_timer_event(self, mocked_time):
