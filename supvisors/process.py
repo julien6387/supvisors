@@ -105,7 +105,6 @@ class ProcessRules(object):
         else:
             self.logger.debug('ProcessStatus.check_hash_nodes: namespec={} procnumber={}'
                               .format(namespec, procnumber))
-            # TODO: check case where procnumber > len node list
             if '*' in self.hash_node_names:
                 # all nodes defined in the supvisors section of the supervisor configuration file are applicable
                 ref_node_names = self.supvisors.address_mapper.node_names
