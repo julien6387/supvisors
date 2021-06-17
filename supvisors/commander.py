@@ -570,7 +570,7 @@ class Stopper(Commander):
     def stop_applications(self):
         """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
         self.logger.info('Stopper.stop_applications: stop all applications')
-        # stopping initialization: push program list in todo list
+        # stopping initialization: push program list in jobs list
         for application in self.supvisors.context.applications.values():
             # do not stop an application that is not running
             if application.running() and application.rules.stop_sequence >= 0:
@@ -581,7 +581,7 @@ class Stopper(Commander):
     def stop_application(self, application: ApplicationStatus):
         """ Plan and start the necessary jobs to stop the application in parameter. """
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
-        # push program list in todo list and start work
+        # push program list in jobs list and start work
         if application.running():
             self.store_application_stop_sequence(application)
             self.logger.debug('Stopper.stop_application: planned_sequence={}'.format(self.printable_planned_sequence()))
