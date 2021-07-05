@@ -19,11 +19,31 @@
 
 import pytest
 
-from supvisors.tests.base import MockedSupvisors
+from supvisors.tests.base import DummySupervisor, MockedSupvisors
 
 
-class EmptyClass:
-    pass
+# Easy Application / Process creation
+def create_process(info, supvisors):
+    """ Create a ProcessStatus from a payload. """
+    from supvisors.process import ProcessRules, ProcessStatus
+    return ProcessStatus(info['group'], info['name'], ProcessRules(supvisors), supvisors)
+
+
+def create_any_process(supvisors):
+    from supvisors.tests.base import any_process_info
+    return create_process(any_process_info(), supvisors)
+
+
+def create_application(application_name, supvisors):
+    """ Create an ApplicationStatus. """
+    from supvisors.application import ApplicationRules, ApplicationStatus
+    return ApplicationStatus(application_name, ApplicationRules(), supvisors.logger)
+
+
+# fixture for common global structures
+@pytest.fixture
+def supervisor():
+    return DummySupervisor()
 
 
 @pytest.fixture
@@ -31,6 +51,33 @@ def supvisors():
     return MockedSupvisors()
 
 
+# Fixture for empty class
+class EmptyClass:
+    pass
+
+
 @pytest.fixture
 def empty():
     return EmptyClass()
+
+
+# fixture for simple classes replacing meld behaviour
+class DummyElement:
+    def __init__(self):
+        self.attrib = {}
+
+    def content(self, cnt):
+        self.attrib['content'] = cnt
+
+
+class DummyRoot:
+    def __init__(self):
+        self.elt = DummyElement()
+
+    def findmeld(self, _):
+        return self.elt
+
+
+@pytest.fixture
+def root():
+    return DummyRoot()

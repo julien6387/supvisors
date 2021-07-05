@@ -318,7 +318,7 @@ class FiniteStateMachine:
         :param next_state: the new state
         :return: None
         """
-        while next_state != self.state and next_state in self.__Transitions[self.state]:
+        while next_state != self.state and next_state in self._Transitions[self.state]:
             # exit the current state
             self.instance.exit()
             # assign the new state and publish SupvisorsStatus event internally and externally
@@ -329,7 +329,7 @@ class FiniteStateMachine:
                 self.supvisors.zmq.internal_publisher.send_state_event(self.serial())
                 self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # create the new state and enters it
-            self.instance = self.__StateInstances[self.state](self.supvisors)
+            self.instance = self._StateInstances[self.state](self.supvisors)
             self.instance.enter()
             # evaluate current state
             next_state = self.instance.next()
@@ -448,32 +448,28 @@ class FiniteStateMachine:
         return {'statecode': self.state.value, 'statename': self.state.name}
 
     # Map between state enumerations and classes
-    __StateInstances = {
-        SupvisorsStates.INITIALIZATION: InitializationState,
-        SupvisorsStates.DEPLOYMENT: DeploymentState,
-        SupvisorsStates.OPERATION: OperationState,
-        SupvisorsStates.CONCILIATION: ConciliationState,
-        SupvisorsStates.RESTARTING: RestartingState,
-        SupvisorsStates.SHUTTING_DOWN: ShuttingDownState,
-        SupvisorsStates.SHUTDOWN: ShutdownState
-    }
+    _StateInstances = {SupvisorsStates.INITIALIZATION: InitializationState,
+                       SupvisorsStates.DEPLOYMENT: DeploymentState,
+                       SupvisorsStates.OPERATION: OperationState,
+                       SupvisorsStates.CONCILIATION: ConciliationState,
+                       SupvisorsStates.RESTARTING: RestartingState,
+                       SupvisorsStates.SHUTTING_DOWN: ShuttingDownState,
+                       SupvisorsStates.SHUTDOWN: ShutdownState}
 
     # Transitions allowed between states
-    __Transitions = {
-        None: [SupvisorsStates.INITIALIZATION],
-        SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
-        SupvisorsStates.DEPLOYMENT: [SupvisorsStates.OPERATION,
-                                     SupvisorsStates.RESTARTING,
-                                     SupvisorsStates.SHUTTING_DOWN],
-        SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
-                                    SupvisorsStates.INITIALIZATION,
-                                    SupvisorsStates.RESTARTING,
-                                    SupvisorsStates.SHUTTING_DOWN],
-        SupvisorsStates.CONCILIATION: [SupvisorsStates.OPERATION,
-                                       SupvisorsStates.INITIALIZATION,
-                                       SupvisorsStates.RESTARTING,
-                                       SupvisorsStates.SHUTTING_DOWN],
-        SupvisorsStates.RESTARTING: [SupvisorsStates.SHUTDOWN],
-        SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
-        SupvisorsStates.SHUTDOWN: []
-    }
+    _Transitions = {None: [SupvisorsStates.INITIALIZATION],
+                    SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
+                    SupvisorsStates.DEPLOYMENT: [SupvisorsStates.OPERATION,
+                                                 SupvisorsStates.RESTARTING,
+                                                 SupvisorsStates.SHUTTING_DOWN],
+                    SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
+                                                SupvisorsStates.INITIALIZATION,
+                                                SupvisorsStates.RESTARTING,
+                                                SupvisorsStates.SHUTTING_DOWN],
+                    SupvisorsStates.CONCILIATION: [SupvisorsStates.OPERATION,
+                                                   SupvisorsStates.INITIALIZATION,
+                                                   SupvisorsStates.RESTARTING,
+                                                   SupvisorsStates.SHUTTING_DOWN],
+                    SupvisorsStates.RESTARTING: [SupvisorsStates.SHUTDOWN],
+                    SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
+                    SupvisorsStates.SHUTDOWN: []}

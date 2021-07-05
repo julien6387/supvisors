@@ -22,7 +22,7 @@ import random
 import unittest
 
 from socket import gethostname
-from unittest.mock import patch, Mock
+from unittest.mock import Mock
 
 from supervisor.datatypes import Automatic
 from supervisor.loggers import LevelsByName, Logger

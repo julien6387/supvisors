@@ -138,7 +138,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT,
                              **{'get_load.return_value': 0})
         self.view._write_node_box_title(mocked_root, mocked_status)
-        # test address element
+        # test node element
         self.assertEqual('', mocked_node_mid.attrib['class'])
         self.assertFalse(mocked_node_mid.attributes.called)
         self.assertEqual([call('10.0.0.1')], mocked_node_mid.content.call_args_list)
@@ -235,7 +235,7 @@ class ViewSupvisorsTest(CompatTestCase):
     @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_strategies')
     @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_process_actions')
     @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_uptime')
-    @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_address')
+    @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_node')
     @patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_name')
     @patch('supvisors.viewsupvisors.SupvisorsView.get_conciliation_data')
     def test_write_conciliation_table(self, mocked_data, *args):
@@ -319,8 +319,8 @@ class ViewSupvisorsTest(CompatTestCase):
         self.assertFalse(mocked_name_mid.content.called)
         self.assertEqual([call('')], mocked_name_mid.replace.call_args_list)
 
-    def test_write_conflict_address(self):
-        """ Test the _write_conflict_address method. """
+    def test_write_conflict_node(self):
+        """ Test the _write_conflict_node method. """
         from supvisors.webutils import PROC_NODE_PAGE
         # patch context
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
@@ -328,7 +328,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_addr_mid = Mock()
         mocked_root = Mock(**{'findmeld.return_value': mocked_addr_mid})
         # test call
-        self.view._write_conflict_address(mocked_root, {'address': '10.0.0.1'})
+        self.view._write_conflict_node(mocked_root, {'node_name': '10.0.0.1'})
         self.assertEqual([call('caddress_a_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(href='an url')], mocked_addr_mid.attributes.call_args_list)
         self.assertEqual([call('10.0.0.1')], mocked_addr_mid.content.call_args_list)
@@ -356,7 +356,7 @@ class ViewSupvisorsTest(CompatTestCase):
         mocked_keep_mid = Mock()
         mocked_root = Mock(**{'findmeld.side_effect': [mocked_stop_mid, mocked_keep_mid]})
         # test call
-        info = {'namespec': 'dummy_proc', 'address': '10.0.0.1'}
+        info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
         self.view._write_conflict_process_actions(mocked_root, info)
         self.assertEqual([call('pstop_a_mid'), call('pkeep_a_mid')], mocked_root.findmeld.call_args_list)
         self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)
@@ -430,20 +430,20 @@ class ViewSupvisorsTest(CompatTestCase):
     def test_get_conciliation_data(self):
         """ Test the get_conciliation_data method. """
         # patch context
-        process_1 = Mock(addresses={'10.0.0.1', '10.0.0.2'},
-                         infos={'10.0.0.1': {'uptime': 12}, '10.0.0.2': {'uptime': 11}},
+        process_1 = Mock(running_nodes={'10.0.0.1', '10.0.0.2'},
+                         info_map={'10.0.0.1': {'uptime': 12}, '10.0.0.2': {'uptime': 11}},
                          **{'namespec.return_value': 'proc_1'})
-        process_2 = Mock(addresses={'10.0.0.3', '10.0.0.2'},
-                         infos={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}},
+        process_2 = Mock(running_nodes={'10.0.0.3', '10.0.0.2'},
+                         info_map={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}},
                          **{'namespec.return_value': 'proc_2'})
         self.view.sup_ctx.conflicts.return_value = [process_1, process_2]
         # test call
         # no direct method in unittests to compare 2 lists of dicts so put all tuples in flat list
         # and use CompatTestCase.assertItemsEqual to compare
-        expected = [{'namespec': 'proc_1', 'rowspan': 2, 'address': '10.0.0.1', 'uptime': 12},
-                    {'namespec': 'proc_1', 'rowspan': 0, 'address': '10.0.0.2', 'uptime': 11},
-                    {'namespec': 'proc_2', 'rowspan': 2, 'address': '10.0.0.3', 'uptime': 10},
-                    {'namespec': 'proc_2', 'rowspan': 0, 'address': '10.0.0.2', 'uptime': 11}]
+        expected = [{'namespec': 'proc_1', 'rowspan': 2, 'node_name': '10.0.0.1', 'uptime': 12},
+                    {'namespec': 'proc_1', 'rowspan': 0, 'node_name': '10.0.0.2', 'uptime': 11},
+                    {'namespec': 'proc_2', 'rowspan': 2, 'node_name': '10.0.0.3', 'uptime': 10},
+                    {'namespec': 'proc_2', 'rowspan': 0, 'node_name': '10.0.0.2', 'uptime': 11}]
         flat_expected = [item for dico in expected for item in dico.items()]
         actual = self.view.get_conciliation_data()
         flat_actual = [item for dico in actual for item in dico.items()]
@@ -536,17 +536,17 @@ class ViewSupvisorsTest(CompatTestCase):
         """ Test the stop_action method. """
         from supervisor.http import NOT_DONE_YET
         # patch context
-        self.view.sup_ctx.processes['dummy_proc'] = Mock(addresses=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
+        self.view.sup_ctx.processes['dummy_proc'] = Mock(running_nodes=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
         # test call
         with patch.object(self.view.supvisors.zmq.pusher, 'send_stop_process') as mocked_rpc:
             cb = self.view.stop_action('dummy_proc', '10.0.0.2')
         self.assertTrue(callable(cb))
         self.assertEqual([call('10.0.0.2', 'dummy_proc')], mocked_rpc.call_args_list)
-        # at this stage, there should be still 3 elements in addresses
+        # at this stage, there should be still 3 elements in node_names
         self.assertIs(NOT_DONE_YET, cb())
         self.assertFalse(mocked_info.called)
         # remove one address from list
-        self.view.sup_ctx.processes['dummy_proc'].addresses.remove('10.0.0.2')
+        self.view.sup_ctx.processes['dummy_proc'].running_nodes.remove('10.0.0.2')
         self.assertEqual('done', cb())
         self.assertEqual([call('process dummy_proc stopped on 10.0.0.2')], mocked_info.call_args_list)
 
@@ -555,22 +555,22 @@ class ViewSupvisorsTest(CompatTestCase):
         """ Test the keep_action method. """
         from supervisor.http import NOT_DONE_YET
         # patch context
-        self.view.sup_ctx.processes['dummy_proc'] = Mock(addresses=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
+        self.view.sup_ctx.processes['dummy_proc'] = Mock(running_nodes=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
         # test call
         with patch.object(self.view.supvisors.zmq.pusher, 'send_stop_process') as mocked_rpc:
             cb = self.view.keep_action('dummy_proc', '10.0.0.2')
         self.assertTrue(callable(cb))
         self.assertEqual([call('10.0.0.1', 'dummy_proc'), call('10.0.0.3', 'dummy_proc')],
                          mocked_rpc.call_args_list)
-        # at this stage, there should be still 3 elements in addresses
+        # at this stage, there should be still 3 elements in node_names
         self.assertIs(NOT_DONE_YET, cb())
         self.assertFalse(mocked_info.called)
         # remove one address from list
-        self.view.sup_ctx.processes['dummy_proc'].addresses.remove('10.0.0.1')
+        self.view.sup_ctx.processes['dummy_proc'].running_nodes.remove('10.0.0.1')
         self.assertIs(NOT_DONE_YET, cb())
         self.assertFalse(mocked_info.called)
         # remove one address from list
-        self.view.sup_ctx.processes['dummy_proc'].addresses.remove('10.0.0.3')
+        self.view.sup_ctx.processes['dummy_proc'].running_nodes.remove('10.0.0.3')
         self.assertEqual('done', cb())
         self.assertEqual([call('processes dummy_proc stopped but on 10.0.0.2')], mocked_info.call_args_list)
 
@@ -614,7 +614,7 @@ class ViewSupvisorsActionTest(unittest.TestCase):
         from supvisors.tests.base import DummyHttpContext
         from supvisors.viewsupvisors import SupvisorsView
         view = SupvisorsView(DummyHttpContext('ui/hostaddress.html'))
-        view.view_ctx = Mock(**{'get_address.return_value': '10.0.0.1'})
+        view.view_ctx = Mock(**{'get_node_name.return_value': '10.0.0.2'})
         # test strategies but USER
         for strategy in view.strategies:
             self.assertEqual('conciliation', view.make_callback('dummy_namespec', strategy))
@@ -633,7 +633,7 @@ class ViewSupvisorsActionTest(unittest.TestCase):
         # test process actions
         for idx, action in enumerate(['pstop', 'pkeep'], 4):
             self.assertEqual('%s called' % action, view.make_callback('dummy_namespec', action))
-            self.assertEqual([call('dummy_namespec', '10.0.0.1')], args[idx].call_args_list)
+            self.assertEqual([call('dummy_namespec', '10.0.0.2')], args[idx].call_args_list)
             args[idx].reset_mock()
             self.assertFalse(any(mocked.called for mocked in args))
 

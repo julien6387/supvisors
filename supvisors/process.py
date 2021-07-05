@@ -31,8 +31,8 @@ class ProcessRules(object):
     """ Defines the rules for starting a process, iaw rules file.
 
     Attributes are:
-        - addresses: the nodes where the process can be started (all by default),
-        - hash_addresses: when # rule is used, the process can be started on one of these nodes (to be resolved),
+        - node_names: the nodes where the process can be started (all by default),
+        - hash_node_names: when # rule is used, the process can be started on one of these nodes (to be resolved),
         - start_sequence: the order in the starting sequence of the application,
         - stop_sequence: the order in the stopping sequence of the application,
         - required: a status telling if the process is required within the application,
@@ -82,11 +82,11 @@ class ProcessRules(object):
         if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
             if self.supvisors.info_source.autorestart(namespec):
                 self.supvisors.info_source.disable_autorestart(namespec)
-                self.logger.warn('ProcessRules.check_autorestart: {} - autorestart disabled due to '
+                self.logger.warn('ProcessRules.check_autorestart: program={} - autorestart disabled due to '
                                  'running failure strategy {}'
                                  .format(namespec, self.running_failure_strategy.name))
 
-    def check_hash_nodes(self, namespec) -> None:
+    def check_hash_nodes(self, namespec: str) -> None:
         """ When a '#' is set in program rules, an association has to be done between the procnumber of the process
         and the index of the node in the applicable node list.
         In this case, rules.hash_addresses is expected to contain:
@@ -100,7 +100,7 @@ class ProcessRules(object):
         try:
             procnumber = self.supvisors.options.procnumbers[process_name]
         except KeyError:
-            self.logger.error('ProcessStatus.check_hash_nodes: cannot apply "#" to unknown namespec={}'
+            self.logger.error('ProcessStatus.check_hash_nodes: cannot apply "#" to unknown program={}'
                               .format(namespec))
         else:
             self.logger.debug('ProcessStatus.check_hash_nodes: namespec={} procnumber={}'
@@ -114,7 +114,7 @@ class ProcessRules(object):
             if procnumber < len(ref_node_names):
                 self.node_names = [ref_node_names[procnumber]]
             else:
-                self.logger.warn('ProcessStatus.check_hash_nodes: namespec={} has more instances than applicable nodes'
+                self.logger.warn('ProcessStatus.check_hash_nodes: program={} has more instances than applicable nodes'
                                  .format(namespec))
 
     def check_dependencies(self, namespec: str) -> None:
@@ -169,12 +169,12 @@ class ProcessStatus(object):
         - rules: the rules related to this process.
     """
 
-    def __init__(self, application_name: str, process_name: str, supvisors: Any) -> None:
+    def __init__(self, application_name: str, process_name: str, rules: ProcessRules, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
         :param application_name: the name of the application the process belongs to
         :param process_name: the name of the process
-        :param supvisors: the global Supvisors structure
+        :param rules: the rules loaded from the rules file
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
@@ -186,11 +186,11 @@ class ProcessStatus(object):
         self.expected_exit = True
         self.last_event_time = 0
         self._extra_args = ''
+        # rules part
+        self.rules = rules
         # one single running node is expected
         self.running_nodes = set()  # node_names
         self.info_map = {}  # node_name: process_info
-        # rules part
-        self.rules = ProcessRules(supvisors)
 
     @property
     def state(self) -> int:
@@ -319,7 +319,7 @@ class ProcessStatus(object):
         :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
         :return: the description of the process status
         """
-        """  """
+        # IDE warning on first parameter but ignored as the Supervisor function should have been set as staticmethod
         return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, process_info)
 
     # methods

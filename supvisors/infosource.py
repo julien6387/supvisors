@@ -129,8 +129,7 @@ class SupervisordSource(object):
         return self.get_process_config(namespec).autorestart is not False
 
     def disable_autorestart(self, namespec):
-        """ This method forces the autorestart to False in Supervisor
-        internal data. """
+        """ This method forces the autorestart to False in Supervisor internal data. """
         self.get_process_config(namespec).autorestart = False
 
     def update_extra_args(self, namespec, extra_args):

@@ -16,6 +16,8 @@
 * Fixed https://github.com/julien6387/supvisors/issues/90
   The Master Supvisors node drives the transition to OPERATION
 
+* Some unit tests updated from unittest to pytest
+
 
 0.5 (2021-03-01)
 ----------------

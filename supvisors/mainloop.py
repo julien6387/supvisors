@@ -89,7 +89,7 @@ class SupvisorsMainLoop(Thread):
         # close resources gracefully
         sockets.close()
 
-    def check_events(self, sockets, poll_result):
+    def check_events(self, sockets, poll_result) -> None:
         """ Forward external Supervisor events to main thread. """
         message = sockets.check_subscriber(poll_result)
         if message:
@@ -98,7 +98,7 @@ class SupvisorsMainLoop(Thread):
             # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
-    def check_requests(self, sockets, poll_result):
+    def check_requests(self, sockets, poll_result) -> None:
         """ Defer internal requests. """
         message = sockets.check_puller(poll_result)
         if message:
@@ -110,7 +110,7 @@ class SupvisorsMainLoop(Thread):
                 # XML-RPC request
                 self.send_request(header, body)
 
-    def send_request(self, header, body):
+    def send_request(self, header, body) -> None:
         """ Perform the XML-RPC according to the header. """
         if header == DeferredRequestHeaders.CHECK_NODE:
             node_name, = body
@@ -128,7 +128,7 @@ class SupvisorsMainLoop(Thread):
             node_name, = body
             self.shutdown(node_name)
 
-    def check_node(self, node_name):
+    def check_node(self, node_name: str) -> None:
         """ Check isolation and get all process info asynchronously. """
         try:
             supvisors_rpc = getRPCInterface(node_name, self.env).supvisors
@@ -151,7 +151,7 @@ class SupvisorsMainLoop(Thread):
         except:
             print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
 
-    def start_process(self, node_name, namespec, extra_args):
+    def start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
         try:
             proxy = getRPCInterface(node_name, self.env)
@@ -160,7 +160,7 @@ class SupvisorsMainLoop(Thread):
             print('[ERROR] failed to start process {} on {} with extra_args="{}"'
                   .format(namespec, node_name, extra_args), file=stderr)
 
-    def stop_process(self, node_name, namespec):
+    def stop_process(self, node_name: str, namespec: str) -> None:
         """ Stop process asynchronously. """
         try:
             proxy = getRPCInterface(node_name, self.env)
@@ -168,7 +168,7 @@ class SupvisorsMainLoop(Thread):
         except:
             print('[ERROR] failed to stop process {} on {}'.format(namespec, node_name), file=stderr)
 
-    def restart(self, node_name):
+    def restart(self, node_name: str) -> None:
         """ Restart a Supervisor instance asynchronously. """
         try:
             proxy = getRPCInterface(node_name, self.env)
@@ -176,7 +176,7 @@ class SupvisorsMainLoop(Thread):
         except:
             print('[ERROR] failed to restart address {}'.format(node_name), file=stderr)
 
-    def shutdown(self, node_name):
+    def shutdown(self, node_name: str) -> None:
         """ Stop process asynchronously. """
         try:
             proxy = getRPCInterface(node_name, self.env)
@@ -184,10 +184,10 @@ class SupvisorsMainLoop(Thread):
         except:
             print('[ERROR] failed to shutdown address {}'.format(node_name), file=stderr)
 
-    def send_remote_comm_event(self, event_type, event_data):
+    def send_remote_comm_event(self, event_type: str, event_data) -> None:
         """ Shortcut for the use of sendRemoteCommEvent. """
         try:
             self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
         except:
             # expected on restart / shutdown
-            print('[WARN] failed to send event to Supervisor: {}'.format(event_type), file=stderr)
+            print('[WARN] failed to send event to Supervisor: {} - {}'.format(event_type, event_data), file=stderr)

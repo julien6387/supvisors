@@ -112,11 +112,11 @@ class ControllerPlugin(ControllerPluginBase):
             addresses = arg.split()
             if not addresses or "all" in addresses:
                 try:
-                    infos = self.supvisors().get_all_addresses_info()
+                    info_list = self.supvisors().get_all_addresses_info()
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
                 else:
-                    for info in infos:
+                    for info in info_list:
                         self.output_address_info(info)
             else:
                 for address in addresses:
@@ -152,11 +152,11 @@ class ControllerPlugin(ControllerPluginBase):
             applications = arg.split()
             if not applications or "all" in applications:
                 try:
-                    infos = self.supvisors().get_all_applications_info()
+                    info_list = self.supvisors().get_all_applications_info()
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
                 else:
-                    for info in infos:
+                    for info in info_list:
                         self.output_application_info(info)
             else:
                 for application_name in applications:

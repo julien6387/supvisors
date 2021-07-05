@@ -18,9 +18,9 @@
 # ======================================================================
 
 from supvisors.address import *
-from supvisors.application import ApplicationStatus
+from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.process import *
-from supvisors.ttypes import AddressStates, NodeNameList
+from supvisors.ttypes import AddressStates, NodeNameList, PayloadList
 
 
 class Context(object):
@@ -35,6 +35,10 @@ class Context(object):
     - new: a boolean telling if this context has just been started.
     """
 
+    # Timeout in seconds from which Supvisors considers that a node is inactive if no tick has been received in the gap.
+    # TODO: could be as an option in configuration file
+    INACTIVITY_TIMEOUT = 10
+
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
@@ -42,7 +46,7 @@ class Context(object):
         self.logger = supvisors.logger
         # attributes
         self.nodes = {node_name: AddressStatus(node_name, self.logger)
-                           for node_name in self.supvisors.address_mapper.node_names}
+                      for node_name in self.supvisors.address_mapper.node_names}
         self.forced_nodes = {node_name: status
                              for node_name, status in self.nodes.items()
                              if node_name in self.supvisors.options.force_synchro_if}
@@ -88,8 +92,7 @@ class Context(object):
         return self.nodes_by_states([AddressStates.ISOLATING])
 
     def isolation_nodes(self):
-        """ Return the AddressStatus instances in ISOLATING or ISOLATED
-        state. """
+        """ Return the AddressStatus instances in ISOLATING or ISOLATED state. """
         return self.nodes_by_states([AddressStates.ISOLATING, AddressStates.ISOLATED])
 
     def nodes_by_states(self, states):
@@ -132,58 +135,76 @@ class Context(object):
         return [process for process in self.processes.values()
                 if process.conflicting()]
 
-    def setdefault_application(self, application_name):
+    def setdefault_application(self, application_name: str) -> Optional[ApplicationStatus]:
         """ Return the application corresponding to application_name if found.
-        Otherwise return a new application for application_name.
-        Related application rules are loaded from the rules file. """
-        try:
-            # find existing application
-            application = self.applications[application_name]
-        except KeyError:
-            # create new instance
-            application = ApplicationStatus(application_name, self.logger)
-            # load rules from rules file
-            if self.supvisors.parser:
-                self.supvisors.parser.load_application_rules(application)
-            # add new application to context
-            self.applications[application_name] = application
-        return application
+        Otherwise load rules from the rules file, create a new application entry if rules exist and return it.
+        Applications that are not defined in the rules files will not be stored in the Supvisors context.
 
-    def setdefault_process(self, info):
+        :param application_name: the name of the application
+        :return: the application stored in the Supvisors context
+        """
+        # find existing application
+        application = self.applications.get(application_name)
+        if application:
+            return application
+        if self.supvisors.parser:
+            # load rules from rules file
+            rules = ApplicationRules()
+            self.supvisors.parser.load_application_rules(application_name, rules)
+            self.logger.info('Context.setdefault_application: application={} rules={}'.format(application_name, rules))
+            # create new instance
+            if rules.default:
+                self.logger.info('Context.setdefault_application: no application={} found in rules file. ignore'
+                                 .format(application_name))
+            else:
+                # add new application to context only if application is defined in the rules file
+                application = ApplicationStatus(application_name, rules, self.logger)
+                self.applications[application_name] = application
+                return application
+
+    def setdefault_process(self, info: Payload) -> Optional[ProcessStatus]:
         """ Return the process corresponding to info if found.
-        Otherwise return a new process for group name and process name.
-        Related process rules are loaded from the rules file. """
+        Otherwise load rules from the rules file, create a new process entry if rules exist and return it.
+        Processes that are not defined in the rules files will not be stored in the Supvisors context.
+
+        :param info: the payload representing the process
+        :return: the process stored in the Supvisors context
+        """
         application_name = info['group']
         namespec = make_namespec(application_name, info['name'])
-        try:
-            # find existing process
-            process = self.processes[namespec]
-        except KeyError:
-            # create new instance
-            process = ProcessStatus(application_name, info['name'], self.supvisors)
-            # apply default running failure strategy
-            application = self.setdefault_application(process.application_name)
-            process.rules.running_failure_strategy = application.rules.running_failure_strategy
-            # load rules from rules file
+        process = self.processes.get(namespec)
+        if process:
+            return process
+        application = self.setdefault_application(application_name)
+        if application:
+            self.logger.debug('Context.setdefault_process: application {} found'.format(application.application_name))
             if self.supvisors.parser:
-                self.supvisors.parser.load_process_rules(process)
-            # add new process to context
-            application.add_process(process)
-            self.processes[namespec] = process
-        return process
+                # load rules from rules file - apply default running failure strategy
+                rules = ProcessRules(self.supvisors)
+                rules.running_failure_strategy = application.rules.running_failure_strategy
+                self.supvisors.parser.load_process_rules(namespec, rules)
+                self.logger.debug('Context.setdefault_process: namespec={} rules={}'.format(namespec, rules))
+                # add new process to context
+                process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
+                application.add_process(process)
+                self.processes[namespec] = process
+                return process
+        self.logger.info('Context.setdefault_process: ignoring process={}'.format(namespec))
 
-    def load_processes(self, node_name: str, all_info):
+    def load_processes(self, node_name: str, all_info: PayloadList) -> None:
         """ Load application dictionary from process info got from Supervisor on address. """
+        self.logger.trace('Context.load_processes: node_name={} all_info={}'.format(node_name, all_info))
         # get AddressStatus corresponding to address
         status = self.nodes[node_name]
         # store processes into their application entry
         for info in all_info:
             # get or create process
             process = self.setdefault_process(info)
-            # update the current entry
-            process.add_info(node_name, info)
-            # share the instance to the Supervisor instance that holds it
-            status.add_process(process)
+            if process:
+                # update the current entry
+                process.add_info(node_name, info)
+                # share the instance to the Supervisor instance that holds it
+                status.add_process(process)
 
     # methods on events
     def on_authorization(self, node_name: str, authorized: bool) -> Optional[bool]:
@@ -276,7 +297,7 @@ class Context(object):
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
         for status in self.nodes.values():
-            if status.state == AddressStates.RUNNING and (time() - status.local_time) > 10:
+            if status.state == AddressStates.RUNNING and (time() - status.local_time) > Context.INACTIVITY_TIMEOUT:
                 self.invalid(status)
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())

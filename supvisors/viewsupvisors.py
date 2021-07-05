@@ -33,10 +33,10 @@ from supvisors.webutils import *
 class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
-        - a navigation menu towards addresses contents and applications,
+        - a navigation menu towards nodes contents and applications,
         - the state of Supvisors,
         - actions on Supvisors,
-        - a synoptic of the processes running on the different addresses,
+        - a synoptic of the processes running on the different nodes,
         - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
@@ -70,7 +70,7 @@ class SupvisorsView(ViewHandler):
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
-            # remove address boxes
+            # remove node boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
             self.write_conciliation_strategies(root)
@@ -78,7 +78,7 @@ class SupvisorsView(ViewHandler):
         else:
             # remove conflicts table
             root.findmeld('conflicts_div_mid').replace('')
-            # write address boxes
+            # write node boxes
             self.write_node_boxes(root)
 
     # Standard part
@@ -87,7 +87,7 @@ class SupvisorsView(ViewHandler):
         # set node name
         elt = node_div_elt.findmeld('node_tda_mid')
         if status.state == AddressStates.RUNNING:
-            # go to web page located on address
+            # go to web page located on node
             url = self.view_ctx.format_url(status.address_name, PROC_NODE_PAGE)
             elt.attributes(href=url)
             elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_node_name else '')
@@ -155,11 +155,11 @@ class SupvisorsView(ViewHandler):
     def get_conciliation_data(self):
         """ Get information about all conflicting processes. """
         return [{'namespec': process.namespec(),
-                 'rowspan': len(process.addresses) if idx == 0 else 0,
-                 'address': address,
-                 'uptime': process.infos[address]['uptime']}
+                 'rowspan': len(process.running_nodes) if idx == 0 else 0,
+                 'node_name': node_name,
+                 'uptime': process.info_map[node_name]['uptime']}
                 for process in self.sup_ctx.conflicts()
-                for idx, address in enumerate(process.addresses)]
+                for idx, node_name in enumerate(process.running_nodes)]
 
     def write_conciliation_table(self, root):
         """ Rendering of the conflicts table. """
@@ -177,7 +177,7 @@ class SupvisorsView(ViewHandler):
             apply_shade(tr_elt, shaded_tr)
             # write information and actions
             self._write_conflict_name(tr_elt, item, shaded_tr)
-            self._write_conflict_address(tr_elt, item)
+            self._write_conflict_node(tr_elt, item)
             self._write_conflict_uptime(tr_elt, item)
             self._write_conflict_process_actions(tr_elt, item)
             self._write_conflict_strategies(tr_elt, item, shaded_tr)
@@ -195,13 +195,13 @@ class SupvisorsView(ViewHandler):
         else:
             elt.replace('')
 
-    def _write_conflict_address(self, tr_elt, info):
-        """ In a conflicts table, write the address where runs the process in conflict. """
-        address = info['address']
+    def _write_conflict_node(self, tr_elt, info):
+        """ In a conflicts table, write the node name where runs the process in conflict. """
+        node_name = info['node_name']
         elt = tr_elt.findmeld('caddress_a_mid')
-        url = self.view_ctx.format_url(address, PROC_NODE_PAGE)
+        url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
         elt.attributes(href=url)
-        elt.content(address)
+        elt.content(node_name)
 
     def _write_conflict_uptime(self, tr_elt, info):
         """ In a conflicts table, write the uptime of the process in conflict. """
@@ -211,10 +211,10 @@ class SupvisorsView(ViewHandler):
     def _write_conflict_process_actions(self, tr_elt, info):
         """ In a conflicts table, write the actions that can be requested on the process in conflict. """
         namespec = info['namespec']
-        address = info['address']
+        node_name = info['node_name']
         for action in self.process_methods.keys():
             elt = tr_elt.findmeld(action + '_a_mid')
-            parameters = {NAMESPEC: namespec, NODE: address, ACTION: action}
+            parameters = {NAMESPEC: namespec, NODE: node_name, ACTION: action}
             url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
 
@@ -252,7 +252,7 @@ class SupvisorsView(ViewHandler):
             return self.conciliation_action(namespec, action.upper())
         # process actions
         if action in self.process_methods:
-            node_name = self.view_ctx.get_address()
+            node_name = self.view_ctx.get_node_name()
             return self.process_methods[action](namespec, node_name)
 
     @staticmethod
@@ -300,33 +300,33 @@ class SupvisorsView(ViewHandler):
             return onwait
         return delayed_info('Supvisors shut down')
 
-    def stop_action(self, namespec, address):
+    def stop_action(self, namespec, node_name):
         """ Stop the conflicting process. """
-        # get running addresses of process
-        addresses = self.sup_ctx.processes[namespec].addresses
-        self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+        # get running nodes of process
+        running_nodes = self.sup_ctx.processes[namespec].running_nodes
+        self.supvisors.zmq.pusher.send_stop_process(node_name, namespec)
 
         def on_wait():
-            if address in addresses:
+            if node_name in running_nodes:
                 return NOT_DONE_YET
-            return info_message('process {} stopped on {}'.format(namespec, address))
+            return info_message('process {} stopped on {}'.format(namespec, node_name))
 
         on_wait.delay = 0.1
         return on_wait
 
-    def keep_action(self, namespec, kept_address):
-        """ Stop the conflicting processes excepted the one running on address. """
-        # get running addresses of process
-        addresses = self.sup_ctx.processes[namespec].addresses
-        running_addresses = addresses.copy()
-        running_addresses.remove(kept_address)
-        for address in running_addresses:
-            self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+    def keep_action(self, namespec, kept_node_name):
+        """ Stop the conflicting processes excepted the one running on node. """
+        # get running nodes of process
+        running_nodes = self.sup_ctx.processes[namespec].running_nodes
+        running_nodes_copy = running_nodes.copy()
+        running_nodes_copy.remove(kept_node_name)
+        for node_name in running_nodes_copy:
+            self.supvisors.zmq.pusher.send_stop_process(node_name, namespec)
 
         def on_wait():
-            if len(addresses) > 1:
+            if len(running_nodes) > 1:
                 return NOT_DONE_YET
-            return info_message('processes {} stopped but on {}'.format(namespec, kept_address))
+            return info_message('processes {} stopped but on {}'.format(namespec, kept_node_name))
 
         on_wait.delay = 0.1
         return on_wait

@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Mapping, Sequence
+from typing import Dict, List, Sequence
 
 from supervisor.loggers import Logger
 from supervisor.states import *
@@ -86,14 +86,15 @@ class ApplicationStatus(object):
     """
 
     # types for annotations
-    ApplicationSequence = Mapping[int, Sequence[ProcessStatus]]
-    PrintableApplicationSequence = Mapping[int, Sequence[str]]
-    ProcessMap = Mapping[str, Sequence[ProcessStatus]]
+    ApplicationSequence = Dict[int, List[ProcessStatus]]
+    PrintableApplicationSequence = Dict[int, Sequence[str]]
+    ProcessMap = Dict[str, ProcessStatus]
 
-    def __init__(self, application_name: str, logger: Logger) -> None:
+    def __init__(self, application_name: str, rules: ApplicationRules, logger: Logger) -> None:
         """ Initialization of the attributes.
 
         :param application_name: the name of the application
+        :param rules: the rules applicable to the application
         :param logger: the common logger used throughout Supvisors
         """
         # keep reference to common logger
@@ -105,7 +106,7 @@ class ApplicationStatus(object):
         self.minor_failure = False
         # process part
         self.processes: ApplicationStatus.ProcessMap = {}
-        self.rules = ApplicationRules()
+        self.rules = rules
         self.start_sequence: ApplicationStatus.ApplicationSequence = {}
         self.stop_sequence: ApplicationStatus.ApplicationSequence = {}
 
@@ -166,7 +167,7 @@ class ApplicationStatus(object):
 
     @staticmethod
     def printable_sequence(application_sequence: ApplicationSequence) -> PrintableApplicationSequence:
-        """ Get printable application sequence for log.
+        """ Get printable application sequence for log traces.
         Only the name of the process is kept.
 
         :return: the simplified sequence
