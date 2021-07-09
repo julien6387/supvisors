@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Iterator
+
 from supvisors.address import *
 from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.process import *
@@ -123,6 +125,10 @@ class Context(object):
                 self.invalid(address)
 
     # methods on applications / processes
+    def get_managed_applications(self) -> Iterator[ApplicationStatus]:
+        """ Return the managed applications (defined in rules file). """
+        return filter(lambda x: x.managed, self.applications.values())
+
     def get_all_namespecs(self) -> NameList:
         """ Return the ProcessStatus corresponding to the namespec. """
         return list({process.namespec() for application in self.applications.values()
@@ -154,22 +160,16 @@ class Context(object):
         """
         # find existing application
         application = self.applications.get(application_name)
-        if application:
-            return application
-        if self.supvisors.parser:
+        if not application:
             # load rules from rules file
             rules = ApplicationRules()
-            self.supvisors.parser.load_application_rules(application_name, rules)
-            self.logger.info('Context.setdefault_application: application={} rules={}'.format(application_name, rules))
+            if self.supvisors.parser:
+                self.supvisors.parser.load_application_rules(application_name, rules)
+                self.logger.info('Context.setdefault_application: application={} rules={}'.format(application_name, rules))
             # create new instance
-            if rules.default:
-                self.logger.info('Context.setdefault_application: no application={} found in rules file. ignore'
-                                 .format(application_name))
-            else:
-                # add new application to context only if application is defined in the rules file
-                application = ApplicationStatus(application_name, rules, self.logger)
-                self.applications[application_name] = application
-                return application
+            application = ApplicationStatus(application_name, rules, self.logger)
+            self.applications[application_name] = application
+        return application
 
     def setdefault_process(self, info: Payload) -> Optional[ProcessStatus]:
         """ Return the process corresponding to info if found.
@@ -183,23 +183,21 @@ class Context(object):
         namespec = make_namespec(application_name, info['name'])
         # get application
         application = self.setdefault_application(application_name)
-        if application:
-            # search for existing process in application
-            process = application.processes.get(process_name)
-            if process:
-                return process
-            self.logger.debug('Context.setdefault_process: application {} found'.format(application.application_name))
+        self.logger.debug('Context.setdefault_process: application={}'.format(application.application_name))
+        # search for existing process in application
+        process = application.processes.get(process_name)
+        if not process:
+            # apply default running failure strategy
+            rules = ProcessRules(self.supvisors)
+            rules.running_failure_strategy = application.rules.running_failure_strategy
             if self.supvisors.parser:
-                # load rules from rules file - apply default running failure strategy
-                rules = ProcessRules(self.supvisors)
-                rules.running_failure_strategy = application.rules.running_failure_strategy
+                # load rules from rules file
                 self.supvisors.parser.load_process_rules(namespec, rules)
                 self.logger.debug('Context.setdefault_process: namespec={} rules={}'.format(namespec, rules))
-                # add new process to context
-                process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
-                application.add_process(process)
-                return process
-        self.logger.info('Context.setdefault_process: ignoring process={}'.format(namespec))
+            # add new process to context
+            process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
+            application.add_process(process)
+        return process
 
     def load_processes(self, node_name: str, all_info: PayloadList) -> None:
         """ Load application dictionary from process info got from Supervisor on address. """

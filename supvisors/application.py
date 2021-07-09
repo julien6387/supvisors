@@ -41,7 +41,7 @@ class ApplicationRules(object):
 
     def __init__(self) -> None:
         """ Initialization of the attributes. """
-        self.default = True
+        self.managed = False
         self.start_sequence = 0
         self.stop_sequence = 0
         self.starting_failure_strategy = StartingFailureStrategies.ABORT

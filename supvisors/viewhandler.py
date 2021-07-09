@@ -150,7 +150,7 @@ class ViewHandler(MeldView):
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """
         mid_elt = root.findmeld('appli_li_mid')
-        applications = self.sup_ctx.applications.values()
+        applications = self.sup_ctx.get_managed_applications()
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(list(applications)):
             # set element class

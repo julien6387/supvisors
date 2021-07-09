@@ -132,7 +132,7 @@ class Parser(object):
                           .format(application_name))
         application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
         if application_elt is not None:
-            rules.default = False
+            rules.managed = True
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
