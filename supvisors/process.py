@@ -23,7 +23,7 @@ from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from supvisors.ttypes import NodeNameList, Payload, RunningFailureStrategies
+from supvisors.ttypes import NameList, Payload, RunningFailureStrategies
 from supvisors.utils import *
 
 
@@ -252,7 +252,7 @@ class ProcessStatus(object):
         """
         return make_namespec(self.application_name, self.process_name)
 
-    def possible_nodes(self) -> NodeNameList:
+    def possible_nodes(self) -> NameList:
         """ Return the list of nodes where the program could be started.
         To achieve that, two conditions:
             - the Supervisor node must know the program;

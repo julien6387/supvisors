@@ -25,10 +25,12 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
+from supvisors.application import ApplicationStatus
 from supvisors.strategy import conciliate_conflicts
 from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
                               EnumClassType, EnumType)
 from supvisors.utils import extract_process_info
+
 
 # get Supvisors version from file
 here = os.path.abspath(os.path.dirname(__file__))
@@ -162,7 +164,8 @@ class RPCInterface(object):
         """
         self._check_from_deployment()
         return [process.serial()
-                for process in self.supvisors.context.processes.values()]
+                for application in self.supvisors.context.applications.values()
+                for process in application.processes.values()]
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
@@ -236,7 +239,8 @@ class RPCInterface(object):
         """
         self._check_from_deployment()
         return [process.serial()
-                for process in self.supvisors.context.processes.values()
+                for application in self.supvisors.context.applications.values()
+                for process in application.processes.values()
                 if process.conflicting()]
 
     # RPC Command methods
@@ -393,7 +397,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error.
         """
         # WARN: do NOT check OPERATION (it is used internally in DEPLOYMENT state)
-        application, process = self._get_application_process(namespec)
+        _, process = self._get_application_process(namespec)
         # update command line in process config with extra_args
         try:
             self.supvisors.info_source.update_extra_args(process.namespec(), extra_args)
@@ -652,26 +656,27 @@ class RPCInterface(object):
         """ Return the ApplicationStatus and ProcessStatus corresponding to the namespec.
         A BAD_NAME exception is raised if the application or the process is not found. """
         application_name, process_name = split_namespec(namespec)
-        return (self._get_application(application_name),
-                self._get_process(namespec) if process_name else None)
+        application = self._get_application(application_name)
+        process = self._get_process(application, process_name) if process_name else None
+        return application, process
 
     def _get_application(self, application_name):
         """ Return the ApplicationStatus corresponding to the application name.
         A BAD_NAME exception is raised if the application is not found. """
         try:
-            application = self.supvisors.context.applications[application_name]
+            return self.supvisors.context.applications[application_name]
         except KeyError:
             raise RPCError(Faults.BAD_NAME, 'application {} unknown to Supvisors'.format(application_name))
-        return application
 
-    def _get_process(self, namespec):
-        """ Return the ProcessStatus corresponding to the namespec.
+    @staticmethod
+    def _get_process(application: ApplicationStatus, process_name: str):
+        """ Return the ProcessStatus corresponding to process_name in application.
         A BAD_NAME exception is raised if the process is not found. """
         try:
-            process = self.supvisors.context.processes[namespec]
+            return application.processes[process_name]
         except KeyError:
-            raise RPCError(Faults.BAD_NAME, 'process {} unknown to Supvisors'.format(namespec))
-        return process
+            raise RPCError(Faults.BAD_NAME, 'process={} unknown in application={}'
+                           .format(process_name, application.application_name))
 
     @staticmethod
     def _get_internal_process_rules(process):

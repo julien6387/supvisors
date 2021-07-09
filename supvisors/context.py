@@ -20,7 +20,7 @@
 from supvisors.address import *
 from supvisors.application import ApplicationRules, ApplicationStatus
 from supvisors.process import *
-from supvisors.ttypes import AddressStates, NodeNameList, PayloadList
+from supvisors.ttypes import AddressStates, NameList, PayloadList
 
 
 class Context(object):
@@ -29,7 +29,6 @@ class Context(object):
     - addresses: the dictionary of all AddressStatus (key is address),
     - forced_addresses: the dictionary of the minimal set of AddressStatus (key is address),
     - applications: the dictionary of all ApplicationStatus (key is application name),
-    - processes: the dictionary of all ProcessStatus (key is process namespec),
     - master_address: the address of the Supvisors master,
     - master: a boolean telling if the local address is the master address.
     - new: a boolean telling if this context has just been started.
@@ -51,7 +50,6 @@ class Context(object):
                              for node_name, status in self.nodes.items()
                              if node_name in self.supvisors.options.force_synchro_if}
         self.applications = {}
-        self.processes = {}
         # master attributes
         self._master_node_name = ''
         self._is_master = False
@@ -125,14 +123,25 @@ class Context(object):
                 self.invalid(address)
 
     # methods on applications / processes
+    def get_all_namespecs(self) -> NameList:
+        """ Return the ProcessStatus corresponding to the namespec. """
+        return list({process.namespec() for application in self.applications.values()
+                     for process in application.processes.values()})
+
+    def get_process(self, namespec: str) -> Optional[ProcessStatus]:
+        """ Return the ProcessStatus corresponding to the namespec. """
+        application_name, process_name = split_namespec(namespec)
+        return self.applications[application_name].processes[process_name]
+
     def conflicting(self):
         """ Return True if any conflicting ProcessStatus is detected. """
-        return next((True for process in self.processes.values()
-                     if process.conflicting()), False)
+        return any((process.conflicting() for application in self.applications.values()
+                    for process in application.processes.values()))
 
     def conflicts(self):
         """ Return all conflicting ProcessStatus. """
-        return [process for process in self.processes.values()
+        return [process for application in self.applications.values()
+                for process in application.processes.values()
                 if process.conflicting()]
 
     def setdefault_application(self, application_name: str) -> Optional[ApplicationStatus]:
@@ -170,13 +179,15 @@ class Context(object):
         :param info: the payload representing the process
         :return: the process stored in the Supvisors context
         """
-        application_name = info['group']
+        application_name, process_name = info['group'], info['name']
         namespec = make_namespec(application_name, info['name'])
-        process = self.processes.get(namespec)
-        if process:
-            return process
+        # get application
         application = self.setdefault_application(application_name)
         if application:
+            # search for existing process in application
+            process = application.processes.get(process_name)
+            if process:
+                return process
             self.logger.debug('Context.setdefault_process: application {} found'.format(application.application_name))
             if self.supvisors.parser:
                 # load rules from rules file - apply default running failure strategy
@@ -187,7 +198,6 @@ class Context(object):
                 # add new process to context
                 process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
                 application.add_process(process)
-                self.processes[namespec] = process
                 return process
         self.logger.info('Context.setdefault_process: ignoring process={}'.format(namespec))
 
@@ -302,7 +312,7 @@ class Context(object):
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
 
-    def handle_isolation(self) -> NodeNameList:
+    def handle_isolation(self) -> NameList:
         """ Move ISOLATING addresses to ISOLATED and publish related events. """
         addresses = self.isolating_nodes()
         for address in addresses:

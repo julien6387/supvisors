@@ -30,21 +30,6 @@ from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import *
 
 
-# test matplotlib availability
-# calling get_backend is useless excepted for unit tests
-def test_matplotlib_import():
-    try:
-        from matplotlib import get_backend
-        get_backend()
-    except ImportError:
-        return False
-    return True
-
-
-# keep matplotlib availability information at once
-HAS_PLOT = test_matplotlib_import()
-
-
 class ViewHandler(MeldView):
     """ Helper class to commonize rendering and behavior between handlers inheriting from MeldView. """
 
@@ -372,7 +357,7 @@ class ViewHandler(MeldView):
     @staticmethod
     def write_process_plots(proc_stats):
         """ Write the CPU / Memory plots (only if matplotlib is installed) """
-        if HAS_PLOT:
+        try:
             from supvisors.plot import StatisticsPlot
             # build CPU image
             cpu_img = StatisticsPlot()
@@ -382,6 +367,9 @@ class ViewHandler(MeldView):
             mem_img = StatisticsPlot()
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
+        except ImportError:
+            # matplotlib not installed
+            pass
 
     def write_process_statistics(self, root, info):
         """ Display detailed statistics about the selected process. """

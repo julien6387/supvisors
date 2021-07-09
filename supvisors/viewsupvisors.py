@@ -159,7 +159,7 @@ class SupvisorsView(ViewHandler):
                  'node_name': node_name,
                  'uptime': process.info_map[node_name]['uptime']}
                 for process in self.sup_ctx.conflicts()
-                for idx, node_name in enumerate(process.running_nodes)]
+                for idx, node_name in enumerate(sorted(process.running_nodes))]
 
     def write_conciliation_table(self, root):
         """ Rendering of the conflicts table. """
@@ -182,7 +182,8 @@ class SupvisorsView(ViewHandler):
             self._write_conflict_process_actions(tr_elt, item)
             self._write_conflict_strategies(tr_elt, item, shaded_tr)
 
-    def _write_conflict_name(self, tr_elt, info, shaded_tr):
+    @staticmethod
+    def _write_conflict_name(tr_elt, info, shaded_tr):
         """ In a conflicts table, write the process name in conflict. """
         elt = tr_elt.findmeld('name_td_mid')
         rowspan = info['rowspan']
@@ -203,7 +204,8 @@ class SupvisorsView(ViewHandler):
         elt.attributes(href=url)
         elt.content(node_name)
 
-    def _write_conflict_uptime(self, tr_elt, info):
+    @staticmethod
+    def _write_conflict_uptime(tr_elt, info):
         """ In a conflicts table, write the uptime of the process in conflict. """
         elt = tr_elt.findmeld('uptime_td_mid')
         elt.content(simple_gmtime(info['uptime']))
@@ -303,7 +305,7 @@ class SupvisorsView(ViewHandler):
     def stop_action(self, namespec, node_name):
         """ Stop the conflicting process. """
         # get running nodes of process
-        running_nodes = self.sup_ctx.processes[namespec].running_nodes
+        running_nodes = self.sup_ctx.get_process(namespec).running_nodes
         self.supvisors.zmq.pusher.send_stop_process(node_name, namespec)
 
         def on_wait():
@@ -317,7 +319,7 @@ class SupvisorsView(ViewHandler):
     def keep_action(self, namespec, kept_node_name):
         """ Stop the conflicting processes excepted the one running on node. """
         # get running nodes of process
-        running_nodes = self.sup_ctx.processes[namespec].running_nodes
+        running_nodes = self.sup_ctx.get_process(namespec).running_nodes
         running_nodes_copy = running_nodes.copy()
         running_nodes_copy.remove(kept_node_name)
         for node_name in running_nodes_copy:
@@ -335,7 +337,7 @@ class SupvisorsView(ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
-            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], [self.sup_ctx.processes[namespec]])
+            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], [self.sup_ctx.get_process(namespec)])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts

@@ -21,7 +21,7 @@ from time import time
 from typing import Any, Callable, Optional
 
 from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import AddressStates, SupvisorsStates, NodeNameList, Payload
+from supvisors.ttypes import AddressStates, SupvisorsStates, NameList, Payload
 
 
 class AbstractState(object):
@@ -334,7 +334,7 @@ class FiniteStateMachine:
             # evaluate current state
             next_state = self.instance.next()
 
-    def on_timer_event(self) -> NodeNameList:
+    def on_timer_event(self) -> NameList:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
         self.context.on_timer_event()

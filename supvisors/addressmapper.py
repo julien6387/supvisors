@@ -21,7 +21,7 @@ from socket import gethostname
 from collections import OrderedDict
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NodeNameList
+from supvisors.ttypes import NameList
 
 
 class AddressMapper(object):
@@ -48,7 +48,7 @@ class AddressMapper(object):
         return self._node_names
 
     @node_names.setter
-    def node_names(self, node_name_list: NodeNameList) -> None:
+    def node_names(self, node_name_list: NameList) -> None:
         """ Store the nodes of the configuration file and determine the usage name of the local node among this list.
 
         :param node_name_list: the nodes defined in the supvisors section of the configuration file
@@ -70,7 +70,7 @@ class AddressMapper(object):
         """
         return node_name in self._node_names
 
-    def filter(self, node_name_list: NodeNameList) -> NodeNameList:
+    def filter(self, node_name_list: NameList) -> NameList:
         """ Check the node names against the list defined in the configuration file.
         If the node name is not found, it is removed from the list.
         If more than one occurrence of the same node name is found, only the first one is kept.
@@ -83,7 +83,7 @@ class AddressMapper(object):
         # remove duplicates keeping the same ordering
         return list(OrderedDict.fromkeys(node_names))
 
-    def expected(self, node_name_list: NodeNameList) -> str:
+    def expected(self, node_name_list: NameList) -> str:
         """ Return the usage name from a list of names or IP addresses identifying the same node.
         Usage name is defined as the name used in the configuration file.
 
@@ -93,7 +93,7 @@ class AddressMapper(object):
         return next((node_name for node_name in node_name_list if self.valid(node_name)), None)
 
     @staticmethod
-    def ipv4() -> NodeNameList:
+    def ipv4() -> NameList:
         """ Get all IPv4 addresses of the local node for all interfaces.
 
         :return: the IPv4 addresses of the local node

@@ -85,7 +85,6 @@ class MockedSupvisors:
         self.context.__init__()
         self.context.nodes = {}
         self.context.applications = {}
-        self.context.processes = {}
         # simple mocks
         self.fsm = Mock()
         self.pool = Mock()
@@ -205,8 +204,7 @@ class DummyHttpContext:
     def __init__(self, template=None):
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
-        self.template = os.path.join(module_path, template) \
-            if template else None
+        self.template = os.path.join(module_path, template) if template else None
         self.supervisord = DummySupervisor()
         # create form and response
         self.form = {'SERVER_URL': 'http://10.0.0.1:7777',

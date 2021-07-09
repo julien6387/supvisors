@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.ttypes import (AddressStates, NodeNameList,
+from supvisors.ttypes import (AddressStates, NameList,
                               ConciliationStrategies, StartingStrategies, RunningFailureStrategies)
 from typing import Mapping, Sequence, Tuple
 
@@ -65,7 +65,7 @@ class AbstractStartingStrategy(AbstractStrategy):
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} not RUNNING'.format(node_name))
         return False, 0
 
-    def get_loading_and_validity(self, node_names: NodeNameList, expected_load: int) -> LoadingValidityMap:
+    def get_loading_and_validity(self, node_names: NameList, expected_load: int) -> LoadingValidityMap:
         """ Return the report of loading capability of all nodes iaw the additional load required.
 
         :param node_names: the nodes considered

@@ -19,10 +19,7 @@
 
 from supvisors.utils import get_stats
 from supvisors.viewcontext import *
-from supvisors.viewhandler import HAS_PLOT
-from supvisors.viewimage import (address_cpu_img,
-                                 address_mem_img,
-                                 address_io_img)
+from supvisors.viewimage import address_cpu_img, address_mem_img, address_io_img
 from supvisors.viewsupstatus import SupvisorsAddressView
 from supvisors.webutils import *
 
@@ -30,9 +27,8 @@ from supvisors.webutils import *
 class HostAddressView(SupvisorsAddressView):
     """ View renderer of the Host section of the Supvisors Address page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
-    Note that the inheritance of StatusView has been patched dynamically
-    in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
-    inherits from ViewHandler instead of MeldView.
+    Note that the inheritance of StatusView has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
+    so that StatusView inherits from ViewHandler instead of MeldView.
     """
 
     def __init__(self, context):
@@ -47,10 +43,13 @@ class HostAddressView(SupvisorsAddressView):
         self.write_memory_statistics(root, stats_instance.mem)
         self.write_network_statistics(root, stats_instance.io)
         # write CPU / Memory / Network plots
-        if HAS_PLOT:
+        try:
             self._write_cpu_image(stats_instance.cpu)
             self._write_mem_image(stats_instance.mem)
             self._write_io_image(stats_instance.io)
+        except ImportError:
+            # matplotlib not installed
+            pass
 
     def _write_processor_single_title(self, tr_elt, selected_cpu_id, cpu_id):
         """ Rendering of the title of a single core. """
@@ -159,17 +158,18 @@ class HostAddressView(SupvisorsAddressView):
 
     def _write_cpu_image(self, cpu_stats):
         """ Write CPU data into the dedicated buffer. """
+        from supvisors.plot import StatisticsPlot
         # get CPU data
         cpu_id = self.view_ctx.parameters[CPU]
         cpu_id_string = self.view_ctx.cpu_id_to_string(cpu_id)
         cpu_data = cpu_stats[cpu_id]
         # build image from data
-        from supvisors.plot import StatisticsPlot
         plt = StatisticsPlot()
         plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
         plt.export_image(address_cpu_img)
 
-    def _write_mem_image(self, mem_stats):
+    @staticmethod
+    def _write_mem_image(mem_stats):
         """ Write MEM data into the dedicated buffer. """
         # build image from data
         from supvisors.plot import StatisticsPlot
@@ -179,13 +179,13 @@ class HostAddressView(SupvisorsAddressView):
 
     def _write_io_image(self, io_stats):
         """ Write MEM data into the dedicated buffer. """
+        from supvisors.plot import StatisticsPlot
         # get IO data
         intf_name = self.view_ctx.parameters[INTF]
         if intf_name:
             recv_data = io_stats[intf_name][0]
             sent_data = io_stats[intf_name][1]
             # build image from data
-            from supvisors.plot import StatisticsPlot
             plt = StatisticsPlot()
             plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
             plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)

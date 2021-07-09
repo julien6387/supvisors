@@ -61,7 +61,6 @@ def test_create(supvisors, context):
         assert address.address_name == address_name
         assert isinstance(address, AddressStatus)
     assert context.applications == {}
-    assert context.processes == {}
     assert context._master_node_name == ''
     assert not context._is_master
     assert not context.master_operational
@@ -142,7 +141,7 @@ def test_unknown_forced_nodes(supvisors):
     assert context.unknown_forced_nodes() == []
 
 
-def check_address_status(context, address_name, new_state):
+def check_address_status(mocker, context, address_name, new_state):
     # get address status
     address_status = context.nodes[address_name]
     # check initial state
@@ -150,8 +149,8 @@ def check_address_status(context, address_name, new_state):
     # invalidate address
     proc_1 = Mock(**{'invalidate_node.return_value': None})
     proc_2 = Mock(**{'invalidate_node.return_value': None})
-    with patch.object(address_status, 'running_processes', return_value=[proc_1, proc_2]) as mocked_running:
-        context.invalid(address_status)
+    mocked_running = mocker.patch.object(address_status, 'running_processes', return_value=[proc_1, proc_2])
+    context.invalid(address_status)
     # check new state
     assert address_status.state == new_state
     # test calls to process methods
@@ -162,21 +161,21 @@ def check_address_status(context, address_name, new_state):
     address_status._state = AddressStates.UNKNOWN
 
 
-def test_invalid(context):
+def test_invalid(mocker, context):
     """ Test the invalidation of an address. """
     # test address state with auto_fence and local_address
-    check_address_status(context, '127.0.0.1', AddressStates.SILENT)
+    check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT)
     # test address state with auto_fence and other than local_address
-    check_address_status(context, '10.0.0.1', AddressStates.ISOLATING)
+    check_address_status(mocker, context, '10.0.0.1', AddressStates.ISOLATING)
     # test address state without auto_fence
-    with patch.object(context.supvisors.options, 'auto_fence', False):
-        # test address state without auto_fence and local_address
-        check_address_status(context, '127.0.0.1', AddressStates.SILENT)
-        # test address state without auto_fence and other than local_address
-        check_address_status(context, '10.0.0.2', AddressStates.SILENT)
+    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
+    # test address state without auto_fence and local_address
+    check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT)
+    # test address state without auto_fence and other than local_address
+    check_address_status(mocker, context, '10.0.0.2', AddressStates.SILENT)
 
 
-def test_end_synchro(context):
+def test_end_synchro(mocker, context):
     """ Test the end of synchronization phase. """
     # choose two addresses and change their state
     for address_status in context.nodes.values():
@@ -194,13 +193,38 @@ def test_end_synchro(context):
     context.nodes['10.0.0.1']._state = AddressStates.UNKNOWN
     context.nodes['10.0.0.3']._state = AddressStates.UNKNOWN
     context.nodes['10.0.0.5']._state = AddressStates.UNKNOWN
-    with patch.object(context.supvisors.options, 'auto_fence', False):
-        # call end of synchro with auto_fencing deactivated
-        context.end_synchro()
+    # call end of synchro with auto_fencing deactivated
+    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
+    context.end_synchro()
     # check that UNKNOWN addresses became SILENT
     assert context.nodes['10.0.0.1'].state == AddressStates.SILENT
     assert context.nodes['10.0.0.3'].state == AddressStates.SILENT
     assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
+
+
+def test_get_all_namespecs(filled_context):
+    """ Test getting all known namespecs across all supvisors instances. """
+    assert sorted(filled_context.get_all_namespecs()) == ['crash:late_segv', 'crash:segv', 'firefox',
+                                                          'sample_test_1:xclock', 'sample_test_1:xfontsel',
+                                                          'sample_test_1:xlogo', 'sample_test_2:sleep',
+                                                          'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
+
+
+def test_get_process(filled_context):
+    """ Test getting a ProcessStatus based on its namespec. """
+    # test with existing namespec
+    process = filled_context.get_process('sample_test_1:xclock')
+    assert process.application_name == 'sample_test_1'
+    assert process.process_name == 'xclock'
+    # test with existing namespec (no group)
+    process = filled_context.get_process('firefox')
+    assert process.application_name == 'firefox'
+    assert process.process_name == 'firefox'
+    # test with unknown application or process
+    with pytest.raises(KeyError):
+        filled_context.get_process('unknown:xclock')
+    with pytest.raises(KeyError):
+        filled_context.get_process('sample_test_2:xclock')
 
 
 def test_conflicts(filled_context):
@@ -209,14 +233,16 @@ def test_conflicts(filled_context):
     assert not filled_context.conflicting()
     assert filled_context.conflicts() == []
     # add addresses to one process
-    process1 = next(process for process in filled_context.processes.values()
+    process1 = next(process for application in filled_context.applications.values()
+                    for process in application.processes.values()
                     if process.running())
     process1.running_nodes.update(filled_context.nodes.keys())
     # test conflict is detected
     assert filled_context.conflicting()
     assert filled_context.conflicts() == [process1]
     # add addresses to one other process
-    process2 = next(process for process in filled_context.processes.values()
+    process2 = next(process for application in filled_context.applications.values()
+                    for process in application.processes.values()
                     if process.stopped())
     process2.running_nodes.update(filled_context.nodes.keys())
     # test conflict is detected
@@ -262,7 +288,6 @@ def test_setdefault_process(context):
     """ Test the access / creation of a process status. """
     # check application list
     assert context.applications == {}
-    assert context.processes == {}
     # test data
     dummy_info1 = {'group': 'dummy_application_1', 'name': 'dummy_process_1'}
     dummy_info2 = {'group': 'dummy_application_2', 'name': 'dummy_process_2'}
@@ -270,70 +295,74 @@ def test_setdefault_process(context):
     assert context.setdefault_process(dummy_info1) is None
     assert context.setdefault_process(dummy_info2) is None
     assert context.applications == {}
-    assert context.processes == {}
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get process
     process1 = context.setdefault_process(dummy_info1)
     # check application and process list
     assert list(context.applications.keys()) == ['dummy_application_1']
-    assert context.processes == {'dummy_application_1:dummy_process_1': process1}
+    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
     # get application
     process2 = context.setdefault_process(dummy_info2)
     # check application and process list
     assert sorted(context.applications.keys()) == ['dummy_application_1', 'dummy_application_2']
-    assert context.processes == {'dummy_application_1:dummy_process_1': process1,
-                                 'dummy_application_2:dummy_process_2': process2}
+    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
+    assert context.applications['dummy_application_2'].processes == {'dummy_process_2': process2}
     # get application
     dummy_info3 = {'group': process1.application_name, 'name': process1.process_name}
     process3 = context.setdefault_process(dummy_info3)
     assert process3 is process1
     # check application and process list
     assert sorted(context.applications.keys()) == ['dummy_application_1', 'dummy_application_2']
-    assert context.processes == {'dummy_application_1:dummy_process_1': process1,
-                                 'dummy_application_2:dummy_process_2': process2}
+    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
+    assert context.applications['dummy_application_2'].processes == {'dummy_process_2': process2}
 
 
 def test_load_processes(context):
     """ Test the storage of processes handled by Supervisor on a given address. """
     # check application list
     assert context.applications == {}
-    assert context.processes == {}
-    for address in context.nodes.values():
-        assert address.processes == {}
+    for node in context.nodes.values():
+        assert node.processes == {}
     # load ProcessInfoDatabase in unknown address
     with pytest.raises(KeyError):
         context.load_processes('10.0.0.0', database_copy())
     assert context.applications == {}
-    assert context.processes == {}
-    for address in context.nodes.values():
-        assert address.processes == {}
+    for node in context.nodes.values():
+        assert node.processes == {}
     # load ProcessInfoDatabase in known address
     # in this test, there is no rules file so application rules default won't be changed by load_application_rules
     context.load_processes('10.0.0.1', database_copy())
     assert context.applications == {}
-    assert context.processes == {}
-    for address in context.nodes.values():
-        assert address.processes == {}
+    for node in context.nodes.values():
+        assert node.processes == {}
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     context.load_processes('10.0.0.1', database_copy())
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
-    assert sorted(context.processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
-                                                'sample_test_1:xclock', 'sample_test_1:xfontsel',
-                                                'sample_test_1:xlogo', 'sample_test_2:sleep',
-                                                'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
-    assert context.processes == context.nodes['10.0.0.1'].processes
+    assert sorted(context.applications['crash'].processes.keys()) == ['late_segv', 'segv']
+    assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
+    assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
+    assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
+    assert sorted(context.nodes['10.0.0.1'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
+                                                                  'sample_test_1:xclock', 'sample_test_1:xfontsel',
+                                                                  'sample_test_1:xlogo', 'sample_test_2:sleep',
+                                                                  'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
+    assert context.nodes['10.0.0.2'].processes == {}
     # load ProcessInfoDatabase in other known address
     context.load_processes('10.0.0.2', database_copy())
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
-    assert sorted(context.processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
-                                                'sample_test_1:xclock', 'sample_test_1:xfontsel',
-                                                'sample_test_1:xlogo', 'sample_test_2:sleep',
-                                                'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
-    assert context.processes == context.nodes['10.0.0.2'].processes
+    assert sorted(context.applications['crash'].processes.keys()) == ['late_segv', 'segv']
+    assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
+    assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
+    assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
+    assert sorted(context.nodes['10.0.0.2'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
+                                                                  'sample_test_1:xclock', 'sample_test_1:xfontsel',
+                                                                  'sample_test_1:xlogo', 'sample_test_2:sleep',
+                                                                  'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
+    assert context.nodes['10.0.0.1'].processes == context.nodes['10.0.0.2'].processes
     # load different database in other known address
     info = any_process_info()
     info.update({'group': 'dummy_application', 'name': 'dummy_process'})
@@ -342,21 +371,15 @@ def test_load_processes(context):
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'dummy_application', 'firefox',
                                                    'sample_test_1', 'sample_test_2']
-    assert sorted(context.processes.keys()) == ['crash:late_segv', 'crash:segv', 'dummy_application:dummy_process',
-                                                'firefox', 'sample_test_1:xclock', 'sample_test_1:xfontsel',
-                                                'sample_test_1:xlogo', 'sample_test_2:sleep',
-                                                'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert list(context.nodes['10.0.0.4'].processes.keys()) == ['dummy_application:dummy_process']
-    # equality lost between processes in addresses and processes in context
-    assert list(context.nodes['10.0.0.1'].processes.keys()) not in list(context.processes.keys())
-    assert list(context.nodes['10.0.0.2'].processes.keys()) not in list(context.processes.keys())
-    assert list(context.nodes['10.0.0.4'].processes.keys()) not in list(context.processes.keys())
-    assert all(process in context.processes for process in context.nodes['10.0.0.1'].processes)
-    assert all(process in context.processes for process in context.nodes['10.0.0.2'].processes)
-    assert all(process in context.processes for process in context.nodes['10.0.0.4'].processes)
+    assert sorted(context.applications['crash'].processes.keys()) == ['late_segv', 'segv']
+    assert sorted(context.applications['dummy_application'].processes.keys()) == ['dummy_process']
+    assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
+    assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
+    assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
 
 
-def test_authorization(context):
+def test_authorization(mocker, context):
     """ Test the handling of an authorization event. """
     # check no exception with unknown address
     context.on_authorization('10.0.0.0', True)
@@ -388,11 +411,11 @@ def test_authorization(context):
         context.on_authorization('10.0.0.4', True)
     assert context.nodes['10.0.0.4'].state == AddressStates.SILENT
     # check state becomes SILENT if not authorized and auto fencing deactivated
-    with patch.object(context.supvisors.options, 'auto_fence', False):
-        for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.SILENT, AddressStates.RUNNING]:
-            context.nodes['10.0.0.5']._state = state
-            context.on_authorization('10.0.0.5', False)
-            assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
+    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
+    for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.SILENT, AddressStates.RUNNING]:
+        context.nodes['10.0.0.5']._state = state
+        context.on_authorization('10.0.0.5', False)
+        assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
 
 
 def test_tick_event(mocker, context):
@@ -583,26 +606,26 @@ def test_timer_event(mocker, context):
     assert send_calls == [call(payload2), call(payload3)] or send_calls == [call(payload3), call(payload2)]
 
 
-def test_handle_isolation(context):
+def test_handle_isolation(mocker, context):
     """ Test the isolation of addresses. """
-    with patch.object(context.supvisors.zmq.publisher, 'send_address_status') as mocked_send:
-        # update address states
-        context.nodes['127.0.0.1']._state = AddressStates.CHECKING
-        context.nodes['10.0.0.1']._state = AddressStates.RUNNING
-        context.nodes['10.0.0.2']._state = AddressStates.SILENT
-        context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
-        context.nodes['10.0.0.4']._state = AddressStates.ISOLATING
-        context.nodes['10.0.0.5']._state = AddressStates.ISOLATING
-        # call method and check result
-        assert context.handle_isolation() == ['10.0.0.4', '10.0.0.5']
-        assert context.nodes['127.0.0.1'].state == AddressStates.CHECKING
-        assert context.nodes['10.0.0.1'].state == AddressStates.RUNNING
-        assert context.nodes['10.0.0.2'].state == AddressStates.SILENT
-        assert context.nodes['10.0.0.3'].state == AddressStates.ISOLATED
-        assert context.nodes['10.0.0.4'].state == AddressStates.ISOLATED
-        assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATED
-        # check calls to publisher.send_address_status
-        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
-                                                    'remote_time': 0, 'local_time': 0, 'loading': 0}),
-                                              call({'address_name': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
-                                                    'remote_time': 0, 'local_time': 0, 'loading': 0})]
+    mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_address_status')
+    # update address states
+    context.nodes['127.0.0.1']._state = AddressStates.CHECKING
+    context.nodes['10.0.0.1']._state = AddressStates.RUNNING
+    context.nodes['10.0.0.2']._state = AddressStates.SILENT
+    context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+    context.nodes['10.0.0.4']._state = AddressStates.ISOLATING
+    context.nodes['10.0.0.5']._state = AddressStates.ISOLATING
+    # call method and check result
+    assert context.handle_isolation() == ['10.0.0.4', '10.0.0.5']
+    assert context.nodes['127.0.0.1'].state == AddressStates.CHECKING
+    assert context.nodes['10.0.0.1'].state == AddressStates.RUNNING
+    assert context.nodes['10.0.0.2'].state == AddressStates.SILENT
+    assert context.nodes['10.0.0.3'].state == AddressStates.ISOLATED
+    assert context.nodes['10.0.0.4'].state == AddressStates.ISOLATED
+    assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATED
+    # check calls to publisher.send_address_status
+    assert mocked_send.call_args_list == [call({'address_name': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0}),
+                                          call({'address_name': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]

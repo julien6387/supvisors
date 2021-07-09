@@ -74,4 +74,4 @@ EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = Sequence[Payload]
-NodeNameList = Sequence[str]
+NameList = Sequence[str]

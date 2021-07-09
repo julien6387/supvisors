@@ -25,7 +25,7 @@ from typing import Any, Mapping, Optional, Tuple, Union
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NodeNameList, Payload
+from supvisors.ttypes import NameList, Payload
 from supvisors.utils import *
 
 # Constant for Zmq sockets
@@ -114,7 +114,7 @@ class InternalEventSubscriber(object):
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, node_names: NodeNameList, port: int):
+    def __init__(self, node_names: NameList, port: int):
         """ Initialization of the attributes.
 
         :param node_names: the names of the publishing nodes
@@ -142,7 +142,7 @@ class InternalEventSubscriber(object):
         """
         return self.socket.recv_pyobj(zmq.NOBLOCK)
 
-    def disconnect(self, node_names: NodeNameList) -> None:
+    def disconnect(self, node_names: NameList) -> None:
         """ This method disconnects from the PyZmq socket all nodes passed in parameter.
 
         :param node_names: the names of the nodes to disconnect from the subscriber socket
@@ -458,7 +458,7 @@ class RequestPusher(object):
         except zmq.error.Again:
             self.logger.error('RequestPusher.send_check_node: CHECK_NODE not sent')
 
-    def send_isolate_nodes(self, node_names: NodeNameList) -> None:
+    def send_isolate_nodes(self, node_names: NameList) -> None:
         """ Send request to isolate nodes.
 
         :param node_names: the nodes to isolate

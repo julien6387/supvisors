@@ -20,8 +20,9 @@
 from distutils.util import strtobool
 from urllib.parse import quote
 
-from supvisors.ttypes import StartingStrategies
+from supvisors.ttypes import StartingStrategies, NameList
 from supvisors.webutils import error_message
+
 
 # form parameters
 SERVER_URL = 'SERVER_URL'
@@ -127,7 +128,7 @@ class ViewContext:
 
     def update_namespec(self):
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, list(self.supvisors.context.processes.keys()))
+        self._update_string(NAMESPEC, self.supvisors.context.get_all_namespecs())
 
     def update_cpu_id(self):
         """ Extract CPU id from context. """
@@ -165,13 +166,13 @@ class ViewContext:
         stats_node = node_name or self.local_node_name
         return self.supvisors.statistician.nbcores.get(stats_node, 0)
 
-    def get_node_stats(self, node_name=None):
+    def get_node_stats(self, node_name: str = None):
         """ Get the statistics structure related to the node and the period selected.
         If no node name is specified, local node name is used. """
         stats_node = node_name or self.local_node_name
         return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
 
-    def get_process_last_desc(self, namespec, running=False):
+    def get_process_last_desc(self, namespec: str, running: bool = False):
         """ Get the latest description received from the process across all nodes.
         A priority is given to the info coming from a node where the process is running.
         If running is set to True, the priority is exclusive. """
@@ -187,11 +188,11 @@ class ViewContext:
             sorted_info_map = sorted(info_map.items(),
                                      key=lambda x: x[1]['local_time'],
                                      reverse=True)
-            node_name, info = next(iter(sorted_info_map), (None, None))
+            node_name, info = next(iter(sorted_info_map), (None, {}))
         # return the node name too
-        return node_name, info['description'] if info else None
+        return node_name, info.get('description')
 
-    def get_process_stats(self, namespec, node_name=None):
+    def get_process_stats(self, namespec: str, node_name: str = None):
         """ Get the statistics structure related to the process and the period selected.
         Get also the number of cores available on this node (useful for process CPU IRIX mode). """
         # use local node name if not provided
@@ -204,17 +205,17 @@ class ViewContext:
             return nb_cores, node_stats.find_process_stats(namespec)
         return nb_cores, None
 
-    def get_process_status(self, namespec=None):
+    def get_process_status(self, namespec: str = None):
         """ Get the ProcessStatus instance related to the process named namespec.
         If none specified, the form namespec is used. """
         namespec = namespec or self.parameters[NAMESPEC]
         if namespec:
             try:
-                return self.supvisors.context.processes[namespec]
+                return self.supvisors.context.get_process(namespec)
             except KeyError:
                 self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
 
-    def _update_string(self, param, check_list, default_value=None):
+    def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """
         value = default_value
         str_value = self.http_context.form.get(param)
@@ -259,7 +260,6 @@ class ViewContext:
         # assign value found or default
         self.logger.trace('{} set to {}'.format(param, value))
         self.parameters[param] = value
-
 
     @staticmethod
     def cpu_id_to_string(idx):
