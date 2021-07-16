@@ -17,136 +17,112 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
+import pytest
 import random
+import re
 import socket
-import unittest
 
-from unittest.mock import patch, Mock
-
-from supervisor.loggers import Logger
-
-from supvisors.tests.base import CompatTestCase
+from supvisors.addressmapper import AddressMapper
 
 
-class AddressMapperTest(CompatTestCase):
-    """ Test case for the addressmapper module. """
-
-    def setUp(self):
-        """ Create a logger that stores log traces. """
-        self.logger = Mock(spec=Logger)
-
-    def test_create(self):
-        """ Test the values set at construction. """
-        from supvisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        self.assertIs(self.logger, mapper.logger)
-        self.assertFalse(mapper.node_names)
-        self.assertIsNone(mapper.local_node_name)
-        # check that hostname is part of the local addresses
-        self.assertIn(socket.gethostname(), mapper.local_node_references)
-
-    def test_addresses(self):
-        """ Test the storage of the expected addresses. """
-        from supvisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        # set addresses with hostname inside (IP addresses are not valid on purpose)
-        hostname = socket.gethostname()
-        address_lst = [hostname, '292.168.0.1', '292.168.0.2']
-        mapper.node_names = address_lst
-        self.assertListEqual(address_lst, mapper.node_names)
-        # check that hostname is the local address
-        self.assertEqual(hostname, mapper.local_node_name)
-        # set addresses with invalid IP addresses only
-        address_lst = ['292.168.0.1', '292.168.0.2']
-        mapper.node_names = address_lst
-        self.assertListEqual(address_lst, mapper.node_names)
-        # check that the local address is not set
-        self.assertIsNone(mapper.local_node_name)
-
-    def test_valid(self):
-        """ Test the valid method. """
-        from supvisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        # test that nothing is valid before addresses are set
-        hostname = socket.gethostname()
-        self.assertFalse(mapper.valid(hostname))
-        self.assertFalse(mapper.valid('192.168.0.1'))
-        self.assertFalse(mapper.valid('192.168.0.3'))
-        # set addresses
-        address_lst = [hostname, '192.168.0.1', '192.168.0.2']
-        mapper.node_names = address_lst
-        # test the validity of addresses
-        self.assertTrue(mapper.valid(hostname))
-        self.assertTrue(mapper.valid('192.168.0.1'))
-        self.assertFalse(mapper.valid('192.168.0.3'))
-
-    def test_filter(self):
-        """ Test the filter method. """
-        from supvisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        # set addresses with hostname inside (IP addresses are not valid on purpose)
-        hostname = socket.gethostname()
-        node_lst = [hostname, '292.168.0.1', '292.168.0.2']
-        mapper.node_names = node_lst
-        # test that the same list with a different sequence is not filtered
-        shuffle_lst1 = node_lst[:]
-        random.shuffle(shuffle_lst1)
-        self.assertEqual(shuffle_lst1, mapper.filter(shuffle_lst1))
-        # test that an subset of the sequence is not filtered
-        shuffle_lst2 = shuffle_lst1[:]
-        shuffle_lst2.pop()
-        self.assertListEqual(shuffle_lst2, mapper.filter(shuffle_lst2))
-        # test that an invalid entry in the sequence is filtered
-        shuffle_lst2 = ['292.168.0.3'] + shuffle_lst1
-        self.assertListEqual(shuffle_lst1, mapper.filter(shuffle_lst2))
-
-    def test_expected(self):
-        """ Test the expected method. """
-        from supvisors.addressmapper import AddressMapper
-        mapper = AddressMapper(self.logger)
-        # set addresses with hostname inside (IP addresses are not valid on purpose)
-        hostname = socket.gethostname()
-        node_lst = ['292.168.0.1', '292.168.0.2', hostname]
-        mapper.node_names = node_lst
-        # find expected address from list of aliases of the same address
-        alias_lst = ['292.168.0.1', '10.0.200.1', '66.51.20.300']
-        self.assertEqual('292.168.0.1', mapper.expected(alias_lst))
-        # second try
-        random.shuffle(alias_lst)
-        self.assertEqual('292.168.0.1', mapper.expected(alias_lst))
-        # check with list containing no corresponding entry
-        alias_lst = ['292.168.0.3', '10.0.200.1', '66.51.20.300']
-        self.assertIsNone(mapper.expected(alias_lst))
-
-    def test_ipv4(self):
-        """ Test the ipv4 method. """
-        # complex to test as it depends on the network configuration of the operating system
-        # check that there is at least one entry looking like an IP address
-        from supvisors.addressmapper import AddressMapper
-        # test that netifaces is installed
-        try:
-            import netifaces
-            netifaces.__name__
-        except ImportError:
-            raise unittest.SkipTest('cannot test as optional netifaces is not installed')
-        # test function
-        ip_list = AddressMapper.ipv4()
-        self.assertTrue(ip_list)
-        for ip in ip_list:
-            self.assertRegex(ip, r'^\d{1,3}(.\d{1,3}){3}$')
-
-    @patch.dict('sys.modules', {'netifaces': None})
-    def test_ipv4_importerror(self):
-        """ Test the ipv4 method with a mocking of import (netifaces not installed). """
-        from supvisors.addressmapper import AddressMapper
-        ip_list = AddressMapper.ipv4()
-        self.assertFalse(ip_list)
+@pytest.fixture
+def mapper(supvisors):
+    """ Return the instance to test. """
+    return AddressMapper(supvisors.logger)
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+def test_create(supvisors, mapper):
+    """ Test the values set at construction. """
+    assert mapper.logger == supvisors.logger
+    assert mapper.node_names == []
+    assert mapper.local_node_name is None
+    # check that hostname is part of the local addresses
+    assert socket.gethostname() in mapper.local_node_references
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_addresses(mapper):
+    """ Test the storage of the expected addresses. """
+    # set addresses with hostname inside (IP addresses are not valid on purpose)
+    hostname = socket.gethostname()
+    address_lst = [hostname, '292.168.0.1', '292.168.0.2']
+    mapper.node_names = address_lst
+    assert mapper.node_names == address_lst
+    # check that hostname is the local address
+    assert mapper.local_node_name == hostname
+    # set addresses with invalid IP addresses only
+    address_lst = ['292.168.0.1', '292.168.0.2']
+    mapper.node_names = address_lst
+    assert mapper.node_names == address_lst
+    # check that the local address is not set
+    assert mapper.local_node_name is None
+
+
+def test_valid(mapper):
+    """ Test the valid method. """
+    # test that nothing is valid before addresses are set
+    hostname = socket.gethostname()
+    assert not mapper.valid(hostname)
+    assert not mapper.valid('192.168.0.1')
+    assert not mapper.valid('192.168.0.3')
+    # set addresses
+    address_lst = [hostname, '192.168.0.1', '192.168.0.2']
+    mapper.node_names = address_lst
+    # test the validity of addresses
+    assert mapper.valid(hostname)
+    assert mapper.valid('192.168.0.1')
+    assert not mapper.valid('192.168.0.3')
+
+
+def test_filter(mapper):
+    """ Test the filter method. """
+    # set addresses with hostname inside (IP addresses are not valid on purpose)
+    hostname = socket.gethostname()
+    node_lst = [hostname, '292.168.0.1', '292.168.0.2']
+    mapper.node_names = node_lst
+    # test that the same list with a different sequence is not filtered
+    shuffle_lst1 = node_lst[:]
+    random.shuffle(shuffle_lst1)
+    assert mapper.filter(shuffle_lst1) == shuffle_lst1
+    # test that an subset of the sequence is not filtered
+    shuffle_lst2 = shuffle_lst1[:]
+    shuffle_lst2.pop()
+    assert mapper.filter(shuffle_lst2) == shuffle_lst2
+    # test that an invalid entry in the sequence is filtered
+    shuffle_lst2 = ['292.168.0.3'] + shuffle_lst1
+    assert mapper.filter(shuffle_lst2) == shuffle_lst1
+
+
+def test_expected(mapper):
+    """ Test the expected method. """
+    # set addresses with hostname inside (IP addresses are not valid on purpose)
+    hostname = socket.gethostname()
+    node_lst = ['292.168.0.1', '292.168.0.2', hostname]
+    mapper.node_names = node_lst
+    # find expected address from list of aliases of the same address
+    alias_lst = ['292.168.0.1', '10.0.200.1', '66.51.20.300']
+    assert mapper.expected(alias_lst) == '292.168.0.1'
+    # second try
+    random.shuffle(alias_lst)
+    assert mapper.expected(alias_lst) == '292.168.0.1'
+    # check with list containing no corresponding entry
+    alias_lst = ['292.168.0.3', '10.0.200.1', '66.51.20.300']
+    assert mapper.expected(alias_lst) is None
+
+
+def test_ipv4():
+    """ Test the ipv4 method. """
+    # complex to test as it depends on the network configuration of the operating system
+    # check that there is at least one entry looking like an IP address
+    # test that netifaces is installed
+    pytest.importorskip('netifaces', reason='cannot test as optional netifaces is not installed')
+    # test function
+    ip_list = AddressMapper.ipv4()
+    assert ip_list
+    for ip in ip_list:
+        assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip)
+
+
+def test_ipv4_importerror(mocker):
+    """ Test the ipv4 method with a mocking of import (netifaces not installed). """
+    mocker.patch.dict('sys.modules', {'netifaces': None})
+    assert AddressMapper.ipv4() == []

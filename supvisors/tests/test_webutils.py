@@ -49,10 +49,6 @@ def test_print_message(root):
     from supvisors.webutils import print_message
     # test with empty message
     print_message(root, 'gravity', None)
-    # the following assertion is a bit weird but is an alternative to (removed) assertDictContainsSubset
-    # with python 3.9+, it could be replaced by:
-    # assert root.elt.attrib == root.elt.attrib | {'class': 'empty', 'content': ''}
-    # ALT: assert root.elt.attrib == {**root.elt.attrib, **{'class': 'empty', 'content': ''}}
     assert all(item in root.elt.attrib.items() for item in {'class': 'empty', 'content': ''}.items())
     # test with filled message
     print_message(root, 'gravity', 'a simple message')

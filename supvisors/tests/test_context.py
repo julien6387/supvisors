@@ -36,7 +36,7 @@ def context(supvisors):
 
 def load_application_rules(_, rules):
     """ Simple Parser.load_application_rules behaviour to avoid setdefault_process to always return None. """
-    rules.default = False
+    rules.managed = True
 
 
 @pytest.fixture
@@ -202,6 +202,21 @@ def test_end_synchro(mocker, context):
     assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
 
 
+def test_get_managed_applications(filled_context):
+    """ Test getting all managed applications. """
+    # in this test, all applications are managed by default
+    managed_applications = list(filled_context.get_managed_applications())
+    managed_names = {application.application_name for application in managed_applications}
+    assert sorted(managed_names) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
+    # unmanage a few ones
+    filled_context.applications['firefox'].rules.managed = False
+    filled_context.applications['sample_test_1'].rules.managed = False
+    # re-test
+    managed_applications = list(filled_context.get_managed_applications())
+    managed_names = {application.application_name for application in managed_applications}
+    assert sorted(managed_names) == ['crash', 'sample_test_2']
+
+
 def test_get_all_namespecs(filled_context):
     """ Test getting all known namespecs across all supvisors instances. """
     assert sorted(filled_context.get_all_namespecs()) == ['crash:late_segv', 'crash:segv', 'firefox',
@@ -264,24 +279,22 @@ def test_setdefault_application(context):
     """ Test the access / creation of an application status. """
     # check application list
     assert context.applications == {}
-    # in this test, there is no rules file so application rules default won't be changed by load_application_rules
-    assert context.setdefault_application('dummy_1') is None
-    assert context.applications == {}
+    # in this test, there is no rules file so application rules managed won't be changed by load_application_rules
+    application1 = context.setdefault_application('dummy_1')
+    assert context.applications == {'dummy_1': application1}
+    assert not application1.rules.managed
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get application
     application1 = context.setdefault_application('dummy_1')
-    # check application list
+    # check application list. rules are not re-evaluated so application still not managed
     assert context.applications == {'dummy_1': application1}
+    assert not application1.rules.managed
     # get application
     application2 = context.setdefault_application('dummy_2')
     # check application list
     assert context.applications == {'dummy_1': application1, 'dummy_2': application2}
-    # get application
-    application3 = context.setdefault_application('dummy_1')
-    assert application3 is application1
-    # check application list
-    assert context.applications == {'dummy_1': application1, 'dummy_2': application2}
+    assert application2.rules.managed
 
 
 def test_setdefault_process(context):
@@ -291,31 +304,31 @@ def test_setdefault_process(context):
     # test data
     dummy_info1 = {'group': 'dummy_application_1', 'name': 'dummy_process_1'}
     dummy_info2 = {'group': 'dummy_application_2', 'name': 'dummy_process_2'}
-    # in this test, there is no rules file so application rules default won't be changed by load_application_rules
-    assert context.setdefault_process(dummy_info1) is None
-    assert context.setdefault_process(dummy_info2) is None
-    assert context.applications == {}
+    # in this test, there is no rules file so application rules managed won't be changed by load_application_rules
+    process1 = context.setdefault_process(dummy_info1)
+    assert process1.application_name == 'dummy_application_1'
+    assert process1.process_name == 'dummy_process_1'
+    assert list(context.applications.keys()) == ['dummy_application_1']
+    application1 = context.applications['dummy_application_1']
+    assert application1.processes == {'dummy_process_1': process1}
+    assert not application1.rules.managed
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get process
     process1 = context.setdefault_process(dummy_info1)
-    # check application and process list
-    assert list(context.applications.keys()) == ['dummy_application_1']
-    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
+    # check application still unmanaged
+    application1 = context.applications['dummy_application_1']
+    assert not application1.rules.managed
     # get application
     process2 = context.setdefault_process(dummy_info2)
     # check application and process list
     assert sorted(context.applications.keys()) == ['dummy_application_1', 'dummy_application_2']
-    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
-    assert context.applications['dummy_application_2'].processes == {'dummy_process_2': process2}
-    # get application
-    dummy_info3 = {'group': process1.application_name, 'name': process1.process_name}
-    process3 = context.setdefault_process(dummy_info3)
-    assert process3 is process1
-    # check application and process list
-    assert sorted(context.applications.keys()) == ['dummy_application_1', 'dummy_application_2']
-    assert context.applications['dummy_application_1'].processes == {'dummy_process_1': process1}
-    assert context.applications['dummy_application_2'].processes == {'dummy_process_2': process2}
+    application1 = context.applications['dummy_application_1']
+    application2 = context.applications['dummy_application_2']
+    assert application1.processes == {'dummy_process_1': process1}
+    assert application2.processes == {'dummy_process_2': process2}
+    assert not application1.rules.managed
+    assert application2.rules.managed
 
 
 def test_load_processes(context):
@@ -330,14 +343,7 @@ def test_load_processes(context):
     assert context.applications == {}
     for node in context.nodes.values():
         assert node.processes == {}
-    # load ProcessInfoDatabase in known address
-    # in this test, there is no rules file so application rules default won't be changed by load_application_rules
-    context.load_processes('10.0.0.1', database_copy())
-    assert context.applications == {}
-    for node in context.nodes.values():
-        assert node.processes == {}
-    # so patch load_application_rules to avoid that
-    context.supvisors.parser.load_application_rules = load_application_rules
+    # load ProcessInfoDatabase with known address
     context.load_processes('10.0.0.1', database_copy())
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']

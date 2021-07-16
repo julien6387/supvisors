@@ -283,12 +283,12 @@ def test_write_nav_nodes_running_address(handler):
 def test_write_nav_applications_initialization(handler):
     """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
     handler.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
+    handler.sup_ctx.get_managed_applications.return_value = []
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
-                                                  Mock(application_name='dummy_appli',
-                                                       state=ApplicationStates.RUNNING))]})
+    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, Mock(application_name='dummy_appli',
+                                                                  state=ApplicationStates.RUNNING))]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with application name different from parameter
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
@@ -320,6 +320,7 @@ def test_write_nav_applications_initialization(handler):
 def test_write_nav_applications_operation(handler):
     """ Test the write_nav_applications method with Supvisors in its OPERATION state. """
     handler.supvisors.fsm.state = SupvisorsStates.OPERATION
+    handler.sup_ctx.get_managed_applications.return_value = []
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})

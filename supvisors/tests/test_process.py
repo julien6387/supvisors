@@ -22,9 +22,8 @@ import pytest
 from supervisor.states import ProcessStates, _process_states_by_code
 from unittest.mock import call, patch
 
-from supvisors.tests.base import (any_process_info, any_stopped_process_info,
-                                  process_info_by_name, any_process_info_by_state)
-from supvisors.tests.conftest import create_process
+from .base import any_process_info, any_stopped_process_info, process_info_by_name, any_process_info_by_state
+from .conftest import create_process
 
 
 # ProcessRules part
@@ -44,20 +43,20 @@ def test_rules_create(supvisors, rules):
     assert rules.stop_sequence == 0
     assert not rules.required
     assert not rules.wait_exit
-    assert rules.expected_load == 1
+    assert rules.expected_load == 0
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
 def test_rules_str(rules):
     """ Test the string output. """
     assert str(rules) == "node_names=['*'] hash_node_names=None start_sequence=0 stop_sequence=0 required=False"\
-        " wait_exit=False expected_load=1 running_failure_strategy=CONTINUE"
+        " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
     assert rules.serial() == {'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
-                              'required': False, 'wait_exit': False, 'expected_loading': 1,
+                              'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
 

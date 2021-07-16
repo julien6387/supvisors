@@ -21,8 +21,8 @@ import pytest
 import random
 import time
 
-from supvisors.tests.base import database_copy
-from supvisors.tests.conftest import create_any_process, create_process
+from .base import database_copy
+from .conftest import create_any_process, create_process
 
 
 @pytest.fixture
@@ -155,13 +155,13 @@ def test_pid_process(filled_node):
 
 def test_get_load(filled_node):
     """ Test the get_load method. """
-    # check the loading of the address: gives 5 (1 per running process) by default because no rule has been loaded
-    assert filled_node.get_load() == 4
+    # check the loading of the address: gives 0 by default because no rule has been loaded
+    assert filled_node.get_load() == 0
     # change expected_loading of any stopped process
     process = random.choice([proc for proc in filled_node.processes.values() if proc.stopped()])
     process.rules.expected_load = 50
-    assert filled_node.get_load() == 4
+    assert filled_node.get_load() == 0
     # change expected_loading of any running process
     process = random.choice([proc for proc in filled_node.processes.values() if proc.running()])
     process.rules.expected_load = 50
-    assert filled_node.get_load() == 53
+    assert filled_node.get_load() == 50

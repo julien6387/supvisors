@@ -20,8 +20,8 @@
 import pytest
 import random
 
-from supvisors.tests.base import database_copy, any_process_info, any_stopped_process_info, any_running_process_info
-from supvisors.tests.conftest import create_application, create_process
+from .base import database_copy, any_process_info, any_stopped_process_info, any_running_process_info
+from .conftest import create_application, create_process
 
 
 # ApplicationRules part
@@ -36,6 +36,7 @@ def test_rules_create(rules):
     """ Test the values set at construction. """
     from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
     # check application default rules
+    assert not rules.managed
     assert rules.start_sequence == 0
     assert rules.stop_sequence == 0
     assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
@@ -44,13 +45,13 @@ def test_rules_create(rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == 'start_sequence=0 stop_sequence=0'\
+    assert str(rules) == 'managed=False start_sequence=0 stop_sequence=0'\
                          ' starting_failure_strategy=ABORT running_failure_strategy=CONTINUE'
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ApplicationRules object. """
-    assert rules.serial() == {'start_sequence': 0, 'stop_sequence': 0,
+    assert rules.serial() == {'managed': False, 'start_sequence': 0, 'stop_sequence': 0,
                               'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
 
 
@@ -68,6 +69,7 @@ def test_application_create(supvisors):
     assert not application.start_sequence
     assert not application.stop_sequence
     # check application default rules
+    assert not application.rules.managed
     assert application.rules.start_sequence == 0
     assert application.rules.stop_sequence == 0
     assert application.rules.starting_failure_strategy == StartingFailureStrategies.ABORT

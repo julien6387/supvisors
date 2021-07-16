@@ -26,16 +26,17 @@ from supvisors.application import ApplicationRules
 from supvisors.process import ProcessRules
 from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
 
-from supvisors.tests.configurations import InvalidXmlTest, XmlTest
+from .configurations import InvalidXmlTest, XmlTest
 
 
 def assert_default_application_rules(rules):
     """ Check that rules contains default values. """
-    assert_application_rules(rules, 0, 0, StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
+    assert_application_rules(rules, False, 0, 0, StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
 
 
-def assert_application_rules(rules, start, stop, starting_strategy, running_strategy):
+def assert_application_rules(rules, managed, start, stop, starting_strategy, running_strategy):
     """ Check the application rules. """
+    assert rules.managed == managed
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop
     assert rules.starting_failure_strategy == starting_strategy
@@ -44,7 +45,7 @@ def assert_application_rules(rules, start, stop, starting_strategy, running_stra
 
 def assert_default_process_rules(rules):
     """ Check that rules contains default values. """
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 1, RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 0, RunningFailureStrategies.CONTINUE)
 
 
 def assert_process_rules(rules, nodes, hash_nodes, start, stop, required,
@@ -83,22 +84,24 @@ def check_valid(parser):
     assert_default_application_rules(rules)
     # check first application
     rules = load_application_rules(parser, 'dummy_application_A')
-    assert_default_application_rules(rules)
+    assert_application_rules(rules, True, 0, 0, StartingFailureStrategies.ABORT,
+                             RunningFailureStrategies.CONTINUE)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    assert_application_rules(rules, 1, 4, StartingFailureStrategies.STOP,
+    assert_application_rules(rules, True, 1, 4, StartingFailureStrategies.STOP,
                              RunningFailureStrategies.RESTART_PROCESS)
     # check third application
     rules = load_application_rules(parser, 'dummy_application_C')
-    assert_application_rules(rules, 20, 0, StartingFailureStrategies.ABORT,
+    assert_application_rules(rules, True, 20, 0, StartingFailureStrategies.ABORT,
                              RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
-    assert_application_rules(rules, 0, 100, StartingFailureStrategies.CONTINUE,
+    assert_application_rules(rules, True, 0, 100, StartingFailureStrategies.CONTINUE,
                              RunningFailureStrategies.RESTART_APPLICATION)
     # check loop application
     rules = load_application_rules(parser, 'dummy_application_E')
-    assert_default_application_rules(rules)
+    assert_application_rules(rules, True, 0, 0, StartingFailureStrategies.ABORT,
+                             RunningFailureStrategies.CONTINUE)
     # check program from unknown application: all default
     rules = load_process_rules(parser, 'dummy_application_X', 'dummy_program_X0')
     assert_default_process_rules(rules)
@@ -117,7 +120,7 @@ def check_valid(parser):
                          RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 1,
+    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B3')
@@ -125,7 +128,7 @@ def check_valid(parser):
                          RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B4')
-    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 1,
+    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check empty reference
     rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C0')
@@ -139,7 +142,7 @@ def check_valid(parser):
                          RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C3')
-    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 1,
+    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
     rules = load_process_rules(parser, 'dummy_application_D', 'dummies_any')
@@ -171,18 +174,19 @@ def check_invalid(parser):
     assert_default_application_rules(rules)
     # check first application
     rules = load_application_rules(parser, 'dummy_application_A')
-    assert_default_application_rules(rules)
+    assert_application_rules(rules, True, 0, 0, StartingFailureStrategies.ABORT,
+                             RunningFailureStrategies.CONTINUE)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    assert_application_rules(rules, 1, 4, StartingFailureStrategies.STOP,
+    assert_application_rules(rules, True, 1, 4, StartingFailureStrategies.STOP,
                              RunningFailureStrategies.RESTART_PROCESS)
     # check third application
     rules = load_application_rules(parser, 'dummy_application_C')
-    assert_application_rules(rules, 20, 0, StartingFailureStrategies.ABORT,
+    assert_application_rules(rules, True, 20, 0, StartingFailureStrategies.ABORT,
                              RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
-    assert_application_rules(rules, 0, 100, StartingFailureStrategies.CONTINUE,
+    assert_application_rules(rules, True, 0, 100, StartingFailureStrategies.CONTINUE,
                              RunningFailureStrategies.RESTART_APPLICATION)
     # check program from unknown application: all default
     rules = load_process_rules(parser, 'dummy_application_X', 'dummy_program_X0')
@@ -201,17 +205,17 @@ def check_invalid(parser):
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 1, RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B3')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B4')
-    assert_process_rules(rules, ['10.0.0.1', '10.0.0.2'], None, 0, 0, False, False, 1,
+    assert_process_rules(rules, ['10.0.0.1', '10.0.0.2'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B5')
-    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 1,
+    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.CONTINUE)
     # check empty reference
     rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C0')
@@ -224,7 +228,7 @@ def check_invalid(parser):
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C3')
-    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 1, RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0, RunningFailureStrategies.CONTINUE)
     # check other known reference with additional unexpected configuration
     # WARN: this is valid since Supvisors 0.5
     rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C4')
@@ -252,7 +256,6 @@ def lxml_import():
 
 def test_valid_lxml(lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
-    # perform the test
     from supvisors.sparser import Parser
     with patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest)):
         parser = Parser(supvisors)
@@ -262,7 +265,6 @@ def test_valid_lxml(lxml_import, supvisors):
 @patch('supvisors.sparser.stderr')
 def test_invalid_lxml(_, supvisors):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
-    # perform the test
     from supvisors.sparser import Parser
     with patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest)):
         with pytest.raises(ValueError):
@@ -291,19 +293,19 @@ def test_no_parser(_, supvisors, etree_import):
         Parser(supvisors)
 
 
-def test_valid_element_tree(supvisors, etree_import):
+def test_valid_element_tree(mocker, supvisors, etree_import):
     """ Test the parsing of a valid XML using ElementTree. """
     from supvisors.sparser import Parser
     # create Parser instance
-    with patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest)):
-        parser = Parser(supvisors)
+    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    parser = Parser(supvisors)
     check_valid(parser)
 
 
-def test_invalid_element_tree(supvisors, etree_import):
+def test_invalid_element_tree(mocker, supvisors, etree_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     from supvisors.sparser import Parser
     # create Parser instance
-    with patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest)):
-        parser = Parser(supvisors)
+    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    parser = Parser(supvisors)
     check_invalid(parser)

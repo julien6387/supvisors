@@ -225,13 +225,9 @@ def test_conflicts(mocker, rpc):
     """ Test the get_conflicts RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     # prepare context
-    appli_1 = Mock(processes={'proc_1': Mock(**{'conflicting.return_value': True,
-                                                'serial.return_value': {'name': 'proc_1'}}),
-                              'proc_2': Mock(**{'conflicting.return_value': False,
-                                                'serial.return_value': {'name': 'proc_2'}})})
-    appli_2 = Mock(processes={'proc_3': Mock(**{'conflicting.return_value': True,
-                                                'serial.return_value': {'name': 'proc_3'}})})
-    rpc.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2}
+    proc_1 = Mock(**{'serial.return_value': {'name': 'proc_1'}})
+    proc_3 = Mock(**{'serial.return_value': {'name': 'proc_3'}})
+    rpc.supvisors.context.conflicts.return_value = [proc_1, proc_3]
     # test RPC call
     assert rpc.get_conflicts() == [{'name': 'proc_1'}, {'name': 'proc_3'}]
     assert mocked_check.call_args_list == [call()]
