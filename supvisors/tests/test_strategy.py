@@ -19,7 +19,7 @@
 
 import pytest
 
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call
 
 from supvisors.address import AddressStatus
 from supvisors.process import ProcessStatus
@@ -309,15 +309,15 @@ def handler(supvisors):
     return RunningFailureHandler(supvisors)
 
 
-def compare_sets(handler, stop_app=set(), restart_app=set(), restart_proc=set(),
-                 continue_proc=set(), start_app=set(), start_proc=set()):
+def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None,
+                 continue_proc=None, start_app=None, start_proc=None):
     # define compare function
-    assert handler.stop_application_jobs == stop_app
-    assert handler.restart_application_jobs == restart_app
-    assert handler.restart_process_jobs == restart_proc
-    assert handler.continue_process_jobs == continue_proc
-    assert handler.start_application_jobs == start_app
-    assert handler.start_process_jobs == start_proc
+    assert handler.stop_application_jobs == (stop_app or set())
+    assert handler.restart_application_jobs == (restart_app or set())
+    assert handler.restart_process_jobs == (restart_proc or set())
+    assert handler.continue_process_jobs == (continue_proc or set())
+    assert handler.start_application_jobs == (start_app or set())
+    assert handler.start_process_jobs == (start_proc or set())
 
 
 def test_running_create(handler):
