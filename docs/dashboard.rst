@@ -42,7 +42,7 @@ The **Supvisors** instance playing the role of "Master" is pointed out with the 
 
 Below is the Application part that lists all the *managed* applications defined through the
 `group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file
-and also declared in the **Supvisors** :ref:`rules_file`_.
+and also declared in the **Supvisors** :ref:`rules_file`.
 The color gives the state of the Application, as seen by the **Supvisors** instance that is displaying this page:
 
     * grey for ``UNKNOWN``,
@@ -369,4 +369,3 @@ As previously, a click on the CPU or Memory measures shows detailed statistics a
 
 .. |autorefresh| image:: images/autorefresh_button.png
     :alt: Refresh button
-
