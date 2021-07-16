@@ -19,7 +19,7 @@
 
 import time
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Dict, List
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates, getProcessStateDescription
@@ -71,7 +71,6 @@ class ProcessCommand(object):
         """ Return True if there is still no event TIMEOUT seconds past the request.
 
         :param now: the current time
-        :param timeout: the timeout duration
         :return: the timeout status
         """
         return max(self.process.last_event_time, self.request_time) + ProcessCommand.TIMEOUT < now
@@ -81,24 +80,22 @@ class Commander(object):
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
-        - planned_sequence: the applications to be commanded, as a dictionary of process commands,
-        grouped by application sequence order, application name and process sequence order,
-        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands,
-        grouped by application name and process sequence order,
+        - planned_sequence: the applications to be commanded, as a dictionary of process commands, grouped by application sequence order, application name and process sequence order,
+        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands, grouped by application name and process sequence order,
         - current_jobs: a dictionary of process commands, grouped by application name.
     """
 
     # Annotation types
-    CommandList = Sequence[ProcessCommand]
-    CurrentJobs = Mapping[str, CommandList]  # {app_name: [proc_cmd]}
-    PlannedJobs = Mapping[str, Mapping[int, CommandList]]  # {app_name: {proc_seq: [proc_cmd]}}
-    PlannedSequence = Mapping[int, PlannedJobs]  # {app_seq: {app_name: {proc_seq: [proc_cmd]}}}
+    CommandList = List[ProcessCommand]
+    CurrentJobs = Dict[str, CommandList]  # {app_name: [proc_cmd]}
+    PlannedJobs = Dict[str, Dict[int, CommandList]]  # {app_name: {proc_seq: [proc_cmd]}}
+    PlannedSequence = Dict[int, PlannedJobs]  # {app_seq: {app_name: {proc_seq: [proc_cmd]}}}
 
     # Annotation types for printing facilities
-    PrintableCommandList = Sequence[str]
-    PrintableCurrentJobs = Mapping[str, PrintableCommandList]
-    PrintablePlannedJobs = Mapping[str, Mapping[int, PrintableCommandList]]
-    PrintablePlannedSequence = Mapping[int, PrintablePlannedJobs]
+    PrintableCommandList = List[str]
+    PrintableCurrentJobs = Dict[str, PrintableCommandList]
+    PrintablePlannedJobs = Dict[str, Dict[int, PrintableCommandList]]
+    PrintablePlannedSequence = Dict[int, PrintablePlannedJobs]
 
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes.
@@ -122,7 +119,7 @@ class Commander(object):
                           .format(self.printable_planned_sequence(),
                                   self.printable_planned_jobs(),
                                   self.printable_current_jobs()))
-        return len(self.planned_sequence) or len(self.planned_jobs) or len(self.current_jobs)
+        return len(self.planned_sequence) > 0 or len(self.planned_jobs) > 0 or len(self.current_jobs) > 0
 
     def has_application(self, application_name: str) -> bool:
         """ Return True if application is part of the jobs currently considered.
@@ -264,15 +261,15 @@ class Commander(object):
                 # if it doesn't, the whole sequencing would block waiting for an event that may never happen
                 # the following instructions have therefore been added for safekeeping, but it has never been reported
                 # to occur so far
-                now = time.time()
-                self.logger.trace('Starter.check_progress: now={} checking commands={}'
+                now = int(time.time())
+                self.logger.trace('Commander.check_progress: now={} checking commands={}'
                                   .format(now, [str(command) for command in commands]))
                 for command in commands:
                     # get the ProcessStatus method corresponding to condition and call it
                     class_method = getattr(ProcessStatus, condition)
                     if class_method(command.process):
                         if command.timed_out(now):
-                            self.logger.error('Starter.check_progress: {} still {} after {} seconds so abort'
+                            self.logger.error('Commander.check_progress: {} still {} after {} seconds so abort'
                                               .format(command.process.namespec(), condition, ProcessCommand.TIMEOUT))
                             # generate a process event for this process to inform all Supvisors instances
                             self.force_process_state(command.process.namespec(), process_state,
@@ -293,7 +290,7 @@ class Commander(object):
                     # trigger next sequence of applications
                     self.trigger_jobs()
                 else:
-                    self.logger.error('Starter.check_progress: UNEXPECTED')
+                    self.logger.critical('Starter.check_progress: UNEXPECTED')
         # return True when starting is completed
         return not self.in_progress()
 
@@ -313,11 +310,19 @@ class Commander(object):
             # nothing left for this application
             self.logger.info('Commander.after_event: planned jobs completed for application {}'
                              .format(application_name))
+            self.after_jobs(application_name)
             # check if there are planned jobs
             if not self.planned_jobs:
                 self.logger.info('Commander.after_event: planned jobs completed for all applications')
                 # trigger next sequence of applications
                 self.trigger_jobs()
+
+    def after_jobs(self, application_name: str) -> None:
+        """ Special processing when no more jobs for application.
+
+        :param application_name: the application name
+        :return: None
+        """
 
     def force_process_state(self, namespec: str, state: int, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
@@ -345,6 +350,15 @@ class Commander(object):
 
 class Starter(Commander):
     """ Class handling the starting of processes and applications. """
+
+    def __init__(self, supvisors: Any) -> None:
+        """ Initialization of the attributes.
+
+        :param supvisors: the global Supvisors structure.
+        """
+        super().__init__(supvisors)
+        # attributes
+        self.application_stop_requests = []
 
     def get_default_strategy(self):
         """ Return the default starting strategy from options. """
@@ -553,15 +567,28 @@ class Starter(Commander):
                 # do not remove application from current_jobs as requests have already been sent
                 self.planned_jobs.pop(application_name, None)
             elif failure_strategy == StartingFailureStrategies.STOP:
-                self.logger.error('Starter.process_failure: stop application {}'.format(application_name))
+                self.logger.warn('Starter.process_failure: stop application={} requested'.format(application_name))
                 self.planned_jobs.pop(application_name, None)
-                self.supvisors.stopper.stop_application(application)
+                # defer stop application so that any job in progress are not missed
+                self.application_stop_requests.append(application_name)
             else:
                 self.logger.warn('Starter.process_failure: continue starting of application {}'
                                  .format(application_name))
         else:
             self.logger.warn('Starter.process_failure: starting failed for optional {}'.format(process.process_name))
             self.logger.warn('Starter.process_failure: continue starting application {}'.format(application_name))
+
+    def after_jobs(self, application_name: str) -> None:
+        """ Trigger any pending application stop once all application jobs are completed.
+
+        :param application_name: the application name
+        :return: None
+        """
+        if application_name in self.application_stop_requests:
+            self.logger.warn('Starter.after_jobs: apply pending stop application={}'.format(application_name))
+            self.application_stop_requests.remove(application_name)
+            application = self.supvisors.context.applications[application_name]
+            self.supvisors.stopper.stop_application(application)
 
 
 class Stopper(Commander):
@@ -575,10 +602,11 @@ class Stopper(Commander):
             # do not stop an application that is not running
             if application.running() and application.rules.stop_sequence >= 0:
                 self.store_application_stop_sequence(application)
+        self.logger.debug('Stopper.stop_applications: planned_sequence={}'.format(self.printable_planned_sequence()))
         # start work
         self.trigger_jobs()
 
-    def stop_application(self, application: ApplicationStatus):
+    def stop_application(self, application: ApplicationStatus) -> bool:
         """ Plan and start the necessary jobs to stop the application in parameter. """
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
         # push program list in jobs list and start work
