@@ -10,6 +10,8 @@
 
 * Remove supvisors_shortcuts from source code to get rid of IDE warnings
 
+* Change default expected loading to 0
+
 * Fixed https://github.com/julien6387/supvisors/issues/91
   Fix CSS style on process tables in HTML
 
@@ -17,6 +19,8 @@
   The Master Supvisors node drives the transition to OPERATION
 
 * Some unit tests updated from unittest to pytest
+
+* Documentation updated
 
 
 0.5 (2021-03-01)

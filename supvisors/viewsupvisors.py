@@ -105,7 +105,7 @@ class SupvisorsView(ViewHandler):
         """ Rendering of the node box running processes. """
         appli_tr_mid = node_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()
-        application_names = {process.application_name for process in running_processes}
+        application_names = sorted({process.application_name for process in running_processes})
         if application_names:
             shaded_tr = False
             for appli_tr_elt, application_name in appli_tr_mid.repeat(application_names):

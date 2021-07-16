@@ -52,8 +52,8 @@ class ApplicationRules(object):
 
         :return: the printable application rules
         """
-        return 'start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}' \
-            .format(self.start_sequence, self.stop_sequence,
+        return 'managed={} start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}' \
+            .format(self.managed, self.start_sequence, self.stop_sequence,
                     self.starting_failure_strategy.name,
                     self.running_failure_strategy.name)
 
@@ -63,7 +63,8 @@ class ApplicationRules(object):
 
         :return: the application rules in a dictionary
         """
-        return {'start_sequence': self.start_sequence,
+        return {'managed': self.managed,
+                'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
                 'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}

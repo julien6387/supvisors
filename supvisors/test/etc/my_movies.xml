@@ -22,7 +22,7 @@
         <expected_loading>25</expected_loading>
     </model>
 
-    <!-- starter checking application -->
+    <!-- complex test application -->
     <application name="test">
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
@@ -32,10 +32,6 @@
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>
-
-        <pattern name="check_">
-            <addresses>cliche81</addresses>
-        </pattern>
 
     </application>
 

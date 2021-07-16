@@ -127,7 +127,7 @@ class Context(object):
     # methods on applications / processes
     def get_managed_applications(self) -> Iterator[ApplicationStatus]:
         """ Return the managed applications (defined in rules file). """
-        return filter(lambda x: x.managed, self.applications.values())
+        return filter(lambda x: x.rules.managed, self.applications.values())
 
     def get_all_namespecs(self) -> NameList:
         """ Return the ProcessStatus corresponding to the namespec. """
@@ -142,13 +142,14 @@ class Context(object):
     def conflicting(self):
         """ Return True if any conflicting ProcessStatus is detected. """
         return any((process.conflicting() for application in self.applications.values()
-                    for process in application.processes.values()))
+                    for process in application.processes.values()
+                    if application.rules.managed))
 
     def conflicts(self):
         """ Return all conflicting ProcessStatus. """
         return [process for application in self.applications.values()
                 for process in application.processes.values()
-                if process.conflicting()]
+                if application.rules.managed and process.conflicting()]
 
     def setdefault_application(self, application_name: str) -> Optional[ApplicationStatus]:
         """ Return the application corresponding to application_name if found.
@@ -165,7 +166,8 @@ class Context(object):
             rules = ApplicationRules()
             if self.supvisors.parser:
                 self.supvisors.parser.load_application_rules(application_name, rules)
-                self.logger.info('Context.setdefault_application: application={} rules={}'.format(application_name, rules))
+                self.logger.debug('Context.setdefault_application: application={} rules={}'
+                                  .format(application_name, rules))
             # create new instance
             application = ApplicationStatus(application_name, rules, self.logger)
             self.applications[application_name] = application
@@ -298,8 +300,7 @@ class Context(object):
                     publisher.send_application_status(application.serial())
                     return process
         else:
-            self.logger.error('Context.on_process_event: got process event from unexpected node={}'
-                              .format(node_name))
+            self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
 
     def on_timer_event(self):
         """ Check that all Supvisors instances are still publishing.

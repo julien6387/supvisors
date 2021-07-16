@@ -238,10 +238,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
         self._check_from_deployment()
-        return [process.serial()
-                for application in self.supvisors.context.applications.values()
-                for process in application.processes.values()
-                if process.conflicting()]
+        return [process.serial() for process in self.supvisors.context.conflicts()]
 
     # RPC Command methods
     def start_application(self, strategy: StrategyType, application_name, wait=True):

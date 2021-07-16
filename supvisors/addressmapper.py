@@ -21,7 +21,7 @@ from socket import gethostname
 from collections import OrderedDict
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NameList
+from .ttypes import NameList
 
 
 class AddressMapper(object):
