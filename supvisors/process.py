@@ -57,7 +57,7 @@ class ProcessRules(object):
         self.stop_sequence = 0
         self.required = False
         self.wait_exit = False
-        self.expected_load = 1
+        self.expected_load = 0
         self.running_failure_strategy = RunningFailureStrategies.CONTINUE
 
     def check_start_sequence(self, namespec: str) -> None:
@@ -114,8 +114,8 @@ class ProcessRules(object):
             if procnumber < len(ref_node_names):
                 self.node_names = [ref_node_names[procnumber]]
             else:
-                self.logger.warn('ProcessStatus.check_hash_nodes: program={} has more instances than applicable nodes'
-                                 .format(namespec))
+                self.logger.warn('ProcessStatus.check_hash_nodes: program={} has no applicable node'.format(namespec))
+                self.start_sequence = 0
 
     def check_dependencies(self, namespec: str) -> None:
         """ Update rules after they have been read from the rules file.
