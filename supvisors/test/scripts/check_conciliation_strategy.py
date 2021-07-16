@@ -26,8 +26,8 @@ from supervisor.xmlrpc import Faults
 
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
-from scripts.event_queues import SupvisorsEventQueues
-from scripts.running_addresses import RunningAddressesTest
+from .event_queues import SupvisorsEventQueues
+from .running_addresses import RunningAddressesTest
 
 
 class ConciliationStrategyTest(RunningAddressesTest):
@@ -44,11 +44,11 @@ class ConciliationStrategyTest(RunningAddressesTest):
         #                 'movie_server_02': ['cliche03'],
         #                 'movie_server_03': ['cliche02']}
         self.assertItemsEqual(self.running_processes.keys(), ['movie_server_01', 'movie_server_02', 'movie_server_03'])
-        running_addresses = set()
-        for addresses in self.running_processes.values():
-            self.assertEqual(1, len(addresses))
-            self.assertNotIn(addresses[0], running_addresses)
-            running_addresses.add(addresses[0])
+        running_nodes = set()
+        for nodes in self.running_processes.values():
+            self.assertEqual(1, len(nodes))
+            self.assertNotIn(nodes[0], running_nodes)
+            running_nodes.add(nodes[0])
         # check that there is no conflict before to start testing
         self._check_no_conflict()
 
@@ -97,10 +97,10 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
         def conciliation():
             # come back to initial state with XML-RPC
-            for process, addresses in self.running_processes.items():
-                for address in self.running_addresses:
-                    if address not in addresses:
-                        self.proxies[address].supervisor.stopProcess('database:' + process)
+            for process, nodes in self.running_processes.items():
+                for node_name in self.running_nodes:
+                    if node_name not in nodes:
+                        self.proxies[node_name].supervisor.stopProcess('database:' + process)
 
         self._check_conciliation_user_database(conciliation)
 
@@ -132,9 +132,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
         #                 'movie_server_03': ['cliche83']}
         # check that running addresses at the end is not the same as at the
         # beginning for all processes
-        for process, addresses in ending_status.items():
+        for process, nodes in ending_status.items():
             start_address = self.running_processes[process][0]
-            self.assertNotEqual(addresses[0], start_address)
+            self.assertNotEqual(nodes[0], start_address)
 
     def _check_conciliation_user_stop(self):
         """ Test the STOP conciliation on USER request. """
@@ -160,8 +160,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # this test is a bit long and produces lots of events
         # so hang on for specific events for test
         # 1. all movie_server programs (9) shall be stopped
-        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'address': address}
-                           for address in self.running_addresses
+        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'address': node_name}
+                           for node_name in self.running_nodes
                            for idx in range(3)]
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(9, len(received_events))
@@ -206,8 +206,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
         self.local_supvisors.conciliate(ConciliationStrategies.RUNNING_FAILURE.value)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager', 'state': 0, 'address': address}
-                           for address in self.running_addresses]
+        expected_events = [{'name': 'manager', 'state': 0, 'address': node_name}
+                           for node_name in self.running_nodes]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(4, len(received_events))
@@ -232,6 +232,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         state = self.local_supvisors.get_supvisors_state()
         self.assertEqual('OPERATION', state['statename'])
         # test that Supvisors conflicts is empty
+        print(self.local_supvisors.get_conflicts())
         self.assertEqual([], self.local_supvisors.get_conflicts())
 
     def _create_database_conflicts(self):

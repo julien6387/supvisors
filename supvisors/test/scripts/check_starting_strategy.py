@@ -26,8 +26,8 @@ from supervisor.xmlrpc import Faults
 
 from supvisors.ttypes import AddressStates, StartingStrategies
 
-from scripts.event_queues import SupvisorsEventQueues
-from scripts.running_addresses import RunningAddressesTest
+from .event_queues import SupvisorsEventQueues
+from .running_addresses import RunningAddressesTest
 
 
 class StartingStrategyTest(RunningAddressesTest):
@@ -37,9 +37,9 @@ class StartingStrategyTest(RunningAddressesTest):
         """ Get initial status. """
         RunningAddressesTest.setUp(self)
         # check the loading on running addresses
-        # initial state is cliche81=15% cliche82=15% cliche83=5%
+        # initial state is cliche81=14% cliche82=15% cliche83=5%
         self._refresh_loading()
-        self.assertItemsEqual([15, 15, 5], self.loading.values())
+        self.assertItemsEqual([14, 15, 5], self.loading.values())
         # check that 10 converter programs are STOPPED
         processes_info = self.local_supvisors.get_process_info('my_movies:*')
         converters = [info for info in processes_info
@@ -75,14 +75,10 @@ class StartingStrategyTest(RunningAddressesTest):
         self.local_supvisors.start_process(self.strategy.value, 'my_movies:converter_0%d' % idx)
         # wait for event STARTING
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'group': 'my_movies',
-                                       'name': 'converter_0%d' % idx,
-                                       'state': 10}, event)
+        assert {'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 10}.items() < event.items()
         # wait for event RUNNING
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'group': 'my_movies',
-                                       'name': 'converter_0%d' % idx,
-                                       'state': 20}, event)
+        assert {'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 20}.items() < event.items()
         # refresh the address loadings
         self._refresh_loading()
 
@@ -94,7 +90,7 @@ class StartingStrategyTest(RunningAddressesTest):
         self.assertEqual('ABNORMAL_TERMINATION: my_movies:converter_0%d' % idx, exc.exception.faultString)
         # wait for event FATAL
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 200}, event)
+        assert {'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 200}.items() < event.items()
         # refresh the address loadings
         self._refresh_loading()
 
@@ -108,36 +104,36 @@ class StartingStrategyTest(RunningAddressesTest):
         # so applicable order is the one defined in the supvisors section,
         # i.e. cliche81, cliche82, cliche83, cliche84 (not running)
         self._start_converter(0)
-        self.assertItemsEqual([40, 15, 5], self.loading.values())
+        self.assertItemsEqual([39, 15, 5], self.loading.values())
         # continue with cliche81
         self._start_converter(1)
-        self.assertItemsEqual([65, 15, 5], self.loading.values())
+        self.assertItemsEqual([64, 15, 5], self.loading.values())
         # try with converter_04 to check the alt config where cliche83 comes first
         self._start_converter(4)
-        self.assertItemsEqual([65, 15, 30], self.loading.values())
+        self.assertItemsEqual([64, 15, 30], self.loading.values())
         # there is still place on cliche81
         self._start_converter(2)
-        self.assertItemsEqual([90, 15, 30], self.loading.values())
+        self.assertItemsEqual([89, 15, 30], self.loading.values())
         # cliche81 is full. cliche82 will be used now
         self._start_converter(3)
-        self.assertItemsEqual([90, 40, 30], self.loading.values())
+        self.assertItemsEqual([89, 40, 30], self.loading.values())
         # there is still place on cliche82
         # try with converter_07 to check the alt config
         # cliche81 is full, so second address in config will be used (cliche83)
         self._start_converter(7)
-        self.assertItemsEqual([90, 40, 55], self.loading.values())
+        self.assertItemsEqual([89, 40, 55], self.loading.values())
         # there is still place on cliche82
         self._start_converter(5)
-        self.assertItemsEqual([90, 65, 55], self.loading.values())
+        self.assertItemsEqual([89, 65, 55], self.loading.values())
         # cliche81 is full. cliche82 will be used now
         self._start_converter(6)
-        self.assertItemsEqual([90, 90, 55], self.loading.values())
+        self.assertItemsEqual([89, 90, 55], self.loading.values())
         # cliche81 & cliche82 are full. cliche83 will be used now
         self._start_converter(8)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
 
     def test_less_loaded(self):
         """ Test the LESS_LOADED starting strategy.
@@ -145,26 +141,26 @@ class StartingStrategyTest(RunningAddressesTest):
         print('### Testing LESS_LOADED starting strategy')
         self.strategy = StartingStrategies.LESS_LOADED
         self._start_converter(0)
-        self.assertItemsEqual([15, 15, 30], self.loading.values())
+        self.assertItemsEqual([14, 15, 30], self.loading.values())
         self._start_converter(1)
-        self.assertItemsEqual([40, 15, 30], self.loading.values())
+        self.assertItemsEqual([39, 15, 30], self.loading.values())
         self._start_converter(2)
-        self.assertItemsEqual([40, 40, 30], self.loading.values())
+        self.assertItemsEqual([39, 40, 30], self.loading.values())
         self._start_converter(3)
-        self.assertItemsEqual([40, 40, 55], self.loading.values())
+        self.assertItemsEqual([39, 40, 55], self.loading.values())
         self._start_converter(4)
-        self.assertItemsEqual([65, 40, 55], self.loading.values())
+        self.assertItemsEqual([64, 40, 55], self.loading.values())
         self._start_converter(5)
-        self.assertItemsEqual([65, 65, 55], self.loading.values())
+        self.assertItemsEqual([64, 65, 55], self.loading.values())
         self._start_converter(6)
-        self.assertItemsEqual([65, 65, 80], self.loading.values())
+        self.assertItemsEqual([64, 65, 80], self.loading.values())
         self._start_converter(7)
-        self.assertItemsEqual([90, 65, 80], self.loading.values())
+        self.assertItemsEqual([89, 65, 80], self.loading.values())
         self._start_converter(8)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
 
     def test_most_loaded(self):
         """ Test the MOST_LOADED starting strategy.
@@ -172,26 +168,26 @@ class StartingStrategyTest(RunningAddressesTest):
         print('### Testing MOST_LOADED starting strategy')
         self.strategy = StartingStrategies.MOST_LOADED
         self._start_converter(0)
-        self.assertItemsEqual([40, 15, 5], self.loading.values())
+        self.assertItemsEqual([14, 40, 5], self.loading.values())
         self._start_converter(1)
-        self.assertItemsEqual([65, 15, 5], self.loading.values())
+        self.assertItemsEqual([14, 65, 5], self.loading.values())
         self._start_converter(2)
-        self.assertItemsEqual([90, 15, 5], self.loading.values())
+        self.assertItemsEqual([14, 90, 5], self.loading.values())
         self._start_converter(3)
-        self.assertItemsEqual([90, 40, 5], self.loading.values())
+        self.assertItemsEqual([39, 90, 5], self.loading.values())
         self._start_converter(4)
-        self.assertItemsEqual([90, 65, 5], self.loading.values())
+        self.assertItemsEqual([64, 90, 5], self.loading.values())
         self._start_converter(5)
-        self.assertItemsEqual([90, 90, 5], self.loading.values())
+        self.assertItemsEqual([89, 90, 5], self.loading.values())
         self._start_converter(6)
-        self.assertItemsEqual([90, 90, 30], self.loading.values())
+        self.assertItemsEqual([89, 90, 30], self.loading.values())
         self._start_converter(7)
-        self.assertItemsEqual([90, 90, 55], self.loading.values())
+        self.assertItemsEqual([89, 90, 55], self.loading.values())
         self._start_converter(8)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertItemsEqual([90, 90, 80], self.loading.values())
+        self.assertItemsEqual([89, 90, 80], self.loading.values())
 
     def test_local(self):
         """ Test the LOCAL starting strategy.
@@ -200,14 +196,14 @@ class StartingStrategyTest(RunningAddressesTest):
         self.strategy = StartingStrategies.LOCAL
         # this test should be started only from cliche81 so processes should be started only on cliche81
         self._start_converter(0)
-        self.assertItemsEqual([40, 15, 5], self.loading.values())
+        self.assertItemsEqual([39, 15, 5], self.loading.values())
         self._start_converter(1)
-        self.assertItemsEqual([65, 15, 5], self.loading.values())
+        self.assertItemsEqual([64, 15, 5], self.loading.values())
         self._start_converter(2)
-        self.assertItemsEqual([90, 15, 5], self.loading.values())
+        self.assertItemsEqual([89, 15, 5], self.loading.values())
         # next converter cannot be started: no resource left
         self._start_converter_failed(3)
-        self.assertItemsEqual([90, 15, 5], self.loading.values())
+        self.assertItemsEqual([89, 15, 5], self.loading.values())
 
 
 def test_suite():
