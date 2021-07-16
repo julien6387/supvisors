@@ -27,16 +27,6 @@ from unittest.mock import call, patch, Mock
 from supervisor.compat import xmlrpclib
 from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
-import errno
-import socket
-import sys
-import unittest
-
-from unittest.mock import call, patch, Mock
-
-from supervisor.compat import xmlrpclib
-from supervisor.supervisorctl import Controller
-from supervisor.xmlrpc import Faults
 
 
 class ControllerPluginTest(unittest.TestCase):
@@ -238,8 +228,7 @@ class ControllerPluginTest(unittest.TestCase):
                          'appli_2:proc_3 appli_1:proc_1',
                          [call()])
 
-    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck',
-           return_value=True)
+    @patch('supvisors.supvisorsctl.ControllerPlugin._upcheck', return_value=True)
     def test_application_rules(self, mocked_check):
         """ Test the application_rules request. """
         from supvisors.supvisorsctl import ControllerPlugin
@@ -247,38 +236,41 @@ class ControllerPluginTest(unittest.TestCase):
         plugin = ControllerPlugin(self.controller)
         # test help and request for all rules
         mocked_appli = plugin.supvisors().get_all_applications_info
-        mocked_appli.return_value = [{'application_name': 'appli_1'},
-                                     {'application_name': 'appli_2'}]
+        mocked_appli.return_value = [{'application_name': 'appli_1'}, {'application_name': 'appli_2'},
+                                     {'application_name': 'appli_3'}]
         mocked_rpc = plugin.supvisors().get_application_rules
-        returned_rules = [
-            {'application_name': 'appli_1',
-             'start_sequence': 2, 'stop_sequence': 3,
-             'starting_failure_strategy': 2,
-             'running_failure_strategy': 1},
-            {'application_name': 'appli_2',
-             'start_sequence': 1, 'stop_sequence': 0,
-             'starting_failure_strategy': 0,
-             'running_failure_strategy': 2}]
+        returned_rules = [{'application_name': 'appli_1', 'managed': True,
+                           'start_sequence': 2, 'stop_sequence': 3,
+                           'starting_failure_strategy': 2,
+                           'running_failure_strategy': 1},
+                          {'application_name': 'appli_2', 'managed': True,
+                           'start_sequence': 1, 'stop_sequence': 0,
+                           'starting_failure_strategy': 0,
+                           'running_failure_strategy': 2},
+                          {'application_name': 'appli_3', 'managed': False,
+                           'start_sequence': 0, 'stop_sequence': 10,
+                           'starting_failure_strategy': 2,
+                           'running_failure_strategy': 0}]
         # first possiblity: no argument
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_application_rules, plugin.do_application_rules, '',
-                         [call('appli_1'), call('appli_2')])
+                         [call('appli_1'), call('appli_2'), call('appli_3')])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # second possiblity: use 'all'
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_application_rules, plugin.do_application_rules, 'all',
-                         [call('appli_1'), call('appli_2')])
+                         [call('appli_1'), call('appli_2'), call('appli_3')])
         self.assertEqual([call(), call()], mocked_appli.call_args_list)
         mocked_appli.reset_mock()
         # test help and request for rules from a selection of application names
         mocked_rpc.side_effect = returned_rules
         self._check_call(mocked_check, mocked_rpc,
                          plugin.help_application_rules, plugin.do_application_rules,
-                         'appli_2 appli_1',
-                         [call('appli_2'), call('appli_1')])
+                         'appli_3 appli_2 appli_1',
+                         [call('appli_3'), call('appli_2'), call('appli_1')])
         self.assertEqual(0, mocked_appli.call_count)
         # test help and request with get_all_applications_info error
         mocked_appli.reset_mock()

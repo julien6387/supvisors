@@ -231,7 +231,7 @@ class RPCInterface(object):
         return [self._get_internal_process_rules(proc) for proc in application.processes.values()]
 
     def get_conflicts(self):
-        """ Get the conflicting processes.
+        """ Get the conflicting processes among the managed applications.
 
         *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
 

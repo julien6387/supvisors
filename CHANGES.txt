@@ -12,7 +12,7 @@
 
 * Remove supvisors_shortcuts from source code to get rid of IDE warnings
 
-* Change default expected loading to 0
+* Change default expected loading to 0 in program rules
 
 * Fixed https://github.com/julien6387/supvisors/issues/91
   Fix CSS style on process tables in HTML

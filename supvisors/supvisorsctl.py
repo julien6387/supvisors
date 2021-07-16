@@ -26,9 +26,9 @@ from supervisor.options import split_namespec
 from supervisor.states import getProcessStateDescription
 from supervisor.supervisorctl import ControllerPluginBase
 
-from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import ConciliationStrategies, StartingStrategies
-from supvisors.utils import simple_localtime
+from .rpcinterface import API_VERSION
+from .ttypes import ConciliationStrategies, StartingStrategies
+from .utils import simple_localtime
 
 
 class ControllerPlugin(ControllerPluginBase):
@@ -123,8 +123,7 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_address_info(address)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'
-                                        .format(address, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(address, e.faultString))
                     else:
                         self.output_address_info(info)
 
@@ -163,8 +162,7 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_application_info(application_name)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'
-                                        .format(application_name, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
                     else:
                         self.output_application_info(info)
 
@@ -204,19 +202,18 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     rules = self.supvisors().get_application_rules(application)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'
-                                    .format(application, e.faultString))
+                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
                     rules_list.append(rules)
             # print results
             if rules_list:
-                max_appli = max(len(rules['application_name'])
-                                for rules in rules_list) + 4
-                template = '%(appli)-{}s%(start_seq)-5s%(stop_seq)-5s' \
+                max_appli = max(len(rules['application_name']) for rules in rules_list) + 2
+                template = '%(appli)-{}s%(managed)-12s%(start_seq)-5s%(stop_seq)-5s' \
                            '%(starting_strategy)-12s%(running_strategy)-12s' \
                     .format(max_appli)
                 for rules in rules_list:
                     line = template % {'appli': rules['application_name'],
+                                       'managed': ('  managed' if rules['managed'] else 'unmanaged'),
                                        'start_seq': rules['start_sequence'],
                                        'stop_seq': rules['stop_sequence'],
                                        'starting_strategy': rules['starting_failure_strategy'],
