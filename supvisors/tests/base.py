@@ -300,15 +300,3 @@ def process_info_by_name(name):
     info = next((info.copy() for info in ProcessInfoDatabase
                  if info['name'] == name), None)
     return extract_process_info(info) if info else {}
-
-
-class CompatTestCase(unittest.TestCase):
-    """ unittest.TestCase.assertItemsEqual has been removed from Python3.
-    Here is a try to replace it without having tests to rewrite. """
-
-    def assertItemsEqual(self, lst1, lst2):
-        """ Two lists are equal when they have the same size
-        and when all elements of one are in the other one. """
-        self.assertEqual(len(lst1), len(lst2))
-        self.assertTrue(all(item in lst2 for item in lst1))
-        self.assertTrue(all(item in lst1 for item in lst2))

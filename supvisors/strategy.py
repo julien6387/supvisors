@@ -17,9 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.ttypes import (AddressStates, NameList,
-                              ConciliationStrategies, StartingStrategies, RunningFailureStrategies)
 from typing import Mapping, Sequence, Tuple
+
+from .ttypes import AddressStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 
 class AbstractStrategy(object):
