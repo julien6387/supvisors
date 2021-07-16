@@ -254,7 +254,7 @@ Configuration File Example
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
 
-.. :
+.. _rules_file:
 
 **Supvisors**' Rules File
 --------------------------
