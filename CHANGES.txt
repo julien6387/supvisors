@@ -5,6 +5,8 @@
 
 * Improve Supvisors stability when dealing with remote programs undefined locally
 
+* Fixed issue with application that would not fully stop when using STOP_APPLICATION starting failure strategy
+
 * Fixed issue related to https://github.com/julien6387/supvisors/issues/85
   An exception was raised when program procnum was greater than the list of applicable nodes
 
