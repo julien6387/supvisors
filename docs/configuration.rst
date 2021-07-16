@@ -34,6 +34,8 @@ This feature is not described in Supervisor documentation.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The parameters of **Supvisors** are set through an additional section ``[supvisors]`` in the Supervisor configuration file.
+It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters) or it may lead
+to unpredictable behavior.
 
 ``address_list``
 
@@ -252,7 +254,7 @@ Configuration File Example
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
 
-.. _rules_file:
+.. :
 
 **Supvisors**' Rules File
 --------------------------
@@ -262,6 +264,18 @@ This part describes the contents of the XML rules file declared in the ``rules_f
 Basically, the rules file contains rules that define how applications and programs should be started and stopped,
 and the quality of service expected.
 It relies on the Supervisor group and program definitions.
+
+.. note:: *About the declaration of Supervisor groups/processes in the rules file*
+
+        It is important to notice that all applications declared in this file will be considered as *managed* by **Supvisors**.
+        The main consequence is that **Supvisors** will try to ensure that one single instance of the program is running
+        over all the nodes considered. If two instances of the same program are running on two different nodes, **Supvisors**
+        will consider there is a conflict. Only the *managed* applications have an entry in the navigation menu of the
+        **Supvisors** web page.
+
+        The groups declared in Supervisor configuration files and not declared in the rules file will thus be considered
+        as *unmanaged* by **Supvisors**. So they have no entry in the navigation menu of the **Supvisors** web page.
+        There can be as many running instances of the same program as Supervisor allows over the available nodes.
 
 
 If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
@@ -356,7 +370,7 @@ Here follows the definition of the attributes and rules applicable to a ``progra
     When multiple nodes are available, the ``loading`` value helps to distribute processes over the available nodes,
     so that the system remains safe.
 
-    *Default*:  ``1``.
+    *Default*:  ``0``.
 
     *Required*:  No.
 

@@ -130,7 +130,7 @@ Status
 
 ``conflicts``
 
-    Get the **Supvisors** conflicts.
+    Get the **Supvisors** conflicts among the *managed* applications.
 
 
 **Supvisors** Control

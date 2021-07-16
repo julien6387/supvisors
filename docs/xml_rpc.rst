@@ -128,6 +128,7 @@ Status
             Key                         Type            Description
             =========================== =============== ===========
             'application_name'          ``str``         The Application name.
+            'managed'                   ``bool``        The Application managed status in **Supvisors**.
             'start_sequence'            ``int``         The Application starting rank when starting all applications, in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications, in [0;127].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].

@@ -52,9 +52,15 @@ instances that are **not** identified as ``RUNNING`` or ``ISOLATED`` are set to:
     * ``SILENT`` if `Auto-Fencing`_ is **not** activated,
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
-In this case, **Supvisors** will work with a subset of the nodes declared in ``address_list``.
+Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes may include
+servers that will always be started from the very beginning and workstations that may be started only on demand. In this case,
+it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the ``force_synchro_if`` attribute has been
+introduced so that the synchronization phase is considered completed when a subset of the nodes declared in ``address_list``
+are ``RUNNING``.
 
-Whatever the number of available nodes, **Supvisors** elects a Master among the active nodes
+In these 2 cases, **Supvisors** will start to work with a subset of active nodes among those declared in ``address_list``.
+
+Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes
 and enters in the ``DEPLOYMENT`` phase to start automatically the applications.
 
 
