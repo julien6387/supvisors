@@ -136,6 +136,12 @@ def test_apply_shade():
     # test shaded
     apply_shade(elt, True)
     assert elt.attrib['class'] == 'shaded'
+    # test again to check that same value is not doubled
+    apply_shade(elt, True)
+    assert elt.attrib['class'] == 'shaded'
     # test non-shaded
     apply_shade(elt, False)
-    assert elt.attrib['class'] == 'brightened'
+    assert elt.attrib['class'] == 'shaded brightened'
+    # test again to check that same value is not doubled
+    apply_shade(elt, False)
+    assert elt.attrib['class'] == 'shaded brightened'

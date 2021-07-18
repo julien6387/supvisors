@@ -20,10 +20,9 @@
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import StartingStrategies
-from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import *
+from .viewcontext import *
+from .viewhandler import ViewHandler
+from .webutils import *
 
 
 class ApplicationView(ViewHandler):
@@ -143,8 +142,8 @@ class ApplicationView(ViewHandler):
                          'expected_load': process.rules.expected_load,
                          'nb_cores': nb_cores,
                          'proc_stats': proc_stats})
-        # re-arrange data
-        return self.sort_processes_by_config(data)
+        # re-arrange data using alphabetical order
+        return sorted(data, key=lambda x: x['process_name'])
 
     def write_process_table(self, root, data):
         """ Rendering of the application processes managed through Supervisor. """
@@ -165,13 +164,7 @@ class ApplicationView(ViewHandler):
             table.replace('No programs to manage')
 
     def write_process(self, tr_elt, info):
-        """ Rendering of the cell corresponding to the process name. """
-        # print process name
-        elt = tr_elt.findmeld('name_a_mid')
-        elt.content(info['process_name'])
-        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
-        elt.attributes(href=url)
-        # print nodes where the process is running
+        """ Rendering of the cell corresponding to the process running nodes. """
         running_nodes = info['running_nodes']
         if running_nodes:
             running_li_mid = tr_elt.findmeld('running_li_mid')
@@ -181,7 +174,7 @@ class ApplicationView(ViewHandler):
                 url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
                 elt.attributes(href=url)
                 if node_name == info['node_name']:
-                    elt.attrib['class'] = elt.attrib['class'] + ' active'
+                    update_attrib(elt, 'class', 'active')
         else:
             elt = tr_elt.findmeld('running_ul_mid')
             elt.replace('')

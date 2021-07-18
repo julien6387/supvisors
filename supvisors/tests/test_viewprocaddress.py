@@ -20,12 +20,17 @@
 import sys
 import unittest
 
+from random import shuffle
+
+from supervisor.states import ProcessStates
 from supervisor.web import MeldView, StatusView
 from supervisor.xmlrpc import RPCError
 
 from unittest.mock import call, patch, Mock
 
-from supvisors.tests.base import ProcessInfoDatabase
+from supvisors.ttypes import ApplicationStates
+
+from .base import ProcessInfoDatabase
 
 
 class ViewProcAddressTest(unittest.TestCase):
@@ -104,14 +109,13 @@ class ViewProcAddressTest(unittest.TestCase):
         self.assertEqual('dummy_proc', self.view.view_ctx.parameters[PROCESS])
         self.assertEqual([call(mocked_root, {'namespec': 'dummy_proc'})], mocked_stats.call_args_list)
 
-    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config', return_value=['process_2', 'process_1'])
-    def test_get_process_data(self, mocked_sort):
+    def test_get_process_data(self):
         """ Test the get_process_data method. """
         # patch context
         process_status = Mock(rules=Mock(expected_load=17))
+        self.view.sup_ctx.get_process.side_effect = [None, process_status]
         self.view.view_ctx = Mock(local_node_name='10.0.0.1',
-                                  **{'get_process_status.side_effect': [None, process_status],
-                                     'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
+                                  **{'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
         # test RPC Error
         with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
                           side_effect=RPCError('failed RPC')):
@@ -121,89 +125,209 @@ class ViewProcAddressTest(unittest.TestCase):
         def process_info_by_name(name):
             return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), {})
 
-        with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
-                          return_value=[process_info_by_name('xfontsel'),
-                                        process_info_by_name('segv')]):
-            self.assertEqual(['process_2', 'process_1'], self.view.get_process_data())
-            # test intermediate list
-            data1 = {'application_name': 'sample_test_1',
-                     'process_name': 'xfontsel',
-                     'namespec': 'sample_test_1:xfontsel',
-                     'node_name': '10.0.0.1',
-                     'statename': 'RUNNING',
-                     'statecode': 20,
-                     'description': 'pid 80879, uptime 0:01:19',
-                     'expected_load': '?',
-                     'nb_cores': 2,
-                     'proc_stats': 'stats #1'}
-            data2 = {'application_name': 'crash',
-                     'process_name': 'segv',
-                     'namespec': 'crash:segv',
-                     'node_name': '10.0.0.1',
-                     'statename': 'BACKOFF',
-                     'statecode': 30,
-                     'description': 'Exited too quickly (process log may have details)',
-                     'expected_load': 17,
-                     'nb_cores': 8,
-                     'proc_stats': 'stats #2'}
-            self.assertEqual(1, mocked_sort.call_count)
-            self.assertEqual(2, len(mocked_sort.call_args_list[0]))
-            # access to internal call data
-            call_data = mocked_sort.call_args_list[0][0][0]
-            self.assertDictEqual(data1, call_data[0])
-            self.assertDictEqual(data2, call_data[1])
+        with patch.object(self.view, 'sort_data', return_value=['process_2', 'process_1']) as mocked_sort:
+            with patch.object(self.view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
+                              return_value=[process_info_by_name('xfontsel'), process_info_by_name('segv')]):
+                self.assertEqual(['process_2', 'process_1'], self.view.get_process_data())
+        # test intermediate list
+        data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
+                 'namespec': 'sample_test_1:xfontsel', 'node_name': '10.0.0.1',
+                 'statename': 'RUNNING', 'statecode': 20,
+                 'description': 'pid 80879, uptime 0:01:19',
+                 'expected_load': '?', 'nb_cores': 2, 'proc_stats': 'stats #1'}
+        data2 = {'application_name': 'crash', 'process_name': 'segv',
+                 'namespec': 'crash:segv', 'node_name': '10.0.0.1',
+                 'statename': 'BACKOFF', 'statecode': 30,
+                 'description': 'Exited too quickly (process log may have details)',
+                 'expected_load': 17, 'nb_cores': 8, 'proc_stats': 'stats #2'}
+        self.assertEqual(1, mocked_sort.call_count)
+        self.assertEqual(2, len(mocked_sort.call_args_list[0]))
+        # access to internal call data
+        call_data = mocked_sort.call_args_list[0][0][0]
+        self.assertDictEqual(data1, call_data[0])
+        self.assertDictEqual(data2, call_data[1])
 
-    @patch('supvisors.viewprocaddress.ProcAddressView.write_process')
-    @patch('supvisors.viewhandler.ViewHandler.write_common_process_status',
-           side_effect=[True, False, False])
-    def test_write_process_table(self, mocked_common, mocked_process):
-        """ Test the write_process_table method. """
+    @patch('supvisors.viewprocaddress.ProcAddressView.get_application_summary',
+           side_effect=[{'application_name': 'crash', 'process_name': None},
+                        {'application_name': 'firefox', 'process_name': None},
+                        {'application_name': 'sample_test_1', 'process_name': None},
+                        {'application_name': 'sample_test_2', 'process_name': None}] * 2)
+    def test_sort_data(self, mocked_summary):
+        """ Test the ProcAddressView.sort_data method. """
+        # test empty parameter
+        assert self.view.sort_data([]) == []
+        # build process list
+        processes = [{'application_name': info['group'], 'process_name': info['name']}
+                     for info in ProcessInfoDatabase]
+        shuffle(processes)
+        # patch context
+        self.view.view_ctx = Mock(**{'get_application_shex.side_effect': [(True, 0), (True, 0), (True, 0), (True, 0),
+                                                                          (True, 0), (True, 0), (False, 0), (False, 0)]})
+        # test ordering
+        actual = self.view.sort_data(processes)
+        assert actual == [{'application_name': 'crash', 'process_name': None},
+                          {'application_name': 'crash', 'process_name': 'late_segv'},
+                          {'application_name': 'crash', 'process_name': 'segv'},
+                          {'application_name': 'firefox', 'process_name': None},
+                          {'application_name': 'firefox', 'process_name': 'firefox'},
+                          {'application_name': 'sample_test_1', 'process_name': None},
+                          {'application_name': 'sample_test_1', 'process_name': 'xclock'},
+                          {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
+                          {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
+                          {'application_name': 'sample_test_2', 'process_name': None},
+                          {'application_name': 'sample_test_2', 'process_name': 'sleep'},
+                          {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
+                          {'application_name': 'sample_test_2', 'process_name': 'yeux_01'}]
+        # test with some shex on applications
+        actual = self.view.sort_data(processes)
+        assert actual == [{'application_name': 'crash', 'process_name': None},
+                          {'application_name': 'crash', 'process_name': 'late_segv'},
+                          {'application_name': 'crash', 'process_name': 'segv'},
+                          {'application_name': 'firefox', 'process_name': None},
+                          {'application_name': 'firefox', 'process_name': 'firefox'},
+                          {'application_name': 'sample_test_1', 'process_name': None},
+                          {'application_name': 'sample_test_2', 'process_name': None}]
+
+    def test_get_application_summary(self):
+        """ Test the ProcAddressView.get_application_summary method. """
+        # patch the context
+        self.view.view_ctx = Mock(local_node_name='10.0.0.1')
+        self.view.sup_ctx.applications['dummy_appli'] = Mock(state=ApplicationStates.RUNNING,
+                                                             **{'get_operational_status.return_value': 'good'})
+        # prepare parameters
+        proc_1 = {'statecode': ProcessStates.RUNNING, 'expected_load': 5, 'nb_cores': 8, 'proc_stats': [[10], [5]]}
+        proc_2 = {'statecode': ProcessStates.STARTING, 'expected_load': 15, 'nb_cores': 8, 'proc_stats': [[], []]}
+        proc_3 = {'statecode': ProcessStates.BACKOFF, 'expected_load': 7, 'nb_cores': 8, 'proc_stats': [[8], [22]]}
+        proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8, 'proc_stats': None}
+        # test with empty list of processes
+        expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
+                    'node_name': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2,
+                    'description': 'good', 'nb_processes': 0,
+                    'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
+        assert self.view.get_application_summary('dummy_appli', []) == expected
+        # test with non-running processes
+        expected.update({'nb_processes': 1})
+        assert self.view.get_application_summary('dummy_appli', [proc_4]) == expected
+        # test with a mix of running and non-running processes
+        expected.update({'nb_processes': 4, 'expected_load': 27, 'nb_cores': 8, 'proc_stats': [[18], [27]]})
+        assert self.view.get_application_summary('dummy_appli', [proc_1, proc_2, proc_3, proc_4]) == expected
+
+    @patch('supvisors.viewprocaddress.ProcAddressView.write_application_status')
+    @patch('supvisors.viewhandler.ViewHandler.write_common_process_status')
+    def test_write_process_table(self, mocked_common, mocked_appli):
+        """ Test the ProcAddressView.write_process_table method. """
         # patch the meld elements
         table_mid = Mock()
-        tr_elt_1 = Mock(attrib={'class': ''})
-        tr_elt_2 = Mock(attrib={'class': ''})
-        tr_elt_3 = Mock(attrib={'class': ''})
-        tr_mid = Mock(**{'repeat.return_value': [(tr_elt_1, 'info_1'),
-                                                 (tr_elt_2, 'info_2'),
-                                                 (tr_elt_3, 'info_3')]})
+        tr_elt_1 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
+        tr_elt_2 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
+        tr_elt_3 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
+        tr_elt_4 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
+        tr_elt_5 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
+        tr_mid = Mock(**{'repeat.return_value': [(tr_elt_1, {'process_name': None}),
+                                                 (tr_elt_2, {'process_name': 'info_2'}),
+                                                 (tr_elt_3, {'process_name': 'info_3'}),
+                                                 (tr_elt_4, {'process_name': None}),
+                                                 (tr_elt_5, {'process_name': 'info_5'})]})
         mocked_root = Mock(**{'findmeld.side_effect': [table_mid, tr_mid]})
         # test call with no data
         self.view.write_process_table(mocked_root, {})
         self.assertEqual([call('No programs to manage')], table_mid.replace.call_args_list)
-        self.assertEqual([], mocked_common.replace.call_args_list)
-        self.assertEqual([], mocked_process.replace.call_args_list)
+        self.assertFalse(mocked_common.called)
+        self.assertFalse(mocked_appli.called)
+        self.assertFalse(tr_elt_1.findmeld.return_value.replace.called)
+        self.assertFalse(tr_elt_2.findmeld.return_value.replace.called)
+        self.assertFalse(tr_elt_3.findmeld.return_value.replace.called)
+        self.assertFalse(tr_elt_4.findmeld.return_value.replace.called)
+        self.assertFalse(tr_elt_5.findmeld.return_value.replace.called)
         self.assertEqual('', tr_elt_1.attrib['class'])
         self.assertEqual('', tr_elt_2.attrib['class'])
         self.assertEqual('', tr_elt_3.attrib['class'])
+        self.assertEqual('', tr_elt_4.attrib['class'])
+        self.assertEqual('', tr_elt_5.attrib['class'])
         table_mid.replace.reset_mock()
         # test call with data and line selected
-        self.view.write_process_table(mocked_root, True)
-        self.assertEqual([], table_mid.replace.call_args_list)
-        self.assertEqual([call(tr_elt_1, 'info_1'), call(tr_elt_2, 'info_2'), call(tr_elt_3, 'info_3')],
+        self.view.write_process_table(mocked_root, [{}])
+        self.assertFalse(table_mid.replace.called)
+        self.assertEqual([call(tr_elt_2, {'process_name': 'info_2'}), call(tr_elt_3, {'process_name': 'info_3'}),
+                          call(tr_elt_5, {'process_name': 'info_5'})],
                          mocked_common.call_args_list)
-        self.assertEqual([call(tr_elt_1, 'info_1'), call(tr_elt_2, 'info_2'), call(tr_elt_3, 'info_3')],
-                         mocked_process.call_args_list)
+        self.assertEqual([call(tr_elt_1, {'process_name': None}, False),
+                          call(tr_elt_4, {'process_name': None}, True)],
+                         mocked_appli.call_args_list)
+        self.assertFalse(tr_elt_1.findmeld.return_value.replace.called)
+        self.assertEqual([call('')], tr_elt_2.findmeld.return_value.replace.call_args_list)
+        self.assertEqual([call('')], tr_elt_3.findmeld.return_value.replace.call_args_list)
+        self.assertFalse(tr_elt_4.findmeld.return_value.replace.called)
+        self.assertEqual([call('')], tr_elt_5.findmeld.return_value.replace.call_args_list)
         self.assertEqual('brightened', tr_elt_1.attrib['class'])
         self.assertEqual('shaded', tr_elt_2.attrib['class'])
         self.assertEqual('brightened', tr_elt_3.attrib['class'])
+        self.assertEqual('shaded', tr_elt_4.attrib['class'])
+        self.assertEqual('brightened', tr_elt_5.attrib['class'])
 
-    def test_write_process(self):
-        """ Test the write_process method. """
-        from supvisors.webutils import TAIL_PAGE
-        # create a process-like dict
-        info = {'namespec': 'dummy_appli:dummy_proc'}
-        # patch the view context
-        self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    @patch('supvisors.viewhandler.ViewHandler.write_common_status')
+    def test_write_application_status(self, mocked_common):
+        """ Test the ProcAddressView.write_application_status method. """
+        # patch the context
+        self.view.view_ctx = Mock(**{'get_application_shex.side_effect': [(False, '010'), (True, '101')],
+                                     'format_url.return_value': 'an url'})
         # patch the meld elements
-        name_mid = Mock()
-        tr_elt = Mock(**{'findmeld.return_value': name_mid})
-        # test call with stopped process
-        self.view.write_process(tr_elt, info)
-        self.assertEqual([call('name_a_mid')], tr_elt.findmeld.call_args_list)
-        self.assertEqual([call('dummy_appli:dummy_proc')], name_mid.content.call_args_list)
-        self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
-        self.assertEqual([call('127.0.0.1', TAIL_PAGE, processname=info['namespec'])],
-                         self.view.view_ctx.format_url.call_args_list)
+        shex_a_mid = Mock(attrib={})
+        shex_td_mid = Mock(attrib={}, **{'findmeld.return_value': shex_a_mid})
+        name_a_mid = Mock(attrib={})
+        start_td_mid = Mock(attrib={})
+        stop_td_mid = Mock(attrib={})
+        restart_td_mid = Mock(attrib={})
+        clear_td_mid = Mock(attrib={})
+        tailout_td_mid = Mock(attrib={})
+        tailerr_td_mid = Mock(attrib={})
+        mid_list = [shex_td_mid, name_a_mid, start_td_mid, clear_td_mid,
+                    stop_td_mid, restart_td_mid, tailout_td_mid, tailerr_td_mid]
+        mocked_root = Mock(**{'findmeld.side_effect': mid_list * 2})
+        # prepare parameters
+        info = {'application_name': 'dummy_appli', 'nb_processes': 4}
+        # test call with application processes hidden
+        self.view.write_application_status(mocked_root, info, True)
+        self.assertEqual([call(mocked_root, info)], mocked_common.call_args_list)
+        assert 'rowspan' not in shex_td_mid.attrib
+        assert 'class' not in shex_td_mid.attrib
+        assert shex_a_mid.content.call_args_list == [call('[+]')]
+        assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
+        assert self.view.view_ctx.format_url.call_args_list == [call('', 'procaddress.html', shex='010'),
+                                                                call('', 'application.html', appliname='dummy_appli')]
+        assert name_a_mid.content.call_args_list == [call('dummy_appli')]
+        assert name_a_mid.attributes.call_args_list == [call(href='an url')]
+        for mid in [start_td_mid, clear_td_mid]:
+            assert mid.attrib['colspan'] == '3'
+            assert mid.content.call_args_list == [call('')]
+        for mid in [stop_td_mid, restart_td_mid, tailout_td_mid, tailerr_td_mid]:
+            assert mid.replace.call_args_list == [call('')]
+        # reset context
+        mocked_common.reset_mock()
+        shex_a_mid.content.reset_mock()
+        shex_a_mid.attributes.reset_mock()
+        for mid in mid_list:
+            mid.content.reset_mock()
+            mid.attributes.reset_mock()
+            mid.replace.reset_mock()
+            mid.attrib = {}
+        self.view.view_ctx.format_url.reset_mock()
+        # test call with application processes displayed
+        self.view.write_application_status(mocked_root, info, False)
+        self.assertEqual([call(mocked_root, info)], mocked_common.call_args_list)
+        assert shex_td_mid.attrib['rowspan'] == '5'
+        assert shex_td_mid.attrib['class'] == 'brightened'
+        assert shex_a_mid.content.call_args_list == [call('[\u2013]')]
+        assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
+        assert self.view.view_ctx.format_url.call_args_list == [call('', 'procaddress.html', shex='101'),
+                                                                call('', 'application.html', appliname='dummy_appli')]
+        assert name_a_mid.content.call_args_list == [call('dummy_appli')]
+        assert name_a_mid.attributes.call_args_list == [call(href='an url')]
+        for mid in [start_td_mid, clear_td_mid]:
+            assert mid.attrib['colspan'] == '3'
+            assert mid.content.call_args_list == [call('')]
+        for mid in [stop_td_mid, restart_td_mid, tailout_td_mid, tailerr_td_mid]:
+            assert mid.replace.call_args_list == [call('')]
 
 
 def test_suite():

@@ -236,6 +236,8 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
+**Supvisors** also provides expand / shrink actions per application to enable the user to show / hide blocks of processes.
+
 **Supvisors** shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file,

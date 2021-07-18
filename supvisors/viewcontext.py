@@ -17,11 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from distutils.util import strtobool
+from typing import Tuple
 from urllib.parse import quote
 
-from supvisors.ttypes import StartingStrategies, NameList
-from supvisors.webutils import error_message
+from .ttypes import StartingStrategies, NameList
+from .webutils import error_message
 
 
 # form parameters
@@ -29,20 +32,23 @@ SERVER_URL = 'SERVER_URL'
 SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
+NODE = 'node'  # nav
+APPLI = 'appliname'  # nav
+
 ACTION = 'action'
-NODE = 'node'
+NAMESPEC = 'namespec'   # used for actions
+PROCESS = 'processname'  # used to tail (but also to display stats)
 
 PERIOD = 'period'
 STRATEGY = 'strategy'
-APPLI = 'appliname'
-PROCESS = 'processname'
-NAMESPEC = 'namespec'
 CPU = 'cpuid'
 INTF = 'intfname'
-AUTO = 'auto'
+AUTO = 'auto'  # auto-refresh
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
+
+SHRINK_EXPAND = 'shex'
 
 # response parameters
 HEADERS = 'headers'
@@ -75,6 +81,7 @@ class ViewContext:
         self.update_namespec()
         self.update_cpu_id()
         self.update_interface_name()
+        self.update_shrink_expand()
 
     def get_server_port(self):
         """ Get the port number of the web server. """
@@ -142,23 +149,41 @@ class ViewContext:
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
-    def url_parameters(self, **kwargs):
+    def update_shrink_expand(self):
+        """ Extract process display choices from context. """
+        # default is all displayed
+        value = ''.rjust(len(self.supvisors.context.applications.keys()), '1')
+        # extract mask from context
+        str_value = self.http_context.form.get(SHRINK_EXPAND)
+        if str_value:
+            # check that value has correct format (only 0-1 and size equal to number of applications)
+            if re.match(r'^[0-1]{%d}$' % len(value), str_value):
+                value = str_value
+            else:
+                self.message(error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value)))
+        self.logger.trace('ViewContext.update_shrink_expand: SHRINK_EXPAND set to {}'.format(value))
+        self.parameters[SHRINK_EXPAND] = value
+
+    def url_parameters(self, reset_shex, **kwargs):
         """ Return the list of parameters for an URL. """
         parameters = dict(self.parameters, **kwargs)
+        if reset_shex:
+            del parameters[SHRINK_EXPAND]
         return '&amp;'.join(['{}={}'.format(key, quote(str(value)))
                              for key, value in parameters.items()
                              if value])
 
     def format_url(self, node_name, page, **kwargs):
         """ Format URL from parameters. """
+        local_node_name = not node_name or node_name == self.local_node_name
         url = 'http://{}:{}/'.format(quote(node_name), self.get_server_port()) if node_name else ''
-        return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
+        return '{}{}?{}'.format(url, page, self.url_parameters(not local_node_name, **kwargs))
 
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
         form = self.http_context.form
         args = {MESSAGE: message[1], GRAVITY: message[0]}
-        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(**args))
+        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(False, **args))
         self.http_context.response[HEADERS][LOCATION] = location
 
     def get_nbcores(self, node_name=None):
@@ -185,9 +210,7 @@ class ViewContext:
                 # nothing found and running not requested: consider all process info
                 info_map = status.info_map
             # sort info_map them by date (local_time is local time of latest received event)
-            sorted_info_map = sorted(info_map.items(),
-                                     key=lambda x: x[1]['local_time'],
-                                     reverse=True)
+            sorted_info_map = sorted(info_map.items(), key=lambda x: x[1]['local_time'], reverse=True)
             node_name, info = next(iter(sorted_info_map), (None, {}))
         # return the node name too
         return node_name, info.get('description')
@@ -213,7 +236,24 @@ class ViewContext:
             try:
                 return self.supvisors.context.get_process(namespec)
             except KeyError:
-                self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
+                self.logger.debug('ViewContext.get_process_status: failed to get ProcessStatus from {}'
+                                  .format(namespec))
+
+    def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
+        """ Get the expand / shrink value of the application and the shex string to invert it.
+
+        :param application_name: the name of the application
+        :return: the application shex and the inverted shex
+        """
+        shex = self.parameters[SHRINK_EXPAND]
+        # get the index of the application in context
+        idx = list(self.supvisors.context.applications.keys()).index(application_name)
+        # get application shex value
+        application_shex = bool(int(shex[idx]))
+        # get new shex with inverted value for application
+        inverted_shex = list(shex)
+        inverted_shex[idx] = str(int(not application_shex))
+        return application_shex, ''.join(inverted_shex)
 
     def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """
@@ -226,7 +266,7 @@ class ViewContext:
             else:
                 self.message(error_message('Incorrect {}: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.trace('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_string: {} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
@@ -245,7 +285,7 @@ class ViewContext:
                 else:
                     self.message(error_message('Incorrect {}: {}'.format(param, int_value)))
         # assign value found or default
-        self.logger.trace('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_integer: {} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
@@ -258,7 +298,7 @@ class ViewContext:
             except ValueError:
                 self.message(error_message('{} is not a boolean-like: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.trace('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_boolean: {} set to {}'.format(param, value))
         self.parameters[param] = value
 
     @staticmethod

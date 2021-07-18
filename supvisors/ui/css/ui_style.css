@@ -393,6 +393,7 @@ th, td {
 
 th {
     background-color: var(--th-color);
+    text-align: center;
 }
 
 .brightened {
@@ -403,7 +404,20 @@ th {
     background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
 }
 
-/* fix first columns sizes (button actions have a fixed contents) */
+/* style for a table of processes */
+.shex {
+    vertical-align: top;
+}
+
+.centered {
+    text-align: center;
+}
+
+.expected {
+    font-style: italic;
+}
+
+/* fix some column width (button actions have a fixed content) */
 table .name {
   width: 180px;
 }
@@ -412,27 +426,8 @@ table .state {
     width: 50px;
 }
 
-table .desc, table.addr {
+table .desc {
   width: 250px;
-}
-
-
-/* style for a table of processes */
-#node_processes td:nth-child(2), #node_processes th:nth-child(2),
-#node_processes td:nth-child(n+4), #node_processes th:nth-child(n+4),
-#app_processes td:nth-child(3), #app_processes td:nth-child(2),
-#app_processes td:nth-child(n+5) {
-    text-align: center;
-}
-
-#node_processes td:nth-child(4), #app_processes td:nth-child(5) {
-    font-style: italic;
-}
-
-#address_part th, #address_part td,
-#process_right_side th, #process_right_side td {
-    text-align: center;
-    vertical-align:middle;
 }
 
 

@@ -20,6 +20,8 @@
 import pytest
 import random
 
+from supvisors.application import *
+
 from .base import database_copy, any_process_info, any_stopped_process_info, any_running_process_info
 from .conftest import create_application, create_process
 
@@ -28,13 +30,11 @@ from .conftest import create_application, create_process
 @pytest.fixture
 def rules():
     """ Return the instance to test. """
-    from supvisors.application import ApplicationRules
     return ApplicationRules()
 
 
 def test_rules_create(rules):
     """ Test the values set at construction. """
-    from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
     # check application default rules
     assert not rules.managed
     assert rules.start_sequence == 0
@@ -58,7 +58,6 @@ def test_rules_serial(rules):
 # ApplicationStatus part
 def test_application_create(supvisors):
     """ Test the values set at construction. """
-    from supvisors.ttypes import ApplicationStates, StartingFailureStrategies, RunningFailureStrategies
     application = create_application('ApplicationTest', supvisors)
     # check application default attributes
     assert application.application_name == 'ApplicationTest'
@@ -116,10 +115,38 @@ def test_application_stopped(supvisors):
     assert not application.stopped()
 
 
-def test_serialization(supvisors):
+def test_application_get_operational_status(supvisors):
+    """ Test the ApplicationStatus.get_operational_status method used to get a descriptive operational status. """
+    # create address status instance
+    application = create_application('ApplicationTest', supvisors)
+    # test with non RUNNING application
+    for state in [ApplicationStates.STOPPED, ApplicationStates.STARTING, ApplicationStates.STOPPING]:
+        for minor_failure in [True, False]:
+            for major_failure in [True, False]:
+                application._state = state
+                application.major_failure = major_failure
+                application.minor_failure = minor_failure
+                assert application.get_operational_status() == ''
+    # test with RUNNING application
+    application._state = ApplicationStates.RUNNING
+    # no failure
+    application.major_failure = False
+    application.minor_failure = False
+    assert application.get_operational_status() == 'Operational'
+    # minor failure, no major failure
+    application.major_failure = False
+    application.minor_failure = True
+    assert application.get_operational_status() == 'Degraded'
+    # major failure set
+    application.major_failure = True
+    for minor_failure in [True, False]:
+        application.minor_failure = minor_failure
+        assert application.get_operational_status() == 'Not Operational'
+
+
+def test_application_serial(supvisors):
     """ Test the serial method used to get a serializable form of Application. """
     import pickle
-    from supvisors.ttypes import ApplicationStates
     # create address status instance
     application = create_application('ApplicationTest', supvisors)
     application._state = ApplicationStates.RUNNING
@@ -135,7 +162,7 @@ def test_serialization(supvisors):
     assert serialized == loaded
 
 
-def test_add_process(supvisors):
+def test_application_add_process(supvisors):
     """ Test the add_process method. """
     application = create_application('ApplicationTest', supvisors)
     # add a process to the application
@@ -162,7 +189,7 @@ def filled_application(supvisors):
     return application
 
 
-def test_update_sequences(filled_application):
+def test_application_update_sequences(filled_application):
     """ Test the sequencing of the update_sequences method. """
     # call the sequencer
     filled_application.update_sequences()
@@ -184,10 +211,8 @@ def test_update_sequences(filled_application):
                        if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name)
 
 
-def test_update_status(filled_application):
+def test_application_update_status(filled_application):
     """ Test the rules to update the status of the application method. """
-    from supervisor.states import ProcessStates
-    from supvisors.ttypes import ApplicationStates
     # init status
     # there are lots of states but the 'strongest' is STARTING
     # STARTING is a 'running' state so major/minor failures are applicable

@@ -21,11 +21,18 @@ import sys
 import unittest
 
 from unittest.mock import call, patch, Mock
+
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 from supervisor.xmlrpc import RPCError
 
-from supvisors.tests.base import DummyHttpContext
+from supvisors.ttypes import ApplicationStates, StartingStrategies
+from supvisors.viewapplication import ApplicationView
+from supvisors.viewcontext import APPLI, PROCESS, STRATEGY
+from supvisors.viewhandler import ViewHandler
+from supvisors.webutils import APPLICATION_PAGE, PROC_NODE_PAGE, TAIL_PAGE
+
+from .base import DummyHttpContext
 
 
 class ViewApplicationTest(unittest.TestCase):
@@ -33,14 +40,10 @@ class ViewApplicationTest(unittest.TestCase):
 
     def setUp(self):
         """ Create the instance to be tested. """
-        from supvisors.viewapplication import ApplicationView
         self.view = ApplicationView(DummyHttpContext('ui/application.html'))
-        # unit test feature to print all discrepancies
-        self.maxDiff = None
 
     def test_init(self):
         """ Test the values set at construction. """
-        from supvisors.viewhandler import ViewHandler
         # create instance
         self.assertIsInstance(self.view, ViewHandler)
         self.assertIsInstance(self.view, MeldView)
@@ -51,7 +54,6 @@ class ViewApplicationTest(unittest.TestCase):
     @patch('supvisors.viewhandler.ViewHandler.handle_parameters')
     def test_handle_parameters(self, mocked_handle, mocked_message):
         """ Test the handle_parameters method. """
-        from supvisors.viewcontext import APPLI
         # patch context
         self.view.view_ctx = Mock(parameters={APPLI: None})
         # test with no application selected
@@ -84,7 +86,6 @@ class ViewApplicationTest(unittest.TestCase):
     @patch('supvisors.viewapplication.ApplicationView.write_starting_strategy')
     def test_write_header(self, mocked_strategy, mocked_period, mocked_action):
         """ Test the write_header method. """
-        from supvisors.ttypes import ApplicationStates
         self.view.application_name = 'dummy_appli'
         self.view.application = Mock(state=ApplicationStates.STOPPED, **{'running.return_value': False})
         # patch the meld elements
@@ -148,8 +149,6 @@ class ViewApplicationTest(unittest.TestCase):
 
     def test_write_starting_strategy(self):
         """ Test the write_starting_strategy method. """
-        from supvisors.ttypes import StartingStrategies
-        from supvisors.viewcontext import STRATEGY
         # patch the view context
         self.view.view_ctx = Mock(parameters={STRATEGY: 'CONFIG'}, **{'format_url.return_value': 'an url'})
         # patch the meld elements
@@ -174,7 +173,6 @@ class ViewApplicationTest(unittest.TestCase):
 
     def test_write_application_actions(self):
         """ Test the write_application_actions method. """
-        from supvisors.webutils import APPLICATION_PAGE
         # patch the view context
         self.view.view_ctx = Mock(**{'format_url.side_effect': ['a start url', 'a stop url', 'a restart url']})
         # patch the meld elements
@@ -200,7 +198,6 @@ class ViewApplicationTest(unittest.TestCase):
                         [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy_proc'}]))
     def test_write_contents(self, mocked_data, mocked_table, mocked_stats):
         """ Test the write_contents method. """
-        from supvisors.viewcontext import PROCESS
         self.view.application_name = 'dummy_appli'
         # patch context
         self.view.view_ctx = Mock(parameters={PROCESS: None},
@@ -258,8 +255,7 @@ class ViewApplicationTest(unittest.TestCase):
         self.assertEqual('dummy_proc', self.view.view_ctx.parameters[PROCESS])
         self.assertEqual([call(mocked_root, {'namespec': 'dummy_proc'})], mocked_stats.call_args_list)
 
-    @patch('supvisors.viewhandler.ViewHandler.sort_processes_by_config', return_value=['process_2', 'process_1'])
-    def test_get_process_data(self, mocked_sort):
+    def test_get_process_data(self):
         """ Test the get_process_data method. """
         # patch the selected application
         process_1 = Mock(application_name='appli_1',
@@ -281,7 +277,6 @@ class ViewApplicationTest(unittest.TestCase):
         self.view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats),
                                      'get_process_last_desc.return_value': ('10.0.0.1', 'something')})
         # test call
-        self.assertEqual(self.view.get_process_data(), ['process_2', 'process_1'])
         data1 = {'application_name': 'appli_1',
                  'process_name': 'process_1',
                  'namespec': 'namespec_1',
@@ -304,16 +299,10 @@ class ViewApplicationTest(unittest.TestCase):
                  'expected_load': 1,
                  'nb_cores': 4,
                  'proc_stats': mocked_stats}
-        self.assertEqual(1, mocked_sort.call_count)
-        self.assertEqual(2, len(mocked_sort.call_args_list[0]))
-        # access to internal call data
-        call_data = mocked_sort.call_args_list[0][0][0]
-        self.assertDictEqual(data1, call_data[0])
-        self.assertDictEqual(data2, call_data[1])
+        self.assertEqual(self.view.get_process_data(), [data1, data2])
 
     def test_write_process(self):
         """ Test the write_process method. """
-        from supvisors.webutils import PROC_NODE_PAGE, TAIL_PAGE
         # create a process-like dict
         info = {'process_name': 'proc1',
                 'namespec': 'dummy_appli:dummy_proc',
@@ -322,39 +311,25 @@ class ViewApplicationTest(unittest.TestCase):
         # patch the view context
         self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
         # patch the meld elements
-        name_mid = Mock()
         running_ul_mid = Mock()
         running_a_mid = Mock(attrib={'class': 'button'})
         running_li_elt = Mock(**{'findmeld.return_value': running_a_mid})
         running_li_mid = Mock(**{'repeat.return_value': [(running_li_elt, '10.0.0.1')]})
-        tr_elt = Mock(**{'findmeld.side_effect': [name_mid, running_ul_mid, name_mid, running_li_mid]})
+        tr_elt = Mock(**{'findmeld.side_effect': [running_ul_mid, running_li_mid]})
         # test call with stopped process
         self.view.write_process(tr_elt, info)
-        self.assertEqual([call('name_a_mid'), call('running_ul_mid')], tr_elt.findmeld.call_args_list)
-        self.assertEqual([call('proc1')], name_mid.content.call_args_list)
-        self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
-        self.assertEqual([call('10.0.0.2', TAIL_PAGE, processname=info['namespec'])],
-                         self.view.view_ctx.format_url.call_args_list)
+        self.assertEqual([call('running_ul_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([call('')], running_ul_mid.replace.call_args_list)
         self.assertEqual([], running_a_mid.attributes.call_args_list)
         self.assertEqual([], running_a_mid.content.call_args_list)
         # reset mock elements
-        name_mid.reset_mock()
         self.view.view_ctx.format_url.reset_mock()
         running_ul_mid.replace.reset_mock()
         # test call with running process
         info['running_nodes'] = {'10.0.0.1'}
         info['node_name'] = '10.0.0.1'
         self.view.write_process(tr_elt, info)
-        self.assertEqual([call('name_a_mid'), call('running_ul_mid'), call('name_a_mid'), call('running_li_mid')],
-                         tr_elt.findmeld.call_args_list)
-        self.assertEqual([call('proc1')], name_mid.content.call_args_list)
-        self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
-        self.assertEqual([call('10.0.0.1', TAIL_PAGE, processname=info['namespec']),
-                          call('10.0.0.1', PROC_NODE_PAGE)],
-                         self.view.view_ctx.format_url.call_args_list)
-        self.assertEqual([call(href='an url')], name_mid.attributes.call_args_list)
-        self.assertEqual([call('proc1')], name_mid.content.call_args_list)
+        self.assertEqual([call('running_ul_mid'), call('running_li_mid')], tr_elt.findmeld.call_args_list)
         self.assertEqual([], running_ul_mid.replace.call_args_list)
         self.assertEqual([call(href='an url')], running_a_mid.attributes.call_args_list)
         self.assertEqual([call('10.0.0.1')], running_a_mid.content.call_args_list)
@@ -414,8 +389,6 @@ class ViewApplicationTest(unittest.TestCase):
                            mocked_restart_app, mocked_start_proc, mocked_stop_proc,
                            mocked_restart_proc, mocked_clear_proc, mocked_delayed):
         """ Test the make_callback method. """
-        from supvisors.ttypes import StartingStrategies
-        from supvisors.viewcontext import STRATEGY
         # patch view context
         self.view.view_ctx = Mock(parameters={STRATEGY: 'LOCAL'},
                                   **{'get_process_status.return_value': None})
@@ -455,7 +428,6 @@ class ViewApplicationActionTest(unittest.TestCase):
 
     def setUp(self):
         """ Create a common context and apply common patches. """
-        from supvisors.viewapplication import ApplicationView
         self.view = ApplicationView(DummyHttpContext('ui/application.html'))
         # add the common patches
         self.patches = [patch('supvisors.viewapplication.delayed_error', return_value='Delay err'),

@@ -21,7 +21,7 @@ import pytest
 
 from supervisor.web import StatusView
 
-from unittest.mock import call, patch, Mock
+from unittest.mock import call, Mock
 
 from supvisors.viewcontext import CPU, INTF, ViewContext
 from supvisors.viewhandler import ViewHandler
@@ -29,10 +29,11 @@ from supvisors.viewhostaddress import HostAddressView
 from supvisors.viewimage import address_cpu_img, address_io_img, address_mem_img
 from supvisors.webutils import HOST_NODE_PAGE
 
+from .base import DummyHttpContext
+
 
 @pytest.fixture
 def http_context():
-    from supvisors.tests.base import DummyHttpContext
     return DummyHttpContext('ui/hostaddress.html')
 
 
@@ -184,9 +185,11 @@ def test_write_network_single_title(view):
     assert mocked_href_mid.attrib == {}
     assert mocked_href_mid.attributes.call_args_list == [call(href='http://addr:port/index.html')]
     assert not mocked_title_mid.replace.called
+    # reset context
     mocked_tr.findmeld.reset_mock()
-    mocked_title_mid.findmeld.reset_mock()
     mocked_href_mid.attributes.reset_mock()
+    mocked_title_mid.findmeld.reset_mock()
+    del mocked_title_mid.attrib['class']
     # in third call, elt is the first line (rowspan True), not shaded and is the selected interface
     view._write_network_single_title(mocked_tr, 'lo', 'lo', True, False)
     assert mocked_tr.findmeld.call_args_list == [call('intf_td_mid')]

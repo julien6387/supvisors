@@ -106,10 +106,28 @@ def delayed_error(msg, address=None):
     return on_wait
 
 
-# common shade attribute
-def apply_shade(elt, shaded):
+def update_attrib(elt, attribute: str, value: str) -> None:
+    """ Add a new item to the attribute of an element.
+
+    :param elt: the element to update
+    :param attribute: the element attribute to update
+    :param value: the value to add
+    :return: None
+    """
+    current_value = elt.attrib.get(attribute, '')
+    if value not in current_value:
+        elt.attrib[attribute] = '{} {}'.format(current_value, value).strip()
+
+
+def apply_shade(elt, shaded: bool) -> None:
+    """ Apply shade on element.
+
+    :param elt: the element to shade
+    :param shaded: the shade status
+    :return: None
+    """
     if shaded:
-        elt.attrib['class'] = 'shaded'
+        update_attrib(elt, 'class', 'shaded')
     else:
-        elt.attrib['class'] = 'brightened'
+        update_attrib(elt, 'class', 'brightened')
 

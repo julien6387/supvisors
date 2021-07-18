@@ -22,10 +22,8 @@ from typing import Dict, List, Sequence
 from supervisor.loggers import Logger
 from supervisor.states import *
 
-from supvisors.process import ProcessStatus
-from supvisors.ttypes import (ApplicationStates, Payload,
-                              StartingFailureStrategies,
-                              RunningFailureStrategies)
+from .process import ProcessStatus
+from .ttypes import ApplicationStates, Payload, StartingFailureStrategies, RunningFailureStrategies
 
 
 class ApplicationRules(object):
@@ -144,6 +142,19 @@ class ApplicationStatus(object):
         if self._state != new_state:
             self._state = new_state
             self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
+
+    def get_operational_status(self) -> str:
+        """ Get a description of the operational status of the application.
+
+        :return: the operational status as string
+        """
+        if self.state == ApplicationStates.RUNNING:
+            if self.major_failure:
+                return 'Not Operational'
+            if self.minor_failure:
+                return 'Degraded'
+            return 'Operational'
+        return ''
 
     # serialization
     def serial(self) -> Payload:

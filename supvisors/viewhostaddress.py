@@ -17,11 +17,11 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.utils import get_stats
-from supvisors.viewcontext import *
-from supvisors.viewimage import address_cpu_img, address_mem_img, address_io_img
-from supvisors.viewsupstatus import SupvisorsAddressView
-from supvisors.webutils import *
+from .utils import get_stats
+from .viewcontext import *
+from .viewimage import address_cpu_img, address_mem_img, address_io_img
+from .viewsupstatus import SupvisorsAddressView
+from .webutils import *
 
 
 class HostAddressView(SupvisorsAddressView):

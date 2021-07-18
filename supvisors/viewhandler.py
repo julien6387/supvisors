@@ -22,12 +22,12 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import AddressStates, SupvisorsStates
-from supvisors.utils import get_stats
-from supvisors.viewcontext import *
-from supvisors.viewimage import process_cpu_img, process_mem_img
-from supvisors.webutils import *
+from .rpcinterface import API_VERSION
+from .ttypes import AddressStates, SupvisorsStates, Payload
+from .utils import get_stats
+from .viewcontext import *
+from .viewimage import process_cpu_img, process_mem_img
+from .webutils import *
 
 
 class ViewHandler(MeldView):
@@ -197,15 +197,18 @@ class ViewHandler(MeldView):
             cpuvalue = proc_stats[0][-1]
             if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= info['nb_cores']
-            elt.content('{:.2f}%'.format(cpuvalue))
-            if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                elt.attributes(href='#')
-                elt.attrib['class'] = 'button off active'
+            if info['namespec']:  # empty for an application info
+                if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    elt.attrib['class'] = 'button off active'
+                else:
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.attrib['class'] = 'button on'
+                elt.content('{:.2f}%'.format(cpuvalue))
             else:
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.attrib['class'] = 'button on'
+                # print data with no link
+                elt.replace('{:.2f}%'.format(cpuvalue))
         else:
             # when no data, no not write link
             elt.replace('--')
@@ -218,15 +221,18 @@ class ViewHandler(MeldView):
         if proc_stats and len(proc_stats[1]) > 0:
             # print last MEM value of process
             memvalue = proc_stats[1][-1]
-            elt.content('{:.2f}%'.format(memvalue))
-            if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                elt.attributes(href='#')
-                elt.attrib['class'] = 'button off active'
+            if info['namespec']:  # empty for an application info
+                if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    elt.attrib['class'] = 'button off active'
+                else:
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.attrib['class'] = 'button on'
+                elt.content('{:.2f}%'.format(memvalue))
             else:
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.attrib['class'] = 'button on'
+                # print data with no link
+                elt.replace('{:.2f}%'.format(memvalue))
         else:
             # when no data, no not write link
             elt.replace('--')
@@ -260,33 +266,37 @@ class ViewHandler(MeldView):
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailout_a_mid', info['node_name'],
-                                   STDOUT_PAGE % quote(info['namespec']),
-                                   '', '', '', '')
+                                   STDOUT_PAGE % quote(info['namespec'] or ''),
+                                   '', info['namespec'], '', '')
 
     def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
         self._write_process_button(tr_elt, 'tailerr_a_mid', info['node_name'],
-                                   STDERR_PAGE % quote(info['namespec']),
-                                   '', '', '', '')
+                                   STDERR_PAGE % quote(info['namespec'] or ''),
+                                   '', info['namespec'], '', '')
 
     def _write_process_button(self, tr_elt, elt_name, node_name, page, action, namespec,
                               state, state_list):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
-        if state in state_list:
-            elt.attrib['class'] = 'button on'
-            url = self.view_ctx.format_url(node_name, page, **{ACTION: action, NAMESPEC: namespec})
-            elt.attributes(href=url)
+        if namespec:
+            if state in state_list:
+                elt.attrib['class'] = 'button on'
+                url = self.view_ctx.format_url(node_name, page, **{ACTION: action, NAMESPEC: namespec})
+                elt.attributes(href=url)
+            else:
+                elt.attrib['class'] = 'button off'
         else:
-            elt.attrib['class'] = 'button off'
+            # this corresponds to an application row: no action available
+            elt.content('')
 
-    def write_common_process_status(self, tr_elt, info):
-        """ Write the common part of a process status into a table. """
+    def write_common_status(self, tr_elt, info: Payload) -> None:
+        """ Write the common part of a process or application status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = info['statename']
+        update_attrib(elt, 'class', info['statename'])
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')
@@ -297,6 +307,16 @@ class ViewHandler(MeldView):
         # get data from statistics module iaw period selection
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
+
+    def write_common_process_status(self, tr_elt, info: Payload) -> None:
+        """ Write the common part of a process status into a table. """
+        # print common status
+        self.write_common_status(tr_elt, info)
+        # print process name
+        elt = tr_elt.findmeld('name_a_mid')
+        elt.content('\u21B3 {}'.format(info['process_name']))
+        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        elt.attributes(href=url, target="_blank")
         # manage actions iaw state
         self.write_process_start_button(tr_elt, info)
         self.write_process_stop_button(tr_elt, info)
@@ -425,33 +445,3 @@ class ViewHandler(MeldView):
             elt.attrib['class'] = 'increase'
         else:
             elt.attrib['class'] = 'decrease'
-
-    def sort_processes_by_config(self, processes):
-        """ This method sorts a process list using the internal configuration of supervisor.
-        The aim is to present processes sorted the same way as they are in group configuration file. """
-        sorted_processes = []
-        # sort processes by application
-        application_map = {}
-        for process in processes:
-            application_map.setdefault(process['application_name'], []).append(process)
-        # sort applications alphabetically
-        for application_name, application_processes in sorted(application_map.items()):
-            try:
-                # get supervisor configuration for application
-                # WARN: the group may be unknown to the local supervisor
-                group_config = self.supvisors.info_source.get_group_config(application_name)
-                # get process name ordering in this configuration
-                ordering = [proc.name for proc in group_config.process_configs]
-            except KeyError:
-                self.logger.debug('ViewHandler.sort_processes_by_config: application={} unknown to local Supervisor'
-                                  .format(application_name))
-                ordering = []
-            # add processes known to supervisor, using the same ordering
-            known_list = sorted([proc for proc in application_processes if proc['process_name'] in ordering],
-                                key=lambda x: ordering.index(x['process_name']))
-            sorted_processes.extend(known_list)
-            # add processes unknown to supervisor, using the alphabetical ordering
-            unknown_list = sorted([proc for proc in application_processes if proc['process_name'] not in ordering],
-                                  key=lambda x: x['process_name'])
-            sorted_processes.extend(unknown_list)
-        return sorted_processes

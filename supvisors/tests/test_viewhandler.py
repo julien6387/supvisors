@@ -19,24 +19,23 @@
 
 import pytest
 
-from unittest.mock import call, patch, Mock, PropertyMock
-from random import shuffle
+from unittest.mock import call, Mock
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.tests.base import DummyAddressMapper, ProcessInfoDatabase
 from supvisors.ttypes import ApplicationStates, SupvisorsStates
 from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import SUPVISORS_PAGE
 
+from .base import DummyAddressMapper, DummyHttpContext
+
 
 @pytest.fixture
 def http_context():
-    from supvisors.tests.base import DummyHttpContext
     return DummyHttpContext('ui/index.html')
 
 
@@ -403,6 +402,9 @@ def test_write_common_process_cpu(handler):
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert cell_elt.replace.call_args_list == [call('--')]
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.content.called
+    # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with empty stats
@@ -410,6 +412,8 @@ def test_write_common_process_cpu(handler):
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert cell_elt.replace.call_args_list == [call('--')]
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.content.called
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process, irix mode
@@ -417,10 +421,11 @@ def test_write_common_process_cpu(handler):
     info = {'namespec': 'dummy_proc', 'proc_stats': [[10, 20]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert cell_elt.replace.call_args_list == []
-    assert cell_elt.content.call_args_list == [call('20.00%')]
-    assert cell_elt.attributes.call_args_list == [call(href='#')]
+    assert not cell_elt.replace.called
+    assert not handler.view_ctx.format_url.called
     assert cell_elt.attrib['class'] == 'button off active'
+    assert cell_elt.content.call_args_list == [call('20.00%')]
+    # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
     cell_elt.attributes.reset_mock()
@@ -429,11 +434,27 @@ def test_write_common_process_cpu(handler):
     info = {'namespec': 'dummy', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
-    assert cell_elt.replace.call_args_list == []
+    assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('15.00%')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', node='10.0.0.1')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
+    # reset context
+    tr_elt.findmeld.reset_mock()
+    cell_elt.content.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
+    cell_elt.attributes.reset_mock()
+    del cell_elt.attrib['class']
+    # test with filled stats on application (so non process), solaris mode
+    handler.supvisors.options.stats_irix_mode = False
+    info = {'namespec': None, 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
+    handler.write_common_process_cpu(tr_elt, info)
+    assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert cell_elt.replace.call_args_list == [call('15.00%')]
+    assert not cell_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.attributes.called
+    assert 'class' not in cell_elt.attrib
 
 
 def test_write_common_process_mem(handler):
@@ -448,6 +469,9 @@ def test_write_common_process_mem(handler):
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert cell_elt.replace.call_args_list == [call('--')]
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.content.called
+    # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with empty stats
@@ -455,16 +479,19 @@ def test_write_common_process_mem(handler):
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert cell_elt.replace.call_args_list == [call('--')]
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.content.called
+    # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process
     info = {'namespec': 'dummy_proc', 'proc_stats': ([], [10, 20])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
-    assert cell_elt.replace.call_args_list == []
+    assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('20.00%')]
-    assert cell_elt.attributes.call_args_list == [call(href='#')]
     assert cell_elt.attrib['class'] == 'button off active'
+    # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
     cell_elt.attributes.reset_mock()
@@ -472,11 +499,27 @@ def test_write_common_process_mem(handler):
     info = {'namespec': 'dummy', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
-    assert cell_elt.replace.call_args_list == []
+    assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('30.00%')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', node='10.0.0.2')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
+    # reset context
+    tr_elt.findmeld.reset_mock()
+    cell_elt.content.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
+    cell_elt.attributes.reset_mock()
+    del cell_elt.attrib['class']
+    # test with filled stats on application (so non process), solaris mode
+    handler.supvisors.options.stats_irix_mode = False
+    info = {'namespec': None, 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
+    handler.write_common_process_mem(tr_elt, info)
+    assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert cell_elt.replace.call_args_list == [call('30.00%')]
+    assert not cell_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.attributes.called
+    assert 'class' not in cell_elt.attrib
 
 
 def test_write_process_start_button(mocker, handler):
@@ -531,7 +574,7 @@ def test_write_process_stdout_button(mocker, handler):
     info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
     handler.write_process_stdout_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
-                                                 '', '', '', '')]
+                                                 '', 'dummy_proc', '', '')]
 
 
 def test_write_process_stderr_button(mocker, handler):
@@ -542,7 +585,7 @@ def test_write_process_stderr_button(mocker, handler):
     info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
     handler.write_process_stderr_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
-                                                 '', '', '', '')]
+                                                 '', 'dummy_proc', '', '')]
 
 
 def test_write_process_button(handler):
@@ -557,7 +600,8 @@ def test_write_process_button(handler):
                                   'running', ['stopped', 'stopping'])
     assert tr_elt.findmeld.call_args_list == [call('meld_id')]
     assert cell_elt.attrib['class'] == 'button off'
-    assert cell_elt.attributes.call_args_list == []
+    assert not cell_elt.attributes.called
+    assert not cell_elt.content.called
     tr_elt.findmeld.reset_mock()
     # test with filled stats on selected process
     handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
@@ -567,6 +611,40 @@ def test_write_process_button(handler):
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'index.html', action='action',
                                                                namespec='dummy_proc')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
+    assert not cell_elt.content.called
+    tr_elt.findmeld.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
+    cell_elt.attributes.reset_mock()
+    del cell_elt.attrib['class']
+    # test with unset namespec
+    handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', '',
+                                  'running', ['running', 'starting'])
+    assert tr_elt.findmeld.call_args_list == [call('meld_id')]
+    assert 'class' not in cell_elt.attrib
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.attributes.called
+    assert cell_elt.content.call_args_list == [call('')]
+
+
+def test_write_common_status(mocker, handler):
+    """ Test the write_common_process_status method. """
+    mocked_mem = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_mem')
+    mocked_cpu = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_cpu')
+    # patch the meld elements
+    state_elt = Mock(attrib={'class': ''})
+    desc_elt = Mock(attrib={'class': ''})
+    load_elt = Mock(attrib={'class': ''})
+    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, desc_elt, load_elt]})
+    # test call on selected process
+    param = {'expected_load': 35, 'statename': 'running', 'description': 'something'}
+    handler.write_common_status(tr_elt, param)
+    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
+    assert state_elt.attrib['class'] == 'running'
+    assert state_elt.content.call_args_list == [call('running')]
+    assert desc_elt.content.call_args_list == [call('something')]
+    assert load_elt.content.call_args_list == [call('35%')]
+    assert mocked_cpu.call_args_list == [call(tr_elt, param)]
+    assert mocked_mem.call_args_list == [call(tr_elt, param)]
 
 
 def test_write_common_process_status(mocker, handler):
@@ -577,26 +655,21 @@ def test_write_common_process_status(mocker, handler):
     mocked_restart = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_restart_button')
     mocked_stop = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_stop_button')
     mocked_start = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_start_button')
-    mocked_mem = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_mem')
-    mocked_cpu = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_cpu')
+    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_status')
     # patch the view context
-    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'})
+    handler.view_ctx = Mock(parameters={PROCESS: 'dummy_proc'},
+                            **{'format_url.return_value': 'an url'})
     # patch the meld elements
-    state_elt = Mock(attrib={'class': ''})
-    desc_elt = Mock(attrib={'class': ''})
-    load_elt = Mock(attrib={'class': ''})
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, desc_elt, load_elt]})
+    name_elt = Mock(attrib={'class': ''})
+    tr_elt = Mock(attrib={}, **{'findmeld.return_value': name_elt})
     # test call on selected process
-    param = {'namespec': 'dummy_proc', 'expected_load': 35, 'statename': 'running', 'statecode': 7,
-             'description': 'something'}
+    param = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'process_name': 'proc'}
     handler.write_common_process_status(tr_elt, param)
-    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
-    assert state_elt.attrib['class'] == 'running'
-    assert state_elt.content.call_args_list == [call('running')]
-    assert desc_elt.content.call_args_list == [call('something')]
-    assert load_elt.content.call_args_list == [call('35%')]
-    assert mocked_cpu.call_args_list == [call(tr_elt, param)]
-    assert mocked_mem.call_args_list == [call(tr_elt, param)]
+    assert mocked_common.call_args_list == [call(tr_elt, param)]
+    assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
+    assert name_elt.content.call_args_list == [call('\u21B3 proc')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'tail.html', processname='dummy_proc')]
+    assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
     assert mocked_start.call_args_list == [call(tr_elt, param)]
     assert mocked_stop.call_args_list == [call(tr_elt, param)]
     assert mocked_restart.call_args_list == [call(tr_elt, param)]
@@ -777,44 +850,3 @@ def test_set_slope_class():
     assert elt.attrib['class'] == 'decrease'
     ViewHandler.set_slope_class(elt, -10)
     assert elt.attrib['class'] == 'decrease'
-
-
-def test_sort_processes_by_config(handler):
-    """ Test the sort_processes_by_config method. """
-    # test empty parameter
-    assert handler.sort_processes_by_config([]) == []
-    # build process list
-    processes = [{'application_name': info['group'], 'process_name': info['name']}
-                 for info in ProcessInfoDatabase]
-    shuffle(processes)
-
-    # define group and process config ordering
-    def create_mock(proc_name):
-        proc = Mock()
-        type(proc).name = PropertyMock(return_value=proc_name)
-        return proc
-
-    handler.supvisors.info_source.get_group_config.side_effect = [
-        # first group is crash
-        # late_segv is forgotten to test ordering with unknown processes
-        Mock(process_configs=[create_mock('segv')]),
-        # next group is firefox - but let's consider that the group is unknown
-        # this could happen when dealing with a remote Supervisor having different configuration files
-        KeyError,
-        # next group is sample_test_1
-        # xfontsel is forgotten to test ordering with unknown processes
-        Mock(process_configs=[create_mock('xclock'), create_mock('xlogo')]),
-        # next group is sample_test_2
-        # sleep is forgotten to test ordering with unknown processes
-        Mock(process_configs=[create_mock('yeux_00'), create_mock('yeux_01')])]
-    # test ordering
-    expected = handler.sort_processes_by_config(processes)
-    assert expected == [{'application_name': 'crash', 'process_name': 'segv'},
-                        {'application_name': 'crash', 'process_name': 'late_segv'},
-                        {'application_name': 'firefox', 'process_name': 'firefox'},
-                        {'application_name': 'sample_test_1', 'process_name': 'xclock'},
-                        {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
-                        {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
-                        {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
-                        {'application_name': 'sample_test_2', 'process_name': 'yeux_01'},
-                        {'application_name': 'sample_test_2', 'process_name': 'sleep'}]

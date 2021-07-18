@@ -19,7 +19,7 @@
 
 import pytest
 
-from supvisors.tests.base import DummySupervisor, MockedSupvisors
+from .base import DummySupervisor, MockedSupvisors
 
 
 # Easy Application / Process creation
