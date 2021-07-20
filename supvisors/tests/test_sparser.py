@@ -22,7 +22,7 @@ import pytest
 from unittest.mock import patch
 from io import BytesIO
 
-from supvisors.application import ApplicationRules
+from supvisors.sparser import *
 from supvisors.process import ProcessRules
 from supvisors.ttypes import RunningFailureStrategies, StartingFailureStrategies
 
@@ -254,25 +254,23 @@ def lxml_import():
     return pytest.importorskip('lxml')
 
 
-def test_valid_lxml(lxml_import, supvisors):
+def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
-    from supvisors.sparser import Parser
-    with patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest)):
-        parser = Parser(supvisors)
+    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    parser = Parser(supvisors)
     check_valid(parser)
 
 
-@patch('supvisors.sparser.stderr')
-def test_invalid_lxml(_, supvisors):
+def test_invalid_lxml(mocker, supvisors):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
-    from supvisors.sparser import Parser
-    with patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest)):
-        with pytest.raises(ValueError):
-            Parser(supvisors)
+    mocker.patch('supvisors.sparser.stderr')
+    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    with pytest.raises(ValueError):
+        Parser(supvisors)
 
 
 @pytest.fixture
-def etree_import():
+def lxml_fail_import():
     """ Mock ImportError on optional lxml if installed to force ElementTree testing. """
     try:
         lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
@@ -284,27 +282,24 @@ def etree_import():
         pass
 
 
-@patch('xml.etree.ElementTree.parse', side_effect=ImportError)
-def test_no_parser(_, supvisors, etree_import):
+def test_no_parser(mocker, supvisors, lxml_fail_import):
     """ Test the exception when no parser is available. """
-    from supvisors.sparser import Parser
+    mocker.patch('xml.etree.ElementTree.parse', side_effect=ImportError)
     # create Parser instance
     with pytest.raises(ImportError):
         Parser(supvisors)
 
 
-def test_valid_element_tree(mocker, supvisors, etree_import):
+def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
-    from supvisors.sparser import Parser
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
     parser = Parser(supvisors)
     check_valid(parser)
 
 
-def test_invalid_element_tree(mocker, supvisors, etree_import):
+def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
-    from supvisors.sparser import Parser
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
     parser = Parser(supvisors)
