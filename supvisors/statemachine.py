@@ -20,8 +20,8 @@
 from time import time
 from typing import Any, Callable, Optional
 
-from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import AddressStates, SupvisorsStates, NameList, Payload
+from .strategy import conciliate_conflicts
+from .ttypes import AddressStates, SupvisorsStates, NameList, Payload
 
 
 class AbstractState(object):
@@ -195,7 +195,7 @@ class OperationState(AbstractState):
         self.context.master_operational = True
 
     def next(self) -> SupvisorsStates:
-        """ Check that all addresses are still active.
+        """ Check that all nodes are still active.
         Look after possible conflicts due to multiple running instances of the same program. """
         # check eventual jobs in progress
         if self.supvisors.starter.check_starting() and self.supvisors.stopper.check_stopping():
@@ -207,6 +207,11 @@ class OperationState(AbstractState):
             # check duplicated processes
             if self.context.conflicting():
                 return SupvisorsStates.CONCILIATION
+            # a redeploy mark has set due to a new node in Supvisors
+            # back to DEPLOYMENT state to repair what may have failed before
+            if self.supvisors.fsm.redeploy_mark:
+                self.supvisors.fsm.redeploy_mark = False
+                return SupvisorsStates.DEPLOYMENT
         return SupvisorsStates.OPERATION
 
 
@@ -301,6 +306,7 @@ class FiniteStateMachine:
         self.logger = supvisors.logger
         self.state = None
         self.instance = AbstractState(supvisors)
+        self.redeploy_mark = False
         # Trigger first state / INITIALIZATION
         self.set_state(SupvisorsStates.INITIALIZATION)
 
@@ -318,7 +324,11 @@ class FiniteStateMachine:
         :param next_state: the new state
         :return: None
         """
-        while next_state != self.state and next_state in self._Transitions[self.state]:
+        while next_state != self.state:
+            if next_state not in self._Transitions[self.state]:
+                self.logger.error('FiniteStateMachine.on_authorization: unexpected transition from {} to {}'
+                                  .format(self.state, next_state))
+                break
             # exit the current state
             self.instance.exit()
             # assign the new state and publish SupvisorsStatus event internally and externally
@@ -394,8 +404,7 @@ class FiniteStateMachine:
     def on_authorization(self, node_name: str, authorized: bool, master_node_name: str,
                          supvisors_state: SupvisorsStates) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
-        When a new node that has not be part of Supvisors comes in the group, back to INITIALIZATION
-        for a new Master election and a possible deployment
+        When a new node comes in the group, back to DEPLOYMENT for a possible deployment.
 
         :param node_name: the node name from which the event comes
         :param authorized: the authorization status as seen by the remote node
@@ -406,6 +415,17 @@ class FiniteStateMachine:
         self.logger.info('FiniteStateMachine.on_authorization: node_name={} authorized={} master_node_name={}'
                          .format(node_name, authorized, master_node_name, supvisors_state))
         if self.context.on_authorization(node_name, authorized):
+            # a new node comes in group
+            # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing node
+            # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
+            if self.context.is_master:
+                if self.state in [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]:
+                    # it may not be relevant to transition directly to DEPLOYMENT from here
+                    # the DEPLOYMENT and CONCILIATION states are temporary and pending on actions to be completed
+                    # so mark the context to remember that a re-DEPLOYMENT can be considered at OPERATION level
+                    self.redeploy_mark = True
+                    self.logger.info('FiniteStateMachine.on_authorization: new node={}. defer re-DEPLOYMENT'
+                                     .format(node_name))
             if master_node_name:
                 if not self.context.master_node_name:
                     # local Supvisors doesn't know about a master yet but remote Supvisors does
@@ -415,10 +435,12 @@ class FiniteStateMachine:
                                      .format(master_node_name, node_name))
                     self.context.master_node_name = master_node_name
                 if master_node_name == node_name and supvisors_state == SupvisorsStates.OPERATION:
-                    # if the remote node is the master, consider the fact it is operational
+                    # if the remote node is the master, it must be operational
                     self.context.master_operational = True
                 if master_node_name != self.context.master_node_name:
                     # 2 different perceptions of the master, likely due to a split-brain situation
+                    # unset useless redeploy_mark
+                    self.redeploy_mark = False
                     # so going back to INITIALIZATION to fix
                     self.logger.warn('FiniteStateMachine.on_authorization: master node conflict. '
                                      ' local declares {} - remote ({}) declares {}'
@@ -463,6 +485,7 @@ class FiniteStateMachine:
                                                  SupvisorsStates.RESTARTING,
                                                  SupvisorsStates.SHUTTING_DOWN],
                     SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
+                                                SupvisorsStates.DEPLOYMENT,
                                                 SupvisorsStates.INITIALIZATION,
                                                 SupvisorsStates.RESTARTING,
                                                 SupvisorsStates.SHUTTING_DOWN],

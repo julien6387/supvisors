@@ -17,10 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
+import pickle
 import pytest
 
-from supervisor.states import ProcessStates, _process_states_by_code
+from supervisor.states import ProcessStates, STOPPED_STATES, RUNNING_STATES, _process_states_by_code
 from unittest.mock import call, patch
+
+from supvisors.process import ProcessRules, ProcessStatus
+from supvisors.ttypes import RunningFailureStrategies
 
 from .base import any_process_info, any_stopped_process_info, process_info_by_name, any_process_info_by_state
 from .conftest import create_process
@@ -30,13 +34,11 @@ from .conftest import create_process
 @pytest.fixture
 def rules(supvisors):
     """ Return the instance to test. """
-    from supvisors.process import ProcessRules
     return ProcessRules(supvisors)
 
 
 def test_rules_create(supvisors, rules):
     """ Test the values set at construction. """
-    from supvisors.ttypes import RunningFailureStrategies
     assert rules.supvisors is supvisors
     assert rules.node_names == ['*']
     assert rules.start_sequence == 0
@@ -99,7 +101,6 @@ def test_rules_check_start_sequence(rules):
 def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
-    from supvisors.ttypes import RunningFailureStrategies
     # test that only the CONTINUE strategy keeps the autorestart
     mocked_disable = rules.supvisors.info_source.disable_autorestart
     for strategy in RunningFailureStrategies:
@@ -170,8 +171,6 @@ def test_rules_check_dependencies(mocked_start, mocked_auto, mocked_hash, rules)
 # ProcessStatus part
 def test_process_create(supvisors):
     """ Test the values set at construction. """
-    from supervisor.states import ProcessStates
-    from supvisors.process import ProcessRules
     info = any_stopped_process_info()
     process = create_process(info, supvisors)
     # check application default attributes
@@ -228,7 +227,6 @@ def test_possible_nodes(supvisors):
 
 def test_status_stopped_process(supvisors):
     """ Test the stopped / running / crashed status with a STOPPED process. """
-    from supervisor.states import ProcessStates
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
@@ -324,7 +322,6 @@ def test_status_exited_process(supvisors):
 
 def test_conflicting(supvisors):
     """ Test the process conflicting rules. """
-    from supervisor.states import ProcessStates
     # when there is only one STOPPED process info, there is no conflict
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
@@ -343,8 +340,6 @@ def test_conflicting(supvisors):
 
 def test_serialization(supvisors):
     """ Test the serialization of the ProcessStatus. """
-    import pickle
-    from supervisor.states import ProcessStates
     # test with a STOPPED process
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
@@ -366,7 +361,6 @@ def test_serialization(supvisors):
 
 def test_add_info(supvisors):
     """ Test the addition of a process info into the ProcessStatus. """
-    from supervisor.states import ProcessStates
     # get a process info and complement extra_args
     info = process_info_by_name('xclock')
     info['extra_args'] = '-x dummy'
@@ -422,7 +416,6 @@ def test_add_info(supvisors):
 
 def test_update_info(supvisors):
     """ Test the update of the ProcessStatus upon reception of a process event. """
-    from supervisor.states import ProcessStates
     # 1. add a STOPPED process infos into a process status
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
@@ -567,7 +560,6 @@ def test_update_info(supvisors):
 
 def test_update_times(supvisors):
     """ Test the update of the time entries for a process info belonging to a ProcessStatus. """
-    from supervisor.states import ProcessStates
     # add 2 process infos into a process status
     info = any_process_info_by_state(ProcessStates.STOPPING)
     process = create_process(info, supvisors)
@@ -597,7 +589,6 @@ def test_update_times(supvisors):
 
 def test_update_uptime():
     """ Test the update of uptime entry in a Process info dictionary. """
-    from supvisors.process import ProcessStatus
     # check times on a RUNNING process info
     info = {'start': 50, 'now': 75}
     for state in _process_states_by_code:
@@ -611,7 +602,6 @@ def test_update_uptime():
 
 def test_invalidate_nodes(supvisors):
     """ Test the invalidation of nodes. """
-    from supervisor.states import ProcessStates
     # create conflict directly with 3 process info
     info = any_process_info_by_state(ProcessStates.BACKOFF)
     process = create_process(info, supvisors)
@@ -622,94 +612,85 @@ def test_invalidate_nodes(supvisors):
     assert process.conflicting()
     assert process.state == ProcessStates.RUNNING
     # invalidate RUNNING one
-    process.invalidate_node('10.0.0.2', False)
-    # check state became UNKNOWN on invalidated address
-    assert process.info_map['10.0.0.2']['state'] == ProcessStates.UNKNOWN
+    assert not process.invalidate_node('10.0.0.2')
+    # check state became FATAL on invalidated address
+    assert process.info_map['10.0.0.2']['state'] == ProcessStates.FATAL
     # check the conflict
     assert process.conflicting()
-    # check new synthetic state
     assert process.state == ProcessStates.BACKOFF
     # invalidate BACKOFF one
-    process.invalidate_node('10.0.0.1', False)
-    # check state became UNKNOWN on invalidated address
-    assert process.info_map['10.0.0.1']['state'] == ProcessStates.UNKNOWN
+    assert not process.invalidate_node('10.0.0.1')
+    # check state became FATAL on invalidated address
+    assert process.info_map['10.0.0.1']['state'] == ProcessStates.FATAL
     # check 1 address: no conflict
     assert not process.conflicting()
-    # check synthetic state (running process)
     assert process.state == ProcessStates.STARTING
     # invalidate STARTING one
-    process.invalidate_node('10.0.0.3', True)
-    # check state became UNKNOWN on invalidated address
-    assert process.info_map['10.0.0.3']['state'] == ProcessStates.UNKNOWN
+    process.invalidate_node('10.0.0.3')
+    # check state became FATAL on invalidated address
+    assert process.info_map['10.0.0.3']['state'] == ProcessStates.FATAL
     # check 0 address: no conflict
     assert not process.conflicting()
     # check that synthetic state became FATAL
     assert process.state == ProcessStates.FATAL
-    # check that failure_handler is notified
-    assert supvisors.failure_handler.add_default_job.call_args_list == [call(process)]
-    # add one STOPPING
-    process.add_info('10.0.0.4', any_process_info_by_state(ProcessStates.STOPPING))
-    # check state STOPPING
-    assert process.state == ProcessStates.STOPPING
-    # invalidate STOPPING one
-    process.invalidate_node('10.0.0.4', False)
-    # check state became UNKNOWN on invalidated address
-    assert process.info_map['10.0.0.4']['state'] == ProcessStates.UNKNOWN
-    # check that synthetic state became STOPPED
-    assert process.state == ProcessStates.STOPPED
 
 
 def test_update_status(supvisors):
     """ Test the update of state and running addresses. """
-    from supervisor.states import ProcessStates
     # update_status is called in the construction
-    info = any_process_info_by_state(ProcessStates.STOPPED)
+    info = any_process_info_by_state(ProcessStates.FATAL)
     process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    assert not process.running_nodes
+    process.add_info('10.0.0.3', info)
+    assert process.running_nodes == set()
+    assert process.state == ProcessStates.FATAL
+    assert not process.expected_exit
+    # add a STOPPED process info
+    process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.STOPPED)
+    process.update_status('10.0.0.1', ProcessStates.STOPPED)
+    assert process.running_nodes == set()
     assert process.state == ProcessStates.STOPPED
     assert process.expected_exit
     # replace with an EXITED process info
     process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.EXITED)
-    process.update_status('10.0.0.1', ProcessStates.EXITED, False)
-    assert not process.running_nodes
+    process.update_status('10.0.0.1', ProcessStates.EXITED)
+    assert process.running_nodes == set()
     assert process.state == ProcessStates.EXITED
-    assert not process.expected_exit
+    assert process.expected_exit
     # add a STARTING process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STARTING)
-    process.update_status('10.0.0.2', ProcessStates.STARTING, True)
+    process.update_status('10.0.0.2', ProcessStates.STARTING)
     assert process.running_nodes == {'10.0.0.2'}
     assert process.state == ProcessStates.STARTING
     assert process.expected_exit
     # add a BACKOFF process info
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.BACKOFF)
-    process.update_status('10.0.0.3', ProcessStates.STARTING, True)
+    process.update_status('10.0.0.3', ProcessStates.STARTING)
     assert process.running_nodes == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.BACKOFF
     assert process.expected_exit
     # replace STARTING process info with RUNNING
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.RUNNING)
-    process.update_status('10.0.0.2', ProcessStates.RUNNING, True)
+    process.update_status('10.0.0.2', ProcessStates.RUNNING)
     assert process.running_nodes == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace BACKOFF process info with FATAL
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.FATAL)
-    process.update_status('10.0.0.3', ProcessStates.FATAL, False)
+    process.update_status('10.0.0.3', ProcessStates.FATAL)
     assert process.running_nodes == {'10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace RUNNING process info with STOPPED
+    # in ProcessInfoDatabase, EXITED processes have a stop date later than STOPPED processes
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STOPPED)
-    process.update_status('10.0.0.2', ProcessStates.STOPPED, False)
+    process.update_status('10.0.0.2', ProcessStates.STOPPED)
     assert not process.running_nodes
-    assert process.state == ProcessStates.STOPPED
-    assert not process.expected_exit
+    assert process.state == ProcessStates.EXITED
+    assert process.expected_exit
 
 
 def test_process_evaluate_conflict(supvisors):
     """ Test the determination of a synthetic state in case of conflict. """
-    from supervisor.states import ProcessStates
     # when there is only one STOPPED process info, there is no conflict
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
@@ -742,8 +723,6 @@ def test_process_evaluate_conflict(supvisors):
 
 def test_process_running_state():
     """ Test the choice of a single state among a list of states. """
-    from supervisor.states import ProcessStates, STOPPED_STATES, RUNNING_STATES
-    from supvisors.process import ProcessStatus
     # check running states with several combinations
     assert ProcessStatus.running_state(STOPPED_STATES) == ProcessStates.UNKNOWN
     states = {ProcessStates.STOPPING}

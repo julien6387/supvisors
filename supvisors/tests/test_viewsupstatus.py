@@ -17,158 +17,150 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
-import unittest
+import pytest
 
-from supervisor.web import MeldView, StatusView
-from unittest.mock import call, patch, Mock
+from supervisor.web import MeldView
+from unittest.mock import call, Mock
 
+from supvisors.viewsupstatus import *
+from supvisors.webutils import HOST_NODE_PAGE, PROC_NODE_PAGE
 
-class ViewSupvisorsStatusTest(unittest.TestCase):
-    """ Test case for the viewsupstatus module. """
-
-    def setUp(self):
-        """ Create the instance to be tested. """
-        # apply the forced inheritance done in supvisors.plugin
-        from supvisors.viewhandler import ViewHandler
-        StatusView.__bases__ = (ViewHandler,)
-        # create the instance to be tested
-        from supvisors.tests.base import DummyHttpContext
-        from supvisors.viewsupstatus import SupvisorsAddressView
-        from supvisors.webutils import HOST_NODE_PAGE
-        self.view = SupvisorsAddressView(DummyHttpContext('ui/hostaddress.html'), HOST_NODE_PAGE)
-
-    def test_init(self):
-        """ Test the values set at construction. """
-        # test instance inheritance
-        from supvisors.viewhandler import ViewHandler
-        for klass in [StatusView, ViewHandler, MeldView]:
-            self.assertIsInstance(self.view, klass)
-        # test parameter page name
-        from supvisors.webutils import HOST_NODE_PAGE
-        self.assertEqual(HOST_NODE_PAGE, self.view.page_name)
-
-    def test_render(self):
-        """ Test the render method. """
-        with patch('supvisors.viewhandler.ViewHandler.render', return_value='default') as mocked_render:
-            self.assertEqual('default', self.view.render())
-            self.assertEqual([call(self.view)], mocked_render.call_args_list)
-
-    def test_write_navigation(self):
-        """ Test the write_navigation method. """
-        with patch.object(self.view, 'write_nav') as mocked_nav:
-            mocked_root = Mock()
-            self.view.write_navigation(mocked_root)
-            self.assertEqual([call(mocked_root, node_name='127.0.0.1')], mocked_nav.call_args_list)
-
-    @patch('supvisors.viewsupstatus.simple_localtime', return_value='07:05:30')
-    @patch('supvisors.viewsupstatus.SupvisorsAddressView.write_address_actions')
-    @patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
-    def test_write_header(self, mocked_periods, mocked_actions, mocked_time):
-        """ Test the write_header method. """
-        from supvisors.ttypes import AddressStates
-        # build root structure
-        mocked_mids = [Mock(attrib={}) for _ in range(4)]
-        mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
-        # first call tests with not master
-        mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING,
-                             **{'get_load.return_value': 12})
-        self.view.sup_ctx.is_master = False
-        self.view.sup_ctx.nodes['127.0.0.1'] = mocked_status
-        self.view.write_header(mocked_root)
-        self.assertEqual([call('address_mid'), call('state_mid'), call('percent_mid'), call('date_mid')],
-                         mocked_root.findmeld.call_args_list)
-        self.assertDictEqual({}, mocked_mids[0].attrib)
-        self.assertEqual([call('127.0.0.1')], mocked_mids[0].content.call_args_list)
-        self.assertEqual([call('RUNNING')], mocked_mids[1].content.call_args_list)
-        self.assertEqual([call('12%')], mocked_mids[2].content.call_args_list)
-        self.assertEqual([call('07:05:30')], mocked_mids[3].content.call_args_list)
-        self.assertEqual([call(mocked_root)], mocked_periods.call_args_list)
-        self.assertEqual([call(mocked_root)], mocked_actions.call_args_list)
-        # reset mocks
-        mocked_root.findmeld.reset_mock()
-        mocked_periods.reset_mock()
-        mocked_actions.reset_mock()
-        for mocked_mid in mocked_mids:
-            mocked_mid.content.reset_mock()
-        # second call tests with master
-        self.view.sup_ctx.is_master = True
-        self.view.write_header(mocked_root)
-        self.assertEqual([call('address_mid'), call('state_mid'), call('percent_mid'), call('date_mid')],
-                         mocked_root.findmeld.call_args_list)
-        self.assertDictEqual({'class': 'master'}, mocked_mids[0].attrib)
-        self.assertEqual([call('127.0.0.1')], mocked_mids[0].content.call_args_list)
-        self.assertEqual([call('RUNNING')], mocked_mids[1].content.call_args_list)
-        self.assertEqual([call('12%')], mocked_mids[2].content.call_args_list)
-        self.assertEqual([call('07:05:30')], mocked_mids[3].content.call_args_list)
-        self.assertEqual([call(mocked_root)], mocked_periods.call_args_list)
-        self.assertEqual([call(mocked_root)], mocked_actions.call_args_list)
-
-    def test_write_address_actions(self):
-        """ Test the write_address_actions method. """
-        from supvisors.viewcontext import ACTION
-        from supvisors.webutils import PROC_NODE_PAGE, HOST_NODE_PAGE
-        # set context (meant to be set through render)
-        self.view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-        # build root structure
-        mocked_view_mid = Mock(attrib={'class': ''})
-        mocked_stop_mid = Mock(attrib={'class': ''})
-        mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 2})
-        # test call
-        self.view.write_address_actions(mocked_root)
-        self.assertEqual([call('view_a_mid'), call('stopall_a_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call('', PROC_NODE_PAGE), call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})],
-                         self.view.view_ctx.format_url.call_args_list)
-        self.assertEqual([call(href='an url')], mocked_view_mid.attributes.call_args_list)
-        self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)
-        # reset mocks
-        mocked_root.findmeld.reset_mock()
-        self.view.view_ctx.format_url.reset_mock()
-        mocked_view_mid.attributes.reset_mock()
-        mocked_stop_mid.attributes.reset_mock()
-        # test call with PROC_ADDRESS_PAGE as self.page_name
-        self.view.page_name = PROC_NODE_PAGE
-        self.view.write_address_actions(mocked_root)
-        self.assertEqual([call('view_a_mid'), call('stopall_a_mid')], mocked_root.findmeld.call_args_list)
-        self.assertEqual([call('', HOST_NODE_PAGE),
-                          call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})],
-                         self.view.view_ctx.format_url.call_args_list)
-        self.assertEqual([call(href='an url')], mocked_view_mid.attributes.call_args_list)
-        self.assertEqual([call(href='an url')], mocked_stop_mid.attributes.call_args_list)
-
-    def test_make_callback(self):
-        """ Test the make_callback method. """
-        # test restart
-        with patch.object(self.view, 'restart_sup_action', return_value='restart') as mocked_action:
-            self.assertEqual('restart', self.view.make_callback('namespec', 'restartsup'))
-            self.assertEqual([call()], mocked_action.call_args_list)
-        # test shutdown
-        with patch.object(self.view, 'shutdown_sup_action', return_value='shutdown') as mocked_action:
-            self.assertEqual('shutdown', self.view.make_callback('namespec', 'shutdownsup'))
-            self.assertEqual([call()], mocked_action.call_args_list)
-        # test restart
-        with patch('supervisor.web.StatusView.make_callback', return_value='default') as mocked_action:
-            self.assertEqual('default', self.view.make_callback('namespec', 'other'))
-            self.assertEqual([call(self.view, 'namespec', 'other')], mocked_action.call_args_list)
-
-    @patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
-    def test_restart_sup_action(self, mocked_warn):
-        """ Test the restart_sup_action method. """
-        with patch.object(self.view.supvisors.zmq.pusher, 'send_restart') as mocked_pusher:
-            self.assertEqual('delayed warn', self.view.restart_sup_action())
-            self.assertEqual([call('127.0.0.1')], mocked_pusher.call_args_list)
-
-    @patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
-    def test_shutdown_sup_action(self, mocked_warn):
-        """ Test the shutdown_sup_action method. """
-        with patch.object(self.view.supvisors.zmq.pusher, 'send_shutdown') as mocked_pusher:
-            self.assertEqual('delayed warn', self.view.shutdown_sup_action())
-            self.assertEqual([call('127.0.0.1')], mocked_pusher.call_args_list)
+from .base import DummyHttpContext
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+@pytest.fixture
+def view(supvisors):
+    """ Return the instance to test. """
+    # apply the forced inheritance done in supvisors.plugin
+    StatusView.__bases__ = (ViewHandler,)
+    # create the instance to be tested
+    return SupvisorsAddressView(DummyHttpContext('ui/hostaddress.html'), HOST_NODE_PAGE)
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_init(view):
+    """ Test the values set at construction. """
+    # test instance inheritance
+    for klass in [StatusView, ViewHandler, MeldView]:
+        assert isinstance(view, klass)
+    # test parameter page name
+    assert view.page_name == HOST_NODE_PAGE
+
+
+def test_render(mocker, view):
+    """ Test the render method. """
+    mocked_render = mocker.patch('supvisors.viewhandler.ViewHandler.render', return_value='default')
+    assert view.render() == 'default'
+    assert mocked_render.call_args_list == [call(view)]
+
+
+def test_write_navigation(mocker, view):
+    """ Test the write_navigation method. """
+    mocked_nav = mocker.patch.object(view, 'write_nav')
+    mocked_root = Mock()
+    view.write_navigation(mocked_root)
+    assert mocked_nav.call_args_list == [call(mocked_root, node_name='127.0.0.1')]
+
+
+def test_write_header(mocker, view):
+    """ Test the write_header method. """
+    mocker.patch('supvisors.viewsupstatus.simple_localtime', return_value='07:05:30')
+    mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_address_actions')
+    mocked_periods = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
+    from supvisors.ttypes import AddressStates
+    # build root structure
+    mocked_mids = [Mock(attrib={}) for _ in range(4)]
+    mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
+    # first call tests with not master
+    mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING, **{'get_load.return_value': 12})
+    view.sup_ctx._is_master = False
+    view.sup_ctx.nodes['127.0.0.1'] = mocked_status
+    view.write_header(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid'),
+                                                   call('date_mid')]
+    assert mocked_mids[0].attrib == {}
+    assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
+    assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
+    assert mocked_mids[2].content.call_args_list == [call('12%')]
+    assert mocked_mids[3].content.call_args_list == [call('07:05:30')]
+    assert mocked_periods.call_args_list == [call(mocked_root)]
+    assert mocked_actions.call_args_list == [call(mocked_root)]
+    # reset mocks
+    mocked_root.findmeld.reset_mock()
+    mocked_periods.reset_mock()
+    mocked_actions.reset_mock()
+    for mocked_mid in mocked_mids:
+        mocked_mid.content.reset_mock()
+    # second call tests with master
+    view.sup_ctx._is_master = True
+    view.write_header(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid'),
+                                                   call('date_mid')]
+    assert mocked_mids[0].attrib == {'class': 'master'}
+    assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
+    assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
+    assert mocked_mids[2].content.call_args_list == [call('12%')]
+    assert mocked_mids[3].content.call_args_list == [call('07:05:30')]
+    assert mocked_periods.call_args_list == [call(mocked_root)]
+    assert mocked_actions.call_args_list == [call(mocked_root)]
+
+
+def test_write_address_actions(view):
+    """ Test the write_address_actions method. """
+    # set context (meant to be set through render)
+    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
+    # build root structure
+    mocked_view_mid = Mock(attrib={'class': ''})
+    mocked_stop_mid = Mock(attrib={'class': ''})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 2})
+    # test call
+    view.write_address_actions(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE),
+                                                       call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
+    # reset mocks
+    mocked_root.findmeld.reset_mock()
+    view.view_ctx.format_url.reset_mock()
+    mocked_view_mid.attributes.reset_mock()
+    mocked_stop_mid.attributes.reset_mock()
+    # test call with PROC_ADDRESS_PAGE as self.page_name
+    view.page_name = PROC_NODE_PAGE
+    view.write_address_actions(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_NODE_PAGE),
+                                                       call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
+
+
+def test_make_callback(mocker, view):
+    """ Test the make_callback method. """
+    # test restart
+    mocked_action = mocker.patch.object(view, 'restart_sup_action', return_value='restart')
+    assert view.make_callback('namespec', 'restartsup') == 'restart'
+    assert mocked_action.call_args_list == [call()]
+    # test shutdown
+    mocked_action = mocker.patch.object(view, 'shutdown_sup_action', return_value='shutdown')
+    assert view.make_callback('namespec', 'shutdownsup') == 'shutdown'
+    assert mocked_action.call_args_list == [call()]
+    # test restart
+    mocked_action = mocker.patch('supervisor.web.StatusView.make_callback', return_value='default')
+    assert view.make_callback('namespec', 'other') == 'default'
+    assert mocked_action.call_args_list == [call(view, 'namespec', 'other')]
+
+
+def test_restart_sup_action(mocker, view):
+    """ Test the restart_sup_action method. """
+    mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_restart')
+    assert view.restart_sup_action() == 'delayed warn'
+    assert mocked_pusher.call_args_list == [call('127.0.0.1')]
+
+
+def test_shutdown_sup_action(mocker, view):
+    """ Test the shutdown_sup_action method. """
+    mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
+    mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_shutdown')
+    assert view.shutdown_sup_action() == 'delayed warn'
+    assert mocked_pusher.call_args_list == [call('127.0.0.1')]

@@ -21,23 +21,20 @@ import pytest
 
 from unittest.mock import call, Mock
 
-from supervisor.http import NOT_DONE_YET
-from supervisor.xmlrpc import Faults, RPCError
-
+from supvisors.plugin import expand_faults
+from supvisors.rpcinterface import *
 from supvisors.ttypes import ConciliationStrategies, SupvisorsStates
 
 
 @pytest.fixture(autouse=True)
 def faults():
-    # add fault codes to Supervisor
-    from supvisors.plugin import expand_faults
+    """ Add fault codes to Supervisor. """
     expand_faults()
 
 
 @pytest.fixture
 def rpc(supvisors):
-    # create the instance to be tested
-    from supvisors.rpcinterface import RPCInterface
+    """ create the instance to be tested. """
     return RPCInterface(supvisors)
 
 
@@ -227,7 +224,7 @@ def test_conflicts(mocker, rpc):
     # prepare context
     proc_1 = Mock(**{'serial.return_value': {'name': 'proc_1'}})
     proc_3 = Mock(**{'serial.return_value': {'name': 'proc_3'}})
-    rpc.supvisors.context.conflicts.return_value = [proc_1, proc_3]
+    mocker.patch.object(rpc.supvisors.context, 'conflicts', return_value=[proc_1, proc_3])
     # test RPC call
     assert rpc.get_conflicts() == [{'name': 'proc_1'}, {'name': 'proc_3'}]
     assert mocked_check.call_args_list == [call()]
@@ -778,10 +775,10 @@ def test_restart(mocker, rpc):
 
 def test_conciliate(mocker, rpc):
     """ Test the conciliate RPC. """
-    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_conciliation')
     # set context and patches
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_conciliation')
+    mocker.patch.object(rpc.supvisors.context, 'conflicts', return_value=[1, 2, 4])
     rpc.supvisors.fsm.state = SupvisorsStates.CONCILIATION
-    rpc.supvisors.context.conflicts.return_value = [1, 2, 4]
     mocked_conciliate = mocker.patch('supvisors.rpcinterface.conciliate_conflicts')
     # test RPC call with wrong strategy
     with pytest.raises(RPCError) as exc:

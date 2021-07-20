@@ -19,10 +19,12 @@
 
 from typing import Iterator
 
-from supvisors.address import *
-from supvisors.application import ApplicationRules, ApplicationStatus
-from supvisors.process import *
-from supvisors.ttypes import AddressStates, NameList, PayloadList
+from .address import *
+from .application import ApplicationRules, ApplicationStatus
+from .infosource import SupervisordSource
+from .listener import SupervisorListener
+from .process import *
+from .ttypes import AddressStates, NameList, PayloadList
 
 
 class Context(object):
@@ -37,7 +39,7 @@ class Context(object):
     """
 
     # Timeout in seconds from which Supvisors considers that a node is inactive if no tick has been received in the gap.
-    # TODO: could be as an option in configuration file
+    # TODO: could be an option in configuration file
     INACTIVITY_TIMEOUT = 10
 
     def __init__(self, supvisors):
@@ -101,18 +103,20 @@ class Context(object):
                 for status in self.nodes.values()
                 if status.state in states]
 
-    def invalid(self, status):
+    def invalid(self, status: AddressStatus):
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
-        A local address is never ISOLATING, whatever the option is set or not.
+        A local node is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
         if self.supvisors.options.auto_fence and status.address_name != self.supvisors.address_mapper.local_node_name:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
-        # invalidate address in concerned processes
-        # if local Supvisors is master, failure handler will be notified for processes running on this address
+        # invalidate node in relevant processes
+        # if local Supvisors is master, failure handler will be notified for processes running on this node
         for process in status.running_processes():
-            process.invalidate_node(status.address_name, self.is_master)
+            failure = process.invalidate_node(status.address_name)
+            if failure and self.is_master:
+                self.force_process_state(process.namespec(), ProcessStates.FATAL, 'node %s lost' % status.address_name)
 
     def end_synchro(self) -> None:
         """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
@@ -320,3 +324,24 @@ class Context(object):
             # publish AddressStatus event
             self.supvisors.zmq.publisher.send_address_status(status.serial())
         return addresses
+
+    def force_process_state(self, namespec: str, state: int, reason: str) -> None:
+        """ Publish the process state requested to all Supvisors instances.
+
+        :param namespec: the process namespec
+        :param state: the process state to force (among ProcessStates)
+        :param reason: the reason declared
+        :return: None
+        """
+        # publish the process state to all Supvisors instances
+        state_string = getProcessStateDescription(state)
+        self.logger.warn('Commander.force_process_state: force {} state to {}'.format(namespec, state_string))
+        try:
+            class_method = getattr(SupervisordSource, 'force_process_' + state_string.lower())
+            class_method(self.supvisors.info_source, namespec, reason)
+        except KeyError:
+            self.logger.error('Commander.force_process_state: process unknown to this Supervisor'.format(namespec))
+            # the Supvisors user is not forced to use the same process configuration on all machines,
+            # so, publish directly a fake process event to all instances
+            class_method = getattr(SupervisorListener, 'force_process_' + state_string.lower())
+            class_method(self.supvisors.listener, namespec)

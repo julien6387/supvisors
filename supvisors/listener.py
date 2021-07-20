@@ -25,10 +25,10 @@ from supervisor.datatypes import boolean
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 
-from supvisors.mainloop import SupvisorsMainLoop
-from supvisors.ttypes import SupvisorsStates
-from supvisors.utils import InternalEventHeaders, RemoteCommEvents
-from supvisors.supvisorszmq import SupervisorZmq
+from .mainloop import SupvisorsMainLoop
+from .supvisorszmq import SupervisorZmq
+from .ttypes import SupvisorsStates
+from .utils import InternalEventHeaders, RemoteCommEvents
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}

@@ -27,25 +27,21 @@ from supvisors.strategy import *
 from supvisors.ttypes import AddressStates, ConciliationStrategies, RunningFailureStrategies, StartingStrategies
 
 
-def mocked_node(name, node_state, load):
-    """ Return a mocked AddressStatus. """
-    status = Mock(spec=AddressStatus, address_name=name, state=node_state)
-    status.get_load.return_value = load
-    return status
+def mock_node(mocker, status: AddressStatus, node_state: AddressStates, load: int):
+    """ Mock the AddressStatus. """
+    status._state = node_state
+    mocker.patch.object(status, 'get_load', return_value=load)
 
 
 @pytest.fixture
-def filled_nodes(supvisors):
+def filled_nodes(mocker, supvisors):
     nodes = supvisors.context.nodes
-    nodes['10.0.0.0'] = mocked_node('10.0.0.0', AddressStates.SILENT, 0)
-    nodes['10.0.0.1'] = mocked_node('10.0.0.1', AddressStates.RUNNING, 50)
-    nodes['10.0.0.2'] = mocked_node('10.0.0.2', AddressStates.ISOLATED, 0)
-    nodes['10.0.0.3'] = mocked_node('10.0.0.3', AddressStates.RUNNING, 20)
-    nodes['10.0.0.4'] = mocked_node('10.0.0.4', AddressStates.UNKNOWN, 0)
-    nodes['10.0.0.5'] = mocked_node('10.0.0.5', AddressStates.RUNNING, 80)
-    # initialize dummy address mapper with all address names (keep the alphabetic order)
-    supvisors.address_mapper.node_names = sorted(nodes.keys())
-    supvisors.address_mapper.local_node_name = '10.0.0.1'
+    mock_node(mocker, nodes['127.0.0.1'], AddressStates.RUNNING, 50)
+    mock_node(mocker, nodes['10.0.0.1'], AddressStates.SILENT, 0)
+    mock_node(mocker, nodes['10.0.0.2'], AddressStates.ISOLATED, 0)
+    mock_node(mocker, nodes['10.0.0.3'], AddressStates.RUNNING, 20)
+    mock_node(mocker, nodes['10.0.0.4'], AddressStates.UNKNOWN, 0)
+    mock_node(mocker, nodes['10.0.0.5'], AddressStates.RUNNING, 80)
     return supvisors
 
 
@@ -58,17 +54,17 @@ def starting_strategy(filled_nodes):
 def test_is_loading_valid(starting_strategy):
     """ Test the validity of an address with an additional loading. """
     # test unknown address
-    assert starting_strategy.is_loading_valid('10.0.0.10', 1) == (False, 0)
-    # test not RUNNING address
     assert starting_strategy.is_loading_valid('10.0.0.0', 1) == (False, 0)
+    # test not RUNNING address
+    assert starting_strategy.is_loading_valid('10.0.0.1', 1) == (False, 0)
     assert starting_strategy.is_loading_valid('10.0.0.2', 1) == (False, 0)
     assert starting_strategy.is_loading_valid('10.0.0.4', 1) == (False, 0)
     # test loaded RUNNING address
-    assert starting_strategy.is_loading_valid('10.0.0.1', 55) == (False, 50)
+    assert starting_strategy.is_loading_valid('127.0.0.1', 55) == (False, 50)
     assert starting_strategy.is_loading_valid('10.0.0.3', 85) == (False, 20)
     assert starting_strategy.is_loading_valid('10.0.0.5', 25) == (False, 80)
     # test not loaded RUNNING address
-    assert starting_strategy.is_loading_valid('10.0.0.1', 45) == (True, 50)
+    assert starting_strategy.is_loading_valid('127.0.0.1', 45) == (True, 50)
     assert starting_strategy.is_loading_valid('10.0.0.3', 75) == (True, 20)
     assert starting_strategy.is_loading_valid('10.0.0.5', 15) == (True, 80)
 
@@ -78,19 +74,19 @@ def test_get_loading_and_validity(starting_strategy):
     # test valid addresses with different additional loadings
     node_names = starting_strategy.supvisors.address_mapper.node_names
     # first test
-    expected = {'10.0.0.0': (False, 0), '10.0.0.1': (True, 50), '10.0.0.2': (False, 0),
+    expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
                 '10.0.0.3': (True, 20), '10.0.0.4': (False, 0), '10.0.0.5': (True, 80)}
     assert starting_strategy.get_loading_and_validity(node_names, 15) == expected
     # second test
-    expected = {'10.0.0.0': (False, 0), '10.0.0.1': (True, 50), '10.0.0.2': (False, 0),
+    expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
                 '10.0.0.3': (True, 20), '10.0.0.4': (False, 0), '10.0.0.5': (False, 80)}
     assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.nodes.keys(), 45) == expected
     # third test
-    expected = {'10.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.get_loading_and_validity(['10.0.0.1', '10.0.0.3', '10.0.0.5'], 75) == expected
+    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)}
+    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 75) == expected
     # fourth test
-    expected = {'10.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.get_loading_and_validity(['10.0.0.1', '10.0.0.3', '10.0.0.5'], 85) == expected
+    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)}
+    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 85) == expected
 
 
 def test_sort_valid_by_loading(starting_strategy):
@@ -113,8 +109,8 @@ def test_config_strategy(filled_nodes):
     strategy = ConfigStrategy(filled_nodes)
     # test CONFIG strategy with different values
     node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 15) == '10.0.0.1'
-    assert strategy.get_node(node_names, 45) == '10.0.0.1'
+    assert strategy.get_node(node_names, 15) == '127.0.0.1'
+    assert strategy.get_node(node_names, 45) == '127.0.0.1'
     assert strategy.get_node(node_names, 75) == '10.0.0.3'
     assert strategy.get_node(node_names, 85) is None
 
@@ -136,7 +132,7 @@ def test_most_loaded_strategy(filled_nodes):
     # test MOST_LOADED strategy with different values
     node_names = filled_nodes.address_mapper.node_names
     assert strategy.get_node(node_names, 15) == '10.0.0.5'
-    assert strategy.get_node(node_names, 45) == '10.0.0.1'
+    assert strategy.get_node(node_names, 45) == '127.0.0.1'
     assert strategy.get_node(node_names, 75) == '10.0.0.3'
     assert strategy.get_node(node_names, 85) is None
 
@@ -146,9 +142,9 @@ def test_local_strategy(filled_nodes):
     strategy = LocalStrategy(filled_nodes)
     # test LOCAL strategy with different values
     node_names = filled_nodes.address_mapper.node_names
-    assert strategy.supvisors.address_mapper.local_node_name == '10.0.0.1'
-    assert strategy.get_node(node_names, 15) == '10.0.0.1'
-    assert strategy.get_node(node_names, 45) == '10.0.0.1'
+    assert strategy.supvisors.address_mapper.local_node_name == '127.0.0.1'
+    assert strategy.get_node(node_names, 15) == '127.0.0.1'
+    assert strategy.get_node(node_names, 45) == '127.0.0.1'
     assert strategy.get_node(node_names, 75) is None
 
 
@@ -156,7 +152,7 @@ def test_get_node(filled_nodes):
     """ Test the choice of a node according to a strategy. """
     # test CONFIG strategy
     node_names = filled_nodes.address_mapper.node_names
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 15) == '10.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 15) == '127.0.0.1'
     assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 75) == '10.0.0.3'
     assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 85) is None
     # test LESS_LOADED strategy
@@ -168,7 +164,7 @@ def test_get_node(filled_nodes):
     assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 75) == '10.0.0.3'
     assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 85) is None
     # test LOCAL strategy
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 15) == '10.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 15) == '127.0.0.1'
     assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 75) is None
 
 

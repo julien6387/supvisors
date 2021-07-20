@@ -19,20 +19,18 @@
 
 import pytest
 
-from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
 
 from unittest.mock import call, patch, Mock
 
-from supvisors.ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewsupvisors import SupvisorsView
+from supvisors.viewsupvisors import *
 from supvisors.webutils import PROC_NODE_PAGE, SUPVISORS_PAGE
+
+from .base import DummyHttpContext
 
 
 @pytest.fixture
 def http_context():
-    from supvisors.tests.base import DummyHttpContext
     return DummyHttpContext('ui/hostaddress.html')
 
 
@@ -85,7 +83,7 @@ def test_write_contents(mocker, view):
     mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_strategies')
     # patch context
     view.supvisors.fsm.state = SupvisorsStates.OPERATION
-    view.sup_ctx.conflicts.return_value = True
+    mocker.patch.object(view.sup_ctx, 'conflicts', return_value=True)
     # build root structure
     mocked_box_mid = Mock()
     mocked_conflict_mid = Mock()
@@ -438,7 +436,7 @@ def test_write_conflict_strategies(view):
     assert mocked_td_mid.replace.call_args_list == [call('')]
 
 
-def test_get_conciliation_data(view):
+def test_get_conciliation_data(mocker, view):
     """ Test the get_conciliation_data method. """
     # patch context
     process_1 = Mock(running_nodes={'10.0.0.1', '10.0.0.2'},
@@ -447,7 +445,7 @@ def test_get_conciliation_data(view):
     process_2 = Mock(running_nodes={'10.0.0.3', '10.0.0.2'},
                      info_map={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}},
                      **{'namespec.return_value': 'proc_2'})
-    view.sup_ctx.conflicts.return_value = [process_1, process_2]
+    mocker.patch.object(view.sup_ctx, 'conflicts', return_value=[process_1, process_2])
     # test call
     expected = [{'namespec': 'proc_1', 'rowspan': 2, 'node_name': '10.0.0.1', 'uptime': 12},
                 {'namespec': 'proc_1', 'rowspan': 0, 'node_name': '10.0.0.2', 'uptime': 11},
@@ -473,7 +471,7 @@ def test_sup_restart_action(mocker, view):
                       mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info'),
                       mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
                       mocker.patch('supvisors.viewsupvisors.info_message', return_value='info')]
-    _check_sup_action(view, view.sup_restart_action, 'restart', *mocked_methods)
+    _check_sup_action(mocker, view, view.sup_restart_action, 'restart', *mocked_methods)
 
 
 def test_sup_shutdown_action(mocker, view):
@@ -482,17 +480,15 @@ def test_sup_shutdown_action(mocker, view):
                       mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info'),
                       mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
                       mocker.patch('supvisors.viewsupvisors.info_message', return_value='info')]
-    _check_sup_action(view, view.sup_shutdown_action, 'shutdown', *mocked_methods)
+    _check_sup_action(mocker, view, view.sup_shutdown_action, 'shutdown', *mocked_methods)
 
 
-def _check_sup_action(view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mocked_error, mocked_info):
+def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mocked_error, mocked_info):
     """ Test the sup_restart_action & sup_shutdown_action methods. """
-    from supervisor.http import NOT_DONE_YET
-    from supervisor.xmlrpc import RPCError
     # test RPC error
-    with patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
-                      side_effect=RPCError('failed RPC')):
-        assert method_cb() == 'delayed error'
+    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
+                        side_effect=RPCError('failed RPC'))
+    assert method_cb() == 'delayed error'
     assert mocked_derror.called
     assert not mocked_dinfo.called
     assert not mocked_error.called
@@ -500,9 +496,9 @@ def _check_sup_action(view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mo
     # reset mocks
     mocked_derror.reset_mock()
     # test direct result
-    with patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
-                      return_value='not callable object'):
-        assert method_cb() == 'delayed info'
+    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
+                        return_value='not callable object')
+    assert method_cb() == 'delayed info'
     assert not mocked_derror.called
     assert mocked_dinfo.called
     assert not mocked_error.called
@@ -511,9 +507,8 @@ def _check_sup_action(view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mo
     mocked_dinfo.reset_mock()
     # test delayed result with RPC error
     mocked_onwait = Mock(side_effect=RPCError('failed RPC'))
-    with patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
-                      return_value=mocked_onwait):
-        cb = method_cb()
+    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    cb = method_cb()
     assert callable(cb)
     assert cb() == 'error'
     assert not mocked_derror.called
@@ -524,9 +519,8 @@ def _check_sup_action(view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mo
     mocked_error.reset_mock()
     # test delayed / uncompleted result
     mocked_onwait = Mock(return_value=NOT_DONE_YET)
-    with patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
-                      return_value=mocked_onwait):
-        cb = method_cb()
+    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    cb = method_cb()
     assert callable(cb)
     assert cb() is NOT_DONE_YET
     assert not mocked_derror.called
@@ -535,9 +529,8 @@ def _check_sup_action(view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mo
     assert not mocked_info.called
     # test delayed / completed result
     mocked_onwait = Mock(return_value='done')
-    with patch.object(view.supvisors.info_source.supvisors_rpc_interface, 'shutdown',
-                      return_value=mocked_onwait) as mocked_rpc:
-        cb = method_cb()
+    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    cb = method_cb()
     assert callable(cb)
     assert cb() == 'info'
     assert not mocked_derror.called
@@ -552,8 +545,8 @@ def test_stop_action(mocker, view):
     process = Mock(running_nodes=['10.0.0.1', '10.0.0.2', '10.0.0.3'])
     mocked_get = mocker.patch.object(view.supvisors.context, 'get_process', return_value=process)
     # test call
-    with patch.object(view.supvisors.zmq.pusher, 'send_stop_process') as mocked_rpc:
-        cb = view.stop_action('dummy_proc', '10.0.0.2')
+    mocked_rpc = mocker.patch.object(view.supvisors.zmq.pusher, 'send_stop_process')
+    cb = view.stop_action('dummy_proc', '10.0.0.2')
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.2', 'dummy_proc')]
     assert mocked_get.call_args_list == [call('dummy_proc')]
@@ -595,8 +588,8 @@ def test_conciliation_action(mocker, view):
     mocked_info = mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info')
     mocked_conciliate = mocker.patch('supvisors.viewsupvisors.conciliate_conflicts')
     # patch context
-    view.sup_ctx.get_process.return_value = 'a process status'
-    view.sup_ctx.conflicts.return_value = 'all conflicting process status'
+    mocker.patch.object(view.sup_ctx, 'get_process', return_value='a process status')
+    mocker.patch.object(view.sup_ctx, 'conflicts', return_value='all conflicting process status')
     # test with no namespec
     assert view.conciliation_action(None, 'INFANTICIDE') == 'delayed info'
     assert mocked_conciliate.call_args_list == [call(view.supvisors, ConciliationStrategies.INFANTICIDE,

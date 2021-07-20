@@ -19,24 +19,24 @@
 
 import pytest
 
-from .base import DummySupervisor, MockedSupvisors
+from supvisors.application import ApplicationRules, ApplicationStatus
+from supvisors.process import ProcessRules, ProcessStatus
+
+from .base import DummySupervisor, MockedSupvisors, any_process_info
 
 
 # Easy Application / Process creation
 def create_process(info, supvisors):
     """ Create a ProcessStatus from a payload. """
-    from supvisors.process import ProcessRules, ProcessStatus
     return ProcessStatus(info['group'], info['name'], ProcessRules(supvisors), supvisors)
 
 
 def create_any_process(supvisors):
-    from supvisors.tests.base import any_process_info
     return create_process(any_process_info(), supvisors)
 
 
 def create_application(application_name, supvisors):
     """ Create an ApplicationStatus. """
-    from supvisors.application import ApplicationRules, ApplicationStatus
     return ApplicationStatus(application_name, ApplicationRules(), supvisors.logger)
 
 

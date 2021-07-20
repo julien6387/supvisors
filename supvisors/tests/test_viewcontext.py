@@ -23,7 +23,7 @@ from unittest.mock import call, patch, Mock
 
 from supvisors.viewcontext import *
 
-from .base import DummyAddressMapper, DummyOptions
+from .base import DummyAddressMapper, DummyHttpContext, DummyOptions
 
 
 url_attr_template = r'(.+=.+)'
@@ -32,14 +32,13 @@ url_attr_template = r'(.+=.+)'
 @pytest.fixture
 def http_context():
     """ Fixture for Dummy HTTP Context. """
-    from supvisors.tests.base import DummyHttpContext
     return DummyHttpContext('')
 
 
 @pytest.fixture
-def ctx(http_context):
+def ctx(mocker, http_context):
     """ Fixture for the instance to test. """
-    http_context.supervisord.supvisors.context.get_all_namespecs.return_value = {}
+    mocker.patch.object(http_context.supervisord.supvisors.context, 'get_all_namespecs', return_value={})
     return ViewContext(http_context)
 
 
@@ -449,25 +448,17 @@ def test_get_process_last_desc(mocker, ctx):
     """ Test the ViewContext.get_process_last_desc method. """
     # build common Mock
     mocked_process = Mock(running_nodes=set(),
-                          info_map={'10.0.0.1': {'local_time': 10, 'description': 'desc1'},
-                                    '10.0.0.2': {'local_time': 30, 'description': 'desc2'},
-                                    '10.0.0.3': {'local_time': 20, 'description': 'desc3'}})
-    # test method return on non-running process and running requested
+                          info_map={'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
+                                    '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'desc2'},
+                                    '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}})
     mocker.patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process)
-    assert ctx.get_process_last_desc('dummy_proc', True) == (None, None)
-    # test method return on non-running process and running not requested
-    assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.2', 'desc2')
-    # test method return on running process and running requested
+    # test method return on non-running process
+    assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.1', 'desc1')
+    # test method return on running process
     mocked_process.running_nodes.add('10.0.0.3')
-    assert ctx.get_process_last_desc('dummy_proc', True) == ('10.0.0.3', 'desc3')
-    # test method return on running process and running not requested
-    # same result as previous
     assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.3', 'desc3')
-    # test method return on multiple running processes and running requested
+    # test method return on multiple running processes
     mocked_process.running_nodes.add('10.0.0.2')
-    assert ctx.get_process_last_desc('dummy_proc', True) == ('10.0.0.2', 'desc2')
-    # test method return on running process and running not requested
-    # same result as previous
     assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.2', 'desc2')
 
 

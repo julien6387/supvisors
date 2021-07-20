@@ -18,21 +18,19 @@
 # ======================================================================
 
 import pytest
-import time
 
-from supervisor.states import ProcessStates
 from unittest.mock import call, patch, Mock
 
-from supvisors.ttypes import ApplicationStates, StartingStrategies
+from supvisors.commander import *
+from supvisors.ttypes import ApplicationStates, StartingStrategies, StartingFailureStrategies
 
-from .base import database_copy
-from .conftest import create_any_process, create_process, create_application
+from .base import database_copy, any_process_info_by_state
+from .conftest import create_any_process, create_application, create_process
 
 
 # ProcessCommand part
 def test_command_create(supvisors):
     """ Test the values set at construction of ProcessCommand. """
-    from supvisors.commander import ProcessCommand
     process = create_any_process(supvisors)
     # test default strategy
     command = ProcessCommand(process)
@@ -52,7 +50,6 @@ def test_command_create(supvisors):
 
 def test_str():
     """ Test the output string of the ProcessCommand. """
-    from supvisors.commander import ProcessCommand
     process = Mock(state='RUNNING', last_event_time=1234, **{'namespec.return_value': 'proc_1'})
     command = ProcessCommand(process, StartingStrategies.CONFIG)
     command.request_time = 4321
@@ -64,7 +61,6 @@ def test_str():
 
 def test_timed_out():
     """ Test the ProcessCommand.timed_out method. """
-    from supvisors.commander import ProcessCommand
     command = ProcessCommand(Mock(last_event_time=100))
     command.request_time = 95
     assert not command.timed_out(102)
@@ -78,7 +74,6 @@ def test_timed_out():
 # Commander part
 def create_process_command(info, supvisors):
     """ Create a ProcessCommand from process info. """
-    from supvisors.commander import ProcessCommand
     return ProcessCommand(create_process(info, supvisors))
 
 
@@ -101,7 +96,6 @@ def command_list(supvisors):
 @pytest.fixture
 def commander(supvisors):
     """ Create the Commander instance to test. """
-    from supvisors.commander import Commander
     return Commander(supvisors)
 
 
@@ -292,12 +286,11 @@ def test_commander_trigger_jobs(commander, command_list_1, command_list_2):
         assert mocked_job.call_count == 4
 
 
-@patch('supvisors.commander.Commander.trigger_jobs')
-@patch('supvisors.commander.Commander.force_process_state')
-@patch('supvisors.commander.Commander.after_event')
-def test_commander_check_progress(mocked_after: Mock, mocked_force: Mock, mocked_trigger: Mock,
-                                  commander, command_list):
+def test_commander_check_progress(mocker, commander, command_list):
     """ Test the Commander.check_progress method. """
+    mocked_trigger = mocker.patch('supvisors.commander.Commander.trigger_jobs')
+    mocked_after = mocker.patch('supvisors.commander.Commander.after_event')
+    mocked_force = commander.supvisors.context.force_process_state = Mock()
     # test with no sequence in progress
     assert commander.check_progress('stopped', ProcessStates.FATAL)
     # test with no current jobs but planned sequence and no planned jobs
@@ -372,38 +365,6 @@ def test_commander_check_progress(mocked_after: Mock, mocked_force: Mock, mocked
     assert not mocked_trigger.called
 
 
-@patch('supvisors.infosource.SupervisordSource.force_process_fatal')
-@patch('supvisors.listener.SupervisorListener.force_process_fatal')
-def test_commander_force_process_fatal(mocked_listener: Mock, mocked_source: Mock, commander):
-    """ Test the Commander.force_process_state method with a FATAL parameter. """
-    # test with FATAL and no info_source KeyError
-    commander.force_process_state('proc', ProcessStates.FATAL, 'any reason')
-    assert mocked_source.call_args_list == [call(commander.supvisors.info_source, 'proc', 'any reason')]
-    assert not mocked_listener.called
-    mocked_source.reset_mock()
-    # test with FATAL and info_source KeyError
-    mocked_source.side_effect = KeyError
-    commander.force_process_state('proc', ProcessStates.FATAL, 'any reason')
-    assert mocked_source.call_args_list == [call(commander.supvisors.info_source, 'proc', 'any reason')]
-    assert mocked_listener.call_args_list == [call(commander.supvisors.listener, 'proc')]
-
-
-@patch('supvisors.infosource.SupervisordSource.force_process_unknown')
-@patch('supvisors.listener.SupervisorListener.force_process_unknown')
-def test_commander_force_process_unknown(mocked_listener: Mock, mocked_source: Mock, commander):
-    """ Test the Commander.force_process_state method with an UNKNOWN parameter. """
-    # test with UNKNOWN and no info_source KeyError
-    commander.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
-    assert mocked_source.call_args_list == [call(commander.supvisors.info_source, 'proc', 'any reason')]
-    assert not mocked_listener.called
-    mocked_source.reset_mock()
-    # test with UNKNOWN and info_source KeyError
-    mocked_source.side_effect = KeyError
-    commander.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
-    assert mocked_source.call_args_list == [call(commander.supvisors.info_source, 'proc', 'any reason')]
-    assert mocked_listener.call_args_list == [call(commander.supvisors.listener, 'proc')]
-
-
 def test_commander_after_event(mocker, commander):
     """ Test the Commander.after_event method. """
     mocked_trigger = mocker.patch('supvisors.commander.Commander.trigger_jobs')
@@ -448,13 +409,11 @@ def test_commander_after_jobs(commander):
 @pytest.fixture
 def starter(supvisors):
     """ Create the Starter instance to test. """
-    from supvisors.commander import Starter
     return Starter(supvisors)
 
 
 def test_starter_create(starter):
     """ Test the values set at construction of Starter. """
-    from supvisors.commander import Commander
     assert isinstance(starter, Commander)
 
 
@@ -527,7 +486,6 @@ def test_starter_process_failure_optional(starter):
 
 def test_starter_process_failure_required(starter):
     """ Test the Starter.process_failure method with a required process. """
-    from supvisors.ttypes import StartingFailureStrategies
     # prepare context
     process = Mock(application_name='appli_1')
     process.rules = Mock(required=True)
@@ -598,7 +556,6 @@ def test_starter_on_event(starter, command_list):
 @patch('supvisors.commander.Commander.after_event')
 def test_starter_on_event_in_sequence(mocked_after: Mock, mocked_failure: Mock, starter, command_list):
     """ Test the Starter.on_event_in_sequence method. """
-    from supvisors.ttypes import StartingFailureStrategies
     # set context for current_jobs
     for command in command_list:
         starter.current_jobs.setdefault(command.process.application_name, []).append(command)
@@ -734,11 +691,11 @@ def test_starter_on_event_out_of_sequence(starter, command_list):
         assert not mocked_failure.called
 
 
-@patch('supvisors.commander.Commander.force_process_state')
-@patch('supvisors.commander.get_node')
-def test_starter_process_job(mocked_node_getter: Mock, mocked_force: Mock, starter, command_list):
+def test_starter_process_job(mocker, starter, command_list):
     """ Test the Starter.process_job method. """
     # get patches
+    mocked_node_getter = mocker.patch('supvisors.commander.get_node')
+    mocked_force = mocker.patch.object(starter.supvisors.context, 'force_process_state')
     mocked_pusher = starter.supvisors.zmq.pusher.send_start_process
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
@@ -873,66 +830,105 @@ def test_starter_default_start_application(mocker, starter):
     assert mocked_start.call_args_list == [call(starter.supvisors.options.starting_strategy, application)]
 
 
-def test_starter_start_applications(starter, command_list):
+def test_starter_start_applications(mocker, starter, command_list):
     """ Test the Starter.start_applications method. """
-    from supvisors.ttypes import ApplicationStates
+    mocked_store = mocker.patch.object(starter, 'store_application_start_sequence')
+    mocked_trigger = mocker.patch.object(starter, 'trigger_jobs')
     # create one running application
-    application = create_application('sample_test_1', starter.supvisors)
-    application._state = ApplicationStates.RUNNING
-    starter.supvisors.context.applications['sample_test_1'] = application
+    sample_test_1 = create_application('sample_test_1', starter.supvisors)
+    sample_test_1.rules.start_sequence = 1
+    sample_test_1._state = ApplicationStates.RUNNING
+    starter.supvisors.context.applications['sample_test_1'] = sample_test_1
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process = create_process(info, starter.supvisors)
+    process.add_info('10.0.0.1', info)
+    sample_test_1.add_process(process)
+    # create one running application with major failure - add FATAL process
+    sample_test_major = create_application('sample_test_major', starter.supvisors)
+    sample_test_major._state = ApplicationStates.RUNNING
+    sample_test_major.rules.start_sequence = 3
+    sample_test_major.major_failure = True
+    starter.supvisors.context.applications['sample_test_major'] = sample_test_major
+    info = any_process_info_by_state(ProcessStates.FATAL)
+    process = create_process(info, starter.supvisors)
+    process.add_info('10.0.0.1', info)
+    sample_test_major.add_process(process)
+    # create one running application with minor failure - add EXITED process
+    sample_test_minor = create_application('sample_test_minor', starter.supvisors)
+    sample_test_minor._state = ApplicationStates.RUNNING
+    sample_test_minor.rules.start_sequence = 3
+    sample_test_minor.minor_failure = True
+    starter.supvisors.context.applications['sample_test_minor'] = sample_test_minor
+    info = any_process_info_by_state(ProcessStates.EXITED)
+    process = create_process(info, starter.supvisors)
+    process.add_info('10.0.0.1', info)
+    sample_test_minor.add_process(process)
     # create one stopped application with a start_sequence > 0
-    application = create_application('sample_test_2', starter.supvisors)
-    application.rules.start_sequence = 2
+    sample_test_2 = create_application('sample_test_2', starter.supvisors)
+    sample_test_2.rules.start_sequence = 2
     for command in command_list:
         if command.process.application_name == 'sample_test_2':
-            application.start_sequence.setdefault(len(command.process.namespec()) % 3, []).append(command.process)
-    starter.supvisors.context.applications['sample_test_2'] = application
+            sample_test_2.start_sequence.setdefault(len(command.process.namespec()) % 3, []).append(command.process)
+    starter.supvisors.context.applications['sample_test_2'] = sample_test_2
     # create one stopped application with a start_sequence == 0
-    application = create_application('crash', starter.supvisors)
-    application.rules.start_sequence = 0
-    starter.supvisors.context.applications['crash'] = application
-    # call starter start_applications and check that only sample_test_2 is triggered
-    with patch.object(starter, 'process_application_jobs') as mocked_jobs:
-        starter.start_applications()
-        assert starter.planned_sequence == {}
-        assert starter.printable_planned_jobs() == {'sample_test_2': {1: ['sample_test_2:sleep']}}
-        # current jobs is empty because of process_application_jobs mocking
-        assert starter.printable_current_jobs() == {}
-        assert mocked_jobs.call_args_list == [call('sample_test_2')]
+    sample_test_3 = create_application('sample_test_3', starter.supvisors)
+    sample_test_3.rules.start_sequence = 0
+    starter.supvisors.context.applications['crash'] = sample_test_3
+    # create one stopped application with a start failure
+    crash = create_application('crash', starter.supvisors)
+    crash.rules.start_sequence = 1
+    crash.start_failure = True
+    starter.supvisors.context.applications['crash'] = crash
+    info = any_process_info_by_state(ProcessStates.FATAL)
+    process = create_process(info, starter.supvisors)
+    process.add_info('10.0.0.2', info)
+    crash.add_process(process)
+    # call starter start_applications and check what is triggered (1 start / 3 repair)
+    starter.start_applications()
+    mocked_store.assert_has_calls([call(sample_test_2, StartingStrategies.CONFIG),
+                                   call(sample_test_major, StartingStrategies.CONFIG, True),
+                                   call(sample_test_minor, StartingStrategies.CONFIG, True),
+                                   call(crash, StartingStrategies.CONFIG, True)], any_order=True)
+    assert mocked_trigger.call_args_list == [call()]
 
 
 def test_starter_after_jobs(mocker, starter):
     """ Test the Starter.after_jobs method. """
     mocked_stop = mocker.patch.object(starter.supvisors.stopper, 'stop_application')
     # patch context
-    starter.supvisors.context.applications = {'dummy_appli': 'a dummy application'}
+    appli_1 = Mock(**{'check_start_sequence.return_value': None})
+    appli_2 = Mock(**{'check_start_sequence.return_value': None})
+    starter.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2}
     # test with application_stop_requests empty
     assert starter.application_stop_requests == []
-    starter.after_jobs('dummy')
+    starter.after_jobs('appli_1')
     assert starter.application_stop_requests == []
     assert not mocked_stop.called
+    assert appli_1.check_start_sequence.call_args_list == [call()]
+    # reset mock
+    appli_1.check_start_sequence.reset_mock()
     # test with application_stop_requests but call with another application
-    starter.application_stop_requests.append('dummy_appli')
-    starter.after_jobs('dummy')
-    assert starter.application_stop_requests == ['dummy_appli']
+    starter.application_stop_requests.append('appli_2')
+    starter.after_jobs('appli_1')
+    assert starter.application_stop_requests == ['appli_2']
     assert not mocked_stop.called
+    assert appli_1.check_start_sequence.call_args_list == [call()]
     # test with application_stop_requests and call with application
-    starter.after_jobs('dummy_appli')
+    starter.after_jobs('appli_2')
     assert starter.application_stop_requests == []
-    assert mocked_stop.call_args_list == [call('a dummy application')]
+    assert mocked_stop.call_args_list == [call(appli_2)]
+    assert not appli_2.check_start_sequence.called
 
 
 # Stopper part
 @pytest.fixture
 def stopper(supvisors):
     """ Create the Stopper instance to test. """
-    from supvisors.commander import Stopper
     return Stopper(supvisors)
 
 
 def test_stopper_create(stopper):
     """ Test the values set at construction of Stopper. """
-    from supvisors.commander import Commander
     assert isinstance(stopper, Commander)
 
 
@@ -1100,7 +1096,6 @@ def test_stopper_stop_process_success(stopper, command_list):
 
 def test_stopper_stop_application(stopper, command_list):
     """ Test the Stopper.stop_application method. """
-    from supvisors.ttypes import ApplicationStates
     # create application start_sequence
     appli = create_application('sample_test_1', stopper.supvisors)
     for command in command_list:
@@ -1131,7 +1126,6 @@ def test_stopper_stop_application(stopper, command_list):
 
 def test_stopper_stop_applications(stopper, command_list):
     """ Test the Stopper.stop_applications method. """
-    from supvisors.ttypes import ApplicationStates
     # create one running application with a start_sequence > 0
     appli = create_application('sample_test_1', stopper.supvisors)
     appli._state = ApplicationStates.RUNNING
@@ -1161,3 +1155,17 @@ def test_stopper_stop_applications(stopper, command_list):
         # current jobs is empty because of process_application_jobs mocking
         assert stopper.printable_current_jobs() == {}
         assert mocked_jobs.call_args_list == [call('crash')]
+
+
+def test_stopper_after_jobs(stopper):
+    """ Test the Stopper.after_jobs method. """
+    # patch context
+    appli_1 = Mock(start_failure=True)
+    appli_2 = Mock(start_failure=False)
+    stopper.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2}
+    # test with application with no start_failure set
+    stopper.after_jobs('appli_1')
+    assert not appli_1.start_failure
+    # test with application with start_failure set
+    stopper.after_jobs('appli_2')
+    assert not appli_2.start_failure

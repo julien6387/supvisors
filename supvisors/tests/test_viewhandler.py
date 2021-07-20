@@ -167,6 +167,7 @@ def test_write_common(mocker, handler):
     mocked_msg.reset_mock()
     # 2. test conflicts and no auto-refresh
     handler.supvisors.fsm.state = SupvisorsStates.CONCILIATION
+    mocker.patch.object(handler.sup_ctx, 'conflicts', return_value=True)
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
@@ -198,10 +199,10 @@ def test_write_nav_nodes_address_error(handler):
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
+    mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.0')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with no address status in context
-    handler.write_nav_nodes(mocked_root, '10.0.0.1')
+    handler.write_nav_nodes(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
     assert address_elt.findmeld.call_args_list == []
@@ -216,8 +217,7 @@ def test_write_nav_nodes_silent_address(handler):
     mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with address status set in context, SILENT and different from parameter
-    handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=AddressStates.SILENT,
-                                             **{'state_string.return_value': 'silent'})
+    handler.sup_ctx.nodes['10.0.0.1']._state = AddressStates.SILENT
     handler.write_nav_nodes(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
@@ -282,7 +282,6 @@ def test_write_nav_nodes_running_address(handler):
 def test_write_nav_applications_initialization(handler):
     """ Test the write_nav_applications method with Supvisors in its INITIALIZATION state. """
     handler.supvisors.fsm.state = SupvisorsStates.INITIALIZATION
-    handler.sup_ctx.get_managed_applications.return_value = []
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -319,13 +318,11 @@ def test_write_nav_applications_initialization(handler):
 def test_write_nav_applications_operation(handler):
     """ Test the write_nav_applications method with Supvisors in its OPERATION state. """
     handler.supvisors.fsm.state = SupvisorsStates.OPERATION
-    handler.sup_ctx.get_managed_applications.return_value = []
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt,
-                                                  Mock(application_name='dummy_appli',
-                                                       state=ApplicationStates.RUNNING))]})
+    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, Mock(application_name='dummy_appli',
+                                                                  state=ApplicationStates.RUNNING))]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with application name different from parameter
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})

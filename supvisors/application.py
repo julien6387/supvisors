@@ -76,6 +76,7 @@ class ApplicationStatus(object):
         - state: the state of the application in ApplicationStates,
         - major_failure: a status telling if a required process is stopped while the application is running,
         - minor_failure: a status telling if an optional process has crashed while the application is running,
+        - start_failure: a status telling if the starting of the application has failed in DEPLOYMENT phase,
         - processes: the map (key is process name) of the ProcessStatus belonging to the application,
         - rules: the ApplicationRules instance applicable to the application,
         - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
@@ -103,6 +104,7 @@ class ApplicationStatus(object):
         self._state = ApplicationStates.STOPPED
         self.major_failure = False
         self.minor_failure = False
+        self.start_failure = False
         # process part
         self.processes: ApplicationStatus.ProcessMap = {}
         self.rules = rules
@@ -113,16 +115,25 @@ class ApplicationStatus(object):
     def running(self) -> bool:
         """ Return True if the application is running.
 
-        :return: the running status of the process
+        :return: the running status of the application
         """
         return self.state in [ApplicationStates.STARTING, ApplicationStates.RUNNING]
 
     def stopped(self) -> bool:
         """ Return True if the application is stopped.
 
-        :return: the stopped status of the process
+        :return: the stopped status of the application
         """
         return self.state == ApplicationStates.STOPPED
+
+    def never_started(self) -> bool:
+        """ Return True if the application has never been started.
+
+        :return: True if the processes of the application have never been started
+        """
+        return all(info['state'] == ProcessStates.STOPPED and info['stop'] == 0
+                   for proc in self.processes.values()
+                   for info in proc.info_map.values())
 
     @property
     def state(self) -> ApplicationStates:
@@ -202,6 +213,15 @@ class ApplicationStatus(object):
                           .format(self.application_name,
                                   self.printable_sequence(self.start_sequence),
                                   self.printable_sequence(self.stop_sequence)))
+
+    def check_start_sequence(self) -> None:
+        """ Evaluate the result of the start sequence.
+
+        :return: None
+        """
+        self.start_failure = any(process.crashed()
+                                 for sub_seq in self.start_sequence.values()
+                                 for process in sub_seq)
 
     def update_status(self) -> None:
         """ Update the state of the application iaw the state of its processes.

@@ -197,21 +197,18 @@ class ViewContext:
         stats_node = node_name or self.local_node_name
         return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
 
-    def get_process_last_desc(self, namespec: str, running: bool = False):
+    def get_process_last_desc(self, namespec: str):
         """ Get the latest description received from the process across all nodes.
-        A priority is given to the info coming from a node where the process is running.
-        If running is set to True, the priority is exclusive. """
-        node_name, info = None, None
+        A priority is given to the info coming from a node where the process is running. """
         status = self.get_process_status(namespec)
-        if status:
-            # search for process info where process is running
-            info_map = dict(filter(lambda elem: elem[0] in status.running_nodes, status.info_map.items()))
-            if not info_map and not running:
-                # nothing found and running not requested: consider all process info
-                info_map = status.info_map
-            # sort info_map them by date (local_time is local time of latest received event)
-            sorted_info_map = sorted(info_map.items(), key=lambda x: x[1]['local_time'], reverse=True)
-            node_name, info = next(iter(sorted_info_map), (None, {}))
+        # search for process info where process is running
+        info_map = dict(filter(lambda x: x[0] in status.running_nodes, status.info_map.items()))
+        if info_map:
+            # sort info_map them by local_time (local_time is local time of latest received event)
+            node_name, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
+        else:
+            # sort info_map them by stop date
+            node_name, info = max(status.info_map.items(), key=lambda x: x[1]['stop'])
         # return the node name too
         return node_name, info.get('description')
 

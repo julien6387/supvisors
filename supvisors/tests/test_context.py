@@ -21,10 +21,12 @@ import pytest
 import random
 import time
 
-from supvisors.tests.base import DummyAddressMapper, database_copy, any_process_info
-from unittest.mock import call, patch, Mock
+from supervisor.states import ProcessStates
+from unittest.mock import call, Mock
 
 from supvisors.ttypes import AddressStates, ApplicationStates, InvalidTransition
+
+from .base import DummyAddressMapper, database_copy, any_process_info
 
 
 @pytest.fixture
@@ -141,38 +143,46 @@ def test_unknown_forced_nodes(supvisors):
     assert context.unknown_forced_nodes() == []
 
 
-def check_address_status(mocker, context, address_name, new_state):
+def check_address_status(mocker, context, node_name, new_state, is_master):
     # get address status
-    address_status = context.nodes[address_name]
+    address_status = context.nodes[node_name]
+    context._is_master = is_master
     # check initial state
     assert address_status.state == AddressStates.UNKNOWN
     # invalidate address
-    proc_1 = Mock(**{'invalidate_node.return_value': None})
-    proc_2 = Mock(**{'invalidate_node.return_value': None})
+    proc_1 = Mock(**{'namespec.return_value': 'proc_1', 'invalidate_node.return_value': True})
+    proc_2 = Mock(**{'namespec.return_value': 'proc_2', 'invalidate_node.return_value': True})
     mocked_running = mocker.patch.object(address_status, 'running_processes', return_value=[proc_1, proc_2])
+    mocked_force = mocker.patch.object(context, 'force_process_state')
     context.invalid(address_status)
     # check new state
     assert address_status.state == new_state
     # test calls to process methods
     assert mocked_running.call_args_list == [call()]
-    assert proc_1.invalidate_node.call_args_list == [call(address_name, False)]
-    assert proc_2.invalidate_node.call_args_list == [call(address_name, False)]
+    assert proc_1.invalidate_node.call_args_list == [call(node_name)]
+    assert proc_2.invalidate_node.call_args_list == [call(node_name)]
+    expected = [call('proc_1', ProcessStates.FATAL, 'node %s lost' % node_name),
+                call('proc_2', ProcessStates.FATAL, 'node %s lost' % node_name)]
+    assert mocked_force.call_args_list == (expected if is_master else [])
     # restore address state
     address_status._state = AddressStates.UNKNOWN
 
 
 def test_invalid(mocker, context):
-    """ Test the invalidation of an address. """
-    # test address state with auto_fence and local_address
-    check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT)
-    # test address state with auto_fence and other than local_address
-    check_address_status(mocker, context, '10.0.0.1', AddressStates.ISOLATING)
-    # test address state without auto_fence
-    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
-    # test address state without auto_fence and local_address
-    check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT)
-    # test address state without auto_fence and other than local_address
-    check_address_status(mocker, context, '10.0.0.2', AddressStates.SILENT)
+    """ Test the invalidation of a node. """
+    for is_master in [True, False]:
+        # test address state with auto_fence
+        mocker.patch.object(context.supvisors.options, 'auto_fence', True)
+        # test address state with auto_fence and local_address
+        check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT, is_master)
+        # test address state with auto_fence and other than local_address
+        check_address_status(mocker, context, '10.0.0.1', AddressStates.ISOLATING, is_master)
+        # test address state without auto_fence
+        mocker.patch.object(context.supvisors.options, 'auto_fence', False)
+        # test address state without auto_fence and local_address
+        check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT, is_master)
+        # test address state without auto_fence and other than local_address
+        check_address_status(mocker, context, '10.0.0.2', AddressStates.SILENT, is_master)
 
 
 def test_end_synchro(mocker, context):
@@ -506,13 +516,15 @@ def test_process_event(mocker, context):
     # patch load_application_rules
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
-    dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'now': 1234, 'state': 0}
+    dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
+                  'now': 1234, 'stop': 0}
     process = context.setdefault_process(dummy_info)
     process.add_info('10.0.0.1', dummy_info)
     application = context.applications['dummy_application']
     assert application.state == ApplicationStates.STOPPED
     # check normal behaviour with known process
-    dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'now': 2345, 'extra_args': ''}
+    dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'extra_args': '',
+                   'now': 2345, 'stop': 0}
     for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
         address._state = state
         result = context.on_process_event('10.0.0.1', dummy_event)
@@ -522,7 +534,7 @@ def test_process_event(mocker, context):
         assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
         assert mocked_publisher.send_process_event.call_args_list == \
                [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
-                                  'state': 10, 'now': 2345, 'extra_args': ''})]
+                                  'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
         assert mocked_publisher.send_process_status.call_args_list == \
                [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                       'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
@@ -545,7 +557,7 @@ def test_process_event(mocker, context):
     assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
     assert mocked_publisher.send_process_event.call_args_list == \
            [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
-                              'state': 10, 'now': 2345, 'extra_args': ''})]
+                              'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
@@ -635,3 +647,35 @@ def test_handle_isolation(mocker, context):
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0})]
+
+
+def test_commander_force_process_fatal(mocker, context):
+    """ Test the Commander.force_process_state method with a FATAL parameter. """
+    mocked_source = mocker.patch('supvisors.infosource.SupervisordSource.force_process_fatal')
+    mocked_listener = mocker.patch('supvisors.listener.SupervisorListener.force_process_fatal')
+    # test with FATAL and no info_source KeyError
+    context.force_process_state('proc', ProcessStates.FATAL, 'any reason')
+    assert mocked_source.call_args_list == [call(context.supvisors.info_source, 'proc', 'any reason')]
+    assert not mocked_listener.called
+    mocked_source.reset_mock()
+    # test with FATAL and info_source KeyError
+    mocked_source.side_effect = KeyError
+    context.force_process_state('proc', ProcessStates.FATAL, 'any reason')
+    assert mocked_source.call_args_list == [call(context.supvisors.info_source, 'proc', 'any reason')]
+    assert mocked_listener.call_args_list == [call(context.supvisors.listener, 'proc')]
+
+
+def test_commander_force_process_unknown(mocker, context):
+    """ Test the Commander.force_process_state method with an UNKNOWN parameter. """
+    mocked_source = mocker.patch('supvisors.infosource.SupervisordSource.force_process_unknown')
+    mocked_listener = mocker.patch('supvisors.listener.SupervisorListener.force_process_unknown')
+    # test with UNKNOWN and no info_source KeyError
+    context.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
+    assert mocked_source.call_args_list == [call(context.supvisors.info_source, 'proc', 'any reason')]
+    assert not mocked_listener.called
+    mocked_source.reset_mock()
+    # test with UNKNOWN and info_source KeyError
+    mocked_source.side_effect = KeyError
+    context.force_process_state('proc', ProcessStates.UNKNOWN, 'any reason')
+    assert mocked_source.call_args_list == [call(context.supvisors.info_source, 'proc', 'any reason')]
+    assert mocked_listener.call_args_list == [call(context.supvisors.listener, 'proc')]

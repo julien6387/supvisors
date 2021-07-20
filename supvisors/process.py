@@ -23,8 +23,8 @@ from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from supvisors.ttypes import NameList, Payload, RunningFailureStrategies
-from supvisors.utils import *
+from .ttypes import NameList, Payload, RunningFailureStrategies
+from .utils import *
 
 
 class ProcessRules(object):
@@ -329,26 +329,26 @@ class ProcessStatus(object):
         """
         return getProcessStateDescription(self.state)
 
-    def add_info(self, address: str, process_info: Payload) -> None:
+    def add_info(self, node_name: str, process_info: Payload) -> None:
         """ Insert a new process information in internal list.
 
-        :param address: the name of the node from which the information has been received
+        :param node_name: the name of the node from which the information has been received
         :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
         :return: None
         """
         # keep date of last information received
-        # use local time here as there is no guarantee that addresses will be time synchronized
+        # use local time here as there is no guarantee that nodes will be time synchronized
         self.last_event_time = int(time())
         # store information
-        info = self.info_map[address] = process_info
+        info = self.info_map[node_name] = process_info
         info['local_time'] = self.last_event_time
         self.update_uptime(info)
-        self.logger.debug('ProcessStatus.add_info: adding {} at {}'.format(info, address))
+        self.logger.debug('ProcessStatus.add_info: adding {} at {}'.format(info, node_name))
         # reset extra_args
         info['extra_args'] = ''
         self.extra_args = ''
         # update process status
-        self.update_status(address, info['state'], info['expected'])
+        self.update_status(node_name, info['state'])
 
     def update_info(self, node_name: str, payload: Payload) -> None:
         """ Update the internal process information with event payload.
@@ -367,8 +367,8 @@ class ProcessStatus(object):
             # refresh internal information
             info = self.info_map[node_name]
             info['local_time'] = self.last_event_time
-            self.logger.trace('ProcessStatus.update_info: in {}, inserting {} into {} at {}'
-                              .format(self.namespec(), payload, info, node_name))
+            self.logger.trace('ProcessStatus.update_info: in {}, updating {} with {} at {}'
+                              .format(self.namespec(), info, payload, node_name))
             info.update(payload)
             # re-evaluate description using Supervisor function
             info['description'] = self.update_description(info)
@@ -380,7 +380,7 @@ class ProcessStatus(object):
                 info['stop'] = info['now']
             self.update_uptime(info)
             # update / check running addresses
-            self.update_status(node_name, new_state, info['expected'])
+            self.update_status(node_name, new_state)
             self.logger.debug('ProcessStatus.update_info: new process info: {}'.format(info))
         else:
             self.logger.warn('ProcessStatus.update_info: ProcessEvent rejected for {}. wait for tick from {}'
@@ -408,55 +408,28 @@ class ProcessStatus(object):
         :return: None
         """
         info['uptime'] = (info['now'] - info['start']) \
-            if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] \
-            else 0
+            if info['state'] in [ProcessStates.RUNNING, ProcessStates.STOPPING] else 0
 
-    def invalidate_node(self, node_name: str, is_master: bool) -> None:
+    def invalidate_node(self, node_name: str) -> bool:
         """ Update the status of a process that was running on a lost / non-responsive node.
-        If the present process was running on this node, an action has to be taken by the Supvisors master.
 
         :param node_name: the node from which no more information is received
-        :param is_master: True if the local node is the Supvisors master
-        :return: None
+        :return: True if process not running anywhere anymore
         """
-        self.logger.debug('ProcessStatus.invalidate_node: {} in validate on {} / {}'
-                          .format(self.namespec(), self.running_nodes, node_name))
-        # reassign the difference between current set and parameter
+        self.logger.debug('ProcessStatus.invalidate_node: {} invalidated on {}'.format(self.namespec(), node_name))
         if node_name in self.running_nodes:
-            self.running_nodes.remove(node_name)
-        if node_name in self.info_map:
-            # force process info to UNKNOWN at address
-            self.info_map[node_name]['state'] = ProcessStates.UNKNOWN
-        # check if conflict still applicable
-        if not self.evaluate_conflict():
-            if len(self.running_nodes) == 1:
-                # if process is running on only one address,
-                # the global state is the state of this process
-                self.state = next(self.info_map[running_node_name]['state']
-                                  for running_node_name in self.running_nodes)
-            elif self.running():
-                # addresses is empty for a running process
-                # action expected to fix the inconsistency
-                self.logger.warn('ProcessStatus.invalidate_node: no more node for running process {}'
-                                 .format(self.namespec()))
-                self.state = ProcessStates.FATAL
-                # notify the failure to dedicated handler, only if local address is master
-                if is_master:
-                    self.supvisors.failure_handler.add_default_job(self)
-            elif self.state == ProcessStates.STOPPING:
-                # STOPPING is the last state received before the address is lost
-                # consider STOPPED now
-                self.state = ProcessStates.STOPPED
-        else:
-            self.logger.debug('ProcessStatus.invalidate_node: process {} still in conflict after node invalidation'
-                              .format(self.namespec()))
+            # update process status with a FATAL payload
+            info = self.info_map[node_name]
+            payload = {'now': info['now'], 'state': ProcessStates.FATAL, 'extra_args': info['extra_args'],
+                       'expected': False, 'spawnerr': 'node %s lost' % node_name}
+            self.update_info(node_name, payload)
+            return self.running_nodes == set()
 
-    def update_status(self, node_name: str, new_state: int, expected: bool) -> None:
+    def update_status(self, node_name: str, new_state: int) -> None:
         """ Updates the state and list of running address iaw the new event.
 
         :param node_name: the node from which new information has been received
         :param new_state: the new state of the process on the considered node
-        :param expected: the exit status of the process (only valid for an EXITED state)
         :return: None
         """
         # update addresses list
@@ -470,14 +443,20 @@ class ProcessStatus(object):
                 self.running_nodes.add(node_name)
         # evaluate state iaw running addresses
         if not self.evaluate_conflict():
-            # if zero element, state is the state of the program addressed
+            # no conflict so at most one element running
             if self.running_nodes:
-                self.state = next(self.info_map[running_node_name]['state']
-                                  for running_node_name in self.running_nodes)
+                self.state = self.info_map[list(self.running_nodes)[0]]['state']
                 self.expected_exit = True
             else:
-                self.state = new_state
-                self.expected_exit = expected
+                # priority set on STOPPING
+                if any(info['state'] == ProcessStates.STOPPING for info in self.info_map.values()):
+                    self.state = ProcessStates.STOPPING
+                    self.expected_exit = True
+                else:
+                    # for STOPPED_STATES, consider the most recent stop date
+                    info = max(self.info_map.values(), key=lambda x: x['stop'])
+                    self.state = info['state']
+                    self.expected_exit = info['expected']
         # log the new status
         log_trace = 'ProcessStatus.update_status: Process {} is {}'.format(self.namespec(), self.state_string())
         if self.running_nodes:

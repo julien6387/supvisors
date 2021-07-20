@@ -22,7 +22,8 @@ import random
 
 from supvisors.application import *
 
-from .base import database_copy, any_process_info, any_stopped_process_info, any_running_process_info
+from .base import (database_copy, any_process_info, any_stopped_process_info,
+                   any_running_process_info, any_process_info_by_state)
 from .conftest import create_application, create_process
 
 
@@ -64,6 +65,7 @@ def test_application_create(supvisors):
     assert application.state == ApplicationStates.STOPPED
     assert not application.major_failure
     assert not application.minor_failure
+    assert not application.start_failure
     assert not application.processes
     assert not application.start_sequence
     assert not application.stop_sequence
@@ -96,7 +98,7 @@ def test_application_running(supvisors):
 
 
 def test_application_stopped(supvisors):
-    """ Test the stopped method. """
+    """ Test the ApplicationStatus.stopped method. """
     application = create_application('ApplicationTest', supvisors)
     assert application.stopped()
     # add a stopped process
@@ -115,6 +117,19 @@ def test_application_stopped(supvisors):
     assert not application.stopped()
 
 
+def test_application_never_started(supvisors):
+    """ Test the ApplicationStatus.never_started method. """
+    application = create_application('ApplicationTest', supvisors)
+    assert application.never_started()
+    # add a stopped process that has already been started
+    info = any_stopped_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    application.add_process(process)
+    application.update_status()
+    assert not application.never_started()
+
+
 def test_application_get_operational_status(supvisors):
     """ Test the ApplicationStatus.get_operational_status method used to get a descriptive operational status. """
     # create address status instance
@@ -126,19 +141,23 @@ def test_application_get_operational_status(supvisors):
                 application._state = state
                 application.major_failure = major_failure
                 application.minor_failure = minor_failure
+                application.start_failure = False
                 assert application.get_operational_status() == ''
     # test with RUNNING application
     application._state = ApplicationStates.RUNNING
     # no failure
     application.major_failure = False
     application.minor_failure = False
+    application.start_failure = False
     assert application.get_operational_status() == 'Operational'
     # minor failure, no major failure
     application.major_failure = False
     application.minor_failure = True
+    application.start_failure = False
     assert application.get_operational_status() == 'Degraded'
     # major failure set
     application.major_failure = True
+    application.start_failure = False
     for minor_failure in [True, False]:
         application.minor_failure = minor_failure
         assert application.get_operational_status() == 'Not Operational'
@@ -152,6 +171,7 @@ def test_application_serial(supvisors):
     application._state = ApplicationStates.RUNNING
     application.major_failure = False
     application.minor_failure = True
+    application.start_failure = False
     # test to_json method
     serialized = application.serial()
     assert serialized == {'application_name': 'ApplicationTest', 'statecode': 2, 'statename': 'RUNNING',
@@ -209,6 +229,34 @@ def test_application_update_sequences(filled_application):
         assert sorted(processes, key=lambda x: x.process_name) == \
                sorted([proc for proc in filled_application.processes.values()
                        if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name)
+
+
+def test_check_start_sequence(supvisors):
+    """ Test the result of the check_start_sequence method. """
+    application = create_application('ApplicationTest', supvisors)
+    assert not application.start_failure
+    # add processes from test database so that there is no crash
+    for info in [any_running_process_info(), any_process_info_by_state(ProcessStates.STOPPED)]:
+        process = create_process(info, supvisors)
+        process.add_info('10.0.0.1', info)
+        process.rules.start_sequence = random.randint(1, 5)
+        application.add_process(process)
+    # call the sequencer and checker
+    application.update_sequences()
+    application.check_start_sequence()
+    # test method
+    assert not application.start_failure
+    # add processes from test database so that there is a crash
+    info = any_process_info_by_state(ProcessStates.FATAL)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.rules.start_sequence = 2
+    application.add_process(process)
+    # call the sequencer
+    application.update_sequences()
+    application.check_start_sequence()
+    # test method
+    assert application.start_failure
 
 
 def test_application_update_status(filled_application):

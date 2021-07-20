@@ -79,12 +79,10 @@ class MockedSupvisors:
         """ Use a dummy address mapper and options. """
         self.address_mapper = DummyAddressMapper()
         self.options = DummyOptions()
-        # mock the context
+        self.logger = Mock(spec=Logger)
+        # build context from address mapper
         from supvisors.context import Context
-        self.context = Mock(spec=Context)
-        self.context.__init__()
-        self.context.nodes = {}
-        self.context.applications = {}
+        self.context = Context(self)
         # simple mocks
         self.fsm = Mock()
         self.pool = Mock()
@@ -100,7 +98,6 @@ class MockedSupvisors:
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)
-        self.logger = Mock(spec=Logger)
         from supvisors.sparser import Parser
         self.parser = Mock(spec=Parser)
         from supvisors.commander import Starter, Stopper
@@ -233,7 +230,7 @@ ProcessInfoDatabase = [
      'spawnerr': 'Exited too quickly (process log may have details)', 'now': 1473888156,
      'group': 'crash', 'name': 'segv', 'statename': 'BACKOFF', 'start': 1473888155, 'state': 30,
      'stdout_logfile': './log/segv_cliche01.log'},
-    {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473887937,
+    {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888937,
      'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888161,
      'group': 'firefox', 'name': 'firefox', 'statename': 'EXITED', 'start': 1473887932, 'state': 100,
      'stdout_logfile': './log/firefox_cliche01.log'},
@@ -276,27 +273,22 @@ def any_process_info():
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] in STOPPED_STATES])
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
     return extract_process_info(info)
 
 
 def any_running_process_info():
     """ Return a copy of any running process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] in RUNNING_STATES])
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES])
     return extract_process_info(info)
 
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] == state])
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
     return extract_process_info(info)
 
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    info = next((info.copy() for info in ProcessInfoDatabase
-                 if info['name'] == name), None)
-    return extract_process_info(info) if info else {}
+    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
