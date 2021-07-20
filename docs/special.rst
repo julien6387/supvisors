@@ -61,7 +61,7 @@ are ``RUNNING``.
 In these 2 cases, **Supvisors** will start to work with a subset of active nodes among those declared in ``address_list``.
 
 Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes
-and enters in the ``DEPLOYMENT`` phase to start automatically the applications.
+and enters the ``DEPLOYMENT`` state to start automatically the applications.
 
 
 .. _auto_fencing:
@@ -235,7 +235,7 @@ This principle is used for starting a single process using a ``supvisors.start_p
 Starting an application
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The application start sequence is defined at the beginning the ``DEPLOYMENT`` phase of **Supvisors**.
+The application start sequence is defined when entering the ``DEPLOYMENT`` state of **Supvisors**.
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
@@ -296,7 +296,17 @@ The following pseudo-code explains the algorithm used:
 
 .. note::
 
-    The applications having a ``start_sequence`` lower or equal to 0 are not considered, as they are not meant to be autostarted.
+    The applications having a ``start_sequence`` lower or equal to 0 are not considered,
+    as they are not meant to be autostarted.
+
+.. note::
+
+    When leaving the ``DEPLOYMENT`` state, it may happen that some applications are not started properly
+    due to missing nodes. When a node is started later and is authorized in the **Supvisors** ensemble,
+    **Supvisors** transitions back to the ``DEPLOYMENT`` state to repair such applications.
+    May the new node arrive during a ``DEPLOYMENT`` or ``CONCILIATION`` phase, the transition to the ``DEPLOYMENT``
+    state is deferred until the current deployment or conciliation jobs are completed.
+    It has been chosen NOT to transition back to the ``INITIALIZATION`` state to avoid a new synchronization phase.
 
 
 .. _stopping_strategy:

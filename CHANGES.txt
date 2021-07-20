@@ -5,6 +5,9 @@
 
 * Add expand / shrink actions per application to the ProcAddressView of the Web UI
 
+* Upon authorization of a new node in Supvisors, back to DEPLOYMENT state to repair applications
+  whose starting failed previously
+
 * Fixed issue with application that would not fully stop when using STOP_APPLICATION starting failure strategy
 
 * Fixed issue related to https://github.com/julien6387/supvisors/issues/85
