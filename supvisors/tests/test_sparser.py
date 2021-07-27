@@ -19,7 +19,6 @@
 
 import pytest
 
-from unittest.mock import patch
 from io import BytesIO
 
 from supvisors.sparser import *
@@ -270,16 +269,9 @@ def test_invalid_lxml(mocker, supvisors):
 
 
 @pytest.fixture
-def lxml_fail_import():
+def lxml_fail_import(mocker):
     """ Mock ImportError on optional lxml if installed to force ElementTree testing. """
-    try:
-        lxml_patch = patch('lxml.etree.parse', side_effect=ImportError)
-        lxml_patch.start()
-        yield
-        lxml_patch.stop()
-    except ImportError:
-        # no need to patch: lxml not installed
-        pass
+    mocker.patch.dict('sys.modules', {'lxml.etree': None})
 
 
 def test_no_parser(mocker, supvisors, lxml_fail_import):

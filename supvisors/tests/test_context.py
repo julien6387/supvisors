@@ -19,11 +19,10 @@
 
 import pytest
 import random
-import time
 
-from supervisor.states import ProcessStates
 from unittest.mock import call, Mock
 
+from supvisors.context import *
 from supvisors.ttypes import AddressStates, ApplicationStates, InvalidTransition
 
 from .base import DummyAddressMapper, database_copy, any_process_info
@@ -32,7 +31,6 @@ from .base import DummyAddressMapper, database_copy, any_process_info
 @pytest.fixture
 def context(supvisors):
     """ Return the instance to test. """
-    from supvisors.context import Context
     return Context(supvisors)
 
 
@@ -55,7 +53,6 @@ def filled_context(context):
 
 def test_create(supvisors, context):
     """ Test the values set at construction of Context. """
-    from supvisors.address import AddressStatus
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
     assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
@@ -122,7 +119,6 @@ def test_nodes_by_states(context):
 
 def test_unknown_forced_nodes(supvisors):
     """ Test the access to addresses in unknown state. """
-    from supvisors.context import Context
     supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
@@ -143,46 +139,33 @@ def test_unknown_forced_nodes(supvisors):
     assert context.unknown_forced_nodes() == []
 
 
-def check_address_status(mocker, context, node_name, new_state, is_master):
+def check_invalid_node_status(context, node_name, new_state):
     # get address status
     address_status = context.nodes[node_name]
-    context._is_master = is_master
     # check initial state
     assert address_status.state == AddressStates.UNKNOWN
     # invalidate address
-    proc_1 = Mock(**{'namespec.return_value': 'proc_1', 'invalidate_node.return_value': True})
-    proc_2 = Mock(**{'namespec.return_value': 'proc_2', 'invalidate_node.return_value': True})
-    mocked_running = mocker.patch.object(address_status, 'running_processes', return_value=[proc_1, proc_2])
-    mocked_force = mocker.patch.object(context, 'force_process_state')
     context.invalid(address_status)
     # check new state
     assert address_status.state == new_state
-    # test calls to process methods
-    assert mocked_running.call_args_list == [call()]
-    assert proc_1.invalidate_node.call_args_list == [call(node_name)]
-    assert proc_2.invalidate_node.call_args_list == [call(node_name)]
-    expected = [call('proc_1', ProcessStates.FATAL, 'node %s lost' % node_name),
-                call('proc_2', ProcessStates.FATAL, 'node %s lost' % node_name)]
-    assert mocked_force.call_args_list == (expected if is_master else [])
     # restore address state
     address_status._state = AddressStates.UNKNOWN
 
 
 def test_invalid(mocker, context):
     """ Test the invalidation of a node. """
-    for is_master in [True, False]:
-        # test address state with auto_fence
-        mocker.patch.object(context.supvisors.options, 'auto_fence', True)
-        # test address state with auto_fence and local_address
-        check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT, is_master)
-        # test address state with auto_fence and other than local_address
-        check_address_status(mocker, context, '10.0.0.1', AddressStates.ISOLATING, is_master)
-        # test address state without auto_fence
-        mocker.patch.object(context.supvisors.options, 'auto_fence', False)
-        # test address state without auto_fence and local_address
-        check_address_status(mocker, context, '127.0.0.1', AddressStates.SILENT, is_master)
-        # test address state without auto_fence and other than local_address
-        check_address_status(mocker, context, '10.0.0.2', AddressStates.SILENT, is_master)
+    # test address state with auto_fence
+    mocker.patch.object(context.supvisors.options, 'auto_fence', True)
+    # test address state with auto_fence and local_address
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    # test address state with auto_fence and other than local_address
+    check_invalid_node_status(context, '10.0.0.1', AddressStates.ISOLATING)
+    # test address state without auto_fence
+    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
+    # test address state without auto_fence and local_address
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    # test address state without auto_fence and other than local_address
+    check_invalid_node_status(context, '10.0.0.2', AddressStates.SILENT)
 
 
 def test_end_synchro(mocker, context):
@@ -569,59 +552,29 @@ def test_process_event(mocker, context):
 
 def test_timer_event(mocker, context):
     """ Test the handling of a timer event. """
-    mocked_time = mocker.patch('supvisors.context.time', return_value=3600)
+    mocker.patch('supvisors.context.time', return_value=3600)
     mocked_send = context.supvisors.zmq.publisher.send_address_status
-    # test address states excepting RUNNING: nothing happens
-    for _ in [x for x in AddressStates if x != AddressStates.RUNNING]:
-        context.on_timer_event()
-        for address in context.nodes.values():
-            assert address.state == AddressStates.UNKNOWN
-        assert not mocked_send.called
-    # test RUNNING address state with recent local_time
-    test_addresses = ['10.0.0.1', '10.0.0.3', '10.0.0.5']
-    for address_name in test_addresses:
-        address = context.nodes[address_name]
-        address._state = AddressStates.RUNNING
-        address.local_time = time.time()
-    context.on_timer_event()
-    for address_name in test_addresses:
-        assert context.nodes[address_name].state == AddressStates.RUNNING
-    for address_name in [x for x in context.nodes.keys()
-                         if x not in test_addresses]:
-        assert context.nodes[address_name].state == AddressStates.UNKNOWN
-    assert not mocked_send.called
-    # test RUNNING address state with one recent local_time and with auto_fence activated
-    address1 = context.nodes['10.0.0.3']
-    address1.local_time = mocked_time.return_value - 100
-    context.on_timer_event()
-    assert address1.state == AddressStates.ISOLATING
-    for address_name in [x for x in test_addresses if x != '10.0.0.3']:
-        assert context.nodes[address_name].state == AddressStates.RUNNING
-    for address_name in [x for x in context.nodes.keys()
-                         if x not in test_addresses]:
-        assert context.nodes[address_name].state == AddressStates.UNKNOWN
-    assert mocked_send.call_args_list == [call({'address_name': '10.0.0.3', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': address1.local_time, 'loading': 0})]
-    # test with one other recent local_time and with auto_fence deactivated
-    context.supvisors.options.auto_fence = False
-    mocked_send.reset_mock()
-    address2 = context.nodes['10.0.0.5']
-    address2.local_time = mocked_time.return_value - 100
-    address3 = context.nodes['10.0.0.1']
-    address3.local_time = mocked_time.return_value - 100
-    context.on_timer_event()
-    assert address2.state == AddressStates.SILENT
-    assert address3.state == AddressStates.SILENT
-    assert address1.state == AddressStates.ISOLATING
-    for address_name in [x for x in context.nodes.keys()
-                         if x not in test_addresses]:
-        assert context.nodes[address_name].state == AddressStates.UNKNOWN
-    send_calls = mocked_send.call_args_list
-    payload2 = {'address_name': '10.0.0.5', 'statecode': 3, 'statename': 'SILENT',
-                'remote_time': 0, 'local_time': address2.local_time, 'loading': 0}
-    payload3 = {'address_name': '10.0.0.1', 'statecode': 3, 'statename': 'SILENT',
-                'remote_time': 0, 'local_time': address3.local_time, 'loading': 0}
-    assert send_calls == [call(payload2), call(payload3)] or send_calls == [call(payload3), call(payload2)]
+    # update node context
+    context.nodes['127.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3598})
+    context.nodes['10.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3593})
+    context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3588})
+    context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_time': 1800})
+    context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_time': 0})
+    context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.ISOLATED, 'local_time': 0})
+    # patch the expected future invalidated node
+    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_node.return_value': False})
+    proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_node.return_value': True})
+    mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
+    # test call and check results
+    assert context.on_timer_event() == {proc_2}
+    assert mocked_send.call_args_list == [call({'address_name': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
+                                                'remote_time': 0, 'local_time': 3588, 'loading': 15})]
+    assert proc_2.invalidate_node.call_args_list == [(call('10.0.0.2'))]
+    # only '10.0.0.2' node changed state
+    for node_name, state in [('127.0.0.1', AddressStates.RUNNING), ('10.0.0.1', AddressStates.RUNNING),
+                             ('10.0.0.2', AddressStates.ISOLATING), ('10.0.0.3', AddressStates.SILENT),
+                             ('10.0.0.4', AddressStates.ISOLATING), ('10.0.0.5', AddressStates.ISOLATED)]:
+        assert context.nodes[node_name].state == state
 
 
 def test_handle_isolation(mocker, context):

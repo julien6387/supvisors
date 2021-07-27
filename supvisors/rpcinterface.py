@@ -25,11 +25,11 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.application import ApplicationStatus
-from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
-                              EnumClassType, EnumType)
-from supvisors.utils import extract_process_info
+from .application import ApplicationStatus
+from .strategy import conciliate_conflicts
+from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
+                     EnumClassType, EnumType)
+from .utils import extract_process_info
 
 
 # get Supvisors version from file

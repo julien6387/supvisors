@@ -1,4 +1,4 @@
-0.6 (2021-xx-xx)
+0.6 (2021-07-22)
 ----------------
 
 * Improve Supvisors stability when dealing with remote programs undefined locally
@@ -7,6 +7,8 @@
 
 * Upon authorization of a new node in Supvisors, back to DEPLOYMENT state to repair applications
   whose starting failed previously
+
+* Fixed issue with when Master is stopped while in DEPLOYMENT state
 
 * Fixed issue with application that would not fully stop when using STOP_APPLICATION starting failure strategy
 
@@ -25,7 +27,7 @@
 
 * Remove supvisors_shortcuts from source code to get rid of IDE warnings
 
-* Some unit tests updated from unittest to pytest
+* All unit tests updated from unittest to pytest
 
 * Documentation updated
 

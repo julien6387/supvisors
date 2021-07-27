@@ -322,7 +322,7 @@ def test_running_create(handler):
     compare_sets(handler)
 
 
-def test_running_clear_jobs(handler):
+def test_running_abort(handler):
     """ Test the clearance of internal structures. """
     # add data to sets
     handler.stop_application_jobs = {1, 2}
@@ -332,7 +332,7 @@ def test_running_clear_jobs(handler):
     handler.start_application_jobs = {1, None}
     handler.start_process_jobs = {0}
     # clear all
-    handler.clear_jobs()
+    handler.abort()
     # test empty structures
     compare_sets(handler)
 
@@ -375,19 +375,29 @@ def test_add_default_job(mocker, handler):
     assert mocked_add.call_args_list == [call(2, process)]
 
 
-def mocked_application(supvisors, appli_name, stopped):
+def test_get_job_applications(handler):
+    """ Test getting the list of applications involved in Started and Stopper. """
+    mocked_stopper = handler.supvisors.stopper.get_job_applications
+    mocked_stopper.return_value = {'if', 'then'}
+    mocked_starter = handler.supvisors.starter.get_job_applications
+    mocked_starter.return_value = {'then', 'else'}
+    assert handler.get_job_applications() == {'if', 'then', 'else'}
+
+
+def mocked_application(supvisors, application_name, stopped):
     """ Return a mocked ApplicationStatus. """
-    application = Mock(aplication_name=appli_name, **{'stopped.side_effect': [stopped, True]})
-    supvisors.context.applications[appli_name] = application
+    application = Mock(application_name=application_name, **{'stopped.side_effect': [stopped, True]})
+    supvisors.context.applications[application_name] = application
     return application
 
 
-def mocked_process(namespec, stopped):
+def mocked_process(namespec, application_name, stopped):
     """ Return a mocked ProcessStatus. """
-    return Mock(**{'namespec.return_value': namespec, 'stopped.side_effect': [stopped, True]})
+    return Mock(application_name=application_name, **{'namespec.return_value': namespec,
+                                                      'stopped.side_effect': [stopped, True]})
 
 
-def test_trigger_jobs(handler):
+def test_trigger_jobs(mocker, handler):
     """ Test the processing of jobs. """
     # create mocked applications
     stop_appli_A = mocked_application(handler.supvisors, 'stop_application_A', False)
@@ -397,11 +407,11 @@ def test_trigger_jobs(handler):
     start_appli_A = mocked_application(handler.supvisors, 'start_application_A', True)
     start_appli_B = mocked_application(handler.supvisors, 'start_application_B', True)
     # create mocked processes
-    restart_process_1 = mocked_process('restart_process_1', False)
-    restart_process_2 = mocked_process('restart_process_2', False)
-    start_process_1 = mocked_process('start_process_1', True)
-    start_process_2 = mocked_process('start_process_2', True)
-    continue_process = mocked_process('continue_process', False)
+    restart_process_1 = mocked_process('restart_process_1', 'restart_application_1', False)
+    restart_process_2 = mocked_process('restart_process_2', 'restart_application_2', False)
+    start_process_1 = mocked_process('start_process_1', 'start_application_1', True)
+    start_process_2 = mocked_process('start_process_2', 'start_application_2', True)
+    continue_process = mocked_process('continue_process', 'continue_application', False)
     # pre-fill sets
     handler.stop_application_jobs = {'stop_application_A', 'stop_application_B'}
     handler.restart_application_jobs = {'restart_application_A', 'restart_application_B'}
@@ -414,7 +424,27 @@ def test_trigger_jobs(handler):
     mocked_start_app = handler.supvisors.starter.default_start_application
     mocked_stop_proc = handler.supvisors.stopper.stop_process
     mocked_start_proc = handler.supvisors.starter.default_start_process
+    # patch check_commander so that it is considered that applications are already being handled in Start / Stopper
+    application_list = {'stop_application_A', 'stop_application_B', 'restart_application_A', 'restart_application_B',
+                        'start_application_A', 'start_application_B', 'restart_application_1', 'restart_application_2',
+                        'start_application_1', 'start_application_2', 'continue_application'}
+    mocked_jobs = mocker.patch.object(handler, 'get_job_applications', return_value=application_list)
     # test jobs trigger
+    handler.trigger_jobs()
+    print(mocked_start_app.call_args_list)
+    # check there has been no application calls
+    assert not mocked_stop_app.called
+    assert not mocked_start_app.called
+    assert not mocked_stop_proc.called
+    assert not mocked_start_proc.called
+    # check impact on sets
+    compare_sets(handler, stop_app={'stop_application_A', 'stop_application_B'},
+                 restart_app={'restart_application_A', 'restart_application_B'},
+                 start_app={start_appli_A, start_appli_B},
+                 restart_proc={restart_process_1, restart_process_2},
+                 start_proc={start_process_1, start_process_2})
+    # patch check_commander so that it is considered that applications are not being handled in Start / Stopper
+    mocked_jobs.return_value = set()
     handler.trigger_jobs()
     # check stop application calls
     expected = [call(stop_appli_A), call(stop_appli_B), call(restart_appli_A), call(restart_appli_B)]

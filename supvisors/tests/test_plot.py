@@ -18,56 +18,38 @@
 # ======================================================================
 
 import imghdr
-import sys
-import unittest
+import pytest
+
+pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
+
+from supvisors.plot import *
+from supvisors.viewimage import StatsImage
 
 
-class StatisticsPlotTest(unittest.TestCase):
-    """ Test case for the plot module. """
-
-    def setUp(self):
-        """ Skip the test if matplotlib is not installed. """
-        try:
-            import matplotlib
-            matplotlib.__name__
-        except ImportError:
-            raise unittest.SkipTest('cannot test as optional matplotlib is not installed')
-
-    def test_plot(self):
-        """ Test a simple plot.
-        Complex to test anything. Just check that there is no exception. """
-        from supvisors.plot import StatisticsPlot
-        from supvisors.viewimage import StatsImage
-        plot = StatisticsPlot()
-        self.assertEqual({}, plot.ydata)
-        # add series of data
-        plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
-        plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
-        self.assertDictEqual({('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]},
-                             plot.ydata)
-        # export image in buffer
-        contents = StatsImage()
-        plot.export_image(contents)
-        # test that result is a PNG file
-        self.assertEqual('png', imghdr.what('', h=contents.contents.getvalue()))
-
-    def test_get_range(self):
-        """ Test a simple plot.
-        Complex to test anything. Just check that there is no exception. """
-        from supvisors.plot import StatisticsPlot
-        # first test
-        min_range, max_range = StatisticsPlot.get_range([10, 50, 30, 90])
-        self.assertAlmostEqual(2.0, min_range)
-        self.assertAlmostEqual(118.0, max_range)
-        # second test
-        min_range, max_range = StatisticsPlot.get_range([0, 100])
-        self.assertAlmostEqual(0.0, min_range)
-        self.assertAlmostEqual(135.0, max_range)
+def test_plot():
+    """ Test a simple plot.
+    Complex to test anything. Just check that there is no exception. """
+    plot = StatisticsPlot()
+    assert plot.ydata == {}
+    # add series of data
+    plot.add_plot('dummy_title_1', 'unit_1', [1, 2, 3])
+    plot.add_plot('dummy_title_2', 'unit_2', [10, 20, 30])
+    assert plot.ydata == {('dummy_title_1', 'unit_1'): [1, 2, 3], ('dummy_title_2', 'unit_2'): [10, 20, 30]}
+    # export image in buffer
+    contents = StatsImage()
+    plot.export_image(contents)
+    # test that result is a PNG file
+    assert imghdr.what('', h=contents.contents.getvalue()) == 'png'
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_get_range():
+    """ Test a simple plot.
+    Complex to test anything. Just check that there is no exception. """
+    # first test
+    min_range, max_range = StatisticsPlot.get_range([10, 50, 30, 90])
+    assert pytest.approx(min_range) == 2.0
+    assert pytest.approx(max_range) == 118.0
+    # second test
+    min_range, max_range = StatisticsPlot.get_range([0, 100])
+    assert pytest.approx(min_range) == 0.0
+    assert pytest.approx(max_range) == 135.0

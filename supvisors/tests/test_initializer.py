@@ -17,119 +17,106 @@
 # limitations under the License.
 # ======================================================================
 
+import pytest
 import sys
-import unittest
 
+from supervisor.loggers import Logger
 from unittest.mock import patch, Mock
 
-from supervisor.datatypes import Automatic
-from supervisor.xmlrpc import Faults, RPCError
-
-from supvisors.tests.base import DummySupervisor, DummyOptions
+from .base import DummyAddressMapper, DummySupervisor, DummyOptions
 
 
-class InitializerTest(unittest.TestCase):
-    """ Test case for the initializer module. """
-
-    def setUp(self):
-        """ Close logger if any. """
-        self.logger = None
-
-    def tearDown(self):
-        """ Close logger if any. """
-        if self.logger:
-            self.logger.close()
-
-    @patch('supvisors.initializer.Parser')
-    @patch('supvisors.initializer.AddressMapper')
-    @patch('supvisors.initializer.loggers')
-    @patch('supvisors.initializer.SupvisorsServerOptions')
-    def test_creation(self, *args, **kwargs):
-        """ Test the values set at construction. """
-        from supvisors.initializer import Supvisors
-        # create Supvisors instance
-        supervisord = DummySupervisor()
-        supvisors = Supvisors(supervisord)
-        # test calls
-        self.assertTrue(args[0].called)
-        self.assertTrue(args[1].getLogger.called)
-        self.assertTrue(args[1].handle_stdout.called)
-        self.assertTrue(args[1].handle_file.called)
-        self.assertTrue(args[2].called)
-        self.assertTrue(args[3].called)
-        # test instances
-        self.assertIsNotNone(supvisors.options)
-        self.assertIsNotNone(supvisors.logger)
-        self.assertIsNotNone(supvisors.info_source)
-        self.assertIsNotNone(supvisors.address_mapper)
-        self.assertIsNotNone(supvisors.context)
-        self.assertIsNotNone(supvisors.starter)
-        self.assertIsNotNone(supvisors.stopper)
-        self.assertIsNotNone(supvisors.statistician)
-        self.assertIsNotNone(supvisors.fsm)
-        self.assertIsNotNone(supvisors.parser)
-        self.assertIsNotNone(supvisors.listener)
-
-    def test_create_logger(self):
-        """ Test the create_logger method. """
-        from supvisors.initializer import Supvisors
-        # create mocked supvisors options
-        mocked_options = Mock(supvisors_options=DummyOptions())
-        with patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_options):
-            # create Supvisors instance
-            supervisord = DummySupervisor()
-            supvisors = Supvisors(supervisord)
-            # test AUTO logfile
-            mocked_options.supvisors_options.logfile = Automatic
-            self.assertIs(supervisord.options.logger, supvisors.create_logger(supervisord))
-            # for the following, supervisord must be silent because of logger
-            # for unknown reason test_initializer got this exception
-            # ValueError: I/O operation on closed file
-            supervisord.options.silent = True
-            # test defined logfile
-            mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
-            self.logger = supvisors.create_logger(supervisord)
-            self.assertIsNot(supervisord.options.logger, self.logger)
-
-    @patch('supvisors.initializer.loggers')
-    @patch('supvisors.initializer.SupvisorsServerOptions')
-    def test_address_exception(self, *args, **kwargs):
-        """ Test the values set at construction. """
-        from supvisors.initializer import Supvisors
-        # create Supvisors instance
-        supervisord = DummySupervisor()
-        # patches Faults codes
-        setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
-        # test that local address exception raises a failure to Supervisor
-        with self.assertRaises(RPCError):
-            Supvisors(supervisord)
-
-    @patch('supvisors.initializer.Parser', side_effect=Exception)
-    @patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
-    @patch('supvisors.initializer.loggers')
-    @patch('supvisors.initializer.SupvisorsServerOptions')
-    def test_parser_exception(self, *args, **kwargs):
-        """ Test the values set at construction. """
-        from supvisors.initializer import Supvisors
-        # create Supvisors instance
-        supervisord = DummySupervisor()
-        supvisors = Supvisors(supervisord)
-        # test that parser exception is accepted
-        self.assertIsNone(supvisors.parser)
+def test_creation(mocker):
+    """ Test the values set at construction. """
+    mocked_parser = mocker.patch('supvisors.initializer.Parser', return_value='Parser')
+    mocked_mapper = mocker.patch('supvisors.initializer.AddressMapper', return_value=DummyAddressMapper())
+    mocked_logger = mocker.patch('supvisors.initializer.Supvisors.create_logger', return_value=Mock(spec=Logger))
+    mocked_supv_options = DummyOptions()
+    mocked_srv_options = Mock(supvisors_options=mocked_supv_options)
+    mocked_options = mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
+    # create the instance to test
+    from supvisors.initializer import (Supvisors, SupervisordSource, Context, Starter, Stopper,
+                                       StatisticsCompiler, FiniteStateMachine, SupervisorListener)
+    supv = Supvisors(DummySupervisor())
+    # test calls
+    assert mocked_options.called
+    assert mocked_logger.called
+    assert mocked_mapper.called
+    assert mocked_parser.called
+    # test instances
+    assert supv.options is not None
+    assert mocked_srv_options.realize.called
+    assert supv.logger is not None
+    assert supv.info_source is not None
+    assert isinstance(supv.info_source, SupervisordSource)
+    assert supv.address_mapper is not None
+    assert isinstance(supv.address_mapper, DummyAddressMapper)
+    assert supv.context is not None
+    assert isinstance(supv.context, Context)
+    assert supv.starter is not None
+    assert isinstance(supv.starter, Starter)
+    assert supv.stopper is not None
+    assert isinstance(supv.stopper, Stopper)
+    assert supv.statistician is not None
+    assert isinstance(supv.statistician, StatisticsCompiler)
+    assert supv.fsm is not None
+    assert isinstance(supv.fsm, FiniteStateMachine)
+    assert supv.parser == 'Parser'
+    assert supv.listener is not None
+    assert isinstance(supv.listener, SupervisorListener)
 
 
-class ModuleInitTest(unittest.TestCase):
-    """ Test case for the supvisors package. """
+def test_create_logger(mocker):
+    """ Test the create_logger method. """
+    from supervisor.datatypes import Automatic
+    from supvisors.initializer import Supvisors
+    # create mocked supvisors options
+    mocked_options = Mock(supvisors_options=DummyOptions())
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_options)
+    # create Supvisors instance
+    supervisord = DummySupervisor()
+    supvisors = Supvisors(supervisord)
+    # test AUTO logfile
+    mocked_options.supvisors_options.logfile = Automatic
+    assert supvisors.create_logger(supervisord) is supervisord.options.logger
+    # for the following, supervisord must be silent because of logger
+    # for unknown reason test_initializer got this exception
+    # ValueError: I/O operation on closed file
+    supervisord.options.silent = True
+    # test defined logfile
+    mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
+    logger = supvisors.create_logger(supervisord)
+    assert logger is not supervisord.options.logger
 
-    def test_init(self):
-        """ Just import supvisors to test __init__.py file. """
-        import supvisors
-        self.assertEqual('supvisors', supvisors.__name__)
+
+def test_address_exception(mocker):
+    """ Test the values set at construction. """
+    mocker.patch('supvisors.initializer.loggers')
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
+    from supvisors.initializer import Supvisors, Faults, RPCError
+    # create Supvisors instance
+    supervisord = DummySupervisor()
+    # patches Faults codes
+    setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
+    # test that local address exception raises a failure to Supervisor
+    with pytest.raises(RPCError):
+        Supvisors(supervisord)
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+def test_parser_exception(mocker):
+    """ Test the values set at construction. """
+    mocker.patch('supvisors.initializer.Parser', side_effect=Exception)
+    mocker.patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
+    mocker.patch('supvisors.initializer.loggers')
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
+    # create Supvisors instance
+    from supvisors.initializer import Supvisors
+    supvisors = Supvisors(DummySupervisor())
+    # test that parser exception is accepted
+    assert supvisors.parser is None
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_supvisors_init():
+    """ Just import supvisors to test __init__.py file. """
+    import supvisors
+    assert supvisors.__name__ == 'supvisors'

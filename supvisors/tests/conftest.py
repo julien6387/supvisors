@@ -51,16 +51,6 @@ def supvisors():
     return MockedSupvisors()
 
 
-# Fixture for empty class
-class EmptyClass:
-    pass
-
-
-@pytest.fixture
-def empty():
-    return EmptyClass()
-
-
 # fixture for simple classes replacing meld behaviour
 class DummyElement:
     def __init__(self):

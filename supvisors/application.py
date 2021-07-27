@@ -179,6 +179,15 @@ class ApplicationStatus(object):
                 'major_failure': self.major_failure,
                 'minor_failure': self.minor_failure}
 
+    def __str__(self) -> str:
+        """ Get the application status as string.
+
+        :return: the printable application status
+        """
+        return 'application_name={} state={} major_failure={} minor_failure={} start_failure={}' \
+            .format(self.application_name, self.state.name, self.major_failure,
+                    self.minor_failure, self.start_failure)
+
     # methods
     def add_process(self, process: ProcessStatus) -> None:
         """ Add a new process to the process list.
@@ -203,7 +212,7 @@ class ApplicationStatus(object):
 
         :return: None
         """
-        # fill ordering iaw process rules
+        # fill ordering iaw process rules&
         self.start_sequence.clear()
         self.stop_sequence.clear()
         for process in self.processes.values():

@@ -23,16 +23,16 @@ from supervisor import loggers
 from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.addressmapper import AddressMapper
-from supvisors.commander import Starter, Stopper
-from supvisors.context import Context
-from supvisors.infosource import SupervisordSource
-from supvisors.listener import SupervisorListener
-from supvisors.options import SupvisorsServerOptions
-from supvisors.sparser import Parser
-from supvisors.statemachine import FiniteStateMachine
-from supvisors.statscompiler import StatisticsCompiler
-from supvisors.strategy import RunningFailureHandler
+from .addressmapper import AddressMapper
+from .commander import Starter, Stopper
+from .context import Context
+from .infosource import SupervisordSource
+from .listener import SupervisorListener
+from .options import SupvisorsServerOptions
+from .sparser import Parser
+from .statemachine import FiniteStateMachine
+from .statscompiler import StatisticsCompiler
+from .strategy import RunningFailureHandler
 
 
 class Supvisors(object):

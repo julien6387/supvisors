@@ -137,34 +137,21 @@ def test_commander_in_progress(commander, command_list_1, command_list_2):
     assert not commander.in_progress()
 
 
-def test_commander_has_application(commander, command_list_1, command_list_2):
+def test_commander_get_job_applications(commander, command_list_1, command_list_2):
     """ Test the Commander.has_application method. """
-    assert not commander.has_application('if')
-    assert not commander.has_application('then')
-    assert not commander.has_application('else')
+    assert commander.get_job_applications() == set()
     commander.planned_sequence = {0: {'if': {0: command_list_1}}}
-    assert commander.has_application('if')
-    assert not commander.has_application('then')
+    assert commander.get_job_applications() == {'if'}
     commander.planned_jobs = {'then': {1: command_list_2}}
-    assert commander.has_application('if')
-    assert commander.has_application('then')
-    assert not commander.has_application('else')
+    assert commander.get_job_applications() == {'if', 'then'}
     commander.current_jobs = {'else': []}
-    assert commander.has_application('if')
-    assert commander.has_application('then')
-    assert commander.has_application('else')
+    assert commander.get_job_applications() == {'if', 'then', 'else'}
     commander.planned_sequence = {}
-    assert not commander.has_application('if')
-    assert commander.has_application('then')
-    assert commander.has_application('else')
+    assert commander.get_job_applications() == {'then', 'else'}
     commander.planned_jobs = {}
-    assert not commander.has_application('if')
-    assert not commander.has_application('then')
-    assert commander.has_application('else')
+    assert commander.get_job_applications() == {'else'}
     commander.current_jobs = {}
-    assert not commander.has_application('if')
-    assert not commander.has_application('then')
-    assert not commander.has_application('else')
+    assert commander.get_job_applications() == set()
 
 
 def test_commander_printable_command_list(commander, command_list_1, command_list_2):
@@ -427,7 +414,7 @@ def test_starter_abort(starter):
     starter.abort()
     assert starter.planned_sequence == {}
     assert starter.planned_jobs == {}
-    assert starter.current_jobs == {}
+    assert starter.current_jobs == {'if': ['dummy_1', 'dummy_2'], 'then': ['dummy_3']}
 
 
 def test_starter_store_application_start_sequence(starter, command_list):

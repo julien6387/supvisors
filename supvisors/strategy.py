@@ -292,7 +292,7 @@ class RunningFailureHandler(AbstractStrategy):
         self.start_application_jobs = set()
         self.start_process_jobs = set()
 
-    def clear_jobs(self):
+    def abort(self):
         """ Clear all sets. """
         self.stop_application_jobs = set()
         self.restart_application_jobs = set()
@@ -304,80 +304,138 @@ class RunningFailureHandler(AbstractStrategy):
     def add_job(self, strategy, process):
         """ Add a process or the related application name in the relevant set,
         iaw the strategy set in parameter and the priorities defined above. """
+        self.logger.trace('RunningFailureHandler.add_job: START stop_application_jobs={} restart_application_jobs={}'
+                          ' restart_application_jobs={} restart_process_jobs={} continue_process_jobs={}'
+                          ' start_application_jobs={} start_process_jobs={}'
+                          .format(self.stop_application_jobs, self.restart_application_jobs,
+                                  self.restart_application_jobs, self.restart_process_jobs, self.continue_process_jobs,
+                                  self.start_application_jobs, self.start_process_jobs))
         application_name = process.application_name
         if strategy == RunningFailureStrategies.STOP_APPLICATION:
+            self.logger.info('RunningFailureHandler.add_job: adding {} to stop_application_jobs'
+                             .format(application_name))
             self.stop_application_jobs.add(application_name)
-            self.restart_application_jobs = set(filter(lambda x: x != application_name,
-                                                       self.restart_application_jobs))
+            self.restart_application_jobs.discard(application_name)
             self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                    self.restart_process_jobs))
             self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                     self.continue_process_jobs))
         elif strategy == RunningFailureStrategies.RESTART_APPLICATION:
             if application_name not in self.stop_application_jobs:
+                self.logger.info('RunningFailureHandler.add_job: adding {} to restart_application_jobs'
+                                 .format(application_name))
                 self.restart_application_jobs.add(application_name)
                 self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                        self.restart_process_jobs))
                 self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                         self.continue_process_jobs))
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to restart_application_jobs'
+                                 ' because already in stop_application_jobs'.format(application_name))
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
-            if application_name not in self.stop_application_jobs and \
-                    application_name not in self.restart_application_jobs:
+            if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs):
+                self.logger.info('RunningFailureHandler.add_job: adding {} to restart_process_jobs'
+                                 .format(process.namespec()))
                 self.restart_process_jobs.add(process)
                 self.continue_process_jobs.discard(process)
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to restart_process_jobs'
+                                 ' because already in stop_application_jobs or restart_application_jobs'
+                                 .format(application_name))
         elif strategy == RunningFailureStrategies.CONTINUE:
-            if application_name not in self.stop_application_jobs and \
-                    application_name not in self.restart_application_jobs and \
+            if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs) and \
                     process not in self.restart_process_jobs:
+                self.logger.info('RunningFailureHandler.add_job: adding {} to continue_process_jobs'
+                                 .format(process.namespec()))
                 self.continue_process_jobs.add(process)
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to continue_process_jobs'
+                                 ' because already in stop_application_jobs or restart_application_jobs'
+                                 ' or restart_process_jobs'.format(application_name))
+        self.logger.trace('RunningFailureHandler.add_job: END stop_application_jobs={} restart_application_jobs={}'
+                          ' restart_application_jobs={} restart_process_jobs={} continue_process_jobs={}'
+                          ' start_application_jobs={} start_process_jobs={}'
+                          .format(self.stop_application_jobs, self.restart_application_jobs,
+                                  self.restart_application_jobs, self.restart_process_jobs, self.continue_process_jobs,
+                                  self.start_application_jobs, self.start_process_jobs))
 
     def add_default_job(self, process):
         """ Add a process or the related application name in the relevant set,
         iaw the strategy set in process rules and the priorities defined above. """
         self.add_job(process.rules.running_failure_strategy, process)
 
+    def get_job_applications(self) -> bool:
+        """ Get all application names involved in Commanders.
+
+        :return: the list of application names
+        """
+        return self.supvisors.starter.get_job_applications() | self.supvisors.stopper.get_job_applications()
+
     def trigger_jobs(self):
         """ Trigger the configured strategy when a process of a running application crashes. """
+        job_applications = self.get_job_applications()
         # consider applications to stop
         if self.stop_application_jobs:
-            for application_name in self.stop_application_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: stop application {}'.format(application_name))
+            for application_name in self.stop_application_jobs.copy():
                 application = self.supvisors.context.applications[application_name]
-                self.supvisors.stopper.stop_application(application)
-            self.stop_application_jobs = set()
+                if application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: stop application {} deferred'
+                                      .format(application_name))
+                else:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: stop application {}'
+                                     .format(application_name))
+                    self.stop_application_jobs.remove(application_name)
+                    self.supvisors.stopper.stop_application(application)
         # consider applications to restart
         if self.restart_application_jobs:
-            for application_name in self.restart_application_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'.format(application_name))
+            for application_name in self.restart_application_jobs.copy():
                 application = self.supvisors.context.applications[application_name]
-                self.supvisors.stopper.stop_application(application)
-                # defer the application starting
-                self.start_application_jobs.add(application)
-            self.restart_application_jobs = set()
+                if application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: restart application {} deferred'
+                                      .format(application_name))
+                else:
+                    self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'
+                                     .format(application_name))
+                    self.restart_application_jobs.remove(application_name)
+                    # first stop the application
+                    self.supvisors.stopper.stop_application(application)
+                    # defer the application starting
+                    self.start_application_jobs.add(application)
         # consider processes to restart
         if self.restart_process_jobs:
-            for process in self.restart_process_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: restart process {}'.format(process.namespec()))
-                self.supvisors.stopper.stop_process(process)
-                # defer the process starting
-                self.start_process_jobs.add(process)
-            self.restart_process_jobs = set()
+            for process in self.restart_process_jobs.copy():
+                if process.application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: restart process {} deferred'
+                                      .format(process.namespec()))
+                else:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: restart process {}'
+                                     .format(process.namespec()))
+                    self.restart_process_jobs.remove(process)
+                    self.supvisors.stopper.stop_process(process)
+                    # defer the process starting
+                    self.start_process_jobs.add(process)
         # consider applications to start
         if self.start_application_jobs:
             for application in self.start_application_jobs.copy():
-                if application.stopped():
-                    self.logger.debug('RunningFailureHandler.trigger_jobs: start application {}'
-                                      .format(application.application_name))
-                    self.supvisors.starter.default_start_application(application)
+                if application.stopped() and application.application_name not in job_applications:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: start application {}'
+                                     .format(application.application_name))
                     self.start_application_jobs.remove(application)
+                    self.supvisors.starter.default_start_application(application)
+                else:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: start application {} deferred'
+                                      .format(application.application_name))
         # consider processes to start
         if self.start_process_jobs:
             for process in self.start_process_jobs.copy():
-                if process.stopped():
+                if process.stopped() and process.application_name not in job_applications:
                     self.logger.warn('RunningFailureHandler.trigger_jobs: start process {}'
                                      .format(process.namespec()))
-                    self.supvisors.starter.default_start_process(process)
                     self.start_process_jobs.remove(process)
+                    self.supvisors.starter.default_start_process(process)
+                else:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: start process {} deferred'
+                                      .format(process.namespec()))
         # log only the continuation jobs
         if self.continue_process_jobs:
             for process in self.continue_process_jobs:

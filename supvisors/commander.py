@@ -27,7 +27,7 @@ from supervisor.states import ProcessStates
 from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import get_node
-from .ttypes import StartingStrategies, StartingFailureStrategies
+from .ttypes import NameList, StartingStrategies, StartingFailureStrategies
 
 
 class ProcessCommand(object):
@@ -121,18 +121,15 @@ class Commander(object):
                                   self.printable_current_jobs()))
         return len(self.planned_sequence) > 0 or len(self.planned_jobs) > 0 or len(self.current_jobs) > 0
 
-    def has_application(self, application_name: str) -> bool:
-        """ Return True if application is part of the jobs currently considered.
+    def get_job_applications(self) -> NameList:
+        """ Return all application names involved in any sequence.
 
-        :param application_name: the application name
-        :return: the presence status of the application
+        :return: the list of application names
         """
-        # get all planned applications
-        planned_applications = [app_name for jobs in self.planned_sequence.values() for app_name in jobs]
-        # search for application name in internal structures
-        return (application_name in planned_applications
-                or application_name in self.planned_jobs
-                or application_name in self.current_jobs)
+        planned_applications = {app_name for jobs in self.planned_sequence.values() for app_name in jobs}
+        planned_applications.update(self.planned_jobs.keys())
+        planned_applications.update(self.current_jobs.keys())
+        return planned_applications
 
     # log facilities
     def printable_planned_sequence(self) -> PrintablePlannedSequence:
@@ -187,15 +184,18 @@ class Commander(object):
 
         :return: None
         """
-        self.logger.debug('Commander.trigger_jobs: planned_sequence={}'.format(self.printable_planned_sequence()))
+        self.logger.info('Commander.trigger_jobs: planned_sequence={}'.format(self.printable_planned_sequence()))
         # pop lower sequence from planned_sequence
         while self.planned_sequence and not self.planned_jobs and not self.current_jobs:
-            self.planned_jobs = self.planned_sequence.pop(min(self.planned_sequence.keys()))
-            self.logger.debug('Commander.trigger_jobs: planned_jobs={}'.format(self.printable_planned_jobs()))
+            min_sequence = min(self.planned_sequence.keys())
+            self.planned_jobs = self.planned_sequence.pop(min_sequence)
+            self.logger.debug('Commander.trigger_jobs: min_sequence={} planned_jobs={}'
+                              .format(min_sequence, self.printable_planned_jobs()))
             # iterate on copy to avoid problems with key deletions
             for application_name in list(self.planned_jobs.keys()):
+                self.logger.info('Commander.trigger_jobs: triggering sequence {} - application_name={}'
+                                 .format(min_sequence, application_name))
                 self.process_application_jobs(application_name)
-        self.logger.trace('Commander.trigger_jobs: waiting for events to progress')
 
     def process_application_jobs(self, application_name: str) -> None:
         """ Triggers the next sequenced group of the application.
@@ -209,14 +209,16 @@ class Commander(object):
             # loop until there is something to do in sequence
             while sequence and not jobs and application_name in self.planned_jobs:
                 # pop lower group from sequence
-                group = sequence.pop(min(sequence.keys()))
-                self.logger.debug('Commander.process_application_jobs: application {} - next group: {}'
-                                  .format(application_name, self.printable_command_list(group)))
+                min_sequence = min(sequence.keys())
+                group = sequence.pop(min_sequence)
+                self.logger.info('Commander.process_application_jobs: application_name={}'
+                                  ' - next group: min_sequence={} group={}'
+                                  .format(application_name, min_sequence, self.printable_command_list(group)))
                 for command in group:
-                    self.logger.trace('Commander.process_application_jobs: {} - state={}'
+                    self.logger.info('Commander.process_application_jobs: {} - state={}'
                                       .format(command.process.namespec(), command.process.state_string()))
                     self.process_job(command, jobs)
-            self.logger.debug('Commander.process_application_jobs: current_jobs={}'
+            self.logger.info('Commander.process_application_jobs: current_jobs={}'
                               .format(self.printable_current_jobs()))
             # if nothing in progress when exiting the loop, delete application entry in current_jobs
             if not jobs:
@@ -344,13 +346,13 @@ class Starter(Commander):
         return self.supvisors.options.starting_strategy
 
     def abort(self) -> None:
-        """ Abort all planned and current jobs.
+        """ Abort all planned current jobs.
+        Do not erase current_jobs. Wait for their completion.
 
         :return: None
         """
         self.planned_sequence = {}
         self.planned_jobs = {}
-        self.current_jobs = {}
 
     def start_applications(self) -> None:
         """ This method is called in the DEPLOYMENT phase.
@@ -363,6 +365,8 @@ class Starter(Commander):
         self.logger.info('Starter.start_applications: start all applications using strategy {}'.format(strategy.name))
         # internal call: default strategy always used
         for application in self.supvisors.context.applications.values():
+            self.logger.debug('Starter.start_applications: application={} start_sequence={} never_started={}'
+                              .format(str(application), application.rules.start_sequence, application.never_started()))
             # applications with start_sequence=0 are not meant to be auto-started
             if application.rules.start_sequence > 0:
                 if application.never_started():
@@ -540,6 +544,9 @@ class Starter(Commander):
         """
         starting = False
         process = command.process
+        self.logger.debug('Starter.process_job: process={} repair={} crashed={} stopped={}'
+                          .format(process.namespec(), command.repair, process.crashed(), process.stopped()))
+        # FIXME: probleme ici ?
         if command.repair and process.crashed() or not command.repair and process.stopped():
             # whatever a node is found or not to start the process, the job is considered started
             # in every cases, a notification is expected from Supervisor
@@ -583,8 +590,7 @@ class Starter(Commander):
                 # defer stop application so that any job in progress are not missed
                 self.application_stop_requests.append(application_name)
             else:
-                self.logger.warn('Starter.process_failure: continue starting of application {}'
-                                 .format(application_name))
+                self.logger.warn('Starter.process_failure: continue starting application {}'.format(application_name))
         else:
             self.logger.warn('Starter.process_failure: starting failed for optional {}'.format(process.process_name))
             self.logger.warn('Starter.process_failure: continue starting application {}'.format(application_name))

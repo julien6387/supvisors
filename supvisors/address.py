@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
 from supvisors.ttypes import AddressStates, InvalidTransition
@@ -32,13 +33,30 @@ class AddressStatus(object):
     - local_time: the last date received from the Supvisors instance, in the local reference time,
     - processes: the list of processes that are available on this address. """
 
-    def __init__(self, address_name, logger):
+    # Timeout in seconds from which Supvisors considers that a node is inactive if no tick has been received in the gap.
+    # TODO: could be an option in configuration file
+    INACTIVITY_TIMEOUT = 10
+
+    def __init__(self, node_name: str, logger: Logger):
         """ Initialization of the attributes. """
         # keep a reference to the common logger
         self.logger = logger
         # attributes
-        self.address_name = address_name
+        self.address_name = node_name
         self._state = AddressStates.UNKNOWN
+        self.remote_time = 0
+        self.local_time = 0
+        self.processes = {}
+
+    def reset(self):
+        """ Reset the contextual part of the node.
+        Silent and isolated node are not reset.
+
+        :return: None
+        """
+        if self.state in [AddressStates.CHECKING, AddressStates.RUNNING]:
+            # do NOT use state setter as transition may be rejected
+            self._state = AddressStates.UNKNOWN
         self.remote_time = 0
         self.local_time = 0
         self.processes = {}
@@ -70,6 +88,14 @@ class AddressStatus(object):
                 'loading': self.get_load()}
 
     # methods
+    def inactive(self, current_time: float):
+        """ Return True if the latest update was received more than INACTIVITY_TIMEOUT seconds ago.
+
+        :param current_time: the current time
+        :return: the inactivity status
+        """
+        return self.state == AddressStates.RUNNING and (current_time - self.local_time) > self.INACTIVITY_TIMEOUT
+
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]

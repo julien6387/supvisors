@@ -19,7 +19,6 @@
 
 import os
 import random
-import unittest
 
 from socket import gethostname
 from unittest.mock import Mock

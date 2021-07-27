@@ -136,9 +136,9 @@ class SupervisorListener(object):
             stats = self.collector(status.pid_processes())
             self.publisher.send_statistics(stats)
         # periodic task
-        addresses = self.supvisors.fsm.on_timer_event()
+        node_names = self.supvisors.fsm.on_timer_event()
         # pushes isolated addresses to main loop
-        self.supvisors.zmq.pusher.send_isolate_nodes(addresses)
+        self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.

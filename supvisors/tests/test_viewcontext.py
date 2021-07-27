@@ -19,12 +19,10 @@
 
 import pytest
 
+from supvisors.viewcontext import *
 from unittest.mock import call, patch, Mock
 
-from supvisors.viewcontext import *
-
 from .base import DummyAddressMapper, DummyHttpContext, DummyOptions
-
 
 url_attr_template = r'(.+=.+)'
 

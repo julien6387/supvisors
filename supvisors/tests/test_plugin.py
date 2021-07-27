@@ -17,101 +17,80 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
-import unittest
+import re
 
-from unittest.mock import call, patch
+from supervisor.web import OKView, TailView
+from unittest.mock import call
 
-from supervisor.web import VIEWS, OKView, TailView
-from supervisor.xmlrpc import Faults
+from supvisors.plugin import *
 
-from supvisors.tests.base import DummySupervisor
-
-
-class PluginTest(unittest.TestCase):
-    """ Test case for the plugin module. """
-
-    def test_codes(self):
-        """ Test the addition of Supvisors fault codes to Supervisor's. """
-        from supvisors.plugin import SupvisorsFaults, expand_faults
-        # update Supervisor faults
-        expand_faults()
-        # test that enumerations are in Supervisor
-        for x in SupvisorsFaults:
-            self.assertTrue(hasattr(Faults, x.name))
-
-    def test_update_views(self):
-        """ Test the update_views function. """
-        from supvisors.plugin import update_views
-        from supvisors.viewsupvisors import SupvisorsView
-        from supvisors.viewapplication import ApplicationView
-        from supvisors.viewhostaddress import HostAddressView
-        from supvisors.viewprocaddress import ProcAddressView
-        from supvisors.viewimage import (AddressMemoryImageView, ProcessMemoryImageView,
-                                         AddressCpuImageView, ProcessCpuImageView, AddressNetworkImageView)
-        # update Supervisor views
-        update_views()
-        # check Supvisors views
-        view = VIEWS['index.html']
-        self.assertRegex(view['template'], 'supvisors/ui/index.html$')
-        self.assertEqual(view['view'], SupvisorsView)
-        view = VIEWS['ok.html']
-        self.assertEqual(None, view['template'])
-        self.assertEqual(view['view'], OKView)
-        view = VIEWS['tail.html']
-        self.assertEqual('ui/tail.html', view['template'])
-        self.assertEqual(view['view'], TailView)
-        view = VIEWS['application.html']
-        self.assertRegex(view['template'], 'supvisors/ui/application.html$')
-        self.assertEqual(view['view'], ApplicationView)
-        view = VIEWS['hostaddress.html']
-        self.assertRegex(view['template'], 'supvisors/ui/hostaddress.html$')
-        self.assertEqual(view['view'], HostAddressView)
-        view = VIEWS['procaddress.html']
-        self.assertRegex(view['template'], 'supvisors/ui/procaddress.html$')
-        self.assertEqual(view['view'], ProcAddressView)
-        view = VIEWS['address_mem.png']
-        self.assertIsNone(view['template'])
-        self.assertEqual(view['view'], AddressMemoryImageView)
-        view = VIEWS['process_mem.png']
-        self.assertIsNone(view['template'])
-        self.assertEqual(view['view'], ProcessMemoryImageView)
-        view = VIEWS['address_cpu.png']
-        self.assertIsNone(view['template'])
-        self.assertEqual(view['view'], AddressCpuImageView)
-        view = VIEWS['process_cpu.png']
-        self.assertIsNone(view['template'])
-        self.assertEqual(view['view'], ProcessCpuImageView)
-        view = VIEWS['address_io.png']
-        self.assertIsNone(view['template'])
-        self.assertEqual(view['view'], AddressNetworkImageView)
-
-    @patch('supvisors.plugin.update_views')
-    @patch('supvisors.plugin.expand_faults')
-    @patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
-    @patch('supvisors.plugin.RPCInterface')
-    def test_make_rpc(self, mocked_rpc, mocked_supvisors, mocked_expand, mocked_views):
-        """ Test the make_supvisors_rpcinterface function. """
-        from supvisors.initializer import Supvisors
-        from supvisors.plugin import make_supvisors_rpcinterface
-        supervisord = DummySupervisor()
-        # save cleanup_fds function
-        from supervisor.options import ServerOptions
-        cleanup = ServerOptions.cleanup_fds
-        # create the RPC interface
-        make_supvisors_rpcinterface(supervisord)
-        # test the calls to previous functions
-        self.assertEqual('a Supvisors instance', supervisord.supvisors)
-        self.assertEqual([call(supervisord.supvisors)], mocked_rpc.call_args_list)
-        self.assertEqual([call()], mocked_expand.call_args_list)
-        self.assertEqual([call()], mocked_views.call_args_list)
-        # test inclusion of Supvisors into Supervisor
-        self.assertIsNot(cleanup, ServerOptions.cleanup_fds)
+from .base import DummySupervisor
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+def test_codes():
+    """ Test the addition of Supvisors fault codes to Supervisor's. """
+    # update Supervisor faults
+    expand_faults()
+    # test that enumerations are in Supervisor
+    for x in SupvisorsFaults:
+        assert hasattr(Faults, x.name)
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_update_views():
+    """ Test the update_views function. """
+    # update Supervisor views
+    update_views()
+    # check Supvisors views
+    view = VIEWS['index.html']
+    assert re.search(r'supvisors/ui/index\.html$', view['template'])
+    assert view['view'] == SupvisorsView
+    view = VIEWS['ok.html']
+    assert view['template'] is None
+    assert OKView == view['view']
+    view = VIEWS['tail.html']
+    assert view['template'] == 'ui/tail.html'
+    assert TailView == view['view']
+    view = VIEWS['application.html']
+    assert re.search(r'supvisors/ui/application\.html$', view['template'])
+    assert ApplicationView == view['view']
+    view = VIEWS['hostaddress.html']
+    assert re.search(r'supvisors/ui/hostaddress\.html$', view['template'])
+    assert HostAddressView == view['view']
+    view = VIEWS['procaddress.html']
+    assert re.search(r'supvisors/ui/procaddress\.html$', view['template'])
+    assert ProcAddressView == view['view']
+    view = VIEWS['address_mem.png']
+    assert view['template'] is None
+    assert AddressMemoryImageView == view['view']
+    view = VIEWS['process_mem.png']
+    assert view['template'] is None
+    assert ProcessMemoryImageView == view['view']
+    view = VIEWS['address_cpu.png']
+    assert view['template'] is None
+    assert AddressCpuImageView == view['view']
+    view = VIEWS['process_cpu.png']
+    assert view['template'] is None
+    assert ProcessCpuImageView == view['view']
+    view = VIEWS['address_io.png']
+    assert view['template'] is None
+    assert AddressNetworkImageView == view['view']
+
+
+def test_make_rpc(mocker):
+    """ Test the make_supvisors_rpcinterface function. """
+    mocked_views = mocker.patch('supvisors.plugin.update_views')
+    mocked_expand = mocker.patch('supvisors.plugin.expand_faults')
+    mocked_supvisors = mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
+    mocked_rpc = mocker.patch('supvisors.plugin.RPCInterface')
+    supervisord = DummySupervisor()
+    # save cleanup_fds function
+    cleanup = ServerOptions.cleanup_fds
+    # create the RPC interface
+    make_supvisors_rpcinterface(supervisord)
+    # test the calls to previous functions
+    assert supervisord.supvisors == 'a Supvisors instance'
+    assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
+    assert mocked_expand.call_args_list == [call()]
+    assert mocked_views.call_args_list == [call()]
+    # test inclusion of Supvisors into Supervisor
+    assert ServerOptions.cleanup_fds is not cleanup

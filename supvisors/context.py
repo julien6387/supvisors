@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator
+from typing import Iterator, List, Set
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
@@ -38,11 +38,7 @@ class Context(object):
     - new: a boolean telling if this context has just been started.
     """
 
-    # Timeout in seconds from which Supvisors considers that a node is inactive if no tick has been received in the gap.
-    # TODO: could be an option in configuration file
-    INACTIVITY_TIMEOUT = 10
-
-    def __init__(self, supvisors):
+    def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
@@ -59,64 +55,80 @@ class Context(object):
         self._is_master = False
         self.master_operational = False
 
+    def reset(self) -> None:
+        """ Reset the context to prepare a new synchronization phase.
+        Keep only the nodes definition.
+
+        :return: None
+        """
+        self.master_node_name = ''
+        self.applications = {}
+        for status in self.nodes.values():
+            status.reset()
+
     @property
-    def master_node_name(self):
+    def master_node_name(self) -> str:
         return self._master_node_name
 
     @property
-    def is_master(self):
+    def is_master(self) -> bool:
         return self._is_master
 
     @master_node_name.setter
-    def master_node_name(self, node_name):
+    def master_node_name(self, node_name) -> None:
         self.logger.info('Context.master_node_name: {}'.format(node_name))
         self._master_node_name = node_name
         self._is_master = node_name == self.supvisors.address_mapper.local_node_name
         self.master_operational = False
 
     # methods on nodes
-    def unknown_nodes(self):
+    def unknown_nodes(self) -> NameList:
         """ Return the AddressStatus instances in UNKNOWN state. """
         return self.nodes_by_states([AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING])
 
-    def unknown_forced_nodes(self):
+    def unknown_forced_nodes(self) -> NameList:
         """ Return the AddressStatus instances in UNKNOWN state. """
         return [status.address_name
                 for status in self.forced_nodes.values()
                 if status.state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING]]
 
-    def running_nodes(self):
+    def running_nodes(self) -> NameList:
         """ Return the AddressStatus instances in RUNNING state. """
         return self.nodes_by_states([AddressStates.RUNNING])
 
-    def isolating_nodes(self):
+    def isolating_nodes(self) -> NameList:
         """ Return the AddressStatus instances in ISOLATING state. """
         return self.nodes_by_states([AddressStates.ISOLATING])
 
-    def isolation_nodes(self):
+    def isolation_nodes(self) -> NameList:
         """ Return the AddressStatus instances in ISOLATING or ISOLATED state. """
         return self.nodes_by_states([AddressStates.ISOLATING, AddressStates.ISOLATED])
 
-    def nodes_by_states(self, states):
+    def nodes_by_states(self, states: List[AddressStates]) -> NameList:
         """ Return the AddressStatus instances sorted by state. """
         return [status.address_name
                 for status in self.nodes.values()
                 if status.state in states]
 
-    def invalid(self, status: AddressStatus):
+    def invalid(self, status: AddressStatus) -> None:
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local node is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
-        if self.supvisors.options.auto_fence and status.address_name != self.supvisors.address_mapper.local_node_name:
+        if status.address_name == self.supvisors.address_mapper.local_node_name:
+            # this is very unlikely
+            # to get here, 2 ways:
+            #    1. end_synchro or on_timer_event
+            #       both are triggered directly by the FSM upon supervisor ticks so local node is definitely not SILENT
+            #       possible causes would be: network congestion, CPU overload or broken internal publisher
+            #       and thus the AddressStatus.local_time would not be updated
+            #    2. on_authorization
+            #       by design, the local node cannot be ISOLATED. that's precisely the aim of the following instructions
+            self.logger.critical('Context.invalid: local node is SILENT')
+            status.state = AddressStates.SILENT
+        elif self.supvisors.options.auto_fence:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
-        # invalidate node in relevant processes
-        # if local Supvisors is master, failure handler will be notified for processes running on this node
-        for process in status.running_processes():
-            failure = process.invalidate_node(status.address_name)
-            if failure and self.is_master:
-                self.force_process_state(process.namespec(), ProcessStates.FATAL, 'node %s lost' % status.address_name)
 
     def end_synchro(self) -> None:
         """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
@@ -124,9 +136,9 @@ class Context(object):
         :return: None
         """
         # consider problem if no tick received at the end of synchro time
-        for address in self.nodes.values():
-            if address.state == AddressStates.UNKNOWN:
-                self.invalid(address)
+        for status in self.nodes.values():
+            if status.state == AddressStates.UNKNOWN:
+                self.invalid(status)
 
     # methods on applications / processes
     def get_managed_applications(self) -> Iterator[ApplicationStatus]:
@@ -306,30 +318,39 @@ class Context(object):
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
 
-    def on_timer_event(self):
+    def on_timer_event(self) -> Set[ProcessStatus]:
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
-        for status in self.nodes.values():
-            if status.state == AddressStates.RUNNING and (time() - status.local_time) > Context.INACTIVITY_TIMEOUT:
-                self.invalid(status)
-                # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status.serial())
+        process_failures = set()
+        # find all nodes that do not send their periodic tick
+        current_time = time()
+        invalid_nodes = [status for status in self.nodes.values() if status.inactive(current_time)]
+        for status in invalid_nodes:
+            # update node status state
+            self.invalid(status)
+            # publish AddressStatus event
+            self.supvisors.zmq.publisher.send_address_status(status.serial())
+            # invalidate node in processes
+            process_failures.update({process for process in status.running_processes()
+                                     if process.invalidate_node(status.address_name)})
+        #  return all processes that declare a failure
+        return process_failures
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING addresses to ISOLATED and publish related events. """
-        addresses = self.isolating_nodes()
-        for address in addresses:
-            status = self.nodes[address]
+        node_names = self.isolating_nodes()
+        for node_name in node_names:
+            status = self.nodes[node_name]
             status.state = AddressStates.ISOLATED
             # publish AddressStatus event
             self.supvisors.zmq.publisher.send_address_status(status.serial())
-        return addresses
+        return node_names
 
-    def force_process_state(self, namespec: str, state: int, reason: str) -> None:
+    def force_process_state(self, namespec: str, state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
         :param namespec: the process namespec
-        :param state: the process state to force (among ProcessStates)
+        :param state: the process state to force
         :param reason: the reason declared
         :return: None
         """

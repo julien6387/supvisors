@@ -25,8 +25,8 @@ from typing import Any, Mapping, Optional, Tuple, Union
 
 from supervisor.loggers import Logger
 
-from supvisors.ttypes import NameList, Payload
-from supvisors.utils import *
+from .ttypes import NameList, Payload
+from .utils import *
 
 # Constant for Zmq sockets
 INPROC_NAME = 'supvisors'
