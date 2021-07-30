@@ -50,9 +50,8 @@ class ViewHandler(MeldView):
 
     def __call__(self):
         """ Anticipation of Supervisor#1273.
-        Return response body as bytes instead of as string to prevent
-        UnicodeDecodeError in the event of using binary references (images)
-        in HTML. """
+        Return response body as bytes instead of as string to prevent UnicodeDecodeError in the event
+        of using binary references (images) in HTML. """
         response = MeldView.__call__(self)
         if response is NOT_DONE_YET:
             return NOT_DONE_YET
@@ -277,8 +276,7 @@ class ViewHandler(MeldView):
                                    STDERR_PAGE % quote(info['namespec'] or ''),
                                    '', info['namespec'], '', '')
 
-    def _write_process_button(self, tr_elt, elt_name, node_name, page, action, namespec,
-                              state, state_list):
+    def _write_process_button(self, tr_elt, elt_name, node_name, page, action, namespec, state, state_list):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
         if namespec:
@@ -296,7 +294,7 @@ class ViewHandler(MeldView):
         """ Write the common part of a process or application status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        update_attrib(elt, 'class', info['statename'])
+        update_attrib(elt, 'class', info.get('gravity', info['statename']))
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')

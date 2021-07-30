@@ -20,6 +20,8 @@
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
+from .application import ApplicationStatus
+from .ttypes import PayloadList
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -33,8 +35,8 @@ class ApplicationView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name = APPLICATION_PAGE
         # init parameters
-        self.application_name = ''
-        self.application = None
+        self.application_name: str = ''
+        self.application: ApplicationStatus = None
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
@@ -124,24 +126,26 @@ class ApplicationView(ViewHandler):
         info = next(filter(lambda x: x['namespec'] == namespec, data), {})
         self.write_process_statistics(root, info)
 
-    def get_process_data(self):
+    def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
+        """ Get the latest description received from the process across all nodes.
+        A priority is given to the info coming from a node where the process is running. """
+        status = self.view_ctx.get_process_status(namespec)
+        return status.get_last_description()
+
+    def get_process_data(self) -> PayloadList:
         """ Collect sorted data on processes. """
         data = []
         for process in self.application.processes.values():
-            namespec = process.namespec()
-            node_name, description = self.view_ctx.get_process_last_desc(namespec)
+            namespec = process.namespec
+            node_name, description = self.get_process_last_desc(namespec)
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
-            data.append({'application_name': process.application_name,
-                         'process_name': process.process_name,
-                         'namespec': namespec,
-                         'node_name': node_name,
-                         'statename': process.state_string(),
-                         'statecode': process.state,
+            data.append({'application_name': process.application_name, 'process_name': process.process_name,
+                         'namespec': namespec, 'node_name': node_name,
+                         'statename': process.state_string(), 'statecode': process.state,
+                         'gravity': process.state_string(),
                          'running_nodes': list(process.running_nodes),
                          'description': description,
-                         'expected_load': process.rules.expected_load,
-                         'nb_cores': nb_cores,
-                         'proc_stats': proc_stats})
+                         'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
         # re-arrange data using alphabetical order
         return sorted(data, key=lambda x: x['process_name'])
 

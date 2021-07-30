@@ -18,7 +18,7 @@
 # ======================================================================
 
 from supervisor.options import make_namespec
-from supervisor.states import RUNNING_STATES
+from supervisor.states import ProcessStates, RUNNING_STATES
 from supervisor.xmlrpc import RPCError
 
 from .ttypes import Payload, PayloadList
@@ -70,19 +70,16 @@ class ProcAddressView(SupvisorsAddressView):
         # extract what is useful to display
         for info in all_info:
             namespec = make_namespec(info['group'], info['name'])
-            status = self.sup_ctx.get_process(namespec)
-            expected_load = status.rules.expected_load if status else '?'
+            process = self.sup_ctx.get_process(namespec)
+            unexpected_exit = info['state'] == ProcessStates.EXITED and not process.expected_exit
+            expected_load = process.rules.expected_load
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
-            data.append({'application_name': info['group'],
-                         'process_name': info['name'],
-                         'namespec': namespec,
+            data.append({'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                          'node_name': self.view_ctx.local_node_name,
-                         'statename': info['statename'],
-                         'statecode': info['state'],
+                         'statename': info['statename'], 'statecode': info['state'],
+                         'gravity': 'FATAL' if unexpected_exit else info['statename'],
                          'description': info['description'],
-                         'expected_load': expected_load,
-                         'nb_cores': nb_cores,
-                         'proc_stats': proc_stats})
+                         'expected_load': expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
         # re-arrange data
         return self.sort_data(data)
 
@@ -130,16 +127,12 @@ class ProcAddressView(SupvisorsAddressView):
         # reset appli_stats if no process involved
         if reset:
             appli_stats = None
-        return {'application_name': application_name,
-                'process_name': None, 'namespec': None,
+        return {'application_name': application_name, 'process_name': None, 'namespec': None,
                 'node_name': self.view_ctx.local_node_name,
-                'statename': application.state.name,
-                'statecode': application.state.value,
+                'statename': application.state.name, 'statecode': application.state.value,
                 'description': application.get_operational_status(),
                 'nb_processes': len(application_processes),
-                'expected_load': expected_load,
-                'nb_cores': nb_cores,
-                'proc_stats': appli_stats}
+                'expected_load': expected_load, 'nb_cores': nb_cores, 'proc_stats': appli_stats}
 
     def write_process_table(self, root, data: PayloadList):
         """ Rendering of the processes managed through Supervisor. """
