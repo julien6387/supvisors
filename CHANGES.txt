@@ -1,4 +1,4 @@
-0.6 (2021-07-22)
+0.6 (2021-07-31)
 ----------------
 
 * Improve Supvisors stability when dealing with remote programs undefined locally
