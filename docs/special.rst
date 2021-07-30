@@ -284,7 +284,7 @@ The following pseudo-code explains the algorithm used:
 .. _starting_failure_strategy:
 
 Starting Failure strategy
-------------------------
+-------------------------
 
 When an application is starting, it may happen that any of its programs cannot be started due to various reasons
 (the program command line is wrong ; third parties are missing ; none of the nodes defined in the ``address_list``
