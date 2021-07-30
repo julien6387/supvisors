@@ -43,14 +43,13 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # expected to be {'movie_server_01': ['cliche01'],
         #                 'movie_server_02': ['cliche03'],
         #                 'movie_server_03': ['cliche02']}
-        self.assertItemsEqual(self.running_processes.keys(), ['movie_server_01', 'movie_server_02', 'movie_server_03'])
+        self.assertEqual(sorted(self.running_processes.keys()),
+                         ['movie_server_01', 'movie_server_02', 'movie_server_03'])
         running_nodes = set()
         for nodes in self.running_processes.values():
             self.assertEqual(1, len(nodes))
             self.assertNotIn(nodes[0], running_nodes)
             running_nodes.add(nodes[0])
-        # check that there is no conflict before to start testing
-        self._check_no_conflict()
 
     def tearDown(self):
         """ Back to initial status (one movie_server running on each address). """
@@ -63,6 +62,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
     def test_conciliation(self):
         """ Check depending on the configuration. """
+        # check that there is no conflict before to start testing
+        self._check_no_conflict()
         # test depends on configuration
         strategies = self.local_proxy.supvisors.get_strategies()
         strategy = ConciliationStrategies[strategies['conciliation']]
@@ -264,8 +265,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
             self.assertEqual('CONCILIATION', state['statename'])
             # test Supvisors conflicts
             conflicts = proxy.supvisors.get_conflicts()
-            process_names = [proc['process_name'] for proc in conflicts]
-            self.assertItemsEqual(process_names, ['movie_server_01', 'movie_server_02', 'movie_server_03'])
+            process_names = sorted([proc['process_name'] for proc in conflicts])
+            self.assertEqual(process_names, ['movie_server_01', 'movie_server_02', 'movie_server_03'])
 
     def _create_manager_conflicts(self):
         """ Create conflicts on the my_movies:manager process. """
@@ -294,8 +295,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
             self.assertEqual('CONCILIATION', state['statename'])
             # test Supvisors conflicts
             conflicts = proxy.supvisors.get_conflicts()
-            process_names = [proc['process_name'] for proc in conflicts]
-            self.assertItemsEqual(process_names, ['manager'])
+            process_names = sorted([proc['process_name'] for proc in conflicts])
+            self.assertEqual(process_names, ['manager'])
 
     def _get_movie_servers(self):
         """ Get the running status of the movie_server_0x processes. """

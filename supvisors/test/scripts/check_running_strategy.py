@@ -102,7 +102,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         assert {'name': 'web_browser', 'expected': False, 'state': 100}.items() < event.items()
         # application should be stopped: no more process running
         event = self._get_next_application_status()
-        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
+        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': True,
                   'statename': 'STOPPED'}
         assert subset.items() < event.items()
         # STARTING / RUNNING events are expected for this process
@@ -153,14 +153,14 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         assert {'name': 'manager', 'state': 40}.items() < event.items()
         # application should be stopping
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': False, 'minor_failure': False,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
                   'statename': 'STOPPING'}
         assert subset.items() < event.items()
         event = self._get_next_process_event()
         assert {'name': 'manager', 'state': 0}.items() < event.items()
         # application should be stopped
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': False, 'minor_failure': False,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
                   'statename': 'STOPPED'}
         assert subset.items() < event.items()
         # no further event expected
@@ -197,29 +197,27 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         assert {'name': 'hmi', 'state': 40}.items() < event.items()
         # application should be stopping
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': False, 'minor_failure': False,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STOPPING'}
         assert subset.items() < event.items()
         event = self._get_next_process_event()
         assert {'name': 'hmi', 'state': 0}.items() < event.items()
         # application should be stopped
         event = self._get_next_application_status()
-        subset = {'application_name': 'my_movies', 'major_failure': False, 'minor_failure': False,
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STOPPED'}
         assert subset.items() < event.items()
         # STARTING / RUNNING events are expected for the manager
         event = self._get_next_process_event()
         assert {'name': 'manager', 'state': 10}.items() < event.items()
-        # application should be starting, with major failure because of
-        # required web_server that is not started yet
+        # application should be starting, with major failure because of required web_server that is not started yet
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STARTING'}
         assert subset.items() < event.items()
         event = self._get_next_process_event()
         assert {'name': 'manager', 'state': 20}.items() < event.items()
-        # application should be running, with major failure because of
-        # required web_server that is not started yet
+        # application should be running, with major failure because of required web_server that is not started yet
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'RUNNING'}
@@ -227,8 +225,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         # FATAL event is expected for the web_server
         event = self._get_next_process_event()
         assert {'name': 'web_server', 'state': 200}.items() < event.items()
-        # application should be still running, with major failure because of
-        # web_server that cannot be started
+        # application should be still running, with major failure because of web_server that cannot be started
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'RUNNING'}
@@ -244,8 +241,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         assert subset.items() < event.items()
         event = self._get_next_process_event()
         assert {'name': 'hmi', 'state': 20}.items() < event.items()
-        # application should be running, with major failure because of
-        # web_server that cannot be started
+        # application should be running, with major failure because of web_server that cannot be started
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'RUNNING'}
