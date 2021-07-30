@@ -20,10 +20,10 @@
 import pickle
 import pytest
 
-from supervisor.states import ProcessStates, STOPPED_STATES, RUNNING_STATES, _process_states_by_code
-from unittest.mock import call, patch
+from supervisor.states import _process_states_by_code
+from unittest.mock import call
 
-from supvisors.process import ProcessRules, ProcessStatus
+from supvisors.process import *
 from supvisors.ttypes import RunningFailureStrategies
 
 from .base import any_process_info, any_stopped_process_info, process_info_by_name, any_process_info_by_state
@@ -142,11 +142,11 @@ def test_rules_check_hash_nodes(rules):
     assert rules.node_names == []
 
 
-@patch('supvisors.process.ProcessRules.check_hash_nodes')
-@patch('supvisors.process.ProcessRules.check_autorestart')
-@patch('supvisors.process.ProcessRules.check_start_sequence')
-def test_rules_check_dependencies(mocked_start, mocked_auto, mocked_hash, rules):
+def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
+    mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
+    mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
+    mocked_start = mocker.patch('supvisors.process.ProcessRules.check_start_sequence')
     # test with no hash
     rules.hash_node_names = []
     # check dependencies
@@ -170,14 +170,17 @@ def test_rules_check_dependencies(mocked_start, mocked_auto, mocked_hash, rules)
 
 # ProcessStatus part
 def test_process_create(supvisors):
-    """ Test the values set at construction. """
+    """ Test the values set at ProcessStatus construction. """
     info = any_stopped_process_info()
     process = create_process(info, supvisors)
     # check application default attributes
     assert process.supvisors is supvisors
     assert process.application_name == info['group']
     assert process.process_name == info['name']
+    assert process.namespec == make_namespec(info['group'], info['name'])
     assert process.state == ProcessStates.UNKNOWN
+    assert process.forced_state is None
+    assert process.forced_reason is None
     assert process.expected_exit
     assert process.last_event_time == 0
     assert process.extra_args == ''
@@ -187,20 +190,8 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
-def test_namespec(supvisors):
-    """ Test of the process namspec. """
-    # test namespec when group and name are different
-    info = process_info_by_name('segv')
-    process = create_process(info, supvisors)
-    assert process.namespec() == 'crash:segv'
-    # test namespec when group and name are identical
-    info = process_info_by_name('firefox')
-    process = create_process(info, supvisors)
-    assert process.namespec() == 'firefox'
-
-
-def test_possible_nodes(supvisors):
-    """ Test the possible_nodes method. """
+def test_process_possible_nodes(supvisors):
+    """ Test the ProcessStatus.possible_nodes method. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
@@ -237,6 +228,16 @@ def test_status_stopped_process(supvisors):
     assert not process.running_on('10.0.0.2')
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
+    # test again with forced state
+    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': ''})
+    assert process._state == ProcessStates.STOPPED
+    assert process.stopped()
+    assert not process.running()
+    assert process.crashed()
+    assert not process.running_on('10.0.0.1')
+    assert not process.running_on('10.0.0.2')
+    assert not process.pid_running_on('10.0.0.1')
+    assert not process.pid_running_on('10.0.0.2')
 
 
 def test_status_backoff_process(supvisors):
@@ -248,6 +249,16 @@ def test_status_backoff_process(supvisors):
     assert process.running()
     assert not process.crashed()
     assert process.running_on('10.0.0.1')
+    assert not process.running_on('10.0.0.2')
+    assert not process.pid_running_on('10.0.0.1')
+    assert not process.pid_running_on('10.0.0.2')
+    # test again with forced state
+    process.force_state({'state': ProcessStates.STOPPED, 'spawnerr': ''})
+    assert process._state == ProcessStates.BACKOFF
+    assert process.stopped()
+    assert not process.running()
+    assert not process.crashed()
+    assert not process.running_on('10.0.0.1')
     assert not process.running_on('10.0.0.2')
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
@@ -320,8 +331,8 @@ def test_status_exited_process(supvisors):
     assert not process.pid_running_on('10.0.0.2')
 
 
-def test_conflicting(supvisors):
-    """ Test the process conflicting rules. """
+def test_process_conflicting(supvisors):
+    """ Test the is ProcessStatus.conflicting method. """
     # when there is only one STOPPED process info, there is no conflict
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
@@ -345,18 +356,43 @@ def test_serialization(supvisors):
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
     serialized = process.serial()
-    assert serialized == {'application_name': info['group'],
-                          'process_name': info['name'],
-                          'statecode': 0,
-                          'statename': 'STOPPED',
-                          'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time,
-                          'addresses': [],
-                          'extra_args': ''}
+    assert serialized == {'application_name': info['group'], 'process_name': info['name'],
+                          'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
+                          'last_event_time': process.last_event_time, 'addresses': [], 'extra_args': ''}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
     assert loaded == serialized
+    # test again with forced state
+    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'anything'})
+    assert process._state == ProcessStates.STOPPED
+    serialized = process.serial()
+    assert serialized == {'application_name': info['group'], 'process_name': info['name'],
+                          'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
+                          'last_event_time': process.last_event_time, 'addresses': [], 'extra_args': ''}
+
+
+def test_get_last_description(supvisors):
+    """ Test the ViewContext.get_process_last_desc method. """
+    # create ProcessStatus instance
+    process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
+    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
+                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'desc2'},
+                        '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}}
+    # state is not forced by default
+    # test method return on non-running process
+    assert process.get_last_description() == ('10.0.0.1', 'desc1')
+    # test method return on running process
+    process.running_nodes.add('10.0.0.3')
+    assert process.get_last_description() == ('10.0.0.3', 'desc3')
+    # test method return on multiple running processes
+    process.running_nodes.add('10.0.0.2')
+    assert process.get_last_description() == ('10.0.0.2', 'desc2')
+    # test again with forced state
+    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'global crash'})
+    assert process.get_last_description() == (None, 'global crash')
+    process.running_nodes = set()
+    assert process.get_last_description() == (None, 'global crash')
 
 
 def test_add_info(supvisors):
@@ -383,6 +419,13 @@ def test_add_info(supvisors):
     # extra_args are reset when using add_info
     assert process.extra_args == ''
     assert info['extra_args'] == ''
+    # check forced_state
+    assert process.forced_state is None
+    assert process.forced_reason is None
+    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'failure'})
+    assert process.forced_state == ProcessStates.FATAL
+    assert process.forced_reason == 'failure'
+    assert process.state == ProcessStates.FATAL
     # 2. replace with an EXITED process info
     info = any_process_info_by_state(ProcessStates.EXITED)
     process.add_info('10.0.0.1', info)
@@ -397,6 +440,9 @@ def test_add_info(supvisors):
     assert not process.running_nodes
     assert process.state == ProcessStates.EXITED
     assert process.expected_exit
+    # check forced_state
+    assert process.forced_state is None
+    assert process.forced_reason is None
     # update rules to test '#'
     process.rules.hash_addresses = ['*']
     # 3. add a RUNNING process info
@@ -442,9 +488,7 @@ def test_update_info(supvisors):
     assert process.extra_args == ''
     assert not process.running_nodes
     # 3. update with a STARTING event
-    process.update_info('10.0.0.1', {'state': ProcessStates.STARTING,
-                                     'now': 10,
-                                     'extra_args': '-x dummy'})
+    process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'now': 10, 'extra_args': '-x dummy'})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
@@ -459,9 +503,7 @@ def test_update_info(supvisors):
     assert info['start'] == 10
     assert info['uptime'] == 0
     # 4. update with a RUNNING event
-    process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING,
-                                     'now': 15,
-                                     'pid': 1234,
+    process.update_info('10.0.0.1', {'state': ProcessStates.RUNNING, 'now': 15, 'pid': 1234,
                                      'extra_args': '-z another'})
     # test last event info stored
     assert process.last_event_time >= last_event_time
@@ -476,22 +518,25 @@ def test_update_info(supvisors):
     assert info['now'] == 15
     assert info['start'] == 10
     assert info['uptime'] == 5
+    # check forced_state
+    assert process.forced_state is None
+    assert process.forced_reason is None
+    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'failure'})
+    assert process.forced_state == ProcessStates.FATAL
+    assert process.forced_reason == 'failure'
+    assert process.state == ProcessStates.FATAL
     # 5.a add a new STOPPED process info
     process.add_info('10.0.0.2', any_process_info_by_state(ProcessStates.STOPPED))
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
     assert last_event_time == info['local_time']
+    assert process.state == ProcessStates.FATAL
     # extra_args has been reset
     assert process.extra_args == ''
     # 5.b update with STARTING / RUNNING events
-    process.update_info('10.0.0.2', {'state': ProcessStates.STARTING,
-                                     'now': 20,
-                                     'extra_args': '-x dummy'})
-    process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING,
-                                     'now': 25,
-                                     'pid': 4321,
-                                     'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 20, 'extra_args': '-x dummy'})
+    process.update_info('10.0.0.2', {'state': ProcessStates.RUNNING, 'now': 25, 'pid': 4321, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
@@ -501,10 +546,7 @@ def test_update_info(supvisors):
     assert process.extra_args == ''
     assert process.running_nodes == {'10.0.0.1', '10.0.0.2'}
     # 6. update with an EXITED event
-    process.update_info('10.0.0.1', {'state': ProcessStates.EXITED,
-                                     'now': 30,
-                                     'expected': False,
-                                     'extra_args': ''})
+    process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'expected': False, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
@@ -521,9 +563,7 @@ def test_update_info(supvisors):
     assert not info['expected']
     # 7. update with an STOPPING event
     info = process.info_map['10.0.0.2']
-    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING,
-                                     'now': 35,
-                                     'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPING, 'now': 35, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time
@@ -539,9 +579,7 @@ def test_update_info(supvisors):
     assert info['uptime'] == 15
     assert info['expected']
     # 8. update with an STOPPED event
-    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED,
-                                     'now': 40,
-                                     'extra_args': ''})
+    process.update_info('10.0.0.2', {'state': ProcessStates.STOPPED, 'now': 40, 'extra_args': ''})
     # test last event info stored
     assert process.last_event_time >= last_event_time
     last_event_time = process.last_event_time

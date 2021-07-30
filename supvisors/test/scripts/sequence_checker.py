@@ -103,8 +103,7 @@ class Application:
         return False
 
     def is_stopping(self):
-        """ Return True if the application has a stopping program and
-        no starting program. """
+        """ Return True if the application has a stopping program and no starting program. """
         stopping = False
         for program in self.programs.values():
             if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
@@ -114,8 +113,7 @@ class Application:
         return stopping
 
     def is_running(self):
-        """ Return True if the application has a running program and
-        no starting or stopping program. """
+        """ Return True if the application has a running program and no starting or stopping program. """
         running = False
         for program in self.programs.values():
             if program.state in (ProcessStates.STARTING,
@@ -134,24 +132,20 @@ class Application:
         return True
 
     def has_major_failure(self):
-        """ Return True if there is a stopped required program in a running
-        application. """
-        major = False
+        """ Return True if there is a stopped required program in a running application. """
         for program in self.programs.values():
             if program.state in STOPPED_STATES and program.required:
-                major = True
-        return major and (self.is_running() or self.is_starting())
+                return True
+        return False
 
     def has_minor_failure(self):
-        """ Return True if there is a fatal optional program in a running
-        application. """
-        minor = False
+        """ Return True if there is a fatal optional program in a running application. """
         for program in self.programs.values():
             if not program.required and (program.state == ProcessStates.FATAL or
                                          (program.state == ProcessStates.EXITED and
                                           not program.expected_exit)):
-                minor = True
-        return minor and (self.is_running() or self.is_starting())
+                return True
+        return False
 
 
 class Context:
@@ -159,22 +153,22 @@ class Context:
 
     def __init__(self):
         """ Initialization of the attributes. """
-        self.applications = {}
+        self.applications: Application = {}
 
-    def add_application(self, application):
+    def add_application(self, application: Application) ->None:
         """ Add an application to the context. """
         self.applications[application.application_name] = application
 
-    def get_application(self, application_name):
+    def get_application(self, application_name: str) -> Application:
         """ Get an application from the context using its name. """
         return self.applications.get(application_name, None)
 
-    def get_program(self, namespec):
+    def get_program(self, namespec: str):
         """ Get a program from the context using its namespec. """
         application_name, process_name = split_namespec(namespec)
         return self.get_application(application_name).get_program(process_name)
 
-    def has_events(self, application_name=None):
+    def has_events(self, application_name: str = None) -> bool:
         """ Return True if the programs of the application contain events not received yet. """
         application_list = [self.get_application(application_name)] if application_name else self.applications.values()
         for application in application_list:
@@ -183,7 +177,6 @@ class Context:
                     # for debug
                     # print('### {} - {}'.format(program.program_name, [str(evt) for evt in program.state_events]))
                     return True
-        return False
 
 
 class SequenceChecker(SupvisorsEventQueues):

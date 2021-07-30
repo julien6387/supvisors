@@ -397,7 +397,7 @@ class RPCInterface(object):
         _, process = self._get_application_process(namespec)
         # update command line in process config with extra_args
         try:
-            self.supvisors.info_source.update_extra_args(process.namespec(), extra_args)
+            self.supvisors.info_source.update_extra_args(process.namespec, extra_args)
         except KeyError:
             # process is unknown to the local Supervisor
             # this is unexpected as Supvisors checks the configuration before it sends this request
@@ -449,12 +449,12 @@ class RPCInterface(object):
         # check processes are not already running
         for process in processes:
             if process.running():
-                raise RPCError(Faults.ALREADY_STARTED, process.namespec())
+                raise RPCError(Faults.ALREADY_STARTED, process.namespec)
         # start all processes
         done = True
         for process in processes:
             done &= self.supvisors.starter.start_process(strategy_enum, process, extra_args)
-        self.logger.debug('startProcess {} done={}'.format(process.namespec(), done))
+        self.logger.debug('startProcess {} done={}'.format(process.namespec, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -463,7 +463,7 @@ class RPCInterface(object):
                     return NOT_DONE_YET
                 for proc in processes:
                     if proc.stopped():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec())
+                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec)
                 return True
 
             onwait.delay = 0.5
@@ -492,11 +492,11 @@ class RPCInterface(object):
         # check processes are not already running
         for process in processes:
             if process.stopped():
-                raise RPCError(Faults.NOT_RUNNING, process.namespec())
+                raise RPCError(Faults.NOT_RUNNING, process.namespec)
         # stop all processes
         done = True
         for process in processes:
-            self.logger.info('stopping process {}'.format(process.namespec()))
+            self.logger.info('stopping process {}'.format(process.namespec))
             done &= self.supvisors.stopper.stop_process(process)
         # wait until processes are in STOPPED_STATES
         if wait and not done:
@@ -506,7 +506,7 @@ class RPCInterface(object):
                     return NOT_DONE_YET
                 for proc in processes:
                     if proc.running():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec())
+                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec)
                 return True
 
             onwait.delay = 0.5

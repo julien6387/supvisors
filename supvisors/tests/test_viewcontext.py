@@ -442,24 +442,6 @@ def test_get_node_stats(ctx):
     assert ctx.get_node_stats('10.0.0.1') is None
 
 
-def test_get_process_last_desc(mocker, ctx):
-    """ Test the ViewContext.get_process_last_desc method. """
-    # build common Mock
-    mocked_process = Mock(running_nodes=set(),
-                          info_map={'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
-                                    '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'desc2'},
-                                    '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}})
-    mocker.patch('supvisors.viewcontext.ViewContext.get_process_status', return_value=mocked_process)
-    # test method return on non-running process
-    assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.1', 'desc1')
-    # test method return on running process
-    mocked_process.running_nodes.add('10.0.0.3')
-    assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.3', 'desc3')
-    # test method return on multiple running processes
-    mocked_process.running_nodes.add('10.0.0.2')
-    assert ctx.get_process_last_desc('dummy_proc') == ('10.0.0.2', 'desc2')
-
-
 def test_get_process_stats(mocker, ctx):
     """ Test the ViewContext.get_process_stats method. """
     mocked_core = mocker.patch('supvisors.viewcontext.ViewContext.get_nbcores', return_value=4)

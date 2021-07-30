@@ -159,15 +159,14 @@ class SenicideStrategy(AbstractStrategy):
             # uptime is used as there is guarantee that nodes are time synchronized
             # so comparing start dates may be irrelevant
             saved_node = min(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
-            self.logger.warn('SenicideStrategy.conciliate: keep {} at {}'.format(process.namespec(), saved_node))
+            self.logger.warn('SenicideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
             running_nodes = process.running_nodes.copy()
             running_nodes.remove(saved_node)
             for node_name in running_nodes:
-                self.logger.debug('SenicideStrategy.conciliate: {} running on {}'
-                                  .format(process.namespec(), node_name))
-                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec())
+                self.logger.debug('SenicideStrategy.conciliate: {} running on {}'.format(process.namespec, node_name))
+                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
 
 
 class InfanticideStrategy(AbstractStrategy):
@@ -178,15 +177,15 @@ class InfanticideStrategy(AbstractStrategy):
         for process in conflicts:
             # determine running node with lower uptime (the youngest)
             saved_node = max(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
-            self.logger.warn('InfanticideStrategy.conciliate: keep {} at {}'.format(process.namespec(), saved_node))
+            self.logger.warn('InfanticideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
             running_nodes = process.running_nodes.copy()
             running_nodes.remove(saved_node)
             for node_name in running_nodes:
                 self.logger.debug('InfanticideStrategy.conciliate: {} running on {}'
-                                  .format(process.namespec(), node_name))
-                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec())
+                                  .format(process.namespec, node_name))
+                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
 
 
 class UserStrategy(AbstractStrategy):
@@ -203,7 +202,7 @@ class StopStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes. """
         for process in conflicts:
-            self.logger.warn('StopStrategy.conciliate: {}'.format(process.namespec()))
+            self.logger.warn('StopStrategy.conciliate: {}'.format(process.namespec))
             self.supvisors.stopper.stop_process(process)
 
 
@@ -215,7 +214,7 @@ class RestartStrategy(AbstractStrategy):
         # add all processes to be restarted to the failure handler,
         # as it is in its design to restart a process
         for process in conflicts:
-            self.logger.warn('RestartStrategy.conciliate: {}'.format(process.namespec()))
+            self.logger.warn('RestartStrategy.conciliate: {}'.format(process.namespec))
             self.supvisors.failure_handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -231,7 +230,7 @@ class FailureStrategy(AbstractStrategy):
         # stop all processes and add them to the failure handler
         for process in conflicts:
             self.supvisors.stopper.stop_process(process)
-            self.logger.warn('FailureStrategy.conciliate: {}'.format(process.namespec()))
+            self.logger.warn('FailureStrategy.conciliate: {}'.format(process.namespec))
             self.supvisors.failure_handler.add_default_job(process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -335,7 +334,7 @@ class RunningFailureHandler(AbstractStrategy):
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
             if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs):
                 self.logger.info('RunningFailureHandler.add_job: adding {} to restart_process_jobs'
-                                 .format(process.namespec()))
+                                 .format(process.namespec))
                 self.restart_process_jobs.add(process)
                 self.continue_process_jobs.discard(process)
             else:
@@ -346,7 +345,7 @@ class RunningFailureHandler(AbstractStrategy):
             if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs) and \
                     process not in self.restart_process_jobs:
                 self.logger.info('RunningFailureHandler.add_job: adding {} to continue_process_jobs'
-                                 .format(process.namespec()))
+                                 .format(process.namespec))
                 self.continue_process_jobs.add(process)
             else:
                 self.logger.info('RunningFailureHandler.add_job: {} not added to continue_process_jobs'
@@ -406,10 +405,10 @@ class RunningFailureHandler(AbstractStrategy):
             for process in self.restart_process_jobs.copy():
                 if process.application_name in job_applications:
                     self.logger.debug('RunningFailureHandler.trigger_jobs: restart process {} deferred'
-                                      .format(process.namespec()))
+                                      .format(process.namespec))
                 else:
                     self.logger.info('RunningFailureHandler.trigger_jobs: restart process {}'
-                                     .format(process.namespec()))
+                                     .format(process.namespec))
                     self.restart_process_jobs.remove(process)
                     self.supvisors.stopper.stop_process(process)
                     # defer the process starting
@@ -430,15 +429,15 @@ class RunningFailureHandler(AbstractStrategy):
             for process in self.start_process_jobs.copy():
                 if process.stopped() and process.application_name not in job_applications:
                     self.logger.warn('RunningFailureHandler.trigger_jobs: start process {}'
-                                     .format(process.namespec()))
+                                     .format(process.namespec))
                     self.start_process_jobs.remove(process)
                     self.supvisors.starter.default_start_process(process)
                 else:
                     self.logger.debug('RunningFailureHandler.trigger_jobs: start process {} deferred'
-                                      .format(process.namespec()))
+                                      .format(process.namespec))
         # log only the continuation jobs
         if self.continue_process_jobs:
             for process in self.continue_process_jobs:
                 self.logger.info('RunningFailureHandler.trigger_jobs: continue despite of crashed process {}'
-                                 .format(process.namespec()))
+                                 .format(process.namespec))
             self.continue_process_jobs = set()

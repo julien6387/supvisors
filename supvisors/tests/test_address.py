@@ -110,15 +110,15 @@ def test_add_process(supvisors):
     process = create_any_process(supvisors)
     status.add_process(process)
     # check that process is stored
-    assert process.namespec() in status.processes.keys()
-    assert process is status.processes[process.namespec()]
+    assert process.namespec in status.processes.keys()
+    assert process is status.processes[process.namespec]
 
 
 def test_times(filled_node):
     """ Test the update_times method. """
     from supervisor.states import ProcessStates
     # get current process times
-    ref_data = {process.namespec(): (process.state, info['now'], info['uptime'])
+    ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
                 for process in filled_node.processes.values()
                 for info in [process.info_map['10.0.0.1']]}
     # update times and check
@@ -127,7 +127,7 @@ def test_times(filled_node):
     assert filled_node.remote_time == now + 10
     assert filled_node.local_time == now
     # test process times: only RUNNING and STOPPING have a positive uptime
-    new_data = {process.namespec(): (process.state, info['now'], info['uptime'])
+    new_data = {process.namespec: (process.state, info['now'], info['uptime'])
                 for process in filled_node.processes.values()
                 for info in [process.info_map['10.0.0.1']]}
     for namespec, new_info in new_data.items():

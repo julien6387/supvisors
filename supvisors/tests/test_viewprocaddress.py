@@ -107,8 +107,9 @@ def test_write_contents(mocker, view):
 def test_get_process_data(mocker, view):
     """ Test the ProcAddressView.get_process_data method. """
     # patch context
-    process_status = Mock(rules=Mock(expected_load=17))
-    mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[None, process_status])
+    process_status_1 = Mock(rules=Mock(expected_load=8))
+    process_status_2 = Mock(rules=Mock(expected_load=17))
+    mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[process_status_1, process_status_2])
     view.view_ctx = Mock(local_node_name='10.0.0.1',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
     # test RPC Error
@@ -123,12 +124,12 @@ def test_get_process_data(mocker, view):
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
              'namespec': 'sample_test_1:xfontsel', 'node_name': '10.0.0.1',
-             'statename': 'RUNNING', 'statecode': 20,
+             'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING',
              'description': 'pid 80879, uptime 0:01:19',
-             'expected_load': '?', 'nb_cores': 2, 'proc_stats': 'stats #1'}
+             'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv',
              'namespec': 'crash:segv', 'node_name': '10.0.0.1',
-             'statename': 'BACKOFF', 'statecode': 30,
+             'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF',
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 8, 'proc_stats': 'stats #2'}
     assert mocked_sort.call_count == 1

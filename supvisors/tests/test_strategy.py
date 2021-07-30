@@ -169,10 +169,9 @@ def test_get_node(filled_nodes):
 
 
 def create_process_status(name, timed_nodes):
-    process_status = Mock(spec=ProcessStatus, process_name=name,
+    process_status = Mock(spec=ProcessStatus, process_name=name, namespec=name,
                           running_nodes=set(timed_nodes.keys()),
                           info_map={address_name: {'uptime': time} for address_name, time in timed_nodes.items()})
-    process_status.namespec.return_value = name
     return process_status
 
 
@@ -343,26 +342,43 @@ def test_add_job(handler):
     process_1 = Mock(application_name='dummy_application_A')
     process_2 = Mock(application_name='dummy_application_A')
     process_3 = Mock(application_name='dummy_application_B')
-    # add a series of jobs
+    # test adding CONTINUE jobs
     handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
     compare_sets(handler, continue_proc={process_1})
+    # test adding RESTART_PROCESS jobs
     handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
     compare_sets(handler, restart_proc={process_2}, continue_proc={process_1})
+    # check process is removed from CONTINUE jobs when RESTART_PROCESS requested
     handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_1)
     compare_sets(handler, restart_proc={process_2, process_1})
+    # test adding RESTART_PROCESS jobs
     handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
     compare_sets(handler, restart_proc={process_2, process_1, process_3})
+    # check no impact when adding a new process to RESTART_PROCESS jobs when process is already in there
     handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
     compare_sets(handler, restart_proc={process_2, process_1, process_3})
+    # test adding RESTART_APPLICATION jobs
+    # check process is not added to RESTART_PROCESS jobs when application already in RESTART_APPLICATION jobs
+    # check process is not added to CONTINUE jobs when application already in RESTART_APPLICATION jobs
     handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_1)
+    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
+    handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
     compare_sets(handler, restart_app={'dummy_application_A'}, restart_proc={process_3})
+    # check process is removed from RESTART_APPLICATION jobs when STOP_APPLICATION requested
     handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_2)
     compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
+    # check process is not added to RESTART_APPLICATION jobs when application already in STOP_APPLICATION jobs
     handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_2)
     compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
+    # check no impact when adding a new process to STOP_APPLICATION jobs when its application is already in there
     handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_1)
     compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
-
+    # check process is not added to RESTART_PROCESS jobs when application already in STOP_APPLICATION jobs
+    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
+    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
+    # check process is not added to CONTINUE jobs when application already in STOP_APPLICATION jobs
+    handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
+    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
 
 def test_add_default_job(mocker, handler):
     """ Test the addition of a new job using the strategy configured. """
@@ -393,8 +409,7 @@ def mocked_application(supvisors, application_name, stopped):
 
 def mocked_process(namespec, application_name, stopped):
     """ Return a mocked ProcessStatus. """
-    return Mock(application_name=application_name, **{'namespec.return_value': namespec,
-                                                      'stopped.side_effect': [stopped, True]})
+    return Mock(application_name=application_name, namespec=namespec, **{'stopped.side_effect': [stopped, True]})
 
 
 def test_trigger_jobs(mocker, handler):

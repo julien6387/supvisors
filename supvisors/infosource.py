@@ -19,6 +19,8 @@
 
 import os
 
+from typing import Dict
+
 from supervisor.http import supervisor_auth_handler
 from supervisor.medusa import default_handler, filesys
 from supervisor.options import split_namespec
@@ -70,7 +72,7 @@ class SupervisordSource(object):
         return self.supervisord.options.httpservers[0][1]
 
     @property
-    def serverurl(self):
+    def serverurl(self) -> str:
         return self.supervisord.options.serverurl
 
     @property
@@ -78,61 +80,61 @@ class SupervisordSource(object):
         return self.server_config['port']
 
     @property
-    def username(self):
+    def username(self) -> str:
         return self.server_config['username']
 
     @property
-    def password(self):
+    def password(self) -> str:
         return self.server_config['password']
 
     @property
     def supervisor_state(self):
         return self.supervisord.options.mood
 
-    def get_env(self):
+    def get_env(self) -> Dict[str, str]:
         """ Return a simple environment that can be used for the configuration of the XML-RPC client. """
         return {'SUPERVISOR_SERVER_URL': self.serverurl,
                 'SUPERVISOR_USERNAME': self.username,
                 'SUPERVISOR_PASSWORD': self.password}
 
-    def prepare_extra_args(self):
+    def prepare_extra_args(self) -> None:
         """ Add extra_args attributes in Supervisor internal data. """
         for group in self.supervisord.process_groups.values():
             for process in group.processes.values():
                 process.config.command_ref = process.config.command
                 process.config.extra_args = ''
 
-    def close_httpservers(self):
+    def close_httpservers(self) -> None:
         """ Call the close_httpservers of Supervisor.
         This is called when receiving the Supervisor stopping event in order to force the termination
         of any asynchronous job. """
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
-    def get_group_config(self, application_name):
+    def get_group_config(self, application_name: str):
         """ This method returns the group configuration related to an application. """
         # WARN: the following line may throw a KeyError exception
         return self.supervisord.process_groups[application_name].config
 
-    def get_process(self, namespec):
+    def get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
         application_name, process_name = split_namespec(namespec)
         return self.supervisord.process_groups[application_name].processes[process_name]
 
-    def get_process_config(self, namespec):
+    def get_process_config(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         return self.get_process(namespec).config
 
-    def autorestart(self, namespec):
+    def autorestart(self, namespec: str) -> bool:
         """ This method checks if autorestart is configured on the process. """
         return self.get_process_config(namespec).autorestart is not False
 
-    def disable_autorestart(self, namespec):
+    def disable_autorestart(self, namespec: str) -> None:
         """ This method forces the autorestart to False in Supervisor internal data. """
         self.get_process_config(namespec).autorestart = False
 
-    def update_extra_args(self, namespec, extra_args):
+    def update_extra_args(self, namespec: str, extra_args: str) -> None:
         """ This method is used to add extra arguments to the command line. """
         config = self.get_process_config(namespec)
         # reset command line
@@ -142,11 +144,11 @@ class SupervisordSource(object):
         if extra_args:
             config.command += ' ' + extra_args
 
-    def get_extra_args(self, namespec):
+    def get_extra_args(self, namespec: str) -> str:
         """ Return the extra arguments passed to the command line of the process named namespec. """
         return self.get_process_config(namespec).extra_args
 
-    def force_process_fatal(self, namespec, reason):
+    def force_process_fatal(self, namespec: str, reason: str) -> None:
         """ This method forces the FATAL process state into Supervisor internal data and dispatches
         process event to event listeners. """
         process = self.get_process(namespec)
@@ -155,14 +157,7 @@ class SupervisordSource(object):
         process.spawnerr = reason
         process.give_up()
 
-    def force_process_unknown(self, namespec, reason):
-        """ This method forces the UNKNOWN process state into Supervisor internal data and dispatches
-        process event to event listeners. """
-        process = self.get_process(namespec)
-        process.spawnerr = reason
-        process.change_state(ProcessStates.UNKNOWN)
-
-    def replace_default_handler(self):
+    def replace_default_handler(self) -> None:
         """ This method replaces Supervisor web ui with Supvisors web ui. """
         # create default handler pointing on Supvisors ui directory
         here = os.path.abspath(os.path.dirname(__file__))

@@ -59,7 +59,6 @@ class AddressStatus(object):
             self._state = AddressStates.UNKNOWN
         self.remote_time = 0
         self.local_time = 0
-        self.processes = {}
 
     # accessors / mutators
     @property
@@ -114,7 +113,7 @@ class AddressStatus(object):
     # methods on processes
     def add_process(self, process):
         """ Add a new process to the process list. """
-        self.processes[process.namespec()] = process
+        self.processes[process.namespec] = process
 
     def running_processes(self):
         """ Return the process running on the address.
@@ -125,7 +124,7 @@ class AddressStatus(object):
     def pid_processes(self):
         """ Return the process running on the address and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
-        return [(process.namespec(), process.info_map[self.address_name]['pid'])
+        return [(process.namespec, process.info_map[self.address_name]['pid'])
                 for process in self.processes.values()
                 if process.pid_running_on(self.address_name)]
 

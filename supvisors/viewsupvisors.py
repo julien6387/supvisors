@@ -17,17 +17,17 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
-from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (AddressStates,
-                              ConciliationStrategies,
-                              SupvisorsStates)
-from supvisors.utils import simple_gmtime
-from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import *
+from .address import AddressStatus
+from .strategy import conciliate_conflicts
+from .ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
+from .utils import simple_gmtime
+from .viewcontext import *
+from .viewhandler import ViewHandler
+from .webutils import *
 
 
 class SupvisorsView(ViewHandler):
@@ -40,10 +40,14 @@ class SupvisorsView(ViewHandler):
         - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
 
+    # Annotation types
+    ProcessCallable = Callable[[str, str], Callable]
+    ProcessCallableMap = Dict[str, ProcessCallable]
+
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
-        self.page_name = SUPVISORS_PAGE
+        self.page_name: str = SUPVISORS_PAGE
         # get applicable conciliation strategies
         self.strategies = {str.lower(x) for x in ConciliationStrategies._member_names_}
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
@@ -52,20 +56,19 @@ class SupvisorsView(ViewHandler):
                                'sup_restart': self.sup_restart_action,
                                'sup_shutdown': self.sup_shutdown_action}
         # process actions
-        self.process_methods = {'pstop': self.stop_action,
-                                'pkeep': self.keep_action}
+        self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action, 'pkeep': self.keep_action}
 
-    def write_navigation(self, root):
+    def write_navigation(self, root) -> None:
         """ Rendering of the navigation menu. """
         self.write_nav(root)
 
-    def write_header(self, root):
+    def write_header(self, root) -> None:
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
         elt = root.findmeld('state_mid')
         elt.content(self.supvisors.fsm.state.name)
 
-    def write_contents(self, root):
+    def write_contents(self, root) -> None:
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
@@ -82,7 +85,7 @@ class SupvisorsView(ViewHandler):
             self.write_node_boxes(root)
 
     # Standard part
-    def _write_node_box_title(self, node_div_elt, status):
+    def _write_node_box_title(self, node_div_elt, status: AddressStatus) -> None:
         """ Rendering of the node box title. """
         # set node name
         elt = node_div_elt.findmeld('node_tda_mid')
@@ -154,7 +157,7 @@ class SupvisorsView(ViewHandler):
 
     def get_conciliation_data(self):
         """ Get information about all conflicting processes. """
-        return [{'namespec': process.namespec(),
+        return [{'namespec': process.namespec,
                  'rowspan': len(process.running_nodes) if idx == 0 else 0,
                  'node_name': node_name,
                  'uptime': process.info_map[node_name]['uptime']}
@@ -244,7 +247,7 @@ class SupvisorsView(ViewHandler):
         else:
             td_elt.replace('')
 
-    def make_callback(self, namespec, action):
+    def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested. """
         # global actions (no parameter)
         if action in self.global_methods:
@@ -258,7 +261,7 @@ class SupvisorsView(ViewHandler):
             return self.process_methods[action](namespec, node_name)
 
     @staticmethod
-    def refresh_action():
+    def refresh_action() -> Callable:
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
@@ -302,7 +305,7 @@ class SupvisorsView(ViewHandler):
             return onwait
         return delayed_info('Supvisors shut down')
 
-    def stop_action(self, namespec, node_name):
+    def stop_action(self, namespec: str, node_name: str) -> Callable:
         """ Stop the conflicting process. """
         # get running nodes of process
         running_nodes = self.sup_ctx.get_process(namespec).running_nodes
@@ -316,7 +319,7 @@ class SupvisorsView(ViewHandler):
         on_wait.delay = 0.1
         return on_wait
 
-    def keep_action(self, namespec, kept_node_name):
+    def keep_action(self, namespec: str, kept_node_name: str) -> Callable:
         """ Stop the conflicting processes excepted the one running on node. """
         # get running nodes of process
         running_nodes = self.sup_ctx.get_process(namespec).running_nodes

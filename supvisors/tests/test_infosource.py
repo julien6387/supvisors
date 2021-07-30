@@ -200,25 +200,6 @@ def test_force_fatal(source):
     process_1.spawnerr = ''
 
 
-def test_force_unknown(source):
-    """ Test the way to force a process in UNKNOWN state. """
-    # test unknown application and process
-    with pytest.raises(KeyError):
-        source.force_process_unknown('unknown_application:unknown_process', 'mystery')
-    with pytest.raises(KeyError):
-        source.force_process_unknown('dummy_application:unknown_process', 'mystery')
-    # test normal behaviour
-    process_1 = source.get_process('dummy_application:dummy_process_1')
-    assert process_1.state == 'STOPPED'
-    assert process_1.spawnerr == ''
-    source.force_process_unknown('dummy_application:dummy_process_1', 'mystery')
-    assert process_1.state == 1000
-    assert process_1.spawnerr == 'mystery'
-    # restore configuration
-    process_1.state = 'STOPPED'
-    process_1.spawnerr = ''
-
-
 def test_replace_handler(source):
     """ Test the autostart value of a process configuration. """
     # keep reference to handler

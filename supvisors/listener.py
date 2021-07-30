@@ -189,23 +189,18 @@ class SupervisorListener(object):
         self.supvisors.fsm.on_authorization(node_name, boolean(authorized), master_node_name,
                                             SupvisorsStates[supvisors_state])
 
-    def force_process_fatal(self, namespec: str):
-        """ Publishes a fake process event showing a FATAL state for the process. """
-        self.force_process_state(namespec, ProcessStates.FATAL)
+    def force_process_state(self, namespec: str, state: ProcessStates, reason: str) -> None:
+        """ Publish the process state requested to all Supvisors instances.
 
-    def force_process_unknown(self, namespec: str):
-        """ Publishes a fake process event showing an UNKNOWN state for the process. """
-        self.force_process_state(namespec, ProcessStates.UNKNOWN)
-
-    def force_process_state(self, namespec: str, state: int):
-        """ Publishes a fake process event showing a state for the process. """
-        application_name, process_name = split_namespec(namespec)
+        :param namespec: the process namespec
+        :param state: the process state to force
+        :param reason: the reason declared
+        :return: None
+        """
         # create payload from event
-        payload = {'processname': process_name,
-                   'groupname': application_name,
-                   'state': state,
-                   'now': int(time.time()),
-                   'pid': 0,
-                   'expected': False}
+        application_name, process_name = split_namespec(namespec)
+        payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
+                   'extra_args': self.supvisors.info_source.get_extra_args(namespec),
+                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason }
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
         self.publisher.send_process_event(payload)

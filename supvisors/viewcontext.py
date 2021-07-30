@@ -20,9 +20,10 @@
 import re
 
 from distutils.util import strtobool
-from typing import Tuple
+from typing import Optional, Tuple
 from urllib.parse import quote
 
+from .process import ProcessStatus
 from .ttypes import StartingStrategies, NameList
 from .webutils import error_message
 
@@ -197,21 +198,6 @@ class ViewContext:
         stats_node = node_name or self.local_node_name
         return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
 
-    def get_process_last_desc(self, namespec: str):
-        """ Get the latest description received from the process across all nodes.
-        A priority is given to the info coming from a node where the process is running. """
-        status = self.get_process_status(namespec)
-        # search for process info where process is running
-        info_map = dict(filter(lambda x: x[0] in status.running_nodes, status.info_map.items()))
-        if info_map:
-            # sort info_map them by local_time (local_time is local time of latest received event)
-            node_name, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
-        else:
-            # sort info_map them by stop date
-            node_name, info = max(status.info_map.items(), key=lambda x: x[1]['stop'])
-        # return the node name too
-        return node_name, info.get('description')
-
     def get_process_stats(self, namespec: str, node_name: str = None):
         """ Get the statistics structure related to the process and the period selected.
         Get also the number of cores available on this node (useful for process CPU IRIX mode). """
@@ -225,7 +211,7 @@ class ViewContext:
             return nb_cores, node_stats.find_process_stats(namespec)
         return nb_cores, None
 
-    def get_process_status(self, namespec: str = None):
+    def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
         """ Get the ProcessStatus instance related to the process named namespec.
         If none specified, the form namespec is used. """
         namespec = namespec or self.parameters[NAMESPEC]

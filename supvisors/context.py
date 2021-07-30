@@ -44,12 +44,12 @@ class Context(object):
         self.supvisors = supvisors
         self.logger = supvisors.logger
         # attributes
-        self.nodes = {node_name: AddressStatus(node_name, self.logger)
-                      for node_name in self.supvisors.address_mapper.node_names}
-        self.forced_nodes = {node_name: status
-                             for node_name, status in self.nodes.items()
-                             if node_name in self.supvisors.options.force_synchro_if}
-        self.applications = {}
+        self.nodes: Dict[str, AddressStatus] = {node_name: AddressStatus(node_name, self.logger)
+                                                for node_name in self.supvisors.address_mapper.node_names}
+        self.forced_nodes: Dict[str, AddressStatus] = {node_name: status
+                                                       for node_name, status in self.nodes.items()
+                                                       if node_name in self.supvisors.options.force_synchro_if}
+        self.applications: Dict[str, ApplicationStatus] = {}
         # master attributes
         self._master_node_name = ''
         self._is_master = False
@@ -62,7 +62,6 @@ class Context(object):
         :return: None
         """
         self.master_node_name = ''
-        self.applications = {}
         for status in self.nodes.values():
             status.reset()
 
@@ -147,7 +146,7 @@ class Context(object):
 
     def get_all_namespecs(self) -> NameList:
         """ Return the ProcessStatus corresponding to the namespec. """
-        return list({process.namespec() for application in self.applications.values()
+        return list({process.namespec for application in self.applications.values()
                      for process in application.processes.values()})
 
     def get_process(self, namespec: str) -> Optional[ProcessStatus]:
@@ -297,15 +296,19 @@ class Context(object):
                     self.logger.debug('Context.on_process_event: reject event {} from node={} as program unknown'
                                       ' to local Supvisors'.format(event, node_name))
                 else:
-                    try:
-                        # update command line
-                        self.supvisors.info_source.update_extra_args(process.namespec(), event['extra_args'])
-                    except KeyError:
-                        # process not found in Supervisor internal structure
-                        self.logger.warn('Context.on_process_event: cannot apply extra args to {} unknown'
-                                         ' to local Supervisor'.format(process.namespec()))
-                    # refresh process info from process event
-                    process.update_info(node_name, event)
+                    # refresh process info depending on the nature of the process event
+                    if 'forced' in event:
+                        process.force_state(event)
+                        del event['forced']
+                    else:
+                        process.update_info(node_name, event)
+                        try:
+                            # update command line in Supervisor
+                            self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
+                        except KeyError:
+                            # process not found in Supervisor internal structure
+                            self.logger.warn('Context.on_process_event: cannot apply extra args to {} unknown'
+                                             ' to local Supervisor'.format(process.namespec))
                     # refresh application status
                     application = self.applications[process.application_name]
                     application.update_status()
@@ -345,24 +348,3 @@ class Context(object):
             # publish AddressStatus event
             self.supvisors.zmq.publisher.send_address_status(status.serial())
         return node_names
-
-    def force_process_state(self, namespec: str, state: ProcessStates, reason: str) -> None:
-        """ Publish the process state requested to all Supvisors instances.
-
-        :param namespec: the process namespec
-        :param state: the process state to force
-        :param reason: the reason declared
-        :return: None
-        """
-        # publish the process state to all Supvisors instances
-        state_string = getProcessStateDescription(state)
-        self.logger.warn('Commander.force_process_state: force {} state to {}'.format(namespec, state_string))
-        try:
-            class_method = getattr(SupervisordSource, 'force_process_' + state_string.lower())
-            class_method(self.supvisors.info_source, namespec, reason)
-        except KeyError:
-            self.logger.error('Commander.force_process_state: process unknown to this Supervisor'.format(namespec))
-            # the Supvisors user is not forced to use the same process configuration on all machines,
-            # so, publish directly a fake process event to all instances
-            class_method = getattr(SupervisorListener, 'force_process_' + state_string.lower())
-            class_method(self.supvisors.listener, namespec)

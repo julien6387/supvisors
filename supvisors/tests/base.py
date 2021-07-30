@@ -78,7 +78,7 @@ class MockedSupvisors:
         """ Use a dummy address mapper and options. """
         self.address_mapper = DummyAddressMapper()
         self.options = DummyOptions()
-        self.logger = Mock(spec=Logger)
+        self.logger = Mock(spec=Logger, level=10)
         # build context from address mapper
         from supvisors.context import Context
         self.context = Context(self)
@@ -178,9 +178,6 @@ class DummyProcess:
     def give_up(self):
         self.state = 'FATAL'
 
-    def change_state(self, state):
-        self.state = state
-
 
 class DummySupervisor:
     """ Simple supervisor with simple attributes. """
@@ -273,12 +270,6 @@ def any_process_info():
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
     info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
-    return extract_process_info(info)
-
-
-def any_running_process_info():
-    """ Return a copy of any running process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in RUNNING_STATES])
     return extract_process_info(info)
 
 

@@ -19,9 +19,7 @@
 
 import argparse
 import sys
-import unittest
 
-from .event_queues import SupvisorsEventQueues
 from .sequence_checker import *
 
 

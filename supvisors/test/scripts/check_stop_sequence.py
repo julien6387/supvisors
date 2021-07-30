@@ -17,15 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import signal
 import sys
-import unittest
 
-from supervisor.states import *
-from supervisor.childutils import getRPCInterface
-
-from .event_queues import SupvisorsEventQueues
 from .sequence_checker import *
 
 
@@ -49,7 +43,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # send restart request
         self.proxy.supvisors.restart()
         # test the stopping of service application
-        self.check_service_stopping()
+        # self.check_service_stopping()
         # test the stopping of web_movies application
         self.check_web_movies_stopping()
         # test the stopping of my_movies application

@@ -252,33 +252,38 @@ def test_write_contents(mocker, view):
     assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy_proc'})]
 
 
-def test_get_process_data(view):
-    """ Test the get_process_data method. """
+def test_get_process_last_desc(mocker, view):
+    """ Test the ViewApplication.get_process_last_desc method. """
+    # build common Mock
+    mocked_process = Mock(**{'get_last_description.return_value': ('10.0.0.1', 'the latest comment')})
+    view.view_ctx = Mock(**{'get_process_status.return_value': mocked_process})
+    # test method return on non-running process
+    assert view.get_process_last_desc('dummy_proc') == ('10.0.0.1', 'the latest comment')
+
+
+def test_get_process_data(mocker, view):
+    """ Test the ViewApplication.get_process_data method. """
     # patch the selected application
-    process_1 = Mock(application_name='appli_1',
-                     process_name='process_1',
-                     running_nodes=set(),
-                     state='stopped',
-                     rules=Mock(expected_load=20), **{'namespec.return_value': 'namespec_1',
-                                                      'state_string.return_value': 'stopped'})
-    process_2 = Mock(application_name='appli_2',
-                     process_name='process_2',
+    process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
+                     running_nodes=set(), state='stopped', rules=Mock(expected_load=20),
+                     **{'state_string.return_value': 'stopped'})
+    process_2 = Mock(application_name='appli_2', process_name='process_2', namespec='namespec_2',
                      running_nodes=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
-                     state='running',
-                     rules=Mock(expected_load=1), **{'namespec.return_value': 'namespec_2',
-                                                     'state_string.return_value': 'running'})
+                     state='running', rules=Mock(expected_load=1),
+                     **{'state_string.return_value': 'running'})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})
     # patch context
     mocked_stats = Mock()
-    view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats),
-                            'get_process_last_desc.return_value': ('10.0.0.1', 'something')})
+    view.view_ctx = Mock(**{'get_process_stats.return_value': (4, mocked_stats)})
+    mocker.patch.object(view, 'get_process_last_desc', return_value=('10.0.0.1', 'something'))
     # test call
     data1 = {'application_name': 'appli_1', 'process_name': 'process_1', 'namespec': 'namespec_1',
-             'node_name': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'running_nodes': [],
-             'description': 'something', 'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
+             'node_name': '10.0.0.1', 'statename': 'stopped', 'statecode': 'stopped', 'gravity': 'stopped',
+             'running_nodes': [], 'description': 'something',
+             'expected_load': 20, 'nb_cores': 4, 'proc_stats': mocked_stats}
     data2 = {'application_name': 'appli_2', 'process_name': 'process_2', 'namespec': 'namespec_2',
-             'node_name': '10.0.0.1', 'running_nodes': ['10.0.0.1', '10.0.0.3'],
-             'description': 'something', 'statename': 'running', 'statecode': 'running',
+             'node_name': '10.0.0.1', 'statename': 'running', 'statecode': 'running', 'gravity': 'running',
+             'running_nodes': ['10.0.0.1', '10.0.0.3'], 'description': 'something',
              'expected_load': 1, 'nb_cores': 4, 'proc_stats': mocked_stats}
     assert view.get_process_data() == [data1, data2]
 

@@ -22,8 +22,7 @@ import random
 
 from supvisors.application import *
 
-from .base import (database_copy, any_process_info, any_stopped_process_info,
-                   any_running_process_info, any_process_info_by_state)
+from .base import database_copy, any_process_info, any_stopped_process_info
 from .conftest import create_application, create_process
 
 
@@ -65,7 +64,6 @@ def test_application_create(supvisors):
     assert application.state == ApplicationStates.STOPPED
     assert not application.major_failure
     assert not application.minor_failure
-    assert not application.start_failure
     assert not application.processes
     assert not application.start_sequence
     assert not application.stop_sequence
@@ -81,40 +79,20 @@ def test_application_running(supvisors):
     """ Test the running method. """
     application = create_application('ApplicationTest', supvisors)
     assert not application.running()
-    # add a stopped process
-    info = any_stopped_process_info()
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    application.add_process(process)
-    application.update_status()
-    assert not application.running()
-    # add a running process
-    info = any_running_process_info()
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    application.add_process(process)
-    application.update_status()
-    assert application.running()
+    # loop on all states
+    for state in ApplicationStates:
+        application._state = state
+        assert application.running() == (state in [ApplicationStates.STARTING, ApplicationStates.RUNNING])
 
 
 def test_application_stopped(supvisors):
     """ Test the ApplicationStatus.stopped method. """
     application = create_application('ApplicationTest', supvisors)
     assert application.stopped()
-    # add a stopped process
-    info = any_stopped_process_info()
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    application.add_process(process)
-    application.update_status()
-    assert application.stopped()
-    # add a running process
-    info = any_running_process_info()
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    application.add_process(process)
-    application.update_status()
-    assert not application.stopped()
+    # loop on all states
+    for state in ApplicationStates:
+        application._state = state
+        assert application.stopped() == (state == ApplicationStates.STOPPED)
 
 
 def test_application_never_started(supvisors):
@@ -215,7 +193,15 @@ def test_application_update_sequences(filled_application):
     filled_application.update_sequences()
     # check the sequencing of the starting
     sequences = sorted({process.rules.start_sequence for process in filled_application.processes.values()})
+    # by default applications are unmanaged so sequences are empty
+    assert not filled_application.start_sequence
+    assert not filled_application.stop_sequence
+    # force application to managed and call sequencer again
+    filled_application.rules.managed = True
+    filled_application.update_sequences()
     # as key is an integer, the sequence dictionary should be sorted but doesn't work in Travis-CI
+    assert filled_application.start_sequence
+    assert filled_application.stop_sequence
     for sequence, processes in sorted(filled_application.start_sequence.items()):
         assert sequence == sequences.pop(0)
         assert sorted(processes, key=lambda x: x.process_name) == \
@@ -231,50 +217,38 @@ def test_application_update_sequences(filled_application):
                        if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name)
 
 
-def test_check_start_sequence(supvisors):
-    """ Test the result of the check_start_sequence method. """
-    application = create_application('ApplicationTest', supvisors)
-    assert not application.start_failure
-    # add processes from test database so that there is no crash
-    for info in [any_running_process_info(), any_process_info_by_state(ProcessStates.STOPPED)]:
-        process = create_process(info, supvisors)
-        process.add_info('10.0.0.1', info)
-        process.rules.start_sequence = random.randint(1, 5)
-        application.add_process(process)
-    # call the sequencer and checker
-    application.update_sequences()
-    application.check_start_sequence()
-    # test method
-    assert not application.start_failure
-    # add processes from test database so that there is a crash
-    info = any_process_info_by_state(ProcessStates.FATAL)
-    process = create_process(info, supvisors)
-    process.add_info('10.0.0.1', info)
-    process.rules.start_sequence = 2
-    application.add_process(process)
-    # call the sequencer
-    application.update_sequences()
-    application.check_start_sequence()
-    # test method
-    assert application.start_failure
-
-
 def test_application_update_status(filled_application):
     """ Test the rules to update the status of the application method. """
-    # init status
-    # there are lots of states but the 'strongest' is STARTING
-    # STARTING is a 'running' state so major/minor failures are applicable
+    # as application is not managed, application is STOPPED there are no failures
     filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STARTING
-    # there is a FATAL state in the process database
-    # no rule is set for processes, so there are only minor failures
+    assert filled_application.state == ApplicationStates.STOPPED
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    # set application to managed, update sequences and status
+    filled_application.rules.managed = True
+    filled_application.update_sequences()
+    filled_application.update_status()
+    # there is a process in STOPPING state in the process database
+    # STOPPING has the highest priority in application state evaluation
+    assert filled_application.state == ApplicationStates.STOPPING
+    # there is a process in FATAL state in the process database (and no unexpected EXITED)
+    # in default rules, no process is required so this is minor
     assert not filled_application.major_failure
     assert filled_application.minor_failure
     # set FATAL process to major
     fatal_process = next((process for process in filled_application.processes.values()
-                          if process.state == ProcessStates.FATAL), None)
+                          if process.state == ProcessStates.FATAL))
     fatal_process.rules.required = True
     # update status. major failure is now expected
+    filled_application.update_status()
+    assert filled_application.state == ApplicationStates.STOPPING
+    assert filled_application.major_failure
+    assert not filled_application.minor_failure
+    # set STOPPING process to STOPPED
+    for process in filled_application.processes.values():
+        if process.state == ProcessStates.STOPPING:
+            process.state = ProcessStates.STOPPED
+    # now STARTING is expected as it is the second priority
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
@@ -288,33 +262,29 @@ def test_application_update_status(filled_application):
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
     assert not filled_application.minor_failure
-    # set BACKOFF process to EXITED
+    # set BACKOFF process to EXITED unexpected
     backoff_process = next((process for process in filled_application.processes.values()
                             if process.state == ProcessStates.BACKOFF), None)
     backoff_process.state = ProcessStates.EXITED
-    # update status. the 'strongest' state is now STOPPING
-    # as STOPPING is not a 'running' state, failures are not applicable
-    filled_application.update_status()
-    assert filled_application.state == ApplicationStates.STOPPING
-    assert not filled_application.major_failure
-    assert not filled_application.minor_failure
-    # set STOPPING process to STOPPED
-    stopping_process = next((process for process in filled_application.processes.values()
-                             if process.state == ProcessStates.STOPPING), None)
-    stopping_process.state = ProcessStates.STOPPED
-    # update status. the 'strongest' state is now RUNNING
-    # failures are applicable again
+    backoff_process.expected_exit = False
+    # update status. now there is only stopped and running processes.
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.RUNNING
     assert filled_application.major_failure
-    assert not filled_application.minor_failure
-    # set RUNNING processes to STOPPED
+    assert filled_application.minor_failure
+    # set all process to RUNNING
     for process in filled_application.processes.values():
-        if process.state == ProcessStates.RUNNING:
-            process.state = ProcessStates.STOPPED
-    # update status. the 'strongest' state is now RUNNING
-    # failures are not applicable anymore
+        process.state = ProcessStates.RUNNING
+    # no more failures
+    filled_application.update_status()
+    assert filled_application.state == ApplicationStates.RUNNING
+    assert not filled_application.major_failure
+    assert not filled_application.minor_failure
+    # set all processes to STOPPED
+    for process in filled_application.processes.values():
+        process.state = ProcessStates.STOPPED
+    # major failure is back but not minor as the unexpected status is not associated to an EXITED state anymore
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STOPPED
-    assert not filled_application.major_failure
+    assert filled_application.major_failure
     assert not filled_application.minor_failure

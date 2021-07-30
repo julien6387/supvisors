@@ -6,7 +6,8 @@
 * Add expand / shrink actions per application to the ProcAddressView of the Web UI
 
 * Upon authorization of a new node in Supvisors, back to DEPLOYMENT state to repair applications
-  whose starting failed previously
+
+* Application state is evaluated against the starting sequence of its processes only
 
 * Fixed issue with when Master is stopped while in DEPLOYMENT state
 
@@ -20,6 +21,8 @@
 
 * Fixed https://github.com/julien6387/supvisors/issues/90
   The Master Supvisors node drives the transition to OPERATION
+
+* In the Web UI, set the process state color to FATAL when process has EXITED unexpectedly
 
 * Change default expected loading to 0 in program rules
 

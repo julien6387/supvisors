@@ -76,7 +76,6 @@ class ApplicationStatus(object):
         - state: the state of the application in ApplicationStates,
         - major_failure: a status telling if a required process is stopped while the application is running,
         - minor_failure: a status telling if an optional process has crashed while the application is running,
-        - start_failure: a status telling if the starting of the application has failed in DEPLOYMENT phase,
         - processes: the map (key is process name) of the ProcessStatus belonging to the application,
         - rules: the ApplicationRules instance applicable to the application,
         - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
@@ -104,7 +103,6 @@ class ApplicationStatus(object):
         self._state = ApplicationStates.STOPPED
         self.major_failure = False
         self.minor_failure = False
-        self.start_failure = False
         # process part
         self.processes: ApplicationStatus.ProcessMap = {}
         self.rules = rules
@@ -184,9 +182,8 @@ class ApplicationStatus(object):
 
         :return: the printable application status
         """
-        return 'application_name={} state={} major_failure={} minor_failure={} start_failure={}' \
-            .format(self.application_name, self.state.name, self.major_failure,
-                    self.minor_failure, self.start_failure)
+        return 'application_name={} state={} major_failure={} minor_failure={}' \
+            .format(self.application_name, self.state.name, self.major_failure, self.minor_failure)
 
     # methods
     def add_process(self, process: ProcessStatus) -> None:
@@ -209,39 +206,52 @@ class ApplicationStatus(object):
 
     def update_sequences(self) -> None:
         """ Evaluate the sequencing of the starting / stopping application from its list of processes.
+        This makes sense only for managed applications.
 
         :return: None
         """
-        # fill ordering iaw process rules&
         self.start_sequence.clear()
         self.stop_sequence.clear()
-        for process in self.processes.values():
-            self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
-            self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
-        self.logger.debug('ApplicationStatus.update_sequences: application_name={} start_sequence={} stop_sequence={}'
-                          .format(self.application_name,
-                                  self.printable_sequence(self.start_sequence),
-                                  self.printable_sequence(self.stop_sequence)))
-
-    def check_start_sequence(self) -> None:
-        """ Evaluate the result of the start sequence.
-
-        :return: None
-        """
-        self.start_failure = any(process.crashed()
-                                 for sub_seq in self.start_sequence.values()
-                                 for process in sub_seq)
+        # consider only managed applications
+        if self.rules.managed:
+            # fill ordering iaw process rules
+            for process in self.processes.values():
+                self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
+                self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
+            self.logger.debug('ApplicationStatus.update_sequences: application_name={}'
+                              ' start_sequence={} stop_sequence={}'
+                              .format(self.application_name,
+                                      self.printable_sequence(self.start_sequence),
+                                      self.printable_sequence(self.stop_sequence)))
+        else:
+            self.logger.info('ApplicationStatus.update_sequences: application_name={}'
+                             ' is not managed so sequences are not defined'. format(self.application_name))
 
     def update_status(self) -> None:
-        """ Update the state of the application iaw the state of its processes.
+        """ Update the state of the application iaw the state of its sequenced processes.
+        An unmanaged application - or generally without starting sequence - is always STOPPED.
 
         :return: None
         """
-        starting, running, stopping, major_failure, minor_failure = (False,) * 5
-        for process in self.processes.values():
+        # always reset failures
+        self.major_failure = False
+        self.minor_failure = False
+        # get the processes from the starting sequence
+        sequenced_processes = [process for sub_seq in self.start_sequence.values()
+                               for process in sub_seq]
+        if not sequenced_processes:
+            # TODO: check if it is relevant to evaluate the application state in this case,
+            #  knowing that this application could include multiple "conflicts" due to its unmanaged nature
+            self.logger.debug('ApplicationStatus.update_status: application_name={}'
+                              ' is not managed so always STOPPED'. format(self.application_name))
+            self.state = ApplicationStates.STOPPED
+            return
+        # evaluate application state based on the state of the processes in its start sequence
+        starting, running, stopping = (False,) * 3
+        for process in sequenced_processes:
             self.logger.trace('ApplicationStatus.update_status: application_name={} process={} state={}'
                               ' required={} exit_expected={}'
-                              .format(self.application_name, process.namespec(), process.state_string(),
+                              .format(self.application_name, process.namespec, process.state_string(),
                                       process.rules.required, process.expected_exit))
             if process.state == ProcessStates.RUNNING:
                 running = True
@@ -255,28 +265,31 @@ class ApplicationStatus(object):
                     # any required stopped process is a major failure for a running application
                     # exception is made for an EXITED process with an expected exit code
                     if process.state != ProcessStates.EXITED or not process.expected_exit:
-                        major_failure = True
+                        self.major_failure = True
                 else:
                     # an optional process is a minor failure for a running application
                     # when its state is FATAL or unexpectedly EXITED
                     if ((process.state == ProcessStates.FATAL) or
                             (process.state == ProcessStates.EXITED and not process.expected_exit)):
-                        minor_failure = True
+                        self.minor_failure = True
             # all other STOPPED-like states are considered normal
-        self.logger.trace('ApplicationStatus.update_status: application_name={} starting={} running={} stopping={}'
+        self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
                           ' major_failure={} minor_failure={}'
-                          .format(self.application_name, starting, running, stopping, major_failure, minor_failure))
+                          .format(self.application_name, starting, running, stopping,
+                                  self.major_failure, self.minor_failure))
         # apply rules for state
-        if starting:
-            self.state = ApplicationStates.STARTING
-        elif stopping:
+        if stopping:
+            # if at least one process is STOPPING, let's consider that application is stopping
+            # here priority is given to STOPPING over STARTING
             self.state = ApplicationStates.STOPPING
+        elif starting:
+            # if at least one process is STARTING, let's consider that application is starting
+            self.state = ApplicationStates.STARTING
         elif running:
+            # all processes in the sequence are RUNNING, so application is RUNNING
             self.state = ApplicationStates.RUNNING
         else:
+            # all processes in the sequence are STOPPED, so application is STOPPED
             self.state = ApplicationStates.STOPPED
-        # update major_failure and minor_failure status (only for running applications)
-        self.major_failure = major_failure and self.running()
-        self.minor_failure = minor_failure and self.running()
-        self.logger.debug('Application {}: major_failure={} minor_failure={}'
-                          .format(self.application_name, self.major_failure, self.minor_failure))
+        self.logger.debug('Application {}: state={} major_failure={} minor_failure={}'
+                          .format(self.application_name, self.state, self.major_failure, self.minor_failure))

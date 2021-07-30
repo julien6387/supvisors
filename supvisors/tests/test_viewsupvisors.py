@@ -439,12 +439,10 @@ def test_write_conflict_strategies(view):
 def test_get_conciliation_data(mocker, view):
     """ Test the get_conciliation_data method. """
     # patch context
-    process_1 = Mock(running_nodes={'10.0.0.1', '10.0.0.2'},
-                     info_map={'10.0.0.1': {'uptime': 12}, '10.0.0.2': {'uptime': 11}},
-                     **{'namespec.return_value': 'proc_1'})
-    process_2 = Mock(running_nodes={'10.0.0.3', '10.0.0.2'},
-                     info_map={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}},
-                     **{'namespec.return_value': 'proc_2'})
+    process_1 = Mock(namespec='proc_1', running_nodes={'10.0.0.1', '10.0.0.2'},
+                     info_map={'10.0.0.1': {'uptime': 12}, '10.0.0.2': {'uptime': 11}})
+    process_2 = Mock(namespec='proc_2', running_nodes={'10.0.0.3', '10.0.0.2'},
+                     info_map={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}})
     mocker.patch.object(view.sup_ctx, 'conflicts', return_value=[process_1, process_2])
     # test call
     expected = [{'namespec': 'proc_1', 'rowspan': 2, 'node_name': '10.0.0.1', 'uptime': 12},
@@ -454,7 +452,6 @@ def test_get_conciliation_data(mocker, view):
     actual = view.get_conciliation_data()
     # no direct method in pytest to compare 2 lists of dicts
     for actual_single in actual:
-        print(actual_single)
         assert any(actual_single == expected_single for expected_single in expected)
 
 

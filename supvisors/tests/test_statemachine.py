@@ -144,15 +144,17 @@ def test_deployment_state(mocker, supvisors_ctx):
     state.enter()
     # create application context
     application = create_application('sample_test_2', supvisors_ctx)
+    application.rules.managed = True
     supvisors_ctx.context.applications['sample_test_2'] = application
     for info in database_copy():
         if info['group'] == 'sample_test_2':
             process = create_process(info, supvisors_ctx)
-            process.rules.start_sequence = len(process.namespec()) % 3
-            process.rules.stop_sequence = len(process.namespec()) % 3 + 1
+            process.rules.start_sequence = len(process.namespec) % 3
+            process.rules.stop_sequence = len(process.namespec) % 3 + 1
             process.add_info('10.0.0.1', info)
             application.add_process(process)
-    # test application updates
+    # sample_test_2 has 3 processes: one FATAL, one EXITED and one RUNNING
+    # test application updates. at this point, Application.update_status has not been called
     supvisors_ctx.context._is_master = False
     assert application.state == ApplicationStates.STOPPED
     assert not application.minor_failure
@@ -160,7 +162,7 @@ def test_deployment_state(mocker, supvisors_ctx):
     assert application.start_sequence == {}
     assert application.stop_sequence == {}
     state.enter()
-    application = supvisors_ctx.context.applications['sample_test_2']
+    # enter triggered Application.update_status
     assert application.state == ApplicationStates.RUNNING
     assert application.minor_failure
     assert not application.major_failure
@@ -301,8 +303,6 @@ def test_conciliation_state(mocker, supvisors_ctx):
     supvisors_ctx.stopper.check_stopping.return_value = True
     result = state.next()
     assert result == SupvisorsStates.CONCILIATION
-    # create address context
-    nodes = supvisors_ctx.context.nodes
     # consider that no starting or stopping is in progress
     supvisors_ctx.starter.check_starting.return_value = True
     supvisors_ctx.stopper.check_stopping.return_value = True

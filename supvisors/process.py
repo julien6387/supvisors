@@ -17,8 +17,9 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import AbstractSet, Any, Optional
+from typing import AbstractSet, Any, Dict, Optional, Set, Tuple
 
+from supervisor.loggers import Logger, LevelsByName
 from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
@@ -49,16 +50,16 @@ class ProcessRules(object):
         # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
         # keep a reference to the Supvisors data
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        self.logger: Logger = supvisors.logger
         # attributes
-        self.node_names = ['*']
-        self.hash_node_names = None
-        self.start_sequence = 0
-        self.stop_sequence = 0
-        self.required = False
-        self.wait_exit = False
-        self.expected_load = 0
-        self.running_failure_strategy = RunningFailureStrategies.CONTINUE
+        self.node_names: NameList = ['*']
+        self.hash_node_names: NameList = None
+        self.start_sequence: int = 0
+        self.stop_sequence: int = 0
+        self.required: bool = False
+        self.wait_exit: bool = False
+        self.expected_load: int = 0
+        self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
 
     def check_start_sequence(self, namespec: str) -> None:
         """ ProcessRules having required=True MUST have start_sequence > 0,
@@ -160,7 +161,10 @@ class ProcessStatus(object):
     Attributes are:
         - application_name: the application name, or group name from a Supervisor point of view,
         - process_name: the process name,
+        - namespec: the process namespec,
         - state: the synthetic state of the process, same enumeration as Supervisor,
+        - forced_state: the state forced by Supvisors upon unexpected event,
+        - forced_reason: the reason why the state would be forced,
         - expected_exit: a status telling if the process has exited expectantly,
         - last_event_time: the local date of the last information received,
         - extra_args: the additional arguments passed to the command line,
@@ -178,30 +182,34 @@ class ProcessStatus(object):
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        self.logger: Logger = supvisors.logger
         # attributes
-        self.application_name = application_name
-        self.process_name = process_name
-        self._state = ProcessStates.UNKNOWN
-        self.expected_exit = True
-        self.last_event_time = 0
-        self._extra_args = ''
+        self.application_name: str = application_name
+        self.process_name: str = process_name
+        self.namespec = make_namespec(application_name, process_name)
+        self._state: ProcessStates = ProcessStates.UNKNOWN
+        self.forced_state: ProcessStates = None
+        self.forced_reason: str = None
+        self.expected_exit: bool = True
+        self.last_event_time: int = 0
+        self._extra_args: str = ''
         # rules part
-        self.rules = rules
+        self.rules: ProcessRules = rules
         # one single running node is expected
-        self.running_nodes = set()  # node_names
-        self.info_map = {}  # node_name: process_info
+        self.running_nodes: Set[str] = set()  # node_names
+        self.info_map: Dict[str, Payload] = {}  # node_name: process_info
 
     @property
-    def state(self) -> int:
+    def state(self) -> ProcessStates:
         """ Getter of state attribute.
+        Returns forced state in priority if set.
 
         :return: the process state
         """
-        return self._state
+        return self._state if self.forced_state is None else self.forced_state
 
     @state.setter
-    def state(self, new_state: int) -> None:
+    def state(self, new_state: ProcessStates) -> None:
         """ Setter of state attribute.
 
         :param new_state: the new process state
@@ -209,7 +217,17 @@ class ProcessStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('ProcessStatus.state: Process {} is {}'.format(self.namespec(), self.state_string()))
+            self.logger.info('ProcessStatus.state: {} is {}'.format(self.namespec, self.state_string()))
+
+    def force_state(self, payload: Payload) -> None:
+        """ Force the process state due to an unexpected event.
+
+        :param payload: the event payload
+        :return: None
+        """
+        self.last_event_time = int(time())
+        self.forced_state = payload['state']
+        self.forced_reason = payload['spawnerr']
 
     @property
     def extra_args(self) -> str:
@@ -228,7 +246,8 @@ class ProcessStatus(object):
         """
         if self._extra_args != new_args:
             self._extra_args = new_args
-            self.supvisors.info_source.update_extra_args(self.namespec(), new_args)
+            self.supvisors.info_source.update_extra_args(self.namespec, new_args)
+            self.logger.trace('ProcessStatus.extra_args: {} extra_args={}'.format(self.namespec, self._extra_args))
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
@@ -245,13 +264,6 @@ class ProcessStatus(object):
                 'extra_args': self.extra_args}
 
     # access
-    def namespec(self) -> str:
-        """ Get the process namespec from application and process names.
-
-        :return: the process namespec
-        """
-        return make_namespec(self.application_name, self.process_name)
-
     def possible_nodes(self) -> NameList:
         """ Return the list of nodes where the program could be started.
         To achieve that, two conditions:
@@ -322,31 +334,68 @@ class ProcessStatus(object):
         # IDE warning on first parameter but ignored as the Supervisor function should have been set as staticmethod
         return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, process_info)
 
+    def get_last_description(self) -> Tuple[Optional[str], str]:
+        """ Get the latest description received from the process across all nodes.
+        Priority is taken in the following order:
+            1. the forced state,
+            2. the information coming from a node where the process is running,
+            3. the most recent information coming from a node where the process has been stopped.
+
+        :return: the node where the description comes, the process state description
+        """
+        self.logger.trace('ProcessStatus.get_last_description: START namespec={}'.format(self.namespec))
+        # if the state is forced, return the reason why
+        if self.forced_state is not None:
+            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name=None [FORCED]description={}'
+                              .format(self.namespec, self.forced_reason))
+            return None, self.forced_reason
+        # search for process info where process is running
+        info_map = dict(filter(lambda x: x[0] in self.running_nodes, self.info_map.items()))
+        if info_map:
+            # sort info_map them by local_time (local_time is local time of latest received event)
+            node_name, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
+            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [running]description={}'
+                              .format(self.namespec, node_name, info['description']))
+        else:
+            # sort info_map them by stop date
+            node_name, info = max(self.info_map.items(), key=lambda x: x[1]['stop'])
+            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [stopped]description={}'
+                              .format(self.namespec, node_name, info['description']))
+        # extract description from information found
+        return node_name, info['description']
+
     # methods
     def state_string(self) -> str:
         """ Get the process state as a string.
+
         :return: the process state as a string
         """
         return getProcessStateDescription(self.state)
 
-    def add_info(self, node_name: str, process_info: Payload) -> None:
+    def add_info(self, node_name: str, payload: Payload) -> None:
         """ Insert a new process information in internal list.
 
         :param node_name: the name of the node from which the information has been received
-        :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
+        :param payload: a subset of the dict received from Supervisor.getProcessInfo.
         :return: None
         """
         # keep date of last information received
-        # use local time here as there is no guarantee that nodes will be time synchronized
+        # use local time here as there is no guarantee that nodes will be time-synchronized
         self.last_event_time = int(time())
         # store information
-        info = self.info_map[node_name] = process_info
+        info = self.info_map[node_name] = payload
         info['local_time'] = self.last_event_time
         self.update_uptime(info)
-        self.logger.debug('ProcessStatus.add_info: adding {} at {}'.format(info, node_name))
-        # reset extra_args
+        # TODO: reset extra_args. why ?
         info['extra_args'] = ''
         self.extra_args = ''
+        self.logger.trace('ProcessStatus.add_info: namespec={} - payload={} added to node_name={}'
+                          .format(self.namespec, info, node_name))
+        # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
+        if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
+            self.forced_state = None
+            self.forced_reason = None
+            self.logger.debug('ProcessStatus.add_info: namespec={} - forced_state unset'.format(self.namespec))
         # update process status
         self.update_status(node_name, info['state'])
 
@@ -366,9 +415,9 @@ class ProcessStatus(object):
             self.extra_args = payload['extra_args']
             # refresh internal information
             info = self.info_map[node_name]
+            self.logger.trace('ProcessStatus.update_info: namespec={} - updating info[{}]={} with payload={}'
+                              .format(self.namespec, node_name, info, payload))
             info['local_time'] = self.last_event_time
-            self.logger.trace('ProcessStatus.update_info: in {}, updating {} with {} at {}'
-                              .format(self.namespec(), info, payload, node_name))
             info.update(payload)
             # re-evaluate description using Supervisor function
             info['description'] = self.update_description(info)
@@ -379,12 +428,18 @@ class ProcessStatus(object):
             if new_state in STOPPED_STATES:
                 info['stop'] = info['now']
             self.update_uptime(info)
+            # always reset forced_state upon reception of new information
+            if self.forced_state is not None:
+                self.forced_state = None
+                self.forced_reason = None
+                self.logger.debug('ProcessStatus.update_info: namespec={} - forced_state unset'.format(self.namespec))
             # update / check running addresses
             self.update_status(node_name, new_state)
-            self.logger.debug('ProcessStatus.update_info: new process info: {}'.format(info))
+            self.logger.debug('ProcessStatus.update_info: namespec={} - new info[{}]={}'
+                              .format(self.namespec, node_name, info))
         else:
-            self.logger.warn('ProcessStatus.update_info: ProcessEvent rejected for {}. wait for tick from {}'
-                             .format(self.process_name, node_name))
+            self.logger.warn('ProcessStatus.update_info: namespec={} - ProcessEvent rejected. Tick expected from {}'
+                             .format(self.namespec, node_name))
 
     def update_times(self, address: str, remote_time: int) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
@@ -416,7 +471,8 @@ class ProcessStatus(object):
         :param node_name: the node from which no more information is received
         :return: True if process not running anywhere anymore
         """
-        self.logger.debug('ProcessStatus.invalidate_node: {} invalidated on {}'.format(self.namespec(), node_name))
+        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name= {} invalidated'
+                          .format(self.namespec, node_name))
         if node_name in self.running_nodes:
             # update process status with a FATAL payload
             info = self.info_map[node_name]
@@ -425,14 +481,14 @@ class ProcessStatus(object):
             self.update_info(node_name, payload)
             return self.running_nodes == set()
 
-    def update_status(self, node_name: str, new_state: int) -> None:
+    def update_status(self, node_name: str, new_state: ProcessStates) -> None:
         """ Updates the state and list of running address iaw the new event.
 
         :param node_name: the node from which new information has been received
         :param new_state: the new state of the process on the considered node
         :return: None
         """
-        # update addresses list
+        # update running nodes list
         if new_state in STOPPED_STATES:
             self.running_nodes.discard(node_name)
         elif new_state in RUNNING_STATES:
@@ -443,7 +499,7 @@ class ProcessStatus(object):
                 self.running_nodes.add(node_name)
         # evaluate state iaw running addresses
         if not self.evaluate_conflict():
-            # no conflict so at most one element running
+            # no conflict so there's at most one element running
             if self.running_nodes:
                 self.state = self.info_map[list(self.running_nodes)[0]]['state']
                 self.expected_exit = True
@@ -458,10 +514,11 @@ class ProcessStatus(object):
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status
-        log_trace = 'ProcessStatus.update_status: Process {} is {}'.format(self.namespec(), self.state_string())
-        if self.running_nodes:
-            log_trace += ' on {}'.format(list(self.running_nodes))
-        self.logger.debug(log_trace)
+        if LevelsByName.DEBG >= self.logger.level:
+            log_trace = 'ProcessStatus.update_status: namespec={} - is {}'.format(self.namespec, self.state_string())
+            if self.running_nodes:
+                log_trace += ' on {}'.format(list(self.running_nodes))
+            self.logger.trace(log_trace)
 
     def evaluate_conflict(self) -> Optional[bool]:
         """ Get a synthetic state if several processes are in a RUNNING-like state.
