@@ -144,34 +144,6 @@ to the command line before the process is started:
     either because it has started later or because it has been disconnected for a while due to a network issue.
 
 
-.. _running_failure_strategy:
-
-Running Failure strategy
-------------------------
-
-The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectedly (or not).
-However, when the node itself crashes or becomes unreachable, the other Supervisor instances cannot do anything about that.
-
-**Supvisors** uses the ``running_failure_strategy`` option of the rules file to warm restart a process that was
-running on a node that has crashed, in accordance with the default ``starting_strategy`` set in the
-:ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
-
-This option can be also used to stop or restart the whole application after a process crash.
-
-Possible values are:
-
-    * ``CONTINUE``: Skip the failure. The application keeps running.
-    * ``RESTART_PROCESS``: Restart the process.
-    * ``STOP_APPLICATION``: Stop the application.
-    * ``RESTART_APPLICATION``: Restart the application.
-
-.. hint::
-
-   The ``STOP_APPLICATION`` strategy provides an answer to the following Supervisor request:
-
-      * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
-
-
 .. _starting_strategy:
 
 Starting strategy
@@ -307,6 +279,54 @@ The following pseudo-code explains the algorithm used:
     May the new node arrive during a ``DEPLOYMENT`` or ``CONCILIATION`` phase, the transition to the ``DEPLOYMENT``
     state is deferred until the current deployment or conciliation jobs are completed.
     It has been chosen NOT to transition back to the ``INITIALIZATION`` state to avoid a new synchronization phase.
+
+
+.. _starting_failure_strategy:
+
+Starting Failure strategy
+------------------------
+
+When an application is starting, it may happen that any of its programs cannot be started due to various reasons
+(the program command line is wrong ; third parties are missing ; none of the nodes defined in the ``address_list``
+of the program rules are started ; the applicable nodes are already too much loaded ; etc).
+
+**Supvisors** uses the ``starting_failure_strategy`` option of the rules file to determine the behavior to apply
+when a ``required`` program cannot be started. Program having the ``required`` set to False are not considered as
+their absence is minor by definition.
+
+Possible values are:
+
+    * ``ABORT``: Abort the application starting.
+    * ``STOP``: Stop the application.
+    * ``CONTINUE``: Skip the failure and continue the application starting.
+
+
+.. _running_failure_strategy:
+
+Running Failure strategy
+------------------------
+
+The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectedly (or not).
+However, when the node itself crashes or becomes unreachable, the other Supervisor instances cannot do anything about that.
+
+**Supvisors** uses the ``running_failure_strategy`` option of the rules file to warm restart a process that was
+running on a node that has crashed, in accordance with the default ``starting_strategy`` set in the
+:ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
+
+This option can be also used to stop or restart the whole application after a process crash.
+
+Possible values are:
+
+    * ``CONTINUE``: Skip the failure. The application keeps running.
+    * ``RESTART_PROCESS``: Restart the process.
+    * ``STOP_APPLICATION``: Stop the application.
+    * ``RESTART_APPLICATION``: Restart the application.
+
+.. hint::
+
+   The ``STOP_APPLICATION`` strategy provides an answer to the following Supervisor request:
+
+      * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
 
 
 .. _stopping_strategy:

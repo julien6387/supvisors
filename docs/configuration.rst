@@ -622,11 +622,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``starting_failure_strategy``
 
     This element gives the strategy applied upon a major failure in the starting phase of an application.
-    Possible values are:
-
-        * ``ABORT``: Abort the application starting.
-        * ``STOP``: Stop the application.
-        * ``CONTINUE``: Skip the failure and continue the application starting.
+    The possible values are { ``ABORT``, ``STOP``, ``CONTINUE`` } and are detailed in :ref:`starting_failure_strategy`.
 
     *Default*:  ``ABORT``.
 
