@@ -556,7 +556,6 @@ class Starter(Commander):
                                   .format(process.namespec, node_name, get_asctime(command.request_time)))
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(process.namespec))
-                # TODO self.supvisors.context.force_process_state(process.namespec, ProcessStates.FATAL, 'no resource available')
                 self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,
                                                             'no resource available')
         # return True when the job is started

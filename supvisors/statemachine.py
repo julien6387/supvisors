@@ -270,15 +270,20 @@ class RestartingState(AbstractState):
     """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
 
     def enter(self) -> None:
-        """ When entering in the RESTARTING state, stop all applications. """
+        """ When entering in the RESTARTING state, stop all applications.
+        The current design is that the current node drives the job and not necessarily the Master.
+        FIXME Issue #92: If the current node becomes silent in this phase, it will leave Supvisors in a bad state
+         with applications partially stopped and other Supvisors instances not aware.
+
+        :return:
+        """
         self.abort_jobs()
         self.supvisors.stopper.stop_applications()
 
     def next(self) -> SupvisorsStates:
         """ Wait for all processes to be stopped. """
-        # FIXME: what happens if the current node becomes silent in this phase ? blocks the other forever ?
-        #  here it can't be assumed that we can go back to INITIALIZATION state
-        #  so exit ? sync by Master
+        # FIXME: upon local failure, it can't be assumed here that we can go back to INITIALIZATION state
+        #  so just exit ? sync by Master ?
         if self.supvisors.stopper.check_stopping():
             return SupvisorsStates.SHUTDOWN
         return SupvisorsStates.RESTARTING
@@ -467,7 +472,7 @@ class FiniteStateMachine:
                     self.logger.warn('FiniteStateMachine.on_authorization: master node conflict. '
                                      ' local declares {} - remote ({}) declares {}'
                                      .format(self.context.master_node_name, node_name, master_node_name))
-                    # FIXME: restrict to [DEPLOYMENT, OPERATION, CONCILIATION] ?
+                    # no need to restrict to [DEPLOYMENT, OPERATION, CONCILIATION] as other transitions are forbidden
                     self.set_state(SupvisorsStates.INITIALIZATION)
 
     def on_restart(self) -> None:
