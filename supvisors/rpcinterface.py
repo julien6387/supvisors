@@ -602,8 +602,8 @@ class RPCInterface(object):
         return True
 
     def change_log_level(self, level_param: LevelsByName) -> bool:
-        """ Change the logger level for the local Supvisors.
-        If Supvisors logger is configured as AUTO, this will impact the Supervisor logger too.
+        """ Change the logger level for the local **Supvisors**.
+        If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 
         *@param* ``LevelsByName level``: the new logger level, as a string or as a value.
 
