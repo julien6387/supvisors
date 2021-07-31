@@ -17,246 +17,229 @@
 # limitations under the License.
 # ======================================================================
 
+import pytest
 import sys
-import unittest
 
-from socket import gethostname
+from supervisor.datatypes import Automatic
 
-from unittest.mock import patch
-from supervisor.options import ServerOptions
+from supvisors.options import *
+from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
-from supvisors.tests.configurations import *
-
-
-class SupvisorsOptionsTest(unittest.TestCase):
-    """ Test case for the SupvisorsOptions class of the options module. """
-
-    def test_creation(self):
-        """ Test the values set at construction. """
-        from supvisors.options import SupvisorsOptions
-        opt = SupvisorsOptions()
-        # all attributes are None
-        self.assertIsNone(opt.address_list)
-        self.assertIsNone(opt.rules_file)
-        self.assertIsNone(opt.internal_port)
-        self.assertIsNone(opt.event_port)
-        self.assertIsNone(opt.auto_fence)
-        self.assertIsNone(opt.synchro_timeout)
-        self.assertIsNone(opt.force_synchro_if)
-        self.assertIsNone(opt.conciliation_strategy)
-        self.assertIsNone(opt.starting_strategy)
-        self.assertIsNone(opt.stats_periods)
-        self.assertIsNone(opt.stats_histo)
-        self.assertIsNone(opt.stats_irix_mode)
-        self.assertIsNone(opt.logfile)
-        self.assertIsNone(opt.logfile_maxbytes)
-        self.assertIsNone(opt.logfile_backups)
-        self.assertIsNone(opt.loglevel)
-
-    def test_str(self):
-        """ Test the string output. """
-        from supvisors.options import SupvisorsOptions
-        opt = SupvisorsOptions()
-        self.assertEqual('address_list=None rules_file=None '
-                         'internal_port=None event_port=None auto_fence=None '
-                         'synchro_timeout=None force_synchro_if=None conciliation_strategy=None '
-                         'starting_strategy=None stats_periods=None stats_histo=None '
-                         'stats_irix_mode=None logfile=None logfile_maxbytes=None '
-                         'logfile_backups=None loglevel=None', str(opt))
+from .configurations import *
 
 
-class SupvisorsServerOptionsTest(unittest.TestCase):
-    """ Test case for the SupvisorsServerOptionsTest class of the options module. """
-
-    common_error_message = 'invalid value for {}'
-
-    def test_port_num(self):
-        """ Test the conversion into to a port number. """
-        from supvisors.options import SupvisorsServerOptions
-        error_message = self.common_error_message.format('port')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_port_num('-1')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_port_num('0')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_port_num('65536')
-        # test valid values
-        self.assertEqual(1, SupvisorsServerOptions.to_port_num('1'))
-        self.assertEqual(65535, SupvisorsServerOptions.to_port_num('65535'))
-
-    def test_timeout(self):
-        """ Test the conversion of a string to a timeout value. """
-        from supvisors.options import SupvisorsServerOptions
-        error_message = self.common_error_message.format('synchro_timeout')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_timeout('-1')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_timeout('0')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_timeout('14')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_timeout('1201')
-        # test valid values
-        self.assertEqual(15, SupvisorsServerOptions.to_timeout('15'))
-        self.assertEqual(1200, SupvisorsServerOptions.to_timeout('1200'))
-
-    def test_conciliation_strategy(self):
-        """ Test the conversion of a string to a conciliation strategy. """
-        from supvisors.options import SupvisorsServerOptions
-        from supvisors.ttypes import ConciliationStrategies
-        error_message = self.common_error_message.format('conciliation_strategy')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_conciliation_strategy('123456')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_conciliation_strategy('dummy')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_conciliation_strategy('user')
-        # test valid values
-        self.assertEqual(ConciliationStrategies.SENICIDE,
-                         SupvisorsServerOptions.to_conciliation_strategy('SENICIDE'))
-        self.assertEqual(ConciliationStrategies.INFANTICIDE,
-                         SupvisorsServerOptions.to_conciliation_strategy('INFANTICIDE'))
-        self.assertEqual(ConciliationStrategies.USER,
-                         SupvisorsServerOptions.to_conciliation_strategy('USER'))
-        self.assertEqual(ConciliationStrategies.STOP,
-                         SupvisorsServerOptions.to_conciliation_strategy('STOP'))
-        self.assertEqual(ConciliationStrategies.RESTART,
-                         SupvisorsServerOptions.to_conciliation_strategy('RESTART'))
-
-    def test_starting_strategy(self):
-        """ Test the conversion of a string to a starting strategy. """
-        from supvisors.options import SupvisorsServerOptions
-        from supvisors.ttypes import StartingStrategies
-        error_message = self.common_error_message.format('starting_strategy')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_starting_strategy('123456')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_starting_strategy('dummy')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_starting_strategy('config')
-        # test valid values
-        self.assertEqual(StartingStrategies.CONFIG,
-                         SupvisorsServerOptions.to_starting_strategy('CONFIG'))
-        self.assertEqual(StartingStrategies.LESS_LOADED,
-                         SupvisorsServerOptions.to_starting_strategy('LESS_LOADED'))
-        self.assertEqual(StartingStrategies.MOST_LOADED,
-                         SupvisorsServerOptions.to_starting_strategy('MOST_LOADED'))
-
-    def test_periods(self):
-        """ Test the conversion of a string to a list of periods. """
-        from supvisors.options import SupvisorsServerOptions
-        error_message = self.common_error_message.format('stats_periods')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, 'unexpected number of stats_periods'):
-            SupvisorsServerOptions.to_periods([])
-        with self.assertRaisesRegex(ValueError, 'unexpected number of stats_periods'):
-            SupvisorsServerOptions.to_periods(['1', '2', '3', '4'])
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_periods(['4', '3600'])
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_periods(['5', '3601'])
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_periods(['6', '3599'])
-        # test valid values
-        self.assertEqual([5], SupvisorsServerOptions.to_periods(['5']))
-        self.assertEqual([60, 3600], SupvisorsServerOptions.to_periods(['60', '3600']))
-        self.assertEqual([120, 720, 1800], SupvisorsServerOptions.to_periods(['120', '720', '1800']))
-
-    def test_histo(self):
-        """ Test the conversion of a string to a history depth. """
-        from supvisors.options import SupvisorsServerOptions
-        error_message = self.common_error_message.format('stats_histo')
-        # test invalid values
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_histo('-1')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_histo('9')
-        with self.assertRaisesRegex(ValueError, error_message):
-            SupvisorsServerOptions.to_histo('1501')
-        # test valid values
-        self.assertEqual(10, SupvisorsServerOptions.to_histo('10'))
-        self.assertEqual(1500, SupvisorsServerOptions.to_histo('1500'))
-
-    def test_incorrect_supvisors(self):
-        """ Test that exception is raised when the supvisors section is missing. """
-        with self.assertRaises(ValueError):
-            self.create_server(NoSupvisors)
-
-    def test_program_numbers(self):
-        """ Test that the internal numbers of homogeneous programs are stored. """
-        server = self.create_server(ProgramConfiguration)
-        self.assertDictEqual({'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1},
-                             server.supvisors_options.procnumbers)
-
-    def test_default_options(self):
-        """ Test the default values of options with empty Supvisors configuration. """
-        from supervisor.datatypes import Automatic
-        from supvisors.ttypes import ConciliationStrategies, StartingStrategies
-        server = self.create_server(DefaultOptionConfiguration)
-        opt = server.supvisors_options
-        self.assertListEqual([gethostname()], opt.address_list)
-        self.assertIsNone(opt.rules_file)
-        self.assertEqual(65001, opt.internal_port)
-        self.assertEqual(65002, opt.event_port)
-        self.assertFalse(opt.auto_fence)
-        self.assertEqual(15, opt.synchro_timeout)
-        self.assertEqual([], opt.force_synchro_if)
-        self.assertEqual(ConciliationStrategies.USER, opt.conciliation_strategy)
-        self.assertEqual(StartingStrategies.CONFIG, opt.starting_strategy)
-        self.assertListEqual([10], opt.stats_periods)
-        self.assertEqual(200, opt.stats_histo)
-        self.assertFalse(opt.stats_irix_mode)
-        self.assertEqual(Automatic, opt.logfile)
-        self.assertEqual(50 * 1024 * 1024, opt.logfile_maxbytes)
-        self.assertEqual(10, opt.logfile_backups)
-        self.assertEqual(20, opt.loglevel)
-
-    def test_defined_options(self):
-        """ Test the values of options with defined Supvisors configuration. """
-        from supvisors.ttypes import ConciliationStrategies, StartingStrategies
-        server = self.create_server(DefinedOptionConfiguration)
-        opt = server.supvisors_options
-        self.assertEqual(['cliche01', 'cliche03', 'cliche02'], opt.address_list)
-        self.assertEqual('my_movies.xml', opt.rules_file)
-        self.assertEqual(60001, opt.internal_port)
-        self.assertEqual(60002, opt.event_port)
-        self.assertTrue(opt.auto_fence)
-        self.assertEqual(20, opt.synchro_timeout)
-        self.assertEqual(['cliche01', 'cliche03'], opt.force_synchro_if)
-        self.assertEqual(ConciliationStrategies.SENICIDE, opt.conciliation_strategy)
-        self.assertEqual(StartingStrategies.MOST_LOADED, opt.starting_strategy)
-        self.assertListEqual([5, 60, 600], opt.stats_periods)
-        self.assertEqual(100, opt.stats_histo)
-        self.assertTrue(opt.stats_irix_mode)
-        self.assertEqual('/tmp/supvisors.log', opt.logfile)
-        self.assertEqual(50 * 1024, opt.logfile_maxbytes)
-        self.assertEqual(5, opt.logfile_backups)
-        self.assertEqual(40, opt.loglevel)
-
-    @patch.object(ServerOptions, 'default_configfile', return_value='supervisord.conf')
-    @patch.object(ServerOptions, 'exists', return_value=True)
-    @patch.object(ServerOptions, 'usage', side_effect=ValueError)
-    def create_server(self, *args, **keywargs):
-        """ Create a SupvisorsServerOptions instance using patches on Supervisor source code.
-        This is required because the unit test does not include existing files. """
-        from supvisors.options import SupvisorsServerOptions
-        server = SupvisorsServerOptions()
-        # this flag is required for supervisor to cope with unittest arguments
-        server.positional_args_allowed = 1
-        # remove pytest cov options
-        with patch.object(sys, 'argv', [sys.argv[0]]):
-            with patch.object(ServerOptions, 'open', return_value=args[0]):
-                server.realize()
-        return server
+@pytest.fixture
+def opt():
+    """ Create a Supvisors-like structure filled with some nodes. """
+    return SupvisorsOptions()
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+@pytest.fixture
+def server_opt():
+    """ Create a Supvisors-like structure filled with some nodes. """
+    return SupvisorsServerOptions()
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_options_creation(opt):
+    """ Test the values set at construction. """
+    # all attributes are None
+    assert opt.address_list is None
+    assert opt.rules_file is None
+    assert opt.internal_port is None
+    assert opt.event_port is None
+    assert opt.auto_fence is None
+    assert opt.synchro_timeout is None
+    assert opt.force_synchro_if is None
+    assert opt.conciliation_strategy is None
+    assert opt.starting_strategy is None
+    assert opt.stats_periods is None
+    assert opt.stats_histo is None
+    assert opt.stats_irix_mode is None
+    assert opt.logfile is None
+    assert opt.logfile_maxbytes is None
+    assert opt.logfile_backups is None
+    assert opt.loglevel is None
+
+
+def test_str(opt):
+    """ Test the string output. """
+    assert str(opt) == 'address_list=None rules_file=None internal_port=None event_port=None auto_fence=None '\
+                       'synchro_timeout=None force_synchro_if=None conciliation_strategy=None ' \
+                       'starting_strategy=None stats_periods=None stats_histo=None ' \
+                       'stats_irix_mode=None logfile=None logfile_maxbytes=None logfile_backups=None loglevel=None'
+
+
+common_error_message = r'invalid value for {}'
+
+
+def test_port_num():
+    """ Test the conversion into to a port number. """
+    error_message = common_error_message.format('port')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_port_num('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_port_num('0')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_port_num('65536')
+    # test valid values
+    assert SupvisorsServerOptions.to_port_num('1') == 1
+    assert SupvisorsServerOptions.to_port_num('65535') == 65535
+
+
+def test_timeout():
+    """ Test the conversion of a string to a timeout value. """
+    error_message = common_error_message.format('synchro_timeout')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_timeout('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_timeout('0')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_timeout('14')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_timeout('1201')
+    # test valid values
+    assert SupvisorsServerOptions.to_timeout('15') == 15
+    assert SupvisorsServerOptions.to_timeout('1200') == 1200
+
+
+def test_conciliation_strategy():
+    """ Test the conversion of a string to a conciliation strategy. """
+    error_message = common_error_message.format('conciliation_strategy')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_conciliation_strategy('123456')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_conciliation_strategy('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_conciliation_strategy('user')
+    # test valid values
+    assert SupvisorsServerOptions.to_conciliation_strategy('SENICIDE') == ConciliationStrategies.SENICIDE
+    assert SupvisorsServerOptions.to_conciliation_strategy('INFANTICIDE') == ConciliationStrategies.INFANTICIDE
+    assert SupvisorsServerOptions.to_conciliation_strategy('USER') == ConciliationStrategies.USER
+    assert SupvisorsServerOptions.to_conciliation_strategy('STOP') == ConciliationStrategies.STOP
+    assert SupvisorsServerOptions.to_conciliation_strategy('RESTART') == ConciliationStrategies.RESTART
+
+
+def test_starting_strategy():
+    """ Test the conversion of a string to a starting strategy. """
+    error_message = common_error_message.format('starting_strategy')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_starting_strategy('123456')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_starting_strategy('dummy')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_starting_strategy('config')
+    # test valid values
+    assert SupvisorsServerOptions.to_starting_strategy('CONFIG') == StartingStrategies.CONFIG
+    assert SupvisorsServerOptions.to_starting_strategy('LESS_LOADED') == StartingStrategies.LESS_LOADED
+    assert SupvisorsServerOptions.to_starting_strategy('MOST_LOADED') == StartingStrategies.MOST_LOADED
+
+
+def test_periods():
+    """ Test the conversion of a string to a list of periods. """
+    error_message = common_error_message.format('stats_periods')
+    # test invalid values
+    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+        SupvisorsServerOptions.to_periods([])
+    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+        SupvisorsServerOptions.to_periods(['1', '2', '3', '4'])
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_periods(['4', '3600'])
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_periods(['5', '3601'])
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_periods(['6', '3599'])
+    # test valid values
+    assert SupvisorsServerOptions.to_periods(['5']) == [5]
+    assert SupvisorsServerOptions.to_periods(['60', '3600']) == [60, 3600]
+    assert SupvisorsServerOptions.to_periods(['120', '720', '1800']) == [120, 720, 1800]
+
+
+def test_histo():
+    """ Test the conversion of a string to a history depth. """
+    error_message = common_error_message.format('stats_histo')
+    # test invalid values
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_histo('-1')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_histo('9')
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsServerOptions.to_histo('1501')
+    # test valid values
+    assert SupvisorsServerOptions.to_histo('10') == 10
+    assert SupvisorsServerOptions.to_histo('1500') == 1500
+
+
+def test_incorrect_supvisors(mocker, server_opt):
+    """ Test that exception is raised when the supvisors section is missing. """
+    with pytest.raises(ValueError):
+        create_server(mocker, server_opt, NoSupvisors)
+
+
+def test_program_numbers(mocker, server_opt):
+    """ Test that the internal numbers of homogeneous programs are stored. """
+    server = create_server(mocker, server_opt, ProgramConfiguration)
+    assert server.supvisors_options.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2,
+                                                    'dumber_10': 0, 'dumber_11': 1}
+
+
+def test_default_options(mocker, server_opt):
+    """ Test the default values of options with empty Supvisors configuration. """
+    server = create_server(mocker, server_opt, DefaultOptionConfiguration)
+    opt = server.supvisors_options
+    assert opt.address_list == [gethostname()]
+    assert opt.rules_file is None
+    assert opt.internal_port == 65001
+    assert opt.event_port == 65002
+    assert not opt.auto_fence
+    assert opt.synchro_timeout == 15
+    assert opt.force_synchro_if == []
+    assert opt.conciliation_strategy == ConciliationStrategies.USER
+    assert opt.starting_strategy == StartingStrategies.CONFIG
+    assert opt.stats_periods == [10]
+    assert opt.stats_histo == 200
+    assert not opt.stats_irix_mode
+    assert opt.logfile == Automatic
+    assert opt.logfile_maxbytes == 50 * 1024 * 1024
+    assert opt.logfile_backups == 10
+    assert opt.loglevel == 20
+
+
+def test_defined_options(mocker, server_opt):
+    """ Test the values of options with defined Supvisors configuration. """
+    server = create_server(mocker, server_opt, DefinedOptionConfiguration)
+    opt = server.supvisors_options
+    assert opt.address_list == ['cliche01', 'cliche03', 'cliche02']
+    assert opt.rules_file == 'my_movies.xml'
+    assert opt.internal_port == 60001
+    assert opt.event_port == 60002
+    assert opt.auto_fence
+    assert opt.synchro_timeout == 20
+    assert opt.force_synchro_if == ['cliche01', 'cliche03']
+    assert opt.conciliation_strategy == ConciliationStrategies.SENICIDE
+    assert opt.starting_strategy == StartingStrategies.MOST_LOADED
+    assert opt.stats_periods == [5, 60, 600]
+    assert opt.stats_histo == 100
+    assert opt.stats_irix_mode
+    assert opt.logfile == '/tmp/supvisors.log'
+    assert opt.logfile_maxbytes == 50 * 1024
+    assert opt.logfile_backups == 5
+    assert opt.loglevel == 40
+
+
+def create_server(mocker, server_opt, config):
+    """ Create a SupvisorsServerOptions instance using patches on Supervisor source code.
+    This is required because the unit test does not include existing files. """
+    mocker.patch.object(ServerOptions, 'default_configfile', return_value='supervisord.conf')
+    mocker.patch.object(ServerOptions, 'exists', return_value=True)
+    mocker.patch.object(ServerOptions, 'usage', side_effect=ValueError)
+    # this flag is required for supervisor to cope with unittest arguments
+    server_opt.positional_args_allowed = 1
+    # remove pytest cov options
+    mocker.patch.object(sys, 'argv', [sys.argv[0]])
+    mocker.patch.object(ServerOptions, 'open', return_value=config)
+    server_opt.realize()
+    return server_opt

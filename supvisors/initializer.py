@@ -17,32 +17,35 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Any
+
 from supervisor import loggers
 from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
-from supvisors.addressmapper import AddressMapper
-from supvisors.commander import Starter, Stopper
-from supvisors.context import Context
-from supvisors.infosource import SupervisordSource
-from supvisors.listener import SupervisorListener
-from supvisors.options import SupvisorsServerOptions
-from supvisors.sparser import Parser
-from supvisors.statemachine import FiniteStateMachine
-from supvisors.statscompiler import StatisticsCompiler
-from supvisors.strategy import RunningFailureHandler
+from .addressmapper import AddressMapper
+from .commander import Starter, Stopper
+from .context import Context
+from .infosource import SupervisordSource
+from .listener import SupervisorListener
+from .options import SupvisorsServerOptions
+from .sparser import Parser
+from .statemachine import FiniteStateMachine
+from .statscompiler import StatisticsCompiler
+from .strategy import RunningFailureHandler
 
 
 class Supvisors(object):
-    """ The Supvisors class. """
+    """ The Supvisors class used as a global structure passed to most Supvisors objects. """
 
     # logger output (use ';' as separator as easier to cut)
     LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
-    def __init__(self, supervisord):
-        """ Initialization of the attributes. """
-        # store this instance in supervisord to ensure persistence
-        supervisord.supvisors = self
+    def __init__(self, supervisord: Any) -> None:
+        """ Instantiation of all the Supvisors objects.
+
+        :param supervisord: the Supervisor global structure
+        """
         # declare zmq context (will be created in listener)
         self.zmq = None
         # get options from config file
@@ -55,10 +58,10 @@ class Supvisors(object):
         self.info_source = SupervisordSource(supervisord)
         # set addresses and check local address
         self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.addresses = self.options.address_list
-        if not self.address_mapper.local_address:
+        self.address_mapper.node_names = self.options.address_list
+        if not self.address_mapper.local_node_name:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local host is expected in address list: {}'.format(self.options.address_list))
+                           'local node is expected in node list: {}'.format(self.options.address_list))
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -74,7 +77,8 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
+            self.logger.warn('Supvisors.__init__: cannot parse rules file: {} - {}'
+                             .format(self.options.rules_file, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

@@ -30,6 +30,9 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The name of the process' application. */
     private String applicationName;
 
+    /** The managed status of the application. */
+    private Boolean isManaged;
+
     /** The starting order in the application starting. */
     private Integer startSequence;
 
@@ -49,6 +52,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
      */
     public SupvisorsApplicationRules(HashMap rulesInfo)  {
         this.applicationName = (String) rulesInfo.get("application_name");
+        this.isManaged = (Boolean) rulesInfo.get("managed");
         this.startSequence = (Integer) rulesInfo.get("start_sequence");
         this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
         this.startingFailureStrategy = StartingFailureStrategy.valueOf((String) rulesInfo.get("starting_failure_strategy"));
@@ -74,7 +78,16 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getStartSequence method returns the starting order of the process in the application starting.
+     * The isManaged method returns the managed status of the application in Supvisors.
+     *
+     * @return Boolean: The managed status.
+     */
+    public Boolean isManaged() {
+        return this.isManaged;
+    }
+
+    /**
+     * The getStartSequence method returns the starting order of the application when starting all the applications.
      *
      * @return Integer: The starting order.
      */
@@ -83,7 +96,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getStartSequence method returns the stopping order of the process in the application stopping.
+     * The getStartSequence method returns the stopping order of the application when stopping all the applications.
      *
      * @return Integer: The stopping order.
      */
@@ -118,8 +131,9 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
      */
     public String toString() {
         return "SupvisorsApplicationRules(applicationName=" + this.applicationName
+            + " managed=" + this.isManaged
             + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
-            + " startingFailureStrategy=" + this.startingFailureStrategy 
+            + " startingFailureStrategy=" + this.startingFailureStrategy
             + " runningFailureStrategy=" + this.runningFailureStrategy + ")";
     }
 

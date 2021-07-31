@@ -184,10 +184,10 @@ class StatisticsCompiler(object):
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        self.data = {address: {period: StatisticsInstance(period, supvisors.options.stats_histo)
-                               for period in supvisors.options.stats_periods}
-                     for address in supvisors.address_mapper.addresses}
-        self.nbcores = {address: 1 for address in supvisors.address_mapper.addresses}
+        self.data = {node_name: {period: StatisticsInstance(period, supvisors.options.stats_histo)
+                                 for period in supvisors.options.stats_periods}
+                     for node_name in supvisors.address_mapper.node_names}
+        self.nbcores = {node_name: 1 for node_name in supvisors.address_mapper.node_names}
 
     def clear(self, address):
         """ For a given address, clear the StatisticsInstance for all periods. """

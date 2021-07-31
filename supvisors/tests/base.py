@@ -19,32 +19,31 @@
 
 import os
 import random
-import unittest
 
 from socket import gethostname
-from unittest.mock import patch, Mock
+from unittest.mock import Mock
 
 from supervisor.datatypes import Automatic
 from supervisor.loggers import LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import RUNNING_STATES, STOPPED_STATES
+from supervisor.states import STOPPED_STATES
 
+from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
 
 class DummyAddressMapper:
-    """ Simple address mapper with an empty addresses list. """
+    """ Simple address mapper. """
 
     def __init__(self):
-        self.addresses = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3',
-                          '10.0.0.4', '10.0.0.5']
-        self.local_address = '127.0.0.1'
+        self.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.local_node_name = '127.0.0.1'
 
-    def filter(self, address_list):
-        return address_list
+    def filter(self, node_names):
+        return node_names
 
-    def valid(self, address):
-        return address in self.addresses
+    def valid(self, node_name):
+        return node_name in self.node_names
 
 
 class DummyOptions:
@@ -59,7 +58,7 @@ class DummyOptions:
         self.force_synchro_if = []
         self.auto_fence = True
         self.rules_file = ''
-        self.starting_strategy = 0
+        self.starting_strategy = StartingStrategies.CONFIG
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
@@ -79,13 +78,10 @@ class MockedSupvisors:
         """ Use a dummy address mapper and options. """
         self.address_mapper = DummyAddressMapper()
         self.options = DummyOptions()
-        # mock the context
+        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        # build context from address mapper
         from supvisors.context import Context
-        self.context = Mock(spec=Context)
-        self.context.__init__()
-        self.context.addresses = {}
-        self.context.applications = {}
-        self.context.processes = {}
+        self.context = Context(self)
         # simple mocks
         self.fsm = Mock()
         self.pool = Mock()
@@ -101,7 +97,6 @@ class MockedSupvisors:
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)
-        self.logger = Mock(spec=Logger)
         from supvisors.sparser import Parser
         self.parser = Mock(spec=Parser)
         from supvisors.commander import Starter, Stopper
@@ -121,23 +116,13 @@ class DummyRpcHandler:
 
 
 class DummyRpcInterface:
-    """ Simple RPC proxy. """
+    """ Simple RPC mock. """
 
     def __init__(self):
         from supvisors.rpcinterface import RPCInterface
-        supervisord = DummySupervisor()
         # create rpc interfaces to have a skeleton
-        # create a Supervisor RPC interface
-        self.supervisor = SupervisorNamespaceRPCInterface(supervisord)
-
-        # create a mocked Supvisors RPC interface
-        def create_supvisors(arg):
-            # arg is supervisord
-            assert(arg == supervisord)
-            return MockedSupvisors()
-
-        with patch('supvisors.rpcinterface.Supvisors', side_effect=create_supvisors):
-            self.supvisors = RPCInterface(supervisord)
+        self.supervisor = SupervisorNamespaceRPCInterface(DummySupervisor())
+        self.supvisors = RPCInterface(MockedSupvisors())
 
 
 class DummyHttpServer:
@@ -193,9 +178,6 @@ class DummyProcess:
     def give_up(self):
         self.state = 'FATAL'
 
-    def change_state(self, state):
-        self.state = state
-
 
 class DummySupervisor:
     """ Simple supervisor with simple attributes. """
@@ -215,15 +197,14 @@ class DummyHttpContext:
     def __init__(self, template=None):
         import supvisors
         module_path = os.path.dirname(supvisors.__file__)
-        self.template = os.path.join(module_path, template) \
-            if template else None
+        self.template = os.path.join(module_path, template) if template else None
         self.supervisord = DummySupervisor()
         # create form and response
         self.form = {'SERVER_URL': 'http://10.0.0.1:7777',
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'address': '10.0.0.4',
+                     'node': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',
@@ -245,7 +226,7 @@ ProcessInfoDatabase = [
      'spawnerr': 'Exited too quickly (process log may have details)', 'now': 1473888156,
      'group': 'crash', 'name': 'segv', 'statename': 'BACKOFF', 'start': 1473888155, 'state': 30,
      'stdout_logfile': './log/segv_cliche01.log'},
-    {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473887937,
+    {'description': 'Sep 14 05:18 PM', 'pid': 0, 'stderr_logfile': '', 'stop': 1473888937,
      'logfile': './log/firefox_cliche01.log', 'exitstatus': 0, 'spawnerr': '', 'now': 1473888161,
      'group': 'firefox', 'name': 'firefox', 'statename': 'EXITED', 'start': 1473887932, 'state': 100,
      'stdout_logfile': './log/firefox_cliche01.log'},
@@ -288,44 +269,16 @@ def any_process_info():
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] in STOPPED_STATES])
-    return extract_process_info(info)
-
-
-def any_running_process_info():
-    """ Return a copy of any running process in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] in RUNNING_STATES])
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
     return extract_process_info(info)
 
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
-    info = random.choice([info for info in ProcessInfoDatabase
-                          if info['state'] == state])
+    info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
     return extract_process_info(info)
 
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    info = next((info.copy() for info in ProcessInfoDatabase
-                 if info['name'] == name), None)
-    return extract_process_info(info) if info else {}
-
-
-class CompatTestCase(unittest.TestCase):
-    """ unittest.TestCase.assertItemsEqual has been removed from Python3
-    and unittest.TestCase.assertDictContainsSubset has been obsoleted.
-    Here is a try to replace tem without having tests to rewrite. """
-
-    def assertItemsEqual(self, lst1, lst2):
-        """ Two lists are equal when they have the same size
-        and when all elements of one are in the other one. """
-        self.assertEqual(len(lst1), len(lst2))
-        self.assertTrue(all(item in lst2 for item in lst1))
-        self.assertTrue(all(item in lst1 for item in lst2))
-
-    def assertDictContainsSubset(self, subset, origin, **kwargs):
-        """ Create a dictionary with both and test that it's equal to origin. """
-        self.assertEqual(dict(origin, **subset), origin)
+    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)

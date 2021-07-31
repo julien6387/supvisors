@@ -17,116 +17,98 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
-import unittest
 
-from supvisors.tests.base import DummyHttpContext
+from supvisors.viewimage import *
 
-
-class StatsImageTest(unittest.TestCase):
-    """ Test case for the StatsImage class of the viewimage module. """
-
-    def test_stats_image(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import StatsImage
-        image = StatsImage()
-        self.assertIsNone(image.contents)
-        # create a buffer
-        contents = image.new_image()
-        self.assertIsNotNone(image.contents)
-        self.assertIs(contents, image.contents)
-        self.assertFalse(contents.closed)
-        # create a buffer again
-        image.new_image()
-        self.assertIsNotNone(image.contents)
-        self.assertIsNot(contents, image.contents)
-        self.assertTrue(contents.closed)
-        self.assertFalse(image.contents.closed)
-
-    def test_address_instances(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import (address_cpu_img,
-                                         address_mem_img,
-                                         address_io_img)
-        self.assertIsNotNone(address_cpu_img)
-        self.assertIsNone(address_cpu_img.contents)
-        self.assertIsNotNone(address_mem_img)
-        self.assertIsNone(address_mem_img.contents)
-        self.assertIsNotNone(address_io_img)
-        self.assertIsNone(address_io_img.contents)
-
-    def test_process_instances(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import process_cpu_img, process_mem_img
-        self.assertIsNotNone(process_cpu_img)
-        self.assertIsNone(process_cpu_img.contents)
-        self.assertIsNotNone(process_mem_img)
-        self.assertIsNone(process_mem_img.contents)
+from .base import DummyHttpContext
 
 
-class ImageViewTest(unittest.TestCase):
-    """ Test case for the ImageView class of the viewimage module. """
-
-    def test_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import ImageView, StatsImage
-        # test creation
-        image = StatsImage()
-        view = ImageView(DummyHttpContext(), image)
-        self.assertIs(image, view.buffer)
-        # test render with an image having no contents
-        response = view()
-        headers = response['headers']
-        self.assertEqual('image/png', headers['Content-Type'])
-        self.assertEqual('no-cache', headers['Pragma'])
-        self.assertEqual('no-cache', headers['Cache-Control'])
-        self.assertEqual('Thu, 01 Jan 1970 00:00:00 GMT', headers['Expires'])
-        self.assertEqual(response['body'], b'')
-        # test render with an image having contents
-        contents = image.new_image()
-        contents.write(b'Dummy contents')
-        response = view()
-        headers = response['headers']
-        self.assertEqual('image/png', headers['Content-Type'])
-        self.assertEqual('no-cache', headers['Pragma'])
-        self.assertEqual('no-cache', headers['Cache-Control'])
-        self.assertEqual('Thu, 01 Jan 1970 00:00:00 GMT', headers['Expires'])
-        self.assertEqual(b'Dummy contents', response['body'])
-
-    def test_address_cpu_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import AddressCpuImageView, address_cpu_img
-        view = AddressCpuImageView(DummyHttpContext())
-        self.assertIs(view.buffer, address_cpu_img)
-
-    def test_address_memory_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import AddressMemoryImageView, address_mem_img
-        view = AddressMemoryImageView(DummyHttpContext())
-        self.assertIs(view.buffer, address_mem_img)
-
-    def test_address_network_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import AddressNetworkImageView, address_io_img
-        view = AddressNetworkImageView(DummyHttpContext())
-        self.assertIs(view.buffer, address_io_img)
-
-    def test_process_cpu_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import ProcessCpuImageView, process_cpu_img
-        view = ProcessCpuImageView(DummyHttpContext())
-        self.assertIs(view.buffer, process_cpu_img)
-
-    def test_process_memory_image_view(self):
-        """ Test the values set at construction. """
-        from supvisors.viewimage import ProcessMemoryImageView, process_mem_img
-        view = ProcessMemoryImageView(DummyHttpContext())
-        self.assertIs(view.buffer, process_mem_img)
+def test_stats_image():
+    """ Test the values set at construction. """
+    image = StatsImage()
+    assert image.contents is None
+    # create a buffer
+    contents = image.new_image()
+    assert image.contents is not None
+    assert image.contents is contents
+    assert not contents.closed
+    # create a buffer again
+    image.new_image()
+    assert contents is not None
+    assert contents is not image.contents
+    assert contents.closed
+    assert not image.contents.closed
 
 
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
+def test_address_instances():
+    """ Test the values set at construction. """
+    assert address_cpu_img is not None
+    assert address_cpu_img.contents is None
+    assert address_mem_img is not None
+    assert address_mem_img.contents is None
+    assert address_io_img is not None
+    assert address_io_img.contents is None
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_process_instances():
+    """ Test the values set at construction. """
+    assert process_cpu_img is not None
+    assert process_cpu_img.contents is None
+    assert process_mem_img is not None
+    assert process_mem_img.contents is None
+
+
+def test_image_view():
+    """ Test the values set at construction. """
+    # test creation
+    image = StatsImage()
+    view = ImageView(DummyHttpContext(), image)
+    assert view.buffer is image
+    # test render with an image having no contents
+    response = view()
+    headers = response['headers']
+    assert headers['Content-Type'] == 'image/png'
+    assert headers['Pragma'] == 'no-cache'
+    assert headers['Cache-Control'] == 'no-cache'
+    assert headers['Expires'] == 'Thu, 01 Jan 1970 00:00:00 GMT'
+    assert b'' == response['body']
+    # test render with an image having contents
+    contents = image.new_image()
+    contents.write(b'Dummy contents')
+    response = view()
+    headers = response['headers']
+    assert headers['Content-Type'] == 'image/png'
+    assert headers['Pragma'] == 'no-cache'
+    assert headers['Cache-Control'] == 'no-cache'
+    assert headers['Expires'] == 'Thu, 01 Jan 1970 00:00:00 GMT'
+    assert response['body'] == b'Dummy contents'
+
+
+def test_address_cpu_image_view():
+    """ Test the values set at construction. """
+    view = AddressCpuImageView(DummyHttpContext())
+    assert view.buffer is address_cpu_img
+
+
+def test_address_memory_image_view():
+    """ Test the values set at construction. """
+    view = AddressMemoryImageView(DummyHttpContext())
+    assert view.buffer is address_mem_img
+
+
+def test_address_network_image_view():
+    """ Test the values set at construction. """
+    view = AddressNetworkImageView(DummyHttpContext())
+    assert view.buffer is address_io_img
+
+
+def test_process_cpu_image_view():
+    """ Test the values set at construction. """
+    view = ProcessCpuImageView(DummyHttpContext())
+    assert view.buffer is process_cpu_img
+
+
+def test_process_memory_image_view():
+    """ Test the values set at construction. """
+    view = ProcessMemoryImageView(DummyHttpContext())
+    assert view.buffer is process_mem_img

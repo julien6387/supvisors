@@ -5,7 +5,7 @@
 
 .. toctree::
     :maxdepth: 3
-    :caption: Contents:
+    :caption: Contents
 
     introduction.rst
     configuration.rst
@@ -14,10 +14,15 @@
     supervisorctl.rst
     event_interface.rst
     special.rst
-    
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Release History
+
+    CHANGES.rst
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`

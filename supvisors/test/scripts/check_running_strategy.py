@@ -24,8 +24,8 @@ from queue import Empty
 
 from supvisors.ttypes import StartingStrategies
 
-from scripts.event_queues import SupvisorsEventQueues
-from scripts.running_addresses import RunningAddressesTest
+from .event_queues import SupvisorsEventQueues
+from .running_addresses import RunningAddressesTest
 
 
 class RunningFailureStrategyTest(RunningAddressesTest):
@@ -79,16 +79,13 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         self.local_supervisor.signalProcess('database:movie_server_01', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'movie_server_01',
-                                       'expected': False,
-                                       'state': 100}, event)
+        assert {'name': 'movie_server_01', 'expected': False, 'state': 100}.items() < event.items()
         # application should be still running with 2 other movie servers,
         # but with minor failure
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'database',
-                                       'major_failure': False,
-                                       'minor_failure': True,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'database', 'major_failure': False, 'minor_failure': True,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # no further event expected
         with self.assertRaises(Empty):
             self.evloop.event_queue.get(True, 5)
@@ -102,32 +99,27 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         self.local_supervisor.signalProcess('web_movies:web_browser', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_browser',
-                                       'expected': False,
-                                       'state': 100}, event)
+        assert {'name': 'web_browser', 'expected': False, 'state': 100}.items() < event.items()
         # application should be stopped: no more process running
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'web_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STOPPED'}, event)
+        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': True,
+                  'statename': 'STOPPED'}
+        assert subset.items() < event.items()
         # STARTING / RUNNING events are expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_browser', 'state': 10}, event)
+        assert {'name': 'web_browser', 'state': 10}.items() < event.items()
         # application should be starting
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'web_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STARTING'}, event)
+        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
+                  'statename': 'STARTING'}
+        assert subset.items() < event.items()
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_browser', 'state': 20}, event)
+        assert {'name': 'web_browser', 'state': 20}.items() < event.items()
         # application should be running
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'web_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # no further event expected
         with self.assertRaises(Empty):
             self.evloop.event_queue.get(True, 5)
@@ -148,34 +140,29 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         hmi_proxy.signalProcess('my_movies:hmi', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi',
-                                       'expected': False,
-                                       'state': 100}, event)
+        assert {'name': 'hmi', 'expected': False, 'state': 100}.items() < event.items()
         # application should be still running with manager,
         # but with major failure due to web_server that cannot be started,
         # and with minor failure due to hmi crash
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': True,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # STOPPING / STOPPED events are expected for the manager
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager', 'state': 40}, event)
+        assert {'name': 'manager', 'state': 40}.items() < event.items()
         # application should be stopping
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STOPPING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+                  'statename': 'STOPPING'}
+        assert subset.items() < event.items()
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager', 'state': 0}, event)
+        assert {'name': 'manager', 'state': 0}.items() < event.items()
         # application should be stopped
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STOPPED'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
+                  'statename': 'STOPPED'}
+        assert subset.items() < event.items()
         # no further event expected
         with self.assertRaises(Empty):
             self.evloop.event_queue.get(True, 5)
@@ -196,83 +183,69 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         manager_proxy.signalProcess('my_movies:manager', 'SEGV')
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager',
-                                       'expected': False,
-                                       'state': 100}, event)
+        assert {'name': 'manager', 'expected': False, 'state': 100}.items() < event.items()
         # application should be still running with hmi but with major failure
         # because of required manager and web_server that are not running
         # WARN: if minor_failure is detected True, check if check_starting_strategy has been run before
         # converter_09 may be FATAL, leading to minor failure
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # STOPPING / STOPPED events are expected for the hmi
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi', 'state': 40}, event)
+        assert {'name': 'hmi', 'state': 40}.items() < event.items()
         # application should be stopping
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STOPPING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'STOPPING'}
+        assert subset.items() < event.items()
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi', 'state': 0}, event)
+        assert {'name': 'hmi', 'state': 0}.items() < event.items()
         # application should be stopped
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': False,
-                                       'minor_failure': False,
-                                       'statename': 'STOPPED'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'STOPPED'}
+        assert subset.items() < event.items()
         # STARTING / RUNNING events are expected for the manager
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager', 'state': 10}, event)
-        # application should be starting, with major failure because of
-        # required web_server that is not started yet
+        assert {'name': 'manager', 'state': 10}.items() < event.items()
+        # application should be starting, with major failure because of required web_server that is not started yet
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'STARTING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'STARTING'}
+        assert subset.items() < event.items()
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'manager', 'state': 20}, event)
-        # application should be running, with major failure because of
-        # required web_server that is not started yet
+        assert {'name': 'manager', 'state': 20}.items() < event.items()
+        # application should be running, with major failure because of required web_server that is not started yet
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # FATAL event is expected for the web_server
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'web_server', 'state': 200}, event)
-        # application should be still running, with major failure because of
-        # web_server that cannot be started
+        assert {'name': 'web_server', 'state': 200}.items() < event.items()
+        # application should be still running, with major failure because of web_server that cannot be started
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # STARTING / RUNNING events are expected for the hmi
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi', 'state': 10}, event)
+        assert {'name': 'hmi', 'state': 10}.items() < event.items()
         # application should be starting, with major failure because of
         # web_server that cannot be started
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'STARTING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'STARTING'}
+        assert subset.items() < event.items()
         event = self._get_next_process_event()
-        self.assertDictContainsSubset({'name': 'hmi', 'state': 20}, event)
-        # application should be running, with major failure because of
-        # web_server that cannot be started
+        assert {'name': 'hmi', 'state': 20}.items() < event.items()
+        # application should be running, with major failure because of web_server that cannot be started
         event = self._get_next_application_status()
-        self.assertDictContainsSubset({'application_name': 'my_movies',
-                                       'major_failure': True,
-                                       'minor_failure': False,
-                                       'statename': 'RUNNING'}, event)
+        subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
+                  'statename': 'RUNNING'}
+        assert subset.items() < event.items()
         # no further event expected
         with self.assertRaises(Empty):
             self.evloop.event_queue.get(True, 5)

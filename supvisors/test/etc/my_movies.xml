@@ -8,18 +8,13 @@
     </model>
 
     <model name="disk_02">
+        <reference>disk_01</reference>
         <addresses>cliche82</addresses>
-        <expected_loading>5</expected_loading>
     </model>
 
     <model name="disk_03">
+        <reference>disk_01</reference>
         <addresses>cliche83</addresses>
-        <expected_loading>5</expected_loading>
-    </model>
-
-    <model name="disk_error">
-        <addresses>*</addresses>
-        <expected_loading>5</expected_loading>
     </model>
 
     <model name="converter">
@@ -27,7 +22,7 @@
         <expected_loading>25</expected_loading>
     </model>
 
-    <!-- starter checking application -->
+    <!-- complex test application -->
     <application name="test">
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
@@ -37,10 +32,6 @@
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>
-
-        <pattern name="check_">
-            <addresses>cliche81</addresses>
-        </pattern>
 
     </application>
 
@@ -82,7 +73,7 @@
         </pattern>
 
         <pattern name="register_movies_">
-            <addresses>#</addresses>
+            <addresses>#,cliche81,cliche83</addresses>
             <start_sequence>2</start_sequence>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>
@@ -133,7 +124,8 @@
         </pattern>
 
         <pattern name="error_disk_">
-            <reference>disk_error</reference>
+            <reference>disk_01</reference>
+            <addresses>*</addresses>
         </pattern>
 
         <program name="converter_04">
@@ -185,6 +177,12 @@
             <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
         </program>
 
+    </application>
+
+
+    <!-- web_movies application -->
+    <application name="disk_reader_81">
+        <start_sequence>1</start_sequence>
     </application>
 
 </root>

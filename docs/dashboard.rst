@@ -40,8 +40,9 @@ The color gives the state of the Address, as seen by the **Supvisors** instance 
 Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
 The **Supvisors** instance playing the role of "Master" is pointed out with the ✪ sign.
 
-Below is the Application part that lists all the applications defined through the
-`group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file.
+Below is the Application part that lists all the *managed* applications defined through the
+`group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file
+and also declared in the **Supvisors** :ref:`rules_file`.
 The color gives the state of the Application, as seen by the **Supvisors** instance that is displaying this page:
 
     * grey for ``UNKNOWN``,
@@ -140,7 +141,7 @@ Each box contains:
     * the Address name, which is a hyperlink to the corresponding `Address Page`_ if the Address state is ``RUNNING``,
     * the Address state, colored with the same rules used in the `Common Menu`_,
     * the Address process loading,
-    * the list of all processes that are running on this node.
+    * the list of all processes that are running on this node, whatever they belong to a *managed* application or not.
 
 
 Conciliation Page
@@ -235,6 +236,8 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
+**Supvisors** also provides expand / shrink actions per application to enable the user to show / hide blocks of processes.
+
 **Supvisors** shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file,
@@ -283,8 +286,11 @@ Clicking on a button associated to the resource displays detailed statistics (gr
 Application Page
 ----------------
 
-The Application Page of **Supvisors** shows the status of the application, as seen by the requested **Supvisors** instance,
-enables the user to command the application and its processes, and provides statistics that may be useful at software integration time.
+The Application Page of **Supvisors**:
+
+    * shows the status of the *managed* application, as seen by the considered **Supvisors** instance,
+    * enables the user to command the application and its processes
+    * and provides statistics that may be useful at software integration time.
 
 .. image:: images/supvisors_application_page.png
     :alt: Supvisors Application page
@@ -293,10 +299,10 @@ enables the user to command the application and its processes, and provides stat
 Application Page Header
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The status of the Address is displayed on the left side of the header:
+The status of the Application is displayed on the left side of the header, including:
 
     * the name of the application,
-    * the state of this application,
+    * the state of the application,
     * a led corresponding to the operational status of the application:
 
         + empty if not ``RUNNING``,
@@ -343,7 +349,7 @@ Like the `Address page`_, the Application page enables the user to perform some 
 
 The difference is that the process is not started necessarily on the node that displays this page.
 Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected
-in the header part to choose a relevant node.
+in the header part to choose a relevant node. If no rule is defined for the program, the starting will fail.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
@@ -365,4 +371,3 @@ As previously, a click on the CPU or Memory measures shows detailed statistics a
 
 .. |autorefresh| image:: images/autorefresh_button.png
     :alt: Refresh button
-

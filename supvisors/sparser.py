@@ -24,11 +24,12 @@ from sys import stderr
 from typing import Any, Optional, Union
 
 from supervisor.datatypes import list_of_strings
+from supervisor.options import split_namespec
 
-from supvisors.application import ApplicationStatus, ApplicationRules
-from supvisors.process import ProcessStatus, ProcessRules
-from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies
-from supvisors.utils import supvisors_shortcuts
+from supvisors.application import ApplicationRules
+from supvisors.process import ProcessRules
+from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies, EnumClassType
+
 
 # XSD contents for XML validation
 XSDContents = StringIO('''\
@@ -107,7 +108,7 @@ class Parser(object):
         :param supvisors: the global Supvisors structure.
         """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['logger'])
+        self.logger = supvisors.logger
         self.tree = self.parse(supvisors.options.rules_file)
         self.root = self.tree.getroot()
         # get models
@@ -119,42 +120,42 @@ class Parser(object):
         self.patterns = {element.get('name'): element for element in elements}
         self.logger.debug('Parser.__init__: found patterns {}'.format(self.patterns.keys()))
 
-    def load_application_rules(self, application: ApplicationStatus) -> None:
+    def load_application_rules(self, application_name: str, rules: ApplicationRules) -> None:
         """ Find an entry corresponding to the application in the rules file, then load the parameters found.
 
-        :param application: the application for which to find rules in the XML rules file
+        :param application_name: the name of the application for which to find rules in the XML rules file
+        :param rules: the application rules to load
         :return: None
         """
         # find application element using an xpath
         self.logger.trace('Parser.load_application_rules: searching application element for {}'
-                          .format(application.application_name))
-        application_elt = self.root.find('./application[@name="{}"]'.format(application.application_name))
+                          .format(application_name))
+        application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
         if application_elt is not None:
-            rules = application.rules
+            rules.managed = True
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'
-                              .format(application.application_name, rules))
+                              .format(application_name, rules))
 
-    def load_process_rules(self, process: ProcessStatus) -> None:
+    def load_process_rules(self, namespec: str, rules: ProcessRules) -> None:
         """ Find an entry corresponding to the process in the rules, then load the parameters found.
         A final check is performed to detect inconsistencies.
 
-        :param process: the process for which to find rules in the XML rules file
+        :param namespec: the process namespec
+        :param rules: the process rules to fill
         :return: None
         """
-        self.logger.trace('Parser.load_process_rules: searching program element for {}'
-                          .format(process.namespec()))
-        program_elt = self.get_program_element(process)
+        self.logger.trace('Parser.load_process_rules: searching program element for {}'.format(namespec))
+        program_elt = self.get_program_element(namespec)
         if program_elt is not None:
             # load element parameters into rules
-            self.load_model_rules(program_elt, process.rules, Parser.LOOP_CHECK)
+            self.load_model_rules(program_elt, rules, Parser.LOOP_CHECK)
             # check that rules are compliant with dependencies
-            process.rules.check_dependencies(process.namespec())
-            self.logger.debug('Parser.load_process_rules: process {} - rules {}'
-                              .format(process.namespec(), process.rules))
+            rules.check_dependencies(namespec)
+            self.logger.debug('Parser.load_process_rules: process {} - rules {}'.format(namespec, rules))
 
     def load_model_rules(self, program_elt: Any, rules: ProcessRules, loop_check: int) -> None:
         """ Load the parameters found whatever it is given by a program or a model section.
@@ -180,37 +181,38 @@ class Parser(object):
             # WARN: recursive call, counter decreased
             self.load_model_rules(model_elt, rules, loop_check - 1)
         # other attributes found may be used to complete or supersede the possible model
-        self.load_program_addresses(program_elt, rules)
+        self.load_program_nodes(program_elt, rules)
         self.load_sequence(program_elt, 'start_sequence', rules)
         self.load_sequence(program_elt, 'stop_sequence', rules)
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
-        self.load_loading(program_elt, rules)
+        self.load_expected_loading(program_elt, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
-    def get_program_element(self, process: ProcessStatus) -> Optional[Any]:
+    def get_program_element(self, namespec: str) -> Optional[Any]:
         """ Try to find the definition of a program in rules files.
         First try to to find the definition based on the exact program name.
         If not found, second try to find a corresponding pattern.
 
-        :param process: the process for which to find rules in the XML rules file
+        :param namespec: the process namespec
         :return: the XML element containing rules definition for a program
         """
+        application_name, process_name = split_namespec(namespec)
         # try to find program name in file
         program_elt = self.root.find('./application[@name="{}"]/program[@name="{}"]'
-                                     .format(process.application_name, process.process_name))
-        self.logger.trace('Parser.get_program_element: direct search for program {} found={}'
-                          .format(process.namespec(), program_elt is not None))
+                                     .format(application_name, process_name))
+        self.logger.trace('Parser.get_program_element: direct search for program={} found={}'
+                          .format(namespec, program_elt is not None))
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            patterns = [name for name, element in self.patterns.items() if name in process.namespec()]
-            self.supvisors.logger.trace('Parser.get_program_element: found patterns {} for program {}'
-                                        .format(patterns, process.namespec()))
+            patterns = [name for name, element in self.patterns.items() if name in process_name]
+            self.supvisors.logger.trace('Parser.get_program_element: found patterns={} for program={}'
+                                        .format(patterns, namespec))
             if patterns:
                 pattern = max(patterns, key=len)
                 program_elt = self.patterns[pattern]
-                self.logger.trace('Parser.get_program_element: pattern {} chosen for program {}'
-                                  .format(pattern, process.namespec()))
+                self.logger.trace('Parser.get_program_element: pattern={} chosen for program={}'
+                                  .format(pattern, namespec))
         return program_elt
 
     def get_model_element(self, elt: Any) -> Optional[Any]:
@@ -222,8 +224,8 @@ class Parser(object):
         model = elt.findtext('reference')
         return self.models.get(model, None)
 
-    def load_program_addresses(self, elt: Any, rules: ProcessRules) -> None:
-        """ Get the addresses where the program is authorized to run.
+    def load_program_nodes(self, elt: Any, rules: ProcessRules) -> None:
+        """ Get the nodes where the program is authorized to run.
 
         :param elt: the XML element containing rules definition for a program
         :param rules: the process structure used to store the rules found
@@ -232,21 +234,21 @@ class Parser(object):
         value = elt.findtext('addresses')
         if value:
             # sort and trim list of values
-            addresses = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            if '#' in addresses:
-                # process cannot be started anywhere until hash address is resolved
-                rules.addresses = []
+            node_names = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
+            if '#' in node_names:
+                # process cannot be started anywhere until hash node is resolved
+                rules.node_names = []
                 # if '#' is alone or associated to '*', the logic is applicable to all addresses
-                if len(addresses) == 1 or '*' in addresses:
-                    rules.hash_addresses = ['*']
+                if len(node_names) == 1 or '*' in node_names:
+                    rules.hash_node_names = ['*']
                 else:
-                    # '#' is applicable to a subset of addresses
-                    addresses.remove('#')
-                    rules.hash_addresses = addresses
-            elif '*' in addresses:
-                rules.addresses = ['*']
+                    # '#' is applicable to a subset of node names
+                    node_names.remove('#')
+                    rules.hash_node_names = node_names
+            elif '*' in node_names:
+                rules.node_names = ['*']
             else:
-                rules.addresses = self.supvisors.address_mapper.filter(addresses)
+                rules.node_names = self.supvisors.address_mapper.filter(node_names)
 
     def load_sequence(self, elt: Any, attr_string: str, rules: Union[ApplicationRules, ProcessRules]) -> None:
         """ Return the sequence value found from the XML element.
@@ -270,8 +272,8 @@ class Parser(object):
                 self.logger.warn('Parser.load_sequence: not an integer for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_loading(self, elt: Any, rules: ProcessRules) -> None:
-        """ Return the loading value found from the XML element.
+    def load_expected_loading(self, elt: Any, rules: ProcessRules) -> None:
+        """ Return the expected_loading value found from the XML element.
         The value must be in [0 ; 100].
 
         :param elt: the XML element containing rules definition for an application or a program
@@ -283,12 +285,12 @@ class Parser(object):
             try:
                 value = int(str_value)
                 if 0 <= value <= 100:
-                    setattr(rules, 'expected_loading', value)
+                    setattr(rules, 'expected_load', value)
                 else:
-                    self.logger.warn('Parser.load_sequence: invalid value for {} expected_loading: {}'
+                    self.logger.warn('Parser.load_expected_loading: invalid value for {} expected_loading: {}'
                                      '(expected integer in [0;100])'.format(elt.get('name'), value))
             except (TypeError, ValueError):
-                self.logger.warn('Parser.load_sequence: not an integer for {} expected_loading: {}'
+                self.logger.warn('Parser.load_expected_loading: not an integer for {} expected_loading: {}'
                                  .format(elt.get('name'), str_value))
 
     def load_boolean(self, elt: Any, attr_string: str, rules: ProcessRules) -> None:
@@ -308,7 +310,8 @@ class Parser(object):
                 self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_enum(self, elt: Any, attr_string: str, klass, rules: Union[ApplicationRules, ProcessRules]) -> None:
+    def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType,
+                  rules: Union[ApplicationRules, ProcessRules]) -> None:
         """ Return the running_failure_strategy value found from XML element.
         The value MUST correspond to an enumeration value of RunningFailureStrategies.
 
@@ -321,10 +324,10 @@ class Parser(object):
         value = elt.findtext(attr_string)
         if value:
             try:
-                setattr(rules, attr_string, klass.from_string(value))
+                setattr(rules, attr_string, klass[value])
             except KeyError:
                 self.logger.warn('Pattern.load_enum: invalid value for {} {}: {} (expected in {})'
-                                 .format(elt.get('name'), attr_string, value, klass.strings()))
+                                 .format(elt.get('name'), attr_string, value, klass._member_names_))
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.

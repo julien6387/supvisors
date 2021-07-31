@@ -17,52 +17,40 @@
 # limitations under the License.
 # ======================================================================
 
-import sys
-import unittest
+import pytest
 
 from supervisor.compat import xmlrpclib
+from supvisors.rpcrequests import getRPCInterface
 
 
-class RpcRequestsTest(unittest.TestCase):
-    """ Test case for the rpcrequests module. """
-
-    def test_getRPCInterface(self):
-        """ Test the values set at construction. """
-        from supvisors.rpcrequests import getRPCInterface
-        address = '10.0.0.1'
-        # test with empty environment
-        env = {}
-        with self.assertRaises(KeyError):
-            getRPCInterface(address, env)
-        # test with incorrect environment
-        env = {'SUPERVISOR_SERVER_URL': 'unix://localhost:1000'}
-        with self.assertRaises(ValueError):
-            getRPCInterface(address, env)
-        # test with simple environment
-        env = {'SUPERVISOR_SERVER_URL': 'http://localhost:1000'}
-        proxy = getRPCInterface(address, env)
-        self.assertIsInstance(proxy, xmlrpclib.ServerProxy)
-        self.assertEqual('/RPC2', proxy._ServerProxy__handler)
-        self.assertEqual('10.0.0.1', proxy._ServerProxy__host)
-        self.assertEqual('http://10.0.0.1:1000', proxy._ServerProxy__transport.serverurl)
-        self.assertEqual('', proxy._ServerProxy__transport.username)
-        self.assertEqual('', proxy._ServerProxy__transport.password)
-        # test with authentification environment
-        env = {'SUPERVISOR_SERVER_URL': 'http://192.168.1.1:1000', 'SUPERVISOR_USERNAME': 'cliche',
-               'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
-        proxy = getRPCInterface(address, env)
-        self.assertIsInstance(proxy, xmlrpclib.ServerProxy)
-        self.assertEqual('/RPC2', proxy._ServerProxy__handler)
-        self.assertEqual('10.0.0.1', proxy._ServerProxy__host)
-        self.assertEqual('http://10.0.0.1:1000', proxy._ServerProxy__transport.serverurl)
-        self.assertEqual('cliche', proxy._ServerProxy__transport.username)
-        self.assertEqual('p@$$w0rd', proxy._ServerProxy__transport.password)
-        # if no server is started, call would block
-
-
-def test_suite():
-    return unittest.findTestCases(sys.modules[__name__])
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='test_suite')
+def test_getRPCInterface():
+    """ Test the values set at construction. """
+    address = '10.0.0.1'
+    # test with empty environment
+    env = {}
+    with pytest.raises(KeyError):
+        getRPCInterface(address, env)
+    # test with incorrect environment
+    env = {'SUPERVISOR_SERVER_URL': 'unix://localhost:1000'}
+    with pytest.raises(ValueError):
+        getRPCInterface(address, env)
+    # test with simple environment
+    env = {'SUPERVISOR_SERVER_URL': 'http://localhost:1000'}
+    proxy = getRPCInterface(address, env)
+    assert isinstance(proxy, xmlrpclib.ServerProxy)
+    assert proxy._ServerProxy__handler == '/RPC2'
+    assert proxy._ServerProxy__host == '10.0.0.1'
+    assert proxy._ServerProxy__transport.serverurl == 'http://10.0.0.1:1000'
+    assert proxy._ServerProxy__transport.username == ''
+    assert proxy._ServerProxy__transport.password == ''
+    # test with authentication environment
+    env = {'SUPERVISOR_SERVER_URL': 'http://192.168.1.1:1000', 'SUPERVISOR_USERNAME': 'cliche',
+           'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+    proxy = getRPCInterface(address, env)
+    assert isinstance(proxy, xmlrpclib.ServerProxy)
+    assert proxy._ServerProxy__handler == '/RPC2'
+    assert proxy._ServerProxy__host == '10.0.0.1'
+    assert proxy._ServerProxy__transport.serverurl == 'http://10.0.0.1:1000'
+    assert proxy._ServerProxy__transport.username == 'cliche'
+    assert proxy._ServerProxy__transport.password == 'p@$$w0rd'
+    # if no server is started, call would block

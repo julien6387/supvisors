@@ -19,64 +19,89 @@
 
 from socket import gethostname
 from collections import OrderedDict
+from supervisor.loggers import Logger
+
+from .ttypes import NameList
 
 
 class AddressMapper(object):
     """ Class used for storage of the addresses defined in the configuration file.
     These addresses are expected to be host names or IP addresses where a Supvisors instance is running.
     The instance holds:
-        - logger: a reference to the common logger,
-        - addresses: the list of addresses defined in the Supvisors configuration file,
-        - local_addresses: the list of known aliases of the current host, i.e. the host name and the IPv4 addresses,
-        - local_address: the usage name of the current host, i.e. the name in the known aliases corresponding to an address of the Supvisors list. """
+        - logger: a reference to the common logger;
+        - _node_names: the list of nodes defined in the Supvisors configuration file;
+        - local_node_references: the list of known aliases of the current node, i.e. the host name and the IPv4 addresses;
+        - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding to a node of the Supvisors list. """
 
-    def __init__(self, logger):
+    def __init__(self, logger: Logger):
         """ Initialization of the attributes. """
         # keep reference of common logger
         self.logger = logger
         # init
-        self._addresses = []
-        self.local_addresses = [gethostname()] + self.ipv4()
-        self.local_address = None
+        self._node_names = []
+        self.local_node_references = [gethostname(), *self.ipv4()]
+        self.local_node_name = None
 
     @property
-    def addresses(self):
-        """ Property for the 'address' attribute.
-        The setter stores the addresses of the configuration file and determine the usage name of the local address. """
-        return self._addresses
+    def node_names(self):
+        """ Property getter for the _node_names attribute. """
+        return self._node_names
 
-    @addresses.setter
-    def addresses(self, addr):
-        """ Determine usage name of local address among the addresses provided in option file. """
-        self.logger.info('Expected addresses: {}'.format(addr))
+    @node_names.setter
+    def node_names(self, node_name_list: NameList) -> None:
+        """ Store the nodes of the configuration file and determine the usage name of the local node among this list.
+
+        :param node_name_list: the nodes defined in the supvisors section of the configuration file
+        :return: None
+        """
+        self.logger.info('AddressMapper.node_names: expected nodes: {}'.format(node_name_list))
         # store IP list as found in config file
-        self._addresses = addr
+        self._node_names = node_name_list
         # get IP list for local node
-        self.local_address = self.expected(self.local_addresses)
-        self.logger.info('Local addresses: {} - Local address: {}'.format(self.local_addresses, self.local_address))
+        self.local_node_name = self.expected(self.local_node_references)
+        self.logger.info('AddressMapper.node_names: local node references: {} - local node name: {}'
+                         .format(self.local_node_references, self.local_node_name))
 
-    def valid(self, address):
-        """ Return True if address is among the addresses defined in the configuration file. """
-        return address in self._addresses
+    def valid(self, node_name: str) -> bool:
+        """ Return True if the node name is among the node list defined in the configuration file.
 
-    def filter(self, address_list):
-        """ Returns a list of expected nodes from a list of names or ip addresses identifying different locations. """
+        :param node_name: the node name to check
+        :return: True if the node name is found in the node names
+        """
+        return node_name in self._node_names
+
+    def filter(self, node_name_list: NameList) -> NameList:
+        """ Check the node names against the list defined in the configuration file.
+        If the node name is not found, it is removed from the list.
+        If more than one occurrence of the same node name is found, only the first one is kept.
+
+        :param node_name_list: a list of node names
+        :return: the filtered list of node names
+        """
         # filter unknown addresses
-        addresses = [address for address in address_list if self.valid(address)]
+        node_names = [node_name for node_name in node_name_list if self.valid(node_name)]
         # remove duplicates keeping the same ordering
-        return list(OrderedDict.fromkeys(addresses))
+        return list(OrderedDict.fromkeys(node_names))
 
-    def expected(self, address_list):
-        """ Returns the expected address from a list of names or ip addresses identifying the same location. """
-        return next((address for address in address_list if self.valid(address)), None)
+    def expected(self, node_name_list: NameList) -> str:
+        """ Return the usage name from a list of names or IP addresses identifying the same node.
+        Usage name is defined as the name used in the configuration file.
+
+        :param node_name_list: the list of possible names for the node
+        :return: the usage name of the node
+        """
+        return next((node_name for node_name in node_name_list if self.valid(node_name)), None)
 
     @staticmethod
-    def ipv4():
-        """ Get all IPv4 addresses for all interfaces. """
+    def ipv4() -> NameList:
+        """ Get all IPv4 addresses of the local node for all interfaces.
+
+        :return: the IPv4 addresses of the local node
+        """
         try:
             from netifaces import interfaces, ifaddresses, AF_INET
             # to not take into account loopback addresses (no interest here)
-            addresses = []
+            node_names = []
             for interface in interfaces():
                 config = ifaddresses(interface)
                 # AF_INET is not always present
@@ -84,7 +109,7 @@ class AddressMapper(object):
                     for link in config[AF_INET]:
                         # loopback holds a 'peer' instead of a 'broadcast' address
                         if 'addr' in link.keys() and 'peer' not in link.keys():
-                            addresses.append(link['addr'])
-            return addresses
+                            node_names.append(link['addr'])
+            return node_names
         except ImportError:
             return []

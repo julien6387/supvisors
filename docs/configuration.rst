@@ -34,6 +34,8 @@ This feature is not described in Supervisor documentation.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The parameters of **Supvisors** are set through an additional section ``[supvisors]`` in the Supervisor configuration file.
+It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters) or it may lead
+to unpredictable behavior.
 
 ``address_list``
 
@@ -263,6 +265,18 @@ Basically, the rules file contains rules that define how applications and progra
 and the quality of service expected.
 It relies on the Supervisor group and program definitions.
 
+.. note:: *About the declaration of Supervisor groups/processes in the rules file*
+
+        It is important to notice that all applications declared in this file will be considered as *managed* by **Supvisors**.
+        The main consequence is that **Supvisors** will try to ensure that one single instance of the program is running
+        over all the nodes considered. If two instances of the same program are running on two different nodes, **Supvisors**
+        will consider there is a conflict. Only the *managed* applications have an entry in the navigation menu of the
+        **Supvisors** web page.
+
+        The groups declared in Supervisor configuration files and not declared in the rules file will thus be considered
+        as *unmanaged* by **Supvisors**. So they have no entry in the navigation menu of the **Supvisors** web page.
+        There can be as many running instances of the same program as Supervisor allows over the available nodes.
+
 
 If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
 the XML rules file before it is used.
@@ -295,11 +309,14 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
 ``addresses``
 
-    This element gives the list of nodes where the process can be started, separated by commas. Applicable values are:
-
-        * a subset of the ``address_list`` defined in `[supvisors] Section Values`_,
-        * ``*``: stands for all values in ``address_list``.
-        * ``#``: stands for the node in ``address_list`` having the same index as the program in a homogeneous group. This will be detailed in the `Pattern Rules`_.
+    This element gives the list of nodes where the process can be started. The node names are to be taken from
+    the ``address_list`` defined in defined in `[supvisors] Section Values`_, and separated by commas.
+    Special values may also be applied.
+    The wildcard ``*`` stands for all node names in ``address_list``.
+    Any node list including a ``*`` is strictly equivalent to ``*`` alone.
+    The hashtag ``#`` must be used within a ``pattern`` element and eventually complemented by a list of nodes.
+    The aim is to assign the nth node of either ``address_list`` or the subsequent node list to the nth instance
+    of the program in a homogeneous group. An example will be given in `Pattern Rules`_.
 
     *Default*:  ``*``.
 
@@ -353,7 +370,7 @@ Here follows the definition of the attributes and rules applicable to a ``progra
     When multiple nodes are available, the ``loading`` value helps to distribute processes over the available nodes,
     so that the system remains safe.
 
-    *Default*:  ``1``.
+    *Default*:  ``0``.
 
     *Required*:  No.
 
@@ -466,7 +483,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 
 .. hint:: *About the use of* ``#`` *in* ``addresses``.
 
-    This is designed for a program that is meant to be started on every nodes of the address list.
+    This is designed for a program that is meant to be started on every nodes of the address list, or a subset of them.
     As an example, based on the following simplified Supervisor configuration:
 
     .. code-block:: ini
@@ -478,7 +495,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
         process_name=prg_%(process_num)02d
         numprocs=5
 
-    Without this option, it would be necessary to have one program definition for each instance.
+    Without this option, it is necessary to define rules for all instances of the program.
 
     .. code-block:: xml
 
@@ -492,7 +509,7 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
             <addresses>cliche05</addresses>
         </program>
 
-    Now with this option, the program definition is more simple.
+    Now with this option, the rule becomes more simple.
 
     .. code-block:: xml
 
@@ -500,18 +517,26 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
             <addresses>#</addresses>
         </pattern>
 
+    It is also possible to give a subset of nodes only.
+
+    .. code-block:: xml
+
+        <pattern name="prg_">
+            <addresses>#,cliche04,cliche02</addresses>
+        </pattern>
+
 .. attention::
 
-    Nodes are chosen in accordance with the sequence given in ``address_list``.
-    In the example above, if the two first nodes are swapped, ``prg_00`` will be addressed to ``cliche02``
-    and ``prg_01`` to ``cliche01``.
+    Nodes are chosen in accordance with the sequence given in ``address_list`` or in the subsequent list.
+    In the second example above, `prg_00`` will be assigned to ``cliche04`` and ``prg_01`` to ``cliche02``.
 
 .. attention::
 
     In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in ``address_list``.
-    If the length of ``address_list`` is greater than the ``numprocs`` value, programs will be addressed to the ``numprocs`` first nodes.
-    On the other side, if the length of ``address_list`` is lower than the ``numprocs`` value,
-    the last programs won't be addressed to any node and it won't be possible to start them using **Supvisors**.
+    If the number of nodes in ``address_list`` is greater than the ``numprocs`` value, programs will be assigned to the ``numprocs`` first nodes.
+    On the other side, if the number of nodes in ``address_list`` is lower than the ``numprocs`` value,
+    the last programs won't be assigned to any node and it won't be possible to start them using **Supvisors**,
+    as the list of applicable nodes will be empty.
     Nevertheless, in this case, it will be still possible to start them with Supervisor.
 
 
@@ -522,7 +547,7 @@ The second mechanism is the ``model`` definition.
 The ``program`` rules definition is extended to a generic model, that can be defined outside of the application scope,
 so that the same rules definition can be applied to multiple programs, in any application.
 
-The same options are applicable, **including** the ``reference`` option.
+The same options are applicable, **including** the ``reference`` option (recursion is yet limited to a depth of 2).
 There is no particular expectation for the name attribute of a ``model``.
 
 Here follows an example of model:
@@ -597,11 +622,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``starting_failure_strategy``
 
     This element gives the strategy applied upon a major failure in the starting phase of an application.
-    Possible values are:
-
-        * ``ABORT``: Abort the application starting.
-        * ``STOP``: Stop the application.
-        * ``CONTINUE``: Skip the failure and continue the application starting.
+    The possible values are { ``ABORT``, ``STOP``, ``CONTINUE`` } and are detailed in :ref:`starting_failure_strategy`.
 
     *Default*:  ``ABORT``.
 
@@ -653,23 +674,23 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
 
         <!-- models -->
         <model name="disk_01">
-            <addresses>cliche01</addresses>
+            <addresses>cliche81</addresses>
             <expected_loading>5</expected_loading>
         </model>
 
         <model name="disk_02">
-            <addresses>cliche02</addresses>
-            <expected_loading>5</expected_loading>
+            <reference>disk_01</reference>
+            <addresses>cliche82</addresses>
         </model>
 
         <model name="disk_03">
-            <addresses>cliche03</addresses>
-            <expected_loading>5</expected_loading>
+            <reference>disk_01</reference>
+            <addresses>cliche83</addresses>
         </model>
 
-        <model name="disk_error">
+        <model name="converter">
             <addresses>*</addresses>
-            <expected_loading>5</expected_loading>
+            <expected_loading>25</expected_loading>
         </model>
 
         <!-- starter checking application -->
@@ -683,6 +704,10 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
                 <expected_loading>1</expected_loading>
             </program>
 
+            <pattern name="check_">
+                <addresses>cliche81</addresses>
+            </pattern>
+
         </application>
 
         <!-- import application -->
@@ -690,18 +715,18 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <start_sequence>2</start_sequence>
             <starting_failure_strategy>STOP</starting_failure_strategy>
 
-            <program name="mount_disk">
-                <addresses>cliche01</addresses>
+            <pattern name="mount_disk_">
+                <addresses>#,cliche82,cliche83,cliche84</addresses>
                 <start_sequence>1</start_sequence>
                 <stop_sequence>2</stop_sequence>
                 <required>true</required>
                 <expected_loading>0</expected_loading>
-            </program>
+            </pattern>
 
             <program name="copy_error">
-                <addresses>cliche01</addresses>
+                <addresses>cliche81</addresses>
                 <start_sequence>2</start_sequence>
-                 <stop_sequence>1</stop_sequence>
+                <stop_sequence>1</stop_sequence>
                 <required>true</required>
                 <wait_exit>true</wait_exit>
                 <expected_loading>25</expected_loading>
@@ -723,7 +748,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </pattern>
 
             <pattern name="register_movies_">
-                <addresses>#</addresses>
+                <addresses>#,cliche81,cliche83</addresses>
                 <start_sequence>2</start_sequence>
                 <wait_exit>true</wait_exit>
                 <expected_loading>25</expected_loading>
@@ -747,14 +772,14 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </program>
 
             <program name="web_server">
-                <addresses>cliche04</addresses>
+                <addresses>cliche84</addresses>
                 <start_sequence>2</start_sequence>
                 <required>true</required>
                 <expected_loading>3</expected_loading>
             </program>
 
             <program name="hmi">
-                <addresses>cliche02, cliche01</addresses>
+                <addresses>cliche82,cliche81</addresses>
                 <start_sequence>3</start_sequence>
                 <stop_sequence>1</stop_sequence>
                 <expected_loading>10</expected_loading>
@@ -774,21 +799,22 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </pattern>
 
             <pattern name="error_disk_">
-                <reference>disk_error</reference>
+                <reference>disk_01</reference>
+                <addresses>*</addresses>
             </pattern>
 
             <program name="converter_04">
-                <addresses>cliche03,cliche01,cliche02</addresses>
-                <expected_loading>25</expected_loading>
+                <reference>converter</reference>
+                <addresses>cliche83,cliche81,cliche82</addresses>
             </program>
 
             <program name="converter_07">
-                <addresses>cliche01,cliche02,cliche03</addresses>
-                <expected_loading>25</expected_loading>
+                <reference>converter</reference>
+                <addresses>cliche81,cliche83,cliche82</addresses>
             </program>
 
             <pattern name="converter_">
-                <expected_loading>25</expected_loading>
+                <reference>converter</reference>
             </pattern>
 
          </application>
@@ -799,7 +825,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <starting_failure_strategy>ABORT</starting_failure_strategy>
 
             <program name="test_reader">
-                <addresses>cliche01</addresses>
+                <addresses>cliche81</addresses>
                 <start_sequence>1</start_sequence>
                 <required>true</required>
                 <wait_exit>true</wait_exit>
@@ -807,7 +833,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </program>
 
             <program name="movie_player">
-                <addresses>cliche01</addresses>
+                <addresses>cliche81</addresses>
                 <start_sequence>2</start_sequence>
                 <expected_loading>13</expected_loading>
             </program>
@@ -826,6 +852,12 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
                 <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
             </program>
 
+        </application>
+
+
+        <!-- web_movies application -->
+        <application name="disk_reader_81">
+            <start_sequence>1</start_sequence>
         </application>
 
     </root>

@@ -18,7 +18,6 @@
 # ======================================================================
 
 import json
-import zmq
 
 from threading import Event, Thread
 from typing import Any
@@ -42,7 +41,10 @@ class SupvisorsMainLoop(Thread):
     """
 
     def __init__(self, supvisors: Any) -> None:
-        """ Initialization of the attributes. """
+        """ Initialization of the attributes.
+
+        :param supvisors: the Supvisors global structure
+        """
         # thread attributes
         Thread.__init__(self)
         # create stop event
@@ -53,149 +55,139 @@ class SupvisorsMainLoop(Thread):
         # create a XML-RPC client to the local Supervisor instance
         self.proxy = getRPCInterface('localhost', self.env)
 
-    def stopping(self):
-        """ Access to the loop attribute (used to drive tests on run method). """
+    def stopping(self) -> bool:
+        """ Access to the loop attribute (used to drive tests on run method).
+
+        :return: the condition to stop the main loop
+        """
         return self.stop_event.is_set()
 
-    def stop(self):
-        """ Request to stop the infinite loop by resetting its flag. """
+    def stop(self) -> None:
+        """ Request to stop the infinite loop by resetting its flag.
+
+        :return: None
+        """
         if self.is_alive():
             self.stop_event.set()
-            # the thread cannot be blocked in a XML-RPC call because of the
-            # close_httpservers called just before this stop
-            # so join is expected to end properly
+            # the thread cannot be blocked in a XML-RPC call because of the close_httpservers called
+            # just before this stop so join is expected to end properly
             self.join()
 
-    def run(self):
+    def run(self) -> None:
         """ Contents of the infinite loop. """
         # Create zmq sockets
         sockets = SupvisorsZmq(self.supvisors)
-        # create poller
-        poller = zmq.Poller()
-        # register sockets
-        poller.register(sockets.internal_subscriber.socket, zmq.POLLIN)
-        poller.register(sockets.puller.socket, zmq.POLLIN)
         # poll events forever
         while not self.stopping():
-            socks = dict(poller.poll(500))
+            poll_result = sockets.poll()
             # test stop condition again: if Supervisor is stopping,
             # any XML-RPC call would block this thread, and the other
             # because of the join
             if not self.stopping():
-                self.check_requests(sockets, socks)
-                self.check_events(sockets.internal_subscriber, socks)
+                self.check_requests(sockets, poll_result)
+                self.check_events(sockets, poll_result)
         # close resources gracefully
-        poller.unregister(sockets.puller.socket)
-        poller.unregister(sockets.internal_subscriber.socket)
         sockets.close()
 
-    def check_events(self, subscriber, socks):
+    def check_events(self, sockets, poll_result) -> None:
         """ Forward external Supervisor events to main thread. """
-        if subscriber.socket in socks and socks[subscriber.socket] == zmq.POLLIN:
-            try:
-                message = subscriber.receive()
-            except:
-                print('[ERROR] failed to get data from subscriber', file=stderr)
-            else:
-                # The events received are not processed directly in this thread because it would conflict
-                # with the processing in the Supervisor thread, as they use the same data.
-                # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
+        message = sockets.check_subscriber(poll_result)
+        if message:
+            # The events received are not processed directly in this thread because it would conflict
+            # with the processing in the Supervisor thread, as they use the same data.
+            # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
-    def check_requests(self, zmq_sockets, socks):
+    def check_requests(self, sockets, poll_result) -> None:
         """ Defer internal requests. """
-        if zmq_sockets.puller.socket in socks and socks[zmq_sockets.puller.socket] == zmq.POLLIN:
-            try:
-                header, body = zmq_sockets.puller.receive()
-            except:
-                print('[ERROR] failed to get data from puller', file=stderr)
+        message = sockets.check_puller(poll_result)
+        if message:
+            header, body = message
+            if header == DeferredRequestHeaders.ISOLATE_NODES:
+                # isolation request: disconnect the address from subscriber
+                sockets.disconnect_subscriber(body)
             else:
-                if header == DeferredRequestHeaders.ISOLATE_ADDRESSES:
-                    # isolation request: disconnect the address from subscriber
-                    zmq_sockets.internal_subscriber.disconnect(body)
-                else:
-                    # XML-RPC request
-                    self.send_request(header, body)
+                # XML-RPC request
+                self.send_request(header, body)
 
-    def send_request(self, header, body):
+    def send_request(self, header, body) -> None:
         """ Perform the XML-RPC according to the header. """
-        if header == DeferredRequestHeaders.CHECK_ADDRESS:
-            address_name, = body
-            self.check_address(address_name)
+        if header == DeferredRequestHeaders.CHECK_NODE:
+            node_name, = body
+            self.check_node(node_name)
         elif header == DeferredRequestHeaders.START_PROCESS:
-            address_name, namespec, extra_args = body
-            self.start_process(address_name, namespec, extra_args)
+            node_name, namespec, extra_args = body
+            self.start_process(node_name, namespec, extra_args)
         elif header == DeferredRequestHeaders.STOP_PROCESS:
-            address_name, namespec = body
-            self.stop_process(address_name, namespec)
+            node_name, namespec = body
+            self.stop_process(node_name, namespec)
         elif header == DeferredRequestHeaders.RESTART:
-            address_name, = body
-            self.restart(address_name)
+            node_name, = body
+            self.restart(node_name)
         elif header == DeferredRequestHeaders.SHUTDOWN:
-            address_name, = body
-            self.shutdown(address_name)
+            node_name, = body
+            self.shutdown(node_name)
 
-    def check_address(self, address_name):
+    def check_node(self, node_name: str) -> None:
         """ Check isolation and get all process info asynchronously. """
         try:
-            remote_proxy = getRPCInterface(address_name, self.env)
-            # get remote perception of master node
-            master_address = remote_proxy.supvisors.get_master_address()
+            supvisors_rpc = getRPCInterface(node_name, self.env).supvisors
+            # get remote perception of master node and state
+            master_node_name = supvisors_rpc.get_master_address()
+            supvisors_state = supvisors_rpc.get_supvisors_state()
             # check authorization
-            status = remote_proxy.supvisors.get_address_info(address_name)
+            status = supvisors_rpc.get_address_info(node_name)
             authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
-                all_info = remote_proxy.supvisors.get_all_local_process_info()
-                # post internally
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO,
-                                            json.dumps((address_name, all_info)))
+                all_info = supvisors_rpc.get_all_local_process_info()
+                # post to local Supvisors
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((node_name, all_info)))
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'address_name:{} authorized:{} master_address:{}'
-                                        .format(address_name, authorized, master_address))
+                                        'node_name:{} authorized:{} master_node_name:{} supvisors_state:{}'
+                                        .format(node_name, authorized, master_node_name, supvisors_state['statename']))
         except:
-            print('[ERROR] failed to check address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
 
-    def start_process(self, address_name, namespec, extra_args):
+    def start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except:
             print('[ERROR] failed to start process {} on {} with extra_args="{}"'
-                  .format(namespec, address_name, extra_args), file=stderr)
+                  .format(namespec, node_name, extra_args), file=stderr)
 
-    def stop_process(self, address_name, namespec):
+    def stop_process(self, node_name: str, namespec: str) -> None:
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.stopProcess(namespec, False)
         except:
-            print('[ERROR] failed to stop process {} on {}'.format(namespec, address_name),
-                  file=stderr)
+            print('[ERROR] failed to stop process {} on {}'.format(namespec, node_name), file=stderr)
 
-    def restart(self, address_name):
+    def restart(self, node_name: str) -> None:
         """ Restart a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.restart()
         except:
-            print('[ERROR] failed to restart address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to restart address {}'.format(node_name), file=stderr)
 
-    def shutdown(self, address_name):
+    def shutdown(self, node_name: str) -> None:
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(address_name, self.env)
+            proxy = getRPCInterface(node_name, self.env)
             proxy.supervisor.shutdown()
         except:
-            print('[ERROR] failed to shutdown address {}'.format(address_name), file=stderr)
+            print('[ERROR] failed to shutdown address {}'.format(node_name), file=stderr)
 
-    def send_remote_comm_event(self, event_type, event_data):
+    def send_remote_comm_event(self, event_type: str, event_data) -> None:
         """ Shortcut for the use of sendRemoteCommEvent. """
         try:
             self.proxy.supervisor.sendRemoteCommEvent(event_type, event_data)
         except:
             # expected on restart / shutdown
-            print('[WARN] failed to send event to Supervisor: {}'.format(event_type), file=stderr)
+            print('[WARN] failed to send event to Supervisor: {} - {}'.format(event_type, event_data), file=stderr)

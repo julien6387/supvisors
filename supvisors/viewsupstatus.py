@@ -45,23 +45,23 @@ class SupvisorsAddressView(StatusView):
     # LEFT SIDE / NAVIGATION part
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection of the current address. """
-        self.write_nav(root, address=self.address)
+        self.write_nav(root, node_name=self.local_node_name)
 
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Address page. """
         # set address name
         elt = root.findmeld('address_mid')
-        if self.sup_ctx.master:
+        if self.sup_ctx.is_master:
             elt.attrib['class'] = 'master'
-        elt.content(self.address)
+        elt.content(self.local_node_name)
         # set address state
-        status = self.sup_ctx.addresses[self.address]
+        status = self.sup_ctx.nodes[self.local_node_name]
         elt = root.findmeld('state_mid')
-        elt.content(status.state_string())
-        # set loading
+        elt.content(status.state.name)
+        # set node load
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(status.loading()))
+        elt.content('{}%'.format(status.get_load()))
         # set last tick date: remote_time and local_time should be identical
         # since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
@@ -75,7 +75,7 @@ class SupvisorsAddressView(StatusView):
         """ Write actions related to the address. """
         # configure host address button / switch page
         elt = root.findmeld('view_a_mid')
-        target = PROC_ADDRESS_PAGE if self.page_name == HOST_ADDRESS_PAGE else HOST_ADDRESS_PAGE
+        target = PROC_NODE_PAGE if self.page_name == HOST_NODE_PAGE else HOST_NODE_PAGE
         url = self.view_ctx.format_url('', target)
         elt.attributes(href=url)
         # configure stop all button
@@ -94,13 +94,13 @@ class SupvisorsAddressView(StatusView):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.zmq.pusher.send_restart(self.address)
+        self.supvisors.zmq.pusher.send_restart(self.local_node_name)
         # cannot defer result as restart address is self address
         # message is sent but it will be likely not displayed
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.zmq.pusher.send_shutdown(self.address)
+        self.supvisors.zmq.pusher.send_shutdown(self.local_node_name)
         # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')

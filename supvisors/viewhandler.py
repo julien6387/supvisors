@@ -22,27 +22,12 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
-from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import AddressStates, SupvisorsStates
-from supvisors.utils import get_stats, supvisors_shortcuts
-from supvisors.viewcontext import *
-from supvisors.viewimage import process_cpu_img, process_mem_img
-from supvisors.webutils import *
-
-
-# test matplotlib availability
-# calling get_backend is useless excepted for unit tests
-def test_matplotlib_import():
-    try:
-        from matplotlib import get_backend
-        get_backend()
-    except ImportError:
-        return False
-    return True
-
-
-# keep matplotlib availability information at once
-HAS_PLOT = test_matplotlib_import()
+from .rpcinterface import API_VERSION
+from .ttypes import AddressStates, SupvisorsStates, Payload
+from .utils import get_stats
+from .viewcontext import *
+from .viewimage import process_cpu_img, process_mem_img
+from .webutils import *
 
 
 class ViewHandler(MeldView):
@@ -55,20 +40,18 @@ class ViewHandler(MeldView):
         # add Supvisors shortcuts
         # WARN: do not shortcut Supvisors context as it is already used by MeldView
         self.supvisors = context.supervisord.supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'fsm', 'info_source',
-                                   'logger', 'options', 'statistician'])
+        self.logger = self.supvisors.logger
         # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
-        # keep reference to the local address
-        self.address = self.address_mapper.local_address
+        # keep reference to the local node name
+        self.local_node_name = self.supvisors.address_mapper.local_node_name
         # init view_ctx (only for tests)
         self.view_ctx = None
 
     def __call__(self):
         """ Anticipation of Supervisor#1273.
-        Return response body as bytes instead of as string to prevent
-        UnicodeDecodeError in the event of using binary references (images)
-        in HTML. """
+        Return response body as bytes instead of as string to prevent UnicodeDecodeError in the event
+        of using binary references (images) in HTML. """
         response = MeldView.__call__(self)
         if response is NOT_DONE_YET:
             return NOT_DONE_YET
@@ -78,7 +61,7 @@ class ViewHandler(MeldView):
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
         # clone the template and set navigation menu
-        if self.info_source.supervisor_state == SupervisorStates.RUNNING:
+        if self.supvisors.info_source.supervisor_state == SupervisorStates.RUNNING:
             # manage parameters
             self.handle_parameters()
             # manage action
@@ -114,7 +97,7 @@ class ViewHandler(MeldView):
         url = self.view_ctx.format_url('', SUPVISORS_PAGE)
         elt.attributes(href=url)
         # blink main title in conciliation state
-        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
             elt.attrib['class'] = 'blink'
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
@@ -135,32 +118,30 @@ class ViewHandler(MeldView):
         """ Write the navigation menu.
         Subclasses will define the write_nav parameters to be used. """
 
-    def write_nav(self, root, address=None, appli=None):
+    def write_nav(self, root, node_name=None, appli=None):
         """ Write the navigation menu. """
-        self.write_nav_addresses(root, address)
+        self.write_nav_nodes(root, node_name)
         self.write_nav_applications(root, appli)
 
-    def write_nav_addresses(self, root, address):
-        """ Write the address part of the navigation menu. """
+    def write_nav_nodes(self, root, node_name):
+        """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('address_li_mid')
-        address_names = self.address_mapper.addresses
-        for li_elt, item in mid_elt.repeat(address_names):
+        node_names = self.supvisors.address_mapper.node_names
+        for li_elt, item in mid_elt.repeat(node_names):
             try:
-                status = self.sup_ctx.addresses[item]
+                status = self.sup_ctx.nodes[item]
             except KeyError:
-                self.logger.debug('failed to get AddressStatus from {}'
-                                  .format(item))
+                self.logger.debug('failed to get AddressStatus from {}'.format(item))
             else:
                 # set element class
-                li_elt.attrib['class'] = status.state_string() \
-                                         + (' active' if item == address else '')
+                li_elt.attrib['class'] = status.state.name + (' active' if item == node_name else '')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
                 if status.state == AddressStates.RUNNING:
-                    # go to web page located on address, so as to reuse Supervisor StatusView
-                    url = self.view_ctx.format_url(item, PROC_ADDRESS_PAGE)
+                    # go to web page located on node, so as to reuse Supervisor StatusView
+                    url = self.view_ctx.format_url(item, PROC_NODE_PAGE)
                     elt.attributes(href=url)
-                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_address else '')
+                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_node_name else '')
                 else:
                     elt.attrib['class'] = 'off'
                 elt.content(item)
@@ -168,15 +149,14 @@ class ViewHandler(MeldView):
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """
         mid_elt = root.findmeld('appli_li_mid')
-        applications = self.sup_ctx.applications.values()
+        applications = self.sup_ctx.get_managed_applications()
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(list(applications)):
             # set element class
-            li_elt.attrib['class'] = item.state_string() \
-                                     + (' active' if item.application_name == appli else '')
+            li_elt.attrib['class'] = item.state.name + (' active' if item.application_name == appli else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
-            if self.fsm.state == SupvisorsStates.INITIALIZATION:
+            if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
                 url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name})
@@ -191,7 +171,7 @@ class ViewHandler(MeldView):
     def write_periods(self, root):
         """ Write configured periods for statistics. """
         mid_elt = root.findmeld('period_li_mid')
-        periods = self.options.stats_periods
+        periods = self.supvisors.options.stats_periods
         for li_elt, item in mid_elt.repeat(periods):
             # print period button
             elt = li_elt.findmeld('period_a_mid')
@@ -208,7 +188,7 @@ class ViewHandler(MeldView):
 
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
-        Statistics data comes from address. """
+        Statistics data comes from node. """
         proc_stats = info['proc_stats']
         elt = tr_elt.findmeld('pcpu_a_mid')
         if proc_stats and len(proc_stats[0]) > 0:
@@ -216,36 +196,42 @@ class ViewHandler(MeldView):
             cpuvalue = proc_stats[0][-1]
             if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= info['nb_cores']
-            elt.content('{:.2f}%'.format(cpuvalue))
-            if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                elt.attributes(href='#')
-                elt.attrib['class'] = 'button off active'
+            if info['namespec']:  # empty for an application info
+                if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    elt.attrib['class'] = 'button off active'
+                else:
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.attrib['class'] = 'button on'
+                elt.content('{:.2f}%'.format(cpuvalue))
             else:
-                parameters = {PROCESS: info['namespec'], ADDRESS: info['address']}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.attrib['class'] = 'button on'
+                # print data with no link
+                elt.replace('{:.2f}%'.format(cpuvalue))
         else:
             # when no data, no not write link
             elt.replace('--')
 
     def write_common_process_mem(self, tr_elt, info):
         """ Write the MEM part of the common process status.
-        Statistics data comes from address. """
+        Statistics data comes from node. """
         proc_stats = info['proc_stats']
         elt = tr_elt.findmeld('pmem_a_mid')
         if proc_stats and len(proc_stats[1]) > 0:
             # print last MEM value of process
             memvalue = proc_stats[1][-1]
-            elt.content('{:.2f}%'.format(memvalue))
-            if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                elt.attributes(href='#')
-                elt.attrib['class'] = 'button off active'
+            if info['namespec']:  # empty for an application info
+                if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                    elt.attrib['class'] = 'button off active'
+                else:
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.attrib['class'] = 'button on'
+                elt.content('{:.2f}%'.format(memvalue))
             else:
-                parameters = {PROCESS: info['namespec'], ADDRESS: info['address']}
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.attrib['class'] = 'button on'
+                # print data with no link
+                elt.replace('{:.2f}%'.format(memvalue))
         else:
             # when no data, no not write link
             elt.replace('--')
@@ -270,54 +256,66 @@ class ViewHandler(MeldView):
 
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
-        This action must be sent to the relevant address. """
-        self._write_process_button(tr_elt, 'clear_a_mid', info['address'], self.page_name,
+        This action must be sent to the relevant node. """
+        self._write_process_button(tr_elt, 'clear_a_mid', info['node_name'], self.page_name,
                                    'clearlog', info['namespec'], '', '')
 
     def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
-        This action must be sent to the relevant address. """
+        This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailout_a_mid', info['address'],
-                                   STDOUT_PAGE % quote(info['namespec']),
-                                   '', '', '', '')
+        self._write_process_button(tr_elt, 'tailout_a_mid', info['node_name'],
+                                   STDOUT_PAGE % quote(info['namespec'] or ''),
+                                   '', info['namespec'], '', '')
 
     def write_process_stderr_button(self, tr_elt, info):
         """ Write the configuration of the tail stderr button of a process.
-        This action must be sent to the relevant address. """
+        This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailerr_a_mid', info['address'],
-                                   STDERR_PAGE % quote(info['namespec']),
-                                   '', '', '', '')
+        self._write_process_button(tr_elt, 'tailerr_a_mid', info['node_name'],
+                                   STDERR_PAGE % quote(info['namespec'] or ''),
+                                   '', info['namespec'], '', '')
 
-    def _write_process_button(self, tr_elt, elt_name, address, page, action, namespec,
-                              state, state_list):
+    def _write_process_button(self, tr_elt, elt_name, node_name, page, action, namespec, state, state_list):
         """ Write the configuration of a process button. """
         elt = tr_elt.findmeld(elt_name)
-        if state in state_list:
-            elt.attrib['class'] = 'button on'
-            url = self.view_ctx.format_url(address, page, **{ACTION: action, NAMESPEC: namespec})
-            elt.attributes(href=url)
+        if namespec:
+            if state in state_list:
+                elt.attrib['class'] = 'button on'
+                url = self.view_ctx.format_url(node_name, page, **{ACTION: action, NAMESPEC: namespec})
+                elt.attributes(href=url)
+            else:
+                elt.attrib['class'] = 'button off'
         else:
-            elt.attrib['class'] = 'button off'
+            # this corresponds to an application row: no action available
+            elt.content('')
 
-    def write_common_process_status(self, tr_elt, info):
-        """ Write the common part of a process status into a table. """
+    def write_common_status(self, tr_elt, info: Payload) -> None:
+        """ Write the common part of a process or application status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = info['statename']
+        update_attrib(elt, 'class', info.get('gravity', info['statename']))
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')
         elt.content(info['description'])
-        # print expected loading
+        # print expected load
         elt = tr_elt.findmeld('load_td_mid')
-        elt.content('{}%'.format(info['loading']))
+        elt.content('{}%'.format(info['expected_load']))
         # get data from statistics module iaw period selection
         self.write_common_process_cpu(tr_elt, info)
         self.write_common_process_mem(tr_elt, info)
+
+    def write_common_process_status(self, tr_elt, info: Payload) -> None:
+        """ Write the common part of a process status into a table. """
+        # print common status
+        self.write_common_status(tr_elt, info)
+        # print process name
+        elt = tr_elt.findmeld('name_a_mid')
+        elt.content('\u21B3 {}'.format(info['process_name']))
+        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        elt.attributes(href=url, target="_blank")
         # manage actions iaw state
-        process_state = info['statecode']
         self.write_process_start_button(tr_elt, info)
         self.write_process_stop_button(tr_elt, info)
         self.write_process_restart_button(tr_elt, info)
@@ -336,7 +334,7 @@ class ViewHandler(MeldView):
             if rate is not None:
                 self.set_slope_class(elt, rate)
             cpuvalue = proc_stats[0][-1]
-            if not self.options.stats_irix_mode:
+            if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= nb_cores
             elt.content('{:.2f}%'.format(cpuvalue))
             # set mean value
@@ -376,9 +374,8 @@ class ViewHandler(MeldView):
 
     @staticmethod
     def write_process_plots(proc_stats):
-        """ Write the CPU / Memory plots.
-        (only if matplotlib is installed) """
-        if HAS_PLOT:
+        """ Write the CPU / Memory plots (only if matplotlib is installed) """
+        try:
             from supvisors.plot import StatisticsPlot
             # build CPU image
             cpu_img = StatisticsPlot()
@@ -388,6 +385,9 @@ class ViewHandler(MeldView):
             mem_img = StatisticsPlot()
             mem_img.add_plot('MEM', '%', proc_stats[1])
             mem_img.export_image(process_mem_img)
+        except ImportError:
+            # matplotlib not installed
+            pass
 
     def write_process_statistics(self, root, info):
         """ Display detailed statistics about the selected process. """
@@ -406,7 +406,7 @@ class ViewHandler(MeldView):
                 elt.content(namespec)
                 elt = stats_elt.findmeld('address_fig_mid')
                 if elt is not None:
-                    elt.content(info['address'])
+                    elt.content(info['node_name'])
                 # write CPU / Memory plots
                 self.write_process_plots(proc_stats)
         else:
@@ -443,33 +443,3 @@ class ViewHandler(MeldView):
             elt.attrib['class'] = 'increase'
         else:
             elt.attrib['class'] = 'decrease'
-
-    def sort_processes_by_config(self, processes):
-        """ This method sorts a process list using the internal configuration
-        of supervisor.
-        The aim is to present processes sorted the same way as they are
-        in group configuration file. """
-        sorted_processes = []
-        if processes:
-            # get the list of applications, sorted alphabetically
-            application_list = sorted({process['application_name']
-                                       for process in processes})
-            for application_name in application_list:
-                # get supervisor configuration for application
-                group_config = self.info_source.get_group_config(application_name)
-                # get process name ordering in this configuration
-                ordering = [proc.name for proc in group_config.process_configs]
-                # add processes known to supervisor, using the same ordering
-                known_list = sorted([proc for proc in processes
-                                     if proc['application_name'] == application_name and
-                                     proc['process_name'] in ordering],
-                                    key=lambda x: ordering.index(x['process_name']))
-                sorted_processes.extend(known_list)
-                # add processes unknown to supervisor, using the alphabetical
-                # ordering
-                unknown_list = sorted([proc for proc in processes
-                                       if proc['application_name'] == application_name and
-                                       proc['process_name'] not in ordering],
-                                      key=lambda x: x['process_name'])
-                sorted_processes.extend(unknown_list)
-        return sorted_processes

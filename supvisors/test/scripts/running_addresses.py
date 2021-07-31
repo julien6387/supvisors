@@ -18,6 +18,8 @@
 # ======================================================================
 
 import os
+import unittest
+
 import zmq
 
 from queue import Empty
@@ -27,14 +29,13 @@ from supervisor import childutils
 from supvisors import rpcrequests
 from supvisors.ttypes import AddressStates
 from supvisors.client.subscriber import create_logger
-from supvisors.tests.base import CompatTestCase
 
-from scripts.event_queues import SupvisorsEventQueues
+from .event_queues import SupvisorsEventQueues
 
 
-class RunningAddressesTest(CompatTestCase):
+class RunningAddressesTest(unittest.TestCase):
     """ Intermediate layer for the check of initial conditions:
-    - 3 running addresses.
+        - 3 running addresses.
 
     Proxies to XML-RPC servers are opened.
     The thread of Event queues is started.
@@ -48,15 +49,15 @@ class RunningAddressesTest(CompatTestCase):
         self.local_supvisors = self.local_proxy.supvisors
         # check the number of running addresses
         addresses_info = self.local_supvisors.get_all_addresses_info()
-        self.running_addresses = [info['address_name']
-                                  for info in addresses_info
-                                  if info['statecode'] == AddressStates.RUNNING]
-        self.assertEqual(3, len(self.running_addresses))
+        self.running_nodes = [info['address_name']
+                              for info in addresses_info
+                              if info['statecode'] == AddressStates.RUNNING.value]
+        self.assertEqual(3, len(self.running_nodes))
         # assumption is made that this test is run on Supvisors Master address
         self.assertEqual(gethostname(), self.local_supvisors.get_master_address())
         # keep a reference to all RPC proxies
         self.proxies = {address: rpcrequests.getRPCInterface(address, os.environ)
-                        for address in self.running_addresses}
+                        for address in self.running_nodes}
         # create the thread of event subscriber
         self.zcontext = zmq.Context.instance()
         self.logger = create_logger(logfile=r'./log/running_addresses.log')

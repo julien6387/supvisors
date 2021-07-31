@@ -22,19 +22,21 @@ import socket
 
 from supervisor import xmlrpc
 from supervisor.compat import xmlrpclib
+from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import split_namespec
+from supervisor.states import getProcessStateDescription
 from supervisor.supervisorctl import ControllerPluginBase
 
-from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import (ProcessStates, ConciliationStrategies, StartingStrategies)
-from supvisors.utils import simple_localtime
+from .rpcinterface import API_VERSION, RPCInterface
+from .ttypes import ConciliationStrategies, StartingStrategies
+from .utils import simple_localtime
 
 
 class ControllerPlugin(ControllerPluginBase):
     """ The ControllerPlugin is the implementation of the Supvisors plugin
     that is embodied in the supervisorctl command. """
 
-    def supvisors(self):
+    def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
         return self.ctl.get_server_proxy('supvisors')
 
@@ -50,8 +52,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sversion(self):
         """ Print the help of the sversion command."""
-        self.ctl.output("sversion\t\t\t\t"
-                        "Get the API version of Supvisors.")
+        self.ctl.output("sversion\t\t\t\tGet the API version of Supvisors.")
 
     def do_sstate(self, _):
         """ Command to get the Supvisors state. """
@@ -67,8 +68,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sstate(self):
         """ Print the help of the sstate command."""
-        self.ctl.output("sstate\t\t\t\t\t"
-                        "Get the Supvisors state.")
+        self.ctl.output("sstate\t\t\t\t\tGet the Supvisors state.")
 
     def do_master(self, _):
         """ Command to get the Supvisors master address. """
@@ -82,8 +82,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_master(self):
         """ Print the help of the master command."""
-        self.ctl.output("master\t\t\t\t\t"
-                        "Get the Supvisors master address.")
+        self.ctl.output("master\t\t\t\t\tGet the Supvisors master address.")
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -102,8 +101,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_strategies(self):
         """ Print the help of the strategies command."""
-        self.ctl.output("strategies\t\t\t\t\t"
-                        "Get the Supvisors strategies.")
+        self.ctl.output("strategies\t\t\t\t\tGet the Supvisors strategies.")
 
     def do_address_status(self, arg):
         """ Command to get the status of addresses known to Supvisors. """
@@ -111,19 +109,18 @@ class ControllerPlugin(ControllerPluginBase):
             addresses = arg.split()
             if not addresses or "all" in addresses:
                 try:
-                    infos = self.supvisors().get_all_addresses_info()
+                    info_list = self.supvisors().get_all_addresses_info()
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
                 else:
-                    for info in infos:
+                    for info in info_list:
                         self.output_address_info(info)
             else:
                 for address in addresses:
                     try:
                         info = self.supvisors().get_address_info(address)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'
-                                        .format(address, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(address, e.faultString))
                     else:
                         self.output_address_info(info)
 
@@ -151,19 +148,18 @@ class ControllerPlugin(ControllerPluginBase):
             applications = arg.split()
             if not applications or "all" in applications:
                 try:
-                    infos = self.supvisors().get_all_applications_info()
+                    info_list = self.supvisors().get_all_applications_info()
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
                 else:
-                    for info in infos:
+                    for info in info_list:
                         self.output_application_info(info)
             else:
                 for application_name in applications:
                     try:
                         info = self.supvisors().get_application_info(application_name)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'
-                                        .format(application_name, e.faultString))
+                        self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
                     else:
                         self.output_application_info(info)
 
@@ -203,19 +199,18 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     rules = self.supvisors().get_application_rules(application)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'
-                                    .format(application, e.faultString))
+                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
                     rules_list.append(rules)
             # print results
             if rules_list:
-                max_appli = max(len(rules['application_name'])
-                                for rules in rules_list) + 4
-                template = '%(appli)-{}s%(start_seq)-5s%(stop_seq)-5s' \
+                max_appli = max(len(rules['application_name']) for rules in rules_list) + 2
+                template = '%(appli)-{}s%(managed)-12s%(start_seq)-5s%(stop_seq)-5s' \
                            '%(starting_strategy)-12s%(running_strategy)-12s' \
                     .format(max_appli)
                 for rules in rules_list:
                     line = template % {'appli': rules['application_name'],
+                                       'managed': ('  managed' if rules['managed'] else 'unmanaged'),
                                        'start_seq': rules['start_sequence'],
                                        'stop_seq': rules['stop_sequence'],
                                        'starting_strategy': rules['starting_failure_strategy'],
@@ -313,7 +308,7 @@ class ControllerPlugin(ControllerPluginBase):
                     line = template % {
                         'appli': info['group'],
                         'proc': info['name'],
-                        'state': ProcessStates.to_string(info['state']),
+                        'state': getProcessStateDescription(info['state']),
                         'start': start_time,
                         'now': now_time,
                         'pid': info['pid'],
@@ -357,7 +352,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_proc = max(len(rules['process_name'])
                                for rules in rules_list) + 4
                 template = '%(appli)-{}s%(proc)-{}s%(start_seq)-5s%(stop_seq)-5s' \
-                           '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-12s%(addr)s'.format(max_appli, max_proc)
+                           '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(addr)s'.format(max_appli, max_proc)
                 for rules in rules_list:
                     required = rules['required']
                     wait_exit = rules['wait_exit']
@@ -406,8 +401,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conflicts(self):
         """ Print the help of the conflicts command."""
-        self.ctl.output("conflicts\t\t\t\t"
-                        "Get the Supvisors conflicts.")
+        self.ctl.output("conflicts\t\t\t\tGet the Supvisors conflicts.")
 
     def do_start_application(self, arg):
         """ Command to start Supvisors applications using a strategy and rules. """
@@ -418,10 +412,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_application()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_application()
                 return
             applications = args[1:]
@@ -434,7 +428,7 @@ class ControllerPlugin(ControllerPluginBase):
                     applications = []
             for application in applications:
                 try:
-                    result = self.supvisors().start_application(strategy, application)
+                    result = self.supvisors().start_application(strategy.value, application)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -487,10 +481,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_restart_application()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_restart_application()
                 return
             applications = args[1:]
@@ -503,7 +497,7 @@ class ControllerPlugin(ControllerPluginBase):
                     applications = []
             for application in applications:
                 try:
-                    self.supvisors().restart_application(strategy, application)
+                    self.supvisors().restart_application(strategy.value, application)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
                 else:
@@ -549,10 +543,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_process()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -565,7 +559,7 @@ class ControllerPlugin(ControllerPluginBase):
                     processes = []
             for process in processes:
                 try:
-                    result = self.supvisors().start_process(strategy, process)
+                    result = self.supvisors().start_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -593,15 +587,15 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_start_process_args()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_start_process_args()
                 return
             namespec = args[1]
             try:
-                result = self.supvisors().start_process(strategy, namespec, ' '.join(args[2:]))
+                result = self.supvisors().start_process(strategy.value, namespec, ' '.join(args[2:]))
             except xmlrpclib.Fault as e:
                 self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
             else:
@@ -651,10 +645,10 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_restart_process()
                 return
             try:
-                strategy = StartingStrategies.from_string(args[0])
+                strategy = StartingStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'
-                                .format(StartingStrategies.strings()))
+                                .format(StartingStrategies._member_names_))
                 self.help_restart_process()
                 return
             processes = args[1:]
@@ -667,7 +661,7 @@ class ControllerPlugin(ControllerPluginBase):
                     processes = []
             for process in processes:
                 try:
-                    result = self.supvisors().restart_process(strategy, process)
+                    result = self.supvisors().restart_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
                 else:
@@ -692,14 +686,14 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_conciliate()
                 return
             try:
-                strategy = ConciliationStrategies.from_string(args[0])
+                strategy = ConciliationStrategies[args[0]]
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for conciliate. use one of {}'
-                                .format(ConciliationStrategies.strings()))
+                                .format(ConciliationStrategies._member_names_))
                 self.help_conciliate()
                 return
             try:
-                result = self.supvisors().conciliate(strategy)
+                result = self.supvisors().conciliate(strategy.value)
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
@@ -708,8 +702,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
         self.ctl.output("Conciliate Supvisors conflicts.")
-        self.ctl.output("conciliate strategy\t\t\t\t\t"
-                        "Conciliate process conflicts using strategy")
+        self.ctl.output("conciliate strategy\t\t\t\t\tConciliate process conflicts using strategy")
 
     def do_sreload(self, _):
         """ Command to restart Supvisors on all addresses. """
@@ -724,8 +717,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_sreload(self):
         """ Print the help of the sreload command."""
         self.ctl.output("Restart Supvisors.")
-        self.ctl.output("sreload\t\t\t\t\t"
-                        "Restart all remote supervisord")
+        self.ctl.output("sreload\t\t\t\t\tRestart all remote supervisord")
 
     def do_sshutdown(self, _):
         """ Command to shutdown Supvisors on all addresses. """
@@ -740,8 +732,33 @@ class ControllerPlugin(ControllerPluginBase):
     def help_sshutdown(self):
         """ Print the help of the sshutdown command."""
         self.ctl.output("Shutdown Supvisors.")
-        self.ctl.output("sshutdown\t\t\t\t"
-                        "Shut all remote supervisord down")
+        self.ctl.output("sshutdown\t\t\t\tShut all remote supervisord down")
+
+    def do_loglevel(self, arg):
+        """ Command to change the level of the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: loglevel requires a level')
+                self.help_loglevel()
+                return
+            level = getLevelNumByDescription(args[0])
+            if level is None:
+                self.ctl.output('ERROR: unknown level for Logger.')
+                self.help_loglevel()
+                return
+            try:
+                result = self.supvisors().change_log_level(level)
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Logger level changed: {}'.format(result))
+
+    def help_loglevel(self):
+        """ Print the help of the loglevel command."""
+        self.ctl.output('Change the level of local Supvisors\' logger.')
+        self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
+        self.ctl.output('\t\t\t\t\t\t\tApplicable values are: {}.'.format(LOG_LEVELS_BY_NUM.values()))
 
     def _upcheck(self):
         """ Check of the API versions. """

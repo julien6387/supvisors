@@ -19,10 +19,8 @@
 
 import argparse
 import sys
-import unittest
 
-from scripts.event_queues import SupvisorsEventQueues
-from scripts.sequence_checker import *
+from .sequence_checker import *
 
 
 class CheckStartSequenceTest(CheckSequenceTest):
@@ -33,7 +31,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         At this point, Supvisors is in DEPLOYMENT phase.
         This process is the first to be started. """
         # wait for address_queue to trigger
-        self.get_addresses()
+        self.get_nodes()
         # test the last events received for this process
         self.check_self_starting()
         # test the starting of applications
@@ -81,13 +79,13 @@ class CheckStartSequenceTest(CheckSequenceTest):
                   ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
         application = self.context.get_application('import_database')
-        for program_name, address in config:
+        for program_name, node_name in config:
             program = application.get_program(program_name)
-            if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+            if node_name in self.nodes:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, node_name))
             else:
-                program.add_event(ProcessStateEvent(ProcessStates.FATAL, address))
+                program.add_event(ProcessStateEvent(ProcessStates.FATAL, node_name))
         # check that the events received correspond to the expected
         self.check_events('import_database')
         self.assertFalse(self.context.has_events('import_database'))
@@ -95,7 +93,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_copy_error_starting(self):
         """ Check the starting of the copy_error program. """
         # define the expected events for the copy_error program
-        if all(node in self.addresses for node in [self.HOST_02, self.HOST_03]):
+        if all(node_name in self.nodes for node_name in [self.HOST_02, self.HOST_03]):
             program = self.context.get_program('import_database:copy_error')
             program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
             program.add_event(ProcessStateEvent(ProcessStates.BACKOFF, self.HOST_01))
@@ -110,19 +108,17 @@ class CheckStartSequenceTest(CheckSequenceTest):
                   ('mount_disk_01', self.HOST_03)]
         # define the expected events for the mount_disk program
         application = self.context.get_application('import_database')
-        for program_name, address in config:
-            if address in self.addresses:
+        for program_name, node_name in config:
+            if node_name in self.nodes:
                 program = application.get_program(program_name)
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPED, address))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED, node_name))
         # do NOT check the events received at this stage
-        # stopping events will be mixed with the starting events
-        # of the following applications
+        # stopping events will be mixed with the starting events of the following applications
 
     def check_database_starting(self):
         """ Check the starting of the database application.
-        The movie_server_xx processes are started first,
-        then the register_movies_xx.
+        The movie_server_xx processes are started first, then the register_movies_xx.
         FATAL process events are expected, according to the test platform. """
         # define 'import_database' application
         application = Application('database')
@@ -142,11 +138,11 @@ class CheckStartSequenceTest(CheckSequenceTest):
                   ('movie_server_03', self.HOST_03)]
         # define the expected events for the movie_server_xx programs
         application = self.context.get_application('database')
-        for program_name, address in config:
+        for program_name, node_name in config:
             program = application.get_program(program_name)
-            if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+            if node_name in self.nodes:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, node_name))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
         # check that the events received are compliant
@@ -156,15 +152,14 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_register_movies_starting(self):
         """ Check the starting of the register_movies programs. """
         config = [('register_movies_01', self.HOST_01),
-                  ('register_movies_02', self.HOST_02),
-                  ('register_movies_03', self.HOST_03)]
+                  ('register_movies_02', self.HOST_03)]
         # define the expected events for the register_movies_xx programs
         application = self.context.get_application('database')
-        for program_name, address in config:
+        for program_name, node_name in config:
             program = application.get_program(program_name)
-            if address in self.addresses:
-                program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
+            if node_name in self.nodes:
+                program.add_event(ProcessStateEvent(ProcessStates.STARTING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING, node_name))
                 program.add_event(ProcessStateEvent(ProcessStates.EXITED))
             else:
                 program.add_event(ProcessStateEvent(ProcessStates.FATAL))
@@ -175,8 +170,8 @@ class CheckStartSequenceTest(CheckSequenceTest):
     def check_my_movies_starting(self):
         """ Check the starting of the my_movies application.
         The manager process is started first, then the web_server, finally the hmi.
-        In the my_movies application, there should be a major_failure due to
-        the web_server that is configured not to start. """
+        In the my_movies application, there should be a major_failure due to the web_server
+        that is configured not to start. """
         # define 'my_movies' application
         application = Application('my_movies')
         self.context.add_application(application)
@@ -211,7 +206,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Check the starting of the hmi program. """
         # define the expected events for the hmi program
         program = self.context.get_program('my_movies:hmi')
-        address = self.HOST_02 if self.HOST_02 in self.addresses else self.HOST_01
+        address = self.HOST_02 if self.HOST_02 in self.nodes else self.HOST_01
         program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
         program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
         # check that the events received are compliant

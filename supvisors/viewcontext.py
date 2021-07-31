@@ -17,32 +17,39 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from distutils.util import strtobool
+from typing import Optional, Tuple
 from urllib.parse import quote
 
-from supvisors.ttypes import StartingStrategies
-from supvisors.utils import supvisors_shortcuts
-from supvisors.webutils import error_message
+from .process import ProcessStatus
+from .ttypes import StartingStrategies, NameList
+from .webutils import error_message
+
 
 # form parameters
 SERVER_URL = 'SERVER_URL'
 SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
+NODE = 'node'  # nav
+APPLI = 'appliname'  # nav
+
 ACTION = 'action'
-ADDRESS = 'address'
+NAMESPEC = 'namespec'   # used for actions
+PROCESS = 'processname'  # used to tail (but also to display stats)
 
 PERIOD = 'period'
 STRATEGY = 'strategy'
-APPLI = 'appliname'
-PROCESS = 'processname'
-NAMESPEC = 'namespec'
 CPU = 'cpuid'
 INTF = 'intfname'
-AUTO = 'auto'
+AUTO = 'auto'  # auto-refresh
 
 MESSAGE = 'message'
 GRAVITY = 'gravity'
+
+SHRINK_EXPAND = 'shex'
 
 # response parameters
 HEADERS = 'headers'
@@ -57,12 +64,11 @@ class ViewContext:
         """ Define attributes for statistics selection. """
         # store the HTML context
         self.http_context = context
-        # keep references to Supvisors instance and attributes for readability
+        # keep references to Supvisors instance
         self.supvisors = context.supervisord.supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'context', 'logger',
-                                   'options', 'statistician'])
-        # keep reference to the local address
-        self.local_address = self.address_mapper.local_address
+        self.logger = self.supvisors.logger
+        # keep reference to the local node
+        self.local_node_name = self.supvisors.address_mapper.local_node_name
         # initialize parameters
         self.parameters = {}
         # extract parameters from context
@@ -70,12 +76,13 @@ class ViewContext:
         self.update_period()
         self.update_strategy()
         self.update_auto_refresh()
-        self.update_address()
+        self.update_node_name()
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
         self.update_cpu_id()
         self.update_interface_name()
+        self.update_shrink_expand()
 
     def get_server_port(self):
         """ Get the port number of the web server. """
@@ -85,9 +92,9 @@ class ViewContext:
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)
 
-    def get_address(self):
-        """ Extract address from context form. """
-        return self.http_context.form.get(ADDRESS)
+    def get_node_name(self):
+        """ Extract node name from context form. """
+        return self.http_context.form.get(NODE)
 
     def get_message(self):
         """ Extract message from context form. """
@@ -99,38 +106,37 @@ class ViewContext:
 
     def update_period(self):
         """ Extract period from context. """
-        default_value = next(iter(self.options.stats_periods))
-        self._update_integer(PERIOD, self.options.stats_periods, default_value)
+        default_value = next(iter(self.supvisors.options.stats_periods))
+        self._update_integer(PERIOD, self.supvisors.options.stats_periods, default_value)
 
     def update_strategy(self):
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, StartingStrategies.strings(),
-                            StartingStrategies.to_string(self.options.starting_strategy))
+        self._update_string(STRATEGY, StartingStrategies._member_names_, self.supvisors.options.starting_strategy.name)
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """
         # assign value found or default
         self._update_boolean(AUTO, False)
 
-    def update_address(self):
-        """ Extract address name from context. """
+    def update_node_name(self):
+        """ Extract node name from context. """
         # assign value found or default
-        self._update_string(ADDRESS, self.address_mapper.addresses, self.local_address)
+        self._update_string(NODE, self.supvisors.address_mapper.node_names, self.local_node_name)
 
     def update_application_name(self):
         """ Extract application name from context. """
-        self._update_string(APPLI, list(self.context.applications.keys()))
+        self._update_string(APPLI, list(self.supvisors.context.applications.keys()))
 
     def update_process_name(self):
         """ Extract process name from context.
-        ApplicationView may select of another address. """
-        address_stats = self.get_address_stats(self.parameters[ADDRESS])
-        named_pids = address_stats.proc.keys() if address_stats else []
+        ApplicationView may select instance from another node. """
+        stats_node = self.get_node_stats(self.parameters[NODE])
+        named_pids = stats_node.proc.keys() if stats_node else []
         self._update_string(PROCESS, [x for x, _ in named_pids])
 
     def update_namespec(self):
         """ Extract namespec from context. """
-        self._update_string(NAMESPEC, list(self.context.processes.keys()))
+        self._update_string(NAMESPEC, self.supvisors.context.get_all_namespecs())
 
     def update_cpu_id(self):
         """ Extract CPU id from context. """
@@ -139,86 +145,100 @@ class ViewContext:
     def update_interface_name(self):
         """ Extract interface name from context.
         Only the HostAddressView displays interface data, so it's local. """
-        address_stats = self.get_address_stats()
-        interfaces = address_stats.io.keys() if address_stats else []
+        stats_node = self.get_node_stats()
+        interfaces = stats_node.io.keys() if stats_node else []
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
-    def url_parameters(self, **kwargs):
+    def update_shrink_expand(self):
+        """ Extract process display choices from context. """
+        # default is all displayed
+        value = ''.rjust(len(self.supvisors.context.applications.keys()), '1')
+        # extract mask from context
+        str_value = self.http_context.form.get(SHRINK_EXPAND)
+        if str_value:
+            # check that value has correct format (only 0-1 and size equal to number of applications)
+            if re.match(r'^[0-1]{%d}$' % len(value), str_value):
+                value = str_value
+            else:
+                self.message(error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value)))
+        self.logger.trace('ViewContext.update_shrink_expand: SHRINK_EXPAND set to {}'.format(value))
+        self.parameters[SHRINK_EXPAND] = value
+
+    def url_parameters(self, reset_shex, **kwargs):
         """ Return the list of parameters for an URL. """
         parameters = dict(self.parameters, **kwargs)
+        if reset_shex:
+            del parameters[SHRINK_EXPAND]
         return '&amp;'.join(['{}={}'.format(key, quote(str(value)))
                              for key, value in parameters.items()
                              if value])
 
-    def format_url(self, address_name, page, **kwargs):
+    def format_url(self, node_name, page, **kwargs):
         """ Format URL from parameters. """
-        url = 'http://{}:{}/'.format(quote(address_name), self.get_server_port()) if address_name else ''
-        return '{}{}?{}'.format(url, page, self.url_parameters(**kwargs))
+        local_node_name = not node_name or node_name == self.local_node_name
+        url = 'http://{}:{}/'.format(quote(node_name), self.get_server_port()) if node_name else ''
+        return '{}{}?{}'.format(url, page, self.url_parameters(not local_node_name, **kwargs))
 
     def message(self, message):
         """ Set message in context response to be displayed at next refresh. """
         form = self.http_context.form
         args = {MESSAGE: message[1], GRAVITY: message[0]}
-        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(**args))
+        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(False, **args))
         self.http_context.response[HEADERS][LOCATION] = location
 
-    def get_nbcores(self, address=None):
-        """ Get the number of processors of the local address. """
-        stats_address = address or self.local_address
-        return self.statistician.nbcores.get(stats_address, 0)
+    def get_nbcores(self, node_name=None):
+        """ Get the number of processors of the local node. """
+        stats_node = node_name or self.local_node_name
+        return self.supvisors.statistician.nbcores.get(stats_node, 0)
 
-    def get_address_stats(self, address=None):
-        """ Get the statistics structure related to the address and the period selected.
-        If no address is specified, local address is used. """
-        stats_address = address or self.local_address
-        return self.statistician.data.get(stats_address, {}).get(self.parameters[PERIOD], None)
+    def get_node_stats(self, node_name: str = None):
+        """ Get the statistics structure related to the node and the period selected.
+        If no node name is specified, local node name is used. """
+        stats_node = node_name or self.local_node_name
+        return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
 
-    def get_process_last_desc(self, namespec, running=False):
-        """ Get the latest description received from the process across all addresses.
-        A priority is given to the info coming from an address where the process is running.
-        If running is set to True, the priority is exclusive. """
-        address, info = None, None
-        status = self.get_process_status(namespec)
-        if status:
-            # search for process info where process is running
-            infos = dict(filter(lambda elem: elem[0] in status.addresses,
-                                status.infos.items()))
-            if not infos and not running:
-                # nothing found and running not requested: consider all process infos
-                infos = status.infos
-            # sort infos them by date (local_time is local time of latest received event)
-            sorted_infos = sorted(infos.items(),
-                                  key=lambda x: x[1]['local_time'],
-                                  reverse=True)
-            address, info = next(iter(sorted_infos), (None, None))
-        # return the address too
-        return address, info['description'] if info else None
-
-    def get_process_stats(self, namespec, address=None):
+    def get_process_stats(self, namespec: str, node_name: str = None):
         """ Get the statistics structure related to the process and the period selected.
-        Get also the number of cores available on this address (useful for process CPU IRIX mode). """
-        # use local address if not provided
-        if not address:
-            address = self.local_address
+        Get also the number of cores available on this node (useful for process CPU IRIX mode). """
+        # use local node name if not provided
+        if not node_name:
+            node_name = self.local_node_name
         # return the process statistics for this process
-        address_stats = self.get_address_stats(address)
-        nb_cores = self.get_nbcores(address)
-        if address_stats:
-            return nb_cores, address_stats.find_process_stats(namespec)
+        node_stats = self.get_node_stats(node_name)
+        nb_cores = self.get_nbcores(node_name)
+        if node_stats:
+            return nb_cores, node_stats.find_process_stats(namespec)
         return nb_cores, None
 
-    def get_process_status(self, namespec=None):
+    def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
         """ Get the ProcessStatus instance related to the process named namespec.
         If none specified, the form namespec is used. """
         namespec = namespec or self.parameters[NAMESPEC]
         if namespec:
             try:
-                return self.context.processes[namespec]
+                return self.supvisors.context.get_process(namespec)
             except KeyError:
-                self.logger.debug('failed to get ProcessStatus from {}'.format(namespec))
+                self.logger.debug('ViewContext.get_process_status: failed to get ProcessStatus from {}'
+                                  .format(namespec))
 
-    def _update_string(self, param, check_list, default_value=None):
+    def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
+        """ Get the expand / shrink value of the application and the shex string to invert it.
+
+        :param application_name: the name of the application
+        :return: the application shex and the inverted shex
+        """
+        shex = self.parameters[SHRINK_EXPAND]
+        # get the index of the application in context
+        idx = list(self.supvisors.context.applications.keys()).index(application_name)
+        # get application shex value
+        application_shex = bool(int(shex[idx]))
+        # get new shex with inverted value for application
+        inverted_shex = list(shex)
+        inverted_shex[idx] = str(int(not application_shex))
+        return application_shex, ''.join(inverted_shex)
+
+    def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """
         value = default_value
         str_value = self.http_context.form.get(param)
@@ -229,7 +249,7 @@ class ViewContext:
             else:
                 self.message(error_message('Incorrect {}: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_string: {} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
@@ -248,7 +268,7 @@ class ViewContext:
                 else:
                     self.message(error_message('Incorrect {}: {}'.format(param, int_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_integer: {} set to {}'.format(param, value))
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
@@ -261,9 +281,8 @@ class ViewContext:
             except ValueError:
                 self.message(error_message('{} is not a boolean-like: {}'.format(param, str_value)))
         # assign value found or default
-        self.logger.debug('{} set to {}'.format(param, value))
+        self.logger.trace('ViewContext._update_boolean: {} set to {}'.format(param, value))
         self.parameters[param] = value
-
 
     @staticmethod
     def cpu_id_to_string(idx):

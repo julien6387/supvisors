@@ -17,12 +17,12 @@ The additional commands provided by **Supvisors** are available by typing :comma
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     master               sstate              stop_application
-    application_info   process_rules        sstatus             stop_process
-    application_rules  restart_application  start_application   strategies
-    conciliate         restart_process      start_args          sversion
-    conflicts          sreload              start_process
-    local_status       sshutdown            start_process_args
+    address_status     loglevel             sshutdown          start_process_args
+    application_info   master               sstate             stop_application
+    application_rules  process_rules        sstatus            stop_process
+    conciliate         restart_application  start_application  strategies
+    conflicts          restart_process      start_args         sversion
+    local_status       sreload              start_process
 
 
 Status
@@ -130,11 +130,15 @@ Status
 
 ``conflicts``
 
-    Get the **Supvisors** conflicts.
+    Get the **Supvisors** conflicts among the *managed* applications.
 
 
 **Supvisors** Control
 ---------------------
+
+``loglevel level``
+
+    Change the level of **Supvisors** logger.
 
 ``conciliate strategy``
 

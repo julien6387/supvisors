@@ -36,7 +36,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         SupvisorsEventInterface.__init__(self, zcontext, self.PORT, logger)
         # create queues to store messages
         self.supvisors_queue = Queue()
-        self.address_queue = Queue()
+        self.node_queue = Queue()
         self.application_queue = Queue()
         self.process_queue = Queue()
         self.event_queue = Queue()
@@ -50,7 +50,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
     def on_address_status(self, data):
         """ Pushes the Address Status message into a queue. """
         self.logger.info('got Address Status message: {}'.format(data))
-        self.address_queue.put(data)
+        self.node_queue.put(data)
 
     def on_application_status(self, data):
         """ Pushes the Application Status message into a queue. """
@@ -71,7 +71,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
     def flush(self):
         """ Empties all queues. """
         self.flush_queue(self.supvisors_queue)
-        self.flush_queue(self.address_queue)
+        self.flush_queue(self.node_queue)
         self.flush_queue(self.application_queue)
         self.flush_queue(self.process_queue)
         self.flush_queue(self.event_queue)

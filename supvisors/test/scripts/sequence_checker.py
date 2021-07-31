@@ -25,29 +25,33 @@ from queue import Empty
 
 from supervisor.childutils import getRPCInterface
 from supervisor.options import split_namespec
-from supervisor.states import RUNNING_STATES, STOPPED_STATES
+from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
 from supvisors.client.subscriber import create_logger
-from supvisors.ttypes import ApplicationStates, ProcessStates
+from supvisors.ttypes import ApplicationStates
 
-from scripts.event_queues import SupvisorsEventQueues
+from .event_queues import SupvisorsEventQueues
 
 
 class ProcessStateEvent(object):
-    """ Definition of an expected event coming from a defined address. """
+    """ Definition of an expected event coming from a defined node. """
 
-    def __init__(self, statecode, address=None):
+    def __init__(self, statecode, node_names=[]):
         """ Initialization of the attributes. """
         self.statecode = statecode
-        self.address = address
+        self.node_names = list(node_names) if not type(node_names) is str else [node_names]
 
     @property
     def statename(self):
-        return ProcessStates.to_string(self.statecode)
+        return getProcessStateDescription(self.statecode)
 
     def get_state(self):
         """ Return the state in a Supvisors / Supervisor format. """
         return {'statename': self.statename, 'statecode': self.statecode}
+
+    def __str__(self):
+        """ Printable version. """
+        return 'statename={} statecode={}'.format(self.statename, self.statecode)
 
 
 class Program(object):
@@ -57,7 +61,7 @@ class Program(object):
         """ Initialization of the attributes. """
         self.program_name = program_name
         self.state = ProcessStates.UNKNOWN
-        self.address = None
+        self.node_names = set()
         self.expected_exit = True
         self.required = required
         self.wait_exit = wait_exit
@@ -99,8 +103,7 @@ class Application:
         return False
 
     def is_stopping(self):
-        """ Return True if the application has a stopping program and
-        no starting program. """
+        """ Return True if the application has a stopping program and no starting program. """
         stopping = False
         for program in self.programs.values():
             if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
@@ -110,8 +113,7 @@ class Application:
         return stopping
 
     def is_running(self):
-        """ Return True if the application has a running program and
-        no starting or stopping program. """
+        """ Return True if the application has a running program and no starting or stopping program. """
         running = False
         for program in self.programs.values():
             if program.state in (ProcessStates.STARTING,
@@ -130,24 +132,20 @@ class Application:
         return True
 
     def has_major_failure(self):
-        """ Return True if there is a stopped required program in a running
-        application. """
-        major = False
+        """ Return True if there is a stopped required program in a running application. """
         for program in self.programs.values():
             if program.state in STOPPED_STATES and program.required:
-                major = True
-        return major and (self.is_running() or self.is_starting())
+                return True
+        return False
 
     def has_minor_failure(self):
-        """ Return True if there is a fatal optional program in a running
-        application. """
-        minor = False
+        """ Return True if there is a fatal optional program in a running application. """
         for program in self.programs.values():
             if not program.required and (program.state == ProcessStates.FATAL or
                                          (program.state == ProcessStates.EXITED and
                                           not program.expected_exit)):
-                minor = True
-        return minor and (self.is_running() or self.is_starting())
+                return True
+        return False
 
 
 class Context:
@@ -155,30 +153,30 @@ class Context:
 
     def __init__(self):
         """ Initialization of the attributes. """
-        self.applications = {}
+        self.applications: Application = {}
 
-    def add_application(self, application):
+    def add_application(self, application: Application) ->None:
         """ Add an application to the context. """
         self.applications[application.application_name] = application
 
-    def get_application(self, application_name):
+    def get_application(self, application_name: str) -> Application:
         """ Get an application from the context using its name. """
         return self.applications.get(application_name, None)
 
-    def get_program(self, namespec):
+    def get_program(self, namespec: str):
         """ Get a program from the context using its namespec. """
         application_name, process_name = split_namespec(namespec)
         return self.get_application(application_name).get_program(process_name)
 
-    def has_events(self, application_name=None):
+    def has_events(self, application_name: str = None) -> bool:
         """ Return True if the programs of the application contain events not received yet. """
-        application_list = [self.get_application(application_name)] \
-            if application_name else self.applications.values()
+        application_list = [self.get_application(application_name)] if application_name else self.applications.values()
         for application in application_list:
             for program in application.programs.values():
                 if program.state_events:
+                    # for debug
+                    # print('### {} - {}'.format(program.program_name, [str(evt) for evt in program.state_events]))
                     return True
-        return False
 
 
 class SequenceChecker(SupvisorsEventQueues):
@@ -187,16 +185,15 @@ class SequenceChecker(SupvisorsEventQueues):
 
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes.
-        Test relies on 3 addresses so theoretically, we only need 3
-        notifications to know which address is RUNNING or not.
+        Test relies on 3 nodes so theoretically, only 3 notifications are needed to know the running nodes.
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
         SupvisorsEventQueues.__init__(self, zcontext, logger)
-        # create a set of addresses
-        self.addresses = set()
+        # create a set of nodes
+        self.nodes = set()
         # create queues to store messages
-        self.nb_address_notifications = 0
+        self.nb_node_notifications = 0
 
     def configure(self):
         """ Subscribe to address status only. """
@@ -206,18 +203,18 @@ class SequenceChecker(SupvisorsEventQueues):
         """ Pushes the Address Status message into a queue. """
         self.logger.info('got Address Status message: {}'.format(data))
         if data['statename'] == 'RUNNING':
-            self.addresses.add(data['address_name'])
+            self.nodes.add(data['address_name'])
         # check the number of notifications
-        self.nb_address_notifications += 1
-        if self.nb_address_notifications == 5:
-            self.logger.info('addresses: {}'.format(self.addresses))
+        self.nb_node_notifications += 1
+        if self.nb_node_notifications == 5:
+            self.logger.info('nodes: {}'.format(self.nodes))
             # got all notification, unsubscribe from AddressStatus
             self.subscriber.unsubscribe_address_status()
             # subscribe to application and process status
             self.subscriber.subscribe_application_status()
             self.subscriber.subscribe_process_status()
             # notify CheckSequence with an event in start_queue
-            self.address_queue.put(self.addresses)
+            self.node_queue.put(self.nodes)
 
 
 class CheckSequenceTest(unittest.TestCase):
@@ -225,13 +222,13 @@ class CheckSequenceTest(unittest.TestCase):
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # get the addresses
+        # get the nodes
         proxy = getRPCInterface(os.environ).supvisors
-        addresses_info = proxy.get_all_addresses_info()
-        self.HOST_01 = addresses_info[0]['address_name']
-        self.HOST_02 = addresses_info[1]['address_name'] if len(addresses_info) > 1 else None
-        self.HOST_03 = addresses_info[2]['address_name'] if len(addresses_info) > 2 else None
-        self.HOST_04 = addresses_info[3]['address_name'] if len(addresses_info) > 3 else None
+        nodes_info = proxy.get_all_addresses_info()
+        self.HOST_01 = nodes_info[0]['address_name']
+        self.HOST_02 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else None
+        self.HOST_03 = nodes_info[2]['address_name'] if len(nodes_info) > 2 else None
+        self.HOST_04 = nodes_info[3]['address_name'] if len(nodes_info) > 3 else None
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -248,13 +245,13 @@ class CheckSequenceTest(unittest.TestCase):
         self.logger.close()
         self.zcontext.term()
 
-    def get_addresses(self):
-        """ Wait for address_queue to put the list of active addresses. """
+    def get_nodes(self):
+        """ Wait for node_queue to put the list of active nodes. """
         try:
-            self.addresses = self.evloop.address_queue.get(True, 30)
-            self.assertGreater(len(self.addresses), 0)
+            self.nodes = self.evloop.node_queue.get(True, 30)
+            self.assertGreater(len(self.nodes), 0)
         except Empty:
-            self.fail('failed to get the address event in the last 30 seconds')
+            self.fail('failed to get the nodes event in the last 30 seconds')
 
     def check_events(self, application_name=None):
         """ Receive and check events for processes and applications. """
@@ -290,17 +287,17 @@ class CheckSequenceTest(unittest.TestCase):
         # check the process' state
         self.assertEqual(state_event.statename, event['statename'])
         self.assertEqual(state_event.statecode, event['statecode'])
-        # check the running address
+        # check the running nodes
         if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
-            self.assertListEqual([state_event.address], event['addresses'])
-            program.address = state_event.address
+            if state_event.node_names:
+                self.assertEqual(sorted(state_event.node_names), sorted(event['addresses']))
+            program.node_names.update(state_event.node_names)
         # update program state
         program.state = state_event.statecode
         program.expected_exit = event['expected_exit']
 
     def check_application_event(self, event):
-        """ Check if the received application event corresponds
-        to expectation. """
+        """ Check if the received application event corresponds to expectation. """
         self.evloop.logger.info('Checking application event: {}'.format(event))
         # check that event corresponds to an expected application
         application_name = event['application_name']
@@ -308,29 +305,22 @@ class CheckSequenceTest(unittest.TestCase):
         self.assertIsNotNone(application)
         # check event contents in accordance with context
         if application.is_starting():
-            self.assertDictContainsSubset(
-                {'statename': 'STARTING',
-                 'statecode': ApplicationStates.STARTING}, event)
+            self.assertDictContainsSubset({'statename': 'STARTING', 'statecode': ApplicationStates.STARTING.value},
+                                          event)
         elif application.is_stopping():
-            self.assertDictContainsSubset(
-                {'statename': 'STOPPING',
-                 'statecode': ApplicationStates.STOPPING}, event)
+            self.assertDictContainsSubset({'statename': 'STOPPING', 'statecode': ApplicationStates.STOPPING.value},
+                                          event)
         elif application.is_running():
-            self.assertDictContainsSubset(
-                {'statename': 'RUNNING',
-                 'statecode': ApplicationStates.RUNNING}, event)
+            self.assertDictContainsSubset({'statename': 'RUNNING', 'statecode': ApplicationStates.RUNNING.value},
+                                          event)
         else:
-            self.assertDictContainsSubset(
-                {'statename': 'STOPPED',
-                 'statecode': ApplicationStates.STOPPED}, event)
-        self.assertEqual(application.has_major_failure(),
-                         event['major_failure'])
-        self.assertEqual(application.has_minor_failure(),
-                         event['minor_failure'])
+            self.assertDictContainsSubset({'statename': 'STOPPED', 'statecode': ApplicationStates.STOPPED.value},
+                                          event)
+        self.assertEqual(application.has_major_failure(), event['major_failure'])
+        self.assertEqual(application.has_minor_failure(), event['minor_failure'])
 
     def assertItemsEqual(self, lst1, lst2):
-        """ Two lists are equal when they have the same size
-        and when all elements of one are in the other one. """
+        """ Two lists are equal when they have the same size and when all elements of one are in the other one. """
         self.assertEqual(len(lst1), len(lst2))
         self.assertTrue(all(item in lst2 for item in lst1))
         self.assertTrue(all(item in lst1 for item in lst2))

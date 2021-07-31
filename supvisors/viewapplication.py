@@ -20,10 +20,11 @@
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
-from supvisors.ttypes import StartingStrategies
-from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import *
+from .application import ApplicationStatus
+from .ttypes import PayloadList
+from .viewcontext import *
+from .viewhandler import ViewHandler
+from .webutils import *
 
 
 class ApplicationView(ViewHandler):
@@ -34,8 +35,8 @@ class ApplicationView(ViewHandler):
         ViewHandler.__init__(self, context)
         self.page_name = APPLICATION_PAGE
         # init parameters
-        self.application_name = ''
-        self.application = None
+        self.application_name: str = ''
+        self.application: ApplicationStatus = None
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
@@ -56,12 +57,12 @@ class ApplicationView(ViewHandler):
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Application page. """
-        # set address name
+        # set application name
         elt = root.findmeld('application_mid')
         elt.content(self.application_name)
         # set application state
         elt = root.findmeld('state_mid')
-        elt.content(self.application.state_string())
+        elt.content(self.application.state.name)
         # set LED iaw major/minor failures
         elt = root.findmeld('state_led_mid')
         if self.application.running():
@@ -84,7 +85,7 @@ class ApplicationView(ViewHandler):
         # get the current strategy
         strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        for str_strategy in StartingStrategies.strings():
+        for str_strategy in StartingStrategies._member_names_:
             elt = root.findmeld('%s_a_mid' % str_strategy.lower())
             if strategy == str_strategy:
                 elt.attrib['class'] = 'button off active'
@@ -125,26 +126,28 @@ class ApplicationView(ViewHandler):
         info = next(filter(lambda x: x['namespec'] == namespec, data), {})
         self.write_process_statistics(root, info)
 
-    def get_process_data(self):
+    def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
+        """ Get the latest description received from the process across all nodes.
+        A priority is given to the info coming from a node where the process is running. """
+        status = self.view_ctx.get_process_status(namespec)
+        return status.get_last_description()
+
+    def get_process_data(self) -> PayloadList:
         """ Collect sorted data on processes. """
         data = []
         for process in self.application.processes.values():
-            namespec = process.namespec()
-            address, description = self.view_ctx.get_process_last_desc(namespec)
-            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, address)
-            data.append({'application_name': process.application_name,
-                         'process_name': process.process_name,
-                         'namespec': namespec,
-                         'address': address,
-                         'statename': process.state_string(),
-                         'statecode': process.state,
-                         'running_list': list(process.addresses),
+            namespec = process.namespec
+            node_name, description = self.get_process_last_desc(namespec)
+            nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
+            data.append({'application_name': process.application_name, 'process_name': process.process_name,
+                         'namespec': namespec, 'node_name': node_name,
+                         'statename': process.state_string(), 'statecode': process.state,
+                         'gravity': process.state_string(),
+                         'running_nodes': list(process.running_nodes),
                          'description': description,
-                         'loading': process.rules.expected_loading,
-                         'nb_cores': nb_cores,
-                         'proc_stats': proc_stats})
-        # re-arrange data
-        return self.sort_processes_by_config(data)
+                         'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
+        # re-arrange data using alphabetical order
+        return sorted(data, key=lambda x: x['process_name'])
 
     def write_process_table(self, root, data):
         """ Rendering of the application processes managed through Supervisor. """
@@ -153,9 +156,9 @@ class ApplicationView(ViewHandler):
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style
             for tr_elt, info in iterator:
-                # write common status (shared between this application view and address view)
+                # write common status (shared between this application view and node view)
                 self.write_common_process_status(tr_elt, info)
-                # print process name and running addresses
+                # print process name and running nodes
                 self.write_process(tr_elt, info)
                 # set line background and invert
                 apply_shade(tr_elt, shaded_tr)
@@ -165,23 +168,17 @@ class ApplicationView(ViewHandler):
             table.replace('No programs to manage')
 
     def write_process(self, tr_elt, info):
-        """ Rendering of the cell corresponding to the process name. """
-        # print process name
-        elt = tr_elt.findmeld('name_a_mid')
-        elt.content(info['process_name'])
-        url = self.view_ctx.format_url(info['address'], TAIL_PAGE, **{PROCESS: info['namespec']})
-        elt.attributes(href=url)
-        # print addresses where the process is running
-        running_list = info['running_list']
-        if running_list:
+        """ Rendering of the cell corresponding to the process running nodes. """
+        running_nodes = info['running_nodes']
+        if running_nodes:
             running_li_mid = tr_elt.findmeld('running_li_mid')
-            for li_elt, address in running_li_mid.repeat(running_list):
+            for li_elt, node_name in running_li_mid.repeat(running_nodes):
                 elt = li_elt.findmeld('running_a_mid')
-                elt.content(address)
-                url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+                elt.content(node_name)
+                url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
                 elt.attributes(href=url)
-                if address == info['address']:
-                    elt.attrib['class'] = elt.attrib['class'] + ' active'
+                if node_name == info['node_name']:
+                    update_attrib(elt, 'class', 'active')
         else:
             elt = tr_elt.findmeld('running_ul_mid')
             elt.replace('')
@@ -192,7 +189,7 @@ class ApplicationView(ViewHandler):
         if action == 'refresh':
             return self.refresh_action()
         # get current strategy
-        strategy = StartingStrategies.from_string(self.view_ctx.parameters[STRATEGY])
+        strategy = StartingStrategies[self.view_ctx.parameters[STRATEGY]]
         if action == 'startapp':
             return self.start_application_action(strategy)
         if action == 'stopapp':
@@ -220,7 +217,7 @@ class ApplicationView(ViewHandler):
     def start_action(self, strategy, rpc_name, arg_name, arg_type):
         """ Start/Restart an application or a process iaw the strategy. """
         try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
+            rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(strategy, arg_name)
         except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
@@ -245,7 +242,7 @@ class ApplicationView(ViewHandler):
     def stop_action(self, rpc_name, arg_name, arg_type):
         """ Stop an application or a process. """
         try:
-            rpc_intf = self.info_source.supvisors_rpc_interface
+            rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
             cb = getattr(rpc_intf, rpc_name)(arg_name)
         except RPCError as e:
             return delayed_error('{}: {}'.format(rpc_name, e.text))
@@ -295,7 +292,7 @@ class ApplicationView(ViewHandler):
         """ Can't call supervisor StatusView source code from application view.
         Just do the same job. """
         try:
-            rpc_intf = self.info_source.supervisor_rpc_interface
+            rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
             rpc_intf.clearProcessLogs(namespec)
         except RPCError as e:
             return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))

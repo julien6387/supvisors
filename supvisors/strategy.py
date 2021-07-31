@@ -17,105 +17,125 @@
 # limitations under the License.
 # ======================================================================
 
-from supvisors.ttypes import (AddressStates,
-                              ConciliationStrategies,
-                              StartingStrategies,
-                              RunningFailureStrategies)
-from supvisors.utils import supvisors_shortcuts
+from typing import Mapping, Sequence, Tuple
+
+from .ttypes import AddressStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 
 class AbstractStrategy(object):
     """ Base class for a common constructor. """
 
     def __init__(self, supvisors):
+        """ Initialization of the attributes.
+
+        :param supvisors: the global Supvisors instance
+        """
         self.supvisors = supvisors
-        supvisors_shortcuts(self, ['address_mapper', 'context', 'logger'])
+        self.logger = supvisors.logger
 
 
 # Strategy management for Starting
 class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a starting strategy. """
 
-    def is_loading_valid(self, address, expected_loading):
-        """ Return True and current loading if remote Supvisors instance is active
-        and can support the additional loading. """
-        self.logger.trace('is_loading_valid address={} expected_loading={}'.format(address, expected_loading))
-        if address in self.context.addresses.keys():
-            status = self.context.addresses[address]
-            self.logger.trace('address {} state={}'.format(address, status.state_string()))
+    # Annotation types
+    LoadingValidity = Tuple[bool, int]
+    LoadingValidityMap = Mapping[str, LoadingValidity]
+    NodeLoadMap = Sequence[Tuple[str, int]]
+
+    def is_loading_valid(self, node_name: str, expected_load: int) -> LoadingValidity:
+        """ Return True and current load if remote Supvisors instance is active
+        and can support the additional load.
+
+        :param node_name: the node name tested
+        :param expected_load: the load to add to the node
+        :return: a tuple with a boolean telling if the additional load is possible on node and the current load
+        """
+        self.logger.trace('AbstractStartingStrategy.is_loading_valid: node_name={} expected_load={}'
+                          .format(node_name, expected_load))
+        if node_name in self.supvisors.context.nodes.keys():
+            status = self.supvisors.context.nodes[node_name]
+            self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} state={}'
+                              .format(node_name, status.state.name))
             if status.state == AddressStates.RUNNING:
-                loading = status.loading()
-                self.logger.debug('address={} loading={} expected_loading={}'
-                                  .format(address, loading, expected_loading))
-                return loading + expected_loading < 100, loading
-            self.logger.trace('address {} not RUNNING'.format(address))
+                load = status.get_load()
+                self.logger.debug('AbstractStartingStrategy.is_loading_valid:node={} loading={} expected_load={}'
+                                  .format(node_name, load, expected_load))
+                return load + expected_load < 100, load
+            self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} not RUNNING'.format(node_name))
         return False, 0
 
-    def get_loading_and_validity(self, addresses, expected_loading):
-        """ Return the report of loading capability of all addresses iaw the additional loading required. """
-        if '*' in addresses:
-            addresses = self.address_mapper.addresses
-        loading_validities = {address: self.is_loading_valid(address, expected_loading)
-                              for address in addresses}
-        self.logger.trace('loading_validities={}'.format(loading_validities))
-        return loading_validities
+    def get_loading_and_validity(self, node_names: NameList, expected_load: int) -> LoadingValidityMap:
+        """ Return the report of loading capability of all nodes iaw the additional load required.
 
-    def sort_valid_by_loading(self, loading_validities):
+        :param node_names: the nodes considered
+        :param expected_load: the additional load to consider
+        :return: the list of nodes that can hold the additional load
+        """
+        loading_validity_map = {node_name: self.is_loading_valid(node_name, expected_load)
+                                for node_name in node_names}
+        self.logger.trace('AbstractStartingStrategy.get_loading_and_validity: loading_validity_map={}'
+                          .format(loading_validity_map))
+        return loading_validity_map
+
+    def sort_valid_by_loading(self, loading_validity_map: LoadingValidityMap) -> NodeLoadMap:
         """ Sort the loading report by loading value. """
-        # returns adresses with validity and loading
-        sorted_addresses = sorted([(x, y[1])
-                                   for x, y in loading_validities.items()
-                                   if y[0]], key=lambda t: t[1])
-        self.logger.trace('sorted_addresses={}'.format(sorted_addresses))
-        return sorted_addresses
+        # returns nodes with validity and loading
+        sorted_nodes = sorted([(x, y[1])
+                               for x, y in loading_validity_map.items()
+                               if y[0]], key=lambda t: t[1])
+        self.logger.trace('AbstractStartingStrategy.sort_valid_by_loading: sorted_nodes={}'.format(sorted_nodes))
+        return sorted_nodes
 
 
 class ConfigStrategy(AbstractStartingStrategy):
-    """ Strategy designed to choose the address using the order defined in the configuration file. """
+    """ Strategy designed to choose the node using the order defined in the configuration file. """
 
-    def get_address(self, addresses, expected_loading):
-        """ Choose the first address that can support the additional loading requested. """
-        self.logger.debug('ConfigStrategy: addresses={} expected_loading={}'
-                          .format(addresses, expected_loading))
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        return next((address for address, (validity, _) in loading_validities.items() if validity), None)
+    def get_node(self, node_names, expected_load):
+        """ Choose the first node that can support the additional load requested. """
+        self.logger.debug('ConfigStrategy.get_node: node_names={} expected_load={}'
+                          .format(node_names, expected_load))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+        return next((node_name for node_name, (validity, _) in loading_validity_map.items() if validity), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
-    """ Strategy designed to share the loading among all the addresses. """
+    """ Strategy designed to share the loading among all the nodes. """
 
-    def get_address(self, addresses, expected_loading):
-        """ Choose the address having the lowest loading that can support the additional loading requested. """
-        self.logger.trace('LessLoadedStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        sorted_addresses = self.sort_valid_by_loading(loading_validities)
-        return sorted_addresses[0][0] if sorted_addresses else None
+    def get_node(self, node_names, expected_load):
+        """ Choose the node having the lowest loading that can support the additional load requested. """
+        self.logger.trace('LessLoadedStrategy.get_node: node_names={} expected_load={}'
+                          .format(node_names, expected_load))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+        sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
+        return sorted_nodes[0][0] if sorted_nodes else None
 
 
 class MostLoadedStrategy(AbstractStartingStrategy):
-    """ Strategy designed to maximize the loading of an address. """
+    """ Strategy designed to maximize the loading of a node. """
 
-    def get_address(self, addresses, expected_loading):
-        """ Choose the address having the highest loading that can support the additional loading requested. """
-        self.logger.trace('MostLoadedStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        sorted_addresses = self.sort_valid_by_loading(loading_validities)
-        return sorted_addresses[-1][0] if sorted_addresses else None
+    def get_node(self, node_names, expected_load):
+        """ Choose the node having the highest loading that can support the additional load requested. """
+        self.logger.trace('MostLoadedStrategy: node_names={} expected_load={}'.format(node_names, expected_load))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+        sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
+        return sorted_nodes[-1][0] if sorted_nodes else None
 
 
 class LocalStrategy(AbstractStartingStrategy):
-    """ Strategy designed to start the process on the local address. """
+    """ Strategy designed to start the process on the local node. """
 
-    def get_address(self, addresses, expected_loading):
-        """ Choose the local address provided that it can support the additional loading requested. """
-        self.logger.trace('LocalStrategy: addresses={} expectedLoading={}'.format(addresses, expected_loading))
-        loading_validities = self.get_loading_and_validity(addresses, expected_loading)
-        local_address = self.address_mapper.local_address
-        return local_address if loading_validities.get(local_address, (False,))[0] else None
+    def get_node(self, node_names, expected_load):
+        """ Choose the local node provided that it can support the additional load requested. """
+        self.logger.trace('LocalStrategy: node_names={} expected_load={}'.format(node_names, expected_load))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+        local_node_name = self.supvisors.address_mapper.local_node_name
+        return local_node_name if loading_validity_map.get(local_node_name, (False,))[0] else None
 
 
-def get_address(supvisors, strategy, addresses, expected_loading):
-    """ Creates a strategy and let it find an address to start a process having a defined loading. """
+def get_node(supvisors, strategy, node_rules, expected_load):
+    """ Creates a strategy and let it find a node to start a process having a defined load. """
+    instance = None
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
     if strategy == StartingStrategies.LESS_LOADED:
@@ -125,7 +145,7 @@ def get_address(supvisors, strategy, addresses, expected_loading):
     if strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
     # apply strategy result
-    return instance.get_address(addresses, expected_loading)
+    return instance.get_node(node_rules, expected_load) if instance else None
 
 
 # Strategy management for Conciliation
@@ -133,48 +153,39 @@ class SenicideStrategy(AbstractStrategy):
     """ Strategy designed to stop the oldest processes. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by finding the process that started the
-        most recently and stopping the others """
+        """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
-            # determine running address with lower uptime (the youngest)
-            # uptime is used as there is guarantee that addresses are time synchonized
+            # determine running node with lower uptime (the youngest)
+            # uptime is used as there is guarantee that nodes are time synchronized
             # so comparing start dates may be irrelevant
-            saved_address = min(process.addresses,
-                                key=lambda x: process.infos[x]['uptime'])
-            self.logger.warn('senicide conciliation: keep {} at {}'.format(
-                process.namespec(), saved_address))
+            saved_node = min(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
+            self.logger.warn('SenicideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
-            addresses = process.addresses.copy()
-            addresses.remove(saved_address)
-            for address in addresses:
-                self.logger.debug('senicide conciliation: {} running on {}'
-                                  .format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(
-                    address, process.namespec())
+            running_nodes = process.running_nodes.copy()
+            running_nodes.remove(saved_node)
+            for node_name in running_nodes:
+                self.logger.debug('SenicideStrategy.conciliate: {} running on {}'.format(process.namespec, node_name))
+                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
 
 
 class InfanticideStrategy(AbstractStrategy):
     """ Strategy designed to stop the youngest processes. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by finding the process that started the
-        least recently and stopping the others """
+        """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
-            # determine running address with lower uptime (the youngest)
-            saved_address = max(process.addresses,
-                                key=lambda x: process.infos[x]['uptime'])
-            self.logger.warn('infanticide conciliation: keep {} at {}'
-                             .format(process.namespec(), saved_address))
+            # determine running node with lower uptime (the youngest)
+            saved_node = max(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
+            self.logger.warn('InfanticideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
-            addresses = process.addresses.copy()
-            addresses.remove(saved_address)
-            for address in addresses:
-                self.logger.debug('infanticide conciliation: {} running on {}'
-                                  .format(process.namespec(), address))
-                self.supvisors.zmq.pusher.send_stop_process(
-                    address, process.namespec())
+            running_nodes = process.running_nodes.copy()
+            running_nodes.remove(saved_node)
+            for node_name in running_nodes:
+                self.logger.debug('InfanticideStrategy.conciliate: {} running on {}'
+                                  .format(process.namespec, node_name))
+                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
 
 
 class UserStrategy(AbstractStrategy):
@@ -191,7 +202,7 @@ class StopStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes. """
         for process in conflicts:
-            self.logger.warn('stop conciliation: {}'.format(process.namespec()))
+            self.logger.warn('StopStrategy.conciliate: {}'.format(process.namespec))
             self.supvisors.stopper.stop_process(process)
 
 
@@ -203,11 +214,9 @@ class RestartStrategy(AbstractStrategy):
         # add all processes to be restarted to the failure handler,
         # as it is in its design to restart a process
         for process in conflicts:
-            self.logger.warn('restart conciliation: {}'.format(process.namespec()))
-            self.supvisors.failure_handler.add_job(
-                RunningFailureStrategies.RESTART_PROCESS, process)
-        # trigger the jobs of the failure handler directly (could wait for
-        # next tick)
+            self.logger.warn('RestartStrategy.conciliate: {}'.format(process.namespec))
+            self.supvisors.failure_handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
+        # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
 
 
@@ -221,7 +230,7 @@ class FailureStrategy(AbstractStrategy):
         # stop all processes and add them to the failure handler
         for process in conflicts:
             self.supvisors.stopper.stop_process(process)
-            self.logger.warn('FailureStrategy.conciliate: failure conciliation: {}'.format(process.namespec()))
+            self.logger.warn('FailureStrategy.conciliate: {}'.format(process.namespec))
             self.supvisors.failure_handler.add_default_job(process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -229,6 +238,7 @@ class FailureStrategy(AbstractStrategy):
 
 def conciliate_conflicts(supvisors, strategy, conflicts):
     """ Creates a strategy and let it conciliate the conflicts. """
+    instance = None
     if strategy == ConciliationStrategies.SENICIDE:
         instance = SenicideStrategy(supvisors)
     elif strategy == ConciliationStrategies.INFANTICIDE:
@@ -242,7 +252,8 @@ def conciliate_conflicts(supvisors, strategy, conflicts):
     elif strategy == ConciliationStrategies.RUNNING_FAILURE:
         instance = FailureStrategy(supvisors)
     # apply strategy to conflicts
-    instance.conciliate(conflicts)
+    if instance:
+        instance.conciliate(conflicts)
 
 
 # Strategy management for a Running Failure
@@ -271,7 +282,6 @@ class RunningFailureHandler(AbstractStrategy):
 
     def __init__(self, supvisors):
         AbstractStrategy.__init__(self, supvisors)
-        supvisors_shortcuts(self, ['starter', 'stopper'])
         # the initial jobs
         self.stop_application_jobs = set()
         self.restart_application_jobs = set()
@@ -281,7 +291,7 @@ class RunningFailureHandler(AbstractStrategy):
         self.start_application_jobs = set()
         self.start_process_jobs = set()
 
-    def clear_jobs(self):
+    def abort(self):
         """ Clear all sets. """
         self.stop_application_jobs = set()
         self.restart_application_jobs = set()
@@ -293,86 +303,141 @@ class RunningFailureHandler(AbstractStrategy):
     def add_job(self, strategy, process):
         """ Add a process or the related application name in the relevant set,
         iaw the strategy set in parameter and the priorities defined above. """
+        self.logger.trace('RunningFailureHandler.add_job: START stop_application_jobs={} restart_application_jobs={}'
+                          ' restart_application_jobs={} restart_process_jobs={} continue_process_jobs={}'
+                          ' start_application_jobs={} start_process_jobs={}'
+                          .format(self.stop_application_jobs, self.restart_application_jobs,
+                                  self.restart_application_jobs, self.restart_process_jobs, self.continue_process_jobs,
+                                  self.start_application_jobs, self.start_process_jobs))
         application_name = process.application_name
         if strategy == RunningFailureStrategies.STOP_APPLICATION:
+            self.logger.info('RunningFailureHandler.add_job: adding {} to stop_application_jobs'
+                             .format(application_name))
             self.stop_application_jobs.add(application_name)
-            self.restart_application_jobs = set(filter(lambda x: x != application_name,
-                                                       self.restart_application_jobs))
+            self.restart_application_jobs.discard(application_name)
             self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                    self.restart_process_jobs))
             self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                     self.continue_process_jobs))
         elif strategy == RunningFailureStrategies.RESTART_APPLICATION:
             if application_name not in self.stop_application_jobs:
+                self.logger.info('RunningFailureHandler.add_job: adding {} to restart_application_jobs'
+                                 .format(application_name))
                 self.restart_application_jobs.add(application_name)
                 self.restart_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                        self.restart_process_jobs))
                 self.continue_process_jobs = set(filter(lambda x: x.application_name != application_name,
                                                         self.continue_process_jobs))
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to restart_application_jobs'
+                                 ' because already in stop_application_jobs'.format(application_name))
         elif strategy == RunningFailureStrategies.RESTART_PROCESS:
-            if application_name not in self.stop_application_jobs and \
-                    application_name not in self.restart_application_jobs:
+            if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs):
+                self.logger.info('RunningFailureHandler.add_job: adding {} to restart_process_jobs'
+                                 .format(process.namespec))
                 self.restart_process_jobs.add(process)
                 self.continue_process_jobs.discard(process)
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to restart_process_jobs'
+                                 ' because already in stop_application_jobs or restart_application_jobs'
+                                 .format(application_name))
         elif strategy == RunningFailureStrategies.CONTINUE:
-            if application_name not in self.stop_application_jobs and \
-                    application_name not in self.restart_application_jobs and \
+            if process.application_name not in (self.stop_application_jobs | self.restart_application_jobs) and \
                     process not in self.restart_process_jobs:
+                self.logger.info('RunningFailureHandler.add_job: adding {} to continue_process_jobs'
+                                 .format(process.namespec))
                 self.continue_process_jobs.add(process)
+            else:
+                self.logger.info('RunningFailureHandler.add_job: {} not added to continue_process_jobs'
+                                 ' because already in stop_application_jobs or restart_application_jobs'
+                                 ' or restart_process_jobs'.format(application_name))
+        self.logger.trace('RunningFailureHandler.add_job: END stop_application_jobs={} restart_application_jobs={}'
+                          ' restart_application_jobs={} restart_process_jobs={} continue_process_jobs={}'
+                          ' start_application_jobs={} start_process_jobs={}'
+                          .format(self.stop_application_jobs, self.restart_application_jobs,
+                                  self.restart_application_jobs, self.restart_process_jobs, self.continue_process_jobs,
+                                  self.start_application_jobs, self.start_process_jobs))
 
     def add_default_job(self, process):
         """ Add a process or the related application name in the relevant set,
         iaw the strategy set in process rules and the priorities defined above. """
         self.add_job(process.rules.running_failure_strategy, process)
 
+    def get_job_applications(self) -> bool:
+        """ Get all application names involved in Commanders.
+
+        :return: the list of application names
+        """
+        return self.supvisors.starter.get_job_applications() | self.supvisors.stopper.get_job_applications()
+
     def trigger_jobs(self):
         """ Trigger the configured strategy when a process of a running application crashes. """
+        job_applications = self.get_job_applications()
         # consider applications to stop
         if self.stop_application_jobs:
-            for application_name in self.stop_application_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: stop application {}'
-                                 .format(application_name))
-                application = self.context.applications[application_name]
-                self.stopper.stop_application(application)
-            self.stop_application_jobs = set()
+            for application_name in self.stop_application_jobs.copy():
+                application = self.supvisors.context.applications[application_name]
+                if application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: stop application {} deferred'
+                                      .format(application_name))
+                else:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: stop application {}'
+                                     .format(application_name))
+                    self.stop_application_jobs.remove(application_name)
+                    self.supvisors.stopper.stop_application(application)
         # consider applications to restart
         if self.restart_application_jobs:
-            for application_name in self.restart_application_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'
-                                 .format(application_name))
-                application = self.context.applications[application_name]
-                self.stopper.stop_application(application)
-                # defer the application starting
-                self.start_application_jobs.add(application)
-            self.restart_application_jobs = set()
+            for application_name in self.restart_application_jobs.copy():
+                application = self.supvisors.context.applications[application_name]
+                if application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: restart application {} deferred'
+                                      .format(application_name))
+                else:
+                    self.logger.warn('RunningFailureHandler.trigger_jobs: restart application {}'
+                                     .format(application_name))
+                    self.restart_application_jobs.remove(application_name)
+                    # first stop the application
+                    self.supvisors.stopper.stop_application(application)
+                    # defer the application starting
+                    self.start_application_jobs.add(application)
         # consider processes to restart
         if self.restart_process_jobs:
-            for process in self.restart_process_jobs:
-                self.logger.warn('RunningFailureHandler.trigger_jobs: restart process {}'
-                                 .format(process.namespec()))
-                self.stopper.stop_process(process)
-                # defer the process starting
-                self.start_process_jobs.add(process)
-            self.restart_process_jobs = set()
+            for process in self.restart_process_jobs.copy():
+                if process.application_name in job_applications:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: restart process {} deferred'
+                                      .format(process.namespec))
+                else:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: restart process {}'
+                                     .format(process.namespec))
+                    self.restart_process_jobs.remove(process)
+                    self.supvisors.stopper.stop_process(process)
+                    # defer the process starting
+                    self.start_process_jobs.add(process)
         # consider applications to start
         if self.start_application_jobs:
             for application in self.start_application_jobs.copy():
-                if application.stopped():
-                    self.logger.debug('RunningFailureHandler.trigger_jobs: start application {}'
-                                      .format(application.application_name))
-                    self.starter.default_start_application(application)
+                if application.stopped() and application.application_name not in job_applications:
+                    self.logger.info('RunningFailureHandler.trigger_jobs: start application {}'
+                                     .format(application.application_name))
                     self.start_application_jobs.remove(application)
+                    self.supvisors.starter.default_start_application(application)
+                else:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: start application {} deferred'
+                                      .format(application.application_name))
         # consider processes to start
         if self.start_process_jobs:
             for process in self.start_process_jobs.copy():
-                if process.stopped():
+                if process.stopped() and process.application_name not in job_applications:
                     self.logger.warn('RunningFailureHandler.trigger_jobs: start process {}'
-                                     .format(process.namespec()))
-                    self.starter.default_start_process(process)
+                                     .format(process.namespec))
                     self.start_process_jobs.remove(process)
+                    self.supvisors.starter.default_start_process(process)
+                else:
+                    self.logger.debug('RunningFailureHandler.trigger_jobs: start process {} deferred'
+                                      .format(process.namespec))
         # log only the continuation jobs
         if self.continue_process_jobs:
             for process in self.continue_process_jobs:
                 self.logger.info('RunningFailureHandler.trigger_jobs: continue despite of crashed process {}'
-                                 .format(process.namespec()))
+                                 .format(process.namespec))
             self.continue_process_jobs = set()

@@ -88,7 +88,6 @@ class SupvisorsServerOptions(ServerOptions):
     supervisor configuration file.
 
     Attributes are:
-
         - supvisors_options: the instance holding all Supvisors options,
         - _Section: constant for the name of the Supvisors section in the Supervisor configuration file.
     """
@@ -101,9 +100,7 @@ class SupvisorsServerOptions(ServerOptions):
         self.supvisors_options = SupvisorsOptions()
 
     def _processes_from_section(self, parser, section, group_name, klass=None):
-        """ This method is overridden to:
-            - add attributes to prepare the extra args functionality
-            - store the program number of a homogeneous program.
+        """ This method is overridden to: store the program number of a homogeneous program.
 
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
@@ -185,20 +182,20 @@ class SupvisorsServerOptions(ServerOptions):
     def to_conciliation_strategy(value):
         """ Convert a string into a ConciliationStrategies enum. """
         try:
-            strategy = ConciliationStrategies.from_string(value)
+            strategy = ConciliationStrategies[value]
         except KeyError:
             raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'
-                             .format(value, ConciliationStrategies.strings()))
+                             .format(value, ConciliationStrategies._member_names_))
         return strategy
 
     @staticmethod
     def to_starting_strategy(value):
         """ Convert a string into a StartingStrategies enum. """
         try:
-            strategy = StartingStrategies.from_string(value)
+            strategy = StartingStrategies[value]
         except KeyError:
             raise ValueError('invalid value for starting_strategy: {}. expected in {}'
-                             .format(value, StartingStrategies.strings()))
+                             .format(value, StartingStrategies._member_names_))
         return strategy
 
     @staticmethod

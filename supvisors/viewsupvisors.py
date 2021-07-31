@@ -17,61 +17,63 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 
-from supvisors.strategy import conciliate_conflicts
-from supvisors.ttypes import (AddressStates,
-                              ConciliationStrategies,
-                              SupvisorsStates)
-from supvisors.utils import simple_gmtime
-from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import *
+from .address import AddressStatus
+from .strategy import conciliate_conflicts
+from .ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
+from .utils import simple_gmtime
+from .viewcontext import *
+from .viewhandler import ViewHandler
+from .webutils import *
 
 
 class SupvisorsView(ViewHandler):
     """ Class ensuring the rendering of the Supvisors main page with:
 
-        - a navigation menu towards addresses contents and applications,
+        - a navigation menu towards nodes contents and applications,
         - the state of Supvisors,
         - actions on Supvisors,
-        - a synoptic of the processes running on the different addresses,
+        - a synoptic of the processes running on the different nodes,
         - in CONCILIATION state only, the synoptic is replaced by a table of conflicts with tools to solve them.
     """
+
+    # Annotation types
+    ProcessCallable = Callable[[str, str], Callable]
+    ProcessCallableMap = Dict[str, ProcessCallable]
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
         ViewHandler.__init__(self, context)
-        self.page_name = SUPVISORS_PAGE
+        self.page_name: str = SUPVISORS_PAGE
         # get applicable conciliation strategies
-        self.strategies = {str.lower(x) for x in ConciliationStrategies.strings()}
-        user = ConciliationStrategies.to_string(ConciliationStrategies.USER)
-        self.strategies.remove(user.lower())
+        self.strategies = {str.lower(x) for x in ConciliationStrategies._member_names_}
+        self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
         self.global_methods = {'refresh': self.refresh_action,
                                'sup_restart': self.sup_restart_action,
                                'sup_shutdown': self.sup_shutdown_action}
         # process actions
-        self.process_methods = {'pstop': self.stop_action,
-                                'pkeep': self.keep_action}
+        self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action, 'pkeep': self.keep_action}
 
-    def write_navigation(self, root):
+    def write_navigation(self, root) -> None:
         """ Rendering of the navigation menu. """
         self.write_nav(root)
 
-    def write_header(self, root):
+    def write_header(self, root) -> None:
         """ Rendering of the header part of the Supvisors main page. """
         # set Supvisors state
         elt = root.findmeld('state_mid')
-        elt.content(self.fsm.state_string())
+        elt.content(self.supvisors.fsm.state.name)
 
-    def write_contents(self, root):
+    def write_contents(self, root) -> None:
         """ Rendering of the contents of the Supvisors main page.
         This builds either a synoptic of the processes running on the addresses
         or the table of conflicts if any. """
-        if self.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
-            # remove address boxes
+        if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
+            # remove node boxes
             root.findmeld('boxes_div_mid').replace('')
             # write conflicts
             self.write_conciliation_strategies(root)
@@ -79,34 +81,34 @@ class SupvisorsView(ViewHandler):
         else:
             # remove conflicts table
             root.findmeld('conflicts_div_mid').replace('')
-            # write address boxes
+            # write node boxes
             self.write_node_boxes(root)
 
     # Standard part
-    def _write_node_box_title(self, node_div_elt, status):
+    def _write_node_box_title(self, node_div_elt, status: AddressStatus) -> None:
         """ Rendering of the node box title. """
         # set node name
         elt = node_div_elt.findmeld('node_tda_mid')
         if status.state == AddressStates.RUNNING:
-            # go to web page located on address
-            url = self.view_ctx.format_url(status.address_name, PROC_ADDRESS_PAGE)
+            # go to web page located on node
+            url = self.view_ctx.format_url(status.address_name, PROC_NODE_PAGE)
             elt.attributes(href=url)
-            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_address else '')
+            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_node_name else '')
         elt.content(status.address_name)
         # set state
         elt = node_div_elt.findmeld('state_td_mid')
-        elt.attrib['class'] = status.state_string() + ' state'
-        elt.content(status.state_string())
-        # set loading
+        elt.attrib['class'] = status.state.name + ' state'
+        elt.content(status.state.name)
+        # set node current load
         elt = node_div_elt.findmeld('percent_td_mid')
-        elt.content('{}%'.format(status.loading()))
+        elt.content('{}%'.format(status.get_load()))
 
     @staticmethod
     def _write_node_box_processes(node_div_elt, status):
         """ Rendering of the node box running processes. """
         appli_tr_mid = node_div_elt.findmeld('appli_tr_mid')
         running_processes = status.running_processes()
-        application_names = {process.application_name for process in running_processes}
+        application_names = sorted({process.application_name for process in running_processes})
         if application_names:
             shaded_tr = False
             for appli_tr_elt, application_name in appli_tr_mid.repeat(application_names):
@@ -130,10 +132,10 @@ class SupvisorsView(ViewHandler):
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
         node_div_mid = root.findmeld('node_div_mid')
-        addresses = self.address_mapper.addresses
-        for node_div_elt, node in node_div_mid.repeat(addresses):
+        node_names = self.supvisors.address_mapper.node_names
+        for node_div_elt, node_name in node_div_mid.repeat(node_names):
             # get node status from Supvisors context
-            status = self.sup_ctx.addresses[node]
+            status = self.sup_ctx.nodes[node_name]
             # write box_title
             self._write_node_box_title(node_div_elt, status)
             # fill with running processes
@@ -147,7 +149,7 @@ class SupvisorsView(ViewHandler):
         for li_elt, item in global_strategy_li_mid.repeat(self.strategies):
             elt = li_elt.findmeld('global_strategy_a_mid')
             # conciliation requests MUST be sent to MASTER and namespec MUST be reset
-            master = self.sup_ctx.master_address
+            master = self.sup_ctx.master_node_name
             parameters = {NAMESPEC: '', ACTION: item}
             url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
@@ -155,12 +157,12 @@ class SupvisorsView(ViewHandler):
 
     def get_conciliation_data(self):
         """ Get information about all conflicting processes. """
-        return [{'namespec': process.namespec(),
-                 'rowspan': len(process.addresses) if idx == 0 else 0,
-                 'address': address,
-                 'uptime': process.infos[address]['uptime']}
+        return [{'namespec': process.namespec,
+                 'rowspan': len(process.running_nodes) if idx == 0 else 0,
+                 'node_name': node_name,
+                 'uptime': process.info_map[node_name]['uptime']}
                 for process in self.sup_ctx.conflicts()
-                for idx, address in enumerate(process.addresses)]
+                for idx, node_name in enumerate(sorted(process.running_nodes))]
 
     def write_conciliation_table(self, root):
         """ Rendering of the conflicts table. """
@@ -178,12 +180,13 @@ class SupvisorsView(ViewHandler):
             apply_shade(tr_elt, shaded_tr)
             # write information and actions
             self._write_conflict_name(tr_elt, item, shaded_tr)
-            self._write_conflict_address(tr_elt, item)
+            self._write_conflict_node(tr_elt, item)
             self._write_conflict_uptime(tr_elt, item)
             self._write_conflict_process_actions(tr_elt, item)
             self._write_conflict_strategies(tr_elt, item, shaded_tr)
 
-    def _write_conflict_name(self, tr_elt, info, shaded_tr):
+    @staticmethod
+    def _write_conflict_name(tr_elt, info, shaded_tr):
         """ In a conflicts table, write the process name in conflict. """
         elt = tr_elt.findmeld('name_td_mid')
         rowspan = info['rowspan']
@@ -196,15 +199,16 @@ class SupvisorsView(ViewHandler):
         else:
             elt.replace('')
 
-    def _write_conflict_address(self, tr_elt, info):
-        """ In a conflicts table, write the address where runs the process in conflict. """
-        address = info['address']
+    def _write_conflict_node(self, tr_elt, info):
+        """ In a conflicts table, write the node name where runs the process in conflict. """
+        node_name = info['node_name']
         elt = tr_elt.findmeld('caddress_a_mid')
-        url = self.view_ctx.format_url(address, PROC_ADDRESS_PAGE)
+        url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
         elt.attributes(href=url)
-        elt.content(address)
+        elt.content(node_name)
 
-    def _write_conflict_uptime(self, tr_elt, info):
+    @staticmethod
+    def _write_conflict_uptime(tr_elt, info):
         """ In a conflicts table, write the uptime of the process in conflict. """
         elt = tr_elt.findmeld('uptime_td_mid')
         elt.content(simple_gmtime(info['uptime']))
@@ -212,10 +216,10 @@ class SupvisorsView(ViewHandler):
     def _write_conflict_process_actions(self, tr_elt, info):
         """ In a conflicts table, write the actions that can be requested on the process in conflict. """
         namespec = info['namespec']
-        address = info['address']
+        node_name = info['node_name']
         for action in self.process_methods.keys():
             elt = tr_elt.findmeld(action + '_a_mid')
-            parameters = {NAMESPEC: namespec, ADDRESS: address, ACTION: action}
+            parameters = {NAMESPEC: namespec, NODE: node_name, ACTION: action}
             url = self.view_ctx.format_url('', SUPVISORS_PAGE, **parameters)
             elt.attributes(href=url)
 
@@ -235,7 +239,7 @@ class SupvisorsView(ViewHandler):
             for li_elt, st_item in strategy_iterator:
                 elt = li_elt.findmeld('local_strategy_a_mid')
                 # conciliation requests MUST be sent to MASTER
-                master = self.sup_ctx.master_address
+                master = self.sup_ctx.master_node_name
                 parameters = {NAMESPEC: namespec, ACTION: st_item}
                 url = self.view_ctx.format_url(master, SUPVISORS_PAGE, **parameters)
                 elt.attributes(href=url)
@@ -243,7 +247,7 @@ class SupvisorsView(ViewHandler):
         else:
             td_elt.replace('')
 
-    def make_callback(self, namespec, action):
+    def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested. """
         # global actions (no parameter)
         if action in self.global_methods:
@@ -253,18 +257,18 @@ class SupvisorsView(ViewHandler):
             return self.conciliation_action(namespec, action.upper())
         # process actions
         if action in self.process_methods:
-            address = self.view_ctx.get_address()
-            return self.process_methods[action](namespec, address)
+            node_name = self.view_ctx.get_node_name()
+            return self.process_methods[action](namespec, node_name)
 
     @staticmethod
-    def refresh_action():
+    def refresh_action() -> Callable:
         """ Refresh web page. """
         return delayed_info('Page refreshed')
 
     def sup_restart_action(self):
         """ Restart all Supervisor instances. """
         try:
-            cb = self.info_source.supvisors_rpc_interface.restart()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.restart()
         except RPCError as e:
             return delayed_error('restart: {}'.format(e))
         if callable(cb):
@@ -284,7 +288,7 @@ class SupvisorsView(ViewHandler):
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
         try:
-            cb = self.info_source.supvisors_rpc_interface.shutdown()
+            cb = self.supvisors.info_source.supvisors_rpc_interface.shutdown()
         except RPCError as e:
             return delayed_error('shutdown: {}'.format(e))
         if callable(cb):
@@ -301,33 +305,33 @@ class SupvisorsView(ViewHandler):
             return onwait
         return delayed_info('Supvisors shut down')
 
-    def stop_action(self, namespec, address):
+    def stop_action(self, namespec: str, node_name: str) -> Callable:
         """ Stop the conflicting process. """
-        # get running addresses of process
-        addresses = self.sup_ctx.processes[namespec].addresses
-        self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+        # get running nodes of process
+        running_nodes = self.sup_ctx.get_process(namespec).running_nodes
+        self.supvisors.zmq.pusher.send_stop_process(node_name, namespec)
 
         def on_wait():
-            if address in addresses:
+            if node_name in running_nodes:
                 return NOT_DONE_YET
-            return info_message('process {} stopped on {}'.format(namespec, address))
+            return info_message('process {} stopped on {}'.format(namespec, node_name))
 
         on_wait.delay = 0.1
         return on_wait
 
-    def keep_action(self, namespec, kept_address):
-        """ Stop the conflicting processes excepted the one running on address. """
-        # get running addresses of process
-        addresses = self.sup_ctx.processes[namespec].addresses
-        running_addresses = addresses.copy()
-        running_addresses.remove(kept_address)
-        for address in running_addresses:
-            self.supvisors.zmq.pusher.send_stop_process(address, namespec)
+    def keep_action(self, namespec: str, kept_node_name: str) -> Callable:
+        """ Stop the conflicting processes excepted the one running on node. """
+        # get running nodes of process
+        running_nodes = self.sup_ctx.get_process(namespec).running_nodes
+        running_nodes_copy = running_nodes.copy()
+        running_nodes_copy.remove(kept_node_name)
+        for node_name in running_nodes_copy:
+            self.supvisors.zmq.pusher.send_stop_process(node_name, namespec)
 
         def on_wait():
-            if len(addresses) > 1:
+            if len(running_nodes) > 1:
                 return NOT_DONE_YET
-            return info_message('processes {} stopped but on {}'.format(namespec, kept_address))
+            return info_message('processes {} stopped but on {}'.format(namespec, kept_node_name))
 
         on_wait.delay = 0.1
         return on_wait
@@ -336,13 +340,9 @@ class SupvisorsView(ViewHandler):
         """ Performs the automatic conciliation to solve the conflicts. """
         if namespec:
             # conciliate only one process
-            conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies.from_string(action),
-                                 [self.sup_ctx.processes[namespec]])
+            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], [self.sup_ctx.get_process(namespec)])
             return delayed_info('{} in progress for {}'.format(action, namespec))
         else:
             # conciliate all conflicts
-            conciliate_conflicts(self.supvisors,
-                                 ConciliationStrategies.from_string(action),
-                                 self.sup_ctx.conflicts())
+            conciliate_conflicts(self.supvisors, ConciliationStrategies[action], self.sup_ctx.conflicts())
             return delayed_info('{} in progress for all conflicts'.format(action))

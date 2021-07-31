@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # ======================================================================
 # Copyright 2016 Julien LE CLEACH
@@ -17,15 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-import os
 import signal
 import sys
-import unittest
 
-from supervisor.childutils import getRPCInterface
-
-from scripts.event_queues import SupvisorsEventQueues
-from scripts.sequence_checker import *
+from .sequence_checker import *
 
 
 class CheckStopSequenceTest(CheckSequenceTest):
@@ -38,26 +33,27 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # store a proxy to perform XML-RPC requests
         self.proxy = getRPCInterface(os.environ)
         # wait for address_queue to trigger
-        self.get_addresses()
+        self.get_nodes()
         # define the context to know which process is running
         self.create_context()
-        # start a converter
+        # start a converter to sync
         self.proxy.supvisors.start_args('my_movies:converter_05')
         # empty queues (pull STARTING / RUNNING events)
         self.check_converter_running()
         # send restart request
         self.proxy.supvisors.restart()
-        # test the starting of web_movies application
+        # test the stopping of service application
+        # self.check_service_stopping()
+        # test the stopping of web_movies application
         self.check_web_movies_stopping()
-        # test the starting of my_movies application
+        # test the stopping of my_movies application
         self.check_my_movies_stopping()
-        # test the starting of database application
+        # test the stopping of database application
         self.check_database_stopping()
         # cannot test the last events received for this process
 
     def create_context(self):
-        """ Store info and rules about the running processes of the application
-        considered. """
+        """ Store info and rules about the running processes of the application considered. """
         # get info about all processes
         info_list = self.proxy.supvisors.get_all_process_info()
         # define applications and programs
@@ -65,8 +61,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
             # required is set later. wait_exit is not used here
             program = Program(info['process_name'])
             program.state = info['statecode']
-            program.address =  next((address for address in info['addresses']),
-                                    None)
+            program.node_names = set(info['addresses'])
             application = self.context.get_application(info['application_name'])
             if not application:
                 # create application if not found
@@ -81,10 +76,27 @@ class CheckStopSequenceTest(CheckSequenceTest):
         """ Check the start sequence of the converter program. """
         # define the expected events for this process
         program = self.context.get_program('my_movies:converter_05')
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING,
-                                            self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING,
-                                            self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        # test the events received are compliant
+        self.check_events()
+        self.assertFalse(self.context.has_events())
+
+    def check_service_stopping(self):
+        """ Check the stopping sequence of the service application.
+        This one is complex to test as there may ne multiple instances running for the same program. """
+        program = self.context.get_program('service:disk_handler')
+        if program.state in RUNNING_STATES:
+            node_names = program.node_names.copy()
+            # event sequence on nodes is quite unpredictible so test only process states
+            while len(node_names) > 1:
+                # STOPPING then STOPPED on one node in list. still RUNNING on others
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
+                program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
+                node_names.pop()
+            # STOPPING then STOPPED on last node
+            program.add_event(ProcessStateEvent(ProcessStates.STOPPING))
+            program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -93,8 +105,9 @@ class CheckStopSequenceTest(CheckSequenceTest):
         """ Check the stopping sequence of the web_movies application. """
         program = self.context.get_program('web_movies:web_browser')
         if program.state in RUNNING_STATES:
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPING, program.address))
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+            for node_name in program.node_names:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -105,46 +118,43 @@ class CheckStopSequenceTest(CheckSequenceTest):
         application = self.context.get_application('my_movies')
         # check processes in stop_sequence 0
         for program in application.programs.values():
-            if program.program_name not in ['hmi', 'manager'] and \
-                program.state in RUNNING_STATES:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                    program.address))
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+            if program.program_name not in ['hmi', 'manager'] and program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
         # check processes in stop_sequence 1
         program = application.get_program('hmi')
         if program.state in RUNNING_STATES:
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                program.address))
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+            for node_name in program.node_names:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
         # check processes in stop_sequence 2
         program = application.get_program('manager')
         if program.state in RUNNING_STATES:
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                program.address))
-            program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+            for node_name in program.node_names:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
 
     def check_database_stopping(self):
-        """ Check the stopping sequence of the databse application. """
+        """ Check the stopping sequence of the database application. """
         # get database application
         application = self.context.get_application('database')
         # check movie_server_processes
         for program in application.programs.values():
-            if program.program_name in ['movie_server_01',
-                                        'movie_server_02',
-                                        'movie_server_03'] and \
-                program.state in RUNNING_STATES:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING,
-                                                    program.address))
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+            if program.program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03'] \
+                    and program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -156,17 +166,16 @@ class CheckStopSequenceTest(CheckSequenceTest):
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
 
+
 if __name__ == '__main__':
     # catch supervisor termination signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # get arguments
     import argparse
-    parser = argparse.ArgumentParser(
-        description='Check the stopping sequence using Supvisors events.')
+    parser = argparse.ArgumentParser(description='Check the stopping sequence using Supvisors events.')
     parser.add_argument('-p', '--port', type=int, default=60002,
                         help="the event port of Supvisors")
     args = parser.parse_args()
     SupvisorsEventQueues.PORT = args.port
     # start unittest
     unittest.main(defaultTest='test_suite')
-

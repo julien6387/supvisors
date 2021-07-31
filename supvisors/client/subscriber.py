@@ -28,7 +28,7 @@ from supvisors.utils import EventHeaders
 
 
 def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
-                  fmt='%(asctime)s %(levelname)s %(message)s\n',
+                  fmt='%(asctime)s;%(levelname)s;%(message)s\n',
                   rotating=True, maxbytes=10 * 1024 * 1024, backups=1, stdout=True):
     """ Return a Supervisor logger. """
     logger = loggers.getLogger(loglevel)
@@ -39,30 +39,25 @@ def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
 
 
 class SupvisorsEventInterface(threading.Thread):
-    """ The SupvisorsEventInterface is a python thread that connects
-    to **Supvisors** and receives the events published.
+    """ The SupvisorsEventInterface is a python thread that connects to **Supvisors** and receives the events published.
     The subscriber attribute shall be used to define the event types of interest.
 
     The SupvisorsEventInterface requires:
-
         - a ZeroMQ context,
         - the event port number used by **Supvisors** to publish its events,
         - a logger reference to log traces.
 
-    This event port number MUST correspond to the ``event_port`` value set
-    in the ``[supvisors]`` section of the Supervisor configuration file.
+    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]`` section of the Supervisor configuration file.
 
     The default behaviour is to print the messages received.
     For any other behaviour, just specialize the methods `on_xxx_status`.
 
     Attributes:
-
         - logger: the reference to the logger,
         - subscriber: the wrapper of the ZeroMQ socket connected to **Supvisors**,
         - stop_event: when set, breaks the infinite loop of the thread.
 
     Constants:
-
         - _Poll_timeout: duration used to time out the ZeroMQ poller, defaulted to 500 milli-seconds.
     """
 
@@ -76,6 +71,8 @@ class SupvisorsEventInterface(threading.Thread):
         self.zmq_context = zmq_context
         self.event_port = event_port
         self.logger = logger
+        # subscriber will be created in the thread
+        self.subscriber = None
         # create stop event
         self.stop_event = threading.Event()
 
@@ -97,14 +94,12 @@ class SupvisorsEventInterface(threading.Thread):
         while not self.stop_event.is_set():
             socks = dict(poller.poll(self._Poll_timeout))
             # check if something happened on the socket
-            if self.subscriber.socket in socks and \
-                    socks[self.subscriber.socket] == zmq.POLLIN:
+            if self.subscriber.socket in socks and socks[self.subscriber.socket] == zmq.POLLIN:
                 self.logger.debug('got message on subscriber')
                 try:
                     message = self.subscriber.receive()
                 except Exception as e:
-                    self.logger.error(
-                        'failed to get data from subscriber: {}'.format(e.message))
+                    self.logger.error('failed to get data from subscriber: {}'.format(e.message))
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
@@ -130,7 +125,7 @@ class SupvisorsEventInterface(threading.Thread):
 
     def on_address_status(self, data):
         """ Just logs the contents of the Address Status message. """
-        self.logger.info('got Address Status message: {}'.format(data))
+        self.logger.info('got AddressStatus message: {}'.format(data))
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """
