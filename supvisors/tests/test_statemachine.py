@@ -566,11 +566,13 @@ def test_process_event(mocker, fsm):
     fsm.supvisors.context._is_master = False
     fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert not mocked_start_evt.called
-    assert not mocked_stop_evt.called
+    assert mocked_start_evt.call_args_list == [call(process)]
+    assert mocked_stop_evt.call_args_list == [call(process)]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
+    mocked_start_evt.reset_mock()
+    mocked_stop_evt.reset_mock()
     # reset master
     fsm.supvisors.context._is_master = True
     fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
