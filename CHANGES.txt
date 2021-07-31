@@ -7,6 +7,8 @@
 
 * Upon authorization of a new node in Supvisors, back to DEPLOYMENT state to repair applications
 
+* Add RPC change_log_level to dynamically change the Supvisors log level
+
 * Application state is evaluated against the starting sequence of its processes only
 
 * Fixed issue with when Master is stopped while in DEPLOYMENT state

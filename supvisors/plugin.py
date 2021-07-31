@@ -25,19 +25,19 @@ from supervisor.options import ServerOptions
 from supervisor.web import VIEWS, StatusView
 from supervisor.xmlrpc import Faults
 
-from supvisors.initializer import Supvisors
-from supvisors.rpcinterface import RPCInterface
-from supvisors.viewapplication import ApplicationView
-from supvisors.viewhandler import ViewHandler
-from supvisors.viewhostaddress import HostAddressView
-from supvisors.viewimage import *
-from supvisors.viewprocaddress import ProcAddressView
-from supvisors.viewsupvisors import SupvisorsView
+from .initializer import Supvisors
+from .rpcinterface import RPCInterface
+from .viewapplication import ApplicationView
+from .viewhandler import ViewHandler
+from .viewhostaddress import HostAddressView
+from .viewimage import *
+from .viewprocaddress import ProcAddressView
+from .viewsupvisors import SupvisorsView
 
 
 # Supvisors related faults
 class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_EXTRA_ARGUMENTS = range(5)
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_LEVEL, BAD_EXTRA_ARGUMENTS = range(6)
 
 
 FAULTS_OFFSET = 100
@@ -54,37 +54,19 @@ def update_views():
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
     # set main page
-    VIEWS['index.html'] = {
-        'template': os.path.join(here, 'ui/index.html'),
-        'view': SupvisorsView}
+    VIEWS['index.html'] = {'template': os.path.join(here, 'ui/index.html'), 'view': SupvisorsView}
     # set address /processpage
-    VIEWS['procaddress.html'] = {
-        'template': os.path.join(here, 'ui/procaddress.html'),
-        'view': ProcAddressView}
+    VIEWS['procaddress.html'] = {'template': os.path.join(here, 'ui/procaddress.html'), 'view': ProcAddressView}
     # set address/host page
-    VIEWS['hostaddress.html'] = {
-        'template': os.path.join(here, 'ui/hostaddress.html'),
-        'view': HostAddressView}
+    VIEWS['hostaddress.html'] = {'template': os.path.join(here, 'ui/hostaddress.html'),'view': HostAddressView}
     # set application page
-    VIEWS['application.html'] = {
-        'template': os.path.join(here, 'ui/application.html'),
-        'view': ApplicationView}
+    VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set fake page to export images
-    VIEWS['process_cpu.png'] = {
-        'template': None,
-        'view': ProcessCpuImageView}
-    VIEWS['process_mem.png'] = {
-        'template': None,
-        'view': ProcessMemoryImageView}
-    VIEWS['address_cpu.png'] = {
-        'template': None,
-        'view': AddressCpuImageView}
-    VIEWS['address_mem.png'] = {
-        'template': None,
-        'view': AddressMemoryImageView}
-    VIEWS['address_io.png'] = {
-        'template': None,
-        'view': AddressNetworkImageView}
+    VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
+    VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}
+    VIEWS['address_cpu.png'] = {'template': None, 'view': AddressCpuImageView}
+    VIEWS['address_mem.png'] = {'template': None, 'view': AddressMemoryImageView}
+    VIEWS['address_io.png'] = {'template': None, 'view': AddressNetworkImageView}
 
 
 def cleanup_fds(self):

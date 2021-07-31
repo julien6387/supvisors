@@ -22,11 +22,12 @@ import socket
 
 from supervisor import xmlrpc
 from supervisor.compat import xmlrpclib
+from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import split_namespec
 from supervisor.states import getProcessStateDescription
 from supervisor.supervisorctl import ControllerPluginBase
 
-from .rpcinterface import API_VERSION
+from .rpcinterface import API_VERSION, RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies
 from .utils import simple_localtime
 
@@ -35,7 +36,7 @@ class ControllerPlugin(ControllerPluginBase):
     """ The ControllerPlugin is the implementation of the Supvisors plugin
     that is embodied in the supervisorctl command. """
 
-    def supvisors(self):
+    def supvisors(self) -> RPCInterface:
         """ Get a proxy to the Supvisors RPC interface. """
         return self.ctl.get_server_proxy('supvisors')
 
@@ -51,8 +52,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sversion(self):
         """ Print the help of the sversion command."""
-        self.ctl.output("sversion\t\t\t\t"
-                        "Get the API version of Supvisors.")
+        self.ctl.output("sversion\t\t\t\tGet the API version of Supvisors.")
 
     def do_sstate(self, _):
         """ Command to get the Supvisors state. """
@@ -68,8 +68,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sstate(self):
         """ Print the help of the sstate command."""
-        self.ctl.output("sstate\t\t\t\t\t"
-                        "Get the Supvisors state.")
+        self.ctl.output("sstate\t\t\t\t\tGet the Supvisors state.")
 
     def do_master(self, _):
         """ Command to get the Supvisors master address. """
@@ -83,8 +82,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_master(self):
         """ Print the help of the master command."""
-        self.ctl.output("master\t\t\t\t\t"
-                        "Get the Supvisors master address.")
+        self.ctl.output("master\t\t\t\t\tGet the Supvisors master address.")
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -103,8 +101,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_strategies(self):
         """ Print the help of the strategies command."""
-        self.ctl.output("strategies\t\t\t\t\t"
-                        "Get the Supvisors strategies.")
+        self.ctl.output("strategies\t\t\t\t\tGet the Supvisors strategies.")
 
     def do_address_status(self, arg):
         """ Command to get the status of addresses known to Supvisors. """
@@ -404,8 +401,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conflicts(self):
         """ Print the help of the conflicts command."""
-        self.ctl.output("conflicts\t\t\t\t"
-                        "Get the Supvisors conflicts.")
+        self.ctl.output("conflicts\t\t\t\tGet the Supvisors conflicts.")
 
     def do_start_application(self, arg):
         """ Command to start Supvisors applications using a strategy and rules. """
@@ -706,8 +702,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
         self.ctl.output("Conciliate Supvisors conflicts.")
-        self.ctl.output("conciliate strategy\t\t\t\t\t"
-                        "Conciliate process conflicts using strategy")
+        self.ctl.output("conciliate strategy\t\t\t\t\tConciliate process conflicts using strategy")
 
     def do_sreload(self, _):
         """ Command to restart Supvisors on all addresses. """
@@ -722,8 +717,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_sreload(self):
         """ Print the help of the sreload command."""
         self.ctl.output("Restart Supvisors.")
-        self.ctl.output("sreload\t\t\t\t\t"
-                        "Restart all remote supervisord")
+        self.ctl.output("sreload\t\t\t\t\tRestart all remote supervisord")
 
     def do_sshutdown(self, _):
         """ Command to shutdown Supvisors on all addresses. """
@@ -738,8 +732,33 @@ class ControllerPlugin(ControllerPluginBase):
     def help_sshutdown(self):
         """ Print the help of the sshutdown command."""
         self.ctl.output("Shutdown Supvisors.")
-        self.ctl.output("sshutdown\t\t\t\t"
-                        "Shut all remote supervisord down")
+        self.ctl.output("sshutdown\t\t\t\tShut all remote supervisord down")
+
+    def do_loglevel(self, arg):
+        """ Command to change the level of the local Supvisors. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 1:
+                self.ctl.output('ERROR: loglevel requires a level')
+                self.help_loglevel()
+                return
+            level = getLevelNumByDescription(args[0])
+            if level is None:
+                self.ctl.output('ERROR: unknown level for Logger.')
+                self.help_loglevel()
+                return
+            try:
+                result = self.supvisors().change_log_level(level)
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Logger level changed: {}'.format(result))
+
+    def help_loglevel(self):
+        """ Print the help of the loglevel command."""
+        self.ctl.output('Change the level of local Supvisors\' logger.')
+        self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
+        self.ctl.output('\t\t\t\t\t\t\tApplicable values are: {}.'.format(LOG_LEVELS_BY_NUM.values()))
 
     def _upcheck(self):
         """ Check of the API versions. """

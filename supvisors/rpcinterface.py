@@ -19,9 +19,10 @@
 
 import os
 
-from typing import Union
+from typing import Dict, Union
 
 from supervisor.http import NOT_DONE_YET
+from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, LOG_LEVELS_BY_NUM, getLevelNumByDescription
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -43,7 +44,7 @@ class RPCInterface(object):
     """ This class holds the XML-RPC extension provided by **Supvisors**. """
 
     # type for any enumeration RPC parameter
-    StrategyType = Union[str, int]
+    EnumParameterType = Union[str, int]
 
     def __init__(self, supvisors):
         """ Initialization of the attributes.
@@ -51,7 +52,7 @@ class RPCInterface(object):
         :param supvisors: the global Supvisors structure
         """
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        self.logger: Logger = supvisors.logger
 
     # RPC Status methods
     def get_api_version(self):
@@ -97,19 +98,19 @@ class RPCInterface(object):
         return [self.get_address_info(node_name)
                 for node_name in sorted(self.supvisors.context.nodes.keys())]
 
-    def get_address_info(self, node):
+    def get_address_info(self, node_name):
         """ Get information about the **Supvisors** instance running on the host named node.
 
-        *@param* ``str node``: the node where the Supervisor daemon is running.
+        *@param* ``str node_name``: the node where the Supervisor daemon is running.
 
         *@throws* ``RPCError``: with code ``Faults.BAD_ADDRESS`` if node is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
-            status = self.supvisors.context.nodes[node]
+            status = self.supvisors.context.nodes[node_name]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS, 'node {} unknown to Supvisors'.format(node))
+            raise RPCError(Faults.BAD_ADDRESS, 'node {} unknown to Supvisors'.format(node_name))
         return status.serial()
 
     def get_all_applications_info(self):
@@ -241,7 +242,7 @@ class RPCInterface(object):
         return [process.serial() for process in self.supvisors.context.conflicts()]
 
     # RPC Command methods
-    def start_application(self, strategy: StrategyType, application_name, wait=True):
+    def start_application(self, strategy: EnumParameterType, application_name, wait=True):
         """ Start the application named application_name iaw the strategy and the rules file.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
@@ -330,7 +331,7 @@ class RPCInterface(object):
         # if done is True, nothing to do
         return not done
 
-    def restart_application(self, strategy: StrategyType, application_name, wait=True):
+    def restart_application(self, strategy: EnumParameterType, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
@@ -419,7 +420,7 @@ class RPCInterface(object):
             raise
         return cb
 
-    def start_process(self, strategy: StrategyType, namespec, extra_args='', wait=True):
+    def start_process(self, strategy: EnumParameterType, namespec, extra_args='', wait=True):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
@@ -513,7 +514,7 @@ class RPCInterface(object):
             return onwait  # deferred
         return True
 
-    def restart_process(self, strategy: StrategyType, namespec, extra_args='', wait=True):
+    def restart_process(self, strategy: EnumParameterType, namespec, extra_args='', wait=True):
         """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
@@ -558,7 +559,7 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait  # deferred
 
-    def conciliate(self, strategy: StrategyType):
+    def conciliate(self, strategy: EnumParameterType) -> bool:
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state, with a USER strategy.
 
         *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate, as a string or as a value.
@@ -578,7 +579,7 @@ class RPCInterface(object):
             return True
         return False
 
-    def restart(self):
+    def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
         *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
@@ -589,7 +590,7 @@ class RPCInterface(object):
         self.supvisors.fsm.on_restart()
         return True
 
-    def shutdown(self):
+    def shutdown(self) -> bool:
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
         *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
@@ -600,19 +601,35 @@ class RPCInterface(object):
         self.supvisors.fsm.on_shutdown()
         return True
 
+    def change_log_level(self, level_param: LevelsByName) -> bool:
+        """ Change the logger level for the local Supvisors.
+        If Supvisors logger is configured as AUTO, this will impact the Supervisor logger too.
+
+        *@param* ``LevelsByName level``: the new logger level, as a string or as a value.
+
+        *@throws* ``RPCError``: with code ``Faults.BAD_LEVEL`` if level is unknown to **Supervisor**.
+
+        *@return* ``bool``: always ``True`` unless error.
+        """
+        level = self._get_logger_level(level_param)
+        self.logger.level = level
+        for handler in self.logger.handlers:
+            handler.level = level
+        return True
+
     # utilities
     @staticmethod
-    def _get_starting_strategy(strategy: StrategyType) -> StartingStrategies:
+    def _get_starting_strategy(strategy: EnumParameterType) -> StartingStrategies:
         """ Check if the strategy given can fit to a StartingStrategies enum. """
         return RPCInterface._get_strategy(strategy, StartingStrategies)
 
     @staticmethod
-    def _get_conciliation_strategy(strategy: StrategyType) -> ConciliationStrategies:
+    def _get_conciliation_strategy(strategy: EnumParameterType) -> ConciliationStrategies:
         """ Check if the strategy given can fit to a ConciliationStrategies enum. """
         return RPCInterface._get_strategy(strategy, ConciliationStrategies)
 
     @staticmethod
-    def _get_strategy(strategy: StrategyType, enum_klass: EnumClassType) -> EnumType:
+    def _get_strategy(strategy: EnumParameterType, enum_klass: EnumClassType) -> EnumType:
         """ Check if the strategy given can fit to string or value of the StartingStrategies enum. """
         # check by string
         try:
@@ -623,6 +640,23 @@ class RPCInterface(object):
                 return enum_klass(strategy)
             except ValueError:
                 raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+
+    @staticmethod
+    def _get_logger_levels() -> Dict[LevelsByName, str]:
+        return {level: desc for desc, level in LevelsByDescription.__dict__.items() if not desc.startswith('_')}
+
+    @staticmethod
+    def _get_logger_level(level_param: EnumParameterType) -> EnumType:
+        """ Check if the strategy given can fit to string or value of the StartingStrategies enum. """
+        # check by string
+        if type(level_param) is str:
+            level = getLevelNumByDescription(level_param)
+            if level is not None:
+                return level
+        # check by value
+        if RPCInterface._get_logger_levels().get(level_param) is None:
+            raise RPCError(Faults.BAD_LEVEL, '{}'.format(level_param))
+        return level_param
 
     def _check_from_deployment(self):
         """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """

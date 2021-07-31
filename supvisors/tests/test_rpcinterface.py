@@ -19,6 +19,7 @@
 
 import pytest
 
+from supervisor.loggers import LOG_LEVELS_BY_NUM
 from unittest.mock import call, Mock
 
 from supvisors.plugin import expand_faults
@@ -802,6 +803,27 @@ def test_shutdown(mocker, rpc):
     assert rpc.shutdown()
     assert mocked_check.call_args_list == [call()]
     assert rpc.supvisors.fsm.on_shutdown.call_args_list == [call()]
+
+
+def test_change_log_level(rpc):
+    """ Test the change_log_level RPC. """
+    ref_level = rpc.logger.level
+    # test RPC call with unknown level
+    with pytest.raises(RPCError) as exc:
+        rpc.change_log_level(22)
+    assert exc.value.args == (Faults.BAD_LEVEL, '22')
+    assert rpc.logger.level == ref_level
+    # test RPC call with known level by enum
+    for new_level in LOG_LEVELS_BY_NUM:
+        assert rpc.change_log_level(new_level)
+        assert rpc.logger.level == new_level
+        assert rpc.logger.handlers[0].level == new_level
+    # test RPC call with known level by enum
+    for new_level in RPCInterface._get_logger_levels().values():
+        assert rpc.change_log_level(new_level)
+        level = getLevelNumByDescription(new_level)
+        assert rpc.logger.level == level
+        assert rpc.logger.handlers[0].level == level
 
 
 def test_check_state(rpc):

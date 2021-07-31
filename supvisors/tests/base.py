@@ -26,7 +26,7 @@ from unittest.mock import Mock
 from supervisor.datatypes import Automatic
 from supervisor.loggers import LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import RUNNING_STATES, STOPPED_STATES
+from supervisor.states import STOPPED_STATES
 
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
@@ -78,7 +78,7 @@ class MockedSupvisors:
         """ Use a dummy address mapper and options. """
         self.address_mapper = DummyAddressMapper()
         self.options = DummyOptions()
-        self.logger = Mock(spec=Logger, level=10)
+        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
         # build context from address mapper
         from supvisors.context import Context
         self.context = Context(self)

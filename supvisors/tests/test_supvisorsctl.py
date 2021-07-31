@@ -21,10 +21,10 @@ import pytest
 
 from unittest.mock import call, Mock
 
+from supervisor.loggers import LevelsByDescription
 from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
 
-from supvisors.rpcinterface import RPCInterface
 from supvisors.supvisorsctl import *
 
 
@@ -470,6 +470,25 @@ def test_sshutdown(controller, plugin, mocked_check):
     """ Test the sshutdown request. """
     mocked_rpc = plugin.supvisors().shutdown
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sshutdown, plugin.do_sshutdown, '', [call()])
+
+
+def test_loglevel(controller, plugin, mocked_check):
+    """ Test the loglevel request. """
+    mocked_rpc = plugin.supvisors().change_log_level
+    # test the request without parameter
+    plugin.do_loglevel('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    plugin.do_loglevel('logger')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    for code, level in RPCInterface._get_logger_levels().items():
+        _check_call(controller, mocked_check, mocked_rpc, plugin.help_loglevel, plugin.do_loglevel,
+                    level, [call(code)])
 
 
 def test_upcheck(controller, plugin):

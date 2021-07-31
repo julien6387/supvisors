@@ -57,7 +57,7 @@ Status
             'starting'         ``str``   The starting strategy applied when **Supvisors** is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
-        .. automethod:: get_address_info(address_name)
+        .. automethod:: get_address_info(node_name)
 
             ================== ========= ===========
             Key                Type      Description
@@ -164,6 +164,8 @@ Status
   .. autoclass:: RPCInterface
     :noindex:
 
+        .. automethod:: change_log_level(level_param)
+
         .. automethod:: conciliate(strategy)
 
         .. automethod:: restart()
@@ -241,7 +243,7 @@ This is available in **Supvisors** and works for all nodes with a Supervisor dae
     import os
     from supvisors.rpcrequests import getRPCInterface
 
-    proxy = getRPCInterface(address, os.environ)
+    proxy = getRPCInterface(node_name, os.environ)
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 
