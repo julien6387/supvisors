@@ -58,8 +58,10 @@ def test_write_contents(mocker, view):
     mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
     mocked_table = mocker.patch('supvisors.viewprocaddress.ProcAddressView.write_process_table')
     mocked_data = mocker.patch('supvisors.viewprocaddress.ProcAddressView.get_process_data',
-                               side_effect=([{'namespec': 'dummy'}], [{'namespec': 'dummy'}],
-                                            [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy_proc'}]))
+                               side_effect=(([{'namespec': 'dummy'}], []),
+                                            ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
+                                            ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
+                                            ([{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])))
     # patch context
     view.view_ctx = Mock(parameters={PROCESS: None}, local_node_name='10.0.0.1',
                          **{'get_process_status.return_value': None})
@@ -74,6 +76,7 @@ def test_write_contents(mocker, view):
     mocked_table.reset_mock()
     mocked_stats.reset_mock()
     # test call with process selected and no corresponding status
+    # process set in excluded_list but not passed to write_process_statistics because unselected due to missing status
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
@@ -83,25 +86,26 @@ def test_write_contents(mocker, view):
     mocked_data.reset_mock()
     mocked_table.reset_mock()
     mocked_stats.reset_mock()
-    # test call with process selected but not running on considered address
+    # test call with process selected but not running on considered node
+    # process set in excluded_list
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
     view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.2'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
     assert mocked_stats.call_args_list == [call(mocked_root, {})]
     mocked_data.reset_mock()
     mocked_table.reset_mock()
     mocked_stats.reset_mock()
     # test call with process selected and running
-    view.view_ctx.parameters[PROCESS] = 'dummy_proc'
+    view.view_ctx.parameters[PROCESS] = 'dummy'
     view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.1'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}])]
-    assert view.view_ctx.parameters[PROCESS] == 'dummy_proc'
-    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy_proc'})]
+    assert view.view_ctx.parameters[PROCESS] == 'dummy'
+    assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy'})]
 
 
 def test_get_process_data(mocker, view):
@@ -148,7 +152,7 @@ def test_sort_data(mocker, view):
                               {'application_name': 'sample_test_1', 'process_name': None},
                               {'application_name': 'sample_test_2', 'process_name': None}] * 2)
     # test empty parameter
-    assert view.sort_data([]) == []
+    assert view.sort_data([]) == ([], [])
     # build process list
     processes = [{'application_name': info['group'], 'process_name': info['name']}
                  for info in ProcessInfoDatabase]
@@ -157,7 +161,7 @@ def test_sort_data(mocker, view):
     view.view_ctx = Mock(**{'get_application_shex.side_effect': [(True, 0), (True, 0), (True, 0), (True, 0),
                                                                  (True, 0), (True, 0), (False, 0), (False, 0)]})
     # test ordering
-    actual = view.sort_data(processes)
+    actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
                       {'application_name': 'crash', 'process_name': 'late_segv'},
                       {'application_name': 'crash', 'process_name': 'segv'},
@@ -172,7 +176,7 @@ def test_sort_data(mocker, view):
                       {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
                       {'application_name': 'sample_test_2', 'process_name': 'yeux_01'}]
     # test with some shex on applications
-    actual = view.sort_data(processes)
+    actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
                       {'application_name': 'crash', 'process_name': 'late_segv'},
                       {'application_name': 'crash', 'process_name': 'segv'},
@@ -180,6 +184,14 @@ def test_sort_data(mocker, view):
                       {'application_name': 'firefox', 'process_name': 'firefox'},
                       {'application_name': 'sample_test_1', 'process_name': None},
                       {'application_name': 'sample_test_2', 'process_name': None}]
+    sorted_excluded = sorted(excluded, key=lambda x: x['process_name'])
+    assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep'},
+                               {'application_name': 'sample_test_1', 'process_name': 'xclock'},
+                               {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
+                               {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_01'}]
+
 
 
 def test_get_application_summary(view):
