@@ -41,8 +41,8 @@ class ProcAddressView(SupvisorsAddressView):
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
-        data = self.get_process_data()
-        self.write_process_table(root, data)
+        sorted_data, excluded_data = self.get_process_data()
+        self.write_process_table(root, sorted_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
@@ -53,11 +53,16 @@ class ProcAddressView(SupvisorsAddressView):
                 self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
-        info = next(filter(lambda x: x['namespec'] == namespec, data), {})
+        info = next(filter(lambda x: x['namespec'] == namespec, sorted_data + excluded_data), {})
         self.write_process_statistics(root, info)
 
-    def get_process_data(self):
-        """ Collect sorted data on processes. """
+    def get_process_data(self) -> Tuple[PayloadList, PayloadList]:
+        """ Collect sorted data on processes.
+        The sorted data are meant to be displayed in the process table.
+        The excluded data are not but may be used for process statistics selection.
+
+        :return: the sorted data and the excluded data.
+        """
         # use Supervisor to get local information on all processes
         data = []
         rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
@@ -83,25 +88,32 @@ class ProcAddressView(SupvisorsAddressView):
         # re-arrange data
         return self.sort_data(data)
 
-    def sort_data(self, processes):
+    def sort_data(self, data: PayloadList) -> PayloadList:
         """ This method sorts a process list by application and using the alphabetical order.
-        Processes belonging to an application may be removed, depending on the shex user selection. """
-        sorted_processes = []
+        Processes belonging to an application may be removed, depending on the shex user selection.
+
+        :param data: a list of process payloads
+        :return: the sorted list and the excluded list.
+        """
+        sorted_data, excluded_data = [], []
         # sort processes by application
         application_map = {}
-        for process in processes:
-            application_map.setdefault(process['application_name'], []).append(process)
+        for info in data:
+            application_map.setdefault(info['application_name'], []).append(info)
         # sort applications alphabetically
         for application_name, application_processes in sorted(application_map.items()):
             # add entry for application
-            sorted_processes.append(self.get_application_summary(application_name, application_processes))
+            sorted_data.append(self.get_application_summary(application_name, application_processes))
             # filter data depending on their application shex
             application_shex, _ = self.view_ctx.get_application_shex(application_name)
             if application_shex:
                 # add processes using the alphabetical ordering
-                unknown_list = sorted([proc for proc in application_processes], key=lambda x: x['process_name'])
-                sorted_processes.extend(unknown_list)
-        return sorted_processes
+                sorted_list = sorted([info for info in application_processes], key=lambda x: x['process_name'])
+                sorted_data.extend(sorted_list)
+            else:
+                # push to excluded data
+                excluded_data.extend(application_processes)
+        return sorted_data, excluded_data
 
     def get_application_summary(self, application_name: str, application_processes: PayloadList) -> Payload:
         """ Get a summary of the application based on a subset of its processes.
@@ -152,6 +164,7 @@ class ProcAddressView(SupvisorsAddressView):
                     apply_shade(tr_elt, shaded_proc_tr)
                     shaded_proc_tr = not shaded_proc_tr
                 else:
+                    # this is an application row
                     # force next proc shade
                     shaded_proc_tr = not shaded_appli_tr
                     # write application status
