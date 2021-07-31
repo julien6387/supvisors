@@ -276,7 +276,9 @@ class RestartingState(AbstractState):
 
     def next(self) -> SupvisorsStates:
         """ Wait for all processes to be stopped. """
-        # check eventual jobs in progress
+        # FIXME: what happens if the current node becomes silent in this phase ? blocks the other forever ?
+        #  here it can't be assumed that we can go back to INITIALIZATION state
+        #  so exit ? sync by Master
         if self.supvisors.stopper.check_stopping():
             return SupvisorsStates.SHUTDOWN
         return SupvisorsStates.RESTARTING
@@ -297,6 +299,7 @@ class ShuttingDownState(AbstractState):
     def next(self):
         """ Wait for all processes to be stopped. """
         # check eventual jobs in progress
+        # FIXME: same issue as in RestartingState
         if self.supvisors.stopper.check_stopping():
             return SupvisorsStates.SHUTDOWN
         return SupvisorsStates.SHUTTING_DOWN
@@ -392,13 +395,13 @@ class FiniteStateMachine:
         """
         process = self.context.on_process_event(node_name, event)
         # returned process may be None if the event is linked to an unknown or an isolated node
-        if process and self.context.is_master:
+        if process:
             # feed starter with event
             self.supvisors.starter.on_event(process)
             # feed stopper with event
             self.supvisors.stopper.on_event(process)
-            # trigger an automatic behaviour for a running failure
-            if process.crashed():
+            # trigger an automatic (so master only) behaviour for a running failure
+            if process.crashed() and self.context.is_master:
                 self.supvisors.failure_handler.add_default_job(process)
 
     def on_state_event(self, node_name, event: Payload) -> None:
@@ -501,7 +504,8 @@ class FiniteStateMachine:
     # Transitions allowed between states
     _Transitions = {None: [SupvisorsStates.INITIALIZATION],
                     SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
-                    SupvisorsStates.DEPLOYMENT: [SupvisorsStates.OPERATION,
+                    SupvisorsStates.DEPLOYMENT: [SupvisorsStates.INITIALIZATION,
+                                                 SupvisorsStates.OPERATION,
                                                  SupvisorsStates.RESTARTING,
                                                  SupvisorsStates.SHUTTING_DOWN],
                     SupvisorsStates.OPERATION: [SupvisorsStates.CONCILIATION,
