@@ -6,6 +6,8 @@ Change Log
 
 * Starting strategy added to the application rules.
 
+* Documentation updated.
+
 
 0.6 (2021-08-01)
 ----------------

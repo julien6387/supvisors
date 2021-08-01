@@ -619,6 +619,16 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
         It only works when calling **Supvisors**' ``restart`` or ``shutdown`` XML-RPC.
 
+``starting_strategy``
+
+    The strategy used to start applications on nodes.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+    The use of this option is detailed in :ref:`starting_strategy`.
+
+    *Default*:  the value set (or defaulted) in the :ref:`supvisors_section` of the Supervisor configuration file.
+
+    *Required*:  No.
+
 ``starting_failure_strategy``
 
     This element gives the strategy applied upon a major failure in the starting phase of an application.
