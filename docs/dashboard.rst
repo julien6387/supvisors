@@ -236,16 +236,26 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
-**Supvisors** also provides expand / shrink actions per application to enable the user to show / hide blocks of processes.
-
 **Supvisors** shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``),
 
-A click on the CPU or RAM measures shows detailed statistics about the process.
-More particularly, **Supvisors** displays a table showing for both CPU and Memory:
+All processes are grouped by their application and **Supvisors** provides expand / shrink actions per application
+to enable the user to show / hide blocks of processes.
+The application line displays:
+
+    * the overall state of the application, considering all nodes,
+    * a description of the operational status of the application,
+    * considering the application processes that are running on this node:
+
+        * the sum of their expected loading,
+        * the sum of their CPU usage,
+        * the sum of their instant memory occupation.
+
+A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application values.
+More particularly, **Supvisors** displays on the right side of the page a table showing for both CPU and Memory:
 
     * the last measure,
     * the mean value,
