@@ -335,13 +335,6 @@ class Starter(Commander):
         # attributes
         self.application_stop_requests = []
 
-    def get_default_strategy(self) -> StartingStrategies:
-        """ Return the default starting strategy from options.
-
-        :return: the starting strategy set in the supvisors section of the supervisor configuration file
-        """
-        return self.supvisors.options.starting_strategy
-
     def abort(self) -> None:
         """ Abort all planned current jobs.
         Do not erase current_jobs. Wait for their completion.
@@ -358,8 +351,7 @@ class Starter(Commander):
 
         :return: None
         """
-        strategy = self.get_default_strategy()
-        self.logger.info('Starter.start_applications: start all applications using strategy {}'.format(strategy.name))
+        self.logger.info('Starter.start_applications: start all applications')
         # internal call: default strategy always used
         for application in self.supvisors.context.applications.values():
             self.logger.debug('Starter.start_applications: application={} start_sequence={} never_started={}'
@@ -369,7 +361,7 @@ class Starter(Commander):
             if (application.rules.start_sequence > 0 and application.never_started()) \
                     or application.major_failure or application.minor_failure:
                 # if application has never been started, start all in sequence
-                self.store_application_start_sequence(application, strategy)
+                self.store_application_start_sequence(application)
         # start work
         self.trigger_jobs()
 
@@ -379,7 +371,7 @@ class Starter(Commander):
         :param application: the application to start
         :return: True if start completed (nothing to do actually)
         """
-        return self.start_application(self.get_default_strategy(), application)
+        return self.start_application(application.rules.starting_strategy(), application)
 
     def start_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> bool:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
@@ -404,11 +396,13 @@ class Starter(Commander):
 
     def default_start_process(self, process: ProcessStatus) -> bool:
         """ Plan and start the necessary job to start the process in parameter, with the default strategy.
+        Default strategy is taken from the application owning this process.
 
         :param process: the process to start
         :return: True if no job has been queued.
         """
-        return self.start_process(self.get_default_strategy(), process)
+        application = self.supvisors.context.applications[process.application_name]
+        return self.start_process(application.rules.starting_strategy, process)
 
     def start_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str = '') -> bool:
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
@@ -518,9 +512,18 @@ class Starter(Commander):
             if process not in planned_process_jobs:
                 self.process_failure(process)
 
-    def store_application_start_sequence(self, application, strategy) -> None:
+    def store_application_start_sequence(self, application: ApplicationStatus,
+                                         strategy: StartingStrategies = None) -> None:
         """ Copy the start sequence and remove programs that are not meant to be started automatically,
-        i.e. their start_sequence is 0. """
+        i.e. their start_sequence is 0.
+        When strategy is not provided, use the application default starting strategy.
+
+        :param application: the application to start
+        :param strategy: the strategy to be used to choose nodes where programs shall be started
+        :return: None
+        """
+        if strategy is None:
+            strategy = application.rules.starting_strategy
         application_sequence = {seq: [ProcessCommand(process, strategy) for process in processes]
                                 for seq, processes in application.start_sequence.items()
                                 if seq > 0}
@@ -548,12 +551,11 @@ class Starter(Commander):
             node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
                                  process.rules.expected_load)
             if node_name:
-                self.logger.info('Starter.process_job: request starting of {} at node={}'
-                                 .format(process.namespec, node_name))
                 # use asynchronous xml rpc to start program
                 self.supvisors.zmq.pusher.send_start_process(node_name, process.namespec, command.extra_args)
-                self.logger.debug('Starter.process_job: {} requested to start on {} at {}'
-                                  .format(process.namespec, node_name, get_asctime(command.request_time)))
+                self.logger.debug('Starter.process_job: {} requested to start on {} (strategy={}) at {}'
+                                  .format(process.namespec, node_name, command.strategy.name,
+                                          get_asctime(command.request_time)))
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(process.namespec))
                 self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,

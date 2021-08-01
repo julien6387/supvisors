@@ -247,10 +247,11 @@ class CheckStartSequenceTest(CheckSequenceTest):
         application.add_program(program)
         # define the expected events for the web_browser program
         # WARN: if errors happen, like "AssertionError: 'RUNNING' != 'BACKOFF'"
-        # this is probably because there is an instance of firefox already running before supervisord has been started
-        # close it before the test
-        program.add_event(ProcessStateEvent(ProcessStates.STARTING, self.HOST_01))
-        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, self.HOST_01))
+        #  this is probably because there is an instance of firefox already running before supervisord has been started
+        #  close it before the test
+        address = self.HOST_02 if self.HOST_02 in self.nodes else self.HOST_01
+        program.add_event(ProcessStateEvent(ProcessStates.STARTING, address))
+        program.add_event(ProcessStateEvent(ProcessStates.RUNNING, address))
         # check that the events received are compliant
         self.check_events('web_movies')
         self.assertFalse(self.context.has_events('web_movies'))

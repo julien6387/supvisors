@@ -26,9 +26,9 @@ from typing import Any, Optional, Union
 from supervisor.datatypes import list_of_strings
 from supervisor.options import split_namespec
 
-from supvisors.application import ApplicationRules
-from supvisors.process import ProcessRules
-from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies, EnumClassType
+from .application import ApplicationRules
+from .process import ProcessRules
+from .ttypes import StartingStrategies, StartingFailureStrategies, RunningFailureStrategies, EnumClassType
 
 
 # XSD contents for XML validation
@@ -39,6 +39,14 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         <xs:restriction base="xs:int">
             <xs:minInclusive value="0"/>
             <xs:maxInclusive value="100"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="StartingStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="CONFIG" />
+            <xs:enumeration value="LESS_LOADED" />
+            <xs:enumeration value="MOST_LOADED" />
+            <xs:enumeration value="LOCAL" />
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="StartingFailureStrategy" final="restriction" >
@@ -73,6 +81,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         <xs:sequence>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -135,6 +144,7 @@ class Parser(object):
             rules.managed = True
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
+            self.load_enum(application_elt, 'starting_strategy', StartingStrategies, rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'

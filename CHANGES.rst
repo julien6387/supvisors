@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+0.7 (2021-xx-xx)
+----------------
+
+* Starting strategy added to the application rules.
+
+
 0.6 (2021-08-01)
 ----------------
 

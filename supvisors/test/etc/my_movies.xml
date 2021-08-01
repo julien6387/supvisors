@@ -85,6 +85,7 @@
     <application name="my_movies">
         <start_sequence>4</start_sequence>
         <stop_sequence>2</stop_sequence>
+        <starting_strategy>CONFIG</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
         <program name="manager">
@@ -147,10 +148,10 @@
     <!-- player application -->
     <application name="player">
         <start_sequence>5</start_sequence>
+        <starting_strategy>LOCAL</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
 
         <program name="test_reader">
-            <addresses>cliche81</addresses>
             <start_sequence>1</start_sequence>
             <required>true</required>
             <wait_exit>true</wait_exit>
@@ -158,7 +159,6 @@
         </program>
 
         <program name="movie_player">
-            <addresses>cliche81</addresses>
             <start_sequence>2</start_sequence>
             <expected_loading>13</expected_loading>
         </program>
@@ -169,6 +169,7 @@
     <application name="web_movies">
         <start_sequence>6</start_sequence>
         <stop_sequence>1</stop_sequence>
+        <starting_strategy>MOST_LOADED</starting_strategy>
 
         <program name="web_browser">
             <addresses>*</addresses>
@@ -179,8 +180,7 @@
 
     </application>
 
-
-    <!-- web_movies application -->
+    <!-- disk_reader_81 application -->
     <application name="disk_reader_81">
         <start_sequence>1</start_sequence>
     </application>

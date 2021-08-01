@@ -180,6 +180,8 @@ class Context(object):
             # load rules from rules file
             rules = ApplicationRules()
             if self.supvisors.parser:
+                # apply default starting strategy from options
+                rules.starting_strategy = self.supvisors.options.starting_strategy
                 self.supvisors.parser.load_application_rules(application_name, rules)
                 self.logger.debug('Context.setdefault_application: application={} rules={}'
                                   .format(application_name, rules))

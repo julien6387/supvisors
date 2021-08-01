@@ -23,7 +23,7 @@ from supervisor.loggers import Logger
 from supervisor.states import *
 
 from .process import ProcessStatus
-from .ttypes import ApplicationStates, Payload, StartingFailureStrategies, RunningFailureStrategies
+from .ttypes import ApplicationStates, Payload, StartingStrategies, StartingFailureStrategies, RunningFailureStrategies
 
 
 class ApplicationRules(object):
@@ -33,27 +33,29 @@ class ApplicationRules(object):
         - default: True if not overwritten by rules file
         - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state (0 means: no automatic start),
         - stop_sequence: defines the order of this application when stopping all the applications (0 means: immediate stop),
-        - starting_failure_strategy: defines the strategy (in StartingFailureStrategies) to apply when a required process cannot be started during the starting of the application,
-        - running_failure_strategy: defines the default strategy (in RunningFailureStrategies) to apply when a required process crashes when the application is running.
+        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started during the starting of the application,
+        - starting_failure_strategy: defines the strategy to apply when a required process cannot be started during the starting of the application,
+        - running_failure_strategy: defines the default strategy to apply when a required process crashes when the application is running.
     """
 
     def __init__(self) -> None:
         """ Initialization of the attributes. """
-        self.managed = False
-        self.start_sequence = 0
-        self.stop_sequence = 0
-        self.starting_failure_strategy = StartingFailureStrategies.ABORT
-        self.running_failure_strategy = RunningFailureStrategies.CONTINUE
+        self.managed: bool = False
+        self.start_sequence: int = 0
+        self.stop_sequence: int = 0
+        self.starting_strategy: StartingStrategies = StartingStrategies.CONFIG
+        self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
+        self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
 
     def __str__(self) -> str:
         """ Get the application rules as string.
 
         :return: the printable application rules
         """
-        return 'managed={} start_sequence={} stop_sequence={} starting_failure_strategy={} running_failure_strategy={}' \
-            .format(self.managed, self.start_sequence, self.stop_sequence,
-                    self.starting_failure_strategy.name,
-                    self.running_failure_strategy.name)
+        return 'managed={} start_sequence={} stop_sequence={} starting_strategy={}'\
+               ' starting_failure_strategy={} running_failure_strategy={}' \
+            .format(self.managed, self.start_sequence, self.stop_sequence, self.starting_strategy.name,
+                    self.starting_failure_strategy.name, self.running_failure_strategy.name)
 
     # serialization
     def serial(self) -> Payload:
@@ -64,6 +66,7 @@ class ApplicationRules(object):
         return {'managed': self.managed,
                 'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
+                'starting_strategy': self.starting_strategy.name,
                 'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}
 
