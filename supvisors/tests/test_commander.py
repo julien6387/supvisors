@@ -422,15 +422,17 @@ def test_starter_store_application_start_sequence(starter, command_list):
     """ Test the Starter.store_application_start_sequence method. """
     # create 2 application start_sequences
     appli1 = create_application('sample_test_1', starter.supvisors)
+    appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
     for command in command_list:
         if command.process.application_name == 'sample_test_1':
             appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     appli2 = create_application('sample_test_2', starter.supvisors)
+    appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     for command in command_list:
         if command.process.application_name == 'sample_test_2':
             appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
-    starter.store_application_start_sequence(appli1, StartingStrategies.LESS_LOADED)
+    starter.store_application_start_sequence(appli1)
     # check that application sequence 0 is not in starter planned sequence
     expected = {0: {'sample_test_1': {1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                                       2: ['sample_test_1:xclock']}}}
@@ -700,13 +702,15 @@ def test_starter_process_job(mocker, starter, command_list):
     assert not mocked_force.called
     # 2.a test with stopped process
     command = get_test_command(command_list, 'xlogo')
+    command.strategy = StartingStrategies.MOST_LOADED
     command.ignore_wait_exit = True
     jobs = []
     # call the process_jobs
     starter.process_job(command, jobs)
     # starting methods are called
     assert jobs == [command]
-    assert mocked_node_getter.call_args_list == [call(starter.supvisors, None, ['10.0.0.1'], 0)]
+    assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1'], 0)]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     mocked_pusher.reset_mock()
     # failure method is not called
@@ -773,9 +777,12 @@ def test_starter_default_start_process(mocker, starter):
     """ Test the Starter.default_start_process method. """
     mocked_start = mocker.patch.object(starter, 'start_process', return_value=True)
     # test that default_start_process just calls start_process with the default strategy
-    process = Mock()
+    dummy_application = create_application('dummy_application', starter.supvisors)
+    dummy_application.rules.starting_strategy = StartingStrategies.LOCAL
+    starter.supvisors.context.applications['dummy_application'] = dummy_application
+    process = Mock(application_name='dummy_application')
     assert starter.default_start_process(process)
-    assert mocked_start.call_args_list == [call(starter.supvisors.options.starting_strategy, process)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process)]
 
 
 def test_starter_start_application(mocker, starter, command_list):
@@ -812,9 +819,9 @@ def test_starter_default_start_application(mocker, starter):
     """ Test the Starter.default_start_application method. """
     mocked_start = mocker.patch.object(starter, 'start_application', return_value=True)
     # test that default_start_application just calls start_application with the default strategy
-    application = Mock()
+    application = Mock(rules=Mock(starting_strategy=StartingStrategies.MOST_LOADED))
     assert starter.default_start_application(application)
-    assert mocked_start.call_args_list == [call(starter.supvisors.options.starting_strategy, application)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, application)]
 
 
 def test_starter_start_applications(mocker, starter, command_list):
@@ -863,9 +870,8 @@ def test_starter_start_applications(mocker, starter, command_list):
     starter.supvisors.context.applications['crash'] = sample_test_3
     # call starter start_applications and check what is triggered (1 start / 3 repair)
     starter.start_applications()
-    mocked_store.assert_has_calls([call(sample_test_2, StartingStrategies.CONFIG),
-                                   call(sample_test_major, StartingStrategies.CONFIG),
-                                   call(sample_test_minor, StartingStrategies.CONFIG)], any_order=True)
+    mocked_store.assert_has_calls([call(sample_test_2,), call(sample_test_major), call(sample_test_minor)],
+                                  any_order=True)
     assert mocked_trigger.call_args_list == [call()]
 
 

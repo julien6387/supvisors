@@ -39,19 +39,20 @@ def test_rules_create(rules):
     assert not rules.managed
     assert rules.start_sequence == 0
     assert rules.stop_sequence == 0
+    assert rules.starting_strategy == StartingStrategies.CONFIG
     assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == 'managed=False start_sequence=0 stop_sequence=0'\
+    assert str(rules) == 'managed=False start_sequence=0 stop_sequence=0 starting_strategy=CONFIG'\
                          ' starting_failure_strategy=ABORT running_failure_strategy=CONTINUE'
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ApplicationRules object. """
-    assert rules.serial() == {'managed': False, 'start_sequence': 0, 'stop_sequence': 0,
+    assert rules.serial() == {'managed': False, 'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
                               'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
 
 

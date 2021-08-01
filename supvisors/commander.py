@@ -371,7 +371,7 @@ class Starter(Commander):
         :param application: the application to start
         :return: True if start completed (nothing to do actually)
         """
-        return self.start_application(application.rules.starting_strategy(), application)
+        return self.start_application(application.rules.starting_strategy, application)
 
     def start_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> bool:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
@@ -530,6 +530,8 @@ class Starter(Commander):
         if len(application_sequence) > 0:
             sequence = self.planned_sequence.setdefault(application.rules.start_sequence, {})
             sequence[application.application_name] = application_sequence
+            self.logger.debug('Starter.store_application_start_sequence: start sequence stored for application_name={}'
+                              ' with strategy={}'.format(application.application_name, strategy.name))
 
     def process_job(self, command: ProcessCommand, jobs: Commander.CommandList) -> bool:
         """ Start the process on the relevant node.
