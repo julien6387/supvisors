@@ -19,12 +19,13 @@
 
 import pytest
 
-from supervisor.loggers import LOG_LEVELS_BY_NUM
 from unittest.mock import call, Mock
 
 from supvisors.plugin import expand_faults
 from supvisors.rpcinterface import *
 from supvisors.ttypes import ConciliationStrategies, SupvisorsStates
+
+from .conftest import create_application
 
 
 @pytest.fixture(autouse=True)
@@ -100,11 +101,13 @@ def test_all_addresses_info(rpc):
 
 def test_application_info(mocker, rpc):
     """ Test the get_application_info RPC. """
-    mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application',
-                                 return_value=Mock(**{'serial.return_value': {'name': 'appli'}}))
+    application = create_application('TestApplication', rpc.supvisors)
+    mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     # test RPC call
-    assert rpc.get_application_info('dummy') == {'name': 'appli'}
+    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication',
+                                                 'major_failure': False, 'minor_failure': False,
+                                                 'statecode': 0, 'statename': 'STOPPED'}
     assert mocked_check.call_args_list == [call()]
     assert mocked_serial.call_args_list == [call('dummy')]
 
@@ -186,12 +189,30 @@ def test_all_local_process_info(mocker, rpc):
 
 def test_application_rules(mocker, rpc):
     """ Test the get_application_rules RPC. """
+    application = create_application('TestApplication', rpc.supvisors)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
-    mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application',
-                              return_value=Mock(**{'rules.serial.return_value': {'start': 1, 'stop': 2,
-                                                                                 'required': True}}))
-    # test RPC call with application name
-    assert rpc.get_application_rules('appli') == {'application_name': 'appli', 'start': 1, 'stop': 2, 'required': True}
+    mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
+    # test RPC call with application name and unmanaged application
+    expected = {'application_name': 'appli', 'managed': False}
+    assert rpc.get_application_rules('appli') == expected
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_get.call_args_list == [call('appli')]
+    mocker.resetall()
+    # test RPC call with application name and managed/distributed application
+    application.rules.managed = True
+    expected = {'application_name': 'appli', 'managed': True, 'distributed': True,
+                'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
+                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+    assert rpc.get_application_rules('appli') == expected
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_get.call_args_list == [call('appli')]
+    mocker.resetall()
+    # test RPC call with application name and managed/non-distributed application
+    application.rules.distributed = False
+    expected = {'application_name': 'appli', 'managed': True, 'distributed': False, 'addresses': ['*'],
+                'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
+                'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+    assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
     assert mocked_get.call_args_list == [call('appli')]
 

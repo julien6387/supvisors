@@ -30,7 +30,7 @@ from supvisors.ttypes import AddressStates, ConciliationStrategies, RunningFailu
 def mock_node(mocker, status: AddressStatus, node_state: AddressStates, load: int):
     """ Mock the AddressStatus. """
     status._state = node_state
-    mocker.patch.object(status, 'get_load', return_value=load)
+    mocker.patch.object(status, 'get_loading', return_value=load)
 
 
 @pytest.fixture

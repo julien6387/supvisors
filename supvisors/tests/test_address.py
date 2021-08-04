@@ -153,15 +153,15 @@ def test_pid_process(filled_node):
     assert {('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)} == set(filled_node.pid_processes())
 
 
-def test_get_load(filled_node):
-    """ Test the get_load method. """
+def test_get_loading(filled_node):
+    """ Test the get_loading method. """
     # check the loading of the address: gives 0 by default because no rule has been loaded
-    assert filled_node.get_load() == 0
+    assert filled_node.get_loading() == 0
     # change expected_loading of any stopped process
     process = random.choice([proc for proc in filled_node.processes.values() if proc.stopped()])
     process.rules.expected_load = 50
-    assert filled_node.get_load() == 0
+    assert filled_node.get_loading() == 0
     # change expected_loading of any running process
     process = random.choice([proc for proc in filled_node.processes.values() if proc.running()])
     process.rules.expected_load = 50
-    assert filled_node.get_load() == 50
+    assert filled_node.get_loading() == 50

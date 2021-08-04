@@ -560,7 +560,9 @@ class RPCInterface(object):
         return onwait  # deferred
 
     def conciliate(self, strategy: EnumParameterType) -> bool:
-        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state, with a USER strategy.
+        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
+        with an ``USER`` conciliation strategy (using other strategies would trigger an automatic behavior that wouldn't
+        give a chance to this XML-RPC).
 
         *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate, as a string or as a value.
 
@@ -569,7 +571,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
 
-        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
+        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
         """
         self._check_conciliation()
         strategy_enum = self._get_conciliation_strategy(strategy)

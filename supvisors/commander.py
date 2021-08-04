@@ -19,7 +19,7 @@
 
 import time
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
@@ -35,12 +35,16 @@ class ProcessCommand(object):
 
     Attributes are:
         - process: the process wrapped,
-        - strategy: the strategy used to start the process if applicable,
         - request_time: the date when the command is requested,
+        - strategy: the strategy used to start the process if applicable,
+        - node_name: the node_name to start the process (used only in the event of an non-distributed application),
         - ignore_wait_exit: used to command a process out of its application,
         - extra_args: additional arguments to the command line.
     """
     TIMEOUT = 10
+
+    # Annotation types
+    NodeDistribution = Tuple[bool, Optional[str]]  # (distributed, node_name)
 
     def __init__(self, process: ProcessStatus, strategy: StartingStrategies = None) -> None:
         """ Initialization of the attributes.
@@ -48,11 +52,13 @@ class ProcessCommand(object):
         :param process: the process status to wrap
         :param strategy: the applicable starting strategy
         """
-        self.process = process
-        self.strategy = strategy
-        self.request_time = 0
-        self.ignore_wait_exit = False
-        self.extra_args = ''
+        self.process: ProcessStatus = process
+        self.request_time: int = 0
+        # the following attributes are only for Starter
+        self.strategy: StartingStrategies = strategy
+        self.node_distribution: ProcessCommand.NodeDistribution = (True, None)
+        self.ignore_wait_exit: bool = False
+        self.extra_args: str = ''
 
     def __str__(self) -> str:
         """ Get the process command as string.
@@ -138,8 +144,7 @@ class Commander(object):
         return {application_sequence: {application_name: {sequence: Commander.printable_command_list(commands)
                                                           for sequence, commands in sequences.items()}
                                        for application_name, sequences in applications.items()}
-                for application_sequence, applications
-                in self.planned_sequence.items()}
+                for application_sequence, applications in self.planned_sequence.items()}
 
     def printable_planned_jobs(self) -> PrintablePlannedJobs:
         """ Simple form of planned_jobs, so that it can be printed.
@@ -178,7 +183,7 @@ class Commander(object):
         return next((command for command in jobs if command.process is process), None)
 
     def trigger_jobs(self) -> None:
-        """ Triggers a sequence of the jobs planned (start or stop).
+        """ Triggers the next sequence from the jobs planned (start or stop).
 
         :return: None
         """
@@ -193,7 +198,17 @@ class Commander(object):
             for application_name in list(self.planned_jobs.keys()):
                 self.logger.info('Commander.trigger_jobs: triggering sequence {} - application_name={}'
                                  .format(min_sequence, application_name))
+                self.prepare_application_jobs(application_name)
                 self.process_application_jobs(application_name)
+
+    def prepare_application_jobs(self, application_name, application: ApplicationStatus = None) -> None:
+        """ Prepare the ProcessCommand instances linked to application planned jobs.
+        Implemented in Starter only.
+
+        :param application_name: the application name
+        :param application: the application if available
+        :return: None
+        """
 
     def process_application_jobs(self, application_name: str) -> None:
         """ Triggers the next sequenced group of the application.
@@ -271,7 +286,6 @@ class Commander(object):
                                               .format(command.process.namespec, condition, ProcessCommand.TIMEOUT))
                             # generate a process event for this process to inform all Supvisors instances
                             reason = 'Still {} {} seconds after request'.format(condition, ProcessCommand.TIMEOUT)
-                            # self.supvisors.context.force_process_state(command.process.namespec, process_state, reason)
                             self.supvisors.listener.force_process_state(command.process.namespec, process_state, reason)
                             # don't wait for event, just abort the job
                             jobs = self.current_jobs[command.process.application_name]
@@ -388,8 +402,10 @@ class Starter(Commander):
             self.logger.debug('Starter.start_application: planned_sequence={}'
                               .format(self.printable_planned_sequence()))
             if self.planned_sequence:
-                # add application immediately to planned jobs if something in list
+                # add application immediately to planned jobs if something already in list
                 self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
+                # prepare commands and trigger application jobs
+                self.prepare_application_jobs(application.application_name, application)
                 self.process_application_jobs(application.application_name)
         # return True when started
         return not self.in_progress()
@@ -533,6 +549,36 @@ class Starter(Commander):
             self.logger.debug('Starter.store_application_start_sequence: start sequence stored for application_name={}'
                               ' with strategy={}'.format(application.application_name, strategy.name))
 
+    def prepare_application_jobs(self, application_name, application: ApplicationStatus = None) -> None:
+        """ Prepare the ProcessCommand instances linked to application planned jobs.
+
+        :param application_name: the application name
+        :param application: the application if available
+        :return: None
+        """
+        # get application if not provided
+        if not application:
+            application = self.supvisors.context.applications[application_name]
+        if not application.rules.distributed:
+            # get all ProcessCommand instances of the application
+            commands = [process for sequence in self.planned_jobs[application_name].values()
+                        for process in sequence]
+            strategy = next((command.strategy for command in commands if command.strategy is not None),
+                            application.rules.starting_strategy)
+            # find node iaw strategy
+            node_name = get_node(self.supvisors, strategy, application.possible_nodes(),
+                                 application.get_start_sequence_expected_load())
+            self.logger.info('Starter.prepare_application_jobs: node_name={} found for non-distributed'
+                             ' application_name={} using strategy={}'
+                             .format(node_name, application_name, strategy.name))
+            # apply the node to all commands
+            for command in commands:
+                # distributed information must be set to differentiate 2 cases:
+                #     * application is distributed, so node_name has to be resolved later in process_jobs
+                #     * application is not distributed and no applicable node_name has been found
+                command.node_distribution = (False, node_name)
+        # TODO: could node_name be resolved here, even for distributed applications ?
+
     def process_job(self, command: ProcessCommand, jobs: Commander.CommandList) -> bool:
         """ Start the process on the relevant node.
 
@@ -549,12 +595,17 @@ class Starter(Commander):
             command.request_time = time.time()
             jobs.append(command)
             starting = True
-            # find node iaw strategy
-            node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
-                                 process.rules.expected_load)
+            # node_name has already been decided for a non-distributed application
+            distributed, node_name = command.node_distribution
+            if distributed:
+                # find node iaw strategy
+                node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
+                                     process.rules.expected_load)
             if node_name:
                 # use asynchronous xml rpc to start program
                 self.supvisors.zmq.pusher.send_start_process(node_name, process.namespec, command.extra_args)
+                # TODO: force STARTING in ProcessStatus so that next job takes that into account to find node ?
+                #  process.force_state({'state': ProcessStates.STARTING, 'spawnerr': ''}
                 self.logger.debug('Starter.process_job: {} requested to start on {} (strategy={}) at {}'
                                   .format(process.namespec, node_name, command.strategy.name,
                                           get_asctime(command.request_time)))

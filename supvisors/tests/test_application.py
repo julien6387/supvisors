@@ -22,7 +22,7 @@ import random
 
 from supvisors.application import *
 
-from .base import database_copy, any_process_info, any_stopped_process_info
+from .base import database_copy, any_process_info, any_stopped_process_info, any_process_info_by_state
 from .conftest import create_application, create_process
 
 
@@ -37,6 +37,8 @@ def test_rules_create(rules):
     """ Test the values set at construction. """
     # check application default rules
     assert not rules.managed
+    assert rules.distributed
+    assert rules.node_names == ['*']
     assert rules.start_sequence == 0
     assert rules.stop_sequence == 0
     assert rules.starting_strategy == StartingStrategies.CONFIG
@@ -46,14 +48,26 @@ def test_rules_create(rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == 'managed=False start_sequence=0 stop_sequence=0 starting_strategy=CONFIG'\
-                         ' starting_failure_strategy=ABORT running_failure_strategy=CONTINUE'
+    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=0"\
+                         " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ApplicationRules object. """
-    assert rules.serial() == {'managed': False, 'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
-                              'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
+    # default is not managed so result is short
+    assert rules.serial() == {'managed': False}
+    # check managed and distributed
+    rules.managed = True
+    assert rules.serial() == {'managed': True, 'distributed': True,
+                              'start_sequence': 0, 'stop_sequence': 0,
+                              'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
+                              'running_failure_strategy': 'CONTINUE'}
+    # finally check managed and not distributed
+    rules.distributed = False
+    assert rules.serial() == {'managed': True, 'distributed': False, 'addresses': ['*'],
+                              'start_sequence': 0, 'stop_sequence': 0,
+                              'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
+                              'running_failure_strategy': 'CONTINUE'}
 
 
 # ApplicationStatus part
@@ -70,6 +84,7 @@ def test_application_create(supvisors):
     assert not application.stop_sequence
     # check application default rules
     assert not application.rules.managed
+    assert application.rules.distributed
     assert application.rules.start_sequence == 0
     assert application.rules.stop_sequence == 0
     assert application.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
@@ -174,6 +189,42 @@ def test_application_add_process(supvisors):
     assert process is application.processes[process.process_name]
 
 
+def test_application_possible_nodes(supvisors):
+    """ Test the ApplicationStatus.possible_nodes method. """
+    application = create_application('ApplicationTest', supvisors)
+    # add a process to the application
+    info = any_process_info_by_state(ProcessStates.STARTING)
+    process1 = create_process(info, supvisors)
+    for node_name in ['10.0.0.2', '10.0.0.3', '10.0.0.4']:
+        process1.add_info(node_name, info)
+    application.add_process(process1)
+    # add another process to the application
+    info = any_stopped_process_info()
+    process2 = create_process(info, supvisors)
+    for node_name in ['10.0.0.1', '10.0.0.4']:
+        process2.add_info(node_name, info)
+    application.add_process(process2)
+    # default node_names is '*' in process rules
+    assert application.possible_nodes() == ['10.0.0.4']
+    # set a subset of node_names in process rules so that there's no intersection with received status
+    application.rules.node_names = ['10.0.0.1', '10.0.0.2']
+    assert application.possible_nodes() == []
+    # increase received status
+    process1.add_info('10.0.0.1', info)
+    assert application.possible_nodes() == ['10.0.0.1']
+    # reset rules
+    application.rules.node_names = ['*']
+    assert application.possible_nodes() == ['10.0.0.1', '10.0.0.4']
+    # test with full status and all nodes in rules
+    for node_name in supvisors.address_mapper.node_names:
+        process1.add_info(node_name, info)
+        process2.add_info(node_name, info)
+    assert application.possible_nodes() == supvisors.address_mapper.node_names
+    # restrict again nodes in rules
+    application.rules.node_names = ['10.0.0.5']
+    assert application.possible_nodes() == ['10.0.0.5']
+
+
 @pytest.fixture
 def filled_application(supvisors):
     """ Create an ApplicationStatus and add all processes of the database. """
@@ -216,6 +267,25 @@ def test_application_update_sequences(filled_application):
         assert sorted(processes, key=lambda x: x.process_name) == \
                sorted([proc for proc in filled_application.processes.values()
                        if sequence == proc.rules.stop_sequence], key=lambda x: x.process_name)
+
+
+def test_application_get_start_sequence_expected_load(filled_application):
+    """ Test the ApplicationStatus.get_start_sequence_expected_load method. """
+    # as sequences are empty, total is 0
+    assert filled_application.get_start_sequence_expected_load() == 0
+    # set application to managed, update sequences and status
+    filled_application.rules.managed = True
+    filled_application.update_sequences()
+    # process rules still have a expected_load set to 0
+    assert filled_application.get_start_sequence_expected_load() == 0
+    print(ApplicationStatus.printable_sequence(filled_application.start_sequence))
+    # update all process loads to 10
+    for proc_list in filled_application.start_sequence.values():
+        for process in proc_list:
+            process.rules.expected_load = 10
+    seq_0_size = len(filled_application.start_sequence.get(0, []))
+    seq_1_2_size = len(filled_application.processes) - seq_0_size
+    assert filled_application.get_start_sequence_expected_load() == 10 * seq_1_2_size
 
 
 def test_application_update_status(filled_application):

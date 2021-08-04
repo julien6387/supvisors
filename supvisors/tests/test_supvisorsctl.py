@@ -21,7 +21,6 @@ import pytest
 
 from unittest.mock import call, Mock
 
-from supervisor.loggers import LevelsByDescription
 from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
 
@@ -269,19 +268,21 @@ def test_application_rules(controller, plugin, mocked_check):
     mocked_appli.return_value = [{'application_name': 'appli_1'}, {'application_name': 'appli_2'},
                                  {'application_name': 'appli_3'}]
     mocked_rpc = plugin.supvisors().get_application_rules
-    returned_rules = [{'application_name': 'appli_1', 'managed': True, 'start_sequence': 2, 'stop_sequence': 3,
-                       'starting_failure_strategy': 2, 'running_failure_strategy': 1},
-                      {'application_name': 'appli_2', 'managed': True, 'start_sequence': 1, 'stop_sequence': 0,
-                       'starting_failure_strategy': 0, 'running_failure_strategy': 2},
-                      {'application_name': 'appli_3', 'managed': False, 'start_sequence': 0, 'stop_sequence': 10,
-                       'starting_failure_strategy': 2, 'running_failure_strategy': 0}]
-    # first possiblity: no argument
+    returned_rules = [{'application_name': 'appli_1', 'managed': True, 'distributed': True,
+                       'start_sequence': 2, 'stop_sequence': 3, 'starting_strategy': 'CONFIG',
+                       'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'},
+                      {'application_name': 'appli_2', 'managed': True,
+                       'distributed': False, 'addresses': ['10.0.0.1', '10.0.0.2', '10.0.0.3'],
+                       'start_sequence': 1, 'stop_sequence': 0, 'starting_strategy': 'LESS_LOADED',
+                       'starting_failure_strategy': 'CONTINUE', 'running_failure_strategy': 'RESTART_APPLICATION'},
+                      {'application_name': 'appli_3', 'managed': False}]
+    # first possibility: no argument
     mocked_rpc.side_effect = returned_rules
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_application_rules, plugin.do_application_rules,
                 '', [call('appli_1'), call('appli_2'), call('appli_3')])
     assert mocked_appli.call_args_list == [call(), call()]
     mocked_appli.reset_mock()
-    # second possiblity: use 'all'
+    # second possibility: use 'all'
     mocked_rpc.side_effect = returned_rules
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_application_rules, plugin.do_application_rules,
                 'all', [call('appli_1'), call('appli_2'), call('appli_3')])

@@ -58,10 +58,10 @@ class AbstractStartingStrategy(AbstractStrategy):
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} state={}'
                               .format(node_name, status.state.name))
             if status.state == AddressStates.RUNNING:
-                load = status.get_load()
-                self.logger.debug('AbstractStartingStrategy.is_loading_valid:node={} loading={} expected_load={}'
-                                  .format(node_name, load, expected_load))
-                return load + expected_load < 100, load
+                loading = status.get_loading()
+                self.logger.debug('AbstractStartingStrategy.is_loading_valid: node_name={} loading={} expected_load={}'
+                                  .format(node_name, loading, expected_load))
+                return loading + expected_load < 100, loading
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} not RUNNING'.format(node_name))
         return False, 0
 

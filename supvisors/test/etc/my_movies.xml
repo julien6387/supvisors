@@ -147,8 +147,10 @@
 
     <!-- player application -->
     <application name="player">
+        <distributed>false</distributed>
+        <addresses>cliche81,cliche83</addresses>
         <start_sequence>5</start_sequence>
-        <starting_strategy>LOCAL</starting_strategy>
+        <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
 
         <program name="test_reader">

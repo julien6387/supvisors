@@ -158,9 +158,10 @@ Choosing a node
 
 The following rules are applicable whatever the chosen strategy:
 
-    * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING`` or ``BACKOFF``,
-    * the chosen node must be ``RUNNING``,
-    * the *loading* of the chosen node must not exceed 100% when adding the ``loading`` of the process to be started.
+    * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING`` or ``BACKOFF`` ;
+    * the program definition must be known to the node ;
+    * the node must be ``RUNNING`` ;
+    * the *loading* of the node must not exceed 100% when adding the ``loading`` of the process to be started.
 
 The *loading* of the chosen node is defined as the sum of the ``loading`` of each process running on this address.
 

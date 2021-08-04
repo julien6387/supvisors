@@ -111,15 +111,13 @@ def test_write_contents(mocker, view):
 def test_write_node_box_title(view):
     """ Test the _write_node_box_title method. """
     # patch context
-    mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.RUNNING,
-                         **{'get_load.return_value': 17})
+    mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.RUNNING, **{'get_loading.return_value': 17})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_node_mid = Mock(attrib={})
     mocked_state_mid = Mock(attrib={})
     mocked_percent_mid = Mock(attrib={})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid,
-                                                   mocked_percent_mid] * 2})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid, mocked_percent_mid] * 2})
     # test call in RUNNING state
     view._write_node_box_title(mocked_root, mocked_status)
     # test address element
@@ -138,8 +136,7 @@ def test_write_node_box_title(view):
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
-    mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT,
-                         **{'get_load.return_value': 0})
+    mocked_status = Mock(address_name='10.0.0.1', state=AddressStates.SILENT, **{'get_loading.return_value': 0})
     view._write_node_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_node_mid.attrib['class'] == ''

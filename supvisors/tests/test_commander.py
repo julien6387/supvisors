@@ -549,7 +549,7 @@ def test_starter_on_event_in_sequence(mocker, starter, command_list):
     # set context for current_jobs
     for command in command_list:
         starter.current_jobs.setdefault(command.process.application_name, []).append(command)
-    # add application context
+    # add applications to context
     application = create_application('sample_test_1', starter.supvisors)
     application.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
     starter.supvisors.context.applications['sample_test_1'] = application
@@ -678,6 +678,43 @@ def test_starter_on_event_out_of_sequence(mocker, starter, command_list):
     starter.planned_jobs = {'sample_test_2': {1: [command]}}
     starter.on_event_out_of_sequence(command.process)
     assert not mocked_failure.called
+
+
+def test_starter_prepare_application_jobs(mocker, starter, command_list):
+    """ Test the Starter.prepare_application_jobs method. """
+    mocked_node_getter = mocker.patch('supvisors.commander.get_node', return_value='10.0.0.1')
+    mocked_app_nodes = mocker.patch('supvisors.application.ApplicationStatus.possible_nodes',
+                                    return_value=['10.0.0.1', '10.0.0.2'])
+    mocked_app_load = mocker.patch('supvisors.application.ApplicationStatus.get_start_sequence_expected_load',
+                                   return_value=27)
+    # check initial context
+    starter.planned_jobs = {'sample_test_1': {1: [get_test_command(command_list, 'xfontsel')],
+                                              2: [get_test_command(command_list, 'xlogo')]}}
+    assert all(command.node_distribution == (True, None)
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
+    # add applications to context
+    application = create_application('sample_test_1', starter.supvisors)
+    application.rules.starting_strategy = StartingStrategies.MOST_LOADED
+    starter.supvisors.context.applications['sample_test_1'] = application
+    # test application not provided / application distributed
+    starter.prepare_application_jobs('sample_test_1')
+    assert not mocked_node_getter.called
+    assert not mocked_app_nodes.called
+    assert not mocked_app_load.called
+    # commands unchanged
+    assert all(command.node_distribution == (True, None)
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
+    # test application provided / application not distributed
+    application.rules.distributed = False
+    starter.prepare_application_jobs('sample_test_1')
+    assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1', '10.0.0.2'], 27)]
+    # check commands
+    assert all(command.node_distribution == (False, '10.0.0.1')
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
 
 
 def test_starter_process_job(mocker, starter, command_list):

@@ -19,10 +19,10 @@
 
 from supervisor.web import StatusView
 
-from supvisors.utils import simple_localtime
-from supvisors.viewcontext import *
-from supvisors.viewhandler import ViewHandler
-from supvisors.webutils import *
+from .utils import simple_localtime
+from .viewcontext import *
+from .viewhandler import ViewHandler
+from .webutils import *
 
 
 class SupvisorsAddressView(StatusView):
@@ -61,7 +61,7 @@ class SupvisorsAddressView(StatusView):
         elt.content(status.state.name)
         # set node load
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(status.get_load()))
+        elt.content('{}%'.format(status.get_loading()))
         # set last tick date: remote_time and local_time should be identical
         # since self is running on the 'remote' address
         elt = root.findmeld('date_mid')

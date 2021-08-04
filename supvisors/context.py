@@ -186,7 +186,7 @@ class Context(object):
                 self.logger.debug('Context.setdefault_application: application={} rules={}'
                                   .format(application_name, rules))
             # create new instance
-            application = ApplicationStatus(application_name, rules, self.logger)
+            application = ApplicationStatus(application_name, rules, self.supvisors)
             self.applications[application_name] = application
         return application
 

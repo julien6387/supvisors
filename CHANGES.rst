@@ -4,6 +4,10 @@ Change Log
 0.7 (2021-xx-xx)
 ----------------
 
+* New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
+  Non-distributed applications have all their processes started on the same node chosen in accordance with the
+  ``addresses`` and the ``starting_strategy``.
+
 * Starting strategy added to the application rules.
 
 * Documentation updated.
@@ -18,11 +22,11 @@ Change Log
 
 * Upon authorization of a new node in **Supvisors**, back to ``DEPLOYMENT`` state to repair applications.
 
-* Add RPC ``change_log_level`` to dynamically change the **Supvisors** log level.
+* Add RPC ``change_log_level`` to dynamically change the **Supvisors** logger level.
 
 * Application state is evaluated only against the starting sequence of its processes.
 
-* Fixed blocking when *Master* is stopped while in ``DEPLOYMENT`` state.
+* Fixed blocking issue when *Master* is stopped while in ``DEPLOYMENT`` state.
 
 * Fixed issue with applications that would not fully stop when using the ``STOP_APPLICATION`` starting failure strategy.
 

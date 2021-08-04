@@ -6,16 +6,17 @@ Overview
 
 **Supvisors** is a control system for distributed applications over multiple Supervisor_ instances.
 
-This piece of software is born from a common need in embedded systems where applications are distributed over several nodes.
+This piece of software was born from a common need in embedded systems where applications are distributed over several
+nodes.
 
 This problematic comes with the following challenges:
 
-    * have a detailed status of the application,
-    * have basic statistics about the resources taken by the application,
+    * have a detailed status of the applications,
+    * have basic statistics about the resources taken by the applications,
     * have a basic status of the nodes,
     * start / stop processes dynamically,
-    * distribute the same application according to different platforms,
-    * control the application from outside of the platform,
+    * distribute the same application over different platforms,
+    * control the applications from nodes outside of the platform,
     * secure the control / status interfaces,
     * deal with loading (CPU, memory, etc),
     * deal with failures:
@@ -24,17 +25,23 @@ This problematic comes with the following challenges:
         + crash of a process,
         + crash of a node.
 
-Icing on the cake:
+As a bonus:
 
     * it should be free, open source, without export control,
     * it shouldn't require specific administration rights (root).
 
-After some researches on the net, it seems that there is no simple, free and open source solution that meets all these requirements.
-Supervisor_ can handle a part of these requirements but it only works on a single UNIX-like operating system.
+After some researches on the net - at the time -, it seemed that there was no simple, free and open source solution
+meeting all these requirements. Of course, there are now orchestration solutions like Kubernetes, Docker Swarm, Mesos,
+etc. coming with more or less complexity, some working on containers only.
 
+Supervisor_ can handle a part of the requirements but it only works on a single UNIX-like operating system.
 The Supervisor website references some `third parties <http://supervisord.org/plugins.html>`_
-that deal with multiple Supervisor instances but they only consist in dashboards and none of them is focused on the application itself.
-Nevertheless, the extensibility of Supervisor made it possible to implement the missing requirements.
+that deal with multiple Supervisor instances but they only consist in dashboards and they focus on the nodes rather than
+on the applications and their possible distribution over nodes.
+Nevertheless, the extensibility of Supervisor makes it possible to implement the missing requirements.
+
+**Supvisors** works as a Supervisor plugin and is intended for those who are already familiar with Supervisor or
+who have neither the time nor the resources to invest in a complex orchestration tool.
 
 In this documentation, a *Supvisors instance* refers to a *Supervisor instance* including a **Supvisors** extension.
 
@@ -64,7 +71,7 @@ Installation
 +===============+============+=================================================================+
 | Supervisor_   | 4.2.1      | Base software, extended by **Supvisors**                        |
 +---------------+------------+-----------------------------------------------------------------+
-| PyZMQ_        | 20.0.0     | Python binding of ZeroMQ                                        |
+| PyZMQ_        | 22.0.3     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
 | psutil_       | 5.7.3      | *Information about processes and system utilization (optional)* |
 +---------------+------------+-----------------------------------------------------------------+
@@ -117,13 +124,14 @@ Install **Supvisors** with the following command:
 Running **Supvisors**
 ---------------------
 
-**Supvisors** runs as a plugin of Supervisor so it follows the same principle as `Running Supervisor <http://supervisord.org/running.html>`_
-but using multiple UNIX-like operating systems.
+**Supvisors** runs as a plugin of Supervisor so it follows the same principle as
+`Running Supervisor <http://supervisord.org/running.html>`_ but using multiple UNIX-like operating systems.
 
 However, the Supervisor configuration file **MUST**:
 
-    * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings),
-    * include the :command:`[supvisors]` section (refer to the :ref:`Configuration` part).
+    * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings) ;
+    * include the :command:`[supvisors]` section (refer to the :ref:`Configuration` part) ;
+    * be identical on all considered nodes.
 
 .. note::
 

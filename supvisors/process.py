@@ -179,6 +179,7 @@ class ProcessStatus(object):
         :param application_name: the name of the application the process belongs to
         :param process_name: the name of the process
         :param rules: the rules loaded from the rules file
+        :param supvisors: the global Supvisors structure
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors

@@ -204,17 +204,34 @@ class ControllerPlugin(ControllerPluginBase):
                     rules_list.append(rules)
             # print results
             if rules_list:
-                max_appli = max(len(rules['application_name']) for rules in rules_list) + 2
-                template = '%(appli)-{}s%(managed)-12s%(start_seq)-5s%(stop_seq)-5s' \
-                           '%(starting_strategy)-12s%(running_strategy)-12s' \
-                    .format(max_appli)
+                # get longer from application names and title
+                max_appli = max(len(rules['application_name']) for rules in rules_list)
+                max_appli = max(max_appli, len('Application')) + 2
+                # get longer from distribution nodes and title
+                max_nodes = max(len(rules.get('addresses', '')) for rules in rules_list)
+                max_nodes = max(max_nodes, len('Nodes')) + 2
+                # print title
+                template_managed = '%(appli)-{}s%(managed)-9s%(distributed)-13s%(nodes)-{}s' \
+                                   '%(start_seq)-7s%(stop_seq)-7s' \
+                                   '%(starting_strategy)-13s%(starting_failure_strategy)-18s' \
+                                   '%(running_failure_strategy)s' \
+                    .format(max_appli, max_nodes)
+                title = {'appli': 'Application', 'managed': 'Managed', 'distributed': 'Distributed',
+                         'nodes': 'Nodes', 'start_seq': 'Start', 'stop_seq': 'Stop', 'starting_strategy': 'Starting',
+                         'starting_failure_strategy': 'Starting_Failure', 'running_failure_strategy': 'Running_Failure'}
+                self.ctl.output(template_managed % title)
                 for rules in rules_list:
-                    line = template % {'appli': rules['application_name'],
-                                       'managed': ('  managed' if rules['managed'] else 'unmanaged'),
-                                       'start_seq': rules['start_sequence'],
-                                       'stop_seq': rules['stop_sequence'],
-                                       'starting_strategy': rules['starting_failure_strategy'],
-                                       'running_strategy': rules['running_failure_strategy']}
+                    if rules['managed']:
+                        payload = {'appli': rules['application_name'], 'managed': True,
+                                   'distributed': rules['distributed'], 'nodes': rules.get('addresses', ''),
+                                   'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
+                                   'starting_strategy': rules['starting_strategy'],
+                                   'starting_failure_strategy': rules['starting_failure_strategy'],
+                                   'running_failure_strategy': rules['running_failure_strategy']}
+                        line = template_managed % payload
+                    else:
+                        template_unmanaged = '%(appli)-{}sFalse'.format(max_appli)
+                        line = template_unmanaged % {'appli': rules['application_name']}
                     self.ctl.output(line)
 
     def help_application_rules(self):
