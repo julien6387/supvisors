@@ -377,17 +377,17 @@ def test_get_last_description(supvisors):
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
     process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
-                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'desc2'},
+                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started'},
                         '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_last_description() == ('10.0.0.1', 'desc1')
+    assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
     # test method return on running process
     process.running_nodes.add('10.0.0.3')
-    assert process.get_last_description() == ('10.0.0.3', 'desc3')
+    assert process.get_last_description() == ('10.0.0.3', 'desc3 on 10.0.0.3')
     # test method return on multiple running processes
     process.running_nodes.add('10.0.0.2')
-    assert process.get_last_description() == ('10.0.0.2', 'desc2')
+    assert process.get_last_description() == ('10.0.0.2', 'Not started')
     # test again with forced state
     process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'global crash'})
     assert process.get_last_description() == (None, 'global crash')

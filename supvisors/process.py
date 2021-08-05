@@ -326,14 +326,14 @@ class ProcessStatus(object):
         return len(self.running_nodes) > 1
 
     @staticmethod
-    def update_description(process_info: Payload) -> str:
+    def update_description(info: Payload) -> str:
         """ Return the Supervisor way to describe the process status.
 
-        :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
+        :param info: a subset of the dict received from Supervisor.getProcessInfo.
         :return: the description of the process status
         """
         # IDE warning on first parameter but ignored as the Supervisor function should have been set as staticmethod
-        return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, process_info)
+        return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, info)
 
     def get_last_description(self) -> Tuple[Optional[str], str]:
         """ Get the latest description received from the process across all nodes.
@@ -358,12 +358,15 @@ class ProcessStatus(object):
             self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [running]description={}'
                               .format(self.namespec, node_name, info['description']))
         else:
-            # sort info_map them by stop date
+            # none running. sort info_map them by stop date
             node_name, info = max(self.info_map.items(), key=lambda x: x[1]['stop'])
             self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [stopped]description={}'
                               .format(self.namespec, node_name, info['description']))
-        # extract description from information found
-        return node_name, info['description']
+        # extract description from information found and add node_name
+        desc = info['description']
+        if desc and desc != 'Not started':
+            desc = desc + ' on ' + node_name
+        return node_name, desc
 
     # methods
     def state_string(self) -> str:
