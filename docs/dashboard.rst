@@ -51,6 +51,7 @@ The color gives the state of the Application, as seen by the **Supvisors** insta
     * green-to-yellow gradient for ``STOPPING``,
     * green for ``RUNNING``.
 
+An additional red light is displayed in the event where a failure has been raised on the application.
 All hyperlinks are active. The browser is redirected to the corresponding `Application page`_ on the local Web Server.
 
 The bottom part of the menu contains a contact link and copyright information.
