@@ -121,12 +121,30 @@ def test_initialization_state(mocker, supvisors_ctx):
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # 3. test exit method
-    # test that context end_synchro is called and master is the lowest string among address names
-    nodes['10.0.0.4']._state = AddressStates.RUNNING
     mocked_synchro = mocker.patch.object(supvisors_ctx.context, 'end_synchro')
+    nodes['10.0.0.4']._state = AddressStates.RUNNING
+    # test when master_node_name is already set: no change
+    supvisors_ctx.context.master_node_name = '127.0.0.1'
     state.exit()
-    assert mocked_synchro.call_count == 1
+    assert mocked_synchro.called
+    assert supvisors_ctx.context.master_node_name == '127.0.0.1'
+    mocked_synchro.reset_mock()
+    # test when master_node_name is not set and no forced nodes
+    # check master is the lowest string among running node names
+    supvisors_ctx.context.master_node_name = None
+    state.exit()
+    assert mocked_synchro.called
+    assert supvisors_ctx.context.running_nodes() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_node_name == '10.0.0.2'
+    mocked_synchro.reset_mock()
+    # test when master_node_name is not set and forced nodes are used
+    # check master is the lowest string among the intersection between running node names and forced nodes
+    supvisors_ctx.context.master_node_name = None
+    supvisors_ctx.context.forced_nodes = {'10.0.0.3': nodes['10.0.0.3'], '10.0.0.4':  nodes['10.0.0.4']}
+    state.exit()
+    assert mocked_synchro.called
+    assert supvisors_ctx.context.running_nodes() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+    assert supvisors_ctx.context.master_node_name == '10.0.0.4'
 
 
 def test_deployment_state(mocker, supvisors_ctx):

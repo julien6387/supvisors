@@ -105,9 +105,7 @@ class Context(object):
 
     def nodes_by_states(self, states: List[AddressStates]) -> NameList:
         """ Return the AddressStatus instances sorted by state. """
-        return [status.address_name
-                for status in self.nodes.values()
-                if status.state in states]
+        return [status.address_name for status in self.nodes.values() if status.state in states]
 
     def invalid(self, status: AddressStatus) -> None:
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.

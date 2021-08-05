@@ -168,6 +168,11 @@ class InitializationState(AbstractState):
         self.logger.info('InitializationState.exit: working with nodes {}'.format(node_names))
         # elect master node among working nodes only if not fixed before
         if not self.context.master_node_name:
+            if self.context.forced_nodes:
+                running_forced_node_names = set(node_names).intersection(self.context.forced_nodes.keys())
+                if running_forced_node_names:
+                    # choose Master among the forced nodes because this nodes list is expected to be more stable
+                    node_names = running_forced_node_names
             # arbitrarily choice : master node has the 'lowest' node_name among running nodes
             self.context.master_node_name = min(node_names)
 
