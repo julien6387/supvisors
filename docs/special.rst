@@ -60,8 +60,10 @@ are ``RUNNING``.
 
 In these 2 cases, **Supvisors** will start to work with a subset of active nodes among those declared in ``address_list``.
 
-Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes
-and enters the ``DEPLOYMENT`` state to start automatically the applications.
+Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes and enters
+the ``DEPLOYMENT`` state to start automatically the applications.
+By default, the *Master* node is the node having the smallest name among all the active nodes, unless the attribute
+``force_synchro_if`` is used. In the latter case, candidates are taken from this list in priority.
 
 
 .. _auto_fencing:
