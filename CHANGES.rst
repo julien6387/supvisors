@@ -12,6 +12,8 @@ Change Log
 
 * Starting strategy added to the application rules.
 
+* For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
+
 * Documentation updated.
 
 
