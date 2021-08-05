@@ -4,6 +4,8 @@ Change Log
 0.7 (2021-xx-xx)
 ----------------
 
+* In the application navigation part of the Web UI, add a red light to applications having a failure raised.
+
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
   ``addresses`` and the ``starting_strategy``.

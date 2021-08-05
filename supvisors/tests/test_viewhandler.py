@@ -285,15 +285,16 @@ def test_write_nav_applications_initialization(handler):
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, Mock(application_name='dummy_appli',
-                                                                  state=ApplicationStates.RUNNING))]})
+    mocked_appli = Mock(application_name='dummy_appli', major_failure=False, minor_failure=False,
+                        state=ApplicationStates.RUNNING)
+    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with application name different from parameter
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     handler.write_nav_applications(mocked_root, 'dumb_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING'
+    assert appli_elt.attrib['class'] == 'RUNNING  '
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'off'
     assert handler.view_ctx.format_url.call_args_list == []
@@ -303,11 +304,12 @@ def test_write_nav_applications_initialization(handler):
     mocked_mid.repeat.reset_mock()
     appli_elt.findmeld.reset_mock()
     href_elt.content.reset_mock()
-    # test call with application name identical to parameter
+    # test call with application name identical to parameter and add a failure
+    mocked_appli.minor_failure = True
     handler.write_nav_applications(mocked_root, 'dummy_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
     assert [call([])] == mocked_mid.repeat.call_args_list
-    assert appli_elt.attrib['class'] == 'RUNNING active'
+    assert appli_elt.attrib['class'] == 'RUNNING active failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'off'
     assert handler.view_ctx.format_url.call_args_list == []
@@ -321,15 +323,17 @@ def test_write_nav_applications_operation(handler):
     # patch the meld elements
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, Mock(application_name='dummy_appli',
-                                                                  state=ApplicationStates.RUNNING))]})
+    mocked_appli = Mock(application_name='dummy_appli', major_failure=False, minor_failure=False,
+                        state=ApplicationStates.RUNNING)
+    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
-    # test call with application name different from parameter
+    # test call with application name different from parameter and failure
+    mocked_appli.major_failure = True
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     handler.write_nav_applications(mocked_root, 'dumb_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING'
+    assert appli_elt.attrib['class'] == 'RUNNING  failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli')]
@@ -342,10 +346,11 @@ def test_write_nav_applications_operation(handler):
     href_elt.attributes.reset_mock()
     href_elt.content.reset_mock()
     # test call with application name identical to parameter
+    mocked_appli.major_failure = False
     handler.write_nav_applications(mocked_root, 'dummy_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
     assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING active'
+    assert appli_elt.attrib['class'] == 'RUNNING active '
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli')]

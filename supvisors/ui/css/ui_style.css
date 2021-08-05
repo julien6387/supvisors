@@ -578,6 +578,12 @@ nav li.STOPPING.active {
     background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
 }
 
+nav li.failure:after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -30px;
+}
 
 /*
  * Increase / Stable / Decrease styles

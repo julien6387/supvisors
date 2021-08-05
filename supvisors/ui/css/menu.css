@@ -14,27 +14,11 @@ nav li {
     border-radius: 0px 6px 0 6px;
 }
 
-nav li li {
-    border-radius: 0;
-    background: #333;
-    border: none;
-    margin: 0;
-    padding: 0 0 0 5px;
-}
-
-nav li li li {
-    background: #222;
-}
-
 nav li a {
     display: block;
     text-decoration: none;
     color: var(--text-color);
     padding: 7px 0 7px 4px;
-}
-
-nav li li:last-child {
-    border-radius: 0 0 0 6px;
 }
 
 nav .active {
@@ -53,7 +37,6 @@ nav li:before {
 }
 
 nav li:hover {
-    padding-right: 24px;
     padding-left:8px;
 }
 
@@ -65,10 +48,3 @@ nav li:hover:before {
 nav li:active {
     background-image: linear-gradient(165deg, var(--dark2-color) 40%, var(--dark1-color), orange);
 }
-
-nav li li:hover {
-    background: url(../img/arrow-orange_12.png) no-repeat;
-    background-position: left 10px;
-    padding-left: 15px;
-}
-
