@@ -19,6 +19,7 @@ package org.supvisors.rpc;
 import java.net.MalformedURLException;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Iterator;
 import org.apache.xmlrpc.XmlRpcException;
 import org.supvisors.common.*;
 
@@ -427,7 +428,7 @@ public class SupvisorsXmlRpc {
         HashMap<String, SupvisorsApplicationInfo> applications = supvisors.getAllApplicationInfo();
         System.out.println(applications);
         System.out.println("### Testing supvisors.getApplicationInfo(...) ###");
-        String applicationName = applications.entrySet().iterator().next().getValue().getName();
+        String applicationName = applications.entrySet().iterator().next().getKey();
         SupvisorsApplicationInfo applicationInfo = supvisors.getApplicationInfo(applicationName);
         System.out.println(applicationInfo);
 
@@ -452,8 +453,10 @@ public class SupvisorsXmlRpc {
 
         // test application rules rpc
         System.out.println("### Testing supvisors.getApplicationRules(...) ###");
-        SupvisorsApplicationRules applicationRules = supvisors.getApplicationRules(applicationName);
-        System.out.println(applicationRules);
+        for (String appliName : applications.keySet()) {
+            SupvisorsApplicationRules applicationRules = supvisors.getApplicationRules(appliName);
+            System.out.println(applicationRules);
+        }
 
         // test process rules rpc
         System.out.println("### Testing supvisors.getProcessRules(...) ###");

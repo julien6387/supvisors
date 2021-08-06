@@ -37,10 +37,10 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     private String processName;
 
     /**
-     * The applicable addresses.
-     * If all known addresses are applicable, '*' is used.
+     * The applicable nodes.
+     * If all known nodes are applicable, '*' is used.
      */
-    private List addresses;
+    private List nodes;
 
     /** The starting order in the application starting. */
     private Integer startSequence;
@@ -75,8 +75,8 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
         this.processName = (String) rulesInfo.get("process_name");
         this.applicationName = (String) rulesInfo.get("application_name");
         this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
-        Object[] addresses = (Object[]) rulesInfo.get("addresses");
-        this.addresses = Arrays.asList(addresses);
+        Object[] nodes = (Object[]) rulesInfo.get("addresses");
+        this.nodes = Arrays.asList(nodes);
         this.startSequence = (Integer) rulesInfo.get("start_sequence");
         this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
         this.required = (Boolean) rulesInfo.get("required");
@@ -113,12 +113,12 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getAddresses method returns the addresses where the process can be started.
+     * The getNodes method returns the addresses where the process can be started.
      *
-     * @return List: The list of addresses.
+     * @return List: The list of nodes.
      */
-    public List getAddresses() {
-        return this.addresses;
+    public List getNodes() {
+        return this.nodes;
     }
 
     /**
@@ -183,7 +183,7 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
      */
     public String toString() {
         return "SupvisorsProcessrules(namespec=" + this.namespec
-            + " addresses=" + this.addresses + " startSequence=" + this.startSequence
+            + " nodes=" + this.nodes + " startSequence=" + this.startSequence
             + " stopSequence=" + this.stopSequence + " required=" + this.required
             + " waitExit=" + this.waitExit + " expectedLoading=" + this.expectedLoading
             + " runningFailureStrategy=" + this.runningFailureStrategy + ")";

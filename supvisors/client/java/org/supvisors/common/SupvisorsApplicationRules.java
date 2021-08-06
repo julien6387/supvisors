@@ -33,11 +33,23 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The managed status of the application. */
     private Boolean isManaged;
 
+    /** The distribution status of the application. */
+    private Boolean isDistributed;
+
+    /**
+     * The applicable nodes when not application cannot be distributed.
+     * If all known nodes are applicable, '*' is used.
+     */
+    private List nodes;
+
     /** The starting order in the application starting. */
     private Integer startSequence;
 
     /** The stopping order in the application stopping. */
     private Integer stopSequence;
+
+    /** The strategy applied to choose nodes at application starting time. */
+    private StartingStrategy startingStrategy;
 
     /** The strategy applied when a process crashes at application starting time. */
     private StartingFailureStrategy startingFailureStrategy;
@@ -53,10 +65,18 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     public SupvisorsApplicationRules(HashMap rulesInfo)  {
         this.applicationName = (String) rulesInfo.get("application_name");
         this.isManaged = (Boolean) rulesInfo.get("managed");
-        this.startSequence = (Integer) rulesInfo.get("start_sequence");
-        this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
-        this.startingFailureStrategy = StartingFailureStrategy.valueOf((String) rulesInfo.get("starting_failure_strategy"));
-        this.runningFailureStrategy = RunningFailureStrategy.valueOf((String) rulesInfo.get("running_failure_strategy"));
+        if (this.isManaged) {
+            this.isDistributed = (Boolean) rulesInfo.get("distributed");
+            if (!this.isDistributed) {
+                Object[] nodes = (Object[]) rulesInfo.get("addresses");
+                this.nodes = Arrays.asList(nodes);
+            }
+            this.startSequence = (Integer) rulesInfo.get("start_sequence");
+            this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
+            this.startingStrategy = StartingStrategy.valueOf((String) rulesInfo.get("starting_strategy"));
+            this.startingFailureStrategy = StartingFailureStrategy.valueOf((String) rulesInfo.get("starting_failure_strategy"));
+            this.runningFailureStrategy = RunningFailureStrategy.valueOf((String) rulesInfo.get("running_failure_strategy"));
+        }
     }
 
     /**
@@ -87,6 +107,25 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
+     * The isDistributed method returns the distribution status of the application in Supvisors.
+     *
+     * @return Boolean: The distribution status.
+     */
+    public Boolean isDistributed() {
+        return this.isDistributed;
+    }
+
+    /**
+     * The getNodes method returns the nodes where the application processes can be started,
+     *  when application cannot be distributed.
+     *
+     * @return List: The list of nodes.
+     */
+    public List getNodes() {
+        return this.nodes;
+    }
+
+    /**
      * The getStartSequence method returns the starting order of the application when starting all the applications.
      *
      * @return Integer: The starting order.
@@ -105,10 +144,20 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getStartingStrategy method returns the strategy applied to choose nodes
+     *  when the application is starting.
+     *
+     * @return StartingStrategy: The strategy.
+     */
+    public StartingStrategy getStartingStrategy() {
+        return this.startingStrategy;
+    }
+
+    /**
      * The getStartingFailureStrategy method returns the strategy applied if the process crashes
      * when the application is starting.
      *
-     * @return RunningFailureStrategy: The strategy.
+     * @return StartingFailureStrategy: The strategy.
      */
     public StartingFailureStrategy getStartingFailureStrategy() {
         return this.startingFailureStrategy;
@@ -130,11 +179,20 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsApplicationRules(applicationName=" + this.applicationName
-            + " managed=" + this.isManaged
-            + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
-            + " startingFailureStrategy=" + this.startingFailureStrategy
-            + " runningFailureStrategy=" + this.runningFailureStrategy + ")";
+        String rulesString = "SupvisorsApplicationRules(applicationName=" + this.applicationName
+            + " managed=" + this.isManaged;
+        if (this.isManaged) {
+            rulesString += " distributed=" + this.isDistributed;
+            if (!this.isDistributed) {
+                rulesString += " nodes=" + this.nodes;
+            }
+            rulesString += " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
+                + " startingStrategy=" + this.startingStrategy
+                + " startingFailureStrategy=" + this.startingFailureStrategy
+                + " runningFailureStrategy=" + this.runningFailureStrategy;
+        }
+        rulesString += ")";
+        return rulesString;
     }
 
 }
