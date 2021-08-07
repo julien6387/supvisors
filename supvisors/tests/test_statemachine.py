@@ -120,11 +120,15 @@ def test_initialization_state(mocker, supvisors_ctx):
     state.start_date = time() - 11
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
+    # test case where a Master is already identified
+    supvisors_ctx.context.master_node_name = '127.0.0.1'
+    state.start_date = time()
+    result = state.next()
+    assert result == SupvisorsStates.DEPLOYMENT
     # 3. test exit method
     mocked_synchro = mocker.patch.object(supvisors_ctx.context, 'end_synchro')
     nodes['10.0.0.4']._state = AddressStates.RUNNING
     # test when master_node_name is already set: no change
-    supvisors_ctx.context.master_node_name = '127.0.0.1'
     state.exit()
     assert mocked_synchro.called
     assert supvisors_ctx.context.master_node_name == '127.0.0.1'

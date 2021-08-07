@@ -17,6 +17,8 @@ Change Log
 
 * For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
 
+* In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.
+
 * In the process description of the Web UI Application page, add information about the node_name.
 
 * Documentation updated.

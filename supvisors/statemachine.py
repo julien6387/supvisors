@@ -151,6 +151,10 @@ class InitializationState(AbstractState):
             if (time() - self.start_date) > self.supvisors.options.synchro_timeout:
                 self.logger.warn('InitializationState.next: synchro timed out')
                 return SupvisorsStates.DEPLOYMENT
+            # if master is already known due to other nodes' status, just transition. sync not needed
+            # it can be assumed that the local node has been started lately
+            if self.context.master_node_name:
+                return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
             self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.local_node_name))
