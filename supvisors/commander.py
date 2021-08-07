@@ -19,14 +19,14 @@
 
 import time
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .strategy import get_node
+from .strategy import get_node, LoadRequestMap
 from .ttypes import StartingStrategies, StartingFailureStrategies
 
 
@@ -35,16 +35,14 @@ class ProcessCommand(object):
 
     Attributes are:
         - process: the process wrapped,
+        - node_name: the node to which the command is requested,
         - request_time: the date when the command is requested,
         - strategy: the strategy used to start the process if applicable,
-        - node_name: the node_name to start the process (used only in the event of an non-distributed application),
-        - ignore_wait_exit: used to command a process out of its application,
+        - distributed: set to False if the process belongs to an application that cannot de distributed,
+        - ignore_wait_exit: used to command a process out of its application starting sequence,
         - extra_args: additional arguments to the command line.
     """
     TIMEOUT = 10
-
-    # Annotation types
-    NodeDistribution = Tuple[bool, Optional[str]]  # (distributed, node_name)
 
     def __init__(self, process: ProcessStatus, strategy: StartingStrategies = None) -> None:
         """ Initialization of the attributes.
@@ -53,10 +51,11 @@ class ProcessCommand(object):
         :param strategy: the applicable starting strategy
         """
         self.process: ProcessStatus = process
+        self.node_name: Optional[str] = None
         self.request_time: int = 0
         # the following attributes are only for Starter
         self.strategy: StartingStrategies = strategy
-        self.node_distribution: ProcessCommand.NodeDistribution = (True, None)
+        self.distributed: bool = True
         self.ignore_wait_exit: bool = False
         self.extra_args: str = ''
 
@@ -65,11 +64,11 @@ class ProcessCommand(object):
 
         :return: the printable process command
         """
-        return 'process={} state={} last_event_time={} strategy={} request_time={} ' \
-               'ignore_wait_exit={} extra_args="{}"' \
+        return 'process={} state={} last_event_time={} requested_node={} request_time={} strategy={}' \
+               ' distributed=True ignore_wait_exit={} extra_args="{}"' \
             .format(self.process.namespec, self.process.state, self.process.last_event_time,
-                    self.strategy.value if self.strategy else 'None',
-                    self.request_time,  self.ignore_wait_exit, self.extra_args)
+                    self.node_name, self.request_time, self.strategy.value if self.strategy else 'None',
+                    self.ignore_wait_exit, self.extra_args)
 
     def timed_out(self, now: int) -> bool:
         """ Return True if there is still no event TIMEOUT seconds past the request.
@@ -567,7 +566,7 @@ class Starter(Commander):
                             application.rules.starting_strategy)
             # find node iaw strategy
             node_name = get_node(self.supvisors, strategy, application.possible_nodes(),
-                                 application.get_start_sequence_expected_load())
+                                 application.get_start_sequence_expected_load(), self.get_load_requests())
             self.logger.info('Starter.prepare_application_jobs: node_name={} found for non-distributed'
                              ' application_name={} using strategy={}'
                              .format(node_name, application_name, strategy.name))
@@ -576,7 +575,8 @@ class Starter(Commander):
                 # distributed information must be set to differentiate 2 cases:
                 #     * application is distributed, so node_name has to be resolved later in process_jobs
                 #     * application is not distributed and no applicable node_name has been found
-                command.node_distribution = (False, node_name)
+                command.distributed = False
+                command.node_name = node_name
         # TODO: could node_name be resolved here, even for distributed applications ?
 
     def process_job(self, command: ProcessCommand, jobs: Commander.CommandList) -> bool:
@@ -590,29 +590,26 @@ class Starter(Commander):
         process = command.process
         self.logger.debug('Starter.process_job: process={} stopped={}'.format(process.namespec, process.stopped()))
         if process.stopped():
-            # whatever a node is found or not to start the process, the job is considered started
-            # in every cases, a notification is expected from Supervisor
-            command.request_time = time.time()
-            jobs.append(command)
-            starting = True
             # node_name has already been decided for a non-distributed application
-            distributed, node_name = command.node_distribution
-            if distributed:
+            if command.distributed:
                 # find node iaw strategy
-                node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
-                                     process.rules.expected_load)
-            if node_name:
+                command.node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
+                                             process.rules.expected_load, self.get_load_requests())
+            if command.node_name:
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(node_name, process.namespec, command.extra_args)
-                # TODO: force STARTING in ProcessStatus so that next job takes that into account to find node ?
-                #  process.force_state({'state': ProcessStates.STARTING, 'spawnerr': ''}
+                self.supvisors.zmq.pusher.send_start_process(command.node_name, process.namespec, command.extra_args)
                 self.logger.debug('Starter.process_job: {} requested to start on {} (strategy={}) at {}'
-                                  .format(process.namespec, node_name, command.strategy.name,
+                                  .format(process.namespec, command.node_name, command.strategy.name,
                                           get_asctime(command.request_time)))
+                # push command into current jobs
+                command.request_time = time.time()
+                jobs.append(command)
+                starting = True
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(process.namespec))
                 self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,
                                                             'no resource available')
+                self.process_failure(process)
         # return True when the job is started
         return starting
 
@@ -653,6 +650,20 @@ class Starter(Commander):
             self.logger.warn('Starter.after_jobs: apply pending stop application={}'.format(application_name))
             self.application_stop_requests.remove(application_name)
             self.supvisors.stopper.stop_application(application)
+
+    def get_load_requests(self) -> LoadRequestMap:
+        """ From current_jobs, extract by node the processes that are requested to start but still stopped
+        and sum their expected load.
+
+        :return: the additional loading per node
+        """
+        load_request_map = {}
+        for command_list in self.current_jobs.values():
+            for command in command_list:
+                # if process is not stopped, its loading is already considered in AddressStatus
+                if command.process.stopped():
+                    load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
+        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items()}
 
 
 class Stopper(Commander):

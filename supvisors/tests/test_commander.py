@@ -55,8 +55,8 @@ def test_str():
     command.request_time = 4321
     command.ignore_wait_exit = True
     command.extra_args = '-s test args'
-    assert str(command) == 'process=proc_1 state=RUNNING last_event_time=1234 strategy=0 request_time=4321'\
-                           ' ignore_wait_exit=True extra_args="-s test args"'
+    assert str(command) == 'process=proc_1 state=RUNNING last_event_time=1234 requested_node=None request_time=4321'\
+                           ' strategy=0 distributed=True ignore_wait_exit=True extra_args="-s test args"'
 
 
 def test_timed_out():
@@ -687,10 +687,12 @@ def test_starter_prepare_application_jobs(mocker, starter, command_list):
                                     return_value=['10.0.0.1', '10.0.0.2'])
     mocked_app_load = mocker.patch('supvisors.application.ApplicationStatus.get_start_sequence_expected_load',
                                    return_value=27)
+    mocker.patch.object(starter, 'get_load_requests', return_value={'10.0.0.1': 28})
     # check initial context
     starter.planned_jobs = {'sample_test_1': {1: [get_test_command(command_list, 'xfontsel')],
                                               2: [get_test_command(command_list, 'xlogo')]}}
-    assert all(command.node_distribution == (True, None)
+    starter.current_jobs = {}
+    assert all(command.distributed and not command.node_name
                for sequence in starter.planned_jobs['sample_test_1'].values()
                for command in sequence)
     # add applications to context
@@ -703,16 +705,16 @@ def test_starter_prepare_application_jobs(mocker, starter, command_list):
     assert not mocked_app_nodes.called
     assert not mocked_app_load.called
     # commands unchanged
-    assert all(command.node_distribution == (True, None)
+    assert all(command.distributed and not command.node_name
                for sequence in starter.planned_jobs['sample_test_1'].values()
                for command in sequence)
     # test application provided / application not distributed
     application.rules.distributed = False
     starter.prepare_application_jobs('sample_test_1')
     assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
-                                                      ['10.0.0.1', '10.0.0.2'], 27)]
+                                                      ['10.0.0.1', '10.0.0.2'], 27, {'10.0.0.1': 28})]
     # check commands
-    assert all(command.node_distribution == (False, '10.0.0.1')
+    assert all(not command.distributed and command.node_name == '10.0.0.1'
                for sequence in starter.planned_jobs['sample_test_1'].values()
                for command in sequence)
 
@@ -723,6 +725,8 @@ def test_starter_process_job(mocker, starter, command_list):
     mocked_node_getter = mocker.patch('supvisors.commander.get_node')
     mocked_force = starter.supvisors.listener.force_process_state
     mocked_pusher = starter.supvisors.zmq.pusher.send_start_process
+    mocker.patch.object(starter, 'get_load_requests', return_value={'10.0.0.1': 28})
+    mocked_failure = mocker.patch.object(starter, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
     # 1. test with running process
@@ -735,8 +739,9 @@ def test_starter_process_job(mocker, starter, command_list):
     assert jobs == []
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
-    # failure method is not called
+    # failure methods are not called
     assert not mocked_force.called
+    assert not mocked_failure.called
     # 2.a test with stopped process
     command = get_test_command(command_list, 'xlogo')
     command.strategy = StartingStrategies.MOST_LOADED
@@ -747,11 +752,12 @@ def test_starter_process_job(mocker, starter, command_list):
     # starting methods are called
     assert jobs == [command]
     assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
-                                                      ['10.0.0.1'], 0)]
+                                                      ['10.0.0.1'], 0,{'10.0.0.1': 28})]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     mocked_pusher.reset_mock()
-    # failure method is not called
+    # failure methods are not called
     assert not mocked_force.called
+    assert not mocked_failure.called
     # 3. test with no starting address
     mocked_node_getter.return_value = None
     # test with stopped process
@@ -761,10 +767,11 @@ def test_starter_process_job(mocker, starter, command_list):
     # call the process_jobs
     starter.process_job(command, jobs)
     # starting methods are not called but job is in list though
-    assert jobs == [command]
+    assert jobs == []
     assert not mocked_pusher.called
-    # failure method is called
+    # failure methods are called
     assert mocked_force.call_args_list == [call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')]
+    assert mocked_failure.call_args_list == [call(command.process)]
 
 
 def test_starter_start_process_failure(mocker, starter, command_list):
@@ -935,6 +942,19 @@ def test_starter_after_jobs(mocker, starter):
     starter.after_jobs('appli_2')
     assert starter.application_stop_requests == []
     assert mocked_stop.call_args_list == [call(appli_2)]
+
+
+def test_starter_get_load_requests(starter, command_list):
+    """ Test the Starter.get_load_requests method. """
+    # test with empty current_jobs
+    assert starter.get_load_requests() == {}
+    # fill jobs
+    for idx, command in enumerate(command_list):
+        command.node_name = '10.0.0.1' if idx % 2 else '10.0.0.2'
+        command.process.rules.expected_load = 10
+        starter.current_jobs.setdefault(command.process.application_name, []).append(command)
+    # 4 stopped processes in context
+    assert starter.get_load_requests() == {'10.0.0.2': 20, '10.0.0.1': 20}
 
 
 # Stopper part

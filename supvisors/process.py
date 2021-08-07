@@ -220,15 +220,16 @@ class ProcessStatus(object):
             self._state = new_state
             self.logger.info('ProcessStatus.state: {} is {}'.format(self.namespec, self.state_string()))
 
-    def force_state(self, payload: Payload) -> None:
+    def force_state(self, state: ProcessStates, reason: str = None) -> None:
         """ Force the process state due to an unexpected event.
 
-        :param payload: the event payload
+        :param state: the forced state
+        :param reason: the reason why the state is forced
         :return: None
         """
         self.last_event_time = int(time())
-        self.forced_state = payload['state']
-        self.forced_reason = payload['spawnerr']
+        self.forced_state = state
+        self.forced_reason = reason
 
     @property
     def extra_args(self) -> str:

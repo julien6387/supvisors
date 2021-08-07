@@ -298,7 +298,7 @@ class Context(object):
                 else:
                     # refresh process info depending on the nature of the process event
                     if 'forced' in event:
-                        process.force_state(event)
+                        process.force_state(event['state'], event['spawnerr'])
                         del event['forced']
                     else:
                         process.update_info(node_name, event)

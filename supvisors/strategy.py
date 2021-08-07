@@ -17,9 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Mapping, Sequence, Tuple
+from typing import Any, Mapping, Sequence, Tuple
 
 from .ttypes import AddressStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
+
+# types for annotations
+LoadRequestMap = Mapping[str, int]
 
 
 class AbstractStrategy(object):
@@ -43,36 +46,39 @@ class AbstractStartingStrategy(AbstractStrategy):
     LoadingValidityMap = Mapping[str, LoadingValidity]
     NodeLoadMap = Sequence[Tuple[str, int]]
 
-    def is_loading_valid(self, node_name: str, expected_load: int) -> LoadingValidity:
+    def is_loading_valid(self, node_name: str, expected_load: int, load_request_map: LoadRequestMap) -> LoadingValidity:
         """ Return True and current load if remote Supvisors instance is active
         and can support the additional load.
 
         :param node_name: the node name tested
         :param expected_load: the load to add to the node
+        :param load_request_map: the unconsidered loads
         :return: a tuple with a boolean telling if the additional load is possible on node and the current load
         """
-        self.logger.trace('AbstractStartingStrategy.is_loading_valid: node_name={} expected_load={}'
-                          .format(node_name, expected_load))
+        self.logger.trace('AbstractStartingStrategy.is_loading_valid: node_name={} expected_load={} load_request_map={}'
+                          .format(node_name, expected_load, load_request_map))
         if node_name in self.supvisors.context.nodes.keys():
             status = self.supvisors.context.nodes[node_name]
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} state={}'
                               .format(node_name, status.state.name))
             if status.state == AddressStates.RUNNING:
-                loading = status.get_loading()
+                loading = status.get_loading() + load_request_map.get(node_name, 0)
                 self.logger.debug('AbstractStartingStrategy.is_loading_valid: node_name={} loading={} expected_load={}'
                                   .format(node_name, loading, expected_load))
-                return loading + expected_load < 100, loading
+                return loading + expected_load <= 100, loading
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} not RUNNING'.format(node_name))
         return False, 0
 
-    def get_loading_and_validity(self, node_names: NameList, expected_load: int) -> LoadingValidityMap:
+    def get_loading_and_validity(self, node_names: NameList, expected_load: int,
+                                 load_request_map: LoadRequestMap) -> LoadingValidityMap:
         """ Return the report of loading capability of all nodes iaw the additional load required.
 
         :param node_names: the nodes considered
-        :param expected_load: the additional load to consider
+        :param expected_load: the additional load to consider for the program to be started
+        :param load_request_map: the unconsidered loads
         :return: the list of nodes that can hold the additional load
         """
-        loading_validity_map = {node_name: self.is_loading_valid(node_name, expected_load)
+        loading_validity_map = {node_name: self.is_loading_valid(node_name, expected_load, load_request_map)
                                 for node_name in node_names}
         self.logger.trace('AbstractStartingStrategy.get_loading_and_validity: loading_validity_map={}'
                           .format(loading_validity_map))
@@ -87,26 +93,54 @@ class AbstractStartingStrategy(AbstractStrategy):
         self.logger.trace('AbstractStartingStrategy.sort_valid_by_loading: sorted_nodes={}'.format(sorted_nodes))
         return sorted_nodes
 
+    def get_node(self, node_names, expected_load, load_request_map):
+        """ Choose the node that can support the additional load requested.
+        The load of the processes that have just been requested to start are to be considered separately because they
+        are not considered yet in AddressStatus.
+
+        :param node_names: the candidate nodes
+        :param expected_load: the load of the program to be started
+        :param load_request_map: the unconsidered loads
+        :return: the list of nodes that can hold the additional load
+        """
+        raise NotImplementedError
+
 
 class ConfigStrategy(AbstractStartingStrategy):
     """ Strategy designed to choose the node using the order defined in the configuration file. """
 
-    def get_node(self, node_names, expected_load):
-        """ Choose the first node that can support the additional load requested. """
-        self.logger.debug('ConfigStrategy.get_node: node_names={} expected_load={}'
-                          .format(node_names, expected_load))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+    def get_node(self, node_names, expected_load, load_request_map):
+        """ Choose the first node in the list that can support the additional load requested.
+        The load of the processes that have just been requested to start are to be considered separately because they
+        are not considered yet in AddressStatus.
+
+        :param node_names: the candidate nodes
+        :param expected_load: the load of the program to be started
+        :param load_request_map: the unconsidered loads
+        :return: the list of nodes that can hold the additional load
+        """
+        self.logger.debug('ConfigStrategy.get_node: node_names={} expected_load={} request_map={}'
+                          .format(node_names, expected_load, load_request_map))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
         return next((node_name for node_name, (validity, _) in loading_validity_map.items() if validity), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to share the loading among all the nodes. """
 
-    def get_node(self, node_names, expected_load):
-        """ Choose the node having the lowest loading that can support the additional load requested. """
-        self.logger.trace('LessLoadedStrategy.get_node: node_names={} expected_load={}'
-                          .format(node_names, expected_load))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+    def get_node(self, node_names, expected_load, load_request_map):
+        """ Choose the node having the lowest loading that can support the additional load requested.
+        The load of the processes that have just been requested to start are to be considered separately because they
+        are not considered yet in AddressStatus.
+
+        :param node_names: the candidate nodes
+        :param expected_load: the load of the program to be started
+        :param load_request_map: the unconsidered loads
+        :return: the list of nodes that can hold the additional load
+        """
+        self.logger.trace('LessLoadedStrategy.get_node: node_names={} expected_load={} request_map={}'
+                          .format(node_names, expected_load, load_request_map))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
         sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
         return sorted_nodes[0][0] if sorted_nodes else None
 
@@ -114,10 +148,19 @@ class LessLoadedStrategy(AbstractStartingStrategy):
 class MostLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to maximize the loading of a node. """
 
-    def get_node(self, node_names, expected_load):
-        """ Choose the node having the highest loading that can support the additional load requested. """
-        self.logger.trace('MostLoadedStrategy: node_names={} expected_load={}'.format(node_names, expected_load))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+    def get_node(self, node_names, expected_load, load_request_map):
+        """ Choose the node having the highest loading that can support the additional load requested.
+        The load of the processes that have just been requested to start are to be considered separately because they
+        are not considered yet in AddressStatus.
+
+        :param node_names: the candidate nodes
+        :param expected_load: the load of the program to be started
+        :param load_request_map: the unconsidered loads
+        :return: the list of nodes that can hold the additional load
+        """
+        self.logger.trace('MostLoadedStrategy: node_names={} expected_load={} load_request_map={}'
+                          .format(node_names, expected_load, load_request_map))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
         sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
         return sorted_nodes[-1][0] if sorted_nodes else None
 
@@ -125,15 +168,25 @@ class MostLoadedStrategy(AbstractStartingStrategy):
 class LocalStrategy(AbstractStartingStrategy):
     """ Strategy designed to start the process on the local node. """
 
-    def get_node(self, node_names, expected_load):
-        """ Choose the local node provided that it can support the additional load requested. """
-        self.logger.trace('LocalStrategy: node_names={} expected_load={}'.format(node_names, expected_load))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load)
+    def get_node(self, node_names, expected_load, load_request_map) -> str:
+        """ Choose the local node provided that it can support the additional load requested.
+        The load of the processes that have just been requested to start are to be considered separately because they
+        are not considered yet in AddressStatus.
+
+        :param node_names: the candidate nodes
+        :param expected_load: the load of the program to be started
+        :param load_request_map: the unconsidered loads
+        :return: the list of nodes that can hold the additional load
+        """
+        self.logger.trace('LocalStrategy: node_names={} expected_load={} load_request_map={}'
+                          .format(node_names, expected_load, load_request_map))
+        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
         local_node_name = self.supvisors.address_mapper.local_node_name
         return local_node_name if loading_validity_map.get(local_node_name, (False,))[0] else None
 
 
-def get_node(supvisors, strategy, node_rules, expected_load):
+def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList, expected_load: int,
+             load_request_map: LoadRequestMap) -> str:
     """ Creates a strategy and let it find a node to start a process having a defined load. """
     instance = None
     if strategy == StartingStrategies.CONFIG:
@@ -145,7 +198,7 @@ def get_node(supvisors, strategy, node_rules, expected_load):
     if strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
     # apply strategy result
-    return instance.get_node(node_rules, expected_load) if instance else None
+    return instance.get_node(node_rules, expected_load, load_request_map) if instance else None
 
 
 # Strategy management for Conciliation

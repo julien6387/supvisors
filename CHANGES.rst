@@ -12,6 +12,9 @@ Change Log
 
 * Starting strategy added to the application rules.
 
+* Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
+  and the requests that have not been satisfied yet.
+
 * For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
 
 * In the process description of the Web UI Application page, add information about the node_name.
