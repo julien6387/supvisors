@@ -6,64 +6,76 @@ Special Features
 Synchronizing **Supvisors** instances
 -------------------------------------
 
-The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase so that all **Supvisors** instances are mutually aware of each other.
+The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase so that all **Supvisors** instances
+are mutually aware of each other.
 
 The following options defined in the :ref:`supvisors_section` of the Supervisor configuration file are particularly
 used for synchronizing multiple instances of Supervisor:
 
-    * the ``address_list``,
-    * the ``internal_port``,
-    * the ``synchro_timeout``,
-    * the ``auto_fence``.
+    * ``address_list``,
+    * ``force_synchro_if``,
+    * ``internal_port``,
+    * ``synchro_timeout``,
+    * ``auto_fence``.
 
 Once started, all **Supvisors** instances publish the events received, especially the ``TICK`` events that are
-triggered every 5 seconds, on their ``PUBLISH`` ZeroMQ socket bound on the ``internal_port``.
+triggered every 5 seconds, on their ``PUBLISH`` *ZeroMQ* socket bound on the ``internal_port``.
 
 On the other side, all **Supvisors** instances start a thread that subscribes to the internal events
-through an internal ``SUBSCRIBE`` ZeroMQ socket connected to the ``internal_port`` of **all** nodes of the ``address_list``.
+through an internal ``SUBSCRIBE`` *ZeroMQ* socket connected to the ``internal_port`` of **all** nodes
+of the ``address_list``.
 
-At the beginning, all Address instances are in an ``UNKNOWN`` state.
-When the first ``TICK`` event is received from a remote **Supvisors** instance, the local **Supvisors** instance:
+At the beginning, all nodes are in an ``UNKNOWN`` state.
+When the first ``TICK`` event is received from a remote **Supvisors** instance, a sort of hand-shake is performed
+between the 2 nodes. The local **Supvisors** instance:
 
-    * sets the remote Address state to ``CHECKING``,
-    * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the remote **Supvisors** instance, in order to know how it is seen by the remote instance.
+    * sets the remote node state to ``CHECKING``,
+    * performs a couple of XML-RPC to the remote **Supvisors** instance:
+
+        + ``supvisors.get_master_address()`` and ``supvisors.get_supvisors_state()`` in order to know if the remote instance is already in an established state.
+        + ``supvisors.get_address_info(local_address)`` in order to know how the local node is perceived by the remote instance.
 
 At this stage, 2 possibilities:
 
     * the local **Supvisors** instance is seen as ``ISOLATED`` by the remote instance:
 
-        + it sets the remote Address state to ``ISOLATED``,
-        + it disconnects the URL of the remote **Supvisors** instance from the ``SUBSCRIBE`` ZeroMQ socket,
+        + the remote node is then reciprocally set to ``ISOLATED``,
+        + the *URL* of the remote **Supvisors** instance is disconnected from the ``SUBSCRIBE`` *ZeroMQ* socket,
 
     * the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the remote instance:
 
-        + it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the remote instance,
-        + it loads the processes information into the internal data model,
-        + it sets the remote address state to ``RUNNING``.
+        + a ``supervisor.getAllProcessInfo()`` XML-RPC is requested to the remote instance,
+        + the processes information is loaded into the internal data model,
+        + the remote node is finally set to ``RUNNING``.
 
 When all **Supvisors** instances are identified as ``RUNNING`` or ``ISOLATED``, the synchronization is completed.
 **Supvisors** then is able to work with the set (or subset) of nodes declared in ``address_list``.
 
-However, it may happen that some **Supvisors** instances do not publish as expected (very late starting,
-no starting at all, system down, network down, etc). Each **Supvisors** instance waits for ``synchro_timeout``
-seconds to give a chance to all other instances to publish. When this delay is exceeded, all the **Supvisors**
-instances that are **not** identified as ``RUNNING`` or ``ISOLATED`` are set to:
+However, it may happen that some **Supvisors** instances do not publish (very late starting, no starting at all,
+system down, network down, etc). Each **Supvisors** instance waits for ``synchro_timeout`` seconds to give a chance
+to all other instances to publish. When this delay is exceeded, all the **Supvisors** instances that are **not**
+identified as ``RUNNING`` or ``ISOLATED`` are set to:
 
     * ``SILENT`` if `Auto-Fencing`_ is **not** activated,
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
-Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes may include
-servers that will always be started from the very beginning and workstations that may be started only on demand. In this case,
-it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the ``force_synchro_if`` attribute has been
-introduced so that the synchronization phase is considered completed when a subset of the nodes declared in ``address_list``
-are ``RUNNING``.
-
-In these 2 cases, **Supvisors** will start to work with a subset of active nodes among those declared in ``address_list``.
+Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes
+may include servers that will always be started from the very beginning and workstations that may be started only
+on demand. In this case, it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the
+``force_synchro_if`` attribute has been introduced so that the synchronization phase is considered completed
+when a subset of the nodes declared in ``address_list`` are ``RUNNING``.
 
 Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes and enters
 the ``DEPLOYMENT`` state to start automatically the applications.
 By default, the *Master* node is the node having the smallest name among all the active nodes, unless the attribute
 ``force_synchro_if`` is used. In the latter case, candidates are taken from this list in priority.
+
+.. note:: *About late nodes*
+
+    Back to this case, here is what happens when a node is started while the others are already in ``OPERATION``.
+    During the hand-shake, the local **Supvisors** instance gets the *Master* identified by the remote **Supvisors**.
+    That confirms that the local node is a late starter and thus the local **Supvisors** instance adopts this *Master*
+    too and skips the synchronization phase.
 
 
 .. _auto_fencing:

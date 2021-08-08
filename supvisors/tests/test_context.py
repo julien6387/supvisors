@@ -139,17 +139,17 @@ def test_unknown_forced_nodes(supvisors):
     assert context.unknown_forced_nodes() == []
 
 
-def check_invalid_node_status(context, node_name, new_state):
+def check_invalid_node_status(context, node_name, new_state, fence=None):
     # get address status
-    address_status = context.nodes[node_name]
+    node = context.nodes[node_name]
     # check initial state
-    assert address_status.state == AddressStates.UNKNOWN
+    assert node.state == AddressStates.UNKNOWN
     # invalidate address
-    context.invalid(address_status)
+    context.invalid(node, fence)
     # check new state
-    assert address_status.state == new_state
+    assert node.state == new_state
     # restore address state
-    address_status._state = AddressStates.UNKNOWN
+    node._state = AddressStates.UNKNOWN
 
 
 def test_invalid(mocker, context):
@@ -158,14 +158,18 @@ def test_invalid(mocker, context):
     mocker.patch.object(context.supvisors.options, 'auto_fence', True)
     # test address state with auto_fence and local_address
     check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT, True)
     # test address state with auto_fence and other than local_address
     check_invalid_node_status(context, '10.0.0.1', AddressStates.ISOLATING)
+    check_invalid_node_status(context, '10.0.0.1', AddressStates.ISOLATING, True)
     # test address state without auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
     # test address state without auto_fence and local_address
     check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT, True)
     # test address state without auto_fence and other than local_address
     check_invalid_node_status(context, '10.0.0.2', AddressStates.SILENT)
+    check_invalid_node_status(context, '10.0.0.2', AddressStates.ISOLATING, True)
 
 
 def test_end_synchro(mocker, context):
@@ -409,12 +413,12 @@ def test_authorization(mocker, context):
     with pytest.raises(InvalidTransition):
         context.on_authorization('10.0.0.4', True)
     assert context.nodes['10.0.0.4'].state == AddressStates.SILENT
-    # check state becomes SILENT if not authorized and auto fencing deactivated
+    # check state becomes ISOLATED reciprocally if not authorized and even if auto fencing deactivated
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
     for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.SILENT, AddressStates.RUNNING]:
         context.nodes['10.0.0.5']._state = state
         context.on_authorization('10.0.0.5', False)
-        assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
+        assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
 
 
 def test_tick_event(mocker, context):

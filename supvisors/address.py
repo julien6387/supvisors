@@ -141,7 +141,7 @@ class AddressStatus(object):
     _Transitions = {AddressStates.UNKNOWN: (AddressStates.CHECKING, AddressStates.ISOLATING, AddressStates.SILENT),
                     AddressStates.CHECKING: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
                     AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING),
-                    AddressStates.SILENT: (AddressStates.CHECKING,),
+                    AddressStates.SILENT: (AddressStates.CHECKING, AddressStates.ISOLATING),
                     AddressStates.ISOLATING: (AddressStates.ISOLATED,),
                     AddressStates.ISOLATED: ()
                     }

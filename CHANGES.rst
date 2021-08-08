@@ -19,6 +19,8 @@ Change Log
 
 * In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.
 
+* Add reciprocity to isolation even if ``auto_fence`` is not activated.
+
 * In the process description of the Web UI Application page, add information about the node_name.
 
 * Documentation updated.

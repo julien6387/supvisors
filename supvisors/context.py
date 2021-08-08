@@ -107,7 +107,7 @@ class Context(object):
         """ Return the AddressStatus instances sorted by state. """
         return [status.address_name for status in self.nodes.values() if status.state in states]
 
-    def invalid(self, status: AddressStatus) -> None:
+    def invalid(self, status: AddressStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local node is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
@@ -122,7 +122,7 @@ class Context(object):
             #       by design, the local node cannot be ISOLATED. that's precisely the aim of the following instructions
             self.logger.critical('Context.invalid: local node is SILENT')
             status.state = AddressStates.SILENT
-        elif self.supvisors.options.auto_fence:
+        elif fence or self.supvisors.options.auto_fence:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
@@ -249,7 +249,7 @@ class Context(object):
                     status.state = AddressStates.RUNNING
                     return True
                 self.logger.warn('Context.on_authorization: local is not authorized to deal with {}'.format(node_name))
-                self.invalid(status)
+                self.invalid(status, True)
         else:
             self.logger.warn('Context.on_authorization: got authorization from unexpected node={}'.format(node_name))
 
