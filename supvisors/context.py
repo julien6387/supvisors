@@ -17,25 +17,22 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator, List, Set
+from typing import Iterator, List
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
-from .infosource import SupervisordSource
-from .listener import SupervisorListener
 from .process import *
-from .ttypes import AddressStates, NameList, PayloadList
+from .ttypes import AddressStates, SupvisorsStates, NameList, PayloadList
 
 
 class Context(object):
     """ The Context class holds the main data of Supvisors:
 
-    - addresses: the dictionary of all AddressStatus (key is address),
-    - forced_addresses: the dictionary of the minimal set of AddressStatus (key is address),
+    - nodes: the dictionary of all AddressStatus (key is node_name),
+    - forced_nodes: the dictionary of the minimal set of AddressStatus (key is node_name),
     - applications: the dictionary of all ApplicationStatus (key is application name),
-    - master_address: the address of the Supvisors master,
-    - master: a boolean telling if the local address is the master address.
-    - new: a boolean telling if this context has just been started.
+    - master_node_name: the name of the Supvisors master,
+    - is_master: a boolean telling if the local node is the master node.
     """
 
     def __init__(self, supvisors: Any):
@@ -51,9 +48,8 @@ class Context(object):
                                                        if node_name in self.supvisors.options.force_synchro_if}
         self.applications: Dict[str, ApplicationStatus] = {}
         # master attributes
-        self._master_node_name = ''
-        self._is_master = False
-        self.master_operational = False
+        self._master_node_name: str = ''
+        self._is_master: bool = False
 
     def reset(self) -> None:
         """ Reset the context to prepare a new synchronization phase.
@@ -78,7 +74,6 @@ class Context(object):
         self.logger.info('Context.master_node_name: {}'.format(node_name))
         self._master_node_name = node_name
         self._is_master = node_name == self.supvisors.address_mapper.local_node_name
-        self.master_operational = False
 
     # methods on nodes
     def unknown_nodes(self) -> NameList:
@@ -219,7 +214,7 @@ class Context(object):
     def load_processes(self, node_name: str, all_info: PayloadList) -> None:
         """ Load application dictionary from process info got from Supervisor on address. """
         self.logger.trace('Context.load_processes: node_name={} all_info={}'.format(node_name, all_info))
-        # get AddressStatus corresponding to address
+        # get AddressStatus corresponding to node_name
         status = self.nodes[node_name]
         # store processes into their application entry
         for info in all_info:
@@ -230,6 +225,10 @@ class Context(object):
                 process.add_info(node_name, info)
                 # share the instance to the Supervisor instance that holds it
                 status.add_process(process)
+        # re-evaluate application sequences and status
+        for application in self.applications.values():
+            application.update_sequences()
+            application.update_status()
 
     # methods on events
     def on_authorization(self, node_name: str, authorized: bool) -> Optional[bool]:
@@ -310,7 +309,6 @@ class Context(object):
                             self.logger.warn('Context.on_process_event: cannot apply extra args to {} unknown'
                                              ' to local Supervisor'.format(process.namespec))
                     # refresh application status
-                    application = self.applications[process.application_name]
                     application.update_status()
                     # publish process event, status and application status
                     publisher = self.supvisors.zmq.publisher

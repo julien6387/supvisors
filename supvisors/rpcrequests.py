@@ -22,7 +22,7 @@ from typing import Mapping
 from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import SupervisorTransport
 
-from supvisors.rpcinterface import RPCInterface
+from .rpcinterface import RPCInterface
 
 
 def getRPCInterface(node_name: str, env: Mapping[str, str]) -> RPCInterface:

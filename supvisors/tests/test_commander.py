@@ -274,21 +274,21 @@ def test_commander_process_job(commander):
         commander.process_job(None, None)
 
 
-def test_commander_check_progress(mocker, commander, command_list):
+def test_commander_is_job_completed(mocker, commander, command_list):
     """ Test the Commander.check_progress method. """
     mocked_trigger = mocker.patch('supvisors.commander.Commander.trigger_jobs')
     mocked_after = mocker.patch('supvisors.commander.Commander.after_event')
     mocked_force = commander.supvisors.listener.force_process_state = Mock()
     # test with no sequence in progress
-    assert commander.check_progress('stopped', ProcessStates.FATAL)
+    assert commander.is_job_completed('stopped', ProcessStates.FATAL)
     # test with no current jobs but planned sequence and no planned jobs
     commander.planned_sequence = {3: {'else': {}}}
-    assert not commander.check_progress('stopped', ProcessStates.FATAL)
+    assert not commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert mocked_trigger.call_args_list == [call()]
     mocked_trigger.reset_mock()
     # test with no current jobs but planned sequence and planned jobs (unexpected case)
     commander.planned_jobs = {'if': {2: []}}
-    assert not commander.check_progress('stopped', ProcessStates.FATAL)
+    assert not commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not mocked_trigger.called
     # set test current_jobs
     # xfontsel is RUNNING, xlogo is STOPPED, yeux_00 is EXITED, yeux_01 is RUNNING
@@ -301,7 +301,7 @@ def test_commander_check_progress(mocker, commander, command_list):
         for command in command_list:
             command.request_time = time.time()
     # stopped processes have a recent request time: nothing done
-    completed = commander.check_progress('stopped', ProcessStates.FATAL)
+    completed = commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                                                   'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']}
@@ -314,7 +314,7 @@ def test_commander_check_progress(mocker, commander, command_list):
             command.process.last_event_time = 0
             command.request_time = 0
     # stopped processes have an old request time: actions taken on state and sequence
-    completed = commander.check_progress('stopped', ProcessStates.FATAL)
+    completed = commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel'],
                                                   'sample_test_2': ['sample_test_2:yeux_01']}
@@ -330,7 +330,7 @@ def test_commander_check_progress(mocker, commander, command_list):
         for command in command_list:
             command.request_time = time.time()
     # stopped processes have a recent request time: nothing done
-    completed = commander.check_progress('running', ProcessStates.UNKNOWN)
+    completed = commander.is_job_completed('running', ProcessStates.UNKNOWN)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel'],
                                                   'sample_test_2': ['sample_test_2:yeux_01']}
@@ -343,7 +343,7 @@ def test_commander_check_progress(mocker, commander, command_list):
             command.process.last_event_time = 0
             command.request_time = 0
     # stopped processes have an old request time: actions taken on state and sequence
-    completed = commander.check_progress('running', ProcessStates.UNKNOWN)
+    completed = commander.is_job_completed('running', ProcessStates.UNKNOWN)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': [], 'sample_test_2': []}
     reason = 'Still running 10 seconds after request'
@@ -505,10 +505,10 @@ def test_starter_process_failure_required(starter):
     assert starter.application_stop_requests == ['appli_1']
 
 
-def test_starter_check_starting(mocker, starter):
+def test_starter_is_starting_completed(mocker, starter):
     """ Test the Starter.check_starting method. """
-    mocked_check = mocker.patch('supvisors.commander.Commander.check_progress', return_value=True)
-    assert starter.check_starting()
+    mocked_check = mocker.patch('supvisors.commander.Commander.is_job_completed', return_value=True)
+    assert starter.is_starting_completed()
     assert mocked_check.call_args_list == [call('stopped', ProcessStates.FATAL)]
 
 
@@ -971,8 +971,8 @@ def test_stopper_create(stopper):
 
 def test_stopper_check_stopping(mocker, stopper):
     """ Test the Stopper.check_stopping method. """
-    mocked_check = mocker.patch('supvisors.commander.Commander.check_progress', return_value=True)
-    assert stopper.check_stopping()
+    mocked_check = mocker.patch('supvisors.commander.Commander.is_job_completed', return_value=True)
+    assert stopper.is_stopping_completed()
     assert mocked_check.call_args_list == [call('running', ProcessStates.STOPPED)]
 
 

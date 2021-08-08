@@ -140,10 +140,10 @@ def test_check_requests(mocker, main_loop):
 
 def test_check_node(mocker, mocked_rpc, main_loop):
     """ Test the protocol to get the processes handled by a remote Supervisor. """
-    mocked_stderr = mocker.patch('supvisors.mainloop.stderr')
+    mocker.patch('supvisors.mainloop.stderr')
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
     # test rpc error: no event is sent to local Supervisor
-    mocked_rpc.side_effect = Exception
+    mocked_rpc.side_effect = ValueError
     main_loop.check_node('10.0.0.1')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
@@ -189,7 +189,7 @@ def test_start_process(mocker, mocked_rpc, main_loop):
     """ Test the protocol to start a process handled by a remote Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
-    mocked_rpc.side_effect = Exception
+    mocked_rpc.side_effect = KeyError
     main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
@@ -209,7 +209,7 @@ def test_stop_process(mocker, mocked_rpc, main_loop):
     """ Test the protocol to stop a process handled by a remote Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
-    mocked_rpc.side_effect = Exception
+    mocked_rpc.side_effect = ConnectionResetError
     main_loop.stop_process('10.0.0.1', 'dummy_process')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
@@ -229,7 +229,7 @@ def test_restart(mocker, mocked_rpc, main_loop):
     """ Test the protocol to restart a remote Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
-    mocked_rpc.side_effect = Exception
+    mocked_rpc.side_effect = OSError
     main_loop.restart('10.0.0.1')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
@@ -249,7 +249,7 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     """ Test the protocol to shutdown a remote Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
-    mocked_rpc.side_effect = Exception
+    mocked_rpc.side_effect = RPCError(12)
     main_loop.shutdown('10.0.0.1')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
@@ -265,11 +265,51 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     assert mocked_shutdown.call_args == call()
 
 
+def test_restart_all(mocker, mocked_rpc, main_loop):
+    """ Test the protocol to restart Supvisors. """
+    mocker.patch('supvisors.mainloop.stderr')
+    # test rpc error
+    mocked_rpc.side_effect = OSError
+    main_loop.restart_all('10.0.0.1')
+    assert mocked_rpc.call_count == 2
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    # test with a mocked rpc interface
+    rpc_intf = DummyRpcInterface()
+    mocked_rpc.side_effect = None
+    mocked_rpc.return_value = rpc_intf
+    mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart')
+    main_loop.restart_all('10.0.0.1')
+    assert mocked_rpc.call_count == 3
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    assert mocked_supervisor.call_count == 1
+    assert mocked_supervisor.call_args == call()
+
+
+def test_shutdown_all(mocker, mocked_rpc, main_loop):
+    """ Test the protocol to shutdown Supvisors. """
+    mocker.patch('supvisors.mainloop.stderr')
+    # test rpc error
+    mocked_rpc.side_effect = RPCError(12)
+    main_loop.shutdown_all('10.0.0.1')
+    assert mocked_rpc.call_count == 2
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    # test with a mocked rpc interface
+    rpc_intf = DummyRpcInterface()
+    mocked_rpc.side_effect = None
+    mocked_rpc.return_value = rpc_intf
+    mocked_shutdown = mocker.patch.object(rpc_intf.supvisors, 'shutdown')
+    main_loop.shutdown_all('10.0.0.1')
+    assert mocked_rpc.call_count == 3
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    assert mocked_shutdown.call_count == 1
+    assert mocked_shutdown.call_args == call()
+
+
 def test_comm_event(mocker, mocked_rpc, main_loop):
     """ Test the protocol to send a comm event to the local Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
     # test rpc error
-    mocker.patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent', side_effect=Exception)
+    mocker.patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent', side_effect=RPCError(100))
     main_loop.send_remote_comm_event('event type', 'event data')
     # test with a mocked rpc interface
     mocked_supervisor = mocker.patch.object(main_loop.proxy.supervisor, 'sendRemoteCommEvent')
@@ -280,7 +320,7 @@ def test_comm_event(mocker, mocked_rpc, main_loop):
 def check_call(main_loop, mocked_loop, method_name, request, args):
     """ Perform a main loop request and check what has been called. """
     # send request
-    main_loop.send_request(request, args)
+    main_loop.send_request(request.value, args)
     # test mocked main loop
     for key, mocked in mocked_loop.items():
         if key == method_name:
@@ -296,7 +336,8 @@ def test_send_request(mocker, main_loop):
     # patch main loop subscriber
     mocked_loop = mocker.patch.multiple(main_loop, check_node=DEFAULT,
                                         start_process=DEFAULT, stop_process=DEFAULT,
-                                        restart=DEFAULT, shutdown=DEFAULT)
+                                        restart=DEFAULT, shutdown=DEFAULT,
+                                        restart_all=DEFAULT, shutdown_all=DEFAULT)
     # test check address
     check_call(main_loop, mocked_loop, 'check_node',
                DeferredRequestHeaders.CHECK_NODE, ('10.0.0.2',))
@@ -312,3 +353,9 @@ def test_send_request(mocker, main_loop):
     # test shutdown
     check_call(main_loop, mocked_loop, 'shutdown',
                DeferredRequestHeaders.SHUTDOWN, ('10.0.0.2',))
+    # test restart_all
+    check_call(main_loop, mocked_loop, 'restart_all',
+               DeferredRequestHeaders.RESTART_ALL, ('10.0.0.2',))
+    # test shutdown
+    check_call(main_loop, mocked_loop, 'shutdown_all',
+               DeferredRequestHeaders.SHUTDOWN_ALL, ('10.0.0.2',))

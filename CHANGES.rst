@@ -4,6 +4,10 @@ Change Log
 0.7 (2021-xx-xx)
 ----------------
 
+* Fixed `Issue #92 <https://github.com/julien6387/supvisors/issues/92>`_.
+  The *Master* drives the state of all **Supvisors** instances and a simplified state machine has been assigned
+  to non-master **Supvisors** instances. The loss of the *Master* instance is managed in all relevant states.
+
 * In the application navigation part of the Web UI, add a red light to applications having a failure raised.
 
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.

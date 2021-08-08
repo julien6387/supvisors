@@ -62,7 +62,6 @@ def test_create(supvisors, context):
     assert context.applications == {}
     assert context._master_node_name == ''
     assert not context._is_master
-    assert not context.master_operational
 
 
 def test_master_node_name(context):
@@ -71,21 +70,16 @@ def test_master_node_name(context):
     assert context.master_node_name == ''
     assert not context.is_master
     assert not context._is_master
-    assert not context.master_operational
-    context.master_operational = True
     context.master_node_name = '10.0.0.1'
     assert context.master_node_name == '10.0.0.1'
     assert context._master_node_name == '10.0.0.1'
     assert not context.is_master
     assert not context._is_master
-    assert not context.master_operational
-    context.master_operational = True
     context.master_node_name = '127.0.0.1'
     assert context.master_node_name == '127.0.0.1'
     assert context._master_node_name == '127.0.0.1'
     assert context.is_master
     assert context._is_master
-    assert not context.master_operational
 
 
 def test_nodes_by_states(context):
@@ -328,8 +322,10 @@ def test_setdefault_process(context):
     assert application2.rules.managed
 
 
-def test_load_processes(context):
+def test_load_processes(mocker, context):
     """ Test the storage of processes handled by Supervisor on a given address. """
+    mocker.patch('supvisors.application.ApplicationStatus.update_sequences')
+    mocker.patch('supvisors.application.ApplicationStatus.update_status')
     # check application list
     assert context.applications == {}
     for node in context.nodes.values():
@@ -353,6 +349,10 @@ def test_load_processes(context):
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert context.nodes['10.0.0.2'].processes == {}
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
+    mocker.resetall()
     # load ProcessInfoDatabase in other known address
     context.load_processes('10.0.0.2', database_copy())
     # check context contents
@@ -366,6 +366,10 @@ def test_load_processes(context):
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert context.nodes['10.0.0.1'].processes == context.nodes['10.0.0.2'].processes
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
+    mocker.resetall()
     # load different database in other known address
     info = any_process_info()
     info.update({'group': 'dummy_application', 'name': 'dummy_process'})
@@ -380,6 +384,9 @@ def test_load_processes(context):
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
     assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
     assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
 
 
 def test_authorization(mocker, context):

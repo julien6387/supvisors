@@ -256,7 +256,7 @@ class Commander(object):
         """
         raise NotImplementedError
 
-    def check_progress(self, condition: str, process_state: ProcessStates) -> bool:
+    def is_job_completed(self, condition: str, process_state: ProcessStates) -> bool:
         """ Check the progress of the application starting or stopping.
 
         :param condition: the ProcessStatus method name to be used to check progress
@@ -264,7 +264,7 @@ class Commander(object):
         :return: True when there is no more pending jobs
         """
         in_progress = self.in_progress()
-        self.logger.debug('Starter.check_progress: in_progress={}'.format(in_progress))
+        self.logger.debug('Starter.is_job_completed: in_progress={}'.format(in_progress))
         if in_progress:
             commands = [command for command_list in self.current_jobs.values()
                         for command in command_list]
@@ -274,14 +274,14 @@ class Commander(object):
                 # if it doesn't, the whole sequencing would block waiting for an event that may never happen
                 # typically, this can happen if request is sent to a supervisor that is shutting down
                 now = int(time.time())
-                self.logger.trace('Commander.check_progress: now={} checking commands={}'
+                self.logger.trace('Commander.is_job_completed: now={} checking commands={}'
                                   .format(now, [str(command) for command in commands]))
                 for command in commands:
                     # get the ProcessStatus method corresponding to condition and call it
                     class_method = getattr(ProcessStatus, condition)
                     if class_method(command.process):
                         if command.timed_out(now):
-                            self.logger.error('Commander.check_progress: {} still {} after {} seconds so abort'
+                            self.logger.error('Commander.is_job_completed: {} still {} after {} seconds so abort'
                                               .format(command.process.namespec, condition, ProcessCommand.TIMEOUT))
                             # generate a process event for this process to inform all Supvisors instances
                             reason = 'Still {} {} seconds after request'.format(condition, ProcessCommand.TIMEOUT)
@@ -295,13 +295,13 @@ class Commander(object):
             else:
                 # no commands in the pipe
                 # this can happen when nothing had to be stopped inside the planned_jobs
-                self.logger.warn('Starter.check_progress: no commands in progress but planned sequence still ongoing')
+                self.logger.warn('Starter.is_job_completed: no commands in progress but planned sequence still ongoing')
                 # check if there are planned jobs
                 if not self.planned_jobs:
                     # trigger next sequence of applications
                     self.trigger_jobs()
                 else:
-                    self.logger.critical('Starter.check_progress: UNEXPECTED')
+                    self.logger.critical('Starter.is_job_completed: UNEXPECTED')
         # return True when no more pending jobs
         return not self.in_progress()
 
@@ -444,12 +444,12 @@ class Starter(Commander):
         # return True when started
         return not starting
 
-    def check_starting(self) -> bool:
+    def is_starting_completed(self) -> bool:
         """ Check the progress of the application starting.
 
         :return: True when starting is completed
         """
-        return self.check_progress('stopped', ProcessStates.FATAL)
+        return self.is_job_completed('stopped', ProcessStates.FATAL)
 
     def on_event(self, process) -> None:
         """ Triggers the following of the start sequencing, depending on the new process status. """
@@ -731,14 +731,14 @@ class Stopper(Commander):
             jobs.append(command)
             return True
 
-    def check_stopping(self) -> bool:
+    def is_stopping_completed(self) -> bool:
         """ Check the progress of the application stopping.
         If no corresponding process event received before long, consider the process STOPPED
         as very likely due to a supervisor being shut down.
 
         :return: True when stopping jobs are completed
         """
-        return self.check_progress('running', ProcessStates.STOPPED)
+        return self.is_job_completed('running', ProcessStates.STOPPED)
 
     def on_event(self, process: ProcessStatus) -> None:
         """ Triggers the following of the stop sequencing, depending on the new process status. """

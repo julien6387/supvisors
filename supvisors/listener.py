@@ -156,20 +156,20 @@ class SupervisorListener(object):
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """
         event_type, event_node, event_data = json.loads(message)
-        if event_type == InternalEventHeaders.TICK:
+        if event_type == InternalEventHeaders.TICK.value:
             self.logger.trace('SupervisorListener.unstack_event: got tick event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.fsm.on_tick_event(event_node, event_data)
-        elif event_type == InternalEventHeaders.PROCESS:
+        elif event_type == InternalEventHeaders.PROCESS.value:
             self.logger.trace('SupervisorListener.unstack_event: got process event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.fsm.on_process_event(event_node, event_data)
-        elif event_type == InternalEventHeaders.STATISTICS:
+        elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace('SupervisorListener.unstack_event: got statistics event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.statistician.push_statistics(event_node, event_data)
-        elif event_type == InternalEventHeaders.STATE:
+        elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace('SupervisorListener.unstack_event: got OPERATION event from {}'
                               .format(event_node))
             self.supvisors.fsm.on_state_event(event_node, event_data)

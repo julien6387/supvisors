@@ -17,11 +17,12 @@
 # limitations under the License.
 # ======================================================================
 
+from enum import Enum
 from math import sqrt
 from time import gmtime, localtime, strftime, time
 
 
-class InternalEventHeaders:
+class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
     TICK, PROCESS, STATISTICS, STATE = range(4)
 
@@ -43,9 +44,9 @@ class EventHeaders:
 
 
 # for deferred XML-RPC requests
-class DeferredRequestHeaders:
+class DeferredRequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN = range(6)
+    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN, RESTART_ALL, SHUTDOWN_ALL = range(8)
 
 
 def simple_localtime(now=None):
