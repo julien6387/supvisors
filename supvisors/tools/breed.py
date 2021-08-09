@@ -1,22 +1,81 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-import configparser, os
+# ======================================================================
+# Copyright 2021 Julien LE CLEACH
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ======================================================================
 
+import os
+
+from configparser import ConfigParser
 from pathlib import Path
+from typing import Dict, Mapping, Sequence, Tuple
+
+# annotation types
+TemplateGroups = Mapping[str, int]
+TemplatePrograms = Mapping[str, Sequence[str]]
+SectionConfigMap = Dict[str, ConfigParser]
+FileConfigMap = Dict[Path, ConfigParser]
 
 
-# program parameters
-SW_TEMPLATE_DIR = '.'
-SW_DEST_DIR = 'mmcm'
-breed = {'usvms-hci': 4, 'usvms-server': 3, 'practis-hci': 27}
+def read_config_files(src_dir: str, file_pattern: str) -> Tuple[SectionConfigMap, FileConfigMap]:
+    """ Get all config files and create a parser for each of them.
 
-# work parameters
-SEARCH_PATTERN = '**/supvisors/etc/*ini'
+    :param src_dir: the source folder
+    :param file_pattern: the filepath pattern to search for config files from the source folder
+    :return: the parsers grouped by section names and by file names
+    """
+    parser_map, parser_files = {}, {}
+    for filename in Path(src_dir).glob(file_pattern):
+        config = ConfigParser(interpolation=None)
+        config.read(filename)
+        parser_files[os.path.abspath(filename)] = config
+        for section in config.sections():
+            parser_map[section] = config
+    return parser_map, parser_files
 
 
-def breed_groups(parsers, group_breed):
-    program_breed = {}
-    for group, cardinality in group_breed.items():
+def write_config_files(dst_folder: str, parser_files: FileConfigMap) -> None:
+    """ Write the contents of the parsers in new config files.
+
+    :param dst_folder: the destination folder
+    :param parser_files: the parsers to write, identified by their original file name
+    :return: None
+    """
+    # remove the common part of the filepaths to simplify the output in dst_folder
+    common_path = os.path.commonpath(parser_files)
+    for filename, config in parser_files.items():
+        filepath = os.path.join(dst_folder, os.path.relpath(filename, common_path))
+        # create path if it doesn't exist
+        folder_name = os.path.dirname(filepath)
+        os.makedirs(folder_name, exist_ok=True)
+        # write new config file from parser
+        with open(filepath, 'w') as configfile:
+            config.write(configfile)
+
+
+def breed_groups(parsers, template_groups: TemplateGroups) -> TemplatePrograms:
+    """ Find template groups in config files and replace them by X versions of the group.
+    Return the template programs that have to be multiplied.
+
+    :param parsers: all the config parsers found
+    :param template_groups: the template groups
+    :return: the template programs
+    """
+    template_programs = {}
+    for group, cardinality in template_groups.items():
         if group in parsers:
             parser = parsers[group]
             programs = parser[group]['programs'].split(',')
@@ -26,14 +85,20 @@ def breed_groups(parsers, group_breed):
                 new_programs = [program + '_%02d' % idx for program in programs]
                 parser[new_section] = {'programs': ','.join(new_programs)}
                 for program in programs:
-                    program_breed.setdefault('program:' + program, []).append(program + '_%02d' % idx)
+                    template_programs.setdefault('program:' + program, []).append(program + '_%02d' % idx)
             # remove template
             del parser[group]
-    return program_breed
+    return template_programs
 
 
-def breed_programs(parsers, program_breed):
-    for program, new_programs in program_breed.items():
+def breed_programs(parsers, template_programs: TemplatePrograms) -> None:
+    """ Find template programs in config files and replace them by X versions of the program.
+
+    :param parsers: all the config parsers found
+    :param template_programs: the template programs
+    :return: None
+    """
+    for program, new_programs in template_programs.items():
         if program in parsers:
             parser = parsers[program]
             # duplicate and update X versions of the program
@@ -46,32 +111,27 @@ def breed_programs(parsers, program_breed):
             del parser[program]
 
 
-# get one parser per template file
-parser_map = {}
-parser_files = {}
-for filename in Path(SW_TEMPLATE_DIR).glob('**/*.ini'):
-    parser = configparser.ConfigParser(interpolation=None)
-    parser.read(filename)
-    parser_files[filename] = parser
-    for section in parser.sections():
-        parser_map[section] = parser
-#print(list(parser_map.keys()))
-
-# update all groups
-group_breed = {'group:' + key: value for key, value in breed.items()}
-program_breed = breed_groups(parser_map, group_breed)
-#print(program_breed)
-
-# update found in groups
-breed_programs(parser_map, program_breed)
-
-# write files
-for filename, parser in parser_files.items():
-    filepath = os.path.join(SW_DEST_DIR, filename)
-    # create path
-    dirname = os.path.dirname(filepath)
-    os.makedirs(dirname, exist_ok=True)
-    # write new ini file from parser
-    with open(filepath, 'w') as configfile:
-        parser.write(configfile)
-
+if __name__ == '__main__':
+    """ Create X definitions of group and programs based on group/program template.
+    This is typically useful when an application could be started X times.
+    As there's no concept of homogeneous group in Supervisor, this script duplicates X times the definition of a group
+    and its related programs and removes the original definition.
+    The resulting configuration files are written to a separate folder SW_DST_DIR.
+    """
+    # the template groups
+    breed = {'player': 4, 'web_movies': 16}
+    # program parameters
+    SW_TEMPLATE_DIR = '.'
+    SW_DST_DIR = 'temp'
+    SEARCH_PATTERN = '../test/etc/**/*ini'
+    # get one parser per template file
+    config_map, config_files = read_config_files(SW_TEMPLATE_DIR, SEARCH_PATTERN)
+    # print(list(config_map.keys()))
+    # update all groups configurations
+    group_breed = {'group:' + key: value for key, value in breed.items()}
+    program_breed = breed_groups(config_map, group_breed)
+    # print(program_breed)
+    # update program configurations found in groups
+    breed_programs(config_map, program_breed)
+    # write files
+    write_config_files(SW_DST_DIR, config_files)
