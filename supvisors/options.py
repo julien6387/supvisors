@@ -27,7 +27,7 @@ from supervisor.datatypes import (Automatic, logfile_name,
                                   list_of_strings)
 from supervisor.options import ServerOptions
 
-from supvisors.ttypes import ConciliationStrategies, StartingStrategies
+from .ttypes import ConciliationStrategies, StartingStrategies
 
 
 # Options of main section
@@ -42,7 +42,7 @@ class SupvisorsOptions(object):
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
-        - force_synchro_if: subset of address_list that will force the end of syncho when all RUNNING,
+        - force_synchro_if: subset of address_list that will force the end of synchro when all RUNNING,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running instances of the same program,
         - starting_strategy: strategy used to start processes on addresses,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
@@ -137,7 +137,7 @@ class SupvisorsServerOptions(ServerOptions):
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
         opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
         opt.force_synchro_if = filter(None, list_of_strings(parser.getdefault('force_synchro_if', None)))
-        opt.force_synchro_if = [node for node in opt.force_synchro_if if node in opt.address_list]
+        opt.force_synchro_if = {node for node in opt.force_synchro_if if node in opt.address_list}
         opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
         opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
         # configure statistics

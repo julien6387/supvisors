@@ -95,20 +95,11 @@ class InitializationState(AbstractState):
         - start_date: the date when entering this state.
     """
 
-    def __init__(self, supvisors: Any):
-        """ Initialization of the attributes.
-
-        :param supvisors: the global Supvisors structure
-        """
-        AbstractState.__init__(self, supvisors)
-        self.start_date = 0
-
     def enter(self) -> None:
         """ When entering in the INITIALIZATION state, reset the context.
 
         :return: None
         """
-        self.start_date = int(time())
         # clear any existing job
         self.abort_jobs()
         # reset context, keeping the isolation status
@@ -117,25 +108,23 @@ class InitializationState(AbstractState):
     def next(self) -> SupvisorsStates:
         """ Wait for nodes to publish until:
             - all are active,
-            - or all defined in the optional *force_synchro_if* option are active,
+            - or all core nodes defined in the optional *force_synchro_if* option are active,
             - or timeout is reached.
 
         :return: the new Supvisors state
         """
-        # cannot get out of this state without local supervisor RUNNING
+        if (time() - self.context.start_date) > self.supvisors.options.synchro_timeout:
+            self.logger.warn('InitializationState.next: synchro timed out')
+        # cannot get out of this state without local node RUNNING
         running_nodes = self.context.running_nodes()
         if self.local_node_name in running_nodes:
             # synchro done if the state of all nodes is known
             if len(self.context.unknown_nodes()) == 0:
-                self.logger.info('InitializationState.next: all nodes are RUNNING')
+                self.logger.info('InitializationState.next: all nodes are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # synchro done if the state of all forced nodes is known
-            if self.context.forced_nodes and len(self.context.unknown_forced_nodes()) == 0:
-                self.logger.info('InitializationState.next: all forced nodes are RUNNING')
-                return SupvisorsStates.DEPLOYMENT
-            # if synchro timeout reached, stop synchro and work with known nodes
-            if (time() - self.start_date) > self.supvisors.options.synchro_timeout:
-                self.logger.warn('InitializationState.next: synchro timed out')
+            # synchro done all core nodes are running
+            if self.context.running_core_nodes():
+                self.logger.info('InitializationState.next: all core nodes are RUNNING')
                 return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
@@ -149,17 +138,15 @@ class InitializationState(AbstractState):
         :return: None
         """
         # force state of missing Supvisors instances
-        # FIXME: issue when force_synchro_if and auto_fence
-        self.context.end_synchro()
         node_names = self.context.running_nodes()
         self.logger.info('InitializationState.exit: working with nodes {}'.format(node_names))
         # elect master node among working nodes only if not fixed before
         if not self.context.master_node_name:
-            if self.context.forced_nodes:
-                running_forced_node_names = set(node_names).intersection(self.context.forced_nodes.keys())
-                if running_forced_node_names:
-                    # choose Master among the forced nodes because this nodes list is expected to be more stable
-                    node_names = running_forced_node_names
+            # choose Master among the core nodes because these nodes are expected to be more present
+            if self.supvisors.options.force_synchro_if:
+                running_core_node_names = set(node_names).intersection(self.supvisors.options.force_synchro_if)
+                if running_core_node_names:
+                    node_names = running_core_node_names
             # arbitrarily choice : master node has the 'lowest' node_name among running nodes
             self.context.master_node_name = min(node_names)
 
@@ -507,6 +494,7 @@ class FiniteStateMachine:
                     self.set_state(SupvisorsStates.INITIALIZATION)
                 elif master_node_name == node_name:
                     # accept the remote Master state
+                    # FIXME: not possible as long as local node itself is not authorized !
                     self.logger.info('FiniteStateMachine.on_authorization: Master node_name={} is in state={}'
                                      .format(node_name, supvisors_state))
                     self.set_state(supvisors_state, True)

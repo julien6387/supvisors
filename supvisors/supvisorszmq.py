@@ -456,7 +456,7 @@ class RequestPusher(object):
         try:
             self.socket.send_pyobj((header.value, body), zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('RequestPusher.send_xxx: {} not sent'.format(header.name))
+            self.logger.error('RequestPusher.send_message: {} not sent'.format(header.name))
 
     def send_check_node(self, node_name: str) -> None:
         """ Send request to check authorization to deal with the node.

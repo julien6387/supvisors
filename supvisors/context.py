@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator, List
+from typing import Iterator, List, Set
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
@@ -29,7 +29,6 @@ class Context(object):
     """ The Context class holds the main data of Supvisors:
 
     - nodes: the dictionary of all AddressStatus (key is node_name),
-    - forced_nodes: the dictionary of the minimal set of AddressStatus (key is node_name),
     - applications: the dictionary of all ApplicationStatus (key is application name),
     - master_node_name: the name of the Supvisors master,
     - is_master: a boolean telling if the local node is the master node.
@@ -43,13 +42,12 @@ class Context(object):
         # attributes
         self.nodes: Dict[str, AddressStatus] = {node_name: AddressStatus(node_name, self.logger)
                                                 for node_name in self.supvisors.address_mapper.node_names}
-        self.forced_nodes: Dict[str, AddressStatus] = {node_name: status
-                                                       for node_name, status in self.nodes.items()
-                                                       if node_name in self.supvisors.options.force_synchro_if}
         self.applications: Dict[str, ApplicationStatus] = {}
         # master attributes
         self._master_node_name: str = ''
         self._is_master: bool = False
+        # start time to manage end of synchronization phase
+        self.start_date = 0
 
     def reset(self) -> None:
         """ Reset the context to prepare a new synchronization phase.
@@ -58,6 +56,7 @@ class Context(object):
         :return: None
         """
         self.master_node_name = ''
+        self.start_date = int(time())
         for status in self.nodes.values():
             status.reset()
 
@@ -80,15 +79,18 @@ class Context(object):
         """ Return the AddressStatus instances in UNKNOWN state. """
         return self.nodes_by_states([AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING])
 
-    def unknown_forced_nodes(self) -> NameList:
-        """ Return the AddressStatus instances in UNKNOWN state. """
-        return [status.address_name
-                for status in self.forced_nodes.values()
-                if status.state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING]]
-
     def running_nodes(self) -> NameList:
         """ Return the AddressStatus instances in RUNNING state. """
         return self.nodes_by_states([AddressStates.RUNNING])
+
+    def running_core_nodes(self) -> bool:
+        """ Check if core nodes are in RUNNING state.
+
+        :return: True if all core nodes are in RUNNING state
+        """
+        if self.supvisors.options.force_synchro_if:
+            running_nodes = self.running_nodes()
+            return all(node_name in running_nodes for node_name in self.supvisors.options.force_synchro_if)
 
     def isolating_nodes(self) -> NameList:
         """ Return the AddressStatus instances in ISOLATING state. """
@@ -121,16 +123,8 @@ class Context(object):
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
-
-    def end_synchro(self) -> None:
-        """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
-
-        :return: None
-        """
-        # consider problem if no tick received at the end of synchro time
-        for status in self.nodes.values():
-            if status.state == AddressStates.UNKNOWN:
-                self.invalid(status)
+        # publish AddressStatus
+        self.supvisors.zmq.publisher.send_address_status(status.serial())
 
     # methods on applications / processes
     def get_managed_applications(self) -> Iterator[ApplicationStatus]:
@@ -325,15 +319,18 @@ class Context(object):
         process_failures = set()
         # find all nodes that do not send their periodic tick
         current_time = time()
-        invalid_nodes = [status for status in self.nodes.values() if status.inactive(current_time)]
-        for status in invalid_nodes:
-            # update node status state
-            self.invalid(status)
-            # publish AddressStatus event
-            self.supvisors.zmq.publisher.send_address_status(status.serial())
-            # invalidate node in processes
-            process_failures.update({process for process in status.running_processes()
-                                     if process.invalidate_node(status.address_name)})
+        # do not check for invalidation before synchro_timeout
+        if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+            for status in self.nodes.values():
+                if status.state == AddressStates.UNKNOWN:
+                    # invalid unknown nodes
+                    self.invalid(status)
+                elif status.inactive(current_time):
+                    # invalid silent nodes
+                    self.invalid(status)
+                    # invalidate node in processes
+                    process_failures.update({process for process in status.running_processes()
+                                             if process.invalidate_node(status.address_name)})
         #  return all processes that declare a failure
         return process_failures
 

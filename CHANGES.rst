@@ -25,6 +25,9 @@ Change Log
 
 * For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
 
+* When using ``forced_synchro_if`` nodes and when ``auto_fence`` is activated, do not isolate nodes as long as
+  ``synchro_timeout`` has not passed.
+
 * In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.
 
 * Add reciprocity to isolation even if ``auto_fence`` is not activated.
