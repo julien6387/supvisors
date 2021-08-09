@@ -101,12 +101,12 @@ def test_rules_check_start_sequence(rules):
 def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
-    # test that only the CONTINUE strategy keeps the autorestart
+    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
     mocked_disable = rules.supvisors.info_source.disable_autorestart
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
-        if strategy == RunningFailureStrategies.CONTINUE:
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
             assert not mocked_disable.called
         else:
             assert mocked_disable.call_args_list == [call('dummy_process_1')]

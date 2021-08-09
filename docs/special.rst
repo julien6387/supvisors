@@ -10,7 +10,7 @@ The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase
 are mutually aware of each other.
 
 The following options defined in the :ref:`supvisors_section` of the Supervisor configuration file are particularly
-used for synchronizing multiple instances of Supervisor:
+used for synchronizing multiple instances of *Supervisor*:
 
     * ``address_list``,
     * ``force_synchro_if``,
@@ -120,12 +120,12 @@ If the network failure is fixed, both sets of **Supvisors** are still running bu
 Extra Arguments
 ----------------
 
-When using Supervisor, colleagues have often asked if it would be possible to add extra arguments to the command
+When using *Supervisor*, colleagues have often asked if it would be possible to add extra arguments to the command
 line of a program without declaring them in the ini file. Indeed, the applicative context is evolving at runtime and it may
 be quite useful to give some information to the new process (options, path, URL of a server, URL of a display, ...),
 especially when dealing with distributed applications.
 
-With Supervisor, it is possible to inform the process with a ``supervisor.sendProcessStdin`` XML-RPC.
+With *Supervisor*, it is possible to inform the process with a ``supervisor.sendProcessStdin`` XML-RPC.
 The first drawback is that it requires to update the source code of an existing program that is already capable of
 reading instructions from its command line. That is not always possible.
 On the other hand, colleagues found the solution so clumsy that they finally preferred to use a dedicated com to configure the process.
@@ -138,14 +138,14 @@ to the command line before the process is started:
 
 .. hint::
 
-    These additional commands are an answer to the following Supervisor request:
+    These additional commands are an answer to the following *Supervisor* request:
 
         * `#1023 - Pass arguments to program when starting a job? <https://github.com/Supervisor/supervisor/issues/1023>`_
 
 .. note::
 
-    The extra arguments of the program are shared by all Supervisor instances.
-    Once used, they are published through a **Supvisors** internal event and are stored directly into the Supervisor
+    The extra arguments of the program are shared by all *Supervisor* instances.
+    Once used, they are published through a **Supvisors** internal event and are stored directly into the *Supervisor*
     internal configuration of the programs.
 
     In other words, considering 2 nodes A and B, a process that is started on node A with extra arguments and
@@ -230,7 +230,7 @@ It corresponds to a dictionary where:
 
 .. hint::
 
-    The logic applied here is an answer to the following Supervisor unresolved issues:
+    The logic applied here is an answer to the following *Supervisor* unresolved issues:
 
         * `#122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_
         * `#456 - Add the ability to set different "restart policies" on process workers <https://github.com/Supervisor/supervisor/issues/456>`_
@@ -321,8 +321,9 @@ Possible values are:
 Running Failure strategy
 ------------------------
 
-The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectedly (or not).
-However, when the node itself crashes or becomes unreachable, the other Supervisor instances cannot do anything about that.
+The ``autorestart`` option of *Supervisor* may be used to restart automatically a process that has crashed
+or has exited unexpectedly (or not). However, when the node itself crashes or becomes unreachable,
+the other *Supervisor* instances cannot do anything about that.
 
 **Supvisors** uses the ``running_failure_strategy`` option of the rules file to warm restart a process that was
 running on a node that has crashed, in accordance with the default ``starting_strategy`` set in the
@@ -337,9 +338,16 @@ Possible values are:
     * ``STOP_APPLICATION``: Stop the application.
     * ``RESTART_APPLICATION``: Restart the application.
 
+.. attention::
+
+    The ``RESTART_PROCESS`` is NOT intended to replace the *Supervisor* ``autorestart`` on the local node.
+    Provided a program definition where ``autorestart`` is set to ``false`` in the *Supervisor* configuration file
+    and where the ``running_failure_strategy`` option is set to ``RESTART_PROCESS`` in the **Supvisors** rules file,
+    if the process crashes, **Supvisors** will NOT restart the process.
+
 .. hint::
 
-   The ``STOP_APPLICATION`` strategy provides an answer to the following Supervisor request:
+   The ``STOP_APPLICATION`` strategy provides an answer to the following *Supervisor* request:
 
       * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
 
@@ -358,7 +366,7 @@ Stopping a process
 The internal *Stopper* of **Supvisors** applies the following algorithm to stop a process:
 
 | if process state is ``RUNNING``:
-|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the Supervisor instance where the process is running
+|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the *Supervisor* instance where the process is running
 |
 
 This single job is considered completed when:
@@ -381,7 +389,7 @@ It corresponds to a dictionary where:
 
 .. hint::
 
-    The logic applied here is an answer to the following Supervisor unresolved issue:
+    The logic applied here is an answer to the following *Supervisor* unresolved issue:
 
         * `#520 - allow a program to wait for another to stop before being stopped? <https://github.com/Supervisor/supervisor/issues/520>`_
 
@@ -441,7 +449,7 @@ although all of them may have the capability to start it.
 
 Nevertheless, it is still likely to happen in a few cases:
 
-    * using a request to Supervisor itself (through web ui, supervisorctl, XML-RPC),
+    * using a request to *Supervisor* itself (through web ui, supervisorctl, XML-RPC),
     * upon a network failure.
 
 .. attention::

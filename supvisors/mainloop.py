@@ -19,6 +19,7 @@
 
 import json
 
+from http.client import CannotSendRequest
 from threading import Event, Thread
 from typing import Any
 from sys import stderr
@@ -43,7 +44,7 @@ class SupvisorsMainLoop(Thread):
     """
 
     # to avoid a long list of exceptions in catches
-    RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError, RPCError)
+    RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError, CannotSendRequest, RPCError)
 
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes.

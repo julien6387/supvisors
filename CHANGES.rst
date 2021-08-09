@@ -19,6 +19,10 @@ Change Log
 * Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
   and the requests that have not been satisfied yet.
 
+* Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
+  in the **Supvisors** rules file. When the process crashes, only the *Supervisor* ``autorestart`` applies.
+  The **Supvisors** ``RESTART_PROCESS`` applies when the node becomes ``SILENT``.
+
 * For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
 
 * In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.

@@ -74,13 +74,14 @@ class ProcessRules(object):
             self.required = False
 
     def check_autorestart(self, namespec: str) -> None:
-        """ Disable autorestart when RunningFailureStrategies is not CONTINUE.
+        """ Disable autorestart when RunningFailureStrategies is related to applications.
         In these cases, Supvisors triggers behaviors that are different so supervisor.
 
         :param namespec: the namespec of the program considered.
         :return: None
         """
-        if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
+        if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
+                                             RunningFailureStrategies.RESTART_APPLICATION]:
             if self.supvisors.info_source.autorestart(namespec):
                 self.supvisors.info_source.disable_autorestart(namespec)
                 self.logger.warn('ProcessRules.check_autorestart: program={} - autorestart disabled due to '

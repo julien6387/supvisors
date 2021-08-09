@@ -22,7 +22,7 @@ from typing import Iterator, List
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
 from .process import *
-from .ttypes import AddressStates, SupvisorsStates, NameList, PayloadList
+from .ttypes import AddressStates, NameList, PayloadList
 
 
 class Context(object):

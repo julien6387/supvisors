@@ -20,8 +20,11 @@
 from time import time
 from typing import Any, Optional
 
+from supervisor.loggers import Logger
+
+from .context import Context
 from .strategy import conciliate_conflicts
-from .ttypes import AddressStates, SupvisorsStates, NameList, Payload
+from .ttypes import AddressStates, RunningFailureStrategies, SupvisorsStates, NameList, Payload, PayloadList
 
 
 class AbstractState(object):
@@ -348,11 +351,11 @@ class FiniteStateMachine:
         :param supvisors: the Supvisors global structure
         """
         self.supvisors = supvisors
-        self.context = supvisors.context
-        self.logger = supvisors.logger
-        self.state = None
-        self.instance = AbstractState(supvisors)
-        self.redeploy_mark = False
+        self.context: Context = supvisors.context
+        self.logger: Logger = supvisors.logger
+        self.state: Optional[SupvisorsStates] = None
+        self.instance: AbstractState = AbstractState(supvisors)
+        self.redeploy_mark: bool = False
         # Trigger first state / INITIALIZATION
         self.set_state(SupvisorsStates.INITIALIZATION)
 
@@ -432,7 +435,11 @@ class FiniteStateMachine:
             # feed stopper with event
             self.supvisors.stopper.on_event(process)
             # trigger an automatic (so master only) behaviour for a running failure
-            if process.crashed() and self.context.is_master:
+            # process crash triggered only if running failure strategy related to application
+            # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
+            if process.crashed() and self.context.is_master and \
+                    process.rules.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
+                                                               RunningFailureStrategies.RESTART_APPLICATION]:
                 self.supvisors.failure_handler.add_default_job(process)
 
     def on_state_event(self, node_name, event: Payload) -> None:
@@ -448,7 +455,7 @@ class FiniteStateMachine:
                              .format(node_name, master_state))
             self.set_state(master_state)
 
-    def on_process_info(self, node_name: str, info: Payload) -> None:
+    def on_process_info(self, node_name: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on node.
 
         :param node_name: the node that sent the event
