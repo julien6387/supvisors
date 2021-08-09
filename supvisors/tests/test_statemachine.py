@@ -23,10 +23,7 @@ from unittest.mock import call, Mock
 
 from supvisors.address import AddressStatus
 from supvisors.statemachine import *
-from supvisors.ttypes import AddressStates, ApplicationStates, SupvisorsStates
-
-from .base import database_copy
-from .conftest import create_application, create_process
+from supvisors.ttypes import AddressStates, SupvisorsStates
 
 
 @pytest.fixture
