@@ -398,13 +398,12 @@ class FiniteStateMachine:
             for process in process_failures:
                 self.supvisors.failure_handler.add_default_job(process)
             self.supvisors.failure_handler.trigger_jobs()
-        # check if new isolating remotes and return the list of newly isolated addresses
+        # check if new isolating remotes and return the list of newly isolated nodes
         return self.context.handle_isolation()
 
     def on_tick_event(self, node_name: str, event: Payload):
         """ This event is used to refresh the data related to the address. """
         self.context.on_tick_event(node_name, event)
-        # could call the same behaviour as on_timer_event if necessary
 
     def on_process_event(self, node_name: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event and address.

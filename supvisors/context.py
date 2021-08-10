@@ -246,27 +246,34 @@ class Context(object):
         else:
             self.logger.warn('Context.on_authorization: got authorization from unexpected node={}'.format(node_name))
 
-    def on_tick_event(self, node_name: str, event):
+    def on_tick_event(self, node_name: str, event: Payload):
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
-        if self.supvisors.address_mapper.valid(node_name):
-            status = self.nodes[node_name]
-            # ISOLATED address is not updated anymore
-            if not status.in_isolation():
-                self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
-                # asynchronous port-knocking used to check if remote Supvisors instance considers
-                # the local instance as isolated
-                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                    status.state = AddressStates.CHECKING
-                    self.supvisors.zmq.pusher.send_check_node(node_name)
-                # update internal times
-                status.update_times(event['when'], int(time()))
-                # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status.serial())
-        else:
-            self.logger.warn('Context.on_tick_event: got tick from unexpected location={}'.format(node_name))
+        # check if node_name is known
+        if not self.supvisors.address_mapper.valid(node_name):
+            self.logger.error('Context.on_tick_event: got tick from unexpected location={}'.format(node_name))
+            return
+        # check if local tick has been received yet
+        if node_name != self.supvisors.address_mapper.local_node_name:
+            status = self.nodes[self.supvisors.address_mapper.local_node_name]
+            if status.state != AddressStates.RUNNING:
+                self.logger.debug('Context.on_tick_event: waiting for local tick')
+                return
+        # process node event
+        status = self.nodes[node_name]
+        # ISOLATED nodes are not updated anymore
+        if not status.in_isolation():
+            self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
+            # asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance
+            if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                status.state = AddressStates.CHECKING
+                self.supvisors.zmq.pusher.send_check_node(node_name)
+            # update internal times
+            status.update_times(event['when'], int(time()))
+            # publish AddressStatus event
+            self.supvisors.zmq.publisher.send_address_status(status.serial())
 
     def on_process_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -335,7 +342,7 @@ class Context(object):
         return process_failures
 
     def handle_isolation(self) -> NameList:
-        """ Move ISOLATING addresses to ISOLATED and publish related events. """
+        """ Move ISOLATING nodes to ISOLATED and publish related events. """
         node_names = self.isolating_nodes()
         for node_name in node_names:
             status = self.nodes[node_name]

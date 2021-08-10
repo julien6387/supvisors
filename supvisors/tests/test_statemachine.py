@@ -77,7 +77,6 @@ def test_initialization_state(mocker, supvisors_ctx):
     # test that all active nodes have been reset to UNKNOWN
     state.enter()
     assert state.context.master_node_name == ''
-    assert int(time()) >= state.start_date
     nodes = supvisors_ctx.context.nodes
     assert nodes['127.0.0.1'].state == AddressStates.UNKNOWN
     assert nodes['10.0.0.1'].state == AddressStates.SILENT
@@ -86,6 +85,8 @@ def test_initialization_state(mocker, supvisors_ctx):
     assert nodes['10.0.0.4'].state == AddressStates.UNKNOWN
     assert nodes['10.0.0.5'].state == AddressStates.ISOLATED
     # 2. test next method
+    # trigger log for synchro time out
+    state.context.start_date = 0
     # test that Supvisors wait for all nodes to be running or a given timeout is reached
     # test case no node is running, especially local node
     result = state.next()
@@ -101,40 +102,29 @@ def test_initialization_state(mocker, supvisors_ctx):
     nodes['10.0.0.3']._state = AddressStates.ISOLATED
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
-    # test case where end of synchro is forced based on a subset of nodes
-    supvisors_ctx.context.forced_nodes = {'10.0.0.2': nodes['10.0.0.2'], '10.0.0.4':  nodes['10.0.0.4']}
-    nodes['10.0.0.1']._state = AddressStates.UNKNOWN
+    # test case where end of synchro is forced based on core nodes running
+    supvisors_ctx.options.force_synchro_if = {'10.0.0.2', '10.0.0.4'}
     nodes['10.0.0.3']._state = AddressStates.UNKNOWN
-    result = state.next()
-    assert result == SupvisorsStates.DEPLOYMENT
-    # test case where nodes are still unknown and timeout is reached
-    supvisors_ctx.context.forced_nodes = {}
-    state.start_date = time() - 11
+    nodes['10.0.0.4']._state = AddressStates.RUNNING
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # 3. test exit method
-    mocked_synchro = mocker.patch.object(supvisors_ctx.context, 'end_synchro')
-    nodes['10.0.0.4']._state = AddressStates.RUNNING
     # test when master_node_name is already set: no change
     supvisors_ctx.context.master_node_name = '127.0.0.1'
     state.exit()
-    assert mocked_synchro.called
     assert supvisors_ctx.context.master_node_name == '127.0.0.1'
-    mocked_synchro.reset_mock()
-    # test when master_node_name is not set and no forced nodes
+    # test when master_node_name is not set and no core nodes
     # check master is the lowest string among running node names
     supvisors_ctx.context.master_node_name = None
+    supvisors_ctx.options.force_synchro_if = {}
     state.exit()
-    assert mocked_synchro.called
     assert supvisors_ctx.context.running_nodes() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_node_name == '10.0.0.2'
-    mocked_synchro.reset_mock()
     # test when master_node_name is not set and forced nodes are used
     # check master is the lowest string among the intersection between running node names and forced nodes
     supvisors_ctx.context.master_node_name = None
-    supvisors_ctx.context.forced_nodes = {'10.0.0.3': nodes['10.0.0.3'], '10.0.0.4':  nodes['10.0.0.4']}
+    supvisors_ctx.options.force_synchro_if = {'10.0.0.3', '10.0.0.4'}
     state.exit()
-    assert mocked_synchro.called
     assert supvisors_ctx.context.running_nodes() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_node_name == '10.0.0.4'
 

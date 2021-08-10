@@ -149,8 +149,8 @@ class SupvisorsMainLoop(Thread):
             master_node_name = supvisors_rpc.get_master_address()
             supvisors_state = supvisors_rpc.get_supvisors_state()
             # check authorization
-            status = supvisors_rpc.get_address_info(node_name)
-            authorized = status['statecode'] not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
+            status = supvisors_rpc.get_address_info(self.supvisors.address_mapper.local_node_name)
+            authorized = AddressStates(status['statecode']) not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
