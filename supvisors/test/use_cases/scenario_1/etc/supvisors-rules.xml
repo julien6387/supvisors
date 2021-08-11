@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+        <!-- models -->
+        <model name="model_scenario_1">
+                <start_sequence>2</start_sequence>
+        	<required>true</required>
+        </model>
+
+	<!-- Scenario 1 Application -->
+        <application name="scenario_1">
+		<start_sequence>1</start_sequence>
+                <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+
+                <pattern name="">
+			<reference>model_scenario_1</reference>
+                </pattern>
+
+                <pattern name="wait_nfs_mount">
+			<reference>model_scenario_1</reference>
+                	<start_sequence>1</start_sequence>
+			<wait_exit>true</wait_exit>
+                </pattern>
+	</application>
+
+</root>
+
