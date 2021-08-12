@@ -37,6 +37,8 @@ Change Log
 
 * In the process description of the Web UI Application page, add information about the node_name.
 
+* Start adding use cases to documentation, inspired by real examples.
+
 * Documentation updated.
 
 
