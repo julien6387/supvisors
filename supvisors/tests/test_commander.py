@@ -872,6 +872,21 @@ def test_starter_start_applications(mocker, starter, command_list):
     """ Test the Starter.start_applications method. """
     mocked_store = mocker.patch.object(starter, 'store_application_start_sequence')
     mocked_trigger = mocker.patch.object(starter, 'trigger_jobs')
+    # create one stopped application with a start_sequence == 0
+    sample_test_3 = create_application('sample_test_3', starter.supvisors)
+    sample_test_3.rules.start_sequence = 0
+    starter.supvisors.context.applications['crash'] = sample_test_3
+    # call starter start_applications and check nothing is triggered
+    starter.start_applications()
+    assert not mocked_store.called
+    assert mocked_trigger.call_args_list == [call()]
+    mocked_trigger.reset_mock()
+    # test again with failure set
+    sample_test_3.major_failure = True
+    starter.start_applications()
+    assert not mocked_store.called
+    assert mocked_trigger.call_args_list == [call()]
+    mocked_trigger.reset_mock()
     # create one running application
     sample_test_1 = create_application('sample_test_1', starter.supvisors)
     sample_test_1.rules.start_sequence = 1
@@ -912,7 +927,7 @@ def test_starter_start_applications(mocker, starter, command_list):
     sample_test_3 = create_application('sample_test_3', starter.supvisors)
     sample_test_3.rules.start_sequence = 0
     starter.supvisors.context.applications['crash'] = sample_test_3
-    # call starter start_applications and check what is triggered (1 start / 3 repair)
+    # call starter start_applications and check what is triggered
     starter.start_applications()
     mocked_store.assert_has_calls([call(sample_test_2,), call(sample_test_major), call(sample_test_minor)],
                                   any_order=True)

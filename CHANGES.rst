@@ -8,6 +8,9 @@ Change Log
   The *Master* drives the state of all **Supvisors** instances and a simplified state machine has been assigned
   to non-master **Supvisors** instances. The loss of the *Master* instance is managed in all relevant states.
 
+* Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
+  Regression brought during the implementation of applications repair in **Supvisors 0.6**.
+
 * In the application navigation part of the Web UI, add a red light to applications having a failure raised.
 
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.

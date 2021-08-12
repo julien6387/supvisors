@@ -371,9 +371,8 @@ class Starter(Commander):
                               .format(str(application), application.rules.start_sequence, application.never_started()))
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # give a chance to all applications in failure
-            if (application.rules.start_sequence > 0 and application.never_started()) \
-                    or application.major_failure or application.minor_failure:
-                # if application has never been started, start all in sequence
+            if application.rules.start_sequence > 0 \
+                    and (application.never_started() or application.major_failure or application.minor_failure):
                 self.store_application_start_sequence(application)
         # start work
         self.trigger_jobs()
