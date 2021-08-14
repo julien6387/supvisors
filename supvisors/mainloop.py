@@ -24,6 +24,7 @@ from threading import Event, Thread
 from typing import Any
 from sys import stderr
 
+from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
 from supvisors.rpcrequests import getRPCInterface
@@ -45,7 +46,7 @@ class SupvisorsMainLoop(Thread):
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,
-                     CannotSendRequest, IncompleteRead, RPCError)
+                     CannotSendRequest, IncompleteRead, xmlrpclib.Fault, RPCError)
 
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes.

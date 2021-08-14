@@ -142,8 +142,8 @@ class SupervisorListener(object):
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
-        This is used to sequence the events received from the Supvisors thread
-        with the other events handled by the local Supervisor. """
+        This is used to sequence the events received from the Supvisors thread with the other events handled
+        by the local Supervisor. """
         self.logger.debug('SupervisorListener.on_remote_event: got Remote event from supervisord: {} / {}'
                           .format(event.type, event.data))
         if event.type == RemoteCommEvents.SUPVISORS_AUTH:

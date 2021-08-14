@@ -329,12 +329,13 @@ the other *Supervisor* instances cannot do anything about that.
 running on a node that has crashed, in accordance with the default ``starting_strategy`` set in the
 :ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
 
-This option can be also used to stop or restart the whole application after a process crash.
+This option can be also used to stop or restart the whole application after a process crash. Indeed, it may happen
+that some applications cannot survive if one of their programs is just restarted.
 
 Possible values are:
 
     * ``CONTINUE``: Skip the failure. The application keeps running.
-    * ``RESTART_PROCESS``: Restart the process.
+    * ``RESTART_PROCESS``: Restart the lost process on another node.
     * ``STOP_APPLICATION``: Stop the application.
     * ``RESTART_APPLICATION``: Restart the application.
 
@@ -344,6 +345,19 @@ Possible values are:
     Provided a program definition where ``autorestart`` is set to ``false`` in the *Supervisor* configuration file
     and where the ``running_failure_strategy`` option is set to ``RESTART_PROCESS`` in the **Supvisors** rules file,
     if the process crashes, **Supvisors** will NOT restart the process.
+
+.. note::
+
+    Given that this option is set on the program rules, program strategies within an application may be incompatible
+    in the event of multiple failures. That's why priorities have been set on this strategy.
+    ``STOP_APPLICATION`` supersedes ``RESTART_APPLICATION``, which itself supersedes ``RESTART_PROCESS`` and finally
+    ``CONTINUE``. So if a program with the ``RESTART_APPLICATION`` option fails at the same time that a program
+    of the same application with the ``STOP_APPLICATION`` option, only the ``STOP_APPLICATION`` will be applied.
+
+    When the ``RESTART_PROCESS`` strategy is evaluated, if the application is fully stopped - supposedly because of the
+    failure -, **Supvisors** will promote the ``RESTART_PROCESS`` into ``RESTART_APPLICATION``. The idea is to benefit
+    from a full start sequence at application level rather than uncorrelated program restarts in the event of multiple
+    failures within the same application.
 
 .. hint::
 

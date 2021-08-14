@@ -9,7 +9,7 @@ Change Log
   to non-master **Supvisors** instances. The loss of the *Master* instance is managed in all relevant states.
 
 * Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
-  Regression brought during the implementation of applications repair in **Supvisors 0.6**.
+  The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
 
 * In the application navigation part of the Web UI, add a red light to applications having a failure raised.
 
@@ -20,15 +20,17 @@ Change Log
 * Starting strategy added to the application rules.
 
 * Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
-  and the requests that have not been satisfied yet.
+  and includes the requests that have not been satisfied yet.
 
 * Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
   in the **Supvisors** rules file. When the process crashes, only the *Supervisor* ``autorestart`` applies.
-  The **Supvisors** ``RESTART_PROCESS`` applies when the node becomes ``SILENT``.
+  The **Supvisors** ``RESTART_PROCESS`` applies only when the node becomes inactive.
 
-* For the *Master* election, give a priority to nodes declared in ``forced_synchro_if`` if used.
+* Promote the ``RESTART_PROCESS`` into ``RESTART_APPLICATION`` if the application is stopped.
 
-* When using ``forced_synchro_if`` nodes and when ``auto_fence`` is activated, do not isolate nodes as long as
+* For the *Master* election, give a priority to nodes declared in the ``forced_synchro_if`` option if used.
+
+* When using the ``forced_synchro_if`` option and when ``auto_fence`` is activated, do not isolate nodes as long as
   ``synchro_timeout`` has not passed.
 
 * In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.
@@ -36,6 +38,7 @@ Change Log
 * Add reciprocity to isolation even if ``auto_fence`` is not activated.
 
 * In the process description of the Web UI Application page, add information about the node_name.
+  In particular, it is useful to know where the process was running when it is stopped.
 
 * Start adding use cases to documentation, inspired by real examples.
 

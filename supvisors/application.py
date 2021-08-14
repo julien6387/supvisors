@@ -99,7 +99,8 @@ class ApplicationStatus(object):
     """
 
     # types for annotations
-    ApplicationSequence = Dict[int, List[ProcessStatus]]
+    ProcessList = List[ProcessStatus]
+    ApplicationSequence = Dict[int, ProcessList]
     PrintableApplicationSequence = Dict[int, Sequence[str]]
     ProcessMap = Dict[str, ProcessStatus]
 
@@ -260,6 +261,15 @@ class ApplicationStatus(object):
             self.logger.info('ApplicationStatus.update_sequences: application_name={}'
                              ' is not managed so sequences are not defined'. format(self.application_name))
 
+    def get_start_sequenced_processes(self) -> ProcessList:
+        """ Return the processes included in the application start sequence.
+        The sequence 0 is removed as it corresponds to processes that are not meant to be auto-started.
+
+        :return: the processes included in the application start sequence.
+        """
+        return [process for seq, sub_seq in self.start_sequence.items()
+                for process in sub_seq if seq > 0]
+
     def get_start_sequence_expected_load(self) -> int:
         """ Return the sum of the expected loading of the processes in the starting sequence.
         This is used only in the event where the application is not distributed and the whole application loading
@@ -267,11 +277,7 @@ class ApplicationStatus(object):
 
         :return: the expected loading of the application.
         """
-        # get the processes from the starting sequence
-        # remove the sequence 0 as it corresponds to processes that are not meant to be autostarted
-        sequenced_processes = [process for seq, sub_seq in self.start_sequence.items()
-                               for process in sub_seq if seq > 0]
-        return sum(process.rules.expected_load for process in sequenced_processes)
+        return sum(process.rules.expected_load for process in self.get_start_sequenced_processes())
 
     def update_status(self) -> None:
         """ Update the state of the application iaw the state of its sequenced processes.
@@ -286,8 +292,6 @@ class ApplicationStatus(object):
         sequenced_processes = [process for sub_seq in self.start_sequence.values()
                                for process in sub_seq]
         if not sequenced_processes:
-            # TODO: check if it is relevant to evaluate the application state in this case
-            #  keep excluding unmanaged applications
             self.logger.debug('ApplicationStatus.update_status: application_name={}'
                               ' is not managed so always STOPPED'. format(self.application_name))
             self.state = ApplicationStates.STOPPED
