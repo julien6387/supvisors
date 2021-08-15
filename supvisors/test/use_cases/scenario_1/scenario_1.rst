@@ -420,7 +420,7 @@ or a single XML-RPC on **Supvisors** from any node.
 
 .. code-block:: bash
 
-    [bash] > supervisorctl restart_application <group>
+    [bash] > supervisorctl restart_application <strategy> <group>
 
 
 As a conclusion, all the requirements are met using **Supvisors** and without any impact on the application to be

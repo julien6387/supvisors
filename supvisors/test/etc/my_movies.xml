@@ -150,7 +150,7 @@
         <distributed>false</distributed>
         <addresses>cliche81,cliche83</addresses>
         <start_sequence>5</start_sequence>
-        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_strategy>MOST_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
 
         <program name="test_reader">
@@ -171,7 +171,7 @@
     <application name="web_movies">
         <start_sequence>6</start_sequence>
         <stop_sequence>1</stop_sequence>
-        <starting_strategy>MOST_LOADED</starting_strategy>
+        <starting_strategy>LESS_LOADED</starting_strategy>
 
         <program name="web_browser">
             <addresses>*</addresses>
