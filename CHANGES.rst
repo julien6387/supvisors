@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+0.8 (2021-xx-xx)
+----------------
+
+* TODO
+
+
 0.7 (2021-08-15)
 ----------------
 
@@ -41,7 +47,7 @@ Change Log
 
 * Add reciprocity to isolation even if ``auto_fence`` is not activated.
 
-* In the process description of the Web UI Application page, add information about the node_name.
+* In the process description of the Web UI Application page, add information about the node name.
   In particular, it is useful to know where the process was running when it is stopped.
 
 * Start adding use cases to documentation, inspired by real examples.
