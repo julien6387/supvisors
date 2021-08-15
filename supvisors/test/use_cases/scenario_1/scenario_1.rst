@@ -19,11 +19,11 @@ Here are the use case requirements:
     4. The user shall not be able to start an unexpected application process on any other node.
     5. The application shall be restarted on the 3 nodes upon user request.
     6. There shall be a non-distributed configuration for developers' use, assuming a different inter-processes communication scheme.
-    7. In the non-distributed configuration, there shall be no wait loop for the NFS mount.
+    7. The non-distributed configuration shall not wait for the NFS mount point.
 
 
-Supervisor initial configuration
---------------------------------
+Supervisor configuration
+------------------------
 
 There are undoubtedly many ways to skin the cat. Here follows one solution.
 
@@ -63,14 +63,16 @@ The resulting file tree would be as follows.
     │         └── supervisord.conf
 
 
-For **Requirement 6**, let's just define a group where all programs are used.
+For **Requirement 6**, let's just define a group where all programs are declared.
 The proposal is to have 2 *Supervisor* configuration files, one for the distributed application and the other
 for the non-distributed application, the variation being just in the include section.
 
 About **Requirement 2**, *Supervisor* does not provide any facility to stage the starting sequence (refer to
 `Issue #122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_).
 A workaround here would be to insert a wait loop in all the application programs (in the program command line
-or in the program source code).
+or in the program source code). The idea of pushing this wait loop outside the *Supervisor* scope - just before
+starting ``supervisord`` - is excluded as it would impose this dependency on other applications eventually managed
+by *Supervisor*.
 
 With regard to **Requirement 7**, this workaround would require different program commands or parameters, so finally
 different program definitions from *Supervisor* configuration perspective.
@@ -97,7 +99,7 @@ different program definitions from *Supervisor* configuration perspective.
     │         ├── supervisord_localhost.conf
     │         └── supvisors-rules.xml
 
-Here is the final ``include`` sections:
+Here is the resulting ``include`` sections:
 
 .. code-block:: ini
 
@@ -110,9 +112,11 @@ Here is the final ``include`` sections:
     files = localhost/*.ini
 
 *Supervisor* provides nothing for **Requirement 3**. The user has to evaluate the operational status based on the process
-status provided by the *Supervisor* instances on the 3 nodes.
+status provided by the *Supervisor* instances on the 3 nodes, either using multiple ``supervisorctl`` shell commands,
+XML-RPCs or event listeners.
 
-To restart the whole application (**Requirement 5**), the user can perform a XML-RPC on each *Supervisor*.
+To restart the whole application (**Requirement 5**), the user can perform ``supervisorctl`` shell commands or
+XML-RPCs on each *Supervisor* instance.
 
 .. code-block:: bash
 
@@ -120,6 +124,14 @@ To restart the whole application (**Requirement 5**), the user can perform a XML
     ... do
     ...    supervisorctl -s http://$i:<port> restart <group>:*
     ... done
+
+
+Eventually, all the requirements could be met using *Supervisor* but it would require additional development
+at application level to build an operational status, based on process information provided by *Supervisor*.
+
+It would also require some additional complexity in the configuration files and in the program command lines
+to manage a staged starting sequence of the programs in the group and to manage the distribution of the application
+over different platforms.
 
 
 Involving **Supvisors**
@@ -136,15 +148,17 @@ A solution based on **Supvisors** could use the following *Supervisor* configura
 
 All programs are now configured using ``autostart=false``.
 
-About **Requirement 2**, **Supvisors** manages staged starting sequence and it offers a possibility to wait for a planned
+About **Requirement 2**, **Supvisors** manages staged starting sequences and it offers a possibility to wait for a planned
 exit of a process in the sequence.
 So let's define a new program ``wait_nfs_mount_X`` per node and whose role is to exit (using an expected exit code,
 as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
 as soon as the NFS mount is available.
 
 Complying about **Requirement 7** is just about avoiding the inclusion of the ``wait_nfs_mount_X`` programs in the
-*Supervisor* configuration file in the case of a non-distributed application. So when using **Supvisors**, it is
-possible to avoid an impact to program definitions, scripts and source code when dealing with such a requirement.
+*Supervisor* configuration file in the case of a non-distributed application. That's why the *Supervisor*
+configuration of these programs is isolated from the configuration of the other programs.
+THat way, **Supvisors** makes it possible to avoid an impact to program definitions, scripts and source code
+when dealing with such a requirement.
 
 Here follows what the include section may look like in both *Supervisor* configuration files.
 
@@ -241,10 +255,11 @@ to be started on the same node.
         * their attribute ``wait_exit`` is set to ``true``.
 
     The consequence is that the 3 programs ``wait_nfs_mount_X`` are started first on their respective node
-    when starting the ``scenario_1`` application. Then **Supvisors** waits for all of them to exit before it triggers
+    when starting the ``scenario_1`` application. Then **Supvisors** waits for *all* of them to exit before it triggers
     the starting of the other programs.
 
-Well, assuming that the node name could be included as a prefix to the program names, that would simplify the rules file a bit.
+Well, assuming that the node name could be included as a prefix to the program names, that would simplify
+the rules file a bit.
 
 .. code-block:: xml
 
@@ -363,10 +378,15 @@ gives **Supvisors** only one possibility.
 
 For **Requirement 3**, **Supvisors** provides the operational status of the application based on the status of its
 processes, in accordance with their importance. In the present example, all programs are defined with the same
-importance (``required`` set to ``true``).
+importance (``required`` set to ``true``). This status is made available through the **Supvisors**
+:ref:`dashboard_application`, the :ref:`xml_rpc` and the :ref:`event_interface`.
 
 The key point here is that **Supvisors** is able to build a single application from the processes configured
 on the 3 nodes because the same group name (``scenario_1``) is used in all *Supervisor* configuration files.
+
+.. image:: images/supvisors_scenario_1.png
+    :alt: Supvisors Use Cases - Scenario 1
+    :align: center
 
 The final file tree is as follows.
 
@@ -394,12 +414,16 @@ The final file tree is as follows.
     │         ├── supervisord_localhost.conf
     │         └── supvisors_rules.xml
 
-To restart the whole application (**Requirement 5**), the user can perform a single XML-RPC on **Supvisors**
-from any node.
+To restart the whole application (**Requirement 5**), the user can perform a single ``supervisorctl`` shell command
+or a single XML-RPC on **Supvisors** from any node.
 
 .. code-block:: bash
 
     [bash] > supervisorctl restart_application <group>
+
+
+As a conclusion, all the requirements are met using **Supvisors** and without any impact on the application to be
+supervised. **Supvisors** brings gain over application control and status.
 
 
 Example

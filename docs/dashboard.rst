@@ -294,6 +294,8 @@ The Network table shows statistics about the receive and sent flows on each netw
 Clicking on a button associated to the resource displays detailed statistics (graph and table), similarly to the process buttons.
 
 
+.. _dashboard_application:
+
 Application Page
 ----------------
 
