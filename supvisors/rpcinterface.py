@@ -311,7 +311,7 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # check application is not already STOPPED
         application = self.supvisors.context.applications[application_name]
-        if application.state == ApplicationStates.STOPPED:
+        if not application.has_running_processes():
             raise RPCError(Faults.NOT_RUNNING, application_name)
         # stop the application
         done = self.supvisors.stopper.stop_application(application)
@@ -456,8 +456,11 @@ class RPCInterface(object):
         for process in processes:
             done &= self.supvisors.starter.start_process(strategy_enum, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec, done))
-        # wait until application fully RUNNING or (failed)
-        if wait and not done:
+        if done:
+            # one of the jobs has not been queued. something wrong happened (lack of resources ?)
+            raise RPCError(Faults.ABNORMAL_TERMINATION, namespec)
+        # wait until application fully RUNNING or failed
+        if wait:
             def onwait():
                 # check starter
                 if self.supvisors.starter.in_progress():

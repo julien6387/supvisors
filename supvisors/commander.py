@@ -436,12 +436,12 @@ class Starter(Commander):
         command.ignore_wait_exit = True
         # push program list in job list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
-        starting = self.process_job(command, job)
+        queued = self.process_job(command, job)
         # upon failure, remove inProgress entry if empty
         if not job:
             del self.current_jobs[process.application_name]
-        # return True when started
-        return not starting
+        # return True when job queued
+        return not queued
 
     def is_starting_completed(self) -> bool:
         """ Check the progress of the application starting.
@@ -585,7 +585,7 @@ class Starter(Commander):
         :param jobs: the list of jobs in progress
         :return: True if a job has been queued.
         """
-        starting = False
+        queued = False
         process = command.process
         self.logger.debug('Starter.process_job: process={} stopped={}'.format(process.namespec, process.stopped()))
         if process.stopped():
@@ -603,14 +603,14 @@ class Starter(Commander):
                 # push command into current jobs
                 command.request_time = time.time()
                 jobs.append(command)
-                starting = True
+                queued = True
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(process.namespec))
                 self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,
                                                             'no resource available')
                 self.process_failure(process)
-        # return True when the job is started
-        return starting
+        # return True when the job is queued
+        return queued
 
     def process_failure(self, process):
         """ Updates the start sequence when a process could not be started. """
@@ -673,8 +673,8 @@ class Stopper(Commander):
         self.logger.info('Stopper.stop_applications: stop all applications')
         # stopping initialization: push program list in jobs list
         for application in self.supvisors.context.applications.values():
-            # do not stop an application that is not running
-            if application.running() and application.rules.stop_sequence >= 0:
+            # do not check the application state are running processes may be excluded in the evaluation
+            if application.has_running_processes() and application.rules.stop_sequence >= 0:
                 self.store_application_stop_sequence(application)
         self.logger.debug('Stopper.stop_applications: planned_sequence={}'.format(self.printable_planned_sequence()))
         # start work
@@ -684,7 +684,7 @@ class Stopper(Commander):
         """ Plan and start the necessary jobs to stop the application in parameter. """
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
         # push program list in jobs list and start work
-        if application.running():
+        if application.has_running_processes():
             self.store_application_stop_sequence(application)
             self.logger.debug('Stopper.stop_application: planned_sequence={}'.format(self.printable_planned_sequence()))
             # add application immediately to planned jobs

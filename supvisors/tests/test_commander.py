@@ -1160,14 +1160,14 @@ def test_stopper_stop_application(mocker, stopper, command_list):
 
     mocked_jobs = mocker.patch.object(stopper, 'process_job', side_effect=success_job)
     # test start_application on a stopped application
-    appli._state = ApplicationStates.STOPPED
+    assert appli.state == ApplicationStates.STOPPED
     assert stopper.stop_application(appli)
     assert stopper.planned_sequence == {}
     assert stopper.planned_jobs == {}
     assert stopper.current_jobs == {}
     assert not mocked_jobs.called
-    # test start_application on a stopped application
-    appli._state = ApplicationStates.RUNNING
+    # test start_application on an application having at least one running process
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     assert not stopper.stop_application(appli)
     # only planned jobs and not current jobs because of process_application_jobs patch
     assert stopper.planned_sequence == {}
@@ -1180,7 +1180,7 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     """ Test the Stopper.stop_applications method. """
     # create one running application with a start_sequence > 0
     appli = create_application('sample_test_1', stopper.supvisors)
-    appli._state = ApplicationStates.RUNNING
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     appli.rules.stop_sequence = 2
     stopper.supvisors.context.applications['sample_test_1'] = appli
     for command in command_list:
@@ -1191,7 +1191,7 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     stopper.supvisors.context.applications['sample_test_2'] = appli
     # create one running application with a start_sequence == 0
     appli = create_application('crash', stopper.supvisors)
-    appli._state = ApplicationStates.RUNNING
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     appli.rules.stop_sequence = 0
     stopper.supvisors.context.applications['crash'] = appli
     for command in command_list:
