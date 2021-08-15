@@ -45,7 +45,7 @@ At this stage, 2 possibilities:
     * the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the remote instance:
 
         + a ``supervisor.getAllProcessInfo()`` XML-RPC is requested to the remote instance,
-        + the processes information is loaded into the internal data model,
+        + the processes information is loaded into the internal data structure,
         + the remote node is finally set to ``RUNNING``.
 
 When all **Supvisors** instances are identified as ``RUNNING`` or ``ISOLATED``, the synchronization is completed.
@@ -222,7 +222,10 @@ This principle is used for starting a single process using a ``supvisors.start_p
 Starting an application
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The application start sequence is defined when entering the ``DEPLOYMENT`` state of **Supvisors**.
+The application start sequence is re-evaluated every time a new node becomes active in **Supvisors**. Indeed, as
+explained above, the internal data structure is updated with the programs configured in the *Supervisor* instance
+of the new node and this new data may have an impact on the application start sequence.
+
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
@@ -237,7 +240,11 @@ It corresponds to a dictionary where:
 
 .. note::
 
-    The programs having a ``start_sequence`` lower or equal to 0 are not considered, as they are not meant to be autostarted.
+    Only the *Managed* applications can have a start sequence, i.e. only those that are declared in the **Supvisors**
+    :ref:`rules_file`.
+
+    The programs having a ``start_sequence`` lower or equal to 0 are not considered in the start sequence, as they are
+    not meant to be automatically started.
 
 The internal *Starter* of **Supvisors** applies the following algorithm to start an application:
 
@@ -395,17 +402,29 @@ This principle is used for stopping a single process using a ``supvisors.stop_pr
 Stopping an application
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The application stop sequence is defined at the beginning the ``DEPLOYMENT`` phase of **Supvisors**.
+The application stop sequence is defined at the same moment than the application start sequence.
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``stop_sequence`` values defined in the program rules of the application,
     * the value associated to a key is the list of programs having this key as ``stop_sequence``.
+
+.. note::
+
+    The *Unmanaged* applications do have a stop sequence. All their programs have the default ``stop_sequence``
+    set to ``0``.
 
 .. hint::
 
     The logic applied here is an answer to the following *Supervisor* unresolved issue:
 
         * `#520 - allow a program to wait for another to stop before being stopped? <https://github.com/Supervisor/supervisor/issues/520>`_
+
+.. hint::
+
+    All the programs sharing the same ``stop_sequence`` are stopped simultaneously, which solves some of the requests
+    described in the following *Supervisor* unresolved issue:
+
+        * `#723 - Restart waits for all processes to stop before starting any <https://github.com/Supervisor/supervisor/issues/723>`_
 
 The internal *Stopper* of **Supvisors** applies the following algorithm to stop an application:
 

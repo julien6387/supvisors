@@ -82,6 +82,7 @@ class Application:
     def __init__(self, application_name):
         """ Initialization of the attributes. """
         self.application_name = application_name
+        self.managed = True
         # create dict of states / process_names
         self.major_failure, self.minor_failure = (False,) * 2
         # event dictionary
@@ -97,38 +98,42 @@ class Application:
 
     def is_starting(self):
         """ Return True if the application has a starting program. """
-        for program in self.programs.values():
-            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
-                return True
+        if self.managed:
+            for program in self.programs.values():
+                if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
+                    return True
         return False
 
     def is_stopping(self):
         """ Return True if the application has a stopping program and no starting program. """
         stopping = False
-        for program in self.programs.values():
-            if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
-                return False
-            if program.state == ProcessStates.STOPPING:
-                stopping = True
+        if self.managed:
+            for program in self.programs.values():
+                if program.state in (ProcessStates.STARTING, ProcessStates.BACKOFF):
+                    return False
+                if program.state == ProcessStates.STOPPING:
+                    stopping = True
         return stopping
 
     def is_running(self):
         """ Return True if the application has a running program and no starting or stopping program. """
         running = False
-        for program in self.programs.values():
-            if program.state in (ProcessStates.STARTING,
-                                 ProcessStates.BACKOFF,
-                                 ProcessStates.STOPPING):
-                return False
-            if program.state == ProcessStates.RUNNING:
-                running = True
+        if self.managed:
+            for program in self.programs.values():
+                if program.state in (ProcessStates.STARTING,
+                                     ProcessStates.BACKOFF,
+                                     ProcessStates.STOPPING):
+                    return False
+                if program.state == ProcessStates.RUNNING:
+                    running = True
         return running
 
     def is_stopped(self):
         """ Return True if the application has only stopped programs. """
-        for program in self.programs.values():
-            if program.state in [ProcessStates.STOPPING] + list(RUNNING_STATES):
-                return False
+        if self.managed:
+            for program in self.programs.values():
+                if program.state in [ProcessStates.STOPPING] + list(RUNNING_STATES):
+                    return False
         return True
 
     def has_major_failure(self):

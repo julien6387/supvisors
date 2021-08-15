@@ -40,7 +40,7 @@ The color gives the state of the Address, as seen by the **Supvisors** instance 
 Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
 The **Supvisors** instance playing the role of "Master" is pointed out with the ✪ sign.
 
-Below is the Application part that lists all the *managed* applications defined through the
+Below is the Application part that lists all the *Managed* applications defined through the
 `group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file
 and also declared in the **Supvisors** :ref:`rules_file`.
 The color gives the state of the Application, as seen by the **Supvisors** instance that is displaying this page:
@@ -56,6 +56,7 @@ All hyperlinks are active. The browser is redirected to the corresponding `Appli
 
 The bottom part of the menu contains a contact link and copyright information.
 
+.. _dashboard_main:
 
 Main Page
 ---------

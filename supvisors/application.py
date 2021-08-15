@@ -168,6 +168,15 @@ class ApplicationStatus(object):
             self._state = new_state
             self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
 
+    def has_running_processes(self) -> str:
+        """ Get a description of the operational status of the application.
+
+        :return: the operational status as string
+        """
+        for process in self.processes.values():
+            if process.running():
+                return True
+
     def get_operational_status(self) -> str:
         """ Get a description of the operational status of the application.
 
@@ -246,20 +255,22 @@ class ApplicationStatus(object):
         """
         self.start_sequence.clear()
         self.stop_sequence.clear()
-        # consider only managed applications
+        # consider only managed applications for start sequence
         if self.rules.managed:
             # fill ordering iaw process rules
             for process in self.processes.values():
                 self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
-                self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
-            self.logger.debug('ApplicationStatus.update_sequences: application_name={}'
-                              ' start_sequence={} stop_sequence={}'
-                              .format(self.application_name,
-                                      self.printable_sequence(self.start_sequence),
-                                      self.printable_sequence(self.stop_sequence)))
+            self.logger.debug('ApplicationStatus.update_sequences: application_name={} start_sequence={}'
+                              .format(self.application_name, self.printable_sequence(self.start_sequence)))
         else:
             self.logger.info('ApplicationStatus.update_sequences: application_name={}'
-                             ' is not managed so sequences are not defined'. format(self.application_name))
+                             ' is not managed so start sequence is undefined'. format(self.application_name))
+        # stop sequence is applicable to all applications
+        for process in self.processes.values():
+            # fill ordering iaw process rules
+            self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
+        self.logger.debug('ApplicationStatus.update_sequences: application_name={} stop_sequence={}'
+                          .format(self.application_name, self.printable_sequence(self.stop_sequence)))
 
     def get_start_sequenced_processes(self) -> ProcessList:
         """ Return the processes included in the application start sequence.

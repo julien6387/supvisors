@@ -11,6 +11,8 @@ Change Log
 * Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
   The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
 
+* Enable stop sequence on *unmanaged* applications.
+
 * In the application navigation part of the Web UI, add a red light to applications having a failure raised.
 
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
@@ -49,6 +51,10 @@ Change Log
 
 0.6 (2021-08-01)
 ----------------
+
+* Applications that are not declared in the rules file are not *managed*.
+  *Unmanaged* applications have no start/stop sequence, no state and status (always STOPPED) and **Supvisors**
+  does not raise a conflict if multiple instances are running over multiple nodes.
 
 * Improve **Supvisors** stability when dealing with remote programs undefined locally.
 

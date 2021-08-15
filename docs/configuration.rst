@@ -589,6 +589,16 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  Yes.
 
+.. note::
+
+    The applications that are declared in a *Supervisor* group and in this rules file are considered as *Managed* in
+    **Supvisors**. The applications will benefit from **Supvisors** functionalities such as a staged start sequence,
+    an entry in the navigation menu of the Web UI (see :ref:`dashboard_application`), an operational status and a
+    management of the uniqueness of the application programs across the nodes used.
+
+    The applications that are declared in a *Supervisor* group and NOT in this rules file are considered as *Unmanaged*
+    in **Supvisors**. In this case, **Supvisors** will provide only a minimal set of functionalities in the WebUI.
+
 ``distributed``
 
     In the introduction, it is written that the aim of **Supvisors** is to manage distributed applications.

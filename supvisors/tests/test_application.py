@@ -124,6 +124,28 @@ def test_application_never_started(supvisors):
     assert not application.never_started()
 
 
+def test_application_has_running_processes(supvisors):
+    """ Test the ApplicationStatus.has_running_processes method used to know if at least one process is RUNNING. """
+    application = create_application('ApplicationTest', supvisors)
+    assert not application.has_running_processes()
+    # add a stopped process
+    info = any_stopped_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    application.add_process(process)
+    application.update_status()
+    assert application.stopped()
+    assert not application.has_running_processes()
+    # add a running process
+    info = any_process_info_by_state(ProcessStates.RUNNING)
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    application.add_process(process)
+    application.update_status()
+    assert application.stopped()
+    assert application.has_running_processes()
+
+
 def test_application_get_operational_status(supvisors):
     """ Test the ApplicationStatus.get_operational_status method used to get a descriptive operational status. """
     # create address status instance
@@ -245,9 +267,10 @@ def test_application_update_sequences(filled_application):
     filled_application.update_sequences()
     # check the sequencing of the starting
     sequences = sorted({process.rules.start_sequence for process in filled_application.processes.values()})
-    # by default applications are unmanaged so sequences are empty
+    # by default, applications are unmanaged so start sequence is empty
     assert not filled_application.start_sequence
-    assert not filled_application.stop_sequence
+    assert filled_application.stop_sequence
+    # stop sequence contents is tested afterwards
     # force application to managed and call sequencer again
     filled_application.rules.managed = True
     filled_application.update_sequences()

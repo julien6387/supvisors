@@ -43,7 +43,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # send restart request
         self.proxy.supvisors.restart()
         # test the stopping of service application
-        # self.check_service_stopping()
+        self.check_service_stopping()
         # test the stopping of web_movies application
         self.check_web_movies_stopping()
         # test the stopping of my_movies application
@@ -71,6 +71,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # set required status
         self.context.get_program('my_movies:manager').required = True
         self.context.get_program('my_movies:web_server').required = True
+        # set managed status
+        self.context.get_application('service').managed = False
 
     def check_converter_running(self):
         """ Check the start sequence of the converter program. """
@@ -88,7 +90,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         program = self.context.get_program('service:disk_handler')
         if program.state in RUNNING_STATES:
             node_names = program.node_names.copy()
-            # event sequence on nodes is quite unpredictible so test only process states
+            # event sequence on nodes is quite unpredictable so test only process states
             while len(node_names) > 1:
                 # STOPPING then STOPPED on one node in list. still RUNNING on others
                 program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
