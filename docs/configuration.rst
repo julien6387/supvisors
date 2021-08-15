@@ -360,14 +360,14 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
     *Required*:  No.
 
-``loading``
+``expected_loading``
 
     This element gives the expected percent usage of *resources*. The value is a estimation and the meaning
     in terms of resources (CPU, memory, network) is in the user's hands.
 
     This can be used in **Supvisors** to ensure that a system is not overloaded with greedy processes.
-    When multiple nodes are available, the ``loading`` value helps to distribute processes over the available nodes,
-    so that the system remains safe.
+    When multiple nodes are available, the ``expected_loading`` value helps to distribute processes over the available
+    nodes, so that the system remains safe.
 
     *Default*:  ``0``.
 
@@ -441,7 +441,7 @@ Here follows an example of a ``program`` definition:
         <start_sequence>1</start_sequence>
         <stop_sequence>1</stop_sequence>
         <wait_exit>false</wait_exit>
-        <loading>3</loading>
+        <expected_loading>3</expected_loading>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
     </program>
 
