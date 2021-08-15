@@ -137,7 +137,8 @@ over different platforms.
 Involving **Supvisors**
 -----------------------
 
-A solution based on **Supvisors** could use the following *Supervisor* configuration (same principles as the previous section):
+A solution based on **Supvisors** could use the following *Supervisor* configuration (same principles as the previous
+section):
 
     * the ``supervisord_distributed.conf`` configuration file for the distributed application ;
     * the ``supervisord_localhost.conf`` configuration file for the non-distributed application ;
@@ -148,8 +149,8 @@ A solution based on **Supvisors** could use the following *Supervisor* configura
 
 All programs are now configured using ``autostart=false``.
 
-About **Requirement 2**, **Supvisors** manages staged starting sequences and it offers a possibility to wait for a planned
-exit of a process in the sequence.
+About **Requirement 2**, **Supvisors** manages staged starting sequences and it offers a possibility to wait for a
+planned exit of a process in the sequence.
 So let's define a new program ``wait_nfs_mount_X`` per node and whose role is to exit (using an expected exit code,
 as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
 as soon as the NFS mount is available.

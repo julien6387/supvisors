@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-0.7 (2021-xx-xx)
+0.7 (2021-08-15)
 ----------------
 
 * Fixed `Issue #92 <https://github.com/julien6387/supvisors/issues/92>`_.
@@ -25,6 +25,8 @@ Change Log
 * Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
   in the **Supvisors** rules file. When the process crashes, only the *Supervisor* ``autorestart`` applies.
   The **Supvisors** ``RESTART_PROCESS`` applies only when the node becomes inactive.
+
+* Fixed exception when forcing the state on a process that is unknown to the local Supervisor.
 
 * Promote the ``RESTART_PROCESS`` into ``RESTART_APPLICATION`` if the application is stopped.
 

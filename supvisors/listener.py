@@ -200,7 +200,12 @@ class SupervisorListener(object):
         # create payload from event
         application_name, process_name = split_namespec(namespec)
         payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
-                   'extra_args': self.supvisors.info_source.get_extra_args(namespec),
-                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason }
+                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
+        # get extra_args if process is known to local Supervisor
+        try:
+            payload['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        except KeyError:
+            self.logger.trace('SupervisorListener.force_process_state: namespec={} cannot get extra_args'
+                              ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
         self.publisher.send_process_event(payload)
