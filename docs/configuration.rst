@@ -52,8 +52,8 @@ to unpredictable behavior.
 
     .. hint::
 
-        If the `netifaces <https://pypi.python.org/pypi/netifaces>`_ package is installed, it is possible to use IP addresses
-        in addition to node names.
+        If the `netifaces <https://pypi.python.org/pypi/netifaces>`_ package is installed, it is possible to use
+        IP addresses in addition to node names.
 
         Like the node names, the IP addresses are expected to be known to every related systems in the list.
         If it's not the case, check the network configuration.
@@ -137,7 +137,7 @@ to unpredictable behavior.
 ``stats_periods``
 
     The list of periods for which the statistics will be provided in the **Supvisors** :ref:`dashboard`, separated by commas.
-    Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of ``5``.
+    Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
 
     *Default*:  ``10``.
 
@@ -310,9 +310,8 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 ``addresses``
 
     This element gives the list of nodes where the process can be started. The node names are to be taken from
-    the ``address_list`` defined in defined in `[supvisors] Section Values`_, and separated by commas.
-    Special values may also be applied.
-    The wildcard ``*`` stands for all node names in ``address_list``.
+    the ``address_list`` defined in `[supvisors] Section Values`_, and separated by commas.
+    Special values can be applied. The wildcard ``*`` stands for all node names in ``address_list``.
     Any node list including a ``*`` is strictly equivalent to ``*`` alone.
     The hashtag ``#`` must be used within a ``pattern`` element and eventually complemented by a list of nodes.
     The aim is to assign the nth node of either ``address_list`` or the subsequent node list to the nth instance
@@ -590,6 +589,57 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  Yes.
 
+.. note::
+
+    The applications that are declared in a *Supervisor* group and in this rules file are considered as *Managed* in
+    **Supvisors**. The applications will benefit from **Supvisors** functionalities such as a staged start sequence,
+    an entry in the navigation menu of the Web UI (see :ref:`dashboard_application`), an operational status and a
+    management of the uniqueness of the application programs across the nodes used.
+
+    The applications that are declared in a *Supervisor* group and NOT in this rules file are considered as *Unmanaged*
+    in **Supvisors**. In this case, **Supvisors** will provide only a minimal set of functionalities in the WebUI.
+
+``distributed``
+
+    In the introduction, it is written that the aim of **Supvisors** is to manage distributed applications.
+    However, it may happen that some applications are not designed to be distributed (for example due to inter-process
+    communication choices) and thus distributing the application processes over a set of nodes would just make
+    the application non operational.
+    If set to ``true``, **Supvisors** will start all the application processes on the same node, provided that a node
+    can be found based on the application rules ``starting_strategy`` and ``addresses``.
+
+    *Default*:  ``true``.
+
+    *Required*:  No.
+
+``addresses``
+
+    This element is only used when ``distributed`` is set to ``false`` and gives the list of nodes where the application
+    processes can be started. The node names are to be taken from the ``address_list`` defined in
+    `[supvisors] Section Values`_, and separated by commas.
+    Special values can be applied. The wildcard ``*`` stands for all node names in ``address_list``.
+    Any node list including a ``*`` is strictly equivalent to ``*`` alone. Unlike the process rules ``addresses``,
+    the hashtag ``#`` is NOT valid here.
+
+    *Default*:  ``*``.
+
+    *Required*:  No.
+
+.. note::
+
+    When the application is not to be distributed (``distributed`` set to ``false``), the rule ``addresses`` of the
+    application programs is not considered.
+
+.. hint::
+
+    The ``distributed`` and ``addresses`` elements of the application rules have been introduced in **Supvisors 0.7**.
+    In previous versions, there is a workaround to address non-distributed applications using the starting strategy
+    ``CONFIG`` only and assuming that all processes have the same ``addresses`` definition.
+
+    From **Supvisors 0.7**, it is then possible to start non-distributed applications using ``LESS_LOADED`` or
+    ``MOST_LOADED`` starting strategies.
+
+
 ``start_sequence``
 
     This element gives the starting rank of the application in the ``DEPLOYMENT`` state, when applications are started automatically.
@@ -618,6 +668,16 @@ Here follows the definition of the attributes and rules applicable to an ``appli
             * when stopping the :command:`supervisord` daemon.
 
         It only works when calling **Supvisors**' ``restart`` or ``shutdown`` XML-RPC.
+
+``starting_strategy``
+
+    The strategy used to start applications on nodes.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+    The use of this option is detailed in :ref:`starting_strategy`.
+
+    *Default*:  the value set (or defaulted) in the :ref:`supvisors_section` of the Supervisor configuration file.
+
+    *Required*:  No.
 
 ``starting_failure_strategy``
 
@@ -693,7 +753,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <expected_loading>25</expected_loading>
         </model>
 
-        <!-- starter checking application -->
+        <!-- complex test application -->
         <application name="test">
             <start_sequence>1</start_sequence>
             <stop_sequence>4</stop_sequence>
@@ -703,10 +763,6 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
                 <start_sequence>1</start_sequence>
                 <expected_loading>1</expected_loading>
             </program>
-
-            <pattern name="check_">
-                <addresses>cliche81</addresses>
-            </pattern>
 
         </application>
 
@@ -760,6 +816,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
         <application name="my_movies">
             <start_sequence>4</start_sequence>
             <stop_sequence>2</stop_sequence>
+            <starting_strategy>CONFIG</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
             <program name="manager">
@@ -821,11 +878,13 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
 
         <!-- player application -->
         <application name="player">
+            <distributed>false</distributed>
+            <addresses>cliche81,cliche83</addresses>
             <start_sequence>5</start_sequence>
+            <starting_strategy>LESS_LOADED</starting_strategy>
             <starting_failure_strategy>ABORT</starting_failure_strategy>
 
             <program name="test_reader">
-                <addresses>cliche81</addresses>
                 <start_sequence>1</start_sequence>
                 <required>true</required>
                 <wait_exit>true</wait_exit>
@@ -833,7 +892,6 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </program>
 
             <program name="movie_player">
-                <addresses>cliche81</addresses>
                 <start_sequence>2</start_sequence>
                 <expected_loading>13</expected_loading>
             </program>
@@ -844,6 +902,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
         <application name="web_movies">
             <start_sequence>6</start_sequence>
             <stop_sequence>1</stop_sequence>
+            <starting_strategy>MOST_LOADED</starting_strategy>
 
             <program name="web_browser">
                 <addresses>*</addresses>
@@ -854,8 +913,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
 
         </application>
 
-
-        <!-- web_movies application -->
+        <!-- disk_reader_81 application -->
         <application name="disk_reader_81">
             <start_sequence>1</start_sequence>
         </application>

@@ -84,7 +84,7 @@ class AddressStatus(object):
                 'statename': self.state.name,
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
-                'loading': self.get_load()}
+                'loading': self.get_loading()}
 
     # methods
     def inactive(self, current_time: float):
@@ -128,18 +128,20 @@ class AddressStatus(object):
                 for process in self.processes.values()
                 if process.pid_running_on(self.address_name)]
 
-    def get_load(self):
-        """ Return the loading of the node, by summing the declared load of the processes running on that node. """
-        node_load = sum(process.rules.expected_load
-                        for process in self.running_processes())
-        self.logger.debug('AddressStatus.get_load: node_name={} node_load={}'.format(self.address_name, node_load))
+    def get_loading(self) -> int:
+        """ Return the loading of the node, by summing the declared load of the processes running on that node.
+
+        :return: the total loading
+        """
+        node_load = sum(process.rules.expected_load for process in self.running_processes())
+        self.logger.debug('AddressStatus.get_loading: node_name={} node_load={}'.format(self.address_name, node_load))
         return node_load
 
     # dictionary for transitions
     _Transitions = {AddressStates.UNKNOWN: (AddressStates.CHECKING, AddressStates.ISOLATING, AddressStates.SILENT),
                     AddressStates.CHECKING: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
                     AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING),
-                    AddressStates.SILENT: (AddressStates.CHECKING,),
+                    AddressStates.SILENT: (AddressStates.CHECKING, AddressStates.ISOLATING),
                     AddressStates.ISOLATING: (AddressStates.ISOLATED,),
                     AddressStates.ISOLATED: ()
                     }

@@ -142,8 +142,8 @@ class SupervisorListener(object):
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
-        This is used to sequence the events received from the Supvisors thread
-        with the other events handled by the local Supervisor. """
+        This is used to sequence the events received from the Supvisors thread with the other events handled
+        by the local Supervisor. """
         self.logger.debug('SupervisorListener.on_remote_event: got Remote event from supervisord: {} / {}'
                           .format(event.type, event.data))
         if event.type == RemoteCommEvents.SUPVISORS_AUTH:
@@ -156,20 +156,20 @@ class SupervisorListener(object):
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """
         event_type, event_node, event_data = json.loads(message)
-        if event_type == InternalEventHeaders.TICK:
+        if event_type == InternalEventHeaders.TICK.value:
             self.logger.trace('SupervisorListener.unstack_event: got tick event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.fsm.on_tick_event(event_node, event_data)
-        elif event_type == InternalEventHeaders.PROCESS:
+        elif event_type == InternalEventHeaders.PROCESS.value:
             self.logger.trace('SupervisorListener.unstack_event: got process event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.fsm.on_process_event(event_node, event_data)
-        elif event_type == InternalEventHeaders.STATISTICS:
+        elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace('SupervisorListener.unstack_event: got statistics event from {}: {}'
                               .format(event_node, event_data))
             self.supvisors.statistician.push_statistics(event_node, event_data)
-        elif event_type == InternalEventHeaders.STATE:
+        elif event_type == InternalEventHeaders.STATE.value:
             self.logger.trace('SupervisorListener.unstack_event: got OPERATION event from {}'
                               .format(event_node))
             self.supvisors.fsm.on_state_event(event_node, event_data)
@@ -200,7 +200,12 @@ class SupervisorListener(object):
         # create payload from event
         application_name, process_name = split_namespec(namespec)
         payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
-                   'extra_args': self.supvisors.info_source.get_extra_args(namespec),
-                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason }
+                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
+        # get extra_args if process is known to local Supervisor
+        try:
+            payload['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        except KeyError:
+            self.logger.trace('SupervisorListener.force_process_state: namespec={} cannot get extra_args'
+                              ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
         self.publisher.send_process_event(payload)

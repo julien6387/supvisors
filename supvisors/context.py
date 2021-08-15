@@ -21,8 +21,6 @@ from typing import Iterator, List, Set
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
-from .infosource import SupervisordSource
-from .listener import SupervisorListener
 from .process import *
 from .ttypes import AddressStates, NameList, PayloadList
 
@@ -30,12 +28,10 @@ from .ttypes import AddressStates, NameList, PayloadList
 class Context(object):
     """ The Context class holds the main data of Supvisors:
 
-    - addresses: the dictionary of all AddressStatus (key is address),
-    - forced_addresses: the dictionary of the minimal set of AddressStatus (key is address),
+    - nodes: the dictionary of all AddressStatus (key is node_name),
     - applications: the dictionary of all ApplicationStatus (key is application name),
-    - master_address: the address of the Supvisors master,
-    - master: a boolean telling if the local address is the master address.
-    - new: a boolean telling if this context has just been started.
+    - master_node_name: the name of the Supvisors master,
+    - is_master: a boolean telling if the local node is the master node.
     """
 
     def __init__(self, supvisors: Any):
@@ -46,14 +42,12 @@ class Context(object):
         # attributes
         self.nodes: Dict[str, AddressStatus] = {node_name: AddressStatus(node_name, self.logger)
                                                 for node_name in self.supvisors.address_mapper.node_names}
-        self.forced_nodes: Dict[str, AddressStatus] = {node_name: status
-                                                       for node_name, status in self.nodes.items()
-                                                       if node_name in self.supvisors.options.force_synchro_if}
         self.applications: Dict[str, ApplicationStatus] = {}
         # master attributes
-        self._master_node_name = ''
-        self._is_master = False
-        self.master_operational = False
+        self._master_node_name: str = ''
+        self._is_master: bool = False
+        # start time to manage end of synchronization phase
+        self.start_date = 0
 
     def reset(self) -> None:
         """ Reset the context to prepare a new synchronization phase.
@@ -62,6 +56,7 @@ class Context(object):
         :return: None
         """
         self.master_node_name = ''
+        self.start_date = int(time())
         for status in self.nodes.values():
             status.reset()
 
@@ -78,22 +73,24 @@ class Context(object):
         self.logger.info('Context.master_node_name: {}'.format(node_name))
         self._master_node_name = node_name
         self._is_master = node_name == self.supvisors.address_mapper.local_node_name
-        self.master_operational = False
 
     # methods on nodes
     def unknown_nodes(self) -> NameList:
         """ Return the AddressStatus instances in UNKNOWN state. """
         return self.nodes_by_states([AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING])
 
-    def unknown_forced_nodes(self) -> NameList:
-        """ Return the AddressStatus instances in UNKNOWN state. """
-        return [status.address_name
-                for status in self.forced_nodes.values()
-                if status.state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.ISOLATING]]
-
     def running_nodes(self) -> NameList:
         """ Return the AddressStatus instances in RUNNING state. """
         return self.nodes_by_states([AddressStates.RUNNING])
+
+    def running_core_nodes(self) -> bool:
+        """ Check if core nodes are in RUNNING state.
+
+        :return: True if all core nodes are in RUNNING state
+        """
+        if self.supvisors.options.force_synchro_if:
+            running_nodes = self.running_nodes()
+            return all(node_name in running_nodes for node_name in self.supvisors.options.force_synchro_if)
 
     def isolating_nodes(self) -> NameList:
         """ Return the AddressStatus instances in ISOLATING state. """
@@ -105,11 +102,9 @@ class Context(object):
 
     def nodes_by_states(self, states: List[AddressStates]) -> NameList:
         """ Return the AddressStatus instances sorted by state. """
-        return [status.address_name
-                for status in self.nodes.values()
-                if status.state in states]
+        return [status.address_name for status in self.nodes.values() if status.state in states]
 
-    def invalid(self, status: AddressStatus) -> None:
+    def invalid(self, status: AddressStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local node is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
@@ -124,20 +119,12 @@ class Context(object):
             #       by design, the local node cannot be ISOLATED. that's precisely the aim of the following instructions
             self.logger.critical('Context.invalid: local node is SILENT')
             status.state = AddressStates.SILENT
-        elif self.supvisors.options.auto_fence:
+        elif fence or self.supvisors.options.auto_fence:
             status.state = AddressStates.ISOLATING
         else:
             status.state = AddressStates.SILENT
-
-    def end_synchro(self) -> None:
-        """ Declare as SILENT the nodes that are still not responsive at the end of the INITIALIZATION state.
-
-        :return: None
-        """
-        # consider problem if no tick received at the end of synchro time
-        for status in self.nodes.values():
-            if status.state == AddressStates.UNKNOWN:
-                self.invalid(status)
+        # publish AddressStatus
+        self.supvisors.zmq.publisher.send_address_status(status.serial())
 
     # methods on applications / processes
     def get_managed_applications(self) -> Iterator[ApplicationStatus]:
@@ -180,11 +167,13 @@ class Context(object):
             # load rules from rules file
             rules = ApplicationRules()
             if self.supvisors.parser:
+                # apply default starting strategy from options
+                rules.starting_strategy = self.supvisors.options.starting_strategy
                 self.supvisors.parser.load_application_rules(application_name, rules)
                 self.logger.debug('Context.setdefault_application: application={} rules={}'
                                   .format(application_name, rules))
             # create new instance
-            application = ApplicationStatus(application_name, rules, self.logger)
+            application = ApplicationStatus(application_name, rules, self.supvisors)
             self.applications[application_name] = application
         return application
 
@@ -219,7 +208,7 @@ class Context(object):
     def load_processes(self, node_name: str, all_info: PayloadList) -> None:
         """ Load application dictionary from process info got from Supervisor on address. """
         self.logger.trace('Context.load_processes: node_name={} all_info={}'.format(node_name, all_info))
-        # get AddressStatus corresponding to address
+        # get AddressStatus corresponding to node_name
         status = self.nodes[node_name]
         # store processes into their application entry
         for info in all_info:
@@ -230,6 +219,10 @@ class Context(object):
                 process.add_info(node_name, info)
                 # share the instance to the Supervisor instance that holds it
                 status.add_process(process)
+        # re-evaluate application sequences and status
+        for application in self.applications.values():
+            application.update_sequences()
+            application.update_status()
 
     # methods on events
     def on_authorization(self, node_name: str, authorized: bool) -> Optional[bool]:
@@ -249,31 +242,38 @@ class Context(object):
                     status.state = AddressStates.RUNNING
                     return True
                 self.logger.warn('Context.on_authorization: local is not authorized to deal with {}'.format(node_name))
-                self.invalid(status)
+                self.invalid(status, True)
         else:
             self.logger.warn('Context.on_authorization: got authorization from unexpected node={}'.format(node_name))
 
-    def on_tick_event(self, node_name: str, event):
+    def on_tick_event(self, node_name: str, event: Payload):
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method also updates the times of the corresponding AddressStatus and the ProcessStatus depending on it.
         Finally, the updated AddressStatus is published. """
-        if self.supvisors.address_mapper.valid(node_name):
-            status = self.nodes[node_name]
-            # ISOLATED address is not updated anymore
-            if not status.in_isolation():
-                self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
-                # asynchronous port-knocking used to check if remote Supvisors instance considers
-                # the local instance as isolated
-                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                    status.state = AddressStates.CHECKING
-                    self.supvisors.zmq.pusher.send_check_node(node_name)
-                # update internal times
-                status.update_times(event['when'], int(time()))
-                # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status.serial())
-        else:
-            self.logger.warn('Context.on_tick_event: got tick from unexpected location={}'.format(node_name))
+        # check if node_name is known
+        if not self.supvisors.address_mapper.valid(node_name):
+            self.logger.error('Context.on_tick_event: got tick from unexpected location={}'.format(node_name))
+            return
+        # check if local tick has been received yet
+        if node_name != self.supvisors.address_mapper.local_node_name:
+            status = self.nodes[self.supvisors.address_mapper.local_node_name]
+            if status.state != AddressStates.RUNNING:
+                self.logger.debug('Context.on_tick_event: waiting for local tick')
+                return
+        # process node event
+        status = self.nodes[node_name]
+        # ISOLATED nodes are not updated anymore
+        if not status.in_isolation():
+            self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
+            # asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance
+            if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                status.state = AddressStates.CHECKING
+                self.supvisors.zmq.pusher.send_check_node(node_name)
+            # update internal times
+            status.update_times(event['when'], int(time()))
+            # publish AddressStatus event
+            self.supvisors.zmq.publisher.send_address_status(status.serial())
 
     def on_process_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -298,7 +298,7 @@ class Context(object):
                 else:
                     # refresh process info depending on the nature of the process event
                     if 'forced' in event:
-                        process.force_state(event)
+                        process.force_state(event['state'], event['spawnerr'])
                         del event['forced']
                     else:
                         process.update_info(node_name, event)
@@ -310,7 +310,6 @@ class Context(object):
                             self.logger.warn('Context.on_process_event: cannot apply extra args to {} unknown'
                                              ' to local Supervisor'.format(process.namespec))
                     # refresh application status
-                    application = self.applications[process.application_name]
                     application.update_status()
                     # publish process event, status and application status
                     publisher = self.supvisors.zmq.publisher
@@ -327,20 +326,23 @@ class Context(object):
         process_failures = set()
         # find all nodes that do not send their periodic tick
         current_time = time()
-        invalid_nodes = [status for status in self.nodes.values() if status.inactive(current_time)]
-        for status in invalid_nodes:
-            # update node status state
-            self.invalid(status)
-            # publish AddressStatus event
-            self.supvisors.zmq.publisher.send_address_status(status.serial())
-            # invalidate node in processes
-            process_failures.update({process for process in status.running_processes()
-                                     if process.invalidate_node(status.address_name)})
+        # do not check for invalidation before synchro_timeout
+        if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+            for status in self.nodes.values():
+                if status.state == AddressStates.UNKNOWN:
+                    # invalid unknown nodes
+                    self.invalid(status)
+                elif status.inactive(current_time):
+                    # invalid silent nodes
+                    self.invalid(status)
+                    # invalidate node in processes
+                    process_failures.update({process for process in status.running_processes()
+                                             if process.invalidate_node(status.address_name)})
         #  return all processes that declare a failure
         return process_failures
 
     def handle_isolation(self) -> NameList:
-        """ Move ISOLATING addresses to ISOLATED and publish related events. """
+        """ Move ISOLATING nodes to ISOLATED and publish related events. """
         node_names = self.isolating_nodes()
         for node_name in node_names:
             status = self.nodes[node_name]

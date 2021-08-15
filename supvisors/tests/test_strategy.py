@@ -22,7 +22,6 @@ import pytest
 from unittest.mock import Mock, call
 
 from supvisors.address import AddressStatus
-from supvisors.process import ProcessStatus
 from supvisors.strategy import *
 from supvisors.ttypes import AddressStates, ConciliationStrategies, RunningFailureStrategies, StartingStrategies
 
@@ -30,7 +29,7 @@ from supvisors.ttypes import AddressStates, ConciliationStrategies, RunningFailu
 def mock_node(mocker, status: AddressStatus, node_state: AddressStates, load: int):
     """ Mock the AddressStatus. """
     status._state = node_state
-    mocker.patch.object(status, 'get_load', return_value=load)
+    mocker.patch.object(status, 'get_loading', return_value=load)
 
 
 @pytest.fixture
@@ -46,47 +45,55 @@ def filled_nodes(mocker, supvisors):
 
 
 @pytest.fixture
+def load_request_map():
+    return {'127.0.0.1': 0, '10.0.0.3': 10, '10.0.0.5': 20}
+
+
+@pytest.fixture
 def starting_strategy(filled_nodes):
     """ Create the AbstractStartingStrategy instance to test. """
     return AbstractStartingStrategy(filled_nodes)
 
 
-def test_is_loading_valid(starting_strategy):
+def test_is_loading_valid(starting_strategy, load_request_map):
     """ Test the validity of an address with an additional loading. """
     # test unknown address
-    assert starting_strategy.is_loading_valid('10.0.0.0', 1) == (False, 0)
+    assert starting_strategy.is_loading_valid('10.0.0.0', 1, load_request_map) == (False, 0)
     # test not RUNNING address
-    assert starting_strategy.is_loading_valid('10.0.0.1', 1) == (False, 0)
-    assert starting_strategy.is_loading_valid('10.0.0.2', 1) == (False, 0)
-    assert starting_strategy.is_loading_valid('10.0.0.4', 1) == (False, 0)
+    assert starting_strategy.is_loading_valid('10.0.0.1', 1, load_request_map) == (False, 0)
+    assert starting_strategy.is_loading_valid('10.0.0.2', 1, load_request_map) == (False, 0)
+    assert starting_strategy.is_loading_valid('10.0.0.4', 1, load_request_map) == (False, 0)
     # test loaded RUNNING address
-    assert starting_strategy.is_loading_valid('127.0.0.1', 55) == (False, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 85) == (False, 20)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 25) == (False, 80)
+    assert starting_strategy.is_loading_valid('127.0.0.1', 55, load_request_map) == (False, 50)
+    assert starting_strategy.is_loading_valid('10.0.0.3', 85, load_request_map) == (False, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5', 25, load_request_map) == (False, 100)
     # test not loaded RUNNING address
-    assert starting_strategy.is_loading_valid('127.0.0.1', 45) == (True, 50)
-    assert starting_strategy.is_loading_valid('10.0.0.3', 75) == (True, 20)
-    assert starting_strategy.is_loading_valid('10.0.0.5', 15) == (True, 80)
+    assert starting_strategy.is_loading_valid('127.0.0.1', 45, load_request_map) == (True, 50)
+    assert starting_strategy.is_loading_valid('10.0.0.3', 65, load_request_map) == (True, 30)
+    assert starting_strategy.is_loading_valid('10.0.0.5', 0, load_request_map) == (True, 100)
 
 
-def test_get_loading_and_validity(starting_strategy):
+def test_get_loading_and_validity(starting_strategy, load_request_map):
     """ Test the determination of the valid addresses with an additional loading. """
     # test valid addresses with different additional loadings
     node_names = starting_strategy.supvisors.address_mapper.node_names
     # first test
     expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
-                '10.0.0.3': (True, 20), '10.0.0.4': (False, 0), '10.0.0.5': (True, 80)}
-    assert starting_strategy.get_loading_and_validity(node_names, 15) == expected
+                '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
+    assert starting_strategy.get_loading_and_validity(node_names, 15, load_request_map) == expected
     # second test
     expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
-                '10.0.0.3': (True, 20), '10.0.0.4': (False, 0), '10.0.0.5': (False, 80)}
-    assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.nodes.keys(), 45) == expected
+                '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
+    assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.nodes.keys(), 45,
+                                                      load_request_map) == expected
     # third test
-    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (True, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 75) == expected
+    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (True, 30), '10.0.0.5': (False, 100)}
+    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 65,
+                                                      load_request_map) == expected
     # fourth test
-    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (False, 20), '10.0.0.5': (False, 80)}
-    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 85) == expected
+    expected = {'127.0.0.1': (False, 50), '10.0.0.3': (False, 30), '10.0.0.5': (False, 100)}
+    assert starting_strategy.get_loading_and_validity(['127.0.0.1', '10.0.0.3', '10.0.0.5'], 85,
+                                                      load_request_map) == expected
 
 
 def test_sort_valid_by_loading(starting_strategy):
@@ -104,68 +111,83 @@ def test_sort_valid_by_loading(starting_strategy):
     assert starting_strategy.sort_valid_by_loading(parameters) == []
 
 
-def test_config_strategy(filled_nodes):
+def test_abstract_get_node(starting_strategy):
+    """ Test that the AbstractStartingStrategy.get_node method is not implemented. """
+    node_names = starting_strategy.supvisors.address_mapper.node_names
+    with pytest.raises(NotImplementedError):
+        starting_strategy.get_node(node_names, 0, {})
+
+
+def test_config_strategy(filled_nodes, load_request_map):
     """ Test the choice of an address according to the CONFIG strategy. """
     strategy = ConfigStrategy(filled_nodes)
     # test CONFIG strategy with different values
     node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 15) == '127.0.0.1'
-    assert strategy.get_node(node_names, 45) == '127.0.0.1'
-    assert strategy.get_node(node_names, 75) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85) is None
+    assert strategy.get_node(node_names, 0, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 85, load_request_map) is None
 
 
-def test_less_loaded_strategy(filled_nodes):
+def test_less_loaded_strategy(filled_nodes, load_request_map):
     """ Test the choice of an address according to the LESS_LOADED strategy. """
     strategy = LessLoadedStrategy(filled_nodes)
     # test LESS_LOADED strategy with different values
     node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 15) == '10.0.0.3'
-    assert strategy.get_node(node_names, 45) == '10.0.0.3'
-    assert strategy.get_node(node_names, 75) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85) is None
+    assert strategy.get_node(node_names, 0, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 15, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 45, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 85, load_request_map) is None
 
 
-def test_most_loaded_strategy(filled_nodes):
+def test_most_loaded_strategy(filled_nodes, load_request_map):
     """ Test the choice of an address according to the MOST_LOADED strategy. """
     strategy = MostLoadedStrategy(filled_nodes)
     # test MOST_LOADED strategy with different values
     node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 15) == '10.0.0.5'
-    assert strategy.get_node(node_names, 45) == '127.0.0.1'
-    assert strategy.get_node(node_names, 75) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85) is None
+    assert strategy.get_node(node_names, 0, load_request_map) == '10.0.0.5'
+    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_node(node_names, 85, load_request_map) is None
 
 
-def test_local_strategy(filled_nodes):
+def test_local_strategy(filled_nodes, load_request_map):
     """ Test the choice of an address according to the LOCAL strategy. """
     strategy = LocalStrategy(filled_nodes)
     # test LOCAL strategy with different values
     node_names = filled_nodes.address_mapper.node_names
     assert strategy.supvisors.address_mapper.local_node_name == '127.0.0.1'
-    assert strategy.get_node(node_names, 15) == '127.0.0.1'
-    assert strategy.get_node(node_names, 45) == '127.0.0.1'
-    assert strategy.get_node(node_names, 75) is None
+    assert strategy.get_node(node_names, 0, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_node(node_names, 65, load_request_map) is None
 
 
-def test_get_node(filled_nodes):
+def test_get_node(filled_nodes, load_request_map):
     """ Test the choice of a node according to a strategy. """
     # test CONFIG strategy
     node_names = filled_nodes.address_mapper.node_names
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 15) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 75) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 85) is None
+    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 0, load_request_map) == '127.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 15, load_request_map) == '127.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 65, load_request_map) == '10.0.0.3'
+    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 85, load_request_map) is None
     # test LESS_LOADED strategy
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 15) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 75) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 85) is None
+    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 0, load_request_map) == '10.0.0.3'
+    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 15, load_request_map) == '10.0.0.3'
+    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 65, load_request_map) == '10.0.0.3'
+    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 85, load_request_map) is None
     # test MOST_LOADED strategy
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 15) == '10.0.0.5'
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 75) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 85) is None
+    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 0, load_request_map) == '10.0.0.5'
+    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 15, load_request_map) == '127.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 65, load_request_map) == '10.0.0.3'
+    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 85, load_request_map) is None
     # test LOCAL strategy
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 15) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 75) is None
+    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 0, load_request_map) == '127.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 15, load_request_map) == '127.0.0.1'
+    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 65, load_request_map) is None
 
 
 def create_process_status(name, timed_nodes):
@@ -336,59 +358,224 @@ def test_running_abort(handler):
     compare_sets(handler)
 
 
-def test_add_job(handler):
-    """ Test the addition of a new job using a strategy. """
-    # create a dummy process
+@pytest.fixture
+def add_jobs():
+    """ Return common structure for add_jobs tests. """
     process_1 = Mock(application_name='dummy_application_A')
     process_2 = Mock(application_name='dummy_application_A')
     process_3 = Mock(application_name='dummy_application_B')
+    process_list = [process_1, process_2, process_3]
+    application_A = Mock(application_name='dummy_application_A',
+                         **{'get_start_sequenced_processes.return_value': [process_2]})
+    application_B = Mock(application_name='dummy_application_B')
+    application_list = [application_A, application_B]
+    return process_list, application_list
+
+
+def test_add_stop_application_job(handler, add_jobs):
+    """ Test the addition of a new job using a STOP_APPLICATION strategy. """
+    # create dummy applications and processes
+    proc_list, app_list = add_jobs
+    application_A, application_B = app_list
+    _, _, process_3 = proc_list
+    # check that stop_application_jobs is updated and that other jobs are cleaned
+    for job_set in [handler.restart_application_jobs, handler.start_application_jobs]:
+        job_set.update(app_list)
+    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+        job_set.update(proc_list)
+    assert application_A not in handler.stop_application_jobs
+    handler.add_stop_application_job(application_A)
+    compare_sets(handler, stop_app={application_A}, restart_app={application_B}, start_app={application_B},
+                 restart_proc={process_3}, start_proc={process_3}, continue_proc={process_3})
+
+
+def test_add_restart_application_job(handler, add_jobs):
+    """ Test the addition of a new job using a RESTART_APPLICATION strategy. """
+    # create dummy applications and processes
+    proc_list, (application_A, application_B) = add_jobs
+    process_1, process_2, process_3 = proc_list
+    # check that restart_application_jobs is not updated when application is already in stop_application_jobs
+    assert application_A not in handler.restart_application_jobs
+    handler.stop_application_jobs.add(application_A)
+    handler.add_restart_application_job(application_A)
+    compare_sets(handler, stop_app={application_A})
+    # check that restart_application_jobs is not updated when application is already in start_application_jobs
+    handler.stop_application_jobs.discard(application_A)
+    handler.start_application_jobs.add(application_A)
+    handler.add_restart_application_job(application_A)
+    compare_sets(handler, start_app={application_A})
+    # check that restart_application_jobs is updated otherwise and that other jobs are cleaned
+    handler.start_application_jobs.discard(application_A)
+    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+        job_set.update(proc_list)
+    handler.add_restart_application_job(application_A)
+    expected_proc_set = {process_1, process_3}
+    compare_sets(handler, restart_app={application_A}, restart_proc=expected_proc_set,
+                 start_proc=expected_proc_set, continue_proc=expected_proc_set)
+
+
+def test_add_restart_process_job(add_jobs, handler):
+    """ Test the addition of a new job using a RESTART_PROCESS strategy. """
+    # create dummy applications and processes
+    (process_1, process_2, process_3), (application_A, application_B) = add_jobs
+    # check that add_restart_process_job is not updated when application is already in stop_application_jobs
+    compare_sets(handler)
+    assert process_1 not in handler.continue_process_jobs
+    handler.stop_application_jobs.add(application_A)
+    compare_sets(handler, stop_app={application_A})
+    handler.add_restart_process_job(application_A, process_1)
+    compare_sets(handler, stop_app={application_A})
+    handler.stop_application_jobs.discard(application_A)
+    # check that add_restart_process_job is not updated when application is already in restart_application_jobs
+    # or in start_application_jobs and in the application start sequence
+    handler.restart_application_jobs.add(application_A)
+    compare_sets(handler, restart_app={application_A})
+    handler.add_restart_process_job(application_A, process_2)
+    compare_sets(handler, restart_app={application_A})
+    handler.restart_application_jobs.discard(application_A)
+    handler.start_application_jobs.add(application_A)
+    compare_sets(handler, start_app={application_A})
+    handler.add_restart_process_job(application_A, process_2)
+    compare_sets(handler, start_app={application_A})
+    handler.start_application_jobs.discard(application_A)
+    # check that add_restart_process_job is not updated when process is already in start_process_jobs
+    handler.start_process_jobs.add(process_2)
+    compare_sets(handler, start_proc={process_2})
+    handler.add_restart_process_job(application_A, process_2)
+    compare_sets(handler, start_proc={process_2})
+    handler.start_process_jobs.discard(process_2)
+    # check that add_restart_process_job is updated when application is already in restart_application_jobs
+    # or in start_application_jobs and not in the application start sequence
+    handler.restart_application_jobs.add(application_A)
+    compare_sets(handler, restart_app={application_A})
+    handler.add_restart_process_job(application_A, process_1)
+    compare_sets(handler, restart_app={application_A}, restart_proc={process_1})
+    handler.restart_application_jobs.discard(application_A)
+    handler.restart_process_jobs.discard(process_1)
+    handler.start_application_jobs.add(application_A)
+    compare_sets(handler, start_app={application_A})
+    handler.add_restart_process_job(application_A, process_1)
+    compare_sets(handler, start_app={application_A}, restart_proc={process_1})
+
+
+def test_add_continue_process_job(add_jobs, handler):
+    """ Test the addition of a new job using a CONTINUE strategy. """
+    # create dummy applications and processes
+    (process_1, process_2, process_3), (application_A, application_B) = add_jobs
+    # check that continue_process_jobs is not updated when application is already in stop_application_jobs
+    compare_sets(handler)
+    assert process_1 not in handler.continue_process_jobs
+    handler.stop_application_jobs.add(application_A)
+    compare_sets(handler, stop_app={application_A})
+    handler.add_continue_process_job(application_A, process_1)
+    compare_sets(handler, stop_app={application_A})
+    handler.stop_application_jobs.discard(application_A)
+    # check that continue_process_jobs is not updated when application is already in restart_application_jobs
+    # or in start_application_jobs and in the application start sequence
+    handler.restart_application_jobs.add(application_A)
+    compare_sets(handler, restart_app={application_A})
+    handler.add_continue_process_job(application_A, process_2)
+    compare_sets(handler, restart_app={application_A})
+    handler.restart_application_jobs.discard(application_A)
+    handler.start_application_jobs.add(application_A)
+    compare_sets(handler, start_app={application_A})
+    handler.add_continue_process_job(application_A, process_2)
+    compare_sets(handler, start_app={application_A})
+    handler.start_application_jobs.discard(application_A)
+    # check that continue_process_jobs is not updated when process is already in restart_process_jobs
+    # or in start_process_jobs
+    handler.restart_process_jobs.add(process_2)
+    compare_sets(handler, restart_proc={process_2})
+    handler.add_continue_process_job(application_A, process_2)
+    compare_sets(handler, restart_proc={process_2})
+    handler.restart_process_jobs.discard(process_2)
+    handler.start_process_jobs.add(process_2)
+    compare_sets(handler, start_proc={process_2})
+    handler.add_continue_process_job(application_A, process_2)
+    compare_sets(handler, start_proc={process_2})
+    handler.start_process_jobs.discard(process_2)
+    # check that continue_process_jobs is updated when application is already in restart_application_jobs
+    # or in start_application_jobs and not in the application start sequence
+    handler.restart_application_jobs.add(application_A)
+    compare_sets(handler, restart_app={application_A})
+    handler.add_continue_process_job(application_A, process_1)
+    compare_sets(handler, restart_app={application_A}, continue_proc={process_1})
+    handler.restart_application_jobs.discard(application_A)
+    handler.continue_process_jobs.discard(process_1)
+    handler.start_application_jobs.add(application_A)
+    compare_sets(handler, start_app={application_A})
+    handler.add_continue_process_job(application_A, process_1)
+    compare_sets(handler, start_app={application_A}, continue_proc={process_1})
+
+
+def test_add_job(mocker, handler):
+    """ Test the addition of a new job using a strategy. """
+    mocker.patch.object(handler, 'add_stop_application_job')
+    mocker.patch.object(handler, 'add_restart_application_job')
+    mocker.patch.object(handler, 'add_restart_process_job')
+    mocker.patch.object(handler, 'add_continue_process_job')
+    # set context
+    process = Mock(application_name='dummy_application')
+    application = Mock(application_name='dummy_application')
+    handler.supvisors.context.applications = {'dummy_application': application}
     # test adding CONTINUE jobs
-    handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
-    compare_sets(handler, continue_proc={process_1})
+    handler.add_job(RunningFailureStrategies.CONTINUE, process)
+    assert not handler.add_stop_application_job.called
+    assert not handler.add_restart_application_job.called
+    assert not handler.add_restart_process_job.called
+    assert handler.add_continue_process_job.call_args_list == [call(application, process)]
+    mocker.resetall()
     # test adding RESTART_PROCESS jobs
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
-    compare_sets(handler, restart_proc={process_2}, continue_proc={process_1})
-    # check process is removed from CONTINUE jobs when RESTART_PROCESS requested
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_1)
-    compare_sets(handler, restart_proc={process_2, process_1})
-    # test adding RESTART_PROCESS jobs
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
-    compare_sets(handler, restart_proc={process_2, process_1, process_3})
-    # check no impact when adding a new process to RESTART_PROCESS jobs when process is already in there
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_3)
-    compare_sets(handler, restart_proc={process_2, process_1, process_3})
+    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
+    assert not handler.add_stop_application_job.called
+    assert not handler.add_restart_application_job.called
+    assert handler.add_restart_process_job.call_args_list == [call(application, process)]
+    assert not handler.add_continue_process_job.called
+    mocker.resetall()
     # test adding RESTART_APPLICATION jobs
-    # check process is not added to RESTART_PROCESS jobs when application already in RESTART_APPLICATION jobs
-    # check process is not added to CONTINUE jobs when application already in RESTART_APPLICATION jobs
-    handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_1)
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
-    handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
-    compare_sets(handler, restart_app={'dummy_application_A'}, restart_proc={process_3})
-    # check process is removed from RESTART_APPLICATION jobs when STOP_APPLICATION requested
-    handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_2)
-    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
-    # check process is not added to RESTART_APPLICATION jobs when application already in STOP_APPLICATION jobs
-    handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process_2)
-    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
-    # check no impact when adding a new process to STOP_APPLICATION jobs when its application is already in there
-    handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process_1)
-    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
-    # check process is not added to RESTART_PROCESS jobs when application already in STOP_APPLICATION jobs
-    handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process_2)
-    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
-    # check process is not added to CONTINUE jobs when application already in STOP_APPLICATION jobs
-    handler.add_job(RunningFailureStrategies.CONTINUE, process_1)
-    compare_sets(handler, stop_app={'dummy_application_A'}, restart_proc={process_3})
+    handler.add_job(RunningFailureStrategies.RESTART_APPLICATION, process)
+    assert not handler.add_stop_application_job.called
+    assert handler.add_restart_application_job.call_args_list == [call(application)]
+    assert not handler.add_restart_process_job.called
+    assert not handler.add_continue_process_job.called
+    mocker.resetall()
+    # test adding STOP_APPLICATION jobs
+    handler.add_job(RunningFailureStrategies.STOP_APPLICATION, process)
+    assert handler.add_stop_application_job.call_args_list == [call(application)]
+    assert not handler.add_restart_application_job.called
+    assert not handler.add_restart_process_job.called
+    assert not handler.add_continue_process_job.called
+
 
 def test_add_default_job(mocker, handler):
     """ Test the addition of a new job using the strategy configured. """
-    # create a dummy process
-    process = Mock()
-    process.rules = Mock(running_failure_strategy=2)
-    # add a series of jobs
     mocked_add = mocker.patch.object(handler, 'add_job')
+    process = Mock(application_name='dummy_application')
+    application = Mock(**{'stopped.return_value': False, 'get_start_sequenced_processes.return_value': []})
+    handler.supvisors.context.applications['dummy_application'] = application
+    # add a series of jobs without using RESTART_PROCESS
+    for strategy in RunningFailureStrategies:
+        if strategy != RunningFailureStrategies.RESTART_PROCESS:
+            process.rules.running_failure_strategy = strategy
+            handler.add_default_job(process)
+            assert mocked_add.call_args_list == [call(strategy, process)]
+            mocker.resetall()
+    # test RESTART_PROCESS on an application still running
+    process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_PROCESS
     handler.add_default_job(process)
-    assert mocked_add.call_args_list == [call(2, process)]
+    assert mocked_add.call_args_list == [call(RunningFailureStrategies.RESTART_PROCESS, process)]
+    mocker.resetall()
+    # test RESTART_PROCESS on a stopped application but with process out of start sequence
+    application.stopped.return_value = True
+    handler.add_default_job(process)
+    assert mocked_add.call_args_list == [call(RunningFailureStrategies.RESTART_PROCESS, process)]
+    mocker.resetall()
+    # test RESTART_PROCESS on a stopped application and with process in start sequence
+    # a second job is added
+    application.get_start_sequenced_processes.return_value = [process]
+    handler.add_default_job(process)
+    assert mocked_add.call_args_list == [call(RunningFailureStrategies.RESTART_PROCESS, process),
+                                         call(RunningFailureStrategies.RESTART_APPLICATION, process)]
 
 
 def test_get_job_applications(handler):
@@ -400,79 +587,119 @@ def test_get_job_applications(handler):
     assert handler.get_job_applications() == {'if', 'then', 'else'}
 
 
-def mocked_application(supvisors, application_name, stopped):
-    """ Return a mocked ApplicationStatus. """
-    application = Mock(application_name=application_name, **{'stopped.side_effect': [stopped, True]})
-    supvisors.context.applications[application_name] = application
-    return application
+def test_trigger_stop_application_jobs(add_jobs, handler):
+    """ Test the triggering of stop application jobs. """
+    # create dummy applications and processes
+    _, app_list = add_jobs
+    application_A, application_B = app_list
+    # update context
+    compare_sets(handler)
+    handler.stop_application_jobs.update(app_list)
+    compare_sets(handler, stop_app=set(app_list))
+    # test start_process calls depending on process state and involvement in Starter
+    handler.trigger_stop_application_jobs({'dummy_application_B'})
+    compare_sets(handler, stop_app={application_B})
+    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
 
 
-def mocked_process(namespec, application_name, stopped):
-    """ Return a mocked ProcessStatus. """
-    return Mock(application_name=application_name, namespec=namespec, **{'stopped.side_effect': [stopped, True]})
+def test_restart_application_jobs(add_jobs, handler):
+    """ Test the triggering of restart application jobs. """
+    # create dummy applications and processes
+    _, app_list = add_jobs
+    application_A, application_B = app_list
+    # update context
+    compare_sets(handler)
+    handler.restart_application_jobs.update(app_list)
+    compare_sets(handler, restart_app=set(app_list))
+    # test start_process calls depending on process state and involvement in Starter
+    handler.trigger_restart_application_jobs({'dummy_application_B'})
+    compare_sets(handler, restart_app={application_B}, start_app={application_A})
+    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
+
+
+def test_trigger_restart_process_jobs(add_jobs, handler):
+    """ Test the triggering of restart process jobs. """
+    # create dummy applications and processes
+    proc_list, _ = add_jobs
+    process_1, process_2, process_3 = proc_list
+    # update context
+    compare_sets(handler)
+    handler.restart_process_jobs.update(proc_list)
+    compare_sets(handler, restart_proc=set(proc_list))
+    # test start_process calls depending on process state and involvement in Starter
+    handler.trigger_restart_process_jobs({'dummy_application_B'})
+    compare_sets(handler, restart_proc={process_3}, start_proc={process_1, process_2})
+    handler.supvisors.stopper.stop_process.assert_has_calls([call(process_1), call(process_2)], any_order=True)
+    assert not call(process_3) in handler.supvisors.stopper.stop_process.call_args_list
+
+
+def test_trigger_start_application_jobs(add_jobs, handler):
+    """ Test the triggering of start application jobs. """
+    # create dummy applications and processes
+    _, app_list = add_jobs
+    application_A, application_B = app_list
+    # check that continue_process_jobs is not updated when application is already in stop_application_jobs
+    compare_sets(handler)
+    # update context
+    for application, stopped in zip(app_list, [True, False]):
+        application.stopped.return_value = stopped
+    compare_sets(handler)
+    handler.start_application_jobs.update(app_list)
+    compare_sets(handler, start_app=set(app_list))
+    # test start_application calls depending on application state and involvement in Starter
+    handler.trigger_start_application_jobs({'dummy_application_A'})
+    compare_sets(handler, start_app=set(app_list))
+    assert not handler.supvisors.starter.default_start_process.called
+    # test start_process calls depending on process state and involvement in Starter
+    handler.trigger_start_application_jobs({'dummy_application_B'})
+    compare_sets(handler, start_app={application_B})
+    assert handler.supvisors.starter.default_start_application.call_args_list == [call(application_A)]
+
+
+def test_trigger_start_process_jobs(add_jobs, handler):
+    """ Test the triggering of start process jobs. """
+    # create dummy applications and processes
+    proc_list, _ = add_jobs
+    process_1, process_2, process_3 = proc_list
+    # update context
+    for process, stopped in zip(proc_list, [True, False, True]):
+        process.stopped.return_value = stopped
+    compare_sets(handler)
+    handler.start_process_jobs.update(proc_list)
+    compare_sets(handler, start_proc=set(proc_list))
+    # test start_process calls depending on process state and involvement in Starter
+    handler.trigger_start_process_jobs({'dummy_application_B'})
+    compare_sets(handler, start_proc={process_2, process_3})
+    assert handler.supvisors.starter.default_start_process.call_args_list == [call(process_1)]
+
+
+def test_trigger_continue_process_jobs(add_jobs, handler):
+    """ Test the triggering of continue jobs. """
+    # create dummy applications and processes
+    proc_list, _ = add_jobs
+    # update context
+    compare_sets(handler)
+    handler.continue_process_jobs.update(proc_list)
+    compare_sets(handler, continue_proc=set(proc_list))
+    # check that continue_process_jobs is emptied after call to trigger_continue_process_jobs
+    handler.trigger_continue_process_jobs()
+    compare_sets(handler)
 
 
 def test_trigger_jobs(mocker, handler):
     """ Test the processing of jobs. """
-    # create mocked applications
-    stop_appli_A = mocked_application(handler.supvisors, 'stop_application_A', False)
-    stop_appli_B = mocked_application(handler.supvisors, 'stop_application_B', False)
-    restart_appli_A = mocked_application(handler.supvisors, 'restart_application_A', False)
-    restart_appli_B = mocked_application(handler.supvisors, 'restart_application_B', False)
-    start_appli_A = mocked_application(handler.supvisors, 'start_application_A', True)
-    start_appli_B = mocked_application(handler.supvisors, 'start_application_B', True)
-    # create mocked processes
-    restart_process_1 = mocked_process('restart_process_1', 'restart_application_1', False)
-    restart_process_2 = mocked_process('restart_process_2', 'restart_application_2', False)
-    start_process_1 = mocked_process('start_process_1', 'start_application_1', True)
-    start_process_2 = mocked_process('start_process_2', 'start_application_2', True)
-    continue_process = mocked_process('continue_process', 'continue_application', False)
-    # pre-fill sets
-    handler.stop_application_jobs = {'stop_application_A', 'stop_application_B'}
-    handler.restart_application_jobs = {'restart_application_A', 'restart_application_B'}
-    handler.restart_process_jobs = {restart_process_1, restart_process_2}
-    handler.continue_process_jobs = {continue_process}
-    handler.start_application_jobs = {start_appli_A, start_appli_B}
-    handler.start_process_jobs = {start_process_1, start_process_2}
-    # get patches to starter and stopper
-    mocked_stop_app = handler.supvisors.stopper.stop_application
-    mocked_start_app = handler.supvisors.starter.default_start_application
-    mocked_stop_proc = handler.supvisors.stopper.stop_process
-    mocked_start_proc = handler.supvisors.starter.default_start_process
-    # patch check_commander so that it is considered that applications are already being handled in Start / Stopper
-    application_list = {'stop_application_A', 'stop_application_B', 'restart_application_A', 'restart_application_B',
-                        'start_application_A', 'start_application_B', 'restart_application_1', 'restart_application_2',
-                        'start_application_1', 'start_application_2', 'continue_application'}
-    mocked_jobs = mocker.patch.object(handler, 'get_job_applications', return_value=application_list)
-    # test jobs trigger
+    mocker.patch.object(handler, 'trigger_stop_application_jobs')
+    mocker.patch.object(handler, 'trigger_restart_application_jobs')
+    mocker.patch.object(handler, 'trigger_restart_process_jobs')
+    mocker.patch.object(handler, 'trigger_start_application_jobs')
+    mocker.patch.object(handler, 'trigger_start_process_jobs')
+    mocker.patch.object(handler, 'trigger_continue_process_jobs')
+    mocker.patch.object(handler, 'get_job_applications', return_value={'dummy_application_A'})
+    # test calls
     handler.trigger_jobs()
-    print(mocked_start_app.call_args_list)
-    # check there has been no application calls
-    assert not mocked_stop_app.called
-    assert not mocked_start_app.called
-    assert not mocked_stop_proc.called
-    assert not mocked_start_proc.called
-    # check impact on sets
-    compare_sets(handler, stop_app={'stop_application_A', 'stop_application_B'},
-                 restart_app={'restart_application_A', 'restart_application_B'},
-                 start_app={start_appli_A, start_appli_B},
-                 restart_proc={restart_process_1, restart_process_2},
-                 start_proc={start_process_1, start_process_2})
-    # patch check_commander so that it is considered that applications are not being handled in Start / Stopper
-    mocked_jobs.return_value = set()
-    handler.trigger_jobs()
-    # check stop application calls
-    expected = [call(stop_appli_A), call(stop_appli_B), call(restart_appli_A), call(restart_appli_B)]
-    mocked_stop_app.assert_has_calls(expected, any_order=True)
-    # test start application calls
-    expected = [call(start_appli_A), call(start_appli_B)]
-    mocked_start_app.assert_has_calls(expected, any_order=True)
-    # test stop process calls
-    expected = [call(restart_process_1), call(restart_process_2)]
-    mocked_stop_proc.assert_has_calls(expected, any_order=True)
-    # test start process calls
-    expected = [call(start_process_1), call(start_process_2)]
-    mocked_start_proc.assert_has_calls(expected, any_order=True)
-    # check impact on sets
-    compare_sets(handler, start_app={restart_appli_A, restart_appli_B},
-                 start_proc={restart_process_1, restart_process_2})
+    assert handler.trigger_stop_application_jobs.call_args_list == [call({'dummy_application_A'})]
+    assert handler.trigger_restart_application_jobs.call_args_list == [call({'dummy_application_A'})]
+    assert handler.trigger_restart_process_jobs.call_args_list == [call({'dummy_application_A'})]
+    assert handler.trigger_start_application_jobs.call_args_list == [call({'dummy_application_A'})]
+    assert handler.trigger_start_process_jobs.call_args_list == [call({'dummy_application_A'})]
+    assert handler.trigger_continue_process_jobs.call_args_list == [call()]

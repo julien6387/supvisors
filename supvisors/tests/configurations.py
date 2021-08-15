@@ -121,6 +121,7 @@ InvalidXmlTest = b'''\
     </application>
 
     <application name="dummy_application_B">
+        <distributed>non</distributed>
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
@@ -176,6 +177,8 @@ InvalidXmlTest = b'''\
     </application>
 
     <application name="dummy_application_C">
+        <distributed>false</distributed>
+        <addresses>192.256.16.10,*</addresses>
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
@@ -275,8 +278,10 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_B">
+        <distributed>false</distributed>
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
+        <starting_strategy>CONFIG</starting_strategy>
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
@@ -314,8 +319,10 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_C">
+        <distributed>true</distributed>
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
+        <starting_strategy>LOCAL</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>
         <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
 
@@ -338,8 +345,11 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_D">
+        <distributed>false</distributed>
+        <addresses>10.0.0.1, 10.0.0.5</addresses>
         <start_sequence>-1</start_sequence>
         <stop_sequence>100</stop_sequence>
+        <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
@@ -364,6 +374,7 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_E">
+        <starting_strategy>MOST_LOADED</starting_strategy>
         <program name="dummy_program_E">
             <reference>dummy_model_05</reference>
         </program>

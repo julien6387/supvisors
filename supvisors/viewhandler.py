@@ -153,7 +153,9 @@ class ViewHandler(MeldView):
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(list(applications)):
             # set element class
-            li_elt.attrib['class'] = item.state.name + (' active' if item.application_name == appli else '')
+            li_elt.attrib['class'] = '{} {} {}'.format(item.state.name,
+                                                       'active' if item.application_name == appli else '',
+                                                       'failure' if item.major_failure or item.minor_failure else '')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
             if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:

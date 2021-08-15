@@ -19,7 +19,7 @@
 
 import pytest
 
-from unittest.mock import call, patch, Mock, DEFAULT
+from unittest.mock import call, Mock, DEFAULT
 from supervisor.events import *
 
 from supvisors.listener import *
@@ -239,4 +239,11 @@ def test_force_process_state(mocker, listener):
     listener.force_process_state('appli:process', 200, 'bad luck')
     expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
                       'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
+    assert listener.publisher.send_process_event.call_args_list == expected
+    listener.publisher.send_process_event.reset_mock()
+    # test the call with unknown process in Supervisor
+    listener.supvisors.info_source.get_extra_args.side_effect = KeyError
+    listener.force_process_state('appli:process', 200, 'bad luck')
+    expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
+                      'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
     assert listener.publisher.send_process_event.call_args_list == expected

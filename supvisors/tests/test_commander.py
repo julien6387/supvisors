@@ -55,8 +55,8 @@ def test_str():
     command.request_time = 4321
     command.ignore_wait_exit = True
     command.extra_args = '-s test args'
-    assert str(command) == 'process=proc_1 state=RUNNING last_event_time=1234 strategy=0 request_time=4321'\
-                           ' ignore_wait_exit=True extra_args="-s test args"'
+    assert str(command) == 'process=proc_1 state=RUNNING last_event_time=1234 requested_node=None request_time=4321'\
+                           ' strategy=0 distributed=True ignore_wait_exit=True extra_args="-s test args"'
 
 
 def test_timed_out():
@@ -274,21 +274,21 @@ def test_commander_process_job(commander):
         commander.process_job(None, None)
 
 
-def test_commander_check_progress(mocker, commander, command_list):
+def test_commander_is_job_completed(mocker, commander, command_list):
     """ Test the Commander.check_progress method. """
     mocked_trigger = mocker.patch('supvisors.commander.Commander.trigger_jobs')
     mocked_after = mocker.patch('supvisors.commander.Commander.after_event')
     mocked_force = commander.supvisors.listener.force_process_state = Mock()
     # test with no sequence in progress
-    assert commander.check_progress('stopped', ProcessStates.FATAL)
+    assert commander.is_job_completed('stopped', ProcessStates.FATAL)
     # test with no current jobs but planned sequence and no planned jobs
     commander.planned_sequence = {3: {'else': {}}}
-    assert not commander.check_progress('stopped', ProcessStates.FATAL)
+    assert not commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert mocked_trigger.call_args_list == [call()]
     mocked_trigger.reset_mock()
     # test with no current jobs but planned sequence and planned jobs (unexpected case)
     commander.planned_jobs = {'if': {2: []}}
-    assert not commander.check_progress('stopped', ProcessStates.FATAL)
+    assert not commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not mocked_trigger.called
     # set test current_jobs
     # xfontsel is RUNNING, xlogo is STOPPED, yeux_00 is EXITED, yeux_01 is RUNNING
@@ -301,7 +301,7 @@ def test_commander_check_progress(mocker, commander, command_list):
         for command in command_list:
             command.request_time = time.time()
     # stopped processes have a recent request time: nothing done
-    completed = commander.check_progress('stopped', ProcessStates.FATAL)
+    completed = commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                                                   'sample_test_2': ['sample_test_2:yeux_00', 'sample_test_2:yeux_01']}
@@ -314,7 +314,7 @@ def test_commander_check_progress(mocker, commander, command_list):
             command.process.last_event_time = 0
             command.request_time = 0
     # stopped processes have an old request time: actions taken on state and sequence
-    completed = commander.check_progress('stopped', ProcessStates.FATAL)
+    completed = commander.is_job_completed('stopped', ProcessStates.FATAL)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel'],
                                                   'sample_test_2': ['sample_test_2:yeux_01']}
@@ -330,7 +330,7 @@ def test_commander_check_progress(mocker, commander, command_list):
         for command in command_list:
             command.request_time = time.time()
     # stopped processes have a recent request time: nothing done
-    completed = commander.check_progress('running', ProcessStates.UNKNOWN)
+    completed = commander.is_job_completed('running', ProcessStates.UNKNOWN)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel'],
                                                   'sample_test_2': ['sample_test_2:yeux_01']}
@@ -343,7 +343,7 @@ def test_commander_check_progress(mocker, commander, command_list):
             command.process.last_event_time = 0
             command.request_time = 0
     # stopped processes have an old request time: actions taken on state and sequence
-    completed = commander.check_progress('running', ProcessStates.UNKNOWN)
+    completed = commander.is_job_completed('running', ProcessStates.UNKNOWN)
     assert not completed
     assert commander.printable_current_jobs() == {'sample_test_1': [], 'sample_test_2': []}
     reason = 'Still running 10 seconds after request'
@@ -422,15 +422,17 @@ def test_starter_store_application_start_sequence(starter, command_list):
     """ Test the Starter.store_application_start_sequence method. """
     # create 2 application start_sequences
     appli1 = create_application('sample_test_1', starter.supvisors)
+    appli1.rules.starting_strategy = StartingStrategies.LESS_LOADED
     for command in command_list:
         if command.process.application_name == 'sample_test_1':
             appli1.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     appli2 = create_application('sample_test_2', starter.supvisors)
+    appli2.rules.starting_strategy = StartingStrategies.MOST_LOADED
     for command in command_list:
         if command.process.application_name == 'sample_test_2':
             appli2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     # call method and check result
-    starter.store_application_start_sequence(appli1, StartingStrategies.LESS_LOADED)
+    starter.store_application_start_sequence(appli1)
     # check that application sequence 0 is not in starter planned sequence
     expected = {0: {'sample_test_1': {1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
                                       2: ['sample_test_1:xclock']}}}
@@ -503,10 +505,10 @@ def test_starter_process_failure_required(starter):
     assert starter.application_stop_requests == ['appli_1']
 
 
-def test_starter_check_starting(mocker, starter):
+def test_starter_is_starting_completed(mocker, starter):
     """ Test the Starter.check_starting method. """
-    mocked_check = mocker.patch('supvisors.commander.Commander.check_progress', return_value=True)
-    assert starter.check_starting()
+    mocked_check = mocker.patch('supvisors.commander.Commander.is_job_completed', return_value=True)
+    assert starter.is_starting_completed()
     assert mocked_check.call_args_list == [call('stopped', ProcessStates.FATAL)]
 
 
@@ -547,7 +549,7 @@ def test_starter_on_event_in_sequence(mocker, starter, command_list):
     # set context for current_jobs
     for command in command_list:
         starter.current_jobs.setdefault(command.process.application_name, []).append(command)
-    # add application context
+    # add applications to context
     application = create_application('sample_test_1', starter.supvisors)
     application.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
     starter.supvisors.context.applications['sample_test_1'] = application
@@ -678,12 +680,53 @@ def test_starter_on_event_out_of_sequence(mocker, starter, command_list):
     assert not mocked_failure.called
 
 
+def test_starter_prepare_application_jobs(mocker, starter, command_list):
+    """ Test the Starter.prepare_application_jobs method. """
+    mocked_node_getter = mocker.patch('supvisors.commander.get_node', return_value='10.0.0.1')
+    mocked_app_nodes = mocker.patch('supvisors.application.ApplicationStatus.possible_nodes',
+                                    return_value=['10.0.0.1', '10.0.0.2'])
+    mocked_app_load = mocker.patch('supvisors.application.ApplicationStatus.get_start_sequence_expected_load',
+                                   return_value=27)
+    mocker.patch.object(starter, 'get_load_requests', return_value={'10.0.0.1': 28})
+    # check initial context
+    starter.planned_jobs = {'sample_test_1': {1: [get_test_command(command_list, 'xfontsel')],
+                                              2: [get_test_command(command_list, 'xlogo')]}}
+    starter.current_jobs = {}
+    assert all(command.distributed and not command.node_name
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
+    # add applications to context
+    application = create_application('sample_test_1', starter.supvisors)
+    application.rules.starting_strategy = StartingStrategies.MOST_LOADED
+    starter.supvisors.context.applications['sample_test_1'] = application
+    # test application not provided / application distributed
+    starter.prepare_application_jobs('sample_test_1')
+    assert not mocked_node_getter.called
+    assert not mocked_app_nodes.called
+    assert not mocked_app_load.called
+    # commands unchanged
+    assert all(command.distributed and not command.node_name
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
+    # test application provided / application not distributed
+    application.rules.distributed = False
+    starter.prepare_application_jobs('sample_test_1')
+    assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1', '10.0.0.2'], 27, {'10.0.0.1': 28})]
+    # check commands
+    assert all(not command.distributed and command.node_name == '10.0.0.1'
+               for sequence in starter.planned_jobs['sample_test_1'].values()
+               for command in sequence)
+
+
 def test_starter_process_job(mocker, starter, command_list):
     """ Test the Starter.process_job method. """
     # get patches
     mocked_node_getter = mocker.patch('supvisors.commander.get_node')
     mocked_force = starter.supvisors.listener.force_process_state
     mocked_pusher = starter.supvisors.zmq.pusher.send_start_process
+    mocker.patch.object(starter, 'get_load_requests', return_value={'10.0.0.1': 28})
+    mocked_failure = mocker.patch.object(starter, 'process_failure')
     # test with a possible starting address
     mocked_node_getter.return_value = '10.0.0.1'
     # 1. test with running process
@@ -696,21 +739,25 @@ def test_starter_process_job(mocker, starter, command_list):
     assert jobs == []
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
-    # failure method is not called
+    # failure methods are not called
     assert not mocked_force.called
+    assert not mocked_failure.called
     # 2.a test with stopped process
     command = get_test_command(command_list, 'xlogo')
+    command.strategy = StartingStrategies.MOST_LOADED
     command.ignore_wait_exit = True
     jobs = []
     # call the process_jobs
     starter.process_job(command, jobs)
     # starting methods are called
     assert jobs == [command]
-    assert mocked_node_getter.call_args_list == [call(starter.supvisors, None, ['10.0.0.1'], 0)]
+    assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
+                                                      ['10.0.0.1'], 0,{'10.0.0.1': 28})]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     mocked_pusher.reset_mock()
-    # failure method is not called
+    # failure methods are not called
     assert not mocked_force.called
+    assert not mocked_failure.called
     # 3. test with no starting address
     mocked_node_getter.return_value = None
     # test with stopped process
@@ -720,10 +767,11 @@ def test_starter_process_job(mocker, starter, command_list):
     # call the process_jobs
     starter.process_job(command, jobs)
     # starting methods are not called but job is in list though
-    assert jobs == [command]
+    assert jobs == []
     assert not mocked_pusher.called
-    # failure method is called
+    # failure methods are called
     assert mocked_force.call_args_list == [call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')]
+    assert mocked_failure.call_args_list == [call(command.process)]
 
 
 def test_starter_start_process_failure(mocker, starter, command_list):
@@ -773,9 +821,12 @@ def test_starter_default_start_process(mocker, starter):
     """ Test the Starter.default_start_process method. """
     mocked_start = mocker.patch.object(starter, 'start_process', return_value=True)
     # test that default_start_process just calls start_process with the default strategy
-    process = Mock()
+    dummy_application = create_application('dummy_application', starter.supvisors)
+    dummy_application.rules.starting_strategy = StartingStrategies.LOCAL
+    starter.supvisors.context.applications['dummy_application'] = dummy_application
+    process = Mock(application_name='dummy_application')
     assert starter.default_start_process(process)
-    assert mocked_start.call_args_list == [call(starter.supvisors.options.starting_strategy, process)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process)]
 
 
 def test_starter_start_application(mocker, starter, command_list):
@@ -812,15 +863,30 @@ def test_starter_default_start_application(mocker, starter):
     """ Test the Starter.default_start_application method. """
     mocked_start = mocker.patch.object(starter, 'start_application', return_value=True)
     # test that default_start_application just calls start_application with the default strategy
-    application = Mock()
+    application = Mock(rules=Mock(starting_strategy=StartingStrategies.MOST_LOADED))
     assert starter.default_start_application(application)
-    assert mocked_start.call_args_list == [call(starter.supvisors.options.starting_strategy, application)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, application)]
 
 
 def test_starter_start_applications(mocker, starter, command_list):
     """ Test the Starter.start_applications method. """
     mocked_store = mocker.patch.object(starter, 'store_application_start_sequence')
     mocked_trigger = mocker.patch.object(starter, 'trigger_jobs')
+    # create one stopped application with a start_sequence == 0
+    sample_test_3 = create_application('sample_test_3', starter.supvisors)
+    sample_test_3.rules.start_sequence = 0
+    starter.supvisors.context.applications['crash'] = sample_test_3
+    # call starter start_applications and check nothing is triggered
+    starter.start_applications()
+    assert not mocked_store.called
+    assert mocked_trigger.call_args_list == [call()]
+    mocked_trigger.reset_mock()
+    # test again with failure set
+    sample_test_3.major_failure = True
+    starter.start_applications()
+    assert not mocked_store.called
+    assert mocked_trigger.call_args_list == [call()]
+    mocked_trigger.reset_mock()
     # create one running application
     sample_test_1 = create_application('sample_test_1', starter.supvisors)
     sample_test_1.rules.start_sequence = 1
@@ -861,11 +927,10 @@ def test_starter_start_applications(mocker, starter, command_list):
     sample_test_3 = create_application('sample_test_3', starter.supvisors)
     sample_test_3.rules.start_sequence = 0
     starter.supvisors.context.applications['crash'] = sample_test_3
-    # call starter start_applications and check what is triggered (1 start / 3 repair)
+    # call starter start_applications and check what is triggered
     starter.start_applications()
-    mocked_store.assert_has_calls([call(sample_test_2, StartingStrategies.CONFIG),
-                                   call(sample_test_major, StartingStrategies.CONFIG),
-                                   call(sample_test_minor, StartingStrategies.CONFIG)], any_order=True)
+    mocked_store.assert_has_calls([call(sample_test_2,), call(sample_test_major), call(sample_test_minor)],
+                                  any_order=True)
     assert mocked_trigger.call_args_list == [call()]
 
 
@@ -894,6 +959,19 @@ def test_starter_after_jobs(mocker, starter):
     assert mocked_stop.call_args_list == [call(appli_2)]
 
 
+def test_starter_get_load_requests(starter, command_list):
+    """ Test the Starter.get_load_requests method. """
+    # test with empty current_jobs
+    assert starter.get_load_requests() == {}
+    # fill jobs
+    for idx, command in enumerate(command_list):
+        command.node_name = '10.0.0.1' if idx % 2 else '10.0.0.2'
+        command.process.rules.expected_load = 10
+        starter.current_jobs.setdefault(command.process.application_name, []).append(command)
+    # 4 stopped processes in context
+    assert starter.get_load_requests() == {'10.0.0.2': 20, '10.0.0.1': 20}
+
+
 # Stopper part
 @pytest.fixture
 def stopper(supvisors):
@@ -908,8 +986,8 @@ def test_stopper_create(stopper):
 
 def test_stopper_check_stopping(mocker, stopper):
     """ Test the Stopper.check_stopping method. """
-    mocked_check = mocker.patch('supvisors.commander.Commander.check_progress', return_value=True)
-    assert stopper.check_stopping()
+    mocked_check = mocker.patch('supvisors.commander.Commander.is_job_completed', return_value=True)
+    assert stopper.is_stopping_completed()
     assert mocked_check.call_args_list == [call('running', ProcessStates.STOPPED)]
 
 
@@ -1082,14 +1160,14 @@ def test_stopper_stop_application(mocker, stopper, command_list):
 
     mocked_jobs = mocker.patch.object(stopper, 'process_job', side_effect=success_job)
     # test start_application on a stopped application
-    appli._state = ApplicationStates.STOPPED
+    assert appli.state == ApplicationStates.STOPPED
     assert stopper.stop_application(appli)
     assert stopper.planned_sequence == {}
     assert stopper.planned_jobs == {}
     assert stopper.current_jobs == {}
     assert not mocked_jobs.called
-    # test start_application on a stopped application
-    appli._state = ApplicationStates.RUNNING
+    # test start_application on an application having at least one running process
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     assert not stopper.stop_application(appli)
     # only planned jobs and not current jobs because of process_application_jobs patch
     assert stopper.planned_sequence == {}
@@ -1102,7 +1180,7 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     """ Test the Stopper.stop_applications method. """
     # create one running application with a start_sequence > 0
     appli = create_application('sample_test_1', stopper.supvisors)
-    appli._state = ApplicationStates.RUNNING
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     appli.rules.stop_sequence = 2
     stopper.supvisors.context.applications['sample_test_1'] = appli
     for command in command_list:
@@ -1113,7 +1191,7 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     stopper.supvisors.context.applications['sample_test_2'] = appli
     # create one running application with a start_sequence == 0
     appli = create_application('crash', stopper.supvisors)
-    appli._state = ApplicationStates.RUNNING
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
     appli.rules.stop_sequence = 0
     stopper.supvisors.context.applications['crash'] = appli
     for command in command_list:

@@ -122,7 +122,7 @@ def test_disconnection(supvisors, internal_publisher, internal_subscriber):
     internal_publisher.send_tick_event(payload)
     # check the reception of the tick event
     msg = internal_subscriber_receive(internal_subscriber, 'Tick')
-    assert msg == (InternalEventHeaders.TICK, local_node_name, payload)
+    assert msg == (InternalEventHeaders.TICK.value, local_node_name, payload)
     # test local disconnection
     internal_subscriber.disconnect([local_node_name])
     # send a tick event from the local publisher
@@ -141,7 +141,7 @@ def test_tick_event(supvisors, internal_publisher, internal_subscriber):
     internal_publisher.send_tick_event(payload)
     # check the reception of the tick event
     msg = internal_subscriber_receive(internal_subscriber, 'Tick')
-    assert msg == (InternalEventHeaders.TICK, local_node_name, payload)
+    assert msg == (InternalEventHeaders.TICK.value, local_node_name, payload)
 
 
 def test_process_event(supvisors, internal_publisher, internal_subscriber):
@@ -153,7 +153,7 @@ def test_process_event(supvisors, internal_publisher, internal_subscriber):
     internal_publisher.send_process_event(payload)
     # check the reception of the process event
     msg = internal_subscriber_receive(internal_subscriber, 'Process')
-    assert msg == (InternalEventHeaders.PROCESS, local_node_name, payload)
+    assert msg == (InternalEventHeaders.PROCESS.value, local_node_name, payload)
 
 
 def test_statistics(supvisors, internal_publisher, internal_subscriber):
@@ -165,7 +165,7 @@ def test_statistics(supvisors, internal_publisher, internal_subscriber):
     internal_publisher.send_statistics(payload)
     # check the reception of the statistics event
     msg = internal_subscriber_receive(internal_subscriber, 'Statistics')
-    assert msg == (InternalEventHeaders.STATISTICS, local_node_name, payload)
+    assert msg == (InternalEventHeaders.STATISTICS.value, local_node_name, payload)
 
 
 def test_state_event(supvisors, internal_publisher, internal_subscriber):
@@ -177,7 +177,7 @@ def test_state_event(supvisors, internal_publisher, internal_subscriber):
     internal_publisher.send_state_event(payload)
     # check the reception of the process event
     msg = internal_subscriber_receive(internal_subscriber, 'State')
-    assert msg == (InternalEventHeaders.STATE, local_node_name, payload)
+    assert msg == (InternalEventHeaders.STATE.value, local_node_name, payload)
 
 
 @pytest.fixture
@@ -204,7 +204,7 @@ def test_check_node(mocker, pusher, puller):
     """ The method tests that the 'Check Address' request is sent and received correctly. """
     pusher.send_check_node('10.0.0.1')
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.CHECK_NODE, ('10.0.0.1',))
+    assert request == (DeferredRequestHeaders.CHECK_NODE.value, ('10.0.0.1',))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_check_node('10.0.0.1')
@@ -217,7 +217,7 @@ def test_isolate_nodes(mocker, pusher, puller):
     """ The method tests that the 'Isolate Nodes' request is sent and received correctly. """
     pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.ISOLATE_NODES, (['10.0.0.1', '10.0.0.2']))
+    assert request == (DeferredRequestHeaders.ISOLATE_NODES.value, (['10.0.0.1', '10.0.0.2']))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
@@ -230,7 +230,7 @@ def test_start_process(mocker, pusher, puller):
     """ The method tests that the 'Start Process' request is sent and received correctly. """
     pusher.send_start_process('10.0.0.1', 'application:program', ['-extra', 'arguments'])
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.START_PROCESS,
+    assert request == (DeferredRequestHeaders.START_PROCESS.value,
                        ('10.0.0.1', 'application:program', ['-extra', 'arguments']))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
@@ -244,7 +244,7 @@ def test_stop_process(mocker, pusher, puller):
     """ The method tests that the 'Stop Process' request is sent and received correctly. """
     pusher.send_stop_process('10.0.0.1', 'application:program')
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.STOP_PROCESS, ('10.0.0.1', 'application:program'))
+    assert request == (DeferredRequestHeaders.STOP_PROCESS.value, ('10.0.0.1', 'application:program'))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_stop_process('10.0.0.1', 'application:program')
@@ -257,7 +257,7 @@ def test_restart(mocker, pusher, puller):
     """ The method tests that the 'Restart' request is sent and received correctly. """
     pusher.send_restart('10.0.0.1')
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.RESTART, ('10.0.0.1',))
+    assert request == (DeferredRequestHeaders.RESTART.value, ('10.0.0.1',))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_restart('10.0.0.1')
@@ -270,13 +270,39 @@ def test_shutdown(mocker, pusher, puller):
     """ The method tests that the 'Shutdown' request is sent and received correctly. """
     pusher.send_shutdown('10.0.0.1')
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.SHUTDOWN, ('10.0.0.1',))
+    assert request == (DeferredRequestHeaders.SHUTDOWN.value, ('10.0.0.1',))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_shutdown('10.0.0.1')
     # test that absence of puller does not block the pusher or raise any exception
     puller.close()
     pusher.send_shutdown('10.0.0.1')
+
+
+def test_restart_all(mocker, pusher, puller):
+    """ The method tests that the 'RestartAll' request is sent and received correctly. """
+    pusher.send_restart_all('10.0.0.1')
+    request = puller.receive()
+    assert request == (DeferredRequestHeaders.RESTART_ALL.value, ('10.0.0.1',))
+    # test that the pusher socket is not blocking
+    mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
+    pusher.send_restart_all('10.0.0.1')
+    # test that absence of puller does not block the pusher or raise any exception
+    puller.close()
+    pusher.send_restart_all('10.0.0.1')
+
+
+def test_shutdown_all(mocker, pusher, puller):
+    """ The method tests that the 'ShutdownAll' request is sent and received correctly. """
+    pusher.send_shutdown_all('10.0.0.1')
+    request = puller.receive()
+    assert request == (DeferredRequestHeaders.SHUTDOWN_ALL.value, ('10.0.0.1',))
+    # test that the pusher socket is not blocking
+    mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
+    pusher.send_shutdown_all('10.0.0.1')
+    # test that absence of puller does not block the pusher or raise any exception
+    puller.close()
+    pusher.send_shutdown_all('10.0.0.1')
 
 
 @pytest.fixture

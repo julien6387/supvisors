@@ -71,7 +71,7 @@ def test_write_header(mocker, view):
     mocked_mids = [Mock(attrib={}) for _ in range(4)]
     mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
     # first call tests with not master
-    mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING, **{'get_load.return_value': 12})
+    mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING, **{'get_loading.return_value': 12})
     view.sup_ctx._is_master = False
     view.sup_ctx.nodes['127.0.0.1'] = mocked_status
     view.write_header(mocked_root)

@@ -8,7 +8,7 @@ and the **Supvisors** extension provides its own web user interface, as a replac
 
 .. note:: *About the browser compliance*.
 
-    The CSS of the web pages has been written for Firefox ESR 60.3.0.
+    The CSS of the web pages has been written for Firefox ESR 78.5.0.
     The compatibility with other browsers or other versions of Firefox is unknown.
 
 All pages are divided into 3 parts:
@@ -40,7 +40,7 @@ The color gives the state of the Address, as seen by the **Supvisors** instance 
 Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
 The **Supvisors** instance playing the role of "Master" is pointed out with the ✪ sign.
 
-Below is the Application part that lists all the *managed* applications defined through the
+Below is the Application part that lists all the *Managed* applications defined through the
 `group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file
 and also declared in the **Supvisors** :ref:`rules_file`.
 The color gives the state of the Application, as seen by the **Supvisors** instance that is displaying this page:
@@ -51,10 +51,12 @@ The color gives the state of the Application, as seen by the **Supvisors** insta
     * green-to-yellow gradient for ``STOPPING``,
     * green for ``RUNNING``.
 
+An additional red light is displayed in the event where a failure has been raised on the application.
 All hyperlinks are active. The browser is redirected to the corresponding `Application page`_ on the local Web Server.
 
 The bottom part of the menu contains a contact link and copyright information.
 
+.. _dashboard_main:
 
 Main Page
 ---------
@@ -236,16 +238,26 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
-**Supvisors** also provides expand / shrink actions per application to enable the user to show / hide blocks of processes.
-
 **Supvisors** shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``),
 
-A click on the CPU or RAM measures shows detailed statistics about the process.
-More particularly, **Supvisors** displays a table showing for both CPU and Memory:
+All processes are grouped by their application and **Supvisors** provides expand / shrink actions per application
+to enable the user to show / hide blocks of processes.
+The application line displays:
+
+    * the overall state of the application, considering all nodes,
+    * a description of the operational status of the application,
+    * considering the application processes that are running on this node:
+
+        * the sum of their expected loading,
+        * the sum of their CPU usage,
+        * the sum of their instant memory occupation.
+
+A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application values.
+More particularly, **Supvisors** displays on the right side of the page a table showing for both CPU and Memory:
 
     * the last measure,
     * the mean value,
@@ -282,6 +294,8 @@ The Network table shows statistics about the receive and sent flows on each netw
 
 Clicking on a button associated to the resource displays detailed statistics (graph and table), similarly to the process buttons.
 
+
+.. _dashboard_application:
 
 Application Page
 ----------------

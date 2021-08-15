@@ -26,9 +26,9 @@ from typing import Any, Optional, Union
 from supervisor.datatypes import list_of_strings
 from supervisor.options import split_namespec
 
-from supvisors.application import ApplicationRules
-from supvisors.process import ProcessRules
-from supvisors.ttypes import StartingFailureStrategies, RunningFailureStrategies, EnumClassType
+from .application import ApplicationRules
+from .process import ProcessRules
+from .ttypes import StartingStrategies, StartingFailureStrategies, RunningFailureStrategies, EnumClassType
 
 
 # XSD contents for XML validation
@@ -39,6 +39,14 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         <xs:restriction base="xs:int">
             <xs:minInclusive value="0"/>
             <xs:maxInclusive value="100"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="StartingStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="CONFIG" />
+            <xs:enumeration value="LESS_LOADED" />
+            <xs:enumeration value="MOST_LOADED" />
+            <xs:enumeration value="LOCAL" />
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="StartingFailureStrategy" final="restriction" >
@@ -71,8 +79,11 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
     </xs:complexType>
     <xs:complexType name="ApplicationModel">
         <xs:sequence>
+            <xs:element type="xs:boolean" name="distributed" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="xs:string" name="addresses" minOccurs="0" maxOccurs="1"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
+            <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -101,6 +112,9 @@ class Parser(object):
 
     # for recursive references to program models, depth is limited to 3
     LOOP_CHECK = 3
+
+    # annotation types
+    AnyRules = Union[ApplicationRules, ProcessRules]
 
     def __init__(self, supvisors: Any) -> None:
         """ The constructor parses the XML file and stores references to models and patterns found.
@@ -133,8 +147,11 @@ class Parser(object):
         application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
         if application_elt is not None:
             rules.managed = True
+            self.load_boolean(application_elt, 'distributed', rules)
+            self.load_application_nodes(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
+            self.load_enum(application_elt, 'starting_strategy', StartingStrategies, rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'
@@ -224,6 +241,22 @@ class Parser(object):
         model = elt.findtext('reference')
         return self.models.get(model, None)
 
+    def load_application_nodes(self, elt: Any, rules: ApplicationRules) -> None:
+        """ Get the nodes where the non-distributed application is authorized to run.
+
+        :param elt: the XML element containing rules definition for an application
+        :param rules: the application structure used to store the rules found
+        :return: None
+        """
+        value = elt.findtext('addresses')
+        if value:
+            # sort and trim list of values
+            node_names = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
+            if '*' in node_names:
+                rules.node_names = ['*']
+            else:
+                rules.node_names = self.supvisors.address_mapper.filter(node_names)
+
     def load_program_nodes(self, elt: Any, rules: ProcessRules) -> None:
         """ Get the nodes where the program is authorized to run.
 
@@ -250,7 +283,7 @@ class Parser(object):
             else:
                 rules.node_names = self.supvisors.address_mapper.filter(node_names)
 
-    def load_sequence(self, elt: Any, attr_string: str, rules: Union[ApplicationRules, ProcessRules]) -> None:
+    def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the sequence value found from the XML element.
         The value must be greater than or equal to 0.
 
@@ -293,7 +326,7 @@ class Parser(object):
                 self.logger.warn('Parser.load_expected_loading: not an integer for {} expected_loading: {}'
                                  .format(elt.get('name'), str_value))
 
-    def load_boolean(self, elt: Any, attr_string: str, rules: ProcessRules) -> None:
+    def load_boolean(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the boolean value found from XML element.
 
         :param elt: the XML element containing rules definition for an application or a program
@@ -310,8 +343,7 @@ class Parser(object):
                 self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'
                                  .format(elt.get('name'), attr_string, str_value))
 
-    def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType,
-                  rules: Union[ApplicationRules, ProcessRules]) -> None:
+    def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType, rules: AnyRules) -> None:
         """ Return the running_failure_strategy value found from XML element.
         The value MUST correspond to an enumeration value of RunningFailureStrategies.
 

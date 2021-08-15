@@ -26,6 +26,7 @@ from supvisors.context import *
 from supvisors.ttypes import AddressStates, ApplicationStates, InvalidTransition
 
 from .base import DummyAddressMapper, database_copy, any_process_info
+from .conftest import create_application
 
 
 @pytest.fixture
@@ -62,7 +63,36 @@ def test_create(supvisors, context):
     assert context.applications == {}
     assert context._master_node_name == ''
     assert not context._is_master
-    assert not context.master_operational
+    assert context.start_date == 0
+
+
+def test_reset(mocker, context):
+    """ Test the reset of Context values. """
+    mocker.patch('supvisors.context.time', return_value=3600)
+    # change master definition
+    context.master_node_name = '127.0.0.1'
+    assert context.is_master
+    # change node states
+    context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+    context.nodes['10.0.0.1']._state = AddressStates.SILENT
+    context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
+    context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+    context.nodes['10.0.0.4']._state = AddressStates.RUNNING
+    # add an application
+    application = create_application('dummy_appli', context.supvisors)
+    context.applications['dummy_appli'] = application
+    # call reset and check result
+    context.reset()
+    assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
+    context.nodes['127.0.0.1']._state = AddressStates.UNKNOWN
+    context.nodes['10.0.0.1']._state = AddressStates.SILENT
+    context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
+    context.nodes['10.0.0.3']._state = AddressStates.ISOLATED
+    context.nodes['10.0.0.4']._state = AddressStates.UNKNOWN
+    assert context.applications == {'dummy_appli': application}
+    assert context._master_node_name == ''
+    assert not context._is_master
+    assert context.start_date == 3600
 
 
 def test_master_node_name(context):
@@ -71,28 +101,23 @@ def test_master_node_name(context):
     assert context.master_node_name == ''
     assert not context.is_master
     assert not context._is_master
-    assert not context.master_operational
-    context.master_operational = True
     context.master_node_name = '10.0.0.1'
     assert context.master_node_name == '10.0.0.1'
     assert context._master_node_name == '10.0.0.1'
     assert not context.is_master
     assert not context._is_master
-    assert not context.master_operational
-    context.master_operational = True
     context.master_node_name = '127.0.0.1'
     assert context.master_node_name == '127.0.0.1'
     assert context._master_node_name == '127.0.0.1'
     assert context.is_master
     assert context._is_master
-    assert not context.master_operational
 
 
 def test_nodes_by_states(context):
     """ Test the access to addresses in unknown state. """
     # test initial states
     assert context.unknown_nodes() == DummyAddressMapper().node_names
-    assert context.unknown_forced_nodes() == []
+    assert context.running_core_nodes() is None
     assert context.running_nodes() == []
     assert context.isolating_nodes() == []
     assert context.isolation_nodes() == []
@@ -107,7 +132,7 @@ def test_nodes_by_states(context):
     context.nodes['10.0.0.4']._state = AddressStates.RUNNING
     # test new states
     assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
-    assert context.unknown_forced_nodes() == []
+    assert context.running_core_nodes() is None
     assert context.running_nodes() == ['127.0.0.1', '10.0.0.4']
     assert context.isolating_nodes() == ['10.0.0.2']
     assert context.isolation_nodes() == ['10.0.0.2', '10.0.0.3']
@@ -117,13 +142,13 @@ def test_nodes_by_states(context):
     assert context.nodes_by_states([AddressStates.UNKNOWN]) == ['10.0.0.5']
 
 
-def test_unknown_forced_nodes(supvisors):
-    """ Test the access to addresses in unknown state. """
+def test_running_core_nodes(supvisors):
+    """ Test if the core nodes are in a RUNNING state. """
     supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
     assert context.unknown_nodes() == DummyAddressMapper().node_names
-    assert context.unknown_forced_nodes() == ['10.0.0.1', '10.0.0.4']
+    assert not context.running_core_nodes()
     # change states
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
     context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
@@ -131,25 +156,30 @@ def test_unknown_forced_nodes(supvisors):
     context.nodes['10.0.0.4']._state = AddressStates.RUNNING
     # test new states
     assert context.unknown_nodes() == ['10.0.0.1', '10.0.0.2', '10.0.0.5']
-    assert context.unknown_forced_nodes() == ['10.0.0.1']
+    assert not context.running_core_nodes()
     # change states
     context.nodes['10.0.0.1']._state = AddressStates.SILENT
     # test new states
     assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
-    assert context.unknown_forced_nodes() == []
+    assert not context.running_core_nodes()
+    # change states
+    context.nodes['10.0.0.1']._state = AddressStates.RUNNING
+    # test new states
+    assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
+    assert context.running_core_nodes()
 
 
-def check_invalid_node_status(context, node_name, new_state):
+def check_invalid_node_status(context, node_name, new_state, fence=None):
     # get address status
-    address_status = context.nodes[node_name]
+    node = context.nodes[node_name]
     # check initial state
-    assert address_status.state == AddressStates.UNKNOWN
+    assert node.state == AddressStates.UNKNOWN
     # invalidate address
-    context.invalid(address_status)
+    context.invalid(node, fence)
     # check new state
-    assert address_status.state == new_state
+    assert node.state == new_state
     # restore address state
-    address_status._state = AddressStates.UNKNOWN
+    node._state = AddressStates.UNKNOWN
 
 
 def test_invalid(mocker, context):
@@ -158,41 +188,18 @@ def test_invalid(mocker, context):
     mocker.patch.object(context.supvisors.options, 'auto_fence', True)
     # test address state with auto_fence and local_address
     check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT, True)
     # test address state with auto_fence and other than local_address
     check_invalid_node_status(context, '10.0.0.1', AddressStates.ISOLATING)
+    check_invalid_node_status(context, '10.0.0.1', AddressStates.ISOLATING, True)
     # test address state without auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
     # test address state without auto_fence and local_address
     check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', AddressStates.SILENT, True)
     # test address state without auto_fence and other than local_address
     check_invalid_node_status(context, '10.0.0.2', AddressStates.SILENT)
-
-
-def test_end_synchro(mocker, context):
-    """ Test the end of synchronization phase. """
-    # choose two addresses and change their state
-    for address_status in context.nodes.values():
-        assert address_status.state == AddressStates.UNKNOWN
-    context.nodes['10.0.0.2']._state = AddressStates.RUNNING
-    context.nodes['10.0.0.4']._state = AddressStates.ISOLATED
-    # call end of synchro with auto_fence activated
-    context.end_synchro()
-    # check that UNKNOWN addresses became ISOLATING, but local address
-    assert context.nodes['127.0.0.1'].state == AddressStates.SILENT
-    assert context.nodes['10.0.0.1'].state == AddressStates.ISOLATING
-    assert context.nodes['10.0.0.3'].state == AddressStates.ISOLATING
-    assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
-    # reset states and set (local excepted)
-    context.nodes['10.0.0.1']._state = AddressStates.UNKNOWN
-    context.nodes['10.0.0.3']._state = AddressStates.UNKNOWN
-    context.nodes['10.0.0.5']._state = AddressStates.UNKNOWN
-    # call end of synchro with auto_fencing deactivated
-    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
-    context.end_synchro()
-    # check that UNKNOWN addresses became SILENT
-    assert context.nodes['10.0.0.1'].state == AddressStates.SILENT
-    assert context.nodes['10.0.0.3'].state == AddressStates.SILENT
-    assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
+    check_invalid_node_status(context, '10.0.0.2', AddressStates.ISOLATING, True)
 
 
 def test_get_managed_applications(filled_context):
@@ -324,8 +331,10 @@ def test_setdefault_process(context):
     assert application2.rules.managed
 
 
-def test_load_processes(context):
+def test_load_processes(mocker, context):
     """ Test the storage of processes handled by Supervisor on a given address. """
+    mocker.patch('supvisors.application.ApplicationStatus.update_sequences')
+    mocker.patch('supvisors.application.ApplicationStatus.update_status')
     # check application list
     assert context.applications == {}
     for node in context.nodes.values():
@@ -349,6 +358,10 @@ def test_load_processes(context):
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert context.nodes['10.0.0.2'].processes == {}
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
+    mocker.resetall()
     # load ProcessInfoDatabase in other known address
     context.load_processes('10.0.0.2', database_copy())
     # check context contents
@@ -362,6 +375,10 @@ def test_load_processes(context):
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
     assert context.nodes['10.0.0.1'].processes == context.nodes['10.0.0.2'].processes
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
+    mocker.resetall()
     # load different database in other known address
     info = any_process_info()
     info.update({'group': 'dummy_application', 'name': 'dummy_process'})
@@ -376,6 +393,9 @@ def test_load_processes(context):
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
     assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
     assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
+    # check application calls
+    assert all(application.update_sequences.called and application.update_status.called
+               for application in context.applications.values())
 
 
 def test_authorization(mocker, context):
@@ -409,12 +429,12 @@ def test_authorization(mocker, context):
     with pytest.raises(InvalidTransition):
         context.on_authorization('10.0.0.4', True)
     assert context.nodes['10.0.0.4'].state == AddressStates.SILENT
-    # check state becomes SILENT if not authorized and auto fencing deactivated
+    # check state becomes ISOLATED reciprocally if not authorized and even if auto fencing deactivated
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
     for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.SILENT, AddressStates.RUNNING]:
         context.nodes['10.0.0.5']._state = state
         context.on_authorization('10.0.0.5', False)
-        assert context.nodes['10.0.0.5'].state == AddressStates.SILENT
+        assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
 
 
 def test_tick_event(mocker, context):
@@ -426,7 +446,15 @@ def test_tick_event(mocker, context):
     context.on_tick_event('10.0.0.0', {})
     assert not mocked_check.called
     assert not mocked_send.called
-    # get address status used for tests
+    # check no processing as long as local node is not RUNNING
+    assert context.supvisors.address_mapper.local_node_name == '127.0.0.1'
+    assert context.nodes['127.0.0.1'].state == AddressStates.UNKNOWN
+    context.on_tick_event('10.0.0.1', {})
+    assert not mocked_check.called
+    assert not mocked_send.called
+    # set local node state to RUNNING
+    context.nodes['127.0.0.1']._state = AddressStates.RUNNING
+    # get node status used for tests
     address = context.nodes['10.0.0.1']
     # check no change with known address in isolation
     for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
@@ -435,8 +463,7 @@ def test_tick_event(mocker, context):
         assert address.state == state
         assert not mocked_check.called
         assert not mocked_send.called
-    # check that address is CHECKING and check_address is called
-    # before address time is updated and address status is sent
+    # check that node is CHECKING and send_check_node is called before node time is updated and address status is sent
     for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
         address._state = state
         context.on_tick_event('10.0.0.1', {'when': 1234})
@@ -448,7 +475,7 @@ def test_tick_event(mocker, context):
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
-    # check that address time is updated and address status is sent
+    # check that node time is updated and address status is sent
     mocked_check.reset_mock()
     mocked_send.reset_mock()
     for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
@@ -600,7 +627,7 @@ def test_process_event(mocker, context):
                   'major_failure': False, 'minor_failure': True})]
 
 
-def test_timer_event(mocker, context):
+def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_send = context.supvisors.zmq.publisher.send_address_status
@@ -610,20 +637,31 @@ def test_timer_event(mocker, context):
     context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3588})
     context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_time': 1800})
     context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_time': 0})
-    context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.ISOLATED, 'local_time': 0})
+    context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.UNKNOWN, 'local_time': 0})
     # patch the expected future invalidated node
     proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_node.return_value': False})
     proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_node.return_value': True})
     mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
+    # test when start_date is more recent than synchro_timeout
+    context.start_date = 3590
+    assert context.on_timer_event() == set()
+    assert not mocked_send.called
+    assert not proc_1.invalidate_node.called
+    assert not proc_2.invalidate_node.called
+    assert context.nodes['10.0.0.5'].state == AddressStates.UNKNOWN
     # test call and check results
+    context.start_date = 3589
     assert context.on_timer_event() == {proc_2}
+    assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 3588, 'loading': 15})]
+                                                'remote_time': 0, 'local_time': 3588, 'loading': 15}),
+                                          call({'address_name': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]
     assert proc_2.invalidate_node.call_args_list == [(call('10.0.0.2'))]
-    # only '10.0.0.2' node changed state
+    # only '10.0.0.2' and '10.0.0.5' nodes changed state
     for node_name, state in [('127.0.0.1', AddressStates.RUNNING), ('10.0.0.1', AddressStates.RUNNING),
                              ('10.0.0.2', AddressStates.ISOLATING), ('10.0.0.3', AddressStates.SILENT),
-                             ('10.0.0.4', AddressStates.ISOLATING), ('10.0.0.5', AddressStates.ISOLATED)]:
+                             ('10.0.0.4', AddressStates.ISOLATING), ('10.0.0.5', AddressStates.ISOLATING)]:
         assert context.nodes[node_name].state == state
 
 

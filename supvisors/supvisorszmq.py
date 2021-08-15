@@ -76,7 +76,7 @@ class InternalEventPublisher(object):
         :return: None
         """
         self.logger.trace('send TickEvent {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.TICK, self.node_name, payload))
+        self.socket.send_pyobj((InternalEventHeaders.TICK.value, self.node_name, payload))
 
     def send_process_event(self, payload: Payload) -> None:
         """ Publish the process event with PyZmq.
@@ -85,7 +85,7 @@ class InternalEventPublisher(object):
         :return: None
         """
         self.logger.trace('send ProcessEvent {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.PROCESS, self.node_name, payload))
+        self.socket.send_pyobj((InternalEventHeaders.PROCESS.value, self.node_name, payload))
 
     def send_statistics(self, payload: Payload) -> None:
         """ Publish the statistics with PyZmq.
@@ -94,7 +94,7 @@ class InternalEventPublisher(object):
         :return: None
         """
         self.logger.trace('send Statistics {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.STATISTICS, self.node_name, payload))
+        self.socket.send_pyobj((InternalEventHeaders.STATISTICS.value, self.node_name, payload))
 
     def send_state_event(self, payload: Payload) -> None:
         """ Publish the Master state event with PyZmq.
@@ -103,7 +103,7 @@ class InternalEventPublisher(object):
         :return: None
         """
         self.logger.trace('send Supvisors state {}'.format(payload))
-        self.socket.send_pyobj((InternalEventHeaders.STATE, self.node_name, payload))
+        self.socket.send_pyobj((InternalEventHeaders.STATE.value, self.node_name, payload))
 
 
 class InternalEventSubscriber(object):
@@ -445,18 +445,26 @@ class RequestPusher(object):
         """
         self.socket.close(ZMQ_LINGER)
 
+    def send_message(self, header: DeferredRequestHeaders, body: Tuple) -> None:
+        """ Send request to check authorization to deal with the node.
+
+        :param header: the message type
+        :param body: the parameters to send
+        :return: None
+        """
+        self.logger.trace('RequestPusher.send_message: header={}'.format(header.name))
+        try:
+            self.socket.send_pyobj((header.value, body), zmq.NOBLOCK)
+        except zmq.error.Again:
+            self.logger.error('RequestPusher.send_message: {} not sent'.format(header.name))
+
     def send_check_node(self, node_name: str) -> None:
         """ Send request to check authorization to deal with the node.
 
         :param node_name: the node name to check
         :return: None
         """
-        self.logger.debug('RequestPusher.send_check_node: node_name={}'.format(node_name))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.CHECK_NODE, (node_name,)),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('RequestPusher.send_check_node: CHECK_NODE not sent')
+        self.send_message(DeferredRequestHeaders.CHECK_NODE, (node_name,))
 
     def send_isolate_nodes(self, node_names: NameList) -> None:
         """ Send request to isolate nodes.
@@ -464,12 +472,7 @@ class RequestPusher(object):
         :param node_names: the nodes to isolate
         :return: Node
         """
-        self.logger.trace('RequestPusher.send_isolate_nodes: node_names={}'.format(node_names))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.ISOLATE_NODES, node_names),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('RequestPusher.send_isolate_nodes: ISOLATE_NODES not sent')
+        self.send_message(DeferredRequestHeaders.ISOLATE_NODES, node_names)
 
     def send_start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Send request to start process.
@@ -479,12 +482,7 @@ class RequestPusher(object):
         :param extra_args: the additional arguments to be passed to the command line
         :return: None
         """
-        self.logger.trace('send START_PROCESS {} to {} with {}'.format(namespec, node_name, extra_args))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.START_PROCESS, (node_name, namespec, extra_args)),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('START_PROCESS not sent')
+        self.send_message(DeferredRequestHeaders.START_PROCESS, (node_name, namespec, extra_args))
 
     def send_stop_process(self, node_name: str, namespec: str) -> None:
         """ Send request to stop process.
@@ -493,12 +491,7 @@ class RequestPusher(object):
         :param namespec: the process namespec
         :return: None
         """
-        self.logger.trace('send STOP_PROCESS {} to {}'.format(namespec, node_name))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.STOP_PROCESS, (node_name, namespec)),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('STOP_PROCESS not sent')
+        self.send_message(DeferredRequestHeaders.STOP_PROCESS, (node_name, namespec))
 
     def send_restart(self, node_name: str):
         """ Send request to restart a Supervisor.
@@ -506,12 +499,7 @@ class RequestPusher(object):
         :param node_name: the node name where Supvisors has to be restarted
         :return: None
         """
-        self.logger.trace('send RESTART {}'.format(node_name))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.RESTART, (node_name,)),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('RESTART not sent')
+        self.send_message(DeferredRequestHeaders.RESTART, (node_name,))
 
     def send_shutdown(self, node_name: str):
         """ Send request to shutdown a Supervisor.
@@ -519,12 +507,23 @@ class RequestPusher(object):
         :param node_name: the node name where Supvisors has to be shut down
         :return: None
         """
-        self.logger.trace('send SHUTDOWN {}'.format(node_name))
-        try:
-            self.socket.send_pyobj((DeferredRequestHeaders.SHUTDOWN, (node_name,)),
-                                   zmq.NOBLOCK)
-        except zmq.error.Again:
-            self.logger.error('SHUTDOWN not sent')
+        self.send_message(DeferredRequestHeaders.SHUTDOWN, (node_name,))
+
+    def send_restart_all(self, node_name: str):
+        """ Send request to restart the Supvisors Master.
+
+        :param node_name: the Supvisors Master
+        :return: None
+        """
+        self.send_message(DeferredRequestHeaders.RESTART_ALL, (node_name,))
+
+    def send_shutdown_all(self, node_name: str):
+        """ Send request to shutdown the Supvisors Master.
+
+        :param node_name: the Supvisors Master
+        :return: None
+        """
+        self.send_message(DeferredRequestHeaders.SHUTDOWN_ALL, (node_name,))
 
 
 class SupervisorZmq(object):

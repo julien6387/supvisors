@@ -76,7 +76,7 @@ class ProcAddressView(SupvisorsAddressView):
         for info in all_info:
             namespec = make_namespec(info['group'], info['name'])
             process = self.sup_ctx.get_process(namespec)
-            unexpected_exit = info['state'] == ProcessStates.EXITED and not process.expected_exit
+            unexpected_exit = info['state'] == ProcessStates.EXITED and 'Bad exit code' in info['spawnerr']
             expected_load = process.rules.expected_load
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             data.append({'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,

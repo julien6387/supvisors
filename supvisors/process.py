@@ -74,13 +74,14 @@ class ProcessRules(object):
             self.required = False
 
     def check_autorestart(self, namespec: str) -> None:
-        """ Disable autorestart when RunningFailureStrategies is not CONTINUE.
+        """ Disable autorestart when RunningFailureStrategies is related to applications.
         In these cases, Supvisors triggers behaviors that are different so supervisor.
 
         :param namespec: the namespec of the program considered.
         :return: None
         """
-        if self.running_failure_strategy != RunningFailureStrategies.CONTINUE:
+        if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
+                                             RunningFailureStrategies.RESTART_APPLICATION]:
             if self.supvisors.info_source.autorestart(namespec):
                 self.supvisors.info_source.disable_autorestart(namespec)
                 self.logger.warn('ProcessRules.check_autorestart: program={} - autorestart disabled due to '
@@ -179,6 +180,7 @@ class ProcessStatus(object):
         :param application_name: the name of the application the process belongs to
         :param process_name: the name of the process
         :param rules: the rules loaded from the rules file
+        :param supvisors: the global Supvisors structure
         """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
@@ -219,15 +221,16 @@ class ProcessStatus(object):
             self._state = new_state
             self.logger.info('ProcessStatus.state: {} is {}'.format(self.namespec, self.state_string()))
 
-    def force_state(self, payload: Payload) -> None:
+    def force_state(self, state: ProcessStates, reason: str = None) -> None:
         """ Force the process state due to an unexpected event.
 
-        :param payload: the event payload
+        :param state: the forced state
+        :param reason: the reason why the state is forced
         :return: None
         """
         self.last_event_time = int(time())
-        self.forced_state = payload['state']
-        self.forced_reason = payload['spawnerr']
+        self.forced_state = state
+        self.forced_reason = reason
 
     @property
     def extra_args(self) -> str:
@@ -325,14 +328,14 @@ class ProcessStatus(object):
         return len(self.running_nodes) > 1
 
     @staticmethod
-    def update_description(process_info: Payload) -> str:
+    def update_description(info: Payload) -> str:
         """ Return the Supervisor way to describe the process status.
 
-        :param process_info: a subset of the dict received from Supervisor.getProcessInfo.
+        :param info: a subset of the dict received from Supervisor.getProcessInfo.
         :return: the description of the process status
         """
         # IDE warning on first parameter but ignored as the Supervisor function should have been set as staticmethod
-        return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, process_info)
+        return SupervisorNamespaceRPCInterface._interpretProcessInfo(None, info)
 
     def get_last_description(self) -> Tuple[Optional[str], str]:
         """ Get the latest description received from the process across all nodes.
@@ -357,12 +360,15 @@ class ProcessStatus(object):
             self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [running]description={}'
                               .format(self.namespec, node_name, info['description']))
         else:
-            # sort info_map them by stop date
+            # none running. sort info_map them by stop date
             node_name, info = max(self.info_map.items(), key=lambda x: x[1]['stop'])
             self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [stopped]description={}'
                               .format(self.namespec, node_name, info['description']))
-        # extract description from information found
-        return node_name, info['description']
+        # extract description from information found and add node_name
+        desc = info['description']
+        if desc and desc != 'Not started':
+            desc = desc + ' on ' + node_name
+        return node_name, desc
 
     # methods
     def state_string(self) -> str:

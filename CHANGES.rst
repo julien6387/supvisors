@@ -1,8 +1,60 @@
 Change Log
 ==========
 
+0.7 (2021-08-15)
+----------------
+
+* Fixed `Issue #92 <https://github.com/julien6387/supvisors/issues/92>`_.
+  The *Master* drives the state of all **Supvisors** instances and a simplified state machine has been assigned
+  to non-master **Supvisors** instances. The loss of the *Master* instance is managed in all relevant states.
+
+* Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
+  The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
+
+* Enable stop sequence on *unmanaged* applications.
+
+* In the application navigation part of the Web UI, add a red light to applications having a failure raised.
+
+* New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
+  Non-distributed applications have all their processes started on the same node chosen in accordance with the
+  ``addresses`` and the ``starting_strategy``.
+
+* Starting strategy added to the application rules.
+
+* Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
+  and includes the requests that have not been satisfied yet.
+
+* Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
+  in the **Supvisors** rules file. When the process crashes, only the *Supervisor* ``autorestart`` applies.
+  The **Supvisors** ``RESTART_PROCESS`` applies only when the node becomes inactive.
+
+* Fixed exception when forcing the state on a process that is unknown to the local Supervisor.
+
+* Promote the ``RESTART_PROCESS`` into ``RESTART_APPLICATION`` if the application is stopped.
+
+* For the *Master* election, give a priority to nodes declared in the ``forced_synchro_if`` option if used.
+
+* When using the ``forced_synchro_if`` option and when ``auto_fence`` is activated, do not isolate nodes as long as
+  ``synchro_timeout`` has not passed.
+
+* In the ``INITALIZATION`` state, skip the synchronization phase upon notification of a known *Master* and adopt it.
+
+* Add reciprocity to isolation even if ``auto_fence`` is not activated.
+
+* In the process description of the Web UI Application page, add information about the node_name.
+  In particular, it is useful to know where the process was running when it is stopped.
+
+* Start adding use cases to documentation, inspired by real examples.
+
+* Documentation updated.
+
+
 0.6 (2021-08-01)
 ----------------
+
+* Applications that are not declared in the rules file are not *managed*.
+  *Unmanaged* applications have no start/stop sequence, no state and status (always STOPPED) and **Supvisors**
+  does not raise a conflict if multiple instances are running over multiple nodes.
 
 * Improve **Supvisors** stability when dealing with remote programs undefined locally.
 
@@ -10,11 +62,11 @@ Change Log
 
 * Upon authorization of a new node in **Supvisors**, back to ``DEPLOYMENT`` state to repair applications.
 
-* Add RPC ``change_log_level`` to dynamically change the **Supvisors** log level.
+* Add RPC ``change_log_level`` to dynamically change the **Supvisors** logger level.
 
 * Application state is evaluated only against the starting sequence of its processes.
 
-* Fixed blocking when *Master* is stopped while in ``DEPLOYMENT`` state.
+* Fixed blocking issue when *Master* is stopped while in ``DEPLOYMENT`` state.
 
 * Fixed issue with applications that would not fully stop when using the ``STOP_APPLICATION`` starting failure strategy.
 

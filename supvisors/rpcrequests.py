@@ -22,10 +22,8 @@ from typing import Mapping
 from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import SupervisorTransport
 
-from supvisors.rpcinterface import RPCInterface
 
-
-def getRPCInterface(node_name: str, env: Mapping[str, str]) -> RPCInterface:
+def getRPCInterface(node_name: str, env: Mapping[str, str]):
     """ The getRPCInterface creates a proxy to a supervisor XML-RPC server.
     Information about the HTTP configuration is required in env. """
     # get configuration info from env

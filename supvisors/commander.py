@@ -19,14 +19,14 @@
 
 import time
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .strategy import get_node
+from .strategy import get_node, LoadRequestMap
 from .ttypes import StartingStrategies, StartingFailureStrategies
 
 
@@ -35,9 +35,11 @@ class ProcessCommand(object):
 
     Attributes are:
         - process: the process wrapped,
-        - strategy: the strategy used to start the process if applicable,
+        - node_name: the node to which the command is requested,
         - request_time: the date when the command is requested,
-        - ignore_wait_exit: used to command a process out of its application,
+        - strategy: the strategy used to start the process if applicable,
+        - distributed: set to False if the process belongs to an application that cannot de distributed,
+        - ignore_wait_exit: used to command a process out of its application starting sequence,
         - extra_args: additional arguments to the command line.
     """
     TIMEOUT = 10
@@ -48,22 +50,25 @@ class ProcessCommand(object):
         :param process: the process status to wrap
         :param strategy: the applicable starting strategy
         """
-        self.process = process
-        self.strategy = strategy
-        self.request_time = 0
-        self.ignore_wait_exit = False
-        self.extra_args = ''
+        self.process: ProcessStatus = process
+        self.node_name: Optional[str] = None
+        self.request_time: int = 0
+        # the following attributes are only for Starter
+        self.strategy: StartingStrategies = strategy
+        self.distributed: bool = True
+        self.ignore_wait_exit: bool = False
+        self.extra_args: str = ''
 
     def __str__(self) -> str:
         """ Get the process command as string.
 
         :return: the printable process command
         """
-        return 'process={} state={} last_event_time={} strategy={} request_time={} ' \
-               'ignore_wait_exit={} extra_args="{}"' \
+        return 'process={} state={} last_event_time={} requested_node={} request_time={} strategy={}' \
+               ' distributed=True ignore_wait_exit={} extra_args="{}"' \
             .format(self.process.namespec, self.process.state, self.process.last_event_time,
-                    self.strategy.value if self.strategy else 'None',
-                    self.request_time,  self.ignore_wait_exit, self.extra_args)
+                    self.node_name, self.request_time, self.strategy.value if self.strategy else 'None',
+                    self.ignore_wait_exit, self.extra_args)
 
     def timed_out(self, now: int) -> bool:
         """ Return True if there is still no event TIMEOUT seconds past the request.
@@ -138,8 +143,7 @@ class Commander(object):
         return {application_sequence: {application_name: {sequence: Commander.printable_command_list(commands)
                                                           for sequence, commands in sequences.items()}
                                        for application_name, sequences in applications.items()}
-                for application_sequence, applications
-                in self.planned_sequence.items()}
+                for application_sequence, applications in self.planned_sequence.items()}
 
     def printable_planned_jobs(self) -> PrintablePlannedJobs:
         """ Simple form of planned_jobs, so that it can be printed.
@@ -178,7 +182,7 @@ class Commander(object):
         return next((command for command in jobs if command.process is process), None)
 
     def trigger_jobs(self) -> None:
-        """ Triggers a sequence of the jobs planned (start or stop).
+        """ Triggers the next sequence from the jobs planned (start or stop).
 
         :return: None
         """
@@ -193,7 +197,17 @@ class Commander(object):
             for application_name in list(self.planned_jobs.keys()):
                 self.logger.info('Commander.trigger_jobs: triggering sequence {} - application_name={}'
                                  .format(min_sequence, application_name))
+                self.prepare_application_jobs(application_name)
                 self.process_application_jobs(application_name)
+
+    def prepare_application_jobs(self, application_name, application: ApplicationStatus = None) -> None:
+        """ Prepare the ProcessCommand instances linked to application planned jobs.
+        Implemented in Starter only.
+
+        :param application_name: the application name
+        :param application: the application if available
+        :return: None
+        """
 
     def process_application_jobs(self, application_name: str) -> None:
         """ Triggers the next sequenced group of the application.
@@ -242,7 +256,7 @@ class Commander(object):
         """
         raise NotImplementedError
 
-    def check_progress(self, condition: str, process_state: ProcessStates) -> bool:
+    def is_job_completed(self, condition: str, process_state: ProcessStates) -> bool:
         """ Check the progress of the application starting or stopping.
 
         :param condition: the ProcessStatus method name to be used to check progress
@@ -250,7 +264,7 @@ class Commander(object):
         :return: True when there is no more pending jobs
         """
         in_progress = self.in_progress()
-        self.logger.debug('Starter.check_progress: in_progress={}'.format(in_progress))
+        self.logger.debug('Starter.is_job_completed: in_progress={}'.format(in_progress))
         if in_progress:
             commands = [command for command_list in self.current_jobs.values()
                         for command in command_list]
@@ -260,18 +274,17 @@ class Commander(object):
                 # if it doesn't, the whole sequencing would block waiting for an event that may never happen
                 # typically, this can happen if request is sent to a supervisor that is shutting down
                 now = int(time.time())
-                self.logger.trace('Commander.check_progress: now={} checking commands={}'
+                self.logger.trace('Commander.is_job_completed: now={} checking commands={}'
                                   .format(now, [str(command) for command in commands]))
                 for command in commands:
                     # get the ProcessStatus method corresponding to condition and call it
                     class_method = getattr(ProcessStatus, condition)
                     if class_method(command.process):
                         if command.timed_out(now):
-                            self.logger.error('Commander.check_progress: {} still {} after {} seconds so abort'
+                            self.logger.error('Commander.is_job_completed: {} still {} after {} seconds so abort'
                                               .format(command.process.namespec, condition, ProcessCommand.TIMEOUT))
                             # generate a process event for this process to inform all Supvisors instances
                             reason = 'Still {} {} seconds after request'.format(condition, ProcessCommand.TIMEOUT)
-                            # self.supvisors.context.force_process_state(command.process.namespec, process_state, reason)
                             self.supvisors.listener.force_process_state(command.process.namespec, process_state, reason)
                             # don't wait for event, just abort the job
                             jobs = self.current_jobs[command.process.application_name]
@@ -282,13 +295,13 @@ class Commander(object):
             else:
                 # no commands in the pipe
                 # this can happen when nothing had to be stopped inside the planned_jobs
-                self.logger.warn('Starter.check_progress: no commands in progress but planned sequence still ongoing')
+                self.logger.warn('Starter.is_job_completed: no commands in progress but planned sequence still ongoing')
                 # check if there are planned jobs
                 if not self.planned_jobs:
                     # trigger next sequence of applications
                     self.trigger_jobs()
                 else:
-                    self.logger.critical('Starter.check_progress: UNEXPECTED')
+                    self.logger.critical('Starter.is_job_completed: UNEXPECTED')
         # return True when no more pending jobs
         return not self.in_progress()
 
@@ -335,13 +348,6 @@ class Starter(Commander):
         # attributes
         self.application_stop_requests = []
 
-    def get_default_strategy(self) -> StartingStrategies:
-        """ Return the default starting strategy from options.
-
-        :return: the starting strategy set in the supvisors section of the supervisor configuration file
-        """
-        return self.supvisors.options.starting_strategy
-
     def abort(self) -> None:
         """ Abort all planned current jobs.
         Do not erase current_jobs. Wait for their completion.
@@ -358,18 +364,16 @@ class Starter(Commander):
 
         :return: None
         """
-        strategy = self.get_default_strategy()
-        self.logger.info('Starter.start_applications: start all applications using strategy {}'.format(strategy.name))
+        self.logger.info('Starter.start_applications: start all applications')
         # internal call: default strategy always used
         for application in self.supvisors.context.applications.values():
             self.logger.debug('Starter.start_applications: application={} start_sequence={} never_started={}'
                               .format(str(application), application.rules.start_sequence, application.never_started()))
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # give a chance to all applications in failure
-            if (application.rules.start_sequence > 0 and application.never_started()) \
-                    or application.major_failure or application.minor_failure:
-                # if application has never been started, start all in sequence
-                self.store_application_start_sequence(application, strategy)
+            if application.rules.start_sequence > 0 \
+                    and (application.never_started() or application.major_failure or application.minor_failure):
+                self.store_application_start_sequence(application)
         # start work
         self.trigger_jobs()
 
@@ -379,7 +383,7 @@ class Starter(Commander):
         :param application: the application to start
         :return: True if start completed (nothing to do actually)
         """
-        return self.start_application(self.get_default_strategy(), application)
+        return self.start_application(application.rules.starting_strategy, application)
 
     def start_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> bool:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
@@ -396,19 +400,23 @@ class Starter(Commander):
             self.logger.debug('Starter.start_application: planned_sequence={}'
                               .format(self.printable_planned_sequence()))
             if self.planned_sequence:
-                # add application immediately to planned jobs if something in list
+                # add application immediately to planned jobs if something already in list
                 self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
+                # prepare commands and trigger application jobs
+                self.prepare_application_jobs(application.application_name, application)
                 self.process_application_jobs(application.application_name)
         # return True when started
         return not self.in_progress()
 
     def default_start_process(self, process: ProcessStatus) -> bool:
         """ Plan and start the necessary job to start the process in parameter, with the default strategy.
+        Default strategy is taken from the application owning this process.
 
         :param process: the process to start
         :return: True if no job has been queued.
         """
-        return self.start_process(self.get_default_strategy(), process)
+        application = self.supvisors.context.applications[process.application_name]
+        return self.start_process(application.rules.starting_strategy, process)
 
     def start_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str = '') -> bool:
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
@@ -428,19 +436,19 @@ class Starter(Commander):
         command.ignore_wait_exit = True
         # push program list in job list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
-        starting = self.process_job(command, job)
+        queued = self.process_job(command, job)
         # upon failure, remove inProgress entry if empty
         if not job:
             del self.current_jobs[process.application_name]
-        # return True when started
-        return not starting
+        # return True when job queued
+        return not queued
 
-    def check_starting(self) -> bool:
+    def is_starting_completed(self) -> bool:
         """ Check the progress of the application starting.
 
         :return: True when starting is completed
         """
-        return self.check_progress('stopped', ProcessStates.FATAL)
+        return self.is_job_completed('stopped', ProcessStates.FATAL)
 
     def on_event(self, process) -> None:
         """ Triggers the following of the start sequencing, depending on the new process status. """
@@ -518,15 +526,57 @@ class Starter(Commander):
             if process not in planned_process_jobs:
                 self.process_failure(process)
 
-    def store_application_start_sequence(self, application, strategy) -> None:
+    def store_application_start_sequence(self, application: ApplicationStatus,
+                                         strategy: StartingStrategies = None) -> None:
         """ Copy the start sequence and remove programs that are not meant to be started automatically,
-        i.e. their start_sequence is 0. """
+        i.e. their start_sequence is 0.
+        When strategy is not provided, use the application default starting strategy.
+
+        :param application: the application to start
+        :param strategy: the strategy to be used to choose nodes where programs shall be started
+        :return: None
+        """
+        if strategy is None:
+            strategy = application.rules.starting_strategy
         application_sequence = {seq: [ProcessCommand(process, strategy) for process in processes]
                                 for seq, processes in application.start_sequence.items()
                                 if seq > 0}
         if len(application_sequence) > 0:
             sequence = self.planned_sequence.setdefault(application.rules.start_sequence, {})
             sequence[application.application_name] = application_sequence
+            self.logger.debug('Starter.store_application_start_sequence: start sequence stored for application_name={}'
+                              ' with strategy={}'.format(application.application_name, strategy.name))
+
+    def prepare_application_jobs(self, application_name, application: ApplicationStatus = None) -> None:
+        """ Prepare the ProcessCommand instances linked to application planned jobs.
+
+        :param application_name: the application name
+        :param application: the application if available
+        :return: None
+        """
+        # get application if not provided
+        if not application:
+            application = self.supvisors.context.applications[application_name]
+        if not application.rules.distributed:
+            # get all ProcessCommand instances of the application
+            commands = [process for sequence in self.planned_jobs[application_name].values()
+                        for process in sequence]
+            strategy = next((command.strategy for command in commands if command.strategy is not None),
+                            application.rules.starting_strategy)
+            # find node iaw strategy
+            node_name = get_node(self.supvisors, strategy, application.possible_nodes(),
+                                 application.get_start_sequence_expected_load(), self.get_load_requests())
+            self.logger.info('Starter.prepare_application_jobs: node_name={} found for non-distributed'
+                             ' application_name={} using strategy={}'
+                             .format(node_name, application_name, strategy.name))
+            # apply the node to all commands
+            for command in commands:
+                # distributed information must be set to differentiate 2 cases:
+                #     * application is distributed, so node_name has to be resolved later in process_jobs
+                #     * application is not distributed and no applicable node_name has been found
+                command.distributed = False
+                command.node_name = node_name
+        # TODO: could node_name be resolved here, even for distributed applications ?
 
     def process_job(self, command: ProcessCommand, jobs: Commander.CommandList) -> bool:
         """ Start the process on the relevant node.
@@ -535,31 +585,32 @@ class Starter(Commander):
         :param jobs: the list of jobs in progress
         :return: True if a job has been queued.
         """
-        starting = False
+        queued = False
         process = command.process
         self.logger.debug('Starter.process_job: process={} stopped={}'.format(process.namespec, process.stopped()))
         if process.stopped():
-            # whatever a node is found or not to start the process, the job is considered started
-            # in every cases, a notification is expected from Supervisor
-            command.request_time = time.time()
-            jobs.append(command)
-            starting = True
-            # find node iaw strategy
-            node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
-                                 process.rules.expected_load)
-            if node_name:
-                self.logger.info('Starter.process_job: request starting of {} at node={}'
-                                 .format(process.namespec, node_name))
+            # node_name has already been decided for a non-distributed application
+            if command.distributed:
+                # find node iaw strategy
+                command.node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
+                                             process.rules.expected_load, self.get_load_requests())
+            if command.node_name:
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(node_name, process.namespec, command.extra_args)
-                self.logger.debug('Starter.process_job: {} requested to start on {} at {}'
-                                  .format(process.namespec, node_name, get_asctime(command.request_time)))
+                self.supvisors.zmq.pusher.send_start_process(command.node_name, process.namespec, command.extra_args)
+                self.logger.debug('Starter.process_job: {} requested to start on {} (strategy={}) at {}'
+                                  .format(process.namespec, command.node_name, command.strategy.name,
+                                          get_asctime(command.request_time)))
+                # push command into current jobs
+                command.request_time = time.time()
+                jobs.append(command)
+                queued = True
             else:
                 self.logger.warn('Starter.process_job: no resource available to start {}'.format(process.namespec))
                 self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,
                                                             'no resource available')
-        # return True when the job is started
-        return starting
+                self.process_failure(process)
+        # return True when the job is queued
+        return queued
 
     def process_failure(self, process):
         """ Updates the start sequence when a process could not be started. """
@@ -599,6 +650,20 @@ class Starter(Commander):
             self.application_stop_requests.remove(application_name)
             self.supvisors.stopper.stop_application(application)
 
+    def get_load_requests(self) -> LoadRequestMap:
+        """ From current_jobs, extract by node the processes that are requested to start but still stopped
+        and sum their expected load.
+
+        :return: the additional loading per node
+        """
+        load_request_map = {}
+        for command_list in self.current_jobs.values():
+            for command in command_list:
+                # if process is not stopped, its loading is already considered in AddressStatus
+                if command.process.stopped():
+                    load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
+        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items()}
+
 
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
@@ -608,8 +673,8 @@ class Stopper(Commander):
         self.logger.info('Stopper.stop_applications: stop all applications')
         # stopping initialization: push program list in jobs list
         for application in self.supvisors.context.applications.values():
-            # do not stop an application that is not running
-            if application.running() and application.rules.stop_sequence >= 0:
+            # do not check the application state are running processes may be excluded in the evaluation
+            if application.has_running_processes() and application.rules.stop_sequence >= 0:
                 self.store_application_stop_sequence(application)
         self.logger.debug('Stopper.stop_applications: planned_sequence={}'.format(self.printable_planned_sequence()))
         # start work
@@ -619,7 +684,7 @@ class Stopper(Commander):
         """ Plan and start the necessary jobs to stop the application in parameter. """
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
         # push program list in jobs list and start work
-        if application.running():
+        if application.has_running_processes():
             self.store_application_stop_sequence(application)
             self.logger.debug('Stopper.stop_application: planned_sequence={}'.format(self.printable_planned_sequence()))
             # add application immediately to planned jobs
@@ -665,14 +730,14 @@ class Stopper(Commander):
             jobs.append(command)
             return True
 
-    def check_stopping(self) -> bool:
+    def is_stopping_completed(self) -> bool:
         """ Check the progress of the application stopping.
         If no corresponding process event received before long, consider the process STOPPED
         as very likely due to a supervisor being shut down.
 
         :return: True when stopping jobs are completed
         """
-        return self.check_progress('running', ProcessStates.STOPPED)
+        return self.is_job_completed('running', ProcessStates.STOPPED)
 
     def on_event(self, process: ProcessStatus) -> None:
         """ Triggers the following of the stop sequencing, depending on the new process status. """

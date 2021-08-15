@@ -39,7 +39,7 @@ class StartingStrategyTest(RunningAddressesTest):
         # check the loading on running addresses
         # initial state is cliche81=14% cliche82=15% cliche83=5%
         self._refresh_loading()
-        self.assertEqual([14, 15, 5], list(self.loading.values()))
+        assert list(self.loading.values()) == [10, 15, 9]
         # check that 10 converter programs are STOPPED
         processes_info = self.local_supvisors.get_process_info('my_movies:*')
         converters = [info for info in processes_info
@@ -104,36 +104,36 @@ class StartingStrategyTest(RunningAddressesTest):
         # so applicable order is the one defined in the supvisors section,
         # i.e. cliche81, cliche82, cliche83, cliche84 (not running)
         self._start_converter(0)
-        self.assertEqual([39, 15, 5], list(self.loading.values()))
+        self.assertEqual([35, 15, 9], list(self.loading.values()))
         # continue with cliche81
         self._start_converter(1)
-        self.assertEqual([64, 15, 5], list(self.loading.values()))
+        self.assertEqual([60, 15, 9], list(self.loading.values()))
         # try with converter_04 to check the alt config where cliche83 comes first
         self._start_converter(4)
-        self.assertEqual([64, 15, 30], list(self.loading.values()))
+        self.assertEqual([60, 15, 34], list(self.loading.values()))
         # there is still place on cliche81
         self._start_converter(2)
-        self.assertEqual([89, 15, 30], list(self.loading.values()))
+        self.assertEqual([85, 15, 34], list(self.loading.values()))
         # cliche81 is full. cliche82 will be used now
         self._start_converter(3)
-        self.assertEqual([89, 40, 30], list(self.loading.values()))
+        self.assertEqual([85, 40, 34], list(self.loading.values()))
         # there is still place on cliche82
         # try with converter_07 to check the alt config
         # cliche81 is full, so second address in config will be used (cliche83)
         self._start_converter(7)
-        self.assertEqual([89, 40, 55], list(self.loading.values()))
+        self.assertEqual([85, 40, 59], list(self.loading.values()))
         # there is still place on cliche82
         self._start_converter(5)
-        self.assertEqual([89, 65, 55], list(self.loading.values()))
+        self.assertEqual([85, 65, 59], list(self.loading.values()))
         # cliche81 is full. cliche82 will be used now
         self._start_converter(6)
-        self.assertEqual([89, 90, 55], list(self.loading.values()))
+        self.assertEqual([85, 90, 59], list(self.loading.values()))
         # cliche81 & cliche82 are full. cliche83 will be used now
         self._start_converter(8)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
 
     def test_less_loaded(self):
         """ Test the LESS_LOADED starting strategy.
@@ -141,26 +141,26 @@ class StartingStrategyTest(RunningAddressesTest):
         print('### Testing LESS_LOADED starting strategy')
         self.strategy = StartingStrategies.LESS_LOADED
         self._start_converter(0)
-        self.assertEqual([14, 15, 30], list(self.loading.values()))
+        self.assertEqual([10, 15, 34], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([39, 15, 30], list(self.loading.values()))
+        self.assertEqual([35, 15, 34], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([39, 40, 30], list(self.loading.values()))
+        self.assertEqual([35, 40, 34], list(self.loading.values()))
         self._start_converter(3)
-        self.assertEqual([39, 40, 55], list(self.loading.values()))
+        self.assertEqual([35, 40, 59], list(self.loading.values()))
         self._start_converter(4)
-        self.assertEqual([64, 40, 55], list(self.loading.values()))
+        self.assertEqual([60, 40, 59], list(self.loading.values()))
         self._start_converter(5)
-        self.assertEqual([64, 65, 55], list(self.loading.values()))
+        self.assertEqual([60, 65, 59], list(self.loading.values()))
         self._start_converter(6)
-        self.assertEqual([64, 65, 80], list(self.loading.values()))
+        self.assertEqual([60, 65, 84], list(self.loading.values()))
         self._start_converter(7)
-        self.assertEqual([89, 65, 80], list(self.loading.values()))
+        self.assertEqual([85, 65, 84], list(self.loading.values()))
         self._start_converter(8)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
 
     def test_most_loaded(self):
         """ Test the MOST_LOADED starting strategy.
@@ -168,26 +168,26 @@ class StartingStrategyTest(RunningAddressesTest):
         print('### Testing MOST_LOADED starting strategy')
         self.strategy = StartingStrategies.MOST_LOADED
         self._start_converter(0)
-        self.assertEqual([14, 40, 5], list(self.loading.values()))
+        self.assertEqual([10, 40, 9], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([14, 65, 5], list(self.loading.values()))
+        self.assertEqual([10, 65, 9], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([14, 90, 5], list(self.loading.values()))
+        self.assertEqual([10, 90, 9], list(self.loading.values()))
         self._start_converter(3)
-        self.assertEqual([39, 90, 5], list(self.loading.values()))
+        self.assertEqual([35, 90, 9], list(self.loading.values()))
         self._start_converter(4)
-        self.assertEqual([64, 90, 5], list(self.loading.values()))
+        self.assertEqual([60, 90, 9], list(self.loading.values()))
         self._start_converter(5)
-        self.assertEqual([89, 90, 5], list(self.loading.values()))
+        self.assertEqual([85, 90, 9], list(self.loading.values()))
         self._start_converter(6)
-        self.assertEqual([89, 90, 30], list(self.loading.values()))
+        self.assertEqual([85, 90, 34], list(self.loading.values()))
         self._start_converter(7)
-        self.assertEqual([89, 90, 55], list(self.loading.values()))
+        self.assertEqual([85, 90, 59], list(self.loading.values()))
         self._start_converter(8)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
         # last converter cannot be started: no resource left
         self._start_converter_failed(9)
-        self.assertEqual([89, 90, 80], list(self.loading.values()))
+        self.assertEqual([85, 90, 84], list(self.loading.values()))
 
     def test_local(self):
         """ Test the LOCAL starting strategy.
@@ -196,14 +196,14 @@ class StartingStrategyTest(RunningAddressesTest):
         self.strategy = StartingStrategies.LOCAL
         # this test should be started only from cliche81 so processes should be started only on cliche81
         self._start_converter(0)
-        self.assertEqual([39, 15, 5], list(self.loading.values()))
+        self.assertEqual([35, 15, 9], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([64, 15, 5], list(self.loading.values()))
+        self.assertEqual([60, 15, 9], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([89, 15, 5], list(self.loading.values()))
+        self.assertEqual([85, 15, 9], list(self.loading.values()))
         # next converter cannot be started: no resource left
         self._start_converter_failed(3)
-        self.assertEqual([89, 15, 5], list(self.loading.values()))
+        self.assertEqual([85, 15, 9], list(self.loading.values()))
 
 
 def test_suite():

@@ -18,6 +18,7 @@
 # ======================================================================
 
 from supervisor.http import NOT_DONE_YET
+from supervisor.states import ProcessStates
 from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
@@ -65,13 +66,12 @@ class ApplicationView(ViewHandler):
         elt.content(self.application.state.name)
         # set LED iaw major/minor failures
         elt = root.findmeld('state_led_mid')
-        if self.application.running():
-            if self.application.major_failure:
-                elt.attrib['class'] = 'status_red'
-            elif self.application.minor_failure:
-                elt.attrib['class'] = 'status_yellow'
-            else:
-                elt.attrib['class'] = 'status_green'
+        if self.application.major_failure:
+            elt.attrib['class'] = 'status_red'
+        elif self.application.minor_failure:
+            elt.attrib['class'] = 'status_yellow'
+        elif self.application.running():
+            elt.attrib['class'] = 'status_green'
         else:
             elt.attrib['class'] = 'status_empty'
         # write options
@@ -138,11 +138,12 @@ class ApplicationView(ViewHandler):
         for process in self.application.processes.values():
             namespec = process.namespec
             node_name, description = self.get_process_last_desc(namespec)
+            unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
                          'namespec': namespec, 'node_name': node_name,
                          'statename': process.state_string(), 'statecode': process.state,
-                         'gravity': process.state_string(),
+                         'gravity': 'FATAL' if unexpected_exit else process.state_string(),
                          'running_nodes': list(process.running_nodes),
                          'description': description,
                          'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})

@@ -311,7 +311,7 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, application_name)
         # check application is not already STOPPED
         application = self.supvisors.context.applications[application_name]
-        if application.state == ApplicationStates.STOPPED:
+        if not application.has_running_processes():
             raise RPCError(Faults.NOT_RUNNING, application_name)
         # stop the application
         done = self.supvisors.stopper.stop_application(application)
@@ -456,8 +456,11 @@ class RPCInterface(object):
         for process in processes:
             done &= self.supvisors.starter.start_process(strategy_enum, process, extra_args)
         self.logger.debug('startProcess {} done={}'.format(process.namespec, done))
-        # wait until application fully RUNNING or (failed)
-        if wait and not done:
+        if done:
+            # one of the jobs has not been queued. something wrong happened (lack of resources ?)
+            raise RPCError(Faults.ABNORMAL_TERMINATION, namespec)
+        # wait until application fully RUNNING or failed
+        if wait:
             def onwait():
                 # check starter
                 if self.supvisors.starter.in_progress():
@@ -560,7 +563,9 @@ class RPCInterface(object):
         return onwait  # deferred
 
     def conciliate(self, strategy: EnumParameterType) -> bool:
-        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state, with a USER strategy.
+        """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
+        with an ``USER`` conciliation strategy (using other strategies would trigger an automatic behavior that wouldn't
+        give a chance to this XML-RPC).
 
         *@param* ``ConciliationStrategies strategy``: the strategy used to conciliate, as a string or as a value.
 
@@ -569,7 +574,7 @@ class RPCInterface(object):
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
             * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
 
-        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when strategy is USER.
+        *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
         """
         self._check_conciliation()
         strategy_enum = self._get_conciliation_strategy(strategy)
@@ -602,8 +607,8 @@ class RPCInterface(object):
         return True
 
     def change_log_level(self, level_param: LevelsByName) -> bool:
-        """ Change the logger level for the local Supvisors.
-        If Supvisors logger is configured as AUTO, this will impact the Supervisor logger too.
+        """ Change the logger level for the local **Supvisors**.
+        If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 
         *@param* ``LevelsByName level``: the new logger level, as a string or as a value.
 

@@ -18,10 +18,9 @@
 # ======================================================================
 
 import pytest
-import sys
 
 from supervisor.loggers import Logger
-from unittest.mock import patch, Mock
+from unittest.mock import Mock
 
 from .base import DummyAddressMapper, DummySupervisor, DummyOptions
 
@@ -106,9 +105,11 @@ def test_address_exception(mocker):
 def test_parser_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.Parser', side_effect=Exception)
-    mocker.patch('supvisors.initializer.AddressMapper', local_address='127.0.0.1')
-    mocker.patch('supvisors.initializer.loggers')
-    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
+    mocker.patch('supvisors.initializer.AddressMapper', return_value=DummyAddressMapper())
+    mocker.patch('supvisors.initializer.Supvisors.create_logger', return_value=Mock(spec=Logger))
+    mocked_supv_options = DummyOptions()
+    mocked_srv_options = Mock(supvisors_options=mocked_supv_options)
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
     # create Supvisors instance
     from supvisors.initializer import Supvisors
     supvisors = Supvisors(DummySupervisor())

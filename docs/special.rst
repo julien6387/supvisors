@@ -6,62 +6,76 @@ Special Features
 Synchronizing **Supvisors** instances
 -------------------------------------
 
-The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase so that all **Supvisors** instances are mutually aware of each other.
+The ``INITIALIZATION`` state of **Supvisors** is used as a synchronization phase so that all **Supvisors** instances
+are mutually aware of each other.
 
 The following options defined in the :ref:`supvisors_section` of the Supervisor configuration file are particularly
-used for synchronizing multiple instances of Supervisor:
+used for synchronizing multiple instances of *Supervisor*:
 
-    * the ``address_list``,
-    * the ``internal_port``,
-    * the ``synchro_timeout``,
-    * the ``auto_fence``.
+    * ``address_list``,
+    * ``force_synchro_if``,
+    * ``internal_port``,
+    * ``synchro_timeout``,
+    * ``auto_fence``.
 
 Once started, all **Supvisors** instances publish the events received, especially the ``TICK`` events that are
-triggered every 5 seconds, on their ``PUBLISH`` ZeroMQ socket bound on the ``internal_port``.
+triggered every 5 seconds, on their ``PUBLISH`` *ZeroMQ* socket bound on the ``internal_port``.
 
 On the other side, all **Supvisors** instances start a thread that subscribes to the internal events
-through an internal ``SUBSCRIBE`` ZeroMQ socket connected to the ``internal_port`` of **all** nodes of the ``address_list``.
+through an internal ``SUBSCRIBE`` *ZeroMQ* socket connected to the ``internal_port`` of **all** nodes
+of the ``address_list``.
 
-At the beginning, all Address instances are in an ``UNKNOWN`` state.
-When the first ``TICK`` event is received from a remote **Supvisors** instance, the local **Supvisors** instance:
+At the beginning, all nodes are in an ``UNKNOWN`` state.
+When the first ``TICK`` event is received from a remote **Supvisors** instance, a sort of hand-shake is performed
+between the 2 nodes. The local **Supvisors** instance:
 
-    * sets the remote Address state to ``CHECKING``,
-    * performs a ``supvisors.get_address_info(local_address)`` XML-RPC to the remote **Supvisors** instance, in order to know how it is seen by the remote instance.
+    * sets the remote node state to ``CHECKING``,
+    * performs a couple of XML-RPC to the remote **Supvisors** instance:
+
+        + ``supvisors.get_master_address()`` and ``supvisors.get_supvisors_state()`` in order to know if the remote instance is already in an established state.
+        + ``supvisors.get_address_info(local_address)`` in order to know how the local node is perceived by the remote instance.
 
 At this stage, 2 possibilities:
 
     * the local **Supvisors** instance is seen as ``ISOLATED`` by the remote instance:
 
-        + it sets the remote Address state to ``ISOLATED``,
-        + it disconnects the URL of the remote **Supvisors** instance from the ``SUBSCRIBE`` ZeroMQ socket,
+        + the remote node is then reciprocally set to ``ISOLATED``,
+        + the *URL* of the remote **Supvisors** instance is disconnected from the ``SUBSCRIBE`` *ZeroMQ* socket,
 
     * the local **Supvisors** instance is NOT seen as ``ISOLATED`` by the remote instance:
 
-        + it performs a ``supervisor.getAllProcessInfo()`` XML-RPC to the remote instance,
-        + it loads the processes information into the internal data model,
-        + it sets the remote address state to ``RUNNING``.
+        + a ``supervisor.getAllProcessInfo()`` XML-RPC is requested to the remote instance,
+        + the processes information is loaded into the internal data structure,
+        + the remote node is finally set to ``RUNNING``.
 
 When all **Supvisors** instances are identified as ``RUNNING`` or ``ISOLATED``, the synchronization is completed.
 **Supvisors** then is able to work with the set (or subset) of nodes declared in ``address_list``.
 
-However, it may happen that some **Supvisors** instances do not publish as expected (very late starting,
-no starting at all, system down, network down, etc). Each **Supvisors** instance waits for ``synchro_timeout``
-seconds to give a chance to all other instances to publish. When this delay is exceeded, all the **Supvisors**
-instances that are **not** identified as ``RUNNING`` or ``ISOLATED`` are set to:
+However, it may happen that some **Supvisors** instances do not publish (very late starting, no starting at all,
+system down, network down, etc). Each **Supvisors** instance waits for ``synchro_timeout`` seconds to give a chance
+to all other instances to publish. When this delay is exceeded, all the **Supvisors** instances that are **not**
+identified as ``RUNNING`` or ``ISOLATED`` are set to:
 
     * ``SILENT`` if `Auto-Fencing`_ is **not** activated,
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
-Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes may include
-servers that will always be started from the very beginning and workstations that may be started only on demand. In this case,
-it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the ``force_synchro_if`` attribute has been
-introduced so that the synchronization phase is considered completed when a subset of the nodes declared in ``address_list``
-are ``RUNNING``.
+Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes
+may include servers that will always be started from the very beginning and workstations that may be started only
+on demand. In this case, it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the
+``force_synchro_if`` attribute has been introduced so that the synchronization phase is considered completed
+when a subset of the nodes declared in ``address_list`` are ``RUNNING``.
 
-In these 2 cases, **Supvisors** will start to work with a subset of active nodes among those declared in ``address_list``.
+Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes and enters
+the ``DEPLOYMENT`` state to start automatically the applications.
+By default, the *Master* node is the node having the smallest name among all the active nodes, unless the attribute
+``force_synchro_if`` is used. In the latter case, candidates are taken from this list in priority.
 
-Whatever the number of available nodes, **Supvisors** elects a *Master* among the active nodes
-and enters the ``DEPLOYMENT`` state to start automatically the applications.
+.. note:: *About late nodes*
+
+    Back to this case, here is what happens when a node is started while the others are already in ``OPERATION``.
+    During the hand-shake, the local **Supvisors** instance gets the *Master* identified by the remote **Supvisors**.
+    That confirms that the local node is a late starter and thus the local **Supvisors** instance adopts this *Master*
+    too and skips the synchronization phase.
 
 
 .. _auto_fencing:
@@ -106,12 +120,12 @@ If the network failure is fixed, both sets of **Supvisors** are still running bu
 Extra Arguments
 ----------------
 
-When using Supervisor, colleagues have often asked if it would be possible to add extra arguments to the command
+When using *Supervisor*, colleagues have often asked if it would be possible to add extra arguments to the command
 line of a program without declaring them in the ini file. Indeed, the applicative context is evolving at runtime and it may
 be quite useful to give some information to the new process (options, path, URL of a server, URL of a display, ...),
 especially when dealing with distributed applications.
 
-With Supervisor, it is possible to inform the process with a ``supervisor.sendProcessStdin`` XML-RPC.
+With *Supervisor*, it is possible to inform the process with a ``supervisor.sendProcessStdin`` XML-RPC.
 The first drawback is that it requires to update the source code of an existing program that is already capable of
 reading instructions from its command line. That is not always possible.
 On the other hand, colleagues found the solution so clumsy that they finally preferred to use a dedicated com to configure the process.
@@ -124,14 +138,14 @@ to the command line before the process is started:
 
 .. hint::
 
-    These additional commands are an answer to the following Supervisor request:
+    These additional commands are an answer to the following *Supervisor* request:
 
         * `#1023 - Pass arguments to program when starting a job? <https://github.com/Supervisor/supervisor/issues/1023>`_
 
 .. note::
 
-    The extra arguments of the program are shared by all Supervisor instances.
-    Once used, they are published through a **Supvisors** internal event and are stored directly into the Supervisor
+    The extra arguments of the program are shared by all *Supervisor* instances.
+    Once used, they are published through a **Supvisors** internal event and are stored directly into the *Supervisor*
     internal configuration of the programs.
 
     In other words, considering 2 nodes A and B, a process that is started on node A with extra arguments and
@@ -158,9 +172,10 @@ Choosing a node
 
 The following rules are applicable whatever the chosen strategy:
 
-    * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING`` or ``BACKOFF``,
-    * the chosen node must be ``RUNNING``,
-    * the *loading* of the chosen node must not exceed 100% when adding the ``loading`` of the process to be started.
+    * the process must not be already in a *running* state in a broad sense, i.e. ``RUNNING``, ``STARTING`` or ``BACKOFF`` ;
+    * the program definition must be known to the node ;
+    * the node must be ``RUNNING`` ;
+    * the *loading* of the node must not exceed 100% when adding the ``loading`` of the process to be started.
 
 The *loading* of the chosen node is defined as the sum of the ``loading`` of each process running on this address.
 
@@ -207,7 +222,10 @@ This principle is used for starting a single process using a ``supvisors.start_p
 Starting an application
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The application start sequence is defined when entering the ``DEPLOYMENT`` state of **Supvisors**.
+The application start sequence is re-evaluated every time a new node becomes active in **Supvisors**. Indeed, as
+explained above, the internal data structure is updated with the programs configured in the *Supervisor* instance
+of the new node and this new data may have an impact on the application start sequence.
+
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
@@ -215,14 +233,18 @@ It corresponds to a dictionary where:
 
 .. hint::
 
-    The logic applied here is an answer to the following Supervisor unresolved issues:
+    The logic applied here is an answer to the following *Supervisor* unresolved issues:
 
         * `#122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_
         * `#456 - Add the ability to set different "restart policies" on process workers <https://github.com/Supervisor/supervisor/issues/456>`_
 
 .. note::
 
-    The programs having a ``start_sequence`` lower or equal to 0 are not considered, as they are not meant to be autostarted.
+    Only the *Managed* applications can have a start sequence, i.e. only those that are declared in the **Supvisors**
+    :ref:`rules_file`.
+
+    The programs having a ``start_sequence`` lower or equal to 0 are not considered in the start sequence, as they are
+    not meant to be automatically started.
 
 The internal *Starter* of **Supvisors** applies the following algorithm to start an application:
 
@@ -306,25 +328,47 @@ Possible values are:
 Running Failure strategy
 ------------------------
 
-The ``autorestart`` option of Supervisor may be used to restart automatically a process that has crashed or has exited unexpectedly (or not).
-However, when the node itself crashes or becomes unreachable, the other Supervisor instances cannot do anything about that.
+The ``autorestart`` option of *Supervisor* may be used to restart automatically a process that has crashed
+or has exited unexpectedly (or not). However, when the node itself crashes or becomes unreachable,
+the other *Supervisor* instances cannot do anything about that.
 
 **Supvisors** uses the ``running_failure_strategy`` option of the rules file to warm restart a process that was
 running on a node that has crashed, in accordance with the default ``starting_strategy`` set in the
 :ref:`supvisors_section` and with the ``address_list`` program rules set in the :ref:`rules_file`.
 
-This option can be also used to stop or restart the whole application after a process crash.
+This option can be also used to stop or restart the whole application after a process crash. Indeed, it may happen
+that some applications cannot survive if one of their programs is just restarted.
 
 Possible values are:
 
     * ``CONTINUE``: Skip the failure. The application keeps running.
-    * ``RESTART_PROCESS``: Restart the process.
+    * ``RESTART_PROCESS``: Restart the lost process on another node.
     * ``STOP_APPLICATION``: Stop the application.
     * ``RESTART_APPLICATION``: Restart the application.
 
+.. attention::
+
+    The ``RESTART_PROCESS`` is NOT intended to replace the *Supervisor* ``autorestart`` on the local node.
+    Provided a program definition where ``autorestart`` is set to ``false`` in the *Supervisor* configuration file
+    and where the ``running_failure_strategy`` option is set to ``RESTART_PROCESS`` in the **Supvisors** rules file,
+    if the process crashes, **Supvisors** will NOT restart the process.
+
+.. note::
+
+    Given that this option is set on the program rules, program strategies within an application may be incompatible
+    in the event of multiple failures. That's why priorities have been set on this strategy.
+    ``STOP_APPLICATION`` supersedes ``RESTART_APPLICATION``, which itself supersedes ``RESTART_PROCESS`` and finally
+    ``CONTINUE``. So if a program with the ``RESTART_APPLICATION`` option fails at the same time that a program
+    of the same application with the ``STOP_APPLICATION`` option, only the ``STOP_APPLICATION`` will be applied.
+
+    When the ``RESTART_PROCESS`` strategy is evaluated, if the application is fully stopped - supposedly because of the
+    failure -, **Supvisors** will promote the ``RESTART_PROCESS`` into ``RESTART_APPLICATION``. The idea is to benefit
+    from a full start sequence at application level rather than uncorrelated program restarts in the event of multiple
+    failures within the same application.
+
 .. hint::
 
-   The ``STOP_APPLICATION`` strategy provides an answer to the following Supervisor request:
+   The ``STOP_APPLICATION`` strategy provides an answer to the following *Supervisor* request:
 
       * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
 
@@ -343,7 +387,7 @@ Stopping a process
 The internal *Stopper* of **Supvisors** applies the following algorithm to stop a process:
 
 | if process state is ``RUNNING``:
-|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the Supervisor instance where the process is running
+|     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the *Supervisor* instance where the process is running
 |
 
 This single job is considered completed when:
@@ -358,17 +402,29 @@ This principle is used for stopping a single process using a ``supvisors.stop_pr
 Stopping an application
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The application stop sequence is defined at the beginning the ``DEPLOYMENT`` phase of **Supvisors**.
+The application stop sequence is defined at the same moment than the application start sequence.
 It corresponds to a dictionary where:
 
     * the keys correspond to the list of ``stop_sequence`` values defined in the program rules of the application,
     * the value associated to a key is the list of programs having this key as ``stop_sequence``.
 
+.. note::
+
+    The *Unmanaged* applications do have a stop sequence. All their programs have the default ``stop_sequence``
+    set to ``0``.
+
 .. hint::
 
-    The logic applied here is an answer to the following Supervisor unresolved issue:
+    The logic applied here is an answer to the following *Supervisor* unresolved issue:
 
         * `#520 - allow a program to wait for another to stop before being stopped? <https://github.com/Supervisor/supervisor/issues/520>`_
+
+.. hint::
+
+    All the programs sharing the same ``stop_sequence`` are stopped simultaneously, which solves some of the requests
+    described in the following *Supervisor* unresolved issue:
+
+        * `#723 - Restart waits for all processes to stop before starting any <https://github.com/Supervisor/supervisor/issues/723>`_
 
 The internal *Stopper* of **Supvisors** applies the following algorithm to stop an application:
 
@@ -426,7 +482,7 @@ although all of them may have the capability to start it.
 
 Nevertheless, it is still likely to happen in a few cases:
 
-    * using a request to Supervisor itself (through web ui, supervisorctl, XML-RPC),
+    * using a request to *Supervisor* itself (through web ui, supervisorctl, XML-RPC),
     * upon a network failure.
 
 .. attention::

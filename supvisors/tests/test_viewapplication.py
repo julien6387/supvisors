@@ -86,7 +86,8 @@ def test_write_header(mocker, view):
     mocked_period = mocker.patch('supvisors.viewhandler.ViewHandler.write_periods')
     mocked_strategy = mocker.patch('supvisors.viewapplication.ApplicationView.write_starting_strategy')
     view.application_name = 'dummy_appli'
-    view.application = Mock(state=ApplicationStates.STOPPED, **{'running.return_value': False})
+    view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
+                            **{'running.return_value': False})
     # patch the meld elements
     led_mid = Mock(attrib={'class': ''})
     state_mid = Mock()

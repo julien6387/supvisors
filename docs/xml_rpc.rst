@@ -128,9 +128,12 @@ Status
             Key                         Type            Description
             =========================== =============== ===========
             'application_name'          ``str``         The Application name.
-            'managed'                   ``bool``        The Application managed status in **Supvisors**.
+            'managed'                   ``bool``        The Application managed status in **Supvisors**. When ``False``, the following attributes are not provided.
+            'distributed'               ``bool``        The Application distribution status in **Supvisors**.
+            'addresses'                 ``list(str)``   The list of all nodes where the non-distributed application processes can be started, provided only if ``distributed`` is ``False``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications, in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications, in [0;127].
+            'starting_strategy'         ``str``         The strategy applied when starting application automatically, in [``'CONFIG'``, ``'LESS_LOADED'``, ``'MOST_LOADED'``, ``'LOCAL'``].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``, ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
             =========================== =============== ===========

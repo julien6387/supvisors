@@ -101,7 +101,7 @@ class SupvisorsView(ViewHandler):
         elt.content(status.state.name)
         # set node current load
         elt = node_div_elt.findmeld('percent_td_mid')
-        elt.content('{}%'.format(status.get_load()))
+        elt.content('{}%'.format(status.get_loading()))
 
     @staticmethod
     def _write_node_box_processes(node_div_elt, status):

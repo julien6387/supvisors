@@ -20,8 +20,6 @@
 import pytest
 import sys
 
-from supervisor.datatypes import Automatic
-
 from supvisors.options import *
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
@@ -196,7 +194,7 @@ def test_default_options(mocker, server_opt):
     assert opt.event_port == 65002
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
-    assert opt.force_synchro_if == []
+    assert opt.force_synchro_if == set()
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
     assert opt.stats_periods == [10]
@@ -218,7 +216,7 @@ def test_defined_options(mocker, server_opt):
     assert opt.event_port == 60002
     assert opt.auto_fence
     assert opt.synchro_timeout == 20
-    assert opt.force_synchro_if == ['cliche01', 'cliche03']
+    assert opt.force_synchro_if == {'cliche01', 'cliche03'}
     assert opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert opt.starting_strategy == StartingStrategies.MOST_LOADED
     assert opt.stats_periods == [5, 60, 600]

@@ -17,6 +17,12 @@
 
 .. toctree::
     :maxdepth: 2
+    :caption: Use Cases
+
+    scenario_1.rst
+
+.. toctree::
+    :maxdepth: 2
     :caption: Release History
 
     CHANGES.rst

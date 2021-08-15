@@ -101,12 +101,12 @@ def test_rules_check_start_sequence(rules):
 def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
-    # test that only the CONTINUE strategy keeps the autorestart
+    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
     mocked_disable = rules.supvisors.info_source.disable_autorestart
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
-        if strategy == RunningFailureStrategies.CONTINUE:
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
             assert not mocked_disable.called
         else:
             assert mocked_disable.call_args_list == [call('dummy_process_1')]
@@ -229,7 +229,7 @@ def test_status_stopped_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': ''})
+    process.force_state(ProcessStates.FATAL, '')
     assert process._state == ProcessStates.STOPPED
     assert process.stopped()
     assert not process.running()
@@ -253,7 +253,7 @@ def test_status_backoff_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state({'state': ProcessStates.STOPPED, 'spawnerr': ''})
+    process.force_state(ProcessStates.STOPPED)
     assert process._state == ProcessStates.BACKOFF
     assert process.stopped()
     assert not process.running()
@@ -364,7 +364,7 @@ def test_serialization(supvisors):
     loaded = pickle.loads(dumped)
     assert loaded == serialized
     # test again with forced state
-    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'anything'})
+    process.force_state(ProcessStates.FATAL, 'anything')
     assert process._state == ProcessStates.STOPPED
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
@@ -377,19 +377,19 @@ def test_get_last_description(supvisors):
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
     process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
-                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'desc2'},
+                        '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started'},
                         '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}}
     # state is not forced by default
     # test method return on non-running process
-    assert process.get_last_description() == ('10.0.0.1', 'desc1')
+    assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
     # test method return on running process
     process.running_nodes.add('10.0.0.3')
-    assert process.get_last_description() == ('10.0.0.3', 'desc3')
+    assert process.get_last_description() == ('10.0.0.3', 'desc3 on 10.0.0.3')
     # test method return on multiple running processes
     process.running_nodes.add('10.0.0.2')
-    assert process.get_last_description() == ('10.0.0.2', 'desc2')
+    assert process.get_last_description() == ('10.0.0.2', 'Not started')
     # test again with forced state
-    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'global crash'})
+    process.force_state(ProcessStates.FATAL, 'global crash')
     assert process.get_last_description() == (None, 'global crash')
     process.running_nodes = set()
     assert process.get_last_description() == (None, 'global crash')
@@ -422,7 +422,7 @@ def test_add_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason is None
-    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'failure'})
+    process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL
@@ -521,7 +521,7 @@ def test_update_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason is None
-    process.force_state({'state': ProcessStates.FATAL, 'spawnerr': 'failure'})
+    process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL

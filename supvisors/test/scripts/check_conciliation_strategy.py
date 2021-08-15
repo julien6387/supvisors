@@ -18,6 +18,7 @@
 # ======================================================================
 
 import sys
+import time
 import unittest
 
 from supervisor.compat import xmlrpclib
@@ -239,7 +240,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
     def _create_database_conflicts(self):
         """ Create conflicts on database application. """
         # start all movie_server programs on all addresses
-        for address, proxy in self.proxies.items():
+        for node_name, proxy in self.proxies.items():
             for idx in range(3):
                 try:
                     program = 'movie_server_0%d' % (idx + 1)
@@ -249,15 +250,17 @@ class ConciliationStrategyTest(RunningAddressesTest):
                 else:
                     # confirm starting through events
                     event = self._get_next_process_event()
-                    self.assertDictContainsSubset({'name': program, 'state': 10, 'address': address}, event)
+                    assert {'name': program, 'state': 10, 'address': node_name}.items() < event.items()
                     event = self._get_next_process_event()
-                    self.assertDictContainsSubset({'name': program, 'state': 20, 'address': address}, event)
+                    assert {'name': program, 'state': 20, 'address': node_name}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
 
     def _check_database_conflicts(self):
         """ Test conflicts on database application using XML-RPC. """
+        # change of state in Slave Supvisors may take up to one tick
+        time.sleep(5)
         # check that the conflicts are detected in all Supvisors instances
         for proxy in self.proxies.values():
             # test that Supvisors is in CONCILIATION state (in all instances)
@@ -271,7 +274,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
     def _create_manager_conflicts(self):
         """ Create conflicts on the my_movies:manager process. """
         # start the manager program on all addresses
-        for address, proxy in self.proxies.items():
+        for node_name, proxy in self.proxies.items():
             try:
                 proxy.supervisor.startProcess('my_movies:manager')
             except xmlrpclib.Fault as exc:
@@ -279,15 +282,17 @@ class ConciliationStrategyTest(RunningAddressesTest):
             else:
                 # confirm starting through events
                 event = self._get_next_process_event()
-                self.assertDictContainsSubset({'name': 'manager', 'state': 10, 'address': address}, event)
+                assert {'name': 'manager', 'state': 10, 'address': node_name}.items() < event.items()
                 event = self._get_next_process_event()
-                self.assertDictContainsSubset({'name': 'manager', 'state': 20, 'address': address}, event)
+                assert {'name': 'manager', 'state': 20, 'address': node_name}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
 
     def _check_manager_conflicts(self):
         """ Test conflicts on the my_movies:manager process using RPC. """
+        # change of state in Slave Supvisors may take up to one tick
+        time.sleep(5)
         # check that the conflicts are detected in all Supvisors instances
         for proxy in self.proxies.values():
             # test that Supvisors is in CONCILIATION state (in all instances)

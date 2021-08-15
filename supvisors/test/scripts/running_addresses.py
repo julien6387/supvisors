@@ -56,8 +56,8 @@ class RunningAddressesTest(unittest.TestCase):
         # assumption is made that this test is run on Supvisors Master address
         self.assertEqual(gethostname(), self.local_supvisors.get_master_address())
         # keep a reference to all RPC proxies
-        self.proxies = {address: rpcrequests.getRPCInterface(address, os.environ)
-                        for address in self.running_nodes}
+        self.proxies = {node_name: rpcrequests.getRPCInterface(node_name, os.environ)
+                        for node_name in self.running_nodes}
         # create the thread of event subscriber
         self.zcontext = zmq.Context.instance()
         self.logger = create_logger(logfile=r'./log/running_addresses.log')
