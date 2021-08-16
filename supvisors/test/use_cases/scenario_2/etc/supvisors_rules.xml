@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+    <!-- models -->
+    <model name="model_scenario_2">
+        <start_sequence>3</start_sequence>
+        <required>true</required>
+        <expected_loading>10</expected_loading>
+        <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+    </model>
+
+	<!-- Scenario 2 Applications -->
+	<!-- Services -->
+    <application name="scenario_2_services_1">
+        <distributed>false</distributed>
+        <addresses>cliche82,cliche83</addresses>
+        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_failure_strategy>STOP</starting_failure_strategy>
+
+        <pattern name="">
+            <reference>model_scenario_2</reference>
+        </pattern>
+
+        <program name="load_data_model">
+            <start_sequence>2</start_sequence>
+            <required>true</required>
+            <wait_exit>true</wait_exit>
+        </program>
+
+        <program name="data_bus">
+            <start_sequence>1</start_sequence>
+            <required>true</required>
+            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+        </program>
+	</application>
+
+    <application name="scenario_2_services_2">
+        <distributed>false</distributed>
+        <addresses>cliche82,cliche83</addresses>
+        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_failure_strategy>STOP</starting_failure_strategy>
+
+        <pattern name="">
+            <reference>model_scenario_2</reference>
+        </pattern>
+
+        <program name="load_data_model">
+            <start_sequence>2</start_sequence>
+            <required>true</required>
+            <wait_exit>true</wait_exit>
+        </program>
+
+        <program name="data_bus">
+            <start_sequence>1</start_sequence>
+            <required>true</required>
+            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+        </program>
+	</application>
+
+	<!-- HCI -->
+    <application name="scenario_2_hci_1">
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <pattern name="">
+            <start_sequence>1</start_sequence>
+            <expected_loading>15</expected_loading>
+        </pattern>
+	</application>
+
+    <application name="scenario_2_hci_2">
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <pattern name="">
+            <start_sequence>1</start_sequence>
+            <expected_loading>15</expected_loading>
+        </pattern>
+	</application>
+
+</root>
