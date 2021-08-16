@@ -71,9 +71,9 @@ def load_application_rules(parser, application_name):
     return rules
 
 
-def load_process_rules(parser, application_name, process_name):
+def load_program_rules(parser, application_name, process_name):
     rules = ProcessRules(parser.supvisors)
-    parser.load_process_rules('%s:%s' % (application_name, process_name), rules)
+    parser.load_program_rules('%s:%s' % (application_name, process_name), rules)
     return rules
 
 
@@ -82,7 +82,7 @@ def check_valid(parser):
     # test models & patterns
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02',
                                             'dummy_model_03', 'dummy_model_04', 'dummy_model_05']
-    assert sorted(parser.patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
+    assert sorted(parser.program_patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)
@@ -107,63 +107,63 @@ def check_valid(parser):
     assert_application_rules(rules, True, True,  ['*'], 0, 0,  StartingStrategies.MOST_LOADED,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check program from unknown application: all default
-    rules = load_process_rules(parser, 'dummy_application_X', 'dummy_program_X0')
+    rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')
     assert_default_process_rules(rules)
     # check unknown program from known application: all default
-    rules = load_process_rules(parser, 'dummy_application_A', 'dummy_program_A0')
+    rules = load_program_rules(parser, 'dummy_application_A', 'dummy_program_A0')
     assert_default_process_rules(rules)
     # check known program from known but not related application: all default
-    rules = load_process_rules(parser, 'dummy_application_A', 'dummy_program_B1')
+    rules = load_program_rules(parser, 'dummy_application_A', 'dummy_program_B1')
     assert_default_process_rules(rules)
     # check known empty program
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B0')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B0')
     assert_default_process_rules(rules)
     # check dash addresses and valid other values
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B1')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B1')
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5,
                          RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B2')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
     assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B3')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 100,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B4')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
     assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check empty reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C0')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C0')
     assert_default_process_rules(rules)
     # check unknown reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C1')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C1')
     assert_default_process_rules(rules)
     # check known reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C2')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C3')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
     assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
-    rules = load_process_rules(parser, 'dummy_application_D', 'dummies_any')
+    rules = load_program_rules(parser, 'dummy_application_D', 'dummies_any')
     assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], None, 50, 100, False, False, 10,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and configuration
-    rules = load_process_rules(parser, 'dummy_application_D', 'dummies_01_any')
+    rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
     assert_process_rules(rules, [], ['10.0.0.1', '10.0.0.5'], 1, 1, False, True, 75,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and incorrect reference (model calling for another model)
     # this is valid since Supvisors 0.5
-    rules = load_process_rules(parser, 'dummy_application_D', 'any_dummies_02_')
+    rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 20,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check multiple reference (over the maximum defined)
     # almost all rules set to default, despite enf of chain is on dummy_model_01
-    rules = load_process_rules(parser, 'dummy_application_E', 'dummy_program_E')
+    rules = load_program_rules(parser, 'dummy_application_E', 'dummy_program_E')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 15,
                          RunningFailureStrategies.CONTINUE)
 
@@ -172,7 +172,7 @@ def check_invalid(parser):
     """ Test the parsing of an invalid XML. """
     # test models & patterns
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02', 'dummy_model_03', 'dummy_model_04']
-    assert sorted(parser.patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
+    assert sorted(parser.program_patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)
@@ -193,63 +193,63 @@ def check_invalid(parser):
     assert_application_rules(rules, True, True, ['*'], 0, 100, StartingStrategies.CONFIG,
                              StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
     # check program from unknown application: all default
-    rules = load_process_rules(parser, 'dummy_application_X', 'dummy_program_X0')
+    rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')
     assert_default_process_rules(rules)
     # check unknown program from known application: all default
-    rules = load_process_rules(parser, 'dummy_application_A', 'dummy_program_A0')
+    rules = load_program_rules(parser, 'dummy_application_A', 'dummy_program_A0')
     assert_default_process_rules(rules)
     # check known program from known but not related application: all default
-    rules = load_process_rules(parser, 'dummy_application_A', 'dummy_program_B1')
+    rules = load_program_rules(parser, 'dummy_application_A', 'dummy_program_B1')
     assert_default_process_rules(rules)
     # check known empty program
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B0')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B0')
     assert_default_process_rules(rules)
     # check dash addresses and valid other values
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B1')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B1')
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B2')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
     assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B3')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B4')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
     assert_process_rules(rules, ['10.0.0.1', '10.0.0.2'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check multiple addresses, all other incorrect values
-    rules = load_process_rules(parser, 'dummy_application_B', 'dummy_program_B5')
+    rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B5')
     assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
                          RunningFailureStrategies.CONTINUE)
     # check empty reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C0')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C0')
     assert_default_process_rules(rules)
     # check unknown reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C1')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C1')
     assert_default_process_rules(rules)
     # check known reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C2')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C3')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
     assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0, RunningFailureStrategies.CONTINUE)
     # check other known reference with additional unexpected configuration
     # WARN: this is valid since Supvisors 0.5
-    rules = load_process_rules(parser, 'dummy_application_C', 'dummy_program_C4')
+    rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C4')
     assert_process_rules(rules, [], ['*'], 3, 100, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
     # check that existing values are not reset
     rules = ProcessRules(parser.supvisors)
     rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
-    parser.load_process_rules('dummy_application_D:dummies_any', rules)
+    parser.load_program_rules('dummy_application_D:dummies_any', rules)
     assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], None, 0, 100, False, False, 10,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check pattern with multiple matching and configuration
-    rules = load_process_rules(parser, 'dummy_application_D', 'dummies_01_any')
+    rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
     assert_process_rules(rules, [], ['*'], 1, 1, False, True, 75, RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and recursive reference
     # WARN: this is valid since Supvisors 0.5
-    rules = load_process_rules(parser, 'dummy_application_D', 'any_dummies_02_')
+    rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
     assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
 
 

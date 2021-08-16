@@ -198,7 +198,7 @@ class Context(object):
             rules.running_failure_strategy = application.rules.running_failure_strategy
             if self.supvisors.parser:
                 # load rules from rules file
-                self.supvisors.parser.load_process_rules(namespec, rules)
+                self.supvisors.parser.load_program_rules(namespec, rules)
                 self.logger.debug('Context.setdefault_process: namespec={} rules={}'.format(namespec, rules))
             # add new process to context
             process = ProcessStatus(application_name, info['name'], rules, self.supvisors)

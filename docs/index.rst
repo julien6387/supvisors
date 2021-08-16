@@ -20,6 +20,7 @@
     :caption: Use Cases
 
     scenario_1.rst
+    scenario_2.rst
 
 .. toctree::
     :maxdepth: 2

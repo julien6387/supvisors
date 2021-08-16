@@ -4,7 +4,23 @@ Change Log
 0.8 (2021-xx-xx)
 ----------------
 
+* In the rules file, support for application patterns has been added.
+
+* In the rules file, ``pattern`` elements are **deprecated** and are replaced by ``program`` elements with a ``pattern``
+  attribute instead of a ``name`` attribute.
+  Support for ``pattern`` elements will be removed in Supvisors next version.
+
+* The XML schema has been moved to a separate file ``rules.xsd``.
+
 * Remove dependency to *netifaces* as *psutil* provides the function.
+
+* Scenario 2 has been added to the **Supvisors** use cases.
+
+* A script ``breed.py`` has been added to the install package.
+  It can be used to duplicate the applications based on a template configuration and more particularly used to prepare
+  the Scenario 2 of the **Supvisors** use cases.
+
+* Update documentation.
 
 
 0.7 (2021-08-15)
@@ -51,6 +67,7 @@ Change Log
   In particular, it is useful to know where the process was running when it is stopped.
 
 * Start adding use cases to documentation, inspired by real examples.
+  Scenario 1 has been added.
 
 * Documentation updated.
 

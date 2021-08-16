@@ -176,7 +176,7 @@ InvalidXmlTest = b'''\
 
     </application>
 
-    <application name="dummy_application_C">
+    <application pattern="_C">
         <distributed>false</distributed>
         <addresses>192.256.16.10,*</addresses>
         <start_sequence>20</start_sequence>
@@ -217,22 +217,22 @@ InvalidXmlTest = b'''\
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
-        <pattern name="dummies_">
+        <program pattern="dummies_">
             <reference>dummy_model_03</reference>
-        </pattern>
+        </program>
 
-        <pattern name="dummies_01_">
+        <program pattern="dummies_01_">
             <addresses>#</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
             <required>false</required>
             <wait_exit>true</wait_exit>
             <expected_loading>75</expected_loading>
-        </pattern>
+        </program>
 
-        <pattern name="dummies_02_">
+        <program pattern="dummies_02_">
             <reference>dummy_model_04</reference>
-        </pattern>
+        </program>
 
     </application>
 
@@ -344,7 +344,7 @@ XmlTest = b'''\
 
     </application>
 
-    <application name="dummy_application_D">
+    <application pattern="application_D">
         <distributed>false</distributed>
         <addresses>10.0.0.1, 10.0.0.5</addresses>
         <start_sequence>-1</start_sequence>
@@ -358,18 +358,18 @@ XmlTest = b'''\
             <start_sequence>50</start_sequence>
         </pattern>
 
-        <pattern name="dummies_01_">
+        <program pattern="dummies_01_">
             <addresses>#, 10.0.0.1, 10.0.0.5</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
             <required>false</required>
             <wait_exit>true</wait_exit>
             <expected_loading>75</expected_loading>
-        </pattern>
+        </program>
 
-        <pattern name="dummies_02_">
+        <program pattern="dummies_02_">
             <reference>dummy_model_04</reference>
-        </pattern>
+        </program>
 
     </application>
 
