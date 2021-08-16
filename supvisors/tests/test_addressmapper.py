@@ -113,8 +113,8 @@ def test_ipv4():
     """ Test the ipv4 method. """
     # complex to test as it depends on the network configuration of the operating system
     # check that there is at least one entry looking like an IP address
-    # test that netifaces is installed
-    pytest.importorskip('netifaces', reason='cannot test as optional netifaces is not installed')
+    # test that psutil is installed
+    pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
     # test function
     ip_list = AddressMapper.ipv4()
     assert ip_list
@@ -123,6 +123,6 @@ def test_ipv4():
 
 
 def test_ipv4_importerror(mocker):
-    """ Test the ipv4 method with a mocking of import (netifaces not installed). """
-    mocker.patch.dict('sys.modules', {'netifaces': None})
+    """ Test the ipv4 method with a mocking of import (psutil not installed). """
+    mocker.patch.dict('sys.modules', {'psutil': None})
     assert AddressMapper.ipv4() == []

@@ -4,7 +4,7 @@ Change Log
 0.8 (2021-xx-xx)
 ----------------
 
-* TODO
+* Remove dependency to *netifaces* as *psutil* provides the function.
 
 
 0.7 (2021-08-15)

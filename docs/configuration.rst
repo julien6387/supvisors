@@ -52,7 +52,7 @@ to unpredictable behavior.
 
     .. hint::
 
-        If the `netifaces <https://pypi.python.org/pypi/netifaces>`_ package is installed, it is possible to use
+        If the `psutil <https://pypi.python.org/pypi/psutil>`_ package is installed, it is possible to use
         IP addresses in addition to node names.
 
         Like the node names, the IP addresses are expected to be known to every related systems in the list.
@@ -61,7 +61,8 @@ to unpredictable behavior.
 
 ``rules_file``
 
-    The absolute or relative path of the XML rules file. The contents of this file is described in `Supvisors' Rules File`_.
+    The absolute or relative path of the XML rules file. The contents of this file is described in
+    `Supvisors' Rules File`_.
 
     *Default*:  None.
 

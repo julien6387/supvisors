@@ -228,10 +228,11 @@ class CheckSequenceTest(unittest.TestCase):
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the nodes
+        # cliche82 is used as IP address so is set at index 0
         proxy = getRPCInterface(os.environ).supvisors
         nodes_info = proxy.get_all_addresses_info()
-        self.HOST_01 = nodes_info[0]['address_name']
-        self.HOST_02 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else None
+        self.HOST_01 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else nodes_info[0]['address_name']
+        self.HOST_02 = nodes_info[0]['address_name'] if len(nodes_info) > 1 else None
         self.HOST_03 = nodes_info[2]['address_name'] if len(nodes_info) > 2 else None
         self.HOST_04 = nodes_info[3]['address_name'] if len(nodes_info) > 3 else None
         # create a context

@@ -73,9 +73,7 @@ Installation
 +---------------+------------+-----------------------------------------------------------------+
 | PyZMQ_        | 22.0.3     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
-| psutil_       | 5.7.3      | *Information about processes and system utilization (optional)* |
-+---------------+------------+-----------------------------------------------------------------+
-| netifaces_    | 0.10.9     | *IPv4 aliases from host name (optional)*                        |
+| psutil_       | 5.7.3      | *Information about system usage (optional)*                     |
 +---------------+------------+-----------------------------------------------------------------+
 | matplotlib_   | 3.3.3      | *Graphs for Dashboard (optional)*                               |
 +---------------+------------+-----------------------------------------------------------------+
@@ -102,7 +100,7 @@ Supvisors can be installed with ``pip install``:
    # extra install for XML validation only (includes lxml)
    [bash] > pip install supvisors[xml_valid]
 
-   # extra install for use of IP aliases only (includes netifaces)
+   # extra install for use of IP aliases only (includes psutil)
    [bash] > pip install supvisors[ip_address]
 
 Without an Internet access
@@ -142,6 +140,5 @@ However, the Supervisor configuration file **MUST**:
 .. _Supervisor: http://supervisord.org
 .. _PyZMQ: http://pyzmq.readthedocs.io
 .. _psutil: https://pypi.python.org/pypi/psutil
-.. _netifaces: https://pypi.python.org/pypi/netifaces
 .. _matplotlib: http://matplotlib.org
 .. _lxml: http://lxml.de
