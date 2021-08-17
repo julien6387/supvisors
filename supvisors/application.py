@@ -20,7 +20,7 @@
 from typing import Any, Dict, List, Sequence
 
 from supervisor.loggers import Logger
-from supervisor.states import ProcessStates, STOPPED_STATES
+from supervisor.states import ProcessStates
 
 from .process import ProcessStatus
 from .ttypes import (ApplicationStates, NameList, Payload, StartingStrategies,
@@ -321,19 +321,20 @@ class ApplicationStatus(object):
             # STOPPING is not in STOPPED_STATES
             elif process.state == ProcessStates.STOPPING:
                 stopping = True
-            elif process.state in STOPPED_STATES:
-                # a failure is raised when the state of any process is FATAL or unexpectedly EXITED
-                if ((process.state == ProcessStates.FATAL) or
-                        (process.state == ProcessStates.EXITED and not process.expected_exit)):
-                    if process.rules.required:
-                        self.major_failure = True
-                    else:
-                        self.minor_failure = True
-                elif process.state != ProcessStates.EXITED or process.expected_exit:
-                    # in other cases, possible failure is raised
-                    # consideration will depend on the global application state
-                    if process.rules.required:
-                        possible_major_failure = True
+            elif (process.state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
+                    or process.state == ProcessStates.EXITED and not process.expected_exit):
+                # a major/minor failure is raised in this states depending on the required option
+                if process.rules.required:
+                    self.major_failure = True
+                else:
+                    self.minor_failure = True
+            elif process.state == ProcessStates.STOPPED:
+                # possible major failure raised if STOPPED
+                # consideration will depend on the global application state
+                if process.rules.required:
+                    possible_major_failure = True
+            # only remaining case is EXITED + expected
+            # TODO: possible_major_failure could be set if it has not been run yet
         self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
                           ' major_failure={} minor_failure={} possible_major_failure={}'
                           .format(self.application_name, starting, running, stopping,
