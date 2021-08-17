@@ -752,7 +752,7 @@ def test_starter_process_job(mocker, starter, command_list):
     # starting methods are called
     assert jobs == [command]
     assert mocked_node_getter.call_args_list == [call(starter.supvisors, StartingStrategies.MOST_LOADED,
-                                                      ['10.0.0.1'], 0,{'10.0.0.1': 28})]
+                                                      ['10.0.0.1'], 0, {'10.0.0.1': 28})]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     mocked_pusher.reset_mock()
     # failure methods are not called
@@ -963,13 +963,23 @@ def test_starter_get_load_requests(starter, command_list):
     """ Test the Starter.get_load_requests method. """
     # test with empty current_jobs
     assert starter.get_load_requests() == {}
-    # fill jobs
+    # fill current jobs
     for idx, command in enumerate(command_list):
         command.node_name = '10.0.0.1' if idx % 2 else '10.0.0.2'
         command.process.rules.expected_load = 10
         starter.current_jobs.setdefault(command.process.application_name, []).append(command)
     # 4 stopped processes in context
     assert starter.get_load_requests() == {'10.0.0.2': 20, '10.0.0.1': 20}
+    # fill planned jobs with distribution
+    for idx, command in enumerate(command_list):
+        app_planned_jobs = starter.planned_jobs.setdefault(command.process.application_name, {})
+        app_planned_jobs.setdefault(1, []).append(command)
+    # no change to load_requests
+    assert starter.get_load_requests() == {'10.0.0.2': 20, '10.0.0.1': 20}
+    # fill planned jobs without distribution
+    for idx, command in enumerate(command_list):
+        command.distributed = False
+    assert starter.get_load_requests() == {'10.0.0.2': 40, '10.0.0.1': 40}
 
 
 # Stopper part

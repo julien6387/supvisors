@@ -657,12 +657,20 @@ class Starter(Commander):
         :return: the additional loading per node
         """
         load_request_map = {}
+        # for distributed applications, add loading of current jobs
         for command_list in self.current_jobs.values():
             for command in command_list:
                 # if process is not stopped, its loading is already considered in AddressStatus
                 if command.process.stopped():
                     load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
-        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items()}
+        # for non-distributed applications, add loading of planned jobs
+        for application_sequence in self.planned_jobs.values():
+            for command_list in application_sequence.values():
+                for command in command_list:
+                    # if process is not stopped, its loading is already considered in AddressStatus
+                    if not command.distributed and command.process.stopped():
+                        load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
+        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items() if node_name}
 
 
 class Stopper(Commander):

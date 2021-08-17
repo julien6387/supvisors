@@ -8,7 +8,10 @@ Change Log
 
 * In the rules file, ``pattern`` elements are **deprecated** and are replaced by ``program`` elements with a ``pattern``
   attribute instead of a ``name`` attribute.
-  Support for ``pattern`` elements will be removed in Supvisors next version.
+  Support for ``pattern`` elements will be removed in the next version of **Supvisors**.
+
+* Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
+  non-distributed applications.
 
 * The XML schema has been moved to a separate file ``rules.xsd``.
 
@@ -33,7 +36,7 @@ Change Log
 * Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
   The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
 
-* Enable stop sequence on *unmanaged* applications.
+* Enable stop sequence on *Unmanaged* applications.
 
 * In the application navigation part of the Web UI, add a red light to applications having a failure raised.
 
@@ -43,7 +46,7 @@ Change Log
 
 * Starting strategy added to the application rules.
 
-* Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
+* Fixed issue when choosing a node in ``Starter``. The starting strategies considers the current load of the nodes
   and includes the requests that have not been satisfied yet.
 
 * Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
