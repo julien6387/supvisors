@@ -631,16 +631,20 @@ def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_send = context.supvisors.zmq.publisher.send_address_status
-    # update node context
+    # update context nodes
     context.nodes['127.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3598})
     context.nodes['10.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3593})
     context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3588})
     context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_time': 1800})
     context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_time': 0})
     context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.UNKNOWN, 'local_time': 0})
+    # update context applications
+    application_1 = Mock()
+    context.applications['dummy_application'] = application_1
     # patch the expected future invalidated node
     proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_node.return_value': False})
-    proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_node.return_value': True})
+    proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
+                  **{'invalidate_node.return_value': True})
     mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
     # test when start_date is more recent than synchro_timeout
     context.start_date = 3590
@@ -657,7 +661,8 @@ def test_on_timer_event(mocker, context):
                                                 'remote_time': 0, 'local_time': 3588, 'loading': 15}),
                                           call({'address_name': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0})]
-    assert proc_2.invalidate_node.call_args_list == [(call('10.0.0.2'))]
+    assert proc_2.invalidate_node.call_args_list == [call('10.0.0.2')]
+    assert application_1.update_status.call_args_list == [call()]
     # only '10.0.0.2' and '10.0.0.5' nodes changed state
     for node_name, state in [('127.0.0.1', AddressStates.RUNNING), ('10.0.0.1', AddressStates.RUNNING),
                              ('10.0.0.2', AddressStates.ISOLATING), ('10.0.0.3', AddressStates.SILENT),
