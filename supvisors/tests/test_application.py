@@ -325,7 +325,7 @@ def test_application_update_status(filled_application):
     # there is a process in STOPPING state in the process database
     # STOPPING has the highest priority in application state evaluation
     assert filled_application.state == ApplicationStates.STOPPING
-    # there is a process in FATAL state in the process database (and no unexpected EXITED)
+    # multiple STOPPED processes and global state not STOPPED
     # in default rules, no process is required so this is minor
     assert not filled_application.major_failure
     assert filled_application.minor_failure
@@ -334,10 +334,11 @@ def test_application_update_status(filled_application):
                           if process.state == ProcessStates.FATAL))
     fatal_process.rules.required = True
     # update status. major failure is now expected
+    # minor still expected
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STOPPING
     assert filled_application.major_failure
-    assert not filled_application.minor_failure
+    assert filled_application.minor_failure
     # set STOPPING process to STOPPED
     for process in filled_application.processes.values():
         if process.state == ProcessStates.STOPPING:
@@ -346,7 +347,7 @@ def test_application_update_status(filled_application):
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
-    assert not filled_application.minor_failure
+    assert filled_application.minor_failure
     # set STARTING process to RUNNING
     starting_process = next((process for process in filled_application.processes.values()
                              if process.state == ProcessStates.STARTING), None)
@@ -355,7 +356,7 @@ def test_application_update_status(filled_application):
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
-    assert not filled_application.minor_failure
+    assert filled_application.minor_failure
     # set BACKOFF process to EXITED unexpected
     backoff_process = next((process for process in filled_application.processes.values()
                             if process.state == ProcessStates.BACKOFF), None)
@@ -377,8 +378,8 @@ def test_application_update_status(filled_application):
     # set all processes to STOPPED
     for process in filled_application.processes.values():
         process.state = ProcessStates.STOPPED
-    # major failure is back but not minor as the unexpected status is not associated to an EXITED state anymore
+    # all processes are STOPPED in a STOPPED application, so no failure
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STOPPED
-    assert filled_application.major_failure
+    assert not filled_application.major_failure
     assert not filled_application.minor_failure

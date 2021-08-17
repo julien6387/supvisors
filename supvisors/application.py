@@ -168,10 +168,11 @@ class ApplicationStatus(object):
             self._state = new_state
             self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
 
-    def has_running_processes(self) -> str:
-        """ Get a description of the operational status of the application.
+    def has_running_processes(self) -> bool:
+        """ Check if one of the application processes is running.
+        The application state may be STOPPED in this case if the running process is out of the starting sequence.
 
-        :return: the operational status as string
+        :return: True if one of the application processes is running
         """
         for process in self.processes.values():
             if process.running():
@@ -297,8 +298,7 @@ class ApplicationStatus(object):
         :return: None
         """
         # always reset failures
-        self.major_failure = False
-        self.minor_failure = False
+        self.major_failure, self.minor_failure, possible_major_failure, possible_minor_failure = (False, ) * 4
         # get the processes from the starting sequence
         sequenced_processes = [process for sub_seq in self.start_sequence.values()
                                for process in sub_seq]
@@ -322,17 +322,20 @@ class ApplicationStatus(object):
             elif process.state == ProcessStates.STOPPING:
                 stopping = True
             elif process.state in STOPPED_STATES:
-                if process.rules.required:
-                    # any required stopped process is a major failure for a running application
-                    # exception is made for an EXITED process with an expected exit code
-                    if process.state != ProcessStates.EXITED or not process.expected_exit:
+                # a failure is raised when the state of any process is FATAL or unexpectedly EXITED
+                if ((process.state == ProcessStates.FATAL) or
+                        (process.state == ProcessStates.EXITED and not process.expected_exit)):
+                    if process.rules.required:
                         self.major_failure = True
-                else:
-                    # an optional process is a minor failure for a running application
-                    # when its state is FATAL or unexpectedly EXITED
-                    if ((process.state == ProcessStates.FATAL) or
-                            (process.state == ProcessStates.EXITED and not process.expected_exit)):
+                    else:
                         self.minor_failure = True
+                elif process.state != ProcessStates.EXITED or not process.expected_exit:
+                    # in other cases, possible failure is raised
+                    # consideration will depend on the global application state
+                    if process.rules.required:
+                        possible_major_failure = True
+                    else:
+                        possible_minor_failure = True
             # all other STOPPED-like states are considered normal
         self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
                           ' major_failure={} minor_failure={}'
@@ -352,5 +355,9 @@ class ApplicationStatus(object):
         else:
             # all processes in the sequence are STOPPED, so application is STOPPED
             self.state = ApplicationStates.STOPPED
+        # consider possible failure
+        if self.state != ApplicationStates.STOPPED:
+            self.major_failure |= possible_major_failure
+            self.minor_failure |= possible_minor_failure
         self.logger.debug('Application {}: state={} major_failure={} minor_failure={}'
                           .format(self.application_name, self.state, self.major_failure, self.minor_failure))
