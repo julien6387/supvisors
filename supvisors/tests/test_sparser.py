@@ -82,7 +82,7 @@ def check_valid(parser):
     # test models & patterns
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02',
                                             'dummy_model_03', 'dummy_model_04', 'dummy_model_05']
-    assert sorted(parser.program_patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
+    assert parser.printable_program_patterns() == {'application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)
@@ -172,7 +172,7 @@ def check_invalid(parser):
     """ Test the parsing of an invalid XML. """
     # test models & patterns
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02', 'dummy_model_03', 'dummy_model_04']
-    assert sorted(parser.program_patterns.keys()) == ['dummies_', 'dummies_01_', 'dummies_02_']
+    assert parser.printable_program_patterns() == {'dummy_application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)

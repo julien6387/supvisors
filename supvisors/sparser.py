@@ -21,7 +21,7 @@ from collections import OrderedDict
 from distutils.util import strtobool
 from os import path
 from sys import stderr
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from supervisor.datatypes import list_of_strings
 from supervisor.options import split_namespec
@@ -58,19 +58,35 @@ class Parser(object):
         self.models = {element.get('name'): element for element in elements}
         self.logger.debug('Parser.__init__: found models {}'.format(self.models.keys()))
         # get application patterns
-        elements = self.root.findall(".//application[@pattern]")
-        self.application_patterns = {element.get('pattern'): element for element in elements}
+        app_elements = self.root.findall(".//application[@pattern]")
+        self.application_patterns = {app_element.get('pattern'): app_element for app_element in app_elements}
         self.logger.debug('Parser: found application patterns {}'.format(self.application_patterns.keys()))
         # get program patterns
-        elements = self.root.findall(".//pattern[@name]")
-        self.program_patterns = {element.get('name'): element for element in elements}
+        # found program patterns {None: dict_keys(['', 'check_', 'internal_data_bus'])}
+        self.program_patterns = {}
+        app_elements = self.root.findall(".//application/pattern[@name]/..")
+        for app_element in app_elements:
+            prg_elements = app_element.findall("./pattern[@name]")
+            self.program_patterns[app_element] = {prg_element.get('name'): prg_element
+                                                  for prg_element in prg_elements}
         if self.program_patterns:
             self.logger.warn('Parser: usage of pattern elements is deprecated -'
                              ' please convert {} to program elements with pattern attribute.'
-                             .format(self.program_patterns.keys()))
-        elements = self.root.findall(".//program[@pattern]")
-        self.program_patterns.update({element.get('pattern'): element for element in elements})
-        self.logger.debug('Parser: found program patterns {}'.format(self.program_patterns.keys()))
+                             .format(self.printable_program_patterns()))
+        app_elements = self.root.findall(".//application/program[@pattern]/..")
+        for app_element in app_elements:
+            prg_elements = app_element.findall("./program[@pattern]")
+            prg_patterns = self.program_patterns.setdefault(app_element, {})
+            prg_patterns.update({prg_element.get('pattern'): prg_element for prg_element in prg_elements})
+        self.logger.debug('Parser: found program patterns {}'.format(self.printable_program_patterns()))
+
+    def printable_program_patterns(self) -> Dict[str, List[str]]:
+        """ Get a printable version of program patterns (without parser elements).
+
+        :return: a list of program patterns per application name or patterns
+        """
+        return {app_element.get('name') or app_element.get('pattern'): list(prg_patterns.keys())
+                for app_element, prg_patterns in self.program_patterns.items()}
 
     def load_application_rules(self, application_name: str, rules: ApplicationRules) -> None:
         """ Find an entry corresponding to the application in the rules file, then load the parameters found.
@@ -190,14 +206,16 @@ class Parser(object):
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
             # TODO: use regexp ?
-            patterns = [name for name, element in self.program_patterns.items() if name in process_name]
-            self.logger.trace('Parser.get_program_element: found patterns={} for program={}'
-                              .format(patterns, namespec))
-            if patterns:
-                pattern = max(patterns, key=len)
-                program_elt = self.program_patterns[pattern]
-                self.logger.trace('Parser.get_program_element: pattern={} chosen for program={}'
-                                  .format(pattern, namespec))
+            if application_elt in self.program_patterns:
+                prg_patterns = self.program_patterns[application_elt]
+                patterns = [name for name in prg_patterns.keys() if name in process_name]
+                self.logger.trace('Parser.get_program_element: found patterns={} for program={}'
+                                  .format(patterns, namespec))
+                if patterns:
+                    pattern = max(patterns, key=len)
+                    program_elt = prg_patterns[pattern]
+                    self.logger.trace('Parser.get_program_element: pattern={} chosen for program={}'
+                                      .format(pattern, namespec))
         return program_elt
 
     def get_model_element(self, elt: Any) -> Optional[Any]:

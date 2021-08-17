@@ -6,6 +6,9 @@ Change Log
 
 * In the rules file, support for application patterns has been added.
 
+* Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
+  to their application.
+
 * In the rules file, ``pattern`` elements are **deprecated** and are replaced by ``program`` elements with a ``pattern``
   attribute instead of a ``name`` attribute.
   Support for ``pattern`` elements will be removed in the next version of **Supvisors**.
