@@ -113,85 +113,91 @@ def test_get_process_data(mocker, view):
     # patch context
     process_status_1 = Mock(rules=Mock(expected_load=8))
     process_status_2 = Mock(rules=Mock(expected_load=17))
-    mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[process_status_1, process_status_2])
+    process_status_3 = Mock(rules=Mock(expected_load=26))
+    mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[process_status_1, process_status_2, process_status_3])
     view.view_ctx = Mock(local_node_name='10.0.0.1',
-                         **{'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2')]})
+                         **{'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2'), (4, 'stats #3')]})
     # test RPC Error
-    mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
-                        side_effect=RPCError('failed RPC'))
+    mocked_process_info = mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo')
+    mocked_process_info.side_effect = RPCError('failed RPC')
     assert view.get_process_data() == []
     # test normal behavior
-    mocked_sort = mocker.patch.object(view, 'sort_data', return_value=['process_2', 'process_1'])
-    mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo',
-                        return_value=[process_info_by_name('xfontsel'), process_info_by_name('segv')])
-    assert view.get_process_data() == ['process_2', 'process_1']
+    mocked_sort = mocker.patch.object(view, 'sort_data', return_value=['process_2', 'process_1', 'process_3'])
+    mocked_process_info.side_effect = None
+    mocked_process_info.return_value = [process_info_by_name('xfontsel'), process_info_by_name('segv'),
+                                        process_info_by_name('firefox')]
+    assert view.get_process_data() == ['process_2', 'process_1', 'process_3']
     # test intermediate list
-    data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel',
-             'namespec': 'sample_test_1:xfontsel', 'node_name': '10.0.0.1',
+    data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
+             'single': False, 'node_name': '10.0.0.1',
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING',
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
-    data2 = {'application_name': 'crash', 'process_name': 'segv',
-             'namespec': 'crash:segv', 'node_name': '10.0.0.1',
+    data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
+             'single': False, 'node_name': '10.0.0.1',
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF',
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 8, 'proc_stats': 'stats #2'}
+    data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
+             'single': True, 'node_name': '10.0.0.1',
+             'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED',
+             'description': 'Sep 14 05:18 PM',
+             'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
     assert mocked_sort.call_count == 1
     assert len(mocked_sort.call_args_list[0]) == 2
     # access to internal call data
     call_data = mocked_sort.call_args_list[0][0][0]
     assert call_data[0] == data1
     assert call_data[1] == data2
+    assert call_data[2] == data3
 
 
 def test_sort_data(mocker, view):
     """ Test the ProcAddressView.sort_data method. """
     mocker.patch('supvisors.viewprocaddress.ProcAddressView.get_application_summary',
                  side_effect=[{'application_name': 'crash', 'process_name': None},
-                              {'application_name': 'firefox', 'process_name': None},
                               {'application_name': 'sample_test_1', 'process_name': None},
                               {'application_name': 'sample_test_2', 'process_name': None}] * 2)
     # test empty parameter
     assert view.sort_data([]) == ([], [])
     # build process list
-    processes = [{'application_name': info['group'], 'process_name': info['name']}
+    processes = [{'application_name': info['group'], 'process_name': info['name'],
+                  'single': info['group'] == info['name']}
                  for info in ProcessInfoDatabase]
     shuffle(processes)
     # patch context
-    view.view_ctx = Mock(**{'get_application_shex.side_effect': [(True, 0), (True, 0), (True, 0), (True, 0),
-                                                                 (True, 0), (True, 0), (False, 0), (False, 0)]})
+    view.view_ctx = Mock(**{'get_application_shex.side_effect': [(True, 0), (True, 0), (True, 0),
+                                                                 (True, 0), (False, 0), (False, 0)]})
     # test ordering
     actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
-                      {'application_name': 'crash', 'process_name': 'late_segv'},
-                      {'application_name': 'crash', 'process_name': 'segv'},
-                      {'application_name': 'firefox', 'process_name': None},
-                      {'application_name': 'firefox', 'process_name': 'firefox'},
+                      {'application_name': 'crash', 'process_name': 'late_segv', 'single': False},
+                      {'application_name': 'crash', 'process_name': 'segv', 'single': False},
+                      {'application_name': 'firefox', 'process_name': 'firefox', 'single': True},
                       {'application_name': 'sample_test_1', 'process_name': None},
-                      {'application_name': 'sample_test_1', 'process_name': 'xclock'},
-                      {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
-                      {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
+                      {'application_name': 'sample_test_1', 'process_name': 'xclock', 'single': False},
+                      {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'single': False},
+                      {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'single': False},
                       {'application_name': 'sample_test_2', 'process_name': None},
-                      {'application_name': 'sample_test_2', 'process_name': 'sleep'},
-                      {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
-                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01'}]
+                      {'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
+                      {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'single': False},
+                      {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
+    assert excluded == []
     # test with some shex on applications
     actual, excluded = view.sort_data(processes)
     assert actual == [{'application_name': 'crash', 'process_name': None},
-                      {'application_name': 'crash', 'process_name': 'late_segv'},
-                      {'application_name': 'crash', 'process_name': 'segv'},
-                      {'application_name': 'firefox', 'process_name': None},
-                      {'application_name': 'firefox', 'process_name': 'firefox'},
+                      {'application_name': 'crash', 'process_name': 'late_segv', 'single': False},
+                      {'application_name': 'crash', 'process_name': 'segv', 'single': False},
+                      {'application_name': 'firefox', 'process_name': 'firefox', 'single': True},
                       {'application_name': 'sample_test_1', 'process_name': None},
                       {'application_name': 'sample_test_2', 'process_name': None}]
     sorted_excluded = sorted(excluded, key=lambda x: x['process_name'])
-    assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep'},
-                               {'application_name': 'sample_test_1', 'process_name': 'xclock'},
-                               {'application_name': 'sample_test_1', 'process_name': 'xfontsel'},
-                               {'application_name': 'sample_test_1', 'process_name': 'xlogo'},
-                               {'application_name': 'sample_test_2', 'process_name': 'yeux_00'},
-                               {'application_name': 'sample_test_2', 'process_name': 'yeux_01'}]
-
+    assert sorted_excluded == [{'application_name': 'sample_test_2', 'process_name': 'sleep', 'single': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xclock', 'single': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'single': False},
+                               {'application_name': 'sample_test_1', 'process_name': 'xlogo', 'single': False},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_00', 'single': False},
+                               {'application_name': 'sample_test_2', 'process_name': 'yeux_01', 'single': False}]
 
 
 def test_get_application_summary(view):
@@ -225,27 +231,31 @@ def test_write_process_table(mocker, view):
     mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_status')
     # patch the meld elements
     table_mid = Mock()
+    tr_elt_0 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_1 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_2 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_3 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_4 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_5 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
-    tr_mid = Mock(**{'repeat.return_value': [(tr_elt_1, {'process_name': None}),
-                                             (tr_elt_2, {'process_name': 'info_2'}),
-                                             (tr_elt_3, {'process_name': 'info_3'}),
+    tr_mid = Mock(**{'repeat.return_value': [(tr_elt_0, {'process_name': 'info_0', 'single': True}),
+                                             (tr_elt_1, {'process_name': None}),
+                                             (tr_elt_2, {'process_name': 'info_2', 'single': False}),
+                                             (tr_elt_3, {'process_name': 'info_3', 'single': False}),
                                              (tr_elt_4, {'process_name': None}),
-                                             (tr_elt_5, {'process_name': 'info_5'})]})
+                                             (tr_elt_5, {'process_name': 'info_5', 'single': False})]})
     mocked_root = Mock(**{'findmeld.side_effect': [table_mid, tr_mid]})
     # test call with no data
     view.write_process_table(mocked_root, {})
     assert table_mid.replace.call_args_list == [call('No programs to manage')]
     assert not mocked_common.called
     assert not mocked_appli.called
+    assert not tr_elt_0.findmeld.return_value.replace.called
     assert not tr_elt_1.findmeld.return_value.replace.called
     assert not tr_elt_2.findmeld.return_value.replace.called
     assert not tr_elt_3.findmeld.return_value.replace.called
     assert not tr_elt_4.findmeld.return_value.replace.called
     assert not tr_elt_5.findmeld.return_value.replace.called
+    assert tr_elt_0.attrib['class'] == ''
     assert tr_elt_1.attrib['class'] == ''
     assert tr_elt_2.attrib['class'] == ''
     assert tr_elt_3.attrib['class'] == ''
@@ -255,21 +265,24 @@ def test_write_process_table(mocker, view):
     # test call with data and line selected
     view.write_process_table(mocked_root, [{}])
     assert not table_mid.replace.called
-    assert mocked_common.call_args_list == [call(tr_elt_2, {'process_name': 'info_2'}),
-                                            call(tr_elt_3, {'process_name': 'info_3'}),
-                                            call(tr_elt_5, {'process_name': 'info_5'})]
-    assert mocked_appli.call_args_list == [call(tr_elt_1, {'process_name': None}, False),
-                                           call(tr_elt_4, {'process_name': None}, True)]
+    assert mocked_common.call_args_list == [call(tr_elt_0, {'process_name': 'info_0', 'single': True}),
+                                            call(tr_elt_2, {'process_name': 'info_2', 'single': False}),
+                                            call(tr_elt_3, {'process_name': 'info_3', 'single': False}),
+                                            call(tr_elt_5, {'process_name': 'info_5', 'single': False})]
+    assert mocked_appli.call_args_list == [call(tr_elt_1, {'process_name': None}, True),
+                                           call(tr_elt_4, {'process_name': None}, False)]
+    assert not tr_elt_0.findmeld.return_value.replace.called
     assert not tr_elt_1.findmeld.return_value.replace.called
     assert tr_elt_2.findmeld.return_value.replace.call_args_list == [call('')]
     assert tr_elt_3.findmeld.return_value.replace.call_args_list == [call('')]
     assert not tr_elt_4.findmeld.return_value.replace.called
     assert tr_elt_5.findmeld.return_value.replace.call_args_list == [call('')]
-    assert tr_elt_1.attrib['class'] == 'brightened'
-    assert tr_elt_2.attrib['class'] == 'shaded'
-    assert tr_elt_3.attrib['class'] == 'brightened'
-    assert tr_elt_4.attrib['class'] == 'shaded'
-    assert tr_elt_5.attrib['class'] == 'brightened'
+    assert tr_elt_0.attrib['class'] == 'brightened'
+    assert tr_elt_1.attrib['class'] == 'shaded'
+    assert tr_elt_2.attrib['class'] == 'brightened'
+    assert tr_elt_3.attrib['class'] == 'shaded'
+    assert tr_elt_4.attrib['class'] == 'brightened'
+    assert tr_elt_5.attrib['class'] == 'shaded'
 
 
 def test_write_application_status(mocker, view):

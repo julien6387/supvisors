@@ -7,7 +7,7 @@ Change Log
 * In the rules file, support for application patterns has been added.
 
 * Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
-  to their application.
+  to their owner application.
 
 * Logic for application major / minor failures reviewed.
 
@@ -17,6 +17,9 @@ Change Log
 
 * Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
   non-distributed applications.
+
+* In the ``ProcAddressView`` of the Web UI, expand / shrink actions are not applicable to programs that are not owned
+  by a Supervisor group.
 
 * The XML schema has been moved to a separate file ``rules.xsd``.
 
