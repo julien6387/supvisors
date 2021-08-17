@@ -1,12 +1,14 @@
 #!/bin/bash
 
+CONFIG_CMD="python ../../../tools/breed.py -d etc -t template_etc -b scen2_services=2 scen2_hci=2"
+
 test_dir=$(dirname "$(readlink -f "$0")")
 
-# start supervisor on remote machines
+# start supervisor on all nodes
 for i in cliche81 cliche82 cliche83
 do
 	echo "start Supvisors on" $i
-	ssh $i "export DISPLAY=:0 ; cd $test_dir ; rm -f log/* etc/supervisord.conf ; supervisord"
+	ssh $i "export DISPLAY=:0 ; cd $test_dir ; $CONFIG_CMD ; rm -f log/* ; supervisord"
 done
 
 firefox http://localhost:61000 &
