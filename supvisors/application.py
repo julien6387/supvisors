@@ -298,7 +298,7 @@ class ApplicationStatus(object):
         :return: None
         """
         # always reset failures
-        self.major_failure, self.minor_failure, possible_major_failure, possible_minor_failure = (False, ) * 4
+        self.major_failure, self.minor_failure, possible_major_failure = (False, ) * 3
         # get the processes from the starting sequence
         sequenced_processes = [process for sub_seq in self.start_sequence.values()
                                for process in sub_seq]
@@ -329,18 +329,15 @@ class ApplicationStatus(object):
                         self.major_failure = True
                     else:
                         self.minor_failure = True
-                elif process.state != ProcessStates.EXITED or not process.expected_exit:
+                elif process.state != ProcessStates.EXITED or process.expected_exit:
                     # in other cases, possible failure is raised
                     # consideration will depend on the global application state
                     if process.rules.required:
                         possible_major_failure = True
-                    else:
-                        possible_minor_failure = True
-            # all other STOPPED-like states are considered normal
         self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
-                          ' major_failure={} minor_failure={}'
+                          ' major_failure={} minor_failure={} possible_major_failure={}'
                           .format(self.application_name, starting, running, stopping,
-                                  self.major_failure, self.minor_failure))
+                                  self.major_failure, self.minor_failure, possible_major_failure))
         # apply rules for state
         if stopping:
             # if at least one process is STOPPING, let's consider that application is stopping
@@ -358,6 +355,5 @@ class ApplicationStatus(object):
         # consider possible failure
         if self.state != ApplicationStates.STOPPED:
             self.major_failure |= possible_major_failure
-            self.minor_failure |= possible_minor_failure
         self.logger.debug('Application {}: state={} major_failure={} minor_failure={}'
                           .format(self.application_name, self.state, self.major_failure, self.minor_failure))

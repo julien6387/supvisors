@@ -338,7 +338,7 @@ def test_application_update_status(filled_application):
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STOPPING
     assert filled_application.major_failure
-    assert filled_application.minor_failure
+    assert not filled_application.minor_failure
     # set STOPPING process to STOPPED
     for process in filled_application.processes.values():
         if process.state == ProcessStates.STOPPING:
@@ -347,7 +347,7 @@ def test_application_update_status(filled_application):
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
-    assert filled_application.minor_failure
+    assert not filled_application.minor_failure
     # set STARTING process to RUNNING
     starting_process = next((process for process in filled_application.processes.values()
                              if process.state == ProcessStates.STARTING), None)
@@ -356,7 +356,7 @@ def test_application_update_status(filled_application):
     filled_application.update_status()
     assert filled_application.state == ApplicationStates.STARTING
     assert filled_application.major_failure
-    assert filled_application.minor_failure
+    assert not filled_application.minor_failure
     # set BACKOFF process to EXITED unexpected
     backoff_process = next((process for process in filled_application.processes.values()
                             if process.state == ProcessStates.BACKOFF), None)
