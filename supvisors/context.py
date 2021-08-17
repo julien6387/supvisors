@@ -331,13 +331,24 @@ class Context(object):
             for status in self.nodes.values():
                 if status.state == AddressStates.UNKNOWN:
                     # invalid unknown nodes
+                    # nothing to do on processes as none received yet
                     self.invalid(status)
                 elif status.inactive(current_time):
                     # invalid silent nodes
                     self.invalid(status)
-                    # invalidate node in processes
+                    # for processes that were running on node, invalidate node in process
+                    # WARN: it has been decided NOT to remove the node payload from the ProcessStatus and NOT to remove
+                    #  the ProcessStatus from the Context if no more node payload.
+                    #  The aim is to keep a trace in the Web UI about the application processes that have been lost
+                    #  and the related description.
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_node(status.address_name)})
+        # update all application sequences and status
+        for application_name in {process.application_name for process in process_failures}:
+            application = self.applications[application_name]
+            # update sequence useless as long as the application.process map is not impacted (see decision above)
+            # application.update_sequences()
+            application.update_status()
         #  return all processes that declare a failure
         return process_failures
 

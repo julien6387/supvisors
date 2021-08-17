@@ -413,7 +413,8 @@ class RunningFailureHandler(AbstractStrategy):
         if application in self.restart_application_jobs | self.start_application_jobs:
             if process in application.get_start_sequenced_processes():
                 self.logger.info('RunningFailureHandler.add_restart_process_job: {} not added because {} already'
-                                 ' in stop_application_jobs'.format(process.namespec, process.application_name))
+                                 ' in restart_application_jobs or start_application_jobs'
+                                 .format(process.namespec, process.application_name))
                 return
         if process in self.start_process_jobs:
             self.logger.info('RunningFailureHandler.add_continue_process_job: {} not added because already'
