@@ -17,10 +17,13 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
+
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
-from supvisors.ttypes import AddressStates, InvalidTransition
+from .process import ProcessStatus
+from .ttypes import AddressStates, InvalidTransition
 
 
 class AddressStatus(object):
@@ -40,13 +43,13 @@ class AddressStatus(object):
     def __init__(self, node_name: str, logger: Logger):
         """ Initialization of the attributes. """
         # keep a reference to the common logger
-        self.logger = logger
+        self.logger: Logger = logger
         # attributes
-        self.address_name = node_name
-        self._state = AddressStates.UNKNOWN
-        self.remote_time = 0
-        self.local_time = 0
-        self.processes = {}
+        self.address_name: str = node_name
+        self._state: AddressStates = AddressStates.UNKNOWN
+        self.remote_time: int = 0
+        self.local_time: int = 0
+        self.processes: Dict[str, ProcessStatus] = {}
 
     def reset(self):
         """ Reset the contextual part of the node.
