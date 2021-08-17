@@ -1,3 +1,5 @@
+.. _scenario_1:
+
 Scenario 1
 ==========
 
