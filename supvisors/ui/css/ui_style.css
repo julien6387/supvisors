@@ -73,8 +73,14 @@ nav {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
     color: var(--text-color);
+}
+
+nav div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 }
 
 #left_side footer {
