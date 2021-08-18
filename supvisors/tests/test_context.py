@@ -25,7 +25,7 @@ from unittest.mock import call, Mock
 from supvisors.context import *
 from supvisors.ttypes import AddressStates, ApplicationStates, InvalidTransition
 
-from .base import DummyAddressMapper, database_copy, any_process_info
+from .base import database_copy, any_process_info
 from .conftest import create_application
 
 
@@ -56,7 +56,7 @@ def test_create(supvisors, context):
     """ Test the values set at construction of Context. """
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
-    assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
+    assert set(supvisors.address_mapper.node_names), set(context.nodes.keys())
     for address_name, address in context.nodes.items():
         assert address.address_name == address_name
         assert isinstance(address, AddressStatus)
@@ -83,7 +83,7 @@ def test_reset(mocker, context):
     context.applications['dummy_appli'] = application
     # call reset and check result
     context.reset()
-    assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
+    assert set(context.supvisors.address_mapper.node_names), set(context.nodes.keys())
     context.nodes['127.0.0.1']._state = AddressStates.UNKNOWN
     context.nodes['10.0.0.1']._state = AddressStates.SILENT
     context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
@@ -116,14 +116,14 @@ def test_master_node_name(context):
 def test_nodes_by_states(context):
     """ Test the access to addresses in unknown state. """
     # test initial states
-    assert context.unknown_nodes() == DummyAddressMapper().node_names
+    assert context.unknown_nodes() == context.supvisors.address_mapper.node_names
     assert context.running_core_nodes() is None
     assert context.running_nodes() == []
     assert context.isolating_nodes() == []
     assert context.isolation_nodes() == []
     assert context.nodes_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]) == []
     assert context.nodes_by_states([AddressStates.SILENT]) == []
-    assert context.nodes_by_states([AddressStates.UNKNOWN]) == DummyAddressMapper().node_names
+    assert context.nodes_by_states([AddressStates.UNKNOWN]) == context.supvisors.address_mapper.node_names
     # change states
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
     context.nodes['10.0.0.1']._state = AddressStates.SILENT
@@ -147,7 +147,7 @@ def test_running_core_nodes(supvisors):
     supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
-    assert context.unknown_nodes() == DummyAddressMapper().node_names
+    assert context.unknown_nodes() == context.supvisors.address_mapper.node_names
     assert not context.running_core_nodes()
     # change states
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING

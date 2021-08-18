@@ -31,7 +31,7 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
 from supvisors.webutils import SUPVISORS_PAGE
 
-from .base import DummyAddressMapper, DummyHttpContext
+from .base import DummyHttpContext
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_init(http_context, handler):
     # test ViewHandler initialization
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
-    assert handler.local_node_name == DummyAddressMapper().local_node_name
+    assert handler.local_node_name == handler.supvisors.address_mapper.local_node_name
     assert handler.view_ctx is None
 
 

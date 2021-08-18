@@ -49,7 +49,7 @@ def assert_application_rules(rules, managed, distributed, node_names, start, sto
 
 def assert_default_process_rules(rules):
     """ Check that rules contains default values. """
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 0, RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 0, RunningFailureStrategies.CONTINUE)
 
 
 def assert_process_rules(rules, nodes, hash_nodes, start, stop, required,
@@ -77,9 +77,22 @@ def load_program_rules(parser, application_name, process_name):
     return rules
 
 
+def check_aliases_valid(parser):
+    """ Test the Parser.check_node_list on the basis of the aliases found in Valid XML. """
+    assert parser.check_node_list('nodes_model_03') == ['10.0.0.4', '10.0.0.2']
+    assert parser.check_node_list('10.0.0.1,nodes_model_03') == ['10.0.0.1', '10.0.0.4', '10.0.0.2']
+    assert parser.check_node_list('10.0.0.5,nodes_appli_D,10.0.0.1') == ['10.0.0.5', '10.0.0.1']
+    assert parser.check_node_list('192.17.8.2,nodes_model_03') == ['10.0.0.4', '10.0.0.2']
+    assert parser.check_node_list('192.17.8.2,nodes_model_03,*') == ['*']
+    assert parser.check_node_list('not used,10.0.0.3') == ['10.0.0.2', '10.0.0.3']
+
+
 def check_valid(parser):
     """ Test the parsing of a valid XML. """
-    # test models & patterns
+    # test aliases, models & patterns
+    assert parser.aliases == {'nodes_model_03': ['10.0.0.4', '10.0.0.2'], 'nodes_appli_D': ['10.0.0.1', '10.0.0.5'],
+                              'not used': ['10.0.0.2', 'nodes_appli_D']}
+    check_aliases_valid(parser)
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02',
                                             'dummy_model_03', 'dummy_model_04', 'dummy_model_05']
     assert parser.printable_program_patterns() == {'application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
@@ -100,6 +113,7 @@ def check_valid(parser):
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
+    print(rules)
     assert_application_rules(rules, True, False, ['10.0.0.1', '10.0.0.5'], 0, 100, StartingStrategies.LESS_LOADED,
                              StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
     # check loop application
@@ -124,15 +138,15 @@ def check_valid(parser):
                          RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0,
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 100,
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
-    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
+    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], [], 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check empty reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C0')
@@ -142,7 +156,7 @@ def check_valid(parser):
     assert_default_process_rules(rules)
     # check known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25,
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
@@ -150,7 +164,7 @@ def check_valid(parser):
                          RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_any')
-    assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], None, 50, 100, False, False, 10,
+    assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], [], 50, 100, False, False, 10,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and configuration
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
@@ -159,18 +173,30 @@ def check_valid(parser):
     # check pattern with multiple matching and incorrect reference (model calling for another model)
     # this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 20,
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 20,
                          RunningFailureStrategies.STOP_APPLICATION)
     # check multiple reference (over the maximum defined)
     # almost all rules set to default, despite enf of chain is on dummy_model_01
     rules = load_program_rules(parser, 'dummy_application_E', 'dummy_program_E')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 15,
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 15,
                          RunningFailureStrategies.CONTINUE)
+
+
+def check_aliases_invalid(parser):
+    assert parser.check_node_list('nodes_prg_B1') == ['#']
+    assert parser.check_node_list('nodes_appli_D') == []
+    assert parser.check_node_list('nodes_prg_B3,10.0.0.1') == ['*']
+    assert parser.check_node_list('10.0.0.5,not used too') == ['10.0.0.5', '10.0.0.1', '#']
+    assert parser.check_node_list('10.0.0.5,not used') == ['*']
 
 
 def check_invalid(parser):
     """ Test the parsing of an invalid XML. """
-    # test models & patterns
+    # test aliases, models & patterns
+    assert parser.aliases == {'not used': ['nodes_prg_B3', 'nodes_appli_D'],
+                              'not used too': ['#', '10.0.0.1', '192.168.12.20'], 'nodes_prg_B1': ['#'],
+                              'nodes_prg_B3': ['*', '10.0.0.4', '192.168.12.20'], 'nodes_appli_D': ['']}
+    check_aliases_invalid(parser)
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02', 'dummy_model_03', 'dummy_model_04']
     assert parser.printable_program_patterns() == {'dummy_application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
     # check unknown application
@@ -209,17 +235,17 @@ def check_invalid(parser):
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], None, 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
-    assert_process_rules(rules, ['10.0.0.1', '10.0.0.2'], None, 0, 0, False, False, 0,
+    assert_process_rules(rules, ['10.0.0.1', '10.0.0.2'], [], 0, 0, False, False, 0,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B5')
-    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], None, 0, 0, False, False, 0,
+    assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], [], 0, 0, False, False, 0,
                          RunningFailureStrategies.CONTINUE)
     # check empty reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C0')
@@ -229,7 +255,7 @@ def check_invalid(parser):
     assert_default_process_rules(rules)
     # check known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
     assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0, RunningFailureStrategies.CONTINUE)
@@ -242,7 +268,7 @@ def check_invalid(parser):
     rules = ProcessRules(parser.supvisors)
     rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
     parser.load_program_rules('dummy_application_D:dummies_any', rules)
-    assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], None, 0, 100, False, False, 10,
+    assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], [], 0, 100, False, False, 10,
                          RunningFailureStrategies.RESTART_APPLICATION)
     # check pattern with multiple matching and configuration
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
@@ -250,7 +276,7 @@ def check_invalid(parser):
     # check pattern with multiple matching and recursive reference
     # WARN: this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
-    assert_process_rules(rules, ['*'], None, 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
 
 
 @pytest.fixture

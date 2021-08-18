@@ -22,7 +22,7 @@ import pytest
 from supvisors.viewcontext import *
 from unittest.mock import call, patch, Mock
 
-from .base import DummyAddressMapper, DummyHttpContext, DummyOptions
+from .base import DummyHttpContext, DummyOptions
 
 url_attr_template = r'(.+=.+)'
 
@@ -44,7 +44,7 @@ def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_node_name == DummyAddressMapper().local_node_name
+    assert ctx.local_node_name == ctx.supvisors.address_mapper.local_node_name
     assert ctx.parameters == {'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}

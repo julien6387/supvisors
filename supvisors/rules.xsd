@@ -29,6 +29,13 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:enumeration value="RESTART_APPLICATION" />
         </xs:restriction>
     </xs:simpleType>
+    <xs:complexType name="NodeAlias">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute type="xs:string" name="name" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
     <xs:complexType name="ProgramModel">
         <xs:all>
             <xs:element type="xs:string" name="reference" minOccurs="0"/>
@@ -60,13 +67,14 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
                 <xs:element type="ProgramModel" name="pattern"/>
             </xs:choice>
         </xs:sequence>
-	<!-- no way to check one of the two is required unless XSD 1.1 is supported -->
+	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
         <xs:attribute type="xs:string" name="pattern"/>
     </xs:complexType>
     <xs:element name="root">
         <xs:complexType>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element type="NodeAlias" name="alias"/>
                 <xs:element type="ProgramModel" name="model"/>
                 <xs:element type="ApplicationModel" name="application"/>
             </xs:choice>

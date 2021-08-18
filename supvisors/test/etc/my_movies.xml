@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
 
+    <!-- aliases -->
+    <alias name="distribute_sublist">#,192.168.1.49,cliche83,cliche84</alias>
+    <alias name="consoles">192.168.1.49,cliche81</alias>
+
     <!-- models -->
     <model name="disk_01">
         <addresses>cliche81</addresses>
@@ -105,7 +109,7 @@
         </program>
 
         <program name="hmi">
-            <addresses>192.168.1.49,cliche81</addresses>
+            <addresses>consoles</addresses>
             <start_sequence>3</start_sequence>
             <stop_sequence>1</stop_sequence>
             <expected_loading>10</expected_loading>

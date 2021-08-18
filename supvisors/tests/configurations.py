@@ -92,6 +92,12 @@ loglevel=error
 InvalidXmlTest = b'''\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
+    <alias name="not used">nodes_prg_B3, nodes_appli_D</alias>
+    <alias name="not used too">#, 10.0.0.1, 192.168.12.20</alias>
+    <alias name="nodes_prg_B1">#</alias>
+    <alias name="nodes_prg_B3">*, 10.0.0.4, 192.168.12.20</alias>
+    <alias name="nodes_appli_D"> </alias>
+
     <model name="dummy_model_01">
         <stop_sequence>0</stop_sequence>
         <required>false</required>
@@ -131,7 +137,7 @@ InvalidXmlTest = b'''\
         </program>
 
         <program name="dummy_program_B1">
-            <addresses>#</addresses>
+            <addresses>nodes_prg_B1</addresses>
             <start_sequence>3</start_sequence>
             <stop_sequence>50</stop_sequence>
             <required>true</required>
@@ -148,7 +154,7 @@ InvalidXmlTest = b'''\
         </program>
 
         <program name="dummy_program_B3">
-            <addresses>*</addresses>
+            <addresses>nodes_prg_B3</addresses>
             <required>false</required>
             <expected_loading>100</expected_loading>
             <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
@@ -243,6 +249,10 @@ InvalidXmlTest = b'''\
 XmlTest = b'''\
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
+    <alias name="nodes_model_03">10.0.0.4, 10.0.0.2</alias>
+    <alias name="nodes_appli_D">10.0.0.1, 10.0.0.5</alias>
+    <alias name="not used">10.0.0.2, nodes_appli_D</alias>
+
     <model name="dummy_model_01">
         <stop_sequence>0</stop_sequence>
         <required>false</required>
@@ -259,7 +269,7 @@ XmlTest = b'''\
     </model>
 
     <model name="dummy_model_03">
-        <addresses>10.0.0.4, 10.0.0.2</addresses>
+        <addresses>nodes_model_03</addresses>
         <stop_sequence>100</stop_sequence>
         <expected_loading>10</expected_loading>
     </model>
@@ -346,7 +356,7 @@ XmlTest = b'''\
 
     <application pattern="application_D">
         <distributed>false</distributed>
-        <addresses>10.0.0.1, 10.0.0.5</addresses>
+        <addresses>nodes_appli_D</addresses>
         <start_sequence>-1</start_sequence>
         <stop_sequence>100</stop_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>

@@ -20,6 +20,8 @@ Change Log
   attribute instead of a ``name`` attribute.
   Support for ``pattern`` elements will be removed in the next version of **Supvisors**.
 
+* Node aliases have been added to the rules file.
+
 * Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
   non-distributed applications.
 

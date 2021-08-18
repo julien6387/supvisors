@@ -51,7 +51,7 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "node_names=['*'] hash_node_names=None start_sequence=0 stop_sequence=0 required=False"\
+    assert str(rules) == "node_names=['*'] hash_node_names=[] start_sequence=0 stop_sequence=0 required=False"\
         " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
 
 
@@ -117,7 +117,7 @@ def test_rules_check_hash_nodes(rules):
     """ Test the resolution of addresses when hash_address is set. """
     # check initial attributes
     assert rules.node_names == ['*']
-    assert rules.hash_node_names is None
+    assert rules.hash_node_names == []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
     rules.check_hash_nodes('sample_test_1:xfontsel')

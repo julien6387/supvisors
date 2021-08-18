@@ -53,7 +53,7 @@ class ProcessRules(object):
         self.logger: Logger = supvisors.logger
         # attributes
         self.node_names: NameList = ['*']
-        self.hash_node_names: NameList = None
+        self.hash_node_names: NameList = []
         self.start_sequence: int = 0
         self.stop_sequence: int = 0
         self.required: bool = False
