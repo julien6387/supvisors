@@ -19,6 +19,7 @@
 
 import pytest
 
+from supervisor.states import ProcessStates
 from unittest.mock import call, Mock
 
 from supvisors.address import AddressStatus
@@ -592,7 +593,7 @@ def test_process_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process event. """
     # prepare context
     fsm.supvisors.context._is_master = True
-    process = Mock(application_name='appli', **{'crashed.return_value': True})
+    process = Mock(application_name='appli', forced_state=None, **{'crashed.return_value': True})
     # get patches
     mocked_ctx = mocker.patch.object(fsm.supvisors.context, 'on_process_event', return_value=None)
     mocked_start_evt = fsm.supvisors.starter.on_event
@@ -632,20 +633,44 @@ def test_process_event(mocker, fsm):
         mocked_ctx.reset_mock()
         mocked_start_evt.reset_mock()
         mocked_stop_evt.reset_mock()
-    # test with running_failure_strategy set to RESTART_APPLICATION / STOP_APPLICATION
-    # so job is added to failure handler
-    for strategy in [RunningFailureStrategies.RESTART_APPLICATION, RunningFailureStrategies.STOP_APPLICATION]:
-        process.rules.running_failure_strategy = strategy
-        fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
-        assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_start_evt.call_args_list == [call(process)]
-        assert mocked_stop_evt.call_args_list == [call(process)]
-        assert mocked_add.call_args_list == [call(process)]
-        # reset mocks
-        mocked_ctx.reset_mock()
-        mocked_start_evt.reset_mock()
-        mocked_stop_evt.reset_mock()
-        mocked_add.reset_mock()
+    # test with running_failure_strategy set to STOP_APPLICATION
+    # job is added to failure handler
+    process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
+    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_start_evt.call_args_list == [call(process)]
+    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_add.call_args_list == [call(process)]
+    # reset mocks
+    mocked_ctx.reset_mock()
+    mocked_start_evt.reset_mock()
+    mocked_stop_evt.reset_mock()
+    mocked_add.reset_mock()
+    # test with running_failure_strategy set to RESTART_APPLICATION
+    # job is added to failure handler only if process crash is 'real' (not forced)
+    # test with no forced state
+    process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
+    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_start_evt.call_args_list == [call(process)]
+    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_add.call_args_list == [call(process)]
+    # reset mocks
+    mocked_ctx.reset_mock()
+    mocked_start_evt.reset_mock()
+    mocked_stop_evt.reset_mock()
+    mocked_add.reset_mock()
+    # test with forced state
+    process.forced_state = ProcessStates.FATAL
+    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_start_evt.call_args_list == [call(process)]
+    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert not mocked_add.called
+    # reset mocks
+    mocked_ctx.reset_mock()
+    mocked_start_evt.reset_mock()
+    mocked_stop_evt.reset_mock()
     # test when process has not crashed
     process.crashed.return_value = False
     for strategy in RunningFailureStrategies:

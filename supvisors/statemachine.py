@@ -423,10 +423,16 @@ class FiniteStateMachine:
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
-            if process.crashed() and self.context.is_master and \
-                    process.rules.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
-                                                               RunningFailureStrategies.RESTART_APPLICATION]:
-                self.supvisors.failure_handler.add_default_job(process)
+            if self.context.is_master and process.crashed():
+                # local variables to keep it readable
+                strategy = process.rules.running_failure_strategy
+                stop_strategy = strategy == RunningFailureStrategies.STOP_APPLICATION
+                restart_strategy = strategy == RunningFailureStrategies.RESTART_APPLICATION
+                # to avoid infinite application restart, exclude the case where process state is forced
+                # indeed the process state forced to FATAL can only happen during a starting sequence (no node found)
+                # retry is useless
+                if stop_strategy or restart_strategy and process.forced_state is None:
+                    self.supvisors.failure_handler.add_default_job(process)
 
     def on_state_event(self, node_name, event: Payload) -> None:
         """ This event is used to get the FSM state of the master node.
