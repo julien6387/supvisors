@@ -9,6 +9,9 @@ Change Log
 * Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
   to their owner application.
 
+* Fixed issue with infinite tries of application restart when the process cannot be started due to a lack of resources
+  and ``RESTART_APPLICATION`` is set on the program in the **Supvisors** rules file.
+
 * Fixed issue about application state not updated after a node has become silent.
 
 * Logic for application major / minor failures reviewed.
@@ -20,7 +23,9 @@ Change Log
 * Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
   non-distributed applications.
 
-* In the ``ProcAddressView`` of the Web UI, expand / shrink actions are not applicable to programs that are not owned
+* The Web UI is updated to handle a large list of applications and nodes.
+
+* In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
 
 * The XML schema has been moved to a separate file ``rules.xsd``.

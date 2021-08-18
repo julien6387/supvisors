@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONFIG_CMD="python ../../../tools/breed.py -d etc -t template_etc -b scen2_services=2 scen2_hci=2"
+CONFIG_CMD="python ../../../tools/breed.py -d etc -t template_etc -b scen2_services=5 scen2_hci=5"
 
 test_dir=$(dirname "$(readlink -f "$0")")
 
