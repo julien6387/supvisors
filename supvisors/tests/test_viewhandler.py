@@ -287,34 +287,39 @@ def test_write_nav_applications_initialization(handler):
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_appli = Mock(application_name='dummy_appli', major_failure=False, minor_failure=False,
                         state=ApplicationStates.RUNNING)
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
+    mocked_li_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
+    mocked_h_mid = Mock(attrib={})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_li_mid, mocked_li_mid, mocked_h_mid]})
     # test call with application name different from parameter
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     handler.write_nav_applications(mocked_root, 'dumb_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING  '
+    assert mocked_li_mid.repeat.call_args_list == [call([])]
+    assert appli_elt.attrib['class'] == 'RUNNING'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'off'
     assert handler.view_ctx.format_url.call_args_list == []
     assert href_elt.attributes.call_args_list == []
     assert href_elt.content.call_args_list == [call('dummy_appli')]
+    assert mocked_h_mid.attrib == {}
     mocked_root.findmeld.reset_mock()
-    mocked_mid.repeat.reset_mock()
+    mocked_li_mid.repeat.reset_mock()
     appli_elt.findmeld.reset_mock()
     href_elt.content.reset_mock()
+    del appli_elt.attrib['class']
+    del href_elt.attrib['class']
     # test call with application name identical to parameter and add a failure
     mocked_appli.minor_failure = True
     handler.write_nav_applications(mocked_root, 'dummy_appli')
-    assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
-    assert [call([])] == mocked_mid.repeat.call_args_list
+    assert mocked_root.findmeld.call_args_list == [call('appli_li_mid'), call('appli_h_mid')]
+    assert [call([])] == mocked_li_mid.repeat.call_args_list
     assert appli_elt.attrib['class'] == 'RUNNING active failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'off'
     assert handler.view_ctx.format_url.call_args_list == []
     assert href_elt.attributes.call_args_list == []
     assert href_elt.content.call_args_list == [call('dummy_appli')]
+    assert mocked_h_mid.attrib['class'] == 'failure'
 
 
 def test_write_nav_applications_operation(handler):
@@ -325,33 +330,37 @@ def test_write_nav_applications_operation(handler):
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_appli = Mock(application_name='dummy_appli', major_failure=False, minor_failure=False,
                         state=ApplicationStates.RUNNING, rules=Mock(starting_strategy=StartingStrategies.LESS_LOADED))
-    mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
+    mocked_li_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
+    mocked_h_mid = Mock(attrib={})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_li_mid, mocked_h_mid, mocked_li_mid]})
     # test call with application name different from parameter and failure
     mocked_appli.major_failure = True
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     handler.write_nav_applications(mocked_root, 'dumb_appli')
-    assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING  failure'
+    assert mocked_root.findmeld.call_args_list == [call('appli_li_mid'), call('appli_h_mid')]
+    assert mocked_li_mid.repeat.call_args_list == [call([])]
+    assert appli_elt.attrib['class'] == 'RUNNING failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
                                                                strategy='LESS_LOADED')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.content.call_args_list == [call('dummy_appli')]
+    assert mocked_h_mid.attrib['class'] == 'failure'
     mocked_root.findmeld.reset_mock()
-    mocked_mid.repeat.reset_mock()
+    mocked_li_mid.repeat.reset_mock()
     appli_elt.findmeld.reset_mock()
     handler.view_ctx.format_url.reset_mock()
     href_elt.attributes.reset_mock()
     href_elt.content.reset_mock()
+    del appli_elt.attrib['class']
+    del href_elt.attrib['class']
     # test call with application name identical to parameter
     mocked_appli.major_failure = False
     handler.write_nav_applications(mocked_root, 'dummy_appli')
     assert mocked_root.findmeld.call_args_list == [call('appli_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call([])]
-    assert appli_elt.attrib['class'] == 'RUNNING active '
+    assert mocked_li_mid.repeat.call_args_list == [call([])]
+    assert appli_elt.attrib['class'] == 'RUNNING active'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
     assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
@@ -433,6 +442,7 @@ def test_write_common_process_cpu(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
     cell_elt.attributes.reset_mock()
+    del cell_elt.attrib['class']
     # test with filled stats on not selected process, solaris mode
     handler.supvisors.options.stats_irix_mode = False
     info = {'namespec': 'dummy', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
@@ -499,6 +509,7 @@ def test_write_common_process_mem(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
     cell_elt.attributes.reset_mock()
+    del cell_elt.attrib['class']
     # test with filled stats on not selected process
     info = {'namespec': 'dummy', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
@@ -607,6 +618,7 @@ def test_write_process_button(handler):
     assert not cell_elt.attributes.called
     assert not cell_elt.content.called
     tr_elt.findmeld.reset_mock()
+    del cell_elt.attrib['class']
     # test with filled stats on selected process
     handler._write_process_button(tr_elt, 'meld_id', '10.0.0.1', 'index.html', 'action', 'dummy_proc',
                                   'running', ['running', 'starting'])
@@ -705,6 +717,7 @@ def test_write_detailed_process_cpu(handler):
     avg_elt.content.reset_mock()
     slope_elt.content.reset_mock()
     dev_elt.content.reset_mock()
+    del val_elt.attrib['class']
     # test call with solaris mode
     proc_stats = ([10, 16, 24],)
     handler.supvisors.options.stats_irix_mode = False
@@ -840,17 +853,23 @@ def test_set_slope_class():
     # test with values around 0
     ViewHandler.set_slope_class(elt, 0)
     assert elt.attrib['class'] == 'stable'
+    del elt.attrib['class']
     ViewHandler.set_slope_class(elt, 0.0049)
     assert elt.attrib['class'] == 'stable'
+    del elt.attrib['class']
     ViewHandler.set_slope_class(elt, -0.0049)
     assert elt.attrib['class'] == 'stable'
+    del elt.attrib['class']
     # test with values around greater than 0 but not around 0
     ViewHandler.set_slope_class(elt, 0.005)
     assert elt.attrib['class'] == 'increase'
+    del elt.attrib['class']
     ViewHandler.set_slope_class(elt, 10)
     assert elt.attrib['class'] == 'increase'
+    del elt.attrib['class']
     # test with values around lower than 0 but not around 0
     ViewHandler.set_slope_class(elt, -0.005)
     assert elt.attrib['class'] == 'decrease'
+    del elt.attrib['class']
     ViewHandler.set_slope_class(elt, -10)
     assert elt.attrib['class'] == 'decrease'

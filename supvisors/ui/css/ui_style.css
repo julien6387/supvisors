@@ -592,6 +592,14 @@ nav li.failure:after {
     top: -30px;
 }
 
+h2.failure:after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -2px;
+    right: 2px;
+}
+
 /*
  * Increase / Stable / Decrease styles
  */

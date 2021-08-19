@@ -24,13 +24,13 @@
                 <h2>Addresses</h2>
                 <div>
                     <ul>
-                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
                     </ul>
                 </div>
             </nav>
 
             <nav id="application-list">
-                <h2>Applications</h2>
+                <h2 meld:id="appli_h_mid">Applications</h2>
                 <div>
                     <ul>
                         <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
@@ -48,9 +48,9 @@
             <header>
                 <div>
                     <h2><span meld:id="application_mid">application</span></h2>
-                    <h3 class="classState">
-                        <code meld:id="state_mid" class="classState">ApplicationStates</code>
-                        <span meld:id="state_led_mid" class="status_green"></span>
+                    <h3>
+                        <code meld:id="state_mid">ApplicationStates</code>
+                        <span meld:id="state_led_mid"></span>
                     </h3>
                 </div>
 
@@ -58,10 +58,10 @@
                     <table class="optionBox">
                         <tr><th>Starting strategy</th></tr>
                         <tr><td><ul class="linear">
-                            <li><a href="#" meld:id="config_a_mid" class="button on">CONFIG</a></li>
-                            <li><a href="#" meld:id="most_loaded_a_mid" class="button on">MOST_LOADED</a></li>
-                            <li><a href="#" meld:id="less_loaded_a_mid" class="button on">LESS_LOADED</a></li>
-                            <li><a href="#" meld:id="local_a_mid" class="button on">LOCAL</a></li>
+                            <li><a href="#" meld:id="config_a_mid" class="button">CONFIG</a></li>
+                            <li><a href="#" meld:id="most_loaded_a_mid" class="button">MOST_LOADED</a></li>
+                            <li><a href="#" meld:id="less_loaded_a_mid" class="button">LESS_LOADED</a></li>
+                            <li><a href="#" meld:id="local_a_mid" class="button">LOCAL</a></li>
                         </ul></td></tr>
                     </table>
                 </div>
@@ -70,7 +70,7 @@
                     <table class="optionBox">
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
-                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button on">10</a></li>
+                            <li meld:id="period_li_mid"><a href="#" meld:id="period_a_mid" class="button">Period</a></li>
                         </ul></td></tr>
                     </table>
                 </div>
@@ -132,12 +132,12 @@
                                 <td meld:id="load_td_mid" class="centered expected">5%</td>
                                 <td class="centered"><a href="#" meld:id="pmem_a_mid">--</a></td>
                                 <td class="centered"><a href="#" meld:id="pcpu_a_mid">--</a></td>
-                                <td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid" class="button off">Start</a></td>
-                                <td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid" class="button off">Stop</a></td>
-                                <td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid" class="button off">Restart</a></td>
-                                <td meld:id="clear_td_mid"><a href="#" meld:id="clear_a_mid" class="button on">Clear</a></td>
-                                <td meld:id="tailout_td_mid"><a href="#" meld:id="tailout_a_mid" class="button off" target="_blank">Stdout</a></td>
-                                <td meld:id="tailerr_td_mid"><a href="#" meld:id="tailerr_a_mid" class="button on" target="_blank">Stderr</a></td>
+                                <td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid">Start</a></td>
+                                <td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid">Stop</a></td>
+                                <td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid">Restart</a></td>
+                                <td meld:id="clear_td_mid"><a href="#" meld:id="clear_a_mid">Clear</a></td>
+                                <td meld:id="tailout_td_mid"><a href="#" meld:id="tailout_a_mid" target="_blank">Stdout</a></td>
+                                <td meld:id="tailerr_td_mid"><a href="#" meld:id="tailerr_a_mid" target="_blank">Stderr</a></td>
                             </tr>
                         </tbody>
                     </table>

@@ -30,6 +30,9 @@ Change Log
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
 
+* In the application navigation menu of the Web UI, add a red light near the Applications title if any application
+  has raised a failure.
+
 * In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
   for the application considered.
 
@@ -58,7 +61,7 @@ Change Log
 
 * Enable stop sequence on *Unmanaged* applications.
 
-* In the application navigation part of the Web UI, add a red light to applications having a failure raised.
+* In the application navigation menu of the Web UI, add a red light to applications having raised a failure.
 
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
