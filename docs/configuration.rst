@@ -333,7 +333,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     This element is only used when ``distributed`` is set to ``false`` and gives the list of nodes where the application
     processes can be started. The node names are to be taken from the ``address_list`` defined in
-    `[supvisors] Section Values`_, and separated by commas. Special values can be applied.
+    `[supvisors] Section Values`_ or from the declared `Node aliases`_, and separated by commas. Special values can be applied.
 
     The wildcard ``*`` stands for all node names in ``address_list``.
     Any node list including a ``*`` is strictly equivalent to ``*`` alone. Unlike the process rule ``addresses``,
@@ -469,8 +469,8 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 ``addresses``
 
     This element gives the list of nodes where the process can be started. The node names are to be taken from
-    the ``address_list`` defined in `[supvisors] Section Values`_, and separated by commas.
-    Special values can be applied.
+    the ``address_list`` defined in `[supvisors] Section Values`_ or from the declared `Node aliases`_,
+    and separated by commas. Special values can be applied.
 
     The wildcard ``*`` stands for all node names in ``address_list``.
     Any node list including a ``*`` is strictly equivalent to ``*`` alone.
@@ -742,6 +742,51 @@ Here follows examples of ``program`` definitions referencing a model:
         <!-- prg-like programs have the same rules as X11_model, but with required=true-->
         <required>true</required>
     </program>
+
+
+Node aliases
+~~~~~~~~~~~~
+
+When dealing with long lists of nodes, the content of application or program ``addresses`` options may impair
+the readability of the rules file. It is possible to declare node aliases and to use the alias names in place
+of the node names in the ``addresses`` option.
+
+Here follows a few usage examples:
+
+.. code-block:: xml
+
+    <alias name="consoles">console01,console02,console03</alias>
+    <alias name="servers">server01,server02</alias>
+
+    <!-- working alias reference -->
+    <alias name="all_ok">servers,consoles</alias>
+
+    <model name="hci">
+        <addresses>consoles</addresses>
+    </model>
+
+    <model name="service">
+        <addresses>servers,consoles</addresses>
+    </model>
+
+.. hint:: *About aliases referencing other aliases*
+
+    Based on the previous example, an alias referencing other aliases will only work if it is placed *before*
+    the aliases referenced.
+
+    At some point, the resulting node names are checked against the ``address_list`` of the `[supvisors] Section Values`_
+    so any unknown node name or remaining alias will simply be discarded.
+
+.. code-block:: xml
+
+    <!-- Correct alias reference -->
+    <alias name="all_ok">servers,consoles</alias>
+
+    <alias name="consoles">console01,console02,console03</alias>
+    <alias name="servers">server01,server02</alias>
+
+    <!-- Wrong alias reference -->
+    <alias name="all_ko">servers,consoles</alias>
 
 
 Rules File Example
