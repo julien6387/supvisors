@@ -71,6 +71,9 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     /** The date of the last heartbeat message, in the local reference time. */
     private Integer local_time;
 
+    /** The TICK counter. */
+    private Integer sequence_counter;
+
     /**
      * The current declared loading of the address.
      * Note: This is not a measurement. It corresponds to the sum of the declared loading of the running processes.
@@ -87,6 +90,7 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
         this.statename = State.valueOf((String) addressInfo.get("statename"));
         this.remote_time = (Integer) addressInfo.get("remote_time");
         this.local_time = (Integer) addressInfo.get("local_time");
+        this.sequence_counter = (Integer) addressInfo.get("sequence_counter");
         this.loading = (Integer) addressInfo.get("loading");
     }
 
@@ -129,6 +133,17 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     }
 
     /**
+     * The getSequenceCounter method returns the TICK counter, i.e. the number
+     * of TICK events received by Supvisors from Supervisor for this node,
+     * since this Supervisor instance has been started.
+     *
+     * @return Integer: The number of TICK events received.
+     */
+   public Integer getSequenceCounter() {
+        return this.sequence_counter;
+    }
+
+    /**
      * The getLoading method returns the loading of the address.
      *
      * @return State: The loading in percent.
@@ -145,7 +160,8 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     public String toString() {
         return "SupvisorsAddressInfo(name=" + this.address_name
             + " state=" + this.statename + " remoteTime=" + this.remote_time
-            + " localTime=" + this.local_time + " loading=" + this.loading + ")";
+            + " localTime=" + this.local_time + " loading=" + this.loading
+            + " sequenceCounter=" + this.sequence_counter + ")";
     }
 
 }

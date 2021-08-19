@@ -106,32 +106,31 @@ class ControllerPlugin(ControllerPluginBase):
     def do_address_status(self, arg):
         """ Command to get the status of addresses known to Supvisors. """
         if self._upcheck():
-            addresses = arg.split()
-            if not addresses or "all" in addresses:
-                try:
-                    info_list = self.supvisors().get_all_addresses_info()
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
-                else:
-                    for info in info_list:
-                        self.output_address_info(info)
+            try:
+                # get everything at once instead of doing multiple requests
+                info_list = self.supvisors().get_all_addresses_info()
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
-                for address in addresses:
-                    try:
-                        info = self.supvisors().get_address_info(address)
-                    except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'.format(address, e.faultString))
-                    else:
-                        self.output_address_info(info)
-
-    def output_address_info(self, info):
-        """ Print an address status. """
-        template = '%(addr)-20s%(state)-12s%(load)-8s%(ltime)-12s'
-        line = template % {'addr': info['address_name'],
-                           'state': info['statename'],
-                           'load': '{}%'.format(info['loading']),
-                           'ltime': simple_localtime(info['local_time'])}
-        self.ctl.output(line)
+                # create template. node name has variable length
+                max_nodes = max(len(info['address_name']) for info in info_list)
+                max_nodes = max(max_nodes, len('Node')) + 2
+                template = '%(addr)-{}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'.format(max_nodes)
+                # print title
+                payload = {'addr': 'Node', 'state': 'State', 'load': 'Load',
+                           'ltime': 'Time', 'counter': 'Counter'}
+                self._output_info(template, payload)
+                # check request args
+                node_requests = arg.split()
+                output_all = not node_requests or "all" in node_requests
+                # print filtered payloads
+                for info in info_list:
+                    if output_all or info['address_name'] in node_requests:
+                        payload = {'addr': info['address_name'], 'state': info['statename'],
+                                   'load': '{}%'.format(info['loading']),
+                                    'counter': info['sequence_counter'],
+                                   'ltime': simple_localtime(info['local_time'])}
+                        self._output_info(template, payload)
 
     def help_address_status(self):
         """ Print the help of the address_status command."""
@@ -802,6 +801,10 @@ class ControllerPlugin(ControllerPluginBase):
                 return False
             raise
         return True
+
+    def _output_info(self, template, payload):
+        """ Write the information template. """
+        self.ctl.output(template % payload)
 
 
 def make_supvisors_controller_plugin(controller):

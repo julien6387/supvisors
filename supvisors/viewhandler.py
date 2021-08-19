@@ -80,7 +80,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        self.logger.debug('New context: {}'. format(self.view_ctx.parameters))
+        self.logger.trace('New context: {}'. format(self.view_ctx.parameters))
 
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """

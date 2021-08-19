@@ -764,7 +764,9 @@ def test_process_running_state():
     # check running states with several combinations
     assert ProcessStatus.running_state(STOPPED_STATES) == ProcessStates.UNKNOWN
     states = {ProcessStates.STOPPING}
-    assert ProcessStatus.running_state(states) == ProcessStates.UNKNOWN
+    assert ProcessStatus.running_state(states) == ProcessStates.STOPPING
+    states = {ProcessStates.STOPPING, ProcessStates.RUNNING}
+    assert ProcessStatus.running_state(states) == ProcessStates.RUNNING
     assert ProcessStatus.running_state(RUNNING_STATES) == ProcessStates.RUNNING
     states = {ProcessStates.STARTING, ProcessStates.BACKOFF}
     assert ProcessStatus.running_state(states) == ProcessStates.BACKOFF

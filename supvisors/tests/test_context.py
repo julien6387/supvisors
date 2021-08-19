@@ -57,8 +57,8 @@ def test_create(supvisors, context):
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
     assert set(supvisors.address_mapper.node_names), set(context.nodes.keys())
-    for address_name, address in context.nodes.items():
-        assert address.address_name == address_name
+    for node_name, address in context.nodes.items():
+        assert address.node_name == node_name
         assert isinstance(address, AddressStatus)
     assert context.applications == {}
     assert context._master_node_name == ''
@@ -437,7 +437,7 @@ def test_authorization(mocker, context):
         assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
 
 
-def test_tick_event(mocker, context):
+def test_on_tick_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_check = context.supvisors.zmq.pusher.send_check_node
@@ -455,39 +455,46 @@ def test_tick_event(mocker, context):
     # set local node state to RUNNING
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
     # get node status used for tests
-    address = context.nodes['10.0.0.1']
+    status = context.nodes['10.0.0.1']
+    assert status.sequence_counter == 0
     # check no change with known address in isolation
     for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-        address._state = state
+        status._state = state
         context.on_tick_event('10.0.0.1', {})
-        assert address.state == state
+        assert status.state == state
         assert not mocked_check.called
         assert not mocked_send.called
     # check that node is CHECKING and send_check_node is called before node time is updated and address status is sent
     for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-        address._state = state
-        context.on_tick_event('10.0.0.1', {'when': 1234})
-        assert address.state == AddressStates.CHECKING
-        assert address.remote_time == 1234
+        status._state = state
+        context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
+        assert status.state == AddressStates.CHECKING
+        assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
-        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1',
+        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1', 'sequence_counter': 31,
                                                     'statecode': 1, 'statename': 'CHECKING',
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
     # check that node time is updated and address status is sent
-    mocked_check.reset_mock()
-    mocked_send.reset_mock()
     for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
-        address._state = state
-        context.on_tick_event('10.0.0.1', {'when': 5678})
-        assert address.state == state
-        assert address.remote_time == 5678
+        status._state = state
+        context.on_tick_event('10.0.0.1', {'sequence_counter': 57, 'when': 5678})
+        assert status.state == state
+        assert status.remote_time == 5678
         assert not mocked_check.called
-        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1',
+        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1', 'sequence_counter': 57,
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
+    # check that node is forced to SILENT is its sequence_counter is lower than expected
+    status.sequence_counter = 102
+    status._state = AddressStates.RUNNING
+    context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
+    assert status.state == AddressStates.SILENT
+    assert status.local_time == 0
+    assert not mocked_check.called
+    assert not mocked_send.called
 
 
 def test_process_event_unknown_node(mocker, context):
@@ -658,9 +665,11 @@ def test_on_timer_event(mocker, context):
     assert context.on_timer_event() == {proc_2}
     assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 3588, 'loading': 15}),
+                                                'remote_time': 0, 'local_time': 3588, 'loading': 15,
+                                                'sequence_counter': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0})]
     assert proc_2.invalidate_node.call_args_list == [call('10.0.0.2')]
     assert application_1.update_status.call_args_list == [call()]
     # only '10.0.0.2' and '10.0.0.5' nodes changed state
@@ -690,6 +699,8 @@ def test_handle_isolation(mocker, context):
     assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATED
     # check calls to publisher.send_address_status
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0}),
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0})]

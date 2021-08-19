@@ -535,8 +535,7 @@ class ProcessStatus(object):
             # several processes seems to be in a running state so that becomes tricky
             states = {self.info_map[running_node_name]['state'] for running_node_name in self.running_nodes}
             self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
-                              .format(self.process_name,
-                                      [getProcessStateDescription(x) for x in states],
+                              .format(self.process_name, [getProcessStateDescription(x) for x in states],
                                       list(self.running_nodes)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)
@@ -548,6 +547,9 @@ class ProcessStatus(object):
          The sequence defined in the Supervisor RUNNING_STATES is suitable here.
 
         :param states: a list of all process states of the present process over all nodes
-        :return: a running state if found in list, UNKNOWN otherwise
+        :return: a running state if found in list, STOPPING otherwise
         """
-        return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
+        # There may be STOPPING states in the list
+        # In this state, the process is not removed yet from the running_nodes
+        return next((state for state in list(RUNNING_STATES) + [ProcessStates.STOPPING]
+                     if state in states), ProcessStates.UNKNOWN)

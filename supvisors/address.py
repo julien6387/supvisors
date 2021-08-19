@@ -30,8 +30,9 @@ class AddressStatus(object):
     """ Class defining the status of a Supvisors instance.
 
     Attributes:
-    - address: the address where the Supervisor instance is expected to be running,
+    - node_name: the node where the Supervisor instance is expected to be running,
     - state: the state of the Supervisor instance in AddressStates,
+    - sequence_counter: the TICK counter,
     - remote_time: the last date received from the Supvisors instance,
     - local_time: the last date received from the Supvisors instance, in the local reference time,
     - processes: the list of processes that are available on this address. """
@@ -45,8 +46,9 @@ class AddressStatus(object):
         # keep a reference to the common logger
         self.logger: Logger = logger
         # attributes
-        self.address_name: str = node_name
+        self.node_name: str = node_name
         self._state: AddressStates = AddressStates.UNKNOWN
+        self.sequence_counter: int = 0
         self.remote_time: int = 0
         self.local_time: int = 0
         self.processes: Dict[str, ProcessStatus] = {}
@@ -74,17 +76,18 @@ class AddressStatus(object):
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info('AddressStatus.state: {} is {}'.format(self.address_name, self.state.name))
+                self.logger.info('AddressStatus.state: {} is {}'.format(self.node_name, self.state.name))
             else:
                 raise InvalidTransition('AddressStatus.state: {} transition rejected from {} to {}'
-                                        .format(self.address_name, self.state.name, new_state.name))
+                                        .format(self.node_name, self.state.name, new_state.name))
 
     # serialization
     def serial(self):
         """ Return a serializable form of the AddressStatus. """
-        return {'address_name': self.address_name,
+        return {'address_name': self.node_name,
                 'statecode': self.state.value,
                 'statename': self.state.name,
+                'sequence_counter': self.sequence_counter,
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
                 'loading': self.get_loading()}
@@ -96,18 +99,20 @@ class AddressStatus(object):
         :param current_time: the current time
         :return: the inactivity status
         """
-        return self.state == AddressStates.RUNNING and (current_time - self.local_time) > self.INACTIVITY_TIMEOUT
+        return (self.state in [AddressStates.CHECKING, AddressStates.RUNNING]
+                and (current_time - self.local_time) > self.INACTIVITY_TIMEOUT)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
 
-    def update_times(self, remote_time, local_time):
-        """ Update the last times attributes of the AddressStatus and of all the processes running on it. """
+    def update_times(self, sequence_counter: int, remote_time: int, local_time: int):
+        """ Update the time attributes of the AddressStatus and of all the processes running on it. """
+        self.sequence_counter = sequence_counter
         self.remote_time = remote_time
         self.local_time = local_time
         for process in self.processes.values():
-            process.update_times(self.address_name, remote_time)
+            process.update_times(self.node_name, remote_time)
 
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """
@@ -122,14 +127,14 @@ class AddressStatus(object):
         """ Return the process running on the address.
         Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
         return [process for process in self.processes.values()
-                if process.running_on(self.address_name)]
+                if process.running_on(self.node_name)]
 
     def pid_processes(self):
         """ Return the process running on the address and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
-        return [(process.namespec, process.info_map[self.address_name]['pid'])
+        return [(process.namespec, process.info_map[self.node_name]['pid'])
                 for process in self.processes.values()
-                if process.pid_running_on(self.address_name)]
+                if process.pid_running_on(self.node_name)]
 
     def get_loading(self) -> int:
         """ Return the loading of the node, by summing the declared load of the processes running on that node.
@@ -137,7 +142,7 @@ class AddressStatus(object):
         :return: the total loading
         """
         node_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.debug('AddressStatus.get_loading: node_name={} node_load={}'.format(self.address_name, node_load))
+        self.logger.debug('AddressStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
         return node_load
 
     # dictionary for transitions

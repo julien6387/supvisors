@@ -2,8 +2,8 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">#,192.168.1.49,cliche83,cliche84</alias>
-    <alias name="consoles">192.168.1.49,cliche81</alias>
+    <alias name="distribute_sublist">#,cliche82,cliche83,cliche84</alias>
+    <alias name="consoles">cliche82,cliche81</alias>
 
     <!-- models -->
     <model name="disk_01">
@@ -13,7 +13,7 @@
 
     <model name="disk_02">
         <reference>disk_01</reference>
-        <addresses>192.168.1.49</addresses>
+        <addresses>cliche82</addresses>
     </model>
 
     <model name="disk_03">
@@ -31,8 +31,12 @@
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
 
+        <program pattern="">
+            <addresses>cliche81</addresses>
+        </program>
+
         <program name="check_start_sequence">
-            <addresses>*</addresses>
+            <addresses>cliche81</addresses>
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>
@@ -45,7 +49,7 @@
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
         <program pattern="mount_disk_">
-            <addresses>#,192.168.1.49,cliche83,cliche84</addresses>
+            <addresses>#,cliche82,cliche83,cliche84</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>2</stop_sequence>
             <required>true</required>
@@ -135,12 +139,12 @@
 
         <program name="converter_04">
             <reference>converter</reference>
-            <addresses>cliche83,cliche81,192.168.1.49</addresses>
+            <addresses>cliche83,cliche81,cliche82</addresses>
         </program>
 
         <program name="converter_07">
             <reference>converter</reference>
-            <addresses>cliche81,cliche83,192.168.1.49</addresses>
+            <addresses>cliche81,cliche83,cliche82</addresses>
         </program>
 
         <program pattern="converter_">

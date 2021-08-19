@@ -43,6 +43,8 @@ class ProcessStateEvent(object):
 
     @property
     def statename(self):
+        if type(self.statecode) == list:
+            return [getProcessStateDescription(statecode) for statecode in self.statecode]
         return getProcessStateDescription(self.statecode)
 
     def get_state(self):
@@ -171,7 +173,9 @@ class Context:
     def get_program(self, namespec: str):
         """ Get a program from the context using its namespec. """
         application_name, process_name = split_namespec(namespec)
-        return self.get_application(application_name).get_program(process_name)
+        application = self.get_application(application_name)
+        if application:
+            return application.get_program(process_name)
 
     def has_events(self, application_name: str = None) -> bool:
         """ Return True if the programs of the application contain events not received yet. """
@@ -228,11 +232,10 @@ class CheckSequenceTest(unittest.TestCase):
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the nodes
-        # cliche82 is used as IP address so is set at index 0
         proxy = getRPCInterface(os.environ).supvisors
         nodes_info = proxy.get_all_addresses_info()
-        self.HOST_01 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else nodes_info[0]['address_name']
-        self.HOST_02 = nodes_info[0]['address_name'] if len(nodes_info) > 1 else None
+        self.HOST_01 = nodes_info[0]['address_name']
+        self.HOST_02 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else None
         self.HOST_03 = nodes_info[2]['address_name'] if len(nodes_info) > 2 else None
         self.HOST_04 = nodes_info[3]['address_name'] if len(nodes_info) > 3 else None
         # create a context
@@ -291,8 +294,13 @@ class CheckSequenceTest(unittest.TestCase):
         state_event = program.pop_event()
         self.assertIsNotNone(state_event)
         # check the process' state
-        self.assertEqual(state_event.statename, event['statename'])
-        self.assertEqual(state_event.statecode, event['statecode'])
+        print('{} {} {}'.format(process_name, event, str(state_event)))
+        if type(state_event.statecode) == list:
+            assert event['statename'] in state_event.statename
+            assert event['statecode'] in state_event.statecode
+        else:
+            self.assertEqual(state_event.statename, event['statename'])
+            self.assertEqual(state_event.statecode, event['statecode'])
         # check the running nodes
         if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
             if state_event.node_names:

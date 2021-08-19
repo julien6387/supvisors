@@ -758,7 +758,8 @@ class Stopper(Commander):
                 if process.running():
                     # several cases:
                     # 1) expected upon conciliation of a conflicting process
-                    # 2) concurrent stopping / starting
+                    # 2) expected when stopping unmanaged applications with multiple running instances of a program
+                    # 3) concurrent stopping / starting
                     self.logger.warn('Stopper.on_event: {} still running when stopping'.format(process.namespec))
                 elif process.stopped():
                     # goal reached, whatever the state

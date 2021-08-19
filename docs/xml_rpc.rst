@@ -3,13 +3,13 @@
 XML-RPC API
 ===========
 
-The **Supvisors** XML-RPC API is an extension of the Supervisor XML-RPC API.
+The **Supvisors** XML-RPC API is an extension of the *Supervisor* XML-RPC API.
 Detailed information can be found in the `Supervisor XML-RPC API Documentation
 <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
 The ``supvisors`` namespace has been added to the :command:`supervisord` XML-RPC interface.
 
-The XML-RPC ``system.listMethods`` now provides the list of methods supported for both Supervisor and **Supvisors**.
+The XML-RPC ``system.listMethods`` now provides the list of methods supported for both *Supervisor* and **Supvisors**.
 An example is provided below.
 
 .. code-block:: python
@@ -19,8 +19,8 @@ An example is provided below.
 .. note::
 
     In the following, the namespec refers to the full name of the process, including the application name.
-    For example: ``X11:xclock``, where ``X11`` is the name of a Supervisor group and ``xclock`` is the name
-    of a Supervisor program that is referenced in the group.
+    For example: ``X11:xclock``, where ``X11`` is the name of a *Supervisor* group and ``xclock`` is the name
+    of a *Supervisor* program that is referenced in the group.
     In some cases, it can also refer to all the programs of the group.
     For example: ``X11:*``.
 
@@ -68,6 +68,7 @@ Status
             'remote_time'      ``int``   The date, in ms, of the last heartbeat received from the **Supvisors** instance, in the remote reference time.
             'local_time'       ``int``   The date, in ms, of the last heartbeat received from the **Supvisors** instance, in the local reference time.
             'loading'          ``int``   The sum of the expected loading of the processes running on the node, in [0;100]%.
+            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received from *Supervisor* since it is running.
             ================== ========= ===========
 
         .. automethod:: get_all_addresses_info()
@@ -219,15 +220,15 @@ Python Client
 
 There are two possibilities to perform an XML-RPC from a python client.
 Both methods don't require any additional third party.
-However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be set for a process spawned by Supervisor.
+However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be set for a process spawned by *Supervisor*.
 More particularly, it is expected that the following variables are set:
 
-    * ``SUPERVISOR_SERVER_URL``: the url of the Supervisor HTTP server (ex: ``http://localhost:60000``),
+    * ``SUPERVISOR_SERVER_URL``: the url of the *Supervisor* HTTP server (ex: ``http://localhost:60000``),
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
 
 The first is to use the ``getRPCInterface`` of the ``supervisor.childutils`` module.
-This is available in Supervisor but it works only for the local node.
+This is available in *Supervisor* but it works only for the local node.
 
 .. code-block:: python
 
@@ -239,7 +240,7 @@ This is available in Supervisor but it works only for the local node.
     proxy.supvisors.get_supvisors_state()
 
 The second possibility is to use the ``getRPCInterface`` of the ``supvisors.rpcrequests`` module.
-This is available in **Supvisors** and works for all nodes with a Supervisor daemon running with the same HTTP configuration as the local one.
+This is available in **Supvisors** and works for all nodes with a *Supervisor* daemon running with the same HTTP configuration as the local one.
 
 .. code-block:: python
 

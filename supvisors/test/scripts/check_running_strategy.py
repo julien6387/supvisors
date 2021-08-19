@@ -72,7 +72,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         # call parent
         RunningAddressesTest.tearDown(self)
 
-    def test_continue(self):
+    def _test_continue(self):
         """ Test the CONTINUE running failure strategy. """
         print('### Testing CONTINUE running failure strategy')
         # force the movie_server_01 to exit with a fake segmentation fault
@@ -92,9 +92,9 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         with self.assertRaises(Empty):
             self.evloop.application_queue.get(True, 2)
 
-    def _test_restart_process(self):
+    def test_restart_process(self):
         """ Test the RESTART_PROCESS running failure strategy. """
-        # FIXME
+        # FIXME: exclude disk_handler
         print('### Testing RESTART_PROCESS running failure strategy')
         # call for restart on the node where web_browser is running
         proxy = self.proxies[self.web_browser_node_name]
@@ -120,7 +120,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         with self.assertRaises(Empty):
             self.evloop.application_queue.get(True, 2)
 
-    def test_stop_application(self):
+    def _test_stop_application(self):
         """ Test the STOP_APPLICATION running failure strategy. """
         print('### Testing STOP_APPLICATION running failure strategy')
         # get the hmi running location
@@ -163,7 +163,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         with self.assertRaises(Empty):
             self.evloop.application_queue.get(True, 2)
 
-    def test_restart_application(self):
+    def _test_restart_application(self):
         """ Test the RESTART_APPLICATION running failure strategy. """
         print('### Testing RESTART_APPLICATION running failure strategy')
         # get the manager running location
