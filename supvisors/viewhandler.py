@@ -161,7 +161,8 @@ class ViewHandler(MeldView):
             if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
                 elt.attrib['class'] = 'off'
             else:
-                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name})
+                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name,
+                                                                        STRATEGY: item.rules.starting_strategy.name})
                 elt.attributes(href=url)
                 elt.attrib['class'] = 'on'
             elt.content(item.application_name)

@@ -25,7 +25,7 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 
 from supvisors.rpcinterface import API_VERSION
-from supvisors.ttypes import ApplicationStates, SupvisorsStates
+from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsStates
 from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
@@ -324,7 +324,7 @@ def test_write_nav_applications_operation(handler):
     href_elt = Mock(attrib={})
     appli_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_appli = Mock(application_name='dummy_appli', major_failure=False, minor_failure=False,
-                        state=ApplicationStates.RUNNING)
+                        state=ApplicationStates.RUNNING, rules=Mock(starting_strategy=StartingStrategies.LESS_LOADED))
     mocked_mid = Mock(**{'repeat.return_value': [(appli_elt, mocked_appli)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with application name different from parameter and failure
@@ -336,7 +336,8 @@ def test_write_nav_applications_operation(handler):
     assert appli_elt.attrib['class'] == 'RUNNING  failure'
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
+                                                               strategy='LESS_LOADED')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.content.call_args_list == [call('dummy_appli')]
     mocked_root.findmeld.reset_mock()
@@ -353,7 +354,8 @@ def test_write_nav_applications_operation(handler):
     assert appli_elt.attrib['class'] == 'RUNNING active '
     assert appli_elt.findmeld.call_args_list == [call('appli_a_mid')]
     assert href_elt.attrib['class'] == 'on'
-    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', 'application.html', appliname='dummy_appli',
+                                                               strategy='LESS_LOADED')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.content.call_args_list == [call('dummy_appli')]
 

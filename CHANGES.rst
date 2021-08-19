@@ -30,6 +30,9 @@ Change Log
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
 
+* In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
+  for the application considered.
+
 * The XML schema has been moved to a separate file ``rules.xsd``.
 
 * Remove dependency to *netifaces* as *psutil* provides the function.
