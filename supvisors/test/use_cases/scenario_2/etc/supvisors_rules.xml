@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
+    <!-- aliases -->
+    <alias name="servers">cliche81,cliche82,lux150</alias>
+    <alias name="consoles">cliche83,lux150</alias>
+
     <!-- models -->
     <model name="model_services">
         <start_sequence>3</start_sequence>
@@ -14,13 +18,14 @@
 	<model name="data_bus">
         <start_sequence>1</start_sequence>
         <required>true</required>
+        <expected_loading>2</expected_loading>
     </model>
 
     <!-- Scenario 2 Applications -->
     <!-- Services -->
     <application pattern="scen2_services_">
         <distributed>false</distributed>
-        <addresses>cliche82,cliche83</addresses>
+        <addresses>servers</addresses>
         <start_sequence>1</start_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>STOP</starting_failure_strategy>
@@ -42,10 +47,12 @@
             <reference>data_bus</reference>
             <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
         </program>
-	</application>
+    </application>
 
     <!-- HCI -->
     <application pattern="scen2_hci_">
+        <distributed>false</distributed>
+        <addresses>consoles</addresses>
         <starting_strategy>LOCAL</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <program pattern="">
@@ -59,6 +66,7 @@
             <reference>data_bus</reference>
             <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
         </program>
-	</application>
+    </application>
 
 </root>
+

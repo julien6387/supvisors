@@ -6,32 +6,64 @@ Scenario 2
 Context
 -------
 
-In this use case, the application 2 parts.
-services to be started automatically, cannot be distributed
-hci to be started on demand from the consoles. hci is able to find where the nodes are running
+In this use case, the application "Scenario2" is used to control an item.
+It is delivered in 2 parts:
 
-2 application instances to be started
-user can start hci on any console
+    * ``scen2_srv``: dedicated to services and designed to run on a server only,
+    * ``scen2_hci``: dedicated to Human Computer Interfaces (HCI) and designed to run on a console only.
+
+``scen2_hci`` is started on demand from a console, whereas ``scen2_srv`` is available on startup.
+``scen2_srv`` cannot be distributed because of its inter-processes communication scheme.
+``scen2_hci`` is not distributed so that the user gets all the windows on the same screen.
+An internal data bus will allow ``scen2_hci`` to communicate with ``scen2_srv``.
+
+Multiple instances of the "Scenario2" application can be started because there are multiple items to control.
+
+A common data bus - out of this application's scope - is available to exchange data between "Scenario2" instances
+and other applications dealing with other types of items and/or a higher control/command application.
 
 
 Requirements
 ------------
 
-Here are the use case requirements:
+Here follows the use case requirements.
 
-    1. Due to the inter-processes communication scheme, the process distribution shall be fixed.
-    2. The application shall wait for the NFS mount point before it is started.
-    3. An operational status of the application shall be provided.
-    4. The user shall not be able to start an unexpected application process on any other node.
-    5. The application shall be restarted on the 3 nodes upon user request.
-    6. There shall be a non-distributed configuration for developers' use, assuming a different inter-processes communication scheme.
-    7. The non-distributed configuration shall not wait for the NFS mount point.
+Global requirements:
+~~~~~~~~~~~~~~~~~~~~
+
+    1. ``scen2_hci`` and ``scen2_srv`` shall not be distributed.
+    2. Given X items to control, it shall be possible to start X instances of the application.
+    3. An operational status of each application shall be provided.
+    4. ``scen2_hci`` and ``scen2_srv`` shall start only when their internal data bus is operational.
+    5. The number of application instances running shall be limited in accordance with the resources available (consoles or servers up).
+
+Services part:
+~~~~~~~~~~~~~~
+
+    10. ``scen2_srv`` shall be started on a server only.
+    11. ``scen2_srv`` shall be automatically started.
+    12. There shall be a load-balancing strategy to distribute the X instances of ``scen2_srv`` over the servers.
+    13. Upon failure in its starting sequence, ``scen2_srv`` shall be stopped so that it doesn't consume resources uselessly.
+    14. As ``scen2_srv`` is highly dependent from the internal data bus, ``scen2_srv`` shall be fully restarted if the internal data bus crashes.
+    15. Upon server failure, the ``scen2_srv`` instance shall be restarted on another server, in accordance with the load-balancing strategy.
+    16. The ``scen2_srv`` interface with the common data bus shall start only when the common data bus is operational.
+
+HCI part:
+~~~~~~~~~
+
+    20. ``scen2_hci`` shall be started upon user request.
+    21. ``scen2_hci`` shall be started on the console from where the user request has been done.
+    22. When starting ``scen2_hci``, the user shall choose the item to control.
+    23. The user shall not be able to start twice a ``scen2_hci`` that controls the same item.
+    24. Upon failure, the starting sequence of ``scen2_hci`` shall continue so that the user is made aware of.
+    25. As ``scen2_hci`` is highly dependent from the internal data bus, ``scen2_hci`` shall be fully stopped if the internal data bus crashes.
+    26. Upon console failure, ``scen2_hci`` shall not be restarted on another console.
+    27. ``scen2_hci`` shall be stopped upon user request.
+
 
 
 Supervisor configuration
 ------------------------
-
-There are undoubtedly many ways to skin the cat. Here follows one solution.
 
 As an answer to **Requirement 1** and **Requirement 4**, let's split the Supervisor configuration file into 4 parts:
 
