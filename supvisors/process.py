@@ -477,7 +477,7 @@ class ProcessStatus(object):
         :param node_name: the node from which no more information is received
         :return: True if process not running anywhere anymore
         """
-        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name= {} invalidated'
+        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name={} invalidated'
                           .format(self.namespec, node_name))
         if node_name in self.running_nodes:
             # update process status with a FATAL payload

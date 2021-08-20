@@ -99,8 +99,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
 
     @staticmethod
     def wait_until_events(queue, sub_events, timeout):
-        """ Wait for a list of specific events on queue for max timeout
-        in seconds. """
+        """ Wait for a list of specific events on queue for max timeout in seconds. """
         events_received = []
         end_date = time() + timeout
         while time() < end_date:
@@ -111,7 +110,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
             # add event to list if all items of a sub_event are in event
             sub_events_copy = sub_events[:]
             for sub_event in sub_events_copy:
-                if all(item in event.items() for item in sub_event.items()):
+                if sub_event.items() < event.items():
                     events_received.append(event)
                     sub_events.remove(sub_event)
                     # event found. next
