@@ -43,7 +43,8 @@ class SupvisorsOptions(object):
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
         - force_synchro_if: subset of address_list that will force the end of synchro when all RUNNING,
-        - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running instances of the same program,
+        - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
+          instances of the same program,
         - starting_strategy: strategy used to start processes on addresses,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
         - stats_histo: depth of statistics history,

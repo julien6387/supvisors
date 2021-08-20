@@ -64,15 +64,15 @@ class ProcAddressView(SupvisorsAddressView):
         :return: the sorted data and the excluded data.
         """
         # use Supervisor to get local information on all processes
-        data = []
         rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
             self.logger.warn('ProcAddressView.get_process_data: failed to get all process info from {}: {}'
                              .format(self.local_node_name, e.text))
-            return data
+            return [], []
         # extract what is useful to display
+        data = []
         for info in all_info:
             namespec = make_namespec(info['group'], info['name'])
             process = self.sup_ctx.get_process(namespec)
@@ -88,7 +88,7 @@ class ProcAddressView(SupvisorsAddressView):
         # re-arrange data
         return self.sort_data(data)
 
-    def sort_data(self, data: PayloadList) -> PayloadList:
+    def sort_data(self, data: PayloadList) -> Tuple[PayloadList, PayloadList]:
         """ This method sorts a process list by application and using the alphabetical order.
         Processes belonging to an application may be removed, depending on the shex user selection.
 

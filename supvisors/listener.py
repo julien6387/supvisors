@@ -20,7 +20,7 @@
 import json
 import time
 
-from typing import Any
+from typing import Any, Optional
 
 from supervisor import events
 from supervisor.datatypes import boolean
@@ -67,8 +67,8 @@ class SupervisorListener(object):
         # other attributes
         self.local_node_name: str = self.supvisors.address_mapper.local_node_name
         self.sequence_counter: int = 0
-        self.publisher: InternalEventPublisher = None
-        self.main_loop: SupvisorsMainLoop = None
+        self.publisher: Optional[InternalEventPublisher] = None
+        self.main_loop: Optional[SupvisorsMainLoop] = None
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self.on_running)
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)

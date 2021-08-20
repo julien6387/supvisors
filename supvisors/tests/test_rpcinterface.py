@@ -21,6 +21,8 @@ import pytest
 
 from unittest.mock import call, Mock
 
+from supervisor.loggers import LOG_LEVELS_BY_NUM
+
 from supvisors.plugin import expand_faults
 from supvisors.rpcinterface import *
 from supvisors.ttypes import ApplicationStates, ConciliationStrategies, SupvisorsStates

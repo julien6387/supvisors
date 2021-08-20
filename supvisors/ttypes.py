@@ -18,7 +18,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, Sequence, TypeVar
+from typing import Any, Dict, List, TypeVar
 
 
 # all enumerations
@@ -73,5 +73,5 @@ class InvalidTransition(Exception):
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
-PayloadList = Sequence[Payload]
-NameList = Sequence[str]
+PayloadList = List[Payload]
+NameList = List[str]

@@ -128,7 +128,7 @@ class ControllerPlugin(ControllerPluginBase):
                     if output_all or info['address_name'] in node_requests:
                         payload = {'addr': info['address_name'], 'state': info['statename'],
                                    'load': '{}%'.format(info['loading']),
-                                    'counter': info['sequence_counter'],
+                                   'counter': info['sequence_counter'],
                                    'ltime': simple_localtime(info['local_time'])}
                         self._output_info(template, payload)
 

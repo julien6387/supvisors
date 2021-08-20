@@ -103,7 +103,7 @@ def internal_subscriber(supvisors):
     sleep(0.5)
 
 
-def internal_subscriber_receive(internal_subscriber, event_type):
+def internal_subscriber_receive(internal_subscriber):
     """ This method performs a checked reception on the subscriber. """
     internal_subscriber.socket.poll(1000)
     return internal_subscriber.receive()
@@ -121,7 +121,7 @@ def test_disconnection(supvisors, internal_publisher, internal_subscriber):
     payload = {'date': 1000}
     internal_publisher.send_tick_event(payload)
     # check the reception of the tick event
-    msg = internal_subscriber_receive(internal_subscriber, 'Tick')
+    msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.TICK.value, local_node_name, payload)
     # test local disconnection
     internal_subscriber.disconnect([local_node_name])
@@ -140,7 +140,7 @@ def test_tick_event(supvisors, internal_publisher, internal_subscriber):
     payload = {'date': 1000}
     internal_publisher.send_tick_event(payload)
     # check the reception of the tick event
-    msg = internal_subscriber_receive(internal_subscriber, 'Tick')
+    msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.TICK.value, local_node_name, payload)
 
 
@@ -152,7 +152,7 @@ def test_process_event(supvisors, internal_publisher, internal_subscriber):
     payload = {'name': 'dummy_program', 'state': 'running'}
     internal_publisher.send_process_event(payload)
     # check the reception of the process event
-    msg = internal_subscriber_receive(internal_subscriber, 'Process')
+    msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.PROCESS.value, local_node_name, payload)
 
 
@@ -164,7 +164,7 @@ def test_statistics(supvisors, internal_publisher, internal_subscriber):
     payload = {'cpu': 15, 'mem': 5, 'io': (1234, 4321)}
     internal_publisher.send_statistics(payload)
     # check the reception of the statistics event
-    msg = internal_subscriber_receive(internal_subscriber, 'Statistics')
+    msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.STATISTICS.value, local_node_name, payload)
 
 
@@ -176,7 +176,7 @@ def test_state_event(supvisors, internal_publisher, internal_subscriber):
     payload = {'statecode': 10, 'statename': 'running'}
     internal_publisher.send_state_event(payload)
     # check the reception of the process event
-    msg = internal_subscriber_receive(internal_subscriber, 'State')
+    msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.STATE.value, local_node_name, payload)
 
 
@@ -217,7 +217,7 @@ def test_isolate_nodes(mocker, pusher, puller):
     """ The method tests that the 'Isolate Nodes' request is sent and received correctly. """
     pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.ISOLATE_NODES.value, (['10.0.0.1', '10.0.0.2']))
+    assert request == (DeferredRequestHeaders.ISOLATE_NODES.value, ('10.0.0.1', '10.0.0.2'))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])

@@ -180,7 +180,7 @@ def test_process_create(supvisors):
     assert process.namespec == make_namespec(info['group'], info['name'])
     assert process.state == ProcessStates.UNKNOWN
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     assert process.expected_exit
     assert process.last_event_time == 0
     assert process.extra_args == ''
@@ -421,7 +421,7 @@ def test_add_info(supvisors):
     assert info['extra_args'] == ''
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
@@ -442,7 +442,7 @@ def test_add_info(supvisors):
     assert process.expected_exit
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     # update rules to test '#'
     process.rules.hash_addresses = ['*']
     # 3. add a RUNNING process info
@@ -520,7 +520,7 @@ def test_update_info(supvisors):
     assert info['uptime'] == 5
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'

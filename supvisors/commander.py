@@ -83,8 +83,10 @@ class Commander(object):
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
-        - planned_sequence: the applications to be commanded, as a dictionary of process commands, grouped by application sequence order, application name and process sequence order,
-        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands, grouped by application name and process sequence order,
+        - planned_sequence: the applications to be commanded, as a dictionary of process commands,
+          grouped by application sequence order, application name and process sequence order,
+        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands,
+          grouped by application name and process sequence order,
         - current_jobs: a dictionary of process commands, grouped by application name.
     """
 

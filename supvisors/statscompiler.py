@@ -98,7 +98,13 @@ class StatisticsInstance(object):
         period is used as a simple counter. """
         self.period = period // 5
         self.depth = depth
-        self.clear()
+        self.counter = -1
+        self.ref_stats = None
+        # data structures
+        self.cpu = []
+        self.mem = []
+        self.io = {}
+        self.proc = {}
 
     def clear(self):
         """ Reset all attributes. """

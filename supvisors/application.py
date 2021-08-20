@@ -34,11 +34,16 @@ class ApplicationRules(object):
         - managed: set to True when application rules are found from the rules file;
         - distributed: set to False if all processes must be running on the same node;
         - node_names: the nodes where the application can be started (all by default) if not distributed,
-        - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state (0 means: no automatic start);
-        - stop_sequence: defines the order of this application when stopping all the applications (0 means: immediate stop);
-        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started during the starting of the application;
-        - starting_failure_strategy: defines the strategy to apply when a required process cannot be started during the starting of the application;
-        - running_failure_strategy: defines the default strategy to apply when a required process crashes when the application is running.
+        - start_sequence: defines the order of this application when starting all the applications
+          in the DEPLOYMENT state (0 means: no automatic start);
+        - stop_sequence: defines the order of this application when stopping all the applications
+          (0 means: immediate stop);
+        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started
+          during the starting of the application;
+        - starting_failure_strategy: defines the strategy to apply when a required process cannot be started
+          during the starting of the application;
+        - running_failure_strategy: defines the default strategy to apply when a required process crashes
+          when the application is running.
     """
 
     def __init__(self) -> None:

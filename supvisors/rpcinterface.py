@@ -22,7 +22,7 @@ import os
 from typing import Dict, Union
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, LOG_LEVELS_BY_NUM, getLevelNumByDescription
+from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -116,7 +116,8 @@ class RPCInterface(object):
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``list(dict)``: a list of structures containing data about all applications.
         """
@@ -159,7 +160,8 @@ class RPCInterface(object):
     def get_all_process_info(self):
         """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -170,7 +172,8 @@ class RPCInterface(object):
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
-        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors** is running.
+        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors**
+        is running.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -234,7 +237,8 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes among the managed applications.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
@@ -299,7 +303,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
+              or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
 
@@ -483,7 +488,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``
+              or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
 
@@ -525,7 +531,8 @@ class RPCInterface(object):
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
-        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed with the last call.
+        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed
+        with the last call.
 
         *@param* ``bool wait``: wait for process to be fully stopped.
 
@@ -587,7 +594,8 @@ class RPCInterface(object):
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -598,7 +606,8 @@ class RPCInterface(object):
     def shutdown(self) -> bool:
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -606,7 +615,7 @@ class RPCInterface(object):
         self.supvisors.fsm.on_shutdown()
         return True
 
-    def change_log_level(self, level_param: LevelsByName) -> bool:
+    def change_log_level(self, level_param: EnumParameterType) -> bool:
         """ Change the logger level for the local **Supvisors**.
         If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 

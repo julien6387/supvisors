@@ -37,9 +37,12 @@ class ProcessRules(object):
         - start_sequence: the order in the starting sequence of the application,
         - stop_sequence: the order in the stopping sequence of the application,
         - required: a status telling if the process is required within the application,
-        - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application,
-        - expected_load: the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc),
-        - running_failure_strategy: supersedes the application rule and defines the strategy to apply when the process crashes when the application is running.
+        - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase
+          in the starting sequence of the application,
+        - expected_load: the expected loading of the process on the considered hardware (can be anything
+          at the user discretion: CPU, RAM, etc),
+        - running_failure_strategy: supersedes the application rule and defines the strategy to apply
+          when the process crashes when the application is running.
     """
 
     def __init__(self, supvisors: Any) -> None:
@@ -190,8 +193,8 @@ class ProcessStatus(object):
         self.process_name: str = process_name
         self.namespec = make_namespec(application_name, process_name)
         self._state: ProcessStates = ProcessStates.UNKNOWN
-        self.forced_state: ProcessStates = None
-        self.forced_reason: str = None
+        self.forced_state: Optional[ProcessStates] = None
+        self.forced_reason: str = ''
         self.expected_exit: bool = True
         self.last_event_time: int = 0
         self._extra_args: str = ''
@@ -400,7 +403,7 @@ class ProcessStatus(object):
         # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
         if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
             self.forced_state = None
-            self.forced_reason = None
+            self.forced_reason = ''
             self.logger.debug('ProcessStatus.add_info: namespec={} - forced_state unset'.format(self.namespec))
         # update process status
         self.update_status(node_name, info['state'])

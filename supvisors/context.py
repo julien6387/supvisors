@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator, List, Set
+from typing import Iterator, List
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
@@ -287,7 +287,7 @@ class Context(object):
     def on_timer_event(self) -> Set[ProcessStatus]:
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
-        process_failures = set()
+        process_failures = set({})
         # find all nodes that do not send their periodic tick
         current_time = time()
         # do not check for invalidation before synchro_timeout

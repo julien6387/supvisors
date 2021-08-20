@@ -21,7 +21,6 @@ import pytest
 
 from random import shuffle
 
-from supervisor.states import ProcessStates
 from supervisor.web import MeldView, StatusView
 
 from unittest.mock import call, Mock
@@ -120,7 +119,7 @@ def test_get_process_data(mocker, view):
     # test RPC Error
     mocked_process_info = mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo')
     mocked_process_info.side_effect = RPCError('failed RPC')
-    assert view.get_process_data() == []
+    assert view.get_process_data() == ([], [])
     # test normal behavior
     mocked_sort = mocker.patch.object(view, 'sort_data', return_value=['process_2', 'process_1', 'process_3'])
     mocked_process_info.side_effect = None

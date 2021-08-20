@@ -30,8 +30,10 @@ class AddressMapper(object):
     The instance holds:
         - logger: a reference to the common logger;
         - _node_names: the list of nodes defined in the Supvisors configuration file;
-        - local_node_references: the list of known aliases of the current node, i.e. the host name and the IPv4 addresses;
-        - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding to a node of the Supvisors list. """
+        - local_node_references: the list of known aliases of the current node, i.e. the host name
+          and the IPv4 addresses;
+        - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding
+          to a node of the Supvisors list. """
 
     def __init__(self, logger: Logger):
         """ Initialization of the attributes. """

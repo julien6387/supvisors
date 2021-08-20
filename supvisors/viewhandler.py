@@ -460,4 +460,3 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'increase')
         else:
             update_attrib(elt, 'class', 'decrease')
-

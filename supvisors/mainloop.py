@@ -27,10 +27,10 @@ from sys import stderr
 from supervisor.compat import xmlrpclib
 from supervisor.xmlrpc import RPCError
 
-from supvisors.rpcrequests import getRPCInterface
-from supvisors.supvisorszmq import SupvisorsZmq
-from supvisors.ttypes import AddressStates
-from supvisors.utils import DeferredRequestHeaders, RemoteCommEvents
+from .rpcrequests import getRPCInterface
+from .supvisorszmq import SupvisorsZmq
+from .ttypes import AddressStates
+from .utils import DeferredRequestHeaders, RemoteCommEvents
 
 
 class SupvisorsMainLoop(Thread):
