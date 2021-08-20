@@ -324,42 +324,33 @@ class Context(object):
         """
         if self.supvisors.address_mapper.valid(node_name):
             status = self.nodes[node_name]
-            # ISOLATED node is not updated anymore
-            # TODO: accept only if RUNNING ? that may fix the exception
-            # if not status.in_isolation():
+            # accept events only in RUNNING state
             if status.state == AddressStates.RUNNING:
-                    self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
-                #try:
-                    # get internal data
-                    application = self.applications[event['group']]
-                    process = application.processes[event['name']]
-                #except KeyError:
-                    # process not found in Supvisors internal structure
-                    # expected when no tick received yet from this node
-                    #self.logger.debug('Context.on_process_event: reject event {} from node={} as program unknown'
-                    #                  ' to local Supvisors'.format(event, node_name))
-                #else:
-                    # refresh process info depending on the nature of the process event
-                    if 'forced' in event:
-                        process.force_state(event['state'], event['spawnerr'])
-                        del event['forced']
-                    else:
-                        process.update_info(node_name, event)
-                        try:
-                            # update command line in Supervisor
-                            self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
-                        except KeyError:
-                            # process not found in Supervisor internal structure
-                            self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
-                                              ' to local Supervisor'.format(process.namespec))
-                    # refresh application status
-                    application.update_status()
-                    # publish process event, status and application status
-                    publisher = self.supvisors.zmq.publisher
-                    publisher.send_process_event(node_name, event)
-                    publisher.send_process_status(process.serial())
-                    publisher.send_application_status(application.serial())
-                    return process
+                self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
+                # get internal data
+                application = self.applications[event['group']]
+                process = application.processes[event['name']]
+                # refresh process info depending on the nature of the process event
+                if 'forced' in event:
+                    process.force_state(event['state'], event['spawnerr'])
+                    del event['forced']
+                else:
+                    process.update_info(node_name, event)
+                    try:
+                        # update command line in Supervisor
+                        self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
+                    except KeyError:
+                        # process not found in Supervisor internal structure
+                        self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
+                                          ' to local Supervisor'.format(process.namespec))
+                # refresh application status
+                application.update_status()
+                # publish process event, status and application status
+                publisher = self.supvisors.zmq.publisher
+                publisher.send_process_event(node_name, event)
+                publisher.send_process_status(process.serial())
+                publisher.send_application_status(application.serial())
+                return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
 

@@ -25,7 +25,7 @@ Change Log
 * Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
   non-distributed applications.
 
-* The Web UI is updated to handle a large list of applications and nodes.
+* The Web UI is updated to handle a large list of applications, nodes, processor cores and network interfaces.
 
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
   by a Supervisor group.
@@ -35,6 +35,8 @@ Change Log
 
 * In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
   for the application considered.
+
+* In the Application ang Process page, the detailed process statistics can be deselected.
 
 * The XML schema has been moved to a separate file ``rules.xsd``.
 

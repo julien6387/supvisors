@@ -491,7 +491,7 @@ def test_on_tick_event(mocker, context):
     status.sequence_counter = 102
     status._state = AddressStates.RUNNING
     context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
-    assert status.state == AddressStates.SILENT
+    assert status.state == AddressStates.RUNNING
     assert status.local_time == 0
     assert not mocked_check.called
     assert not mocked_send.called
@@ -528,25 +528,6 @@ def test_process_event_isolated_node(mocker, context):
         assert not mocked_publisher.send_application_status.called
 
 
-def test_process_event_unknown_process(mocker, context):
-    """ Test the handling of a process event corresponding to an unknown process. """
-    mocker.patch('supvisors.process.time', return_value=1234)
-    mocked_publisher = context.supvisors.zmq.publisher
-    mocked_update_args = context.supvisors.info_source.update_extra_args
-    # get address status used for tests
-    node = context.nodes['10.0.0.1']
-    # check no exception with unknown process
-    for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-        node._state = state
-        result = context.on_process_event('10.0.0.1', {'groupname': 'dummy_application',
-                                                       'processname': 'dummy_process'})
-        assert result is None
-        assert not mocked_update_args.called
-        assert not mocked_publisher.send_process_event.called
-        assert not mocked_publisher.send_process_status.called
-        assert not mocked_publisher.send_application_status.called
-
-
 def test_process_event(mocker, context):
     """ Test the handling of a process event. """
     mocker.patch('supvisors.process.time', return_value=1234)
@@ -566,31 +547,40 @@ def test_process_event(mocker, context):
     # update sequences for the test
     application.rules.managed = True
     application.update_sequences()
-    # check normal behaviour with known process
+    # payload for parameter
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'extra_args': '',
                    'now': 2345, 'stop': 0}
-    for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-        node._state = state
-        result = context.on_process_event('10.0.0.1', dummy_event)
-        assert result is process
-        assert process.state == 10
-        assert application.state == ApplicationStates.STARTING
-        assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
-        assert mocked_publisher.send_process_event.call_args_list == \
-               [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
-                                  'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
-        assert mocked_publisher.send_process_status.call_args_list == \
-               [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
-                      'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                      'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
-        assert mocked_publisher.send_application_status.call_args_list == \
-               [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
-                      'major_failure': False, 'minor_failure': False})]
-        # reset mocks
-        mocked_update_args.reset_mock()
-        mocked_publisher.send_process_event.reset_mock()
-        mocked_publisher.send_process_status.reset_mock()
-        mocked_publisher.send_application_status.reset_mock()
+    # check behaviour when not in RUNNING state
+    for state in AddressStates:
+        if state != AddressStates.RUNNING:
+            node._state = state
+            assert context.on_process_event('10.0.0.1', dummy_event) is None
+            assert not mocked_update_args.called
+            assert not mocked_publisher.send_process_event.called
+            assert not mocked_publisher.send_process_status.called
+            assert not mocked_publisher.send_application_status.called
+    # check normal behaviour in RUNNING state
+    node._state = AddressStates.RUNNING
+    result = context.on_process_event('10.0.0.1', dummy_event)
+    assert result is process
+    assert process.state == 10
+    assert application.state == ApplicationStates.STARTING
+    assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
+    assert mocked_publisher.send_process_event.call_args_list == \
+           [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
+                              'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
+    assert mocked_publisher.send_process_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
+                  'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
+                  'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
+    assert mocked_publisher.send_application_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
+                  'major_failure': False, 'minor_failure': False})]
+    # reset mocks
+    mocked_update_args.reset_mock()
+    mocked_publisher.send_process_event.reset_mock()
+    mocked_publisher.send_process_status.reset_mock()
+    mocked_publisher.send_application_status.reset_mock()
     # check degraded behaviour with process to Supvisors but unknown to Supervisor (remote program)
     # basically same check as previous, just being confident that no exception is raised by the method
     mocked_update_args.side_effect = KeyError
