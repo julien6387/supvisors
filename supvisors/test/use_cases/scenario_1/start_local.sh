@@ -6,8 +6,7 @@ test_dir=$(dirname "$(readlink -f "$0")")
 
 echo "start Supvisors on" `hostname`
 cd $test_dir
-rm -f log/* etc/supervisord.conf
-ln -s supervisord_localhost.conf etc/supervisord.conf
-supervisord
+rm -f log/*
+supervisord -c etc/supervisord_localhost.conf
 
 firefox http://localhost:61000 &
