@@ -431,16 +431,17 @@ def test_write_common_process_cpu(handler):
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process, irix mode
     handler.supvisors.options.stats_irix_mode = True
-    info = {'namespec': 'dummy_proc', 'proc_stats': [[10, 20]], 'nb_cores': 2}
+    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.replace.called
-    assert not handler.view_ctx.format_url.called
-    assert cell_elt.attrib['class'] == 'button off active'
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, node='10.0.0.1')]
+    assert cell_elt.attrib['class'] == 'button on active'
     assert cell_elt.content.call_args_list == [call('20.00%')]
     # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
     # test with filled stats on not selected process, solaris mode
@@ -499,15 +500,17 @@ def test_write_common_process_mem(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process
-    info = {'namespec': 'dummy_proc', 'proc_stats': ([], [10, 20])}
+    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('20.00%')]
-    assert cell_elt.attrib['class'] == 'button off active'
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, node='10.0.0.2')]
+    assert cell_elt.attrib['class'] == 'button on active'
     # reset context
     tr_elt.findmeld.reset_mock()
     cell_elt.content.reset_mock()
+    handler.view_ctx.format_url.reset_mock()
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
     # test with filled stats on not selected process

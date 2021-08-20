@@ -80,7 +80,7 @@ class ViewHandler(MeldView):
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
-        self.logger.trace('New context: {}'. format(self.view_ctx.parameters))
+        self.logger.debug('New context: {}'. format(self.view_ctx.parameters))
 
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """
@@ -214,13 +214,13 @@ class ViewHandler(MeldView):
             if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= info['nb_cores']
             if info['namespec']:  # empty for an application info
+                update_attrib(elt, 'class', 'button on')
+                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
                 if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'button off active')
-                else:
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                    url = self.view_ctx.format_url('', self.page_name, **parameters)
-                    elt.attributes(href=url)
-                    update_attrib(elt, 'class', 'button on')
+                    update_attrib(elt, 'class', 'active')
+                    parameters[PROCESS] = None
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
+                elt.attributes(href=url)
                 elt.content('{:.2f}%'.format(cpuvalue))
             else:
                 # print data with no link
@@ -238,13 +238,13 @@ class ViewHandler(MeldView):
             # print last MEM value of process
             memvalue = proc_stats[1][-1]
             if info['namespec']:  # empty for an application info
+                update_attrib(elt, 'class', 'button on')
+                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
                 if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'button off active')
-                else:
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                    url = self.view_ctx.format_url('', self.page_name, **parameters)
-                    elt.attributes(href=url)
-                    update_attrib(elt, 'class', 'button on')
+                    update_attrib(elt, 'class', 'active')
+                    parameters[PROCESS] = None
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
+                elt.attributes(href=url)
                 elt.content('{:.2f}%'.format(memvalue))
             else:
                 # print data with no link
@@ -460,3 +460,4 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'increase')
         else:
             update_attrib(elt, 'class', 'decrease')
+
