@@ -61,7 +61,7 @@ def write_config_files(dst_folder: str, parser_files: FileConfigMap) -> None:
     for filename, config in parser_files.items():
         filepath = os.path.join(dst_folder, filename)
         if VERBOSE:
-            print('Create file: {}'.format(filepath))
+            print('Writing file: {}'.format(filepath))
         # create path if it doesn't exist
         folder_name = os.path.dirname(filepath)
         os.makedirs(folder_name, exist_ok=True)
@@ -88,6 +88,9 @@ def breed_groups(parsers, template_groups: TemplateGroups) -> TemplatePrograms:
                 new_section = group + '_%02d' % idx
                 new_programs = [program + '_%02d' % idx for program in programs]
                 config[new_section] = {'programs': ','.join(new_programs)}
+                if VERBOSE:
+                    print('New [{}]'.format(new_section))
+                    print('\tprograms={}'.format(','.join(new_programs)))
                 for program in programs:
                     template_programs.setdefault('program:' + program, []).append(program + '_%02d' % idx)
             # remove template
@@ -142,7 +145,7 @@ if __name__ == '__main__':
     The resulting configuration files are written to a separate folder.
     """
     # get arguments
-    parser = ArgumentParser(description='Multiply the application definitions')
+    parser = ArgumentParser(description='Duplicate the application definitions')
     parser.add_argument('-t', '--template', type=lambda x: is_folder(parser, x), required=True,
                         help='the template folder')
     parser.add_argument('-p', '--pattern', type=str, default='**/*.ini',
@@ -162,16 +165,16 @@ if __name__ == '__main__':
     # get one parser per template file
     config_map, config_files = read_config_files(args.pattern)
     if VERBOSE:
-        print('Configuration files found: {}'.format(list(config_files.keys())))
-        print('Template elements found: {}'.format(list(config_map.keys())))
+        print('Configuration files found:\n\t{}'
+              .format('\n\t'.join([str(file) for file in config_files])))
+        print('Template elements found:\n\t{}'
+              .format('\n\t'.join(config_map.keys())))
     if not len(config_files):
         print('No configuration files found')
         sys.exit(0)
     # update all groups configurations
     group_breed = {'group:' + key: value for key, value in args.breed.items()}
     program_breed = breed_groups(config_map, group_breed)
-    if VERBOSE:
-        print('New programs: {}'.format(program_breed))
     # update program configurations found in groups
     breed_programs(config_map, program_breed)
     # back to previous directory and write files
