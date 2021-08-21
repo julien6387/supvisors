@@ -11,15 +11,15 @@
         <start_sequence>1</start_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
-        <pattern name="">
+        <program pattern="">
             <reference>model_scenario_1</reference>
-        </pattern>
+        </program>
 
-        <pattern name="wait_nfs_mount">
+        <program pattern="wait_nfs_mount">
             <reference>model_scenario_1</reference>
             <start_sequence>1</start_sequence>
             <wait_exit>true</wait_exit>
-        </pattern>
+        </program>
 	</application>
 
 </root>

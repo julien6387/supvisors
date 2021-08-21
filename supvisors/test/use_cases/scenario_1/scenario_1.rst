@@ -178,6 +178,9 @@ section):
 
 All programs are now configured using ``autostart=false``.
 
+Introducing the staged start sequence
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 About |Req 2 abbr|, |Supvisors| manages staged starting sequences and it offers a possibility to wait for a
 planned exit of a process in the sequence.
 So let's define a new program ``wait_nfs_mount_X`` per node and whose role is to exit (using an expected exit code,
@@ -187,7 +190,7 @@ as soon as the NFS mount is available.
 Complying about |Req 7 abbr| is just about avoiding the inclusion of the ``wait_nfs_mount_X`` programs in the
 |Supervisor| configuration file in the case of a non-distributed application. That's why the |Supervisor|
 configuration of these programs is isolated from the configuration of the other programs.
-THat way, |Supvisors| makes it possible to avoid an impact to program definitions, scripts and source code
+That way, |Supvisors| makes it possible to avoid an impact to program definitions, scripts and source code
 when dealing with such a requirement.
 
 Here follows what the include section may look like in both |Supervisor| configuration files.
@@ -201,7 +204,10 @@ Here follows what the include section may look like in both |Supervisor| configu
     # include section for non-distributed application in supervisord_localhost.conf
     # the same program definitions as the distributed application are used
     [include]
-    files = %(host_node_name)s/programs_*.ini localhost/group_localhost.ini
+    files = */programs_*.ini localhost/group_localhost.ini
+
+Rules file
+~~~~~~~~~~
 
 Now that programs are not started automatically by |Supervisor|, a |Supvisors| rules file is needed to define
 the staged starting sequence. A first naive - yet functional - approach would be to use a model for all programs
@@ -314,27 +320,27 @@ the rules file a bit.
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <!-- Programs on cliche81 -->
-            <pattern name="cliche81_">
+            <program pattern="cliche81_">
                 <reference>model_cliche81</reference>
-            </pattern>
+            </program>
             <program name="wait_nfs_mount_1">
                 <reference>model_cliche81</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
             </program>
             <!-- Programs on cliche82 -->
-            <pattern name="cliche82_">
+            <program pattern="cliche82_">
                 <reference>model_cliche82</reference>
-            </pattern>
+            </program>
             <program name="wait_nfs_mount_2">
                 <reference>model_cliche82</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
             </program>
             <!-- Programs on cliche83 -->
-            <pattern name="cliche83_">
+            <program pattern="cliche83_">
                 <reference>model_cliche83</reference>
-            </pattern>
+            </program>
             <program name="wait_nfs_mount_3">
                 <reference>model_cliche83</reference>
                 <start_sequence>1</start_sequence>
@@ -356,11 +362,11 @@ host name - assumed called ``cliche81`` here for the example.
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <!-- Programs on localhost -->
-            <pattern name="">
+            <program pattern="">
                 <addresses>cliche81</addresses>
                 <start_sequence>1</start_sequence>
                 <required>true</required>
-            </pattern>
+            </program>
         </application>
     </root>
 
@@ -386,14 +392,14 @@ But actually, there is a much more simple solution in the present case. Let's co
         <application name="scenario_1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <pattern name="">
+            <program pattern="">
                 <reference>model_scenario_1</reference>
-            </pattern>
-            <pattern name="wait_nfs_mount">
+            </program>
+            <program pattern="wait_nfs_mount">
                 <reference>model_scenario_1</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
-            </pattern>
+            </program>
         </application>
     </root>
 
@@ -408,15 +414,45 @@ gives |Supvisors| only one possibility.
 
 For |Req 3 abbr|, |Supvisors| provides the operational status of the application based on the status of its
 processes, in accordance with their importance. In the present example, all programs are defined with the same
-importance (``required`` set to ``true``). This status is made available through the |Supvisors|
-:ref:`dashboard_application`, the :ref:`xml_rpc` and the :ref:`event_interface`.
+importance (``required`` set to ``true``).
 
 The key point here is that |Supvisors| is able to build a single application from the processes configured
 on the 3 nodes because the same group name (``scenario_1``) is used in all |Supervisor| configuration files.
 
-.. image:: images/supvisors_scenario_1.png
-    :alt: Supvisors Use Cases - Scenario 1
-    :align: center
+Here follows the relevant sections of the ``supervisord_distributed.conf`` configuration file, including the declaration
+of the |Supvisors| plugin.
+
+.. code-block:: ini
+
+    [include]
+    files = %(host_node_name)s/*.ini
+
+    [supvisors]
+    address_list=cliche81,cliche82,cliche83
+    rules_file=etc/supvisors_rules.xml
+
+    [rpcinterface:supvisors]
+    supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+
+    [ctlplugin:supvisors]
+    supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
+
+And the equivalent in the ``supervisord_localhost.conf`` configuration file. No ``address_list`` is provided here as
+the default value is the local host name, which is perfectly suitable here.
+
+.. code-block:: ini
+
+    [include]
+    files = */programs_*.ini localhost/group_localhost.ini
+
+    [supvisors]
+    rules_file=etc/supvisors_rules.xml
+
+    [rpcinterface:supvisors]
+    supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+
+    [ctlplugin:supvisors]
+    supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
 
 The final file tree is as follows.
 
@@ -444,13 +480,49 @@ The final file tree is as follows.
     │         ├── supervisord_localhost.conf
     │         └── supvisors_rules.xml
 
-To restart the whole application (|Req 5 abbr|), the user can perform a single :program:`supervisorctl` shell command
-or a single XML-RPC on |Supvisors| from any node.
+
+Control & Status
+~~~~~~~~~~~~~~~~
+
+This operational status of Scenario 1 required by the |Req 3 abbr| is made available through:
+
+    * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
+    * the :ref:`xml_rpc` (example below),
+    * the extended :program:`supervisorctl` :ref:`extended_status` (example below),
+    * the :ref:`event_interface`.
+
+>>> from supvisors.rpcrequests import getRPCInterface
+>>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
+>>> proxy.supvisors.get_application_info('scenario_1')
+{'application_name': 'scenario_1', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False}
 
 .. code-block:: bash
 
-    [bash] > supervisorctl restart_application <strategy> <group>
+    [bash] > supervisorctl -c etc/supervisord_localhost.conf application_info scenario_1
+    Node         State     Major  Minor
+    scenario_1   RUNNING   True   False
 
+To restart the whole application (|Req 5 abbr|), the following is available:
+
+    * the :ref:`xml_rpc` (example below),
+    * the extended :program:`supervisorctl` :ref:`application_control` (example below),
+    * the restart button |restart| at the top right of the :ref:`dashboard_application` of the  |Supvisors| Web UI.
+
+>>> from supvisors.rpcrequests import getRPCInterface
+>>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
+>>> proxy.supvisors.restart_application('CONFIG', 'scenario_1')
+True
+
+.. code-block:: bash
+
+    [bash] > supervisorctl -c etc/supervisord_localhost.conf restart_application CONFIG scenario_1
+    scenario_1 restarted
+
+Here is a snapshot of the Application page of the |Supvisors| Web UI for the Scenario 1 application.
+
+.. image:: images/supvisors_scenario_1.png
+    :alt: Supvisors Use Cases - Scenario 1
+    :align: center
 
 As a conclusion, all the requirements are met using |Supvisors| and without any impact on the application to be
 supervised. |Supvisors| brings gain over application control and status.
