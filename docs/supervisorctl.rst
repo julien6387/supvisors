@@ -1,3 +1,5 @@
+.. _extended_supervisorctl:
+
 :program:`supervisorctl` extension
 ==================================
 
@@ -24,6 +26,8 @@ The additional commands provided by |Supvisors| are available by typing :command
     conflicts          restart_process      start_args         sversion
     local_status       sreload              start_process
 
+
+.. _extended_status:
 
 Status
 ------
@@ -133,6 +137,8 @@ Status
     Get the |Supvisors| conflicts among the *managed* applications.
 
 
+.. _supvisors_control:
+
 |Supvisors| Control
 ---------------------
 
@@ -153,6 +159,8 @@ Status
 
     Shutdown |Supvisors| through all |Supervisor| instances.
 
+
+.. _application_control:
 
 Application Control
 -------------------

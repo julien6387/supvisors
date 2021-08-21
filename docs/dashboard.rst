@@ -383,23 +383,4 @@ in the header part to choose a relevant node. If no rule is defined for the prog
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
-
-.. |start| image:: images/start_button.png
-    :alt: Start button
-
-.. |stop| image:: images/stop_button.png
-    :alt: Stop button
-
-.. |restart| image:: images/restart_button.png
-    :alt: Restart button
-
-.. |shutdown| image:: images/shutdown_button.png
-    :alt: Shutdown button
-
-.. |refresh| image:: images/refresh_button.png
-    :alt: Refresh button
-
-.. |autorefresh| image:: images/autorefresh_button.png
-    :alt: Refresh button
-
 .. include:: common.rst

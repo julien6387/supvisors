@@ -354,15 +354,6 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     When the application is not to be distributed (``distributed`` set to ``false``), the rule ``addresses`` of the
     application programs is not considered.
 
-.. hint::
-
-    The ``distributed`` and ``addresses`` elements of the application rules have been introduced in **Supvisors 0.7**.
-    In previous versions, there is a workaround to address non-distributed applications using the starting strategy
-    ``CONFIG`` only and assuming that all processes have the same ``addresses`` definition.
-
-    From **Supvisors 0.7**, it is then possible to start non-distributed applications using ``LESS_LOADED`` or
-    ``MOST_LOADED`` starting strategies.
-
 
 ``start_sequence``
 
@@ -546,9 +537,9 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 
     .. note:: *About the choice of an user estimation*
 
-        Although |Supvisors| may be taking measurements on each node where it is running, it has
-        been chosen not to use these figures for the loading purpose. Indeed, the resources consumption
-        of a process may be very variable in time and is not foreseeable.
+        Although |Supvisors| may be taking measurements on each node where it is running, it has been chosen not to use
+        these figures for the loading purpose. Indeed, the resources consumption of a process may be very variable
+        in time and is not foreseeable.
 
         It is recommended to give a value based on an average usage of the resources in the worst case
         configuration and to add a margin corresponding to the standard deviation.
