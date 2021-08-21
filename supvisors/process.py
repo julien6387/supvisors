@@ -85,11 +85,15 @@ class ProcessRules(object):
         """
         if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
                                              RunningFailureStrategies.RESTART_APPLICATION]:
-            if self.supvisors.info_source.autorestart(namespec):
-                self.supvisors.info_source.disable_autorestart(namespec)
-                self.logger.warn('ProcessRules.check_autorestart: program={} - autorestart disabled due to '
-                                 'running failure strategy {}'
-                                 .format(namespec, self.running_failure_strategy.name))
+            try:
+                if self.supvisors.info_source.autorestart(namespec):
+                    self.supvisors.info_source.disable_autorestart(namespec)
+                    self.logger.warn('ProcessRules.check_autorestart: namespec={} - autorestart disabled due to '
+                                     'running failure strategy {}'
+                                     .format(namespec, self.running_failure_strategy.name))
+            except KeyError:
+                self.logger.debug('ProcessRules.check_autorestart: namespec={} unknown to local Supervisor'
+                                  .format(namespec))
 
     def check_hash_nodes(self, namespec: str) -> None:
         """ When a '#' is set in program rules, an association has to be done between the procnumber of the process
@@ -252,8 +256,11 @@ class ProcessStatus(object):
         """
         if self._extra_args != new_args:
             self._extra_args = new_args
-            self.supvisors.info_source.update_extra_args(self.namespec, new_args)
-            self.logger.trace('ProcessStatus.extra_args: {} extra_args={}'.format(self.namespec, self._extra_args))
+            try:
+                self.supvisors.info_source.update_extra_args(self.namespec, new_args)
+            except KeyError:
+                self.logger.debug('ProcessStatus.extra_args: namespec={} unknown to local Supervisor'
+                                  .format(self.namespec))
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.

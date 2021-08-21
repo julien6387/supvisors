@@ -278,7 +278,7 @@ class RPCInterface(object):
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
         done = self.supvisors.starter.start_application(strategy_enum, application)
-        self.logger.debug('start_application {} done={}'.format(application_name, done))
+        self.logger.debug('RPCInterface.start_application: {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -320,7 +320,7 @@ class RPCInterface(object):
             raise RPCError(Faults.NOT_RUNNING, application_name)
         # stop the application
         done = self.supvisors.stopper.stop_application(application)
-        self.logger.debug('stop_application {} done={}'.format(application_name, done))
+        self.logger.debug('RPCInterface.stop_application: {} done={}'.format(application_name, done))
         # wait until application fully STOPPED
         if wait and not done:
             def onwait():
@@ -407,7 +407,7 @@ class RPCInterface(object):
         except KeyError:
             # process is unknown to the local Supervisor
             # this is unexpected as Supvisors checks the configuration before it sends this request
-            self.logger.error('could not find {} in Supervisor processes'.format(namespec))
+            self.logger.error('RPCInterface.start_args: could not find {} in Supervisor processes'.format(namespec))
             raise RPCError(Faults.BAD_NAME, 'namespec {} unknown to this Supervisor instance'.format(namespec))
         # start process with Supervisor internal RPC
         try:
@@ -416,8 +416,9 @@ class RPCInterface(object):
         except RPCError as why:
             self.logger.error('start_process {} failed: {}'.format(namespec, why))
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
-                self.logger.warn('force Supervisor internal state of {} to FATAL'.format(namespec))
-                # at this stage, process is known to the local Supervisor
+                self.logger.warn('RPCInterface.start_args: force Supervisor internal state of {} to FATAL'
+                                 .format(namespec))
+                # at this stage, process is known to the local Supervisor. no need to test again
                 self.supvisors.info_source.force_process_fatal(namespec, why.text)
             # else process is already started
             # this is unexpected as Supvisors checks the process state before it sends this request
@@ -460,7 +461,7 @@ class RPCInterface(object):
         done = True
         for process in processes:
             done &= self.supvisors.starter.start_process(strategy_enum, process, extra_args)
-        self.logger.debug('startProcess {} done={}'.format(process.namespec, done))
+        self.logger.debug('RPCInterface.start_process: {} done={}'.format(process.namespec, done))
         if done:
             # one of the jobs has not been queued. something wrong happened (lack of resources ?)
             raise RPCError(Faults.ABNORMAL_TERMINATION, namespec)
@@ -506,7 +507,7 @@ class RPCInterface(object):
         # stop all processes
         done = True
         for process in processes:
-            self.logger.info('stopping process {}'.format(process.namespec))
+            self.logger.info('RPCInterface.stop_process: stopping process {}'.format(process.namespec))
             done &= self.supvisors.stopper.stop_process(process)
         # wait until processes are in STOPPED_STATES
         if wait and not done:
@@ -734,5 +735,9 @@ class RPCInterface(object):
         """ Create a payload from Supervisor process info. """
         sub_info = extract_process_info(info)
         namespec = make_namespec(info['group'], info['name'])
-        sub_info['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        try:
+            sub_info['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        except KeyError:
+            self.logger.trace('RPCInterface._get_local_info: cannot get extra_args from unknown program={}'
+                              .format(namespec))
         return sub_info

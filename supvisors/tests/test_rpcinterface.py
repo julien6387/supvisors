@@ -949,14 +949,14 @@ def test_get_local_info(rpc):
     info_source = rpc.supvisors.info_source
     info_source.get_extra_args.return_value = '-x dummy_args'
     # test call
-    assert rpc._get_local_info(info) == {'group': 'dummy_group',
-                                         'name': 'dummy_name',
+    assert rpc._get_local_info(info) == {'group': 'dummy_group', 'name': 'dummy_name',
                                          'extra_args': '-x dummy_args',
                                          'state': 'undefined',
-                                         'start': 1234,
-                                         'stop': 7777,
-                                         'now': 4321,
-                                         'pid': 4567,
-                                         'description': 'process dead',
-                                         'expected': True,
-                                         'spawnerr': ''}
+                                         'start': 1234, 'stop': 7777, 'now': 4321, 'pid': 4567,
+                                         'description': 'process dead', 'expected': True, 'spawnerr': ''}
+    # test again if process unknown to the local Supervisor
+    rpc.supvisors.info_source.get_extra_args.side_effect = KeyError
+    assert rpc._get_local_info(info) == {'group': 'dummy_group', 'name': 'dummy_name',
+                                         'state': 'undefined',
+                                         'start': 1234, 'stop': 7777, 'now': 4321, 'pid': 4567,
+                                         'description': 'process dead', 'expected': True, 'spawnerr': ''}

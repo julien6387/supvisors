@@ -101,8 +101,34 @@ def test_rules_check_start_sequence(rules):
 def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
-    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
+    # test based on programs unknown to Supervisor
     mocked_disable = rules.supvisors.info_source.disable_autorestart
+    mocked_autorestart = rules.supvisors.info_source.autorestart
+    mocked_autorestart.side_effect = KeyError
+    for strategy in RunningFailureStrategies:
+        rules.running_failure_strategy = strategy
+        rules.check_autorestart('dummy_process_1')
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
+            assert not mocked_disable.called
+        else:
+            assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
+            mocked_autorestart.reset_mock()
+        assert not mocked_disable.called
+    # test based on programs known to Supervisor but with autostart not activated
+    mocked_autorestart.side_effect = None
+    mocked_autorestart.return_value = False
+    for strategy in RunningFailureStrategies:
+        rules.running_failure_strategy = strategy
+        rules.check_autorestart('dummy_process_1')
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
+            assert not mocked_disable.called
+        else:
+            assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
+            mocked_autorestart.reset_mock()
+        assert not mocked_disable.called
+    # test based on programs known to Supervisor but with autostart activated
+    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
+    mocked_autorestart.return_value = True
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
@@ -347,6 +373,23 @@ def test_process_conflicting(supvisors):
     # remove the first running address to solve the conflict
     process.running_nodes.remove('10.0.0.2')
     assert not process.conflicting()
+
+
+def test_extra_args(supvisors):
+    """ Test the accessors of the ProcessStatus extra_args. """
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    assert process._extra_args == ''
+    assert process.extra_args == ''
+    # test assignment
+    process.extra_args = 'new args'
+    assert process._extra_args == 'new args'
+    assert process.extra_args == 'new args'
+    # test internal exception when process unknown to the local Supervisor
+    supvisors.info_source.update_extra_args.side_effect = KeyError
+    process.extra_args = 'another args'
+    assert process._extra_args == 'another args'
+    assert process.extra_args == 'another args'
 
 
 def test_serialization(supvisors):

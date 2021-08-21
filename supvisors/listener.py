@@ -213,7 +213,7 @@ class SupervisorListener(object):
         try:
             payload['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
         except KeyError:
-            self.logger.trace('SupervisorListener.force_process_state: namespec={} cannot get extra_args'
+            self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
         self.publisher.send_process_event(payload)

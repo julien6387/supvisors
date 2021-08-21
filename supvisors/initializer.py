@@ -55,7 +55,7 @@ class Supvisors(object):
         # create logger
         self.logger = self.create_logger(supervisord)
         # configure supervisor info source
-        self.info_source = SupervisordSource(supervisord)
+        self.info_source = SupervisordSource(supervisord, self.logger)
         # set addresses and check local address
         self.address_mapper = AddressMapper(self.logger)
         self.address_mapper.node_names = self.options.address_list
