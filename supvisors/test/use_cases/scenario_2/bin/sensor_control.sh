@@ -1,2 +1,2 @@
 #!/bin/bash
-./bin/common.sh $1
+./bin/common.sh ${SUPERVISOR_PROCESS_NAME}

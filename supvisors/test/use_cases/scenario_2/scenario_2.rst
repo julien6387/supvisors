@@ -9,13 +9,13 @@ Context
 In this use case, the application "Scenario2" is used to control an item.
 It is delivered in 2 parts:
 
-    * ``scen2_srv``: dedicated to services and designed to run on a server only,
-    * ``scen2_hci``: dedicated to Human Computer Interfaces (HCI) and designed to run on a console only.
+    * :program:`scen2_srv`: dedicated to services and designed to run on a server only,
+    * :program:`scen2_hci`: dedicated to Human Computer Interfaces (HCI) and designed to run on a console only.
 
-``scen2_hci`` is started on demand from a console, whereas ``scen2_srv`` is available on startup.
-``scen2_srv`` cannot be distributed because of its inter-processes communication scheme.
-``scen2_hci`` is not distributed so that the user gets all the windows on the same screen.
-An internal data bus will allow ``scen2_hci`` to communicate with ``scen2_srv``.
+:program:`scen2_hci` is started on demand from a console, whereas :program:`scen2_srv` is available on startup.
+:program:`scen2_srv` cannot be distributed because of its inter-processes communication scheme.
+:program:`scen2_hci` is not distributed so that the user gets all the windows on the same screen.
+An internal data bus will allow :program:`scen2_hci` to communicate with :program:`scen2_srv`.
 
 Multiple instances of the "Scenario2" application can be started because there are multiple items to control.
 
@@ -28,444 +28,645 @@ Requirements
 
 Here follows the use case requirements.
 
-Global requirements:
-~~~~~~~~~~~~~~~~~~~~
+Global requirements
+~~~~~~~~~~~~~~~~~~~
 
-    1. ``scen2_hci`` and ``scen2_srv`` shall not be distributed.
-    2. Given X items to control, it shall be possible to start X instances of the application.
-    3. An operational status of each application shall be provided.
-    4. ``scen2_hci`` and ``scen2_srv`` shall start only when their internal data bus is operational.
-    5. The number of application instances running shall be limited in accordance with the resources available (consoles or servers up).
+Requirement 1
+    |Req 1|
 
-Services part:
-~~~~~~~~~~~~~~
+Requirement 2
+    |Req 2|
 
-    10. ``scen2_srv`` shall be started on a server only.
-    11. ``scen2_srv`` shall be automatically started.
-    12. There shall be a load-balancing strategy to distribute the X instances of ``scen2_srv`` over the servers.
-    13. Upon failure in its starting sequence, ``scen2_srv`` shall be stopped so that it doesn't consume resources uselessly.
-    14. As ``scen2_srv`` is highly dependent from the internal data bus, ``scen2_srv`` shall be fully restarted if the internal data bus crashes.
-    15. Upon server failure, the ``scen2_srv`` instance shall be restarted on another server, in accordance with the load-balancing strategy.
-    16. The ``scen2_srv`` interface with the common data bus shall start only when the common data bus is operational.
+Requirement 3
+    |Req 3|
 
-HCI part:
-~~~~~~~~~
+Requirement 4
+    |Req 4|
 
-    20. ``scen2_hci`` shall be started upon user request.
-    21. ``scen2_hci`` shall be started on the console from where the user request has been done.
-    22. When starting ``scen2_hci``, the user shall choose the item to control.
-    23. The user shall not be able to start twice a ``scen2_hci`` that controls the same item.
-    24. Upon failure, the starting sequence of ``scen2_hci`` shall continue so that the user is made aware of.
-    25. As ``scen2_hci`` is highly dependent from the internal data bus, ``scen2_hci`` shall be fully stopped if the internal data bus crashes.
-    26. Upon console failure, ``scen2_hci`` shall not be restarted on another console.
-    27. ``scen2_hci`` shall be stopped upon user request.
+Requirement 5
+    |Req 5|
 
+.. |Req 1| replace:: Given X items to control, it shall be possible to start X instances of the application.
+.. |Req 1 abbr| replace:: :abbr:`Requirement 1 (Given X items to control, it shall be possible to start X instances of the application.)`
+.. |Req 2| replace:: :program:`scen2_hci` and :program:`scen2_srv` shall not be distributed.
+.. |Req 2 abbr| replace:: :abbr:`Requirement 2 (scen2_hci and scen2_srv shall not be distributed.)`
+.. |Req 3| replace:: An operational status of each application shall be provided.
+.. |Req 3 abbr| replace:: :abbr:`Requirement 3 (An operational status of each application shall be provided.)`
+.. |Req 4| replace:: :program:`scen2_hci` and :program:`scen2_srv` shall start only when their internal data bus is operational.
+.. |Req 4 abbr| replace:: :abbr:`Requirement 4 (scen2_hci and scen2_srv shall start only when their internal data bus is operational.)`
+.. |Req 5| replace:: The number of application instances running shall be limited in accordance with the resources available (consoles or servers up).
+.. |Req 5 abbr| replace:: :abbr:`Requirement 5 (The number of application instances running shall be limited in accordance with the resources available (consoles or servers up).)`
+
+
+Services requirements
+~~~~~~~~~~~~~~~~~~~~~
+
+Requirement 10
+    |Req 10|
+
+Requirement 11
+    |Req 11|
+
+Requirement 12
+    |Req 12|
+
+Requirement 13
+    |Req 13|
+
+Requirement 14
+    |Req 14|
+
+Requirement 15
+    |Req 15|
+
+Requirement 16
+    |Req 16|
+
+Requirement 17
+    |Req 17|
+
+.. |Req 10| replace:: :program:`scen2_srv` shall be started on servers only.
+.. |Req 10 abbr| replace:: :abbr:`Requirement 10 (scen2_srv shall be started on servers only.)`
+.. |Req 11| replace:: The X :program:`scen2_srv` shall be started automatically.
+.. |Req 11 abbr| replace:: :abbr:`Requirement 11 (The X scen2_srv shall be started automatically.)`
+.. |Req 12| replace:: Each :program:`scen2_srv` shall be started once at most.
+.. |Req 12 abbr| replace:: :abbr:`Requirement 12 (Each scen2_srv shall be started once at most.)`
+.. |Req 13| replace:: There shall be a load-balancing strategy to distribute the X :program:`scen2_srv` over the servers.
+.. |Req 13 abbr| replace:: :abbr:`Requirement 13 (There shall be a load-balancing strategy to distribute the X scen2_srv over the servers.)`
+.. |Req 14| replace:: Upon failure in its starting sequence, :program:`scen2_srv` shall be stopped so that it doesn't consume resources uselessly.
+.. |Req 14 abbr| replace:: :abbr:`Requirement 14 (Upon failure in its starting sequence, scen2_srv shall be stopped so that it doesn't consume resources uselessly.)`
+.. |Req 15| replace:: As :program:`scen2_srv` is highly dependent on its internal data bus, :program:`scen2_srv` shall be fully restarted if its internal data bus crashes.
+.. |Req 15 abbr| replace:: :abbr:`Requirement 15 (As scen2_srv is highly dependent on its internal data bus, scen2_srv shall be fully restarted if its internal data bus crashes.)`
+.. |Req 16| replace:: Upon server failure, :program:`scen2_srv` shall be restarted on another server, in accordance with the load-balancing strategy.
+.. |Req 16 abbr| replace:: :abbr:`Requirement 16 (Upon server failure, scen2_srv shall be restarted on another server, in accordance with the load-balancing strategy.)`
+.. |Req 17| replace:: The :program:`scen2_srv` interface with the common data bus shall be started only when the common data bus is operational.
+.. |Req 17 abbr| replace:: :abbr:`Requirement 17 (The scen2_srv interface with the common data bus shall be started only when the common data bus is operational.)`
+
+
+HCI requirements
+~~~~~~~~~~~~~~~~
+
+Requirement 20
+    |Req 20|
+
+Requirement 21
+    |Req 21|
+
+Requirement 22
+    |Req 22|
+
+Requirement 23
+    |Req 23|
+
+Requirement 24
+    |Req 24|
+
+Requirement 25
+    |Req 25|
+
+Requirement 26
+    |Req 26|
+
+Requirement 27
+    |Req 27|
+
+.. |Req 20| replace:: A :program:`scen2_hci` shall be started upon user request.
+.. |Req 20 abbr| replace:: :abbr:`Requirement 20 (A scen2_hci shall be started upon user request.)`
+.. |Req 21| replace:: The :program:`scen2_hci` shall be started on the console from where the user request has been done.
+.. |Req 21 abbr| replace:: :abbr:`Requirement 21 (The scen2_hci shall be started on the console from where the user request has been done.)`
+.. |Req 22| replace:: When starting a :program:`scen2_hci`, the user shall choose the item to control.
+.. |Req 22 abbr| replace:: :abbr:`Requirement 22 (When starting a scen2_hci, the user shall choose the item to control.)`
+.. |Req 23| replace:: The user shall not be able to start two :program:`scen2_hci` that control the same item.
+.. |Req 23 abbr| replace:: :abbr:`Requirement 23 (The user shall not be able to start two scen2_hci that control the same item.)`
+.. |Req 24| replace:: Upon failure, the starting sequence of :program:`scen2_hci` shall continue.
+.. |Req 24 abbr| replace:: :abbr:`Requirement 24 (Upon failure, the starting sequence of scen2_hci shall continue.)`
+.. |Req 25| replace:: As :program:`scen2_hci` is highly dependent on its internal data bus, :program:`scen2_hci` shall be fully stopped if its internal data bus crashes.
+.. |Req 25 abbr| replace:: :abbr:`Requirement 25 (As scen2_hci is highly dependent on its internal data bus, scen2_hci shall be fully stopped if its internal data bus crashes.)`
+.. |Req 26| replace:: Upon console failure, :program:`scen2_hci` shall not be restarted on another console.
+.. |Req 26 abbr| replace:: :abbr:`Requirement 26 (Upon console failure, scen2_hci shall not be restarted on another console.)`
+.. |Req 27| replace:: :program:`scen2_hci` shall be stopped upon user request.
+.. |Req 27 abbr| replace:: :abbr:`Requirement 27 (scen2_hci shall be stopped upon user request.)`
 
 
 Supervisor configuration
 ------------------------
 
-As an answer to **Requirement 1** and **Requirement 4**, let's split the Supervisor configuration file into 4 parts:
+The initial |Supervisor| configuration is as follows:
 
-    * the ``supervisord.conf`` configuration file ;
-    * the program definitions and the group definition (``.ini`` files) for the first node ;
-    * the program definitions and the group definition (``.ini`` files) for the second node ;
-    * the program definitions and the group definition (``.ini`` files) for the third node.
+    * The ``bin`` folder includes all the program scripts of the "Scenario2" application.
+      The scripts get the |Supervisor| ``program_name`` from the environment variable ``${SUPERVISOR_PROCESS_NAME}``.
+    * The ``template_etc`` folder contains the generic configuration for the "Scenario2" application:
 
-All program are configured using ``autostart=true``.
+        - the ``console/group_hci.ini`` file that contains the definition of the :program:`scen2_hci` group
+          and programs,
+        - the ``server/group_server.ini`` file that contains the definition of the :program:`scen2_srv` group
+          and programs.
 
-For packaging facility, the full configuration is available to all nodes but the ``include`` section of the
-configuration file uses the ``host_node_name`` so that the running configuration is actually different on all nodes.
+    * The ``etc`` folder is the target destination for the configurations files of all applications to be supervised.
+      In this example, it just contains a definition of the common data bus (refer to |Req 17 abbr|) that will be
+      auto-started on all nodes.
+      The ``etc`` folder contains the |Supervisor| configuration files that will be used when starting
+      :program:`supervisord`.
 
-.. code-block:: ini
-
-    [include]
-    files = %(host_node_name)s/*.ini
-
-The resulting file tree would be as follows.
-
-.. code-block:: bash
-
-    [bash] > tree
-    .
-    ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         └── programs_cliche81.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         └── programs_cliche82.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         └── programs_cliche83.ini
-    │         └── supervisord.conf
-
-
-For **Requirement 6**, let's just define a group where all programs are declared.
-The proposal is to have 2 *Supervisor* configuration files, one for the distributed application and the other
-for the non-distributed application, the variation being just in the include section.
-
-About **Requirement 2**, *Supervisor* does not provide any facility to stage the starting sequence (refer to
-`Issue #122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_).
-A workaround here would be to insert a wait loop in all the application programs (in the program command line
-or in the program source code). The idea of pushing this wait loop outside the *Supervisor* scope - just before
-starting ``supervisord`` - is excluded as it would impose this dependency on other applications eventually managed
-by *Supervisor*.
-
-With regard to **Requirement 7**, this workaround would require different program commands or parameters, so finally
-different program definitions from *Supervisor* configuration perspective.
+        - the ``supervisord_console.conf`` includes the definition of groups and programs that are intended to run
+          on the consoles,
+        - the ``supervisord_server.conf`` includes the definition of groups and programs that are intended to run
+          on the servers.
 
 .. code-block:: bash
 
     [bash] > tree
     .
+    ├── bin
+    │         ├── common_bus_interface.sh
+    │         ├── common_check_data_bus.sh
+    │         ├── common.sh
+    │         ├── config_manager.sh
+    │         ├── data_processing.sh
+    │         ├── internal_check_data_bus.sh
+    │         ├── internal_data_bus.sh
+    │         ├── sensor_acquisition.sh
+    │         ├── sensor_control.sh
+    │         └── sensor_view.sh
     ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         └── programs_cliche81.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         └── programs_cliche82.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         └── programs_cliche83.ini
-    │         ├── localhost
-    │         │         ├── group_localhost.ini
-    │         │         └── programs_localhost.ini
-    │         ├── supervisord.conf -> supervisord_distributed.conf
-    │         ├── supervisord_distributed.conf
-    │         ├── supervisord_localhost.conf
-    │         └── supvisors-rules.xml
+    │         ├── common
+    │         │         └── services.ini
+    │         ├── supervisord_console.conf
+    │         └── supervisord_server.conf
+    └── template_etc
+        ├── console
+        │         └── group_hci.ini
+        └── server
+            └── group_server.ini
 
-Here is the resulting ``include`` sections:
 
-.. code-block:: ini
+Homogeneous applications
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # include section for distributed application in supervisord_distributed.conf
-    [include]
-    files = %(host_node_name)s/*.ini
+Let's tackle the first big issue about |Req 1 abbr|. |Supervisor| does not provide any support to handle *homogeneous*
+groups. It only provides support for *homogeneous* process groups. Defining *homogeneous* process groups in the present
+case won't help as the program instances cannot be shared across multiple groups.
 
-    # include section for non-distributed application in supervisord_localhost.conf
-    [include]
-    files = localhost/*.ini
+Assuming that the "Scenario2" application is delivered with the |Supervisor| configuration files for one generic item
+to control and assuming that there are X items to control, the first job is duplicate X times all programs and groups
+definitions.
 
-*Supervisor* provides nothing for **Requirement 3**. The user has to evaluate the operational status based on the process
-status provided by the *Supervisor* instances on the 3 nodes, either using multiple ``supervisorctl`` shell commands,
-XML-RPCs or event listeners.
-
-To restart the whole application (**Requirement 5**), the user can perform ``supervisorctl`` shell commands or
-XML-RPCs on each *Supervisor* instance.
+This may be a bit painful when X is great, so a script is provided in the |Supvisors| package to make life easier.
+The next section will detail how it will be used.
 
 .. code-block:: bash
 
-    [bash] > for i in cliche81 cliche82 cliche83
-    ... do
-    ...    supervisorctl -s http://$i:<port> restart <group>:*
-    ... done
+    [bash] > cd /usr/local/lib/python3.6/site-packages/supvisors/tools/
+    [bash] > python breed.py -h
+    usage: breed.py [-h] -t TEMPLATE [-p PATTERN] -d DESTINATION
+                    [-b app=nb [app=nb ...]] [-v]
 
+    Duplicate the application definitions
 
-Eventually, all the requirements could be met using *Supervisor* but it would require additional development
-at application level to build an operational status, based on process information provided by *Supervisor*.
+    optional arguments:
+      -h, --help            show this help message and exit
+      -t TEMPLATE, --template TEMPLATE
+                            the template folder
+      -p PATTERN, --pattern PATTERN
+                            the search pattern from the template folder
+      -d DESTINATION, --destination DESTINATION
+                            the destination folder
+      -b app=nb [app=nb ...], --breed app=nb [app=nb ...]
+                            the applications to breed
+      -v, --verbose         activate logs
 
-It would also require some additional complexity in the configuration files and in the program command lines
-to manage a staged starting sequence of the programs in the group and to manage the distribution of the application
-over different platforms.
+For this example, let's stick to X=3. Using greater values don't change the complexity of what follows. It would just
+need more resources to test.
+The :program:`breed` script duplicates 3 times the :program:`scen2_srv` and :program:`scen2_hci` groups and programs
+found in the ``template_etc`` folder and writes new configuration files into the ``etc`` folder.
 
+.. code-block:: bash
 
-Involving **Supvisors**
------------------------
+    [bash] > python ../../../tools/breed.py -d etc -t template_etc -b scen2_srv=3 scen2_hci=3 -v
+    ArgumentParser: Namespace(breed={'scen2_srv': 3, 'scen2_hci': 3}, destination='etc', pattern='**/*.ini', template='template_etc', verbose=True)
+    Configuration files found:
+        console/group_hci.ini
+        server/group_server.ini
+    Template elements found:
+        group:scen2_hci
+        program:chart_view
+        program:sensor_control
+        program:sensor_view
+        program:hci_internal_check_data_bus
+        program:hci_internal_data_bus
+        group:scen2_srv
+        program:config_manager
+        program:common_check_data_bus
+        program:common_bus_interface
+        program:internal_check_data_bus
+        program:internal_data_bus
+        program:data_processing
+        program:sensor_acquisition
+    New [group:scen2_srv_01]
+        programs=config_manager_01,common_bus_interface_01,common_check_data_bus_01,internal_check_data_bus_01,internal_data_bus_01,data_processing_01,sensor_acquisition_01
+    New [group:scen2_srv_02]
+        programs=config_manager_02,common_bus_interface_02,common_check_data_bus_02,internal_check_data_bus_02,internal_data_bus_02,data_processing_02,sensor_acquisition_02
+    New [group:scen2_srv_03]
+        programs=config_manager_03,common_bus_interface_03,common_check_data_bus_03,internal_check_data_bus_03,internal_data_bus_03,data_processing_03,sensor_acquisition_03
+    New [group:scen2_hci_01]
+        programs=chart_view_01,sensor_control_01,sensor_view_01,hci_internal_check_data_bus_01,hci_internal_data_bus_01
+    New [group:scen2_hci_02]
+        programs=chart_view_02,sensor_control_02,sensor_view_02,hci_internal_check_data_bus_02,hci_internal_data_bus_02
+    New [group:scen2_hci_03]
+        programs=chart_view_03,sensor_control_03,sensor_view_03,hci_internal_check_data_bus_03,hci_internal_data_bus_03
 
-A solution based on **Supvisors** could use the following *Supervisor* configuration (same principles as the previous
-section):
+The resulting file tree is as follows.
 
-    * the ``supervisord_distributed.conf`` configuration file for the distributed application ;
-    * the ``supervisord_localhost.conf`` configuration file for the non-distributed application ;
-    * the program definitions and the group definition (``.ini`` files) for the first node ;
-    * the program definitions and the group definition (``.ini`` files) for the second node ;
-    * the program definitions and the group definition (``.ini`` files) for the third node ;
-    * the group definition including all application programs for a local node.
+.. code-block:: bash
 
-All programs are now configured using ``autostart=false``.
-
-About **Requirement 2**, **Supvisors** manages staged starting sequences and it offers a possibility to wait for a
-planned exit of a process in the sequence.
-So let's define a new program ``wait_nfs_mount_X`` per node and whose role is to exit (using an expected exit code,
-as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
-as soon as the NFS mount is available.
-
-Complying about **Requirement 7** is just about avoiding the inclusion of the ``wait_nfs_mount_X`` programs in the
-*Supervisor* configuration file in the case of a non-distributed application. That's why the *Supervisor*
-configuration of these programs is isolated from the configuration of the other programs.
-THat way, **Supvisors** makes it possible to avoid an impact to program definitions, scripts and source code
-when dealing with such a requirement.
-
-Here follows what the include section may look like in both *Supervisor* configuration files.
-
-.. code-block:: ini
-
-    # include section for distributed application in supervisord_distributed.conf (unchanged)
-    [include]
-    files = %(host_node_name)s/*.ini
-
-    # include section for non-distributed application in supervisord_localhost.conf
-    # the same program definitions as the distributed application are used
-    [include]
-    files = %(host_node_name)s/programs_*.ini localhost/group_localhost.ini
-
-Now that programs are not started automatically by *Supervisor*, a **Supvisors** rules file is needed to define
-the staged starting sequence. A first naive - yet functional - approach would be to use a model for all programs
-to be started on the same node.
-
-.. code-block:: xml
-
-    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-    <root>
-        <!-- models -->
-        <model name="model_cliche81">
-            <addresses>cliche81</addresses>
-            <start_sequence>2</start_sequence>
-            <required>true</required>
-        </model>
-        <model name="model_cliche82">
-            <reference>model_cliche81</reference>
-            <addresses>cliche82</addresses>
-        </model>
-        <model name="model_cliche83">
-            <reference>model_cliche81</reference>
-            <addresses>cliche83</addresses>
-        </model>
-        <!-- Scenario 1 Application -->
-        <application name="scenario_1">
-            <start_sequence>1</start_sequence>
-            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on cliche81 -->
-            <program name="hci">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="config_manager">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="data_processing">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="external_interface">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="data_recorder">
-                <reference>model_cliche81</reference>
-            </program>
-            <program name="wait_nfs_mount_1">
-                <reference>model_cliche81</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche82 -->
-            <program name="sensor_acquisition_1">
-                <reference>model_cliche82</reference>
-            </program>
-            <program name="sensor_processing_1">
-                <reference>model_cliche82</reference>
-            </program>
-            <program name="wait_nfs_mount_2">
-                <reference>model_cliche82</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche83 -->
-            <program name="sensor_acquisition_2">
-                <reference>model_cliche83</reference>
-            </program>
-            <program name="sensor_processing_2">
-                <reference>model_cliche83</reference>
-            </program>
-            <program name="wait_nfs_mount_3">
-                <reference>model_cliche83</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-        </application>
-    </root>
+    [bash] > tree
+    .
+    ├── bin
+    │         ├── common_bus_interface.sh
+    │         ├── common_check_data_bus.sh
+    │         ├── common.sh
+    │         ├── config_manager.sh
+    │         ├── data_processing.sh
+    │         ├── internal_check_data_bus.sh
+    │         ├── internal_data_bus.sh
+    │         ├── sensor_acquisition.sh
+    │         ├── sensor_control.sh
+    │         └── sensor_view.sh
+    ├── etc
+    │         ├── common
+    │         │         └── services.ini
+    │         ├── console
+    │         │         └── group_hci.ini
+    │         ├── server
+    │         │         └── group_server.ini
+    │         ├── supervisord_console.conf
+    │         └── supervisord_server.conf
+    └── template_etc
+        ├── console
+        │         └── group_hci.ini
+        └── server
+            └── group_server.ini
 
 .. note::
 
-    A few words about how the ``wait_nfs_mount_X`` programs have been introduced here. It has to be noted that:
+    As a definition, let's say that the combination of ``scen2_srv_01`` and ``scen2_hci_01`` is the "Scenario2"
+    application that controls the item 01.
 
-        * the ``start_sequence`` of these programs is lower than the ``start_sequence`` of the other application programs ;
-        * their attribute ``wait_exit`` is set to ``true``.
+Here follows what the include section may look like in both |Supervisor| configuration files.
 
-    The consequence is that the 3 programs ``wait_nfs_mount_X`` are started first on their respective node
-    when starting the ``scenario_1`` application. Then **Supvisors** waits for *all* of them to exit before it triggers
-    the starting of the other programs.
+.. code-block:: ini
 
-Well, assuming that the node name could be included as a prefix to the program names, that would simplify
-the rules file a bit.
+    # include section in supervisord_server.conf
+    [include]
+    files = common/*.ini server/*.ini
+
+    # include section in supervisord_console.conf
+    [include]
+    files = common/*.ini console/*.ini
+
+From this point, the ``etc`` folder contains the |Supervisor| configuration that satisfies |Req 1 abbr|.
+
+
+Requirements met with |Supervisor| only
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Server side
+***********
+
+|Req 10 abbr| is satisfied by the ``supervisord_[server|console].conf`` files. Only the ``supervisord_server.conf`` file
+holds the information to start :program:`scen2_srv`.
+
+|Req 16 abbr| implies that all :program:`scen2_srv` definitions must be available on all servers. So a single
+``supervisord_server.conf`` including all :program:`scen2_srv` definitions and made available on all servers still
+makes sense.
+
+The automatic start required in |Req 11 abbr| could be achieved by using the |Supervisor| ``autostart=True``
+on the programs but considering |Req 2 abbr| and |Req 12 abbr|, that becomes a bit complex.
+
+It looks like 2 sets of program definitions are needed, one definition with ``autostart=True``
+and one with ``autostart=False``. All :program:`scen2_srv` groups must include program definitions with a homogeneous
+use of ``autostart``.
+
+In order to maintain the load balancing required in |Req 13 abbr|, the user must define in advance which
+:program:`scen2_srv` shall run on which server and use the relevant program definition (``autostart``-dependent).
+
+This all ends up with a dedicated ``supervisord_server_S.conf`` configuration file for each server.
+
+Console side
+************
+
+Now let's look at the console side.
+Like for the server configuration, all :program:`scen2_hci` must be available on all consoles to satisfy |Req 22 abbr|.
+Per definition, choosing one of the :program:`scen2_hci` is a way to choose the item to control.
+
+|Req 20 abbr|, |Req 21 abbr| and |Req 27 abbr| are simply met using :program:`supervisorctl` commands.
+
+.. code-block:: bash
+
+    [bash] > supervisorctl start scen2_hci_01:*
+    [bash] > supervisorctl stop scen2_hci_01:*
+
+It is possible to do that from the |Supervisor| web UI too, one program at a time.
+Clumsy and there's a risk of mistakes.
+
+Of course, the use of commands like :program:`supervisorctl -s http://other_console:port` should be prohibited.
+
+However, there's nothing to prevent another user to start the same ``scen2_hci`` on his console, as required in
+|Req 23 abbr|.
+
+All the other requirements are about automatic behaviour and there's no |Supervisor| function for that.
+It would require software dedicated development to satisfy them.
+Or |Supvisors| may be used, which is the point of the next section.
+
+
+Involving |Supvisors|
+---------------------
+
+When involving |Supvisors|, all "Scenario2" programs are configured using ``autostart=false``.
+Only the common data bus - that is outside of the application scope - will be auto-started.
+
+The |Supvisors| configuration is built over the |Supervisor| configuration defined above.
+
+Rules file
+~~~~~~~~~~
+
+All the requirements about automatic behaviour are dealt in the |Supvisors| rules file. This section will detail step
+by step how it is built against the requirements.
+
+First, as all ``scen2_srv`` instances have the same rules, a single application entry with a matching pattern is used
+for all of them. The same idea applies to ``scen2_hci``.
+Declaring these applications in the |Supvisors| rules file makes them all *Managed* in |Supvisors|, which gives control
+over the X instances of the "Scenario2" application, as required in |Req 1 abbr|.
 
 .. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
-        <!-- models -->
-        <model name="model_cliche81">
-            <addresses>cliche81</addresses>
-            <start_sequence>2</start_sequence>
+        <application pattern="scen2_srv_"/>
+        <application pattern="scen2_hci_"/>
+    </root>
+
+|Req 2 abbr| is just about declaring the ``distributed`` element to ``false``. It tells |Supvisors| that all the
+programs of the application have to be started on the same node.
+
+.. code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <root>
+        <application pattern="scen2_srv_">
+            <distributed>false</distributed>
+        </application>
+
+        <application pattern="scen2_hci_">
+            <distributed>false</distributed>
+        </application>
+    </root>
+
+So far, all applications can be started on any node. Let's compel ``scen2_hci`` to consoles and ``scen2_srv`` to
+servers, which satisfies |Req 10 abbr| and contributes to some console-related requirements.
+For better readability, node aliases are introduced.
+
+.. code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <root>
+        <alias name="servers">cliche81,cliche82,cliche85</alias>
+        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+
+        <application pattern="scen2_srv_">
+            <distributed>false</distributed>
+            <addresses>servers</addresses>
+        </application>
+
+        <application pattern="scen2_hci_">
+            <distributed>false</distributed>
+            <addresses>consoles</addresses>
+        </application>
+    </root>
+
+It's time to introduce the staged start sequences. |Req 11 abbr| asks for an automatic start of ``scen2_srv``, so
+a strictly positive ``start_sequence`` is added to the application configuration.
+
+Because of |Req 4 abbr|, ``scen2_srv`` and ``scen2_hci`` applications will be started in three phases:
+
+    * first the ``internal_data_bus_X`` program,
+    * then the ``internal_check_data_bus_X`` whose job is to periodically check the ``internal_data_bus_X`` status and
+      exit when it is operational,
+    * other programs.
+
+``internal_data_bus_X`` and ``internal_check_data_bus_X`` are common to ``scen2_srv`` and ``scen2_hci`` and follow
+the same rules so it make sense to define a common model for them.
+
+Due to |Req 17 abbr|, two additional phases are needed for ``scen2_srv``:
+
+    * the ``common_check_data_bus_X`` whose job is to periodically check the ``common_data_bus`` status and exit
+      when it is operational,
+    * finally the ``common_bus_interface_X``.
+
+They are set at the end of the starting sequence so that the core of the ``scen2_srv`` application can be operational
+as a standalone application, even if it's not connected to other possible applications in the system.
+
+.. code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <root>
+        <alias name="servers">cliche81,cliche82,cliche85</alias>
+        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+
+        <model name="model_services">
+            <start_sequence>3</start_sequence>
             <required>true</required>
         </model>
-        <model name="model_cliche82">
-            <reference>model_cliche81</reference>
-            <addresses>cliche82</addresses>
+        <model name="check_data_bus">
+            <start_sequence>2</start_sequence>
+            <required>true</required>
+            <wait_exit>true</wait_exit>
         </model>
-        <model name="model_cliche83">
-            <reference>model_cliche81</reference>
-            <addresses>cliche83</addresses>
+        <model name="data_bus">
+            <start_sequence>1</start_sequence>
+            <required>true</required>
         </model>
-        <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+
+        <application pattern="scen2_srv_">
+            <distributed>false</distributed>
+            <addresses>servers</addresses>
             <start_sequence>1</start_sequence>
-            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on cliche81 -->
-            <pattern name="cliche81_">
-                <reference>model_cliche81</reference>
-            </pattern>
-            <program name="wait_nfs_mount_1">
-                <reference>model_cliche81</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche82 -->
-            <pattern name="cliche82_">
-                <reference>model_cliche82</reference>
-            </pattern>
-            <program name="wait_nfs_mount_2">
-                <reference>model_cliche82</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-            <!-- Programs on cliche83 -->
-            <pattern name="cliche83_">
-                <reference>model_cliche83</reference>
-            </pattern>
-            <program name="wait_nfs_mount_3">
-                <reference>model_cliche83</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </program>
-        </application>
-    </root>
 
-A bit shorter, still functional but the program names are now quite ugly. And the non-distributed version has not been
-considered yet. With this approach, a different rules file is required to replace the node names with the developer's
-host name - assumed called ``cliche81`` here for the example.
-
-.. code-block:: xml
-
-    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-    <root>
-        <!-- Scenario 1 Application -->
-        <application name="scenario_1">
-            <start_sequence>1</start_sequence>
-            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <!-- Programs on localhost -->
+            <program pattern="common_bus_interface">
+                <reference>model_services</reference>
+                <start_sequence>4</start_sequence>
+            </program>
+            <program pattern="common_check_">
+                <reference>check_data_bus</reference>
+                <start_sequence>3</start_sequence>
+            </program>
             <pattern name="">
-                <addresses>cliche81</addresses>
-                <start_sequence>1</start_sequence>
-                <required>true</required>
+                <reference>model_services</reference>
             </pattern>
+            <program pattern="internal_check_">
+                <reference>check_data_bus</reference>
+            </program>
+            <program pattern="internal_data_bus">
+                <reference>data_bus</reference>
+            </program>
+        </application>
+
+        <application pattern="scen2_hci_">
+            <distributed>false</distributed>
+            <addresses>consoles</addresses>
+
+            <program pattern="">
+                <start_sequence>3</start_sequence>
+            </program>
+            <program pattern="internal_check_">
+                <reference>check_data_bus</reference>
+            </program>
+            <program pattern="internal_data_bus">
+                <reference>data_bus</reference>
+            </program>
         </application>
     </root>
 
-This rules file is very simple here as all programs have the exactly same rules.
+.. attention::
+
+    When using application patterns, it is recommended to include only program patterns unless the consequence is well
+    understood. Indeed, using a program name is correct but it will match only one process of one application.
 
 .. hint::
 
-    When the same rules apply to all programs in an application, an empty pattern can be used as it will match
-    all program names of the application.
+    In the rules file, several program patters are used, including empty patterns. As a rule, given a program name to
+    match, |Supvisors| always chooses the most specific pattern.
 
-But actually, there is a much more simple solution in the present case. Let's consider this instead:
+Let's now introduce the automatic behaviors.
+
+|Req 5 abbr| implies to check the resources available before allowing an application or a program to be started.
+|Supvisors| has been designed to consider the resources needed by the program over the resources actually taken.
+To achieve that, the ``expected_loading`` elements of the programs have been set (quite arbitrarily for the example).
+
+The ``starting_strategy`` element of the ``scen2_srv`` application is set to ``LESS_LOADED`` to satisfy |Req 13 abbr|.
+Before |Supvisors| starts a program or an application, it relies on the ``expected_loading`` set just before to:
+
+    * evaluate the current load on all nodes (due to processes already running)
+    * choose the node having the lowest load and that can accept the additional load required by the program
+      or application to start,
+    * if none found, the application and/or the program is not started, which satisfies |Req 5 abbr| .
+
+The ``starting_strategy`` element of the ``scen2_hci`` application is set to ``LOCAL`` to satisfy |Req 21 abbr|.
+Actually this value is only used as a default parameter in the :ref:`dashboard_application` of the |Supvisors| Web UI
+and can be overridden.
+
+|Req 14 abbr| starting failure strategy = STOP_APPLICATION
+|Req 24 abbr| starting failure strategy = CONTINUE
+
+|Req 15 abbr| internal_data_bus running failure strategy = RESTART_APPLICATION
+|Req 25 abbr| internal_data_bus running failure strategy = STOP_APPLICATION
+
+|Req 3 abbr| operational status
 
 .. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
+        <!-- aliases -->
+        <alias name="servers">cliche81,cliche82,cliche85</alias>
+        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+
         <!-- models -->
-        <model name="model_scenario_1">
+        <model name="model_services">
+            <start_sequence>3</start_sequence>
+            <required>true</required>
+            <expected_loading>10</expected_loading>
+        </model>
+        <model name="check_data_bus">
             <start_sequence>2</start_sequence>
             <required>true</required>
+            <wait_exit>true</wait_exit>
         </model>
-        <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+        <model name="data_bus">
             <start_sequence>1</start_sequence>
-            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+            <required>true</required>
+            <expected_loading>2</expected_loading>
+        </model>
+
+        <!-- Scenario 2 Applications -->
+        <!-- Services -->
+        <application pattern="scen2_srv_">
+            <distributed>false</distributed>
+            <addresses>servers</addresses>
+            <start_sequence>1</start_sequence>
+            <starting_strategy>LESS_LOADED</starting_strategy>
+            <starting_failure_strategy>STOP</starting_failure_strategy>
+            <program pattern="common_bus_interface">
+                <reference>model_services</reference>
+                <start_sequence>4</start_sequence>
+            </program>
+            <program pattern="common_check_">
+                <reference>check_data_bus</reference>
+                <start_sequence>3</start_sequence>
+            </program>
             <pattern name="">
-                <reference>model_scenario_1</reference>
+                <reference>model_services</reference>
             </pattern>
-            <pattern name="wait_nfs_mount">
-                <reference>model_scenario_1</reference>
-                <start_sequence>1</start_sequence>
-                <wait_exit>true</wait_exit>
-            </pattern>
+            <program pattern="internal_check_">
+                <reference>check_data_bus</reference>
+            </program>
+            <program pattern="internal_data_bus">
+                <reference>data_bus</reference>
+                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+            </program>
         </application>
+
+        <!-- HCI -->
+        <application pattern="scen2_hci_">
+            <distributed>false</distributed>
+            <addresses>consoles</addresses>
+            <starting_strategy>LOCAL</starting_strategy>
+            <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+            <program pattern="">
+                <start_sequence>3</start_sequence>
+                <expected_loading>8</expected_loading>
+            </program>
+            <program pattern="internal_check_">
+                <reference>check_data_bus</reference>
+            </program>
+            <program pattern="internal_data_bus">
+                <reference>data_bus</reference>
+                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+            </program>
+        </application>
+
     </root>
 
-Much shorter. Yet it does the same. For both the distributed application and the non-distributed application !
+no impact
+|Req 16 abbr| not distributed => all app stopped + internal_data_bus running failure strategy = RESTART_APPLICATION + starting strategy = LESS_LOADED
+|Req 26 abbr| default running failure strategy is CONTINUE. only RESTART_APPLICATION or RESTART_PROCESS would restart something elsewhere
 
-The main point is that the ``addresses`` attribute is not used at all. Clearly, this gives **Supvisors**
-the authorization to start all programs on every nodes. However **Supvisors** knows about the *Supervisor* configuration
-in the 3 nodes. When choosing a node to start a program, **Supvisors** considers the intersection between the authorized
-nodes - all of them here - and the possible nodes, i.e. the active nodes where the program is defined in *Supervisor*.
-One of the first decisions in this use case is that every programs are known to only one *Supervisor* instance so that
-gives **Supvisors** only one possibility.
 
-For **Requirement 3**, **Supvisors** provides the operational status of the application based on the status of its
-processes, in accordance with their importance. In the present example, all programs are defined with the same
-importance (``required`` set to ``true``). This status is made available through the **Supvisors**
-:ref:`dashboard_application`, the :ref:`xml_rpc` and the :ref:`event_interface`.
+|Supvisors| Web UI
+~~~~~~~~~~~~~~~~~~
 
-The key point here is that **Supvisors** is able to build a single application from the processes configured
-on the 3 nodes because the same group name (``scenario_1``) is used in all *Supervisor* configuration files.
+use Web UI but supervisorctl ok
 
-.. image:: images/supvisors_scenario_1.png
-    :alt: Supvisors Use Cases - Scenario 1
+Status
+|Req 3 abbr| operational status
+
+Control
+|Req 20 abbr| + |Req 22 abbr| choix appli X sur web UI
+|Req 12| + |Req 23 abbr| max une instance running
+|Req 27 abbr| stop appli web UI
+
+
+.. image:: images/supvisors_scenario_2.png
+    :alt: Supvisors Use Cases - Scenario 2
     :align: center
 
-The final file tree is as follows.
-
-.. code-block:: bash
-
-    [bash] > tree
-    .
-    ├── etc
-    │         ├── cliche81
-    │         │         ├── group_cliche81.ini
-    │         │         ├── programs_cliche81.ini
-    │         │         └── wait_nfs_mount.ini
-    │         ├── cliche82
-    │         │         ├── group_cliche82.ini
-    │         │         ├── programs_cliche82.ini
-    │         │         └── wait_nfs_mount.ini
-    │         ├── cliche83
-    │         │         ├── group_cliche83.ini
-    │         │         ├── programs_cliche83.ini
-    │         │         └── wait_nfs_mount.ini
-    │         ├── localhost
-    │         │         └── group_localhost.ini
-    │         ├── supervisord.conf -> supervisord_distributed.conf
-    │         ├── supervisord_distributed.conf
-    │         ├── supervisord_localhost.conf
-    │         └── supvisors_rules.xml
-
-To restart the whole application (**Requirement 5**), the user can perform a single ``supervisorctl`` shell command
-or a single XML-RPC on **Supvisors** from any node.
-
-.. code-block:: bash
-
-    [bash] > supervisorctl restart_application <strategy> <group>
-
-
-As a conclusion, all the requirements are met using **Supvisors** and without any impact on the application to be
-supervised. **Supvisors** brings gain over application control and status.
+As a conclusion, all the requirements are met using |Supvisors| and without any impact on the application to be
+supervised. |Supvisors| brings gain over application control and status.
 
 
 Example
 -------
 
-The full example is available in `Supvisors Use Cases - Scenario 1 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_1>`_.
+The full example is available in `Supvisors Use Cases - Scenario 2 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_2>`_.
+
+.. include:: common.rst

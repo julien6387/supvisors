@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
     <!-- aliases -->
-    <alias name="servers">cliche81,cliche82,lux150</alias>
-    <alias name="consoles">cliche83,lux150</alias>
+    <alias name="servers">cliche81,cliche82,cliche85</alias>
+    <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
 
     <!-- models -->
     <model name="model_services">
         <start_sequence>3</start_sequence>
         <required>true</required>
-        <expected_loading>5</expected_loading>
+        <expected_loading>10</expected_loading>
     </model>
 	<model name="check_data_bus">
         <start_sequence>2</start_sequence>
@@ -23,7 +23,7 @@
 
     <!-- Scenario 2 Applications -->
     <!-- Services -->
-    <application pattern="scen2_services_">
+    <application pattern="scen2_srv_">
         <distributed>false</distributed>
         <addresses>servers</addresses>
         <start_sequence>1</start_sequence>
@@ -69,4 +69,3 @@
     </application>
 
 </root>
-
