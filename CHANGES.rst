@@ -6,6 +6,8 @@ Change Log
 
 * In the rules file, support for application patterns has been added.
 
+* Fixed exception when program rules and extra arguments are tested against a program unknown to the local Supervisor.
+
 * Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
   to their owner application.
 
@@ -37,6 +39,8 @@ Change Log
   for the application considered.
 
 * In the Application ang Process page, the detailed process statistics can be deselected.
+
+* Titles added to the output of :program:`supervisorctl` ``address_status`` and ``application_info``.
 
 * The XML schema has been moved to a separate file ``rules.xsd``.
 
