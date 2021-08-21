@@ -28,7 +28,7 @@ from supervisor.states import getProcessStateDescription
 from supervisor.supervisorctl import ControllerPluginBase
 
 from .rpcinterface import API_VERSION, RPCInterface
-from .ttypes import ConciliationStrategies, StartingStrategies
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
 from .utils import simple_localtime
 
 
@@ -113,8 +113,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output('ERROR ({})'.format(e.faultString))
             else:
                 # create template. node name has variable length
-                max_nodes = max(len(info['address_name']) for info in info_list)
-                max_nodes = max(max_nodes, len('Node')) + 2
+                max_nodes = ControllerPlugin.max_template(info_list, 'address_name', 'Node')
                 template = '%(addr)-{}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'.format(max_nodes)
                 # print title
                 payload = {'addr': 'Node', 'state': 'State', 'load': 'Load',
@@ -141,37 +140,43 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("address_status\t\t\t\t"
                         "Get the status of all remote supervisord managed in Supvisors.")
 
+    @staticmethod
+    def max_template(payloads: PayloadList, item: str, title: str):
+        """ Return the length of the item column taking into account the title and all its elements.
+
+        :param payloads: the list of elements
+        :param item: the item to display
+        :param title: the title of the column
+        :return: the length of the column
+        """
+        max_appli = max(len(info[item]) for info in payloads)
+        return max(max_appli, len(title)) + 2
+
     def do_application_info(self, arg):
         """ Command to get information about applications known to Supvisors. """
-        if self._upcheck():
+        if not self._upcheck():
+            return False
+        try:
+            # get everything at once instead of doing multiple requests
+            info_list = self.supvisors().get_all_applications_info()
+        except xmlrpclib.Fault as e:
+            self.ctl.output('ERROR ({})'.format(e.faultString))
+        else:
+            # create template. node name has variable length
+            max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
+            template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
+            # print title
+            payload = {'name': 'Node', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
+            self._output_info(template, payload)
+            # check request args
             applications = arg.split()
-            if not applications or "all" in applications:
-                try:
-                    info_list = self.supvisors().get_all_applications_info()
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
-                else:
-                    for info in info_list:
-                        self.output_application_info(info)
-            else:
-                for application_name in applications:
-                    try:
-                        info = self.supvisors().get_application_info(application_name)
-                    except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
-                    else:
-                        self.output_application_info(info)
-
-    def output_application_info(self, info):
-        """ Print an application information. """
-        template = '%(name)-20s%(state)-12s%(major_failure)-15s%(minor_failure)-15s'
-        major = info['major_failure']
-        minor = info['minor_failure']
-        line = template % {'name': info['application_name'],
-                           'state': info['statename'],
-                           'major_failure': 'major_failure' if major else '',
-                           'minor_failure': 'minor_failure' if minor else ''}
-        self.ctl.output(line)
+            output_all = not applications or "all" in applications
+            # print filtered payloads
+            for info in info_list:
+                if output_all or info['application_name'] in applications:
+                    payload = {'name': info['application_name'], 'state': info['statename'],
+                               'major_failure': info['major_failure'], 'minor_failure': info['minor_failure']}
+                    self._output_info(template, payload)
 
     def help_application_info(self):
         """ Print the help of the application_info command."""
