@@ -154,29 +154,28 @@ class ControllerPlugin(ControllerPluginBase):
 
     def do_application_info(self, arg):
         """ Command to get information about applications known to Supvisors. """
-        if not self._upcheck():
-            return False
-        try:
-            # get everything at once instead of doing multiple requests
-            info_list = self.supvisors().get_all_applications_info()
-        except xmlrpclib.Fault as e:
-            self.ctl.output('ERROR ({})'.format(e.faultString))
-        else:
-            # create template. node name has variable length
-            max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
-            template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
-            # print title
-            payload = {'name': 'Node', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
-            self._output_info(template, payload)
-            # check request args
-            applications = arg.split()
-            output_all = not applications or "all" in applications
-            # print filtered payloads
-            for info in info_list:
-                if output_all or info['application_name'] in applications:
-                    payload = {'name': info['application_name'], 'state': info['statename'],
-                               'major_failure': info['major_failure'], 'minor_failure': info['minor_failure']}
-                    self._output_info(template, payload)
+        if self._upcheck():
+            try:
+                # get everything at once instead of doing multiple requests
+                info_list = self.supvisors().get_all_applications_info()
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                # create template. node name has variable length
+                max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
+                template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
+                # print title
+                payload = {'name': 'Node', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
+                self._output_info(template, payload)
+                # check request args
+                applications = arg.split()
+                output_all = not applications or "all" in applications
+                # print filtered payloads
+                for info in info_list:
+                    if output_all or info['application_name'] in applications:
+                        payload = {'name': info['application_name'], 'state': info['statename'],
+                                   'major_failure': info['major_failure'], 'minor_failure': info['minor_failure']}
+                        self._output_info(template, payload)
 
     def help_application_info(self):
         """ Print the help of the application_info command."""

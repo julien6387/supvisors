@@ -210,14 +210,8 @@ def test_application_info(controller, plugin, mocked_check):
                 '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_application_info, plugin.do_application_info,
                 'all', [call()])
-    # test help and request for application info from a selection of application names
-    mocked_rpc = plugin.supvisors().get_application_info
-    mocked_rpc.side_effect = [{'application_name': 'appli_1', 'statename': 'running',
-                               'major_failure': True, 'minor_failure': False},
-                              {'application_name': 'appli_2', 'statename': 'stopped',
-                               'major_failure': False, 'minor_failure': True}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_application_info, plugin.do_application_info,
-                'appli_2 appli_1', [call('appli_2'), call('appli_1')])
+                'appli_2 appli_1', [call()])
 
 
 def test_sstatus(controller, plugin, mocked_check):
