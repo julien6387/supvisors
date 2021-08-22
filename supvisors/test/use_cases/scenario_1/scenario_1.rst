@@ -291,7 +291,7 @@ to be started on the same node.
         * their attribute ``wait_exit`` is set to ``true``.
 
     The consequence is that the 3 programs ``wait_nfs_mount_X`` are started first on their respective node
-    when starting the ``scenario_1`` application. Then |Supvisors| waits for *all* of them to exit before it triggers
+    when starting the :program:`scenario_1` application. Then |Supvisors| waits for *all* of them to exit before it triggers
     the starting of the other programs.
 
 Well, assuming that the node name could be included as a prefix to the program names, that would simplify
@@ -417,7 +417,7 @@ processes, in accordance with their importance. In the present example, all prog
 importance (``required`` set to ``true``).
 
 The key point here is that |Supvisors| is able to build a single application from the processes configured
-on the 3 nodes because the same group name (``scenario_1``) is used in all |Supervisor| configuration files.
+on the 3 nodes because the same group name (:program:`scenario_1`) is used in all |Supervisor| configuration files.
 
 Here follows the relevant sections of the ``supervisord_distributed.conf`` configuration file, including the declaration
 of the |Supvisors| plugin.
@@ -484,7 +484,7 @@ The final file tree is as follows.
 Control & Status
 ~~~~~~~~~~~~~~~~
 
-This operational status of Scenario 1 required by the |Req 3 abbr| is made available through:
+The operational status of Scenario 1 required by the |Req 3 abbr| is made available through:
 
     * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
     * the :ref:`xml_rpc` (example below),
