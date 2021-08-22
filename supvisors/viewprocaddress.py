@@ -64,15 +64,15 @@ class ProcAddressView(SupvisorsAddressView):
         :return: the sorted data and the excluded data.
         """
         # use Supervisor to get local information on all processes
-        data = []
         rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
             self.logger.warn('ProcAddressView.get_process_data: failed to get all process info from {}: {}'
                              .format(self.local_node_name, e.text))
-            return data
+            return [], []
         # extract what is useful to display
+        data = []
         for info in all_info:
             namespec = make_namespec(info['group'], info['name'])
             process = self.sup_ctx.get_process(namespec)
@@ -80,7 +80,7 @@ class ProcAddressView(SupvisorsAddressView):
             expected_load = process.rules.expected_load
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             data.append({'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                         'node_name': self.view_ctx.local_node_name,
+                         'single': info['group'] == info['name'], 'node_name': self.view_ctx.local_node_name,
                          'statename': info['statename'], 'statecode': info['state'],
                          'gravity': 'FATAL' if unexpected_exit else info['statename'],
                          'description': info['description'],
@@ -88,7 +88,7 @@ class ProcAddressView(SupvisorsAddressView):
         # re-arrange data
         return self.sort_data(data)
 
-    def sort_data(self, data: PayloadList) -> PayloadList:
+    def sort_data(self, data: PayloadList) -> Tuple[PayloadList, PayloadList]:
         """ This method sorts a process list by application and using the alphabetical order.
         Processes belonging to an application may be removed, depending on the shex user selection.
 
@@ -102,10 +102,13 @@ class ProcAddressView(SupvisorsAddressView):
             application_map.setdefault(info['application_name'], []).append(info)
         # sort applications alphabetically
         for application_name, application_processes in sorted(application_map.items()):
-            # add entry for application
-            sorted_data.append(self.get_application_summary(application_name, application_processes))
-            # filter data depending on their application shex
-            application_shex, _ = self.view_ctx.get_application_shex(application_name)
+            single = len(application_processes) == 1 and application_processes[0]['single']
+            application_shex = True
+            if not single:
+                # add entry for application
+                sorted_data.append(self.get_application_summary(application_name, application_processes))
+                # filter data depending on their application shex
+                application_shex, _ = self.view_ctx.get_application_shex(application_name)
             if application_shex:
                 # add processes using the alphabetical ordering
                 sorted_list = sorted([info for info in application_processes], key=lambda x: x['process_name'])
@@ -154,15 +157,20 @@ class ProcAddressView(SupvisorsAddressView):
             shaded_appli_tr, shaded_proc_tr = False, False  # used to invert background style
             for tr_elt, info in iterator:
                 if info['process_name']:
-                    # remove shex td
+                    # this is a process row
                     elt = tr_elt.findmeld('shex_td_mid')
-                    if elt:
+                    if info['single']:
+                        # single line background follows the same logic as applications
+                        apply_shade(tr_elt, shaded_appli_tr)
+                        shaded_appli_tr = not shaded_appli_tr
+                    else:
+                        # remove shex td
                         elt.replace('')
+                        # set line background and invert
+                        apply_shade(tr_elt, shaded_proc_tr)
+                        shaded_proc_tr = not shaded_proc_tr
                     # write common status (shared between this process view and application view)
                     self.write_common_process_status(tr_elt, info)
-                    # set line background and invert
-                    apply_shade(tr_elt, shaded_proc_tr)
-                    shaded_proc_tr = not shaded_proc_tr
                 else:
                     # this is an application row
                     # force next proc shade

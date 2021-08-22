@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator, List, Set
+from typing import Iterator, List
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
@@ -102,13 +102,13 @@ class Context(object):
 
     def nodes_by_states(self, states: List[AddressStates]) -> NameList:
         """ Return the AddressStatus instances sorted by state. """
-        return [status.address_name for status in self.nodes.values() if status.state in states]
+        return [node_name for node_name, status in self.nodes.items() if status.state in states]
 
     def invalid(self, status: AddressStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the AddressStatus in parameter, according to the auto_fence option.
         A local node is never ISOLATING, whatever the option is set or not.
         Give it a chance to restart. """
-        if status.address_name == self.supvisors.address_mapper.local_node_name:
+        if status.node_name == self.supvisors.address_mapper.local_node_name:
             # this is very unlikely
             # to get here, 2 ways:
             #    1. end_synchro or on_timer_event
@@ -198,7 +198,7 @@ class Context(object):
             rules.running_failure_strategy = application.rules.running_failure_strategy
             if self.supvisors.parser:
                 # load rules from rules file
-                self.supvisors.parser.load_process_rules(namespec, rules)
+                self.supvisors.parser.load_program_rules(namespec, rules)
                 self.logger.debug('Context.setdefault_process: namespec={} rules={}'.format(namespec, rules))
             # add new process to context
             process = ProcessStatus(application_name, info['name'], rules, self.supvisors)
@@ -266,14 +266,55 @@ class Context(object):
         # ISOLATED nodes are not updated anymore
         if not status.in_isolation():
             self.logger.debug('Context.on_tick_event: got tick {} from location={}'.format(event, node_name))
-            # asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance
-            if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                status.state = AddressStates.CHECKING
-                self.supvisors.zmq.pusher.send_check_node(node_name)
-            # update internal times
-            status.update_times(event['when'], int(time()))
-            # publish AddressStatus event
-            self.supvisors.zmq.publisher.send_address_status(status.serial())
+            # check sequence counter to identify rapid supervisor restart
+            if status.state in [AddressStates.CHECKING, AddressStates.RUNNING] \
+                    and event['sequence_counter'] < status.sequence_counter:
+                self.logger.warn('Context.on_tick_event: stealth restart of node={}'.format(node_name))
+                # force node inactivity by resetting its local_time
+                # FSM on_timer_event will handle the node invalidation
+                status.local_time = 0
+            else:
+                # asynchronous port-knocking used to check how the remote Supvisors instance
+                # considers the local instance
+                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                    status.state = AddressStates.CHECKING
+                    self.supvisors.zmq.pusher.send_check_node(node_name)
+                # update internal times
+                status.update_times(event['sequence_counter'], event['when'], int(time()))
+                # publish AddressStatus event
+                self.supvisors.zmq.publisher.send_address_status(status.serial())
+
+    def on_timer_event(self) -> Set[ProcessStatus]:
+        """ Check that all Supvisors instances are still publishing.
+        Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
+        process_failures = set({})
+        # find all nodes that do not send their periodic tick
+        current_time = time()
+        # do not check for invalidation before synchro_timeout
+        if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+            for status in self.nodes.values():
+                if status.state == AddressStates.UNKNOWN:
+                    # invalid unknown nodes
+                    # nothing to do on processes as none received yet
+                    self.invalid(status)
+                elif status.inactive(current_time):
+                    # invalid silent nodes
+                    self.invalid(status)
+                    # for processes that were running on node, invalidate node in process
+                    # WARN: it has been decided NOT to remove the node payload from the ProcessStatus and NOT to remove
+                    #  the ProcessStatus from the Context if no more node payload left.
+                    #  The aim is to keep a trace in the Web UI about the application processes that have been lost
+                    #  and their related description.
+                    process_failures.update({process for process in status.running_processes()
+                                             if process.invalidate_node(status.node_name)})
+        # update all application sequences and status
+        for application_name in {process.application_name for process in process_failures}:
+            application = self.applications[application_name]
+            # update sequence useless as long as the application.process map is not impacted (see decision above)
+            # application.update_sequences()
+            application.update_status()
+        #  return all processes that declare a failure
+        return process_failures
 
     def on_process_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -283,63 +324,35 @@ class Context(object):
         """
         if self.supvisors.address_mapper.valid(node_name):
             status = self.nodes[node_name]
-            # ISOLATED address is not updated anymore
-            if not status.in_isolation():
+            # accept events only in RUNNING state
+            if status.state == AddressStates.RUNNING:
                 self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
-                try:
-                    # get internal data
-                    application = self.applications[event['group']]
-                    process = application.processes[event['name']]
-                except KeyError:
-                    # process not found in Supvisors internal structure
-                    # expected when no tick received yet from this node
-                    self.logger.debug('Context.on_process_event: reject event {} from node={} as program unknown'
-                                      ' to local Supvisors'.format(event, node_name))
+                # get internal data
+                application = self.applications[event['group']]
+                process = application.processes[event['name']]
+                # refresh process info depending on the nature of the process event
+                if 'forced' in event:
+                    process.force_state(event['state'], event['spawnerr'])
+                    del event['forced']
                 else:
-                    # refresh process info depending on the nature of the process event
-                    if 'forced' in event:
-                        process.force_state(event['state'], event['spawnerr'])
-                        del event['forced']
-                    else:
-                        process.update_info(node_name, event)
-                        try:
-                            # update command line in Supervisor
-                            self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
-                        except KeyError:
-                            # process not found in Supervisor internal structure
-                            self.logger.warn('Context.on_process_event: cannot apply extra args to {} unknown'
-                                             ' to local Supervisor'.format(process.namespec))
-                    # refresh application status
-                    application.update_status()
-                    # publish process event, status and application status
-                    publisher = self.supvisors.zmq.publisher
-                    publisher.send_process_event(node_name, event)
-                    publisher.send_process_status(process.serial())
-                    publisher.send_application_status(application.serial())
-                    return process
+                    process.update_info(node_name, event)
+                    try:
+                        # update command line in Supervisor
+                        self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
+                    except KeyError:
+                        # process not found in Supervisor internal structure
+                        self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
+                                          ' to local Supervisor'.format(process.namespec))
+                # refresh application status
+                application.update_status()
+                # publish process event, status and application status
+                publisher = self.supvisors.zmq.publisher
+                publisher.send_process_event(node_name, event)
+                publisher.send_process_status(process.serial())
+                publisher.send_application_status(application.serial())
+                return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
-
-    def on_timer_event(self) -> Set[ProcessStatus]:
-        """ Check that all Supvisors instances are still publishing.
-        Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
-        process_failures = set()
-        # find all nodes that do not send their periodic tick
-        current_time = time()
-        # do not check for invalidation before synchro_timeout
-        if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
-            for status in self.nodes.values():
-                if status.state == AddressStates.UNKNOWN:
-                    # invalid unknown nodes
-                    self.invalid(status)
-                elif status.inactive(current_time):
-                    # invalid silent nodes
-                    self.invalid(status)
-                    # invalidate node in processes
-                    process_failures.update({process for process in status.running_processes()
-                                             if process.invalidate_node(status.address_name)})
-        #  return all processes that declare a failure
-        return process_failures
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING nodes to ISOLATED and publish related events. """

@@ -24,20 +24,20 @@ from unittest.mock import patch, Mock
 from supervisor.http import supervisor_auth_handler
 from supervisor.medusa import default_handler
 
+from supvisors.infosource import SupervisordSource
+
 
 @pytest.fixture
 def source(supervisor):
     """ Return the instance to test. """
-    from supvisors.infosource import SupervisordSource
-    return SupervisordSource(supervisor)
+    return SupervisordSource(supervisor, supervisor.supvisors.logger)
 
 
 def test_unix_server(mocker, supervisor):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
-    from supvisors.infosource import SupervisordSource
     mocker.patch.dict(supervisor.options.server_configs[0], {'section': 'unix_http_server'})
     with pytest.raises(ValueError):
-        SupervisordSource(supervisor)
+        SupervisordSource(supervisor, supervisor.supvisors.logger)
 
 
 def test_creation(supervisor, source):
@@ -93,27 +93,27 @@ def test_process(source):
     """ Test the access of a supervisord process. """
     # test unknown application and process
     with pytest.raises(KeyError):
-        source.get_process('unknown_application:unknown_process')
+        source._get_process('unknown_application:unknown_process')
     with pytest.raises(KeyError):
-        source.get_process('dummy_application:unknown_process')
+        source._get_process('dummy_application:unknown_process')
     # test normal behaviour
     app_config = source.supervisord.process_groups['dummy_application']
-    assert source.get_process('dummy_application:dummy_process_1') is app_config.processes['dummy_process_1']
-    assert source.get_process('dummy_application:dummy_process_2') is app_config.processes['dummy_process_2']
+    assert source._get_process('dummy_application:dummy_process_1') is app_config.processes['dummy_process_1']
+    assert source._get_process('dummy_application:dummy_process_2') is app_config.processes['dummy_process_2']
 
 
 def test_process_config(source):
     """ Test the access of a group configuration. """
     # test unknown application and process
     with pytest.raises(KeyError):
-        source.get_process_config('unknown_application:unknown_process')
+        source._get_process_config('unknown_application:unknown_process')
     with pytest.raises(KeyError):
-        source.get_process_config('dummy_application:unknown_process')
+        source._get_process_config('dummy_application:unknown_process')
     # test normal behaviour
-    config = source.get_process_config('dummy_application:dummy_process_1')
+    config = source._get_process_config('dummy_application:dummy_process_1')
     assert config.autorestart
     assert config.command == 'ls'
-    config = source.get_process_config('dummy_application:dummy_process_2')
+    config = source._get_process_config('dummy_application:dummy_process_2')
     assert not config.autorestart
     assert config.command == 'cat'
 
@@ -162,7 +162,7 @@ def test_extra_args(source):
         source.update_extra_args('dummy_application:unknown_process', '-la')
     # test normal behaviour
     namespec = 'dummy_application:dummy_process_1'
-    config = source.get_process_config(namespec)
+    config = source._get_process_config(namespec)
     # add extra arguments
     source.update_extra_args(namespec, '-la')
     # test access
@@ -189,7 +189,7 @@ def test_force_fatal(source):
     with pytest.raises(KeyError):
         source.force_process_fatal('dummy_application:unknown_process', 'crash')
     # test normal behaviour
-    process_1 = source.get_process('dummy_application:dummy_process_1')
+    process_1 = source._get_process('dummy_application:dummy_process_1')
     assert process_1.state == 'STOPPED'
     assert process_1.spawnerr == ''
     source.force_process_fatal('dummy_application:dummy_process_1', 'crash')

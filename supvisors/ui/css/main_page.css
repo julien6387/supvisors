@@ -1,0 +1,54 @@
+/* Supvisors Main page */
+#index_contents {
+    display: flex;
+    flex: 1;
+    overflow: auto;
+    margin-top: 10px;
+}
+
+#box_part {
+    display: flex;
+    flex: 1;
+    height: 60px;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+
+#conflict_part {
+    flex: 1;
+}
+
+.nodeBox {
+    display: contents;
+}
+
+.nodeBox>* {
+    margin: 10px;
+}
+
+.nodeBox table {
+    height: 100%;
+    border: 3px ridge var(--border-color);
+}
+
+.nodeBox th {
+    height: 18px;
+    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
+}
+
+.nodeBox td:nth-child(1) {
+    vertical-align: top;
+}
+
+.nodeBox .button {
+    /*display: inline-block;*/
+    padding: 2px 4px;
+    margin-bottom: 4px;
+    background-color: #007600;
+    border-radius: 6px;
+    cursor: default;
+}
+
+.nodeBox td:nth-child(2) {
+    text-align: center;
+}

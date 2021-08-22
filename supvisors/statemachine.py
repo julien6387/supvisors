@@ -113,7 +113,8 @@ class InitializationState(AbstractState):
 
         :return: the new Supvisors state
         """
-        if (time() - self.context.start_date) > self.supvisors.options.synchro_timeout:
+        uptime = time() - self.context.start_date
+        if uptime > self.supvisors.options.synchro_timeout:
             self.logger.warn('InitializationState.next: synchro timed out')
         # cannot get out of this state without local node RUNNING
         running_nodes = self.context.running_nodes()
@@ -122,10 +123,18 @@ class InitializationState(AbstractState):
             if len(self.context.unknown_nodes()) == 0:
                 self.logger.info('InitializationState.next: all nodes are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # synchro done all core nodes are running
-            if self.context.running_core_nodes():
-                self.logger.info('InitializationState.next: all core nodes are RUNNING')
-                return SupvisorsStates.DEPLOYMENT
+            # for a partial end of sync, cannot get out of this state SYNCHRO_TIMEOUT_MIN
+            # in case of a Supervisor restart, this gives a chance to all nodes to send their tick
+            if uptime > self.supvisors.options.SYNCHRO_TIMEOUT_MIN:
+                # check synchro on core nodes
+                if self.context.running_core_nodes():
+                    # if ok, master must be running if already known
+                    if self.context.master_node_name and self.context.master_node_name not in running_nodes:
+                        self.logger.info('InitializationState.next: all core nodes are RUNNING but not Master={}'
+                                         .format(self.context.master_node_name))
+                        return SupvisorsStates.INITIALIZATION
+                    self.logger.info('InitializationState.next: all core nodes are RUNNING')
+                    return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
             self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.local_node_name))
@@ -141,7 +150,8 @@ class InitializationState(AbstractState):
         node_names = self.context.running_nodes()
         self.logger.info('InitializationState.exit: working with nodes {}'.format(node_names))
         # elect master node among working nodes only if not fixed before
-        if not self.context.master_node_name:
+        # of course master node must be running
+        if not self.context.master_node_name or self.context.master_node_name not in node_names:
             # choose Master among the core nodes because these nodes are expected to be more present
             if self.supvisors.options.force_synchro_if:
                 running_core_node_names = set(node_names).intersection(self.supvisors.options.force_synchro_if)
@@ -423,10 +433,16 @@ class FiniteStateMachine:
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
-            if process.crashed() and self.context.is_master and \
-                    process.rules.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
-                                                               RunningFailureStrategies.RESTART_APPLICATION]:
-                self.supvisors.failure_handler.add_default_job(process)
+            if self.context.is_master and process.crashed():
+                # local variables to keep it readable
+                strategy = process.rules.running_failure_strategy
+                stop_strategy = strategy == RunningFailureStrategies.STOP_APPLICATION
+                restart_strategy = strategy == RunningFailureStrategies.RESTART_APPLICATION
+                # to avoid infinite application restart, exclude the case where process state is forced
+                # indeed the process state forced to FATAL can only happen during a starting sequence (no node found)
+                # retry is useless
+                if stop_strategy or restart_strategy and process.forced_state is None:
+                    self.supvisors.failure_handler.add_default_job(process)
 
     def on_state_event(self, node_name, event: Payload) -> None:
         """ This event is used to get the FSM state of the master node.

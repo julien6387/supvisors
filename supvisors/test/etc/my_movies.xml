@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
 
+    <!-- aliases -->
+    <alias name="distribute_sublist">#,cliche82,cliche83,cliche84</alias>
+    <alias name="consoles">cliche82,cliche81</alias>
+
     <!-- models -->
     <model name="disk_01">
         <addresses>cliche81</addresses>
@@ -27,8 +31,12 @@
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
 
+        <program pattern="">
+            <addresses>cliche81</addresses>
+        </program>
+
         <program name="check_start_sequence">
-            <addresses>*</addresses>
+            <addresses>cliche81</addresses>
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>
@@ -40,13 +48,13 @@
         <start_sequence>2</start_sequence>
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
-        <pattern name="mount_disk_">
+        <program pattern="mount_disk_">
             <addresses>#,cliche82,cliche83,cliche84</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>2</stop_sequence>
             <required>true</required>
             <expected_loading>0</expected_loading>
-        </pattern>
+        </program>
 
         <program name="copy_error">
             <addresses>cliche81</addresses>
@@ -64,20 +72,20 @@
         <start_sequence>3</start_sequence>
         <stop_sequence>3</stop_sequence>
 
-        <pattern name="movie_server_">
+        <program pattern="movie_server_">
             <addresses>#</addresses>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
             <expected_loading>5</expected_loading>
             <running_failure_strategy>CONTINUE</running_failure_strategy>
-        </pattern>
+        </program>
 
-        <pattern name="register_movies_">
+        <program pattern="register_movies_">
             <addresses>#,cliche81,cliche83</addresses>
             <start_sequence>2</start_sequence>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>
-        </pattern>
+        </program>
 
     </application>
 
@@ -105,29 +113,29 @@
         </program>
 
         <program name="hmi">
-            <addresses>cliche82,cliche81</addresses>
+            <addresses>consoles</addresses>
             <start_sequence>3</start_sequence>
             <stop_sequence>1</stop_sequence>
             <expected_loading>10</expected_loading>
             <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
         </program>
 
-        <pattern name="disk_01_">
+        <program pattern="disk_01_">
             <reference>disk_01</reference>
-        </pattern>
+        </program>
 
-        <pattern name="disk_02_">
+        <program pattern="disk_02_">
             <reference>disk_02</reference>
-        </pattern>
+        </program>
 
-        <pattern name="disk_03_">
+        <program pattern="disk_03_">
             <reference>disk_03</reference>
-        </pattern>
+        </program>
 
-        <pattern name="error_disk_">
+        <program pattern="error_disk_">
             <reference>disk_01</reference>
             <addresses>*</addresses>
-        </pattern>
+        </program>
 
         <program name="converter_04">
             <reference>converter</reference>
@@ -139,9 +147,9 @@
             <addresses>cliche81,cliche83,cliche82</addresses>
         </program>
 
-        <pattern name="converter_">
+        <program pattern="converter_">
             <reference>converter</reference>
-        </pattern>
+        </program>
 
      </application>
 
@@ -168,7 +176,7 @@
     </application>
 
     <!-- web_movies application -->
-    <application name="web_movies">
+    <application pattern="web_">
         <start_sequence>6</start_sequence>
         <stop_sequence>1</stop_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>

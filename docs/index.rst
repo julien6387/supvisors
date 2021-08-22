@@ -1,7 +1,7 @@
-**Supvisors**: A Control System for Distributed Applications
-============================================================
+|Supvisors|: A Control System for Distributed Applications
+==========================================================
 
-**Supvisors** is a Control System for Distributed Applications, based on multiple instances of Supervisor.
+|Supvisors| is a Control System for Distributed Applications, based on multiple instances of |Supervisor|.
 
 .. toctree::
     :maxdepth: 3
@@ -20,6 +20,7 @@
     :caption: Use Cases
 
     scenario_1.rst
+    scenario_2.rst
 
 .. toctree::
     :maxdepth: 2
@@ -33,3 +34,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. include:: common.rst

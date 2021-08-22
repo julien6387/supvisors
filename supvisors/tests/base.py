@@ -28,26 +28,17 @@ from supervisor.loggers import LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES
 
+from supvisors.addressmapper import AddressMapper
+from supvisors.context import Context
+from supvisors.infosource import SupervisordSource
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
 
-class DummyAddressMapper:
-    """ Simple address mapper. """
-
-    def __init__(self):
-        self.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
-        self.local_node_name = '127.0.0.1'
-
-    def filter(self, node_names):
-        return node_names
-
-    def valid(self, node_name):
-        return node_name in self.node_names
-
-
 class DummyOptions:
     """ Simple options with dummy attributes. """
+
+    SYNCHRO_TIMEOUT_MIN = 15
 
     def __init__(self):
         """ Configuration options. """
@@ -76,11 +67,12 @@ class MockedSupvisors:
 
     def __init__(self):
         """ Use a dummy address mapper and options. """
-        self.address_mapper = DummyAddressMapper()
-        self.options = DummyOptions()
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        self.address_mapper = AddressMapper(self.logger)
+        self.address_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.address_mapper.local_node_name = '127.0.0.1'
+        self.options = DummyOptions()
         # build context from address mapper
-        from supvisors.context import Context
         self.context = Context(self)
         # simple mocks
         self.fsm = Mock()
@@ -89,7 +81,6 @@ class MockedSupvisors:
         self.statistician = Mock(data={}, nbcores={})
         self.failure_handler = Mock()
         # mock the supervisord source
-        from supvisors.infosource import SupervisordSource
         self.info_source = Mock(spec=SupervisordSource)
         self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
                                                  'SUPERVISOR_USERNAME': '',

@@ -170,9 +170,7 @@ class ViewContext:
         parameters = dict(self.parameters, **kwargs)
         if reset_shex:
             del parameters[SHRINK_EXPAND]
-        return '&amp;'.join(['{}={}'.format(key, quote(str(value)))
-                             for key, value in parameters.items()
-                             if value])
+        return '&'.join(['{}={}'.format(key, quote(str(value))) for key, value in parameters.items() if value])
 
     def format_url(self, node_name, page, **kwargs):
         """ Format URL from parameters. """

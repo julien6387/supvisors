@@ -2,6 +2,7 @@ include CHANGES.txt
 include LICENSE
 include README.rst
 include supvisors/version.txt
+include supvisors/rules.xsd
 graft supvisors/doc
 graft supvisors/ui
 

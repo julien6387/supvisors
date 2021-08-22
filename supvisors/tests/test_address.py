@@ -44,7 +44,7 @@ def test_create(supvisors):
     status = AddressStatus('10.0.0.1', supvisors.logger)
     # test all AddressStatus values
     assert status.logger == supvisors.logger
-    assert status.address_name == '10.0.0.1'
+    assert status.node_name == '10.0.0.1'
     assert status.state == AddressStates.UNKNOWN
     assert status.remote_time == 0
     assert status.local_time == 0
@@ -76,7 +76,7 @@ def test_serialization(supvisors):
     # test to_json method
     serialized = status.serial()
     assert serialized == {'address_name': '10.0.0.1', 'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
-                          'remote_time': 50, 'local_time': 60}
+                          'remote_time': 50, 'local_time': 60, 'sequence_counter': 0}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -123,7 +123,8 @@ def test_times(filled_node):
                 for info in [process.info_map['10.0.0.1']]}
     # update times and check
     now = int(time.time())
-    filled_node.update_times(now + 10, now)
+    filled_node.update_times(28, now + 10, now)
+    assert filled_node.sequence_counter == 28
     assert filled_node.remote_time == now + 10
     assert filled_node.local_time == now
     # test process times: only RUNNING and STOPPING have a positive uptime

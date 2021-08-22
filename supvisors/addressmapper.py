@@ -17,8 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
-from socket import gethostname
 from collections import OrderedDict
+from socket import gethostname, AF_INET
 from supervisor.loggers import Logger
 
 from .ttypes import NameList
@@ -30,8 +30,10 @@ class AddressMapper(object):
     The instance holds:
         - logger: a reference to the common logger;
         - _node_names: the list of nodes defined in the Supvisors configuration file;
-        - local_node_references: the list of known aliases of the current node, i.e. the host name and the IPv4 addresses;
-        - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding to a node of the Supvisors list. """
+        - local_node_references: the list of known aliases of the current node, i.e. the host name
+          and the IPv4 addresses;
+        - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding
+          to a node of the Supvisors list. """
 
     def __init__(self, logger: Logger):
         """ Initialization of the attributes. """
@@ -95,21 +97,16 @@ class AddressMapper(object):
     @staticmethod
     def ipv4() -> NameList:
         """ Get all IPv4 addresses of the local node for all interfaces.
+        Loopback address is excluded as useless from Supvisors perspective.
 
         :return: the IPv4 addresses of the local node
         """
         try:
-            from netifaces import interfaces, ifaddresses, AF_INET
-            # to not take into account loopback addresses (no interest here)
-            node_names = []
-            for interface in interfaces():
-                config = ifaddresses(interface)
-                # AF_INET is not always present
-                if AF_INET in config.keys():
-                    for link in config[AF_INET]:
-                        # loopback holds a 'peer' instead of a 'broadcast' address
-                        if 'addr' in link.keys() and 'peer' not in link.keys():
-                            node_names.append(link['addr'])
-            return node_names
+            from psutil import net_if_addrs
+            # loopback 'broadcast' address is not defined
+            return [link.address
+                    for config in net_if_addrs().values()
+                    for link in config
+                    if link.family == AF_INET and link.broadcast]
         except ImportError:
             return []

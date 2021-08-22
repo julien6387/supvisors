@@ -22,7 +22,7 @@ import os
 from typing import Dict, Union
 
 from supervisor.http import NOT_DONE_YET
-from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, LOG_LEVELS_BY_NUM, getLevelNumByDescription
+from supervisor.loggers import Logger, LevelsByName, LevelsByDescription, getLevelNumByDescription
 from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -116,7 +116,8 @@ class RPCInterface(object):
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``list(dict)``: a list of structures containing data about all applications.
         """
@@ -159,7 +160,8 @@ class RPCInterface(object):
     def get_all_process_info(self):
         """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
@@ -170,7 +172,8 @@ class RPCInterface(object):
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
-        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors** is running.
+        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors**
+        is running.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -234,7 +237,8 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes among the managed applications.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
         """
@@ -274,7 +278,7 @@ class RPCInterface(object):
         # if impossible due to a lack of resources, second try without optional
         # return false if still impossible
         done = self.supvisors.starter.start_application(strategy_enum, application)
-        self.logger.debug('start_application {} done={}'.format(application_name, done))
+        self.logger.debug('RPCInterface.start_application: {} done={}'.format(application_name, done))
         # wait until application fully RUNNING or (failed)
         if wait and not done:
             def onwait():
@@ -299,7 +303,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
+              or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
 
@@ -315,7 +320,7 @@ class RPCInterface(object):
             raise RPCError(Faults.NOT_RUNNING, application_name)
         # stop the application
         done = self.supvisors.stopper.stop_application(application)
-        self.logger.debug('stop_application {} done={}'.format(application_name, done))
+        self.logger.debug('RPCInterface.stop_application: {} done={}'.format(application_name, done))
         # wait until application fully STOPPED
         if wait and not done:
             def onwait():
@@ -402,7 +407,7 @@ class RPCInterface(object):
         except KeyError:
             # process is unknown to the local Supervisor
             # this is unexpected as Supvisors checks the configuration before it sends this request
-            self.logger.error('could not find {} in Supervisor processes'.format(namespec))
+            self.logger.error('RPCInterface.start_args: could not find {} in Supervisor processes'.format(namespec))
             raise RPCError(Faults.BAD_NAME, 'namespec {} unknown to this Supervisor instance'.format(namespec))
         # start process with Supervisor internal RPC
         try:
@@ -411,8 +416,9 @@ class RPCInterface(object):
         except RPCError as why:
             self.logger.error('start_process {} failed: {}'.format(namespec, why))
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
-                self.logger.warn('force Supervisor internal state of {} to FATAL'.format(namespec))
-                # at this stage, process is known to the local Supervisor
+                self.logger.warn('RPCInterface.start_args: force Supervisor internal state of {} to FATAL'
+                                 .format(namespec))
+                # at this stage, process is known to the local Supervisor. no need to test again
                 self.supvisors.info_source.force_process_fatal(namespec, why.text)
             # else process is already started
             # this is unexpected as Supvisors checks the process state before it sends this request
@@ -455,7 +461,7 @@ class RPCInterface(object):
         done = True
         for process in processes:
             done &= self.supvisors.starter.start_process(strategy_enum, process, extra_args)
-        self.logger.debug('startProcess {} done={}'.format(process.namespec, done))
+        self.logger.debug('RPCInterface.start_process: {} done={}'.format(process.namespec, done))
         if done:
             # one of the jobs has not been queued. something wrong happened (lack of resources ?)
             raise RPCError(Faults.ABNORMAL_TERMINATION, namespec)
@@ -483,7 +489,8 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`` or ``CONCILIATION``,
+            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``
+              or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
 
@@ -500,7 +507,7 @@ class RPCInterface(object):
         # stop all processes
         done = True
         for process in processes:
-            self.logger.info('stopping process {}'.format(process.namespec))
+            self.logger.info('RPCInterface.stop_process: stopping process {}'.format(process.namespec))
             done &= self.supvisors.stopper.stop_process(process)
         # wait until processes are in STOPPED_STATES
         if wait and not done:
@@ -525,7 +532,8 @@ class RPCInterface(object):
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
-        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed with the last call.
+        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed
+        with the last call.
 
         *@param* ``bool wait``: wait for process to be fully stopped.
 
@@ -587,7 +595,8 @@ class RPCInterface(object):
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -598,7 +607,8 @@ class RPCInterface(object):
     def shutdown(self) -> bool:
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state.
+        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -606,7 +616,7 @@ class RPCInterface(object):
         self.supvisors.fsm.on_shutdown()
         return True
 
-    def change_log_level(self, level_param: LevelsByName) -> bool:
+    def change_log_level(self, level_param: EnumParameterType) -> bool:
         """ Change the logger level for the local **Supvisors**.
         If **Supvisors** logger is configured as ``AUTO``, this will impact the Supervisor logger too.
 
@@ -725,5 +735,9 @@ class RPCInterface(object):
         """ Create a payload from Supervisor process info. """
         sub_info = extract_process_info(info)
         namespec = make_namespec(info['group'], info['name'])
-        sub_info['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        try:
+            sub_info['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+        except KeyError:
+            self.logger.trace('RPCInterface._get_local_info: cannot get extra_args from unknown program={}'
+                              .format(namespec))
         return sub_info

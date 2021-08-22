@@ -1,0 +1,84 @@
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified"
+xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:simpleType name="Loading">
+        <xs:restriction base="xs:int">
+            <xs:minInclusive value="0"/>
+            <xs:maxInclusive value="100"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="StartingStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="CONFIG" />
+            <xs:enumeration value="LESS_LOADED" />
+            <xs:enumeration value="MOST_LOADED" />
+            <xs:enumeration value="LOCAL" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="StartingFailureStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ABORT" />
+            <xs:enumeration value="CONTINUE" />
+            <xs:enumeration value="STOP" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="RunningFailureStrategy" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="CONTINUE" />
+            <xs:enumeration value="RESTART_PROCESS" />
+            <xs:enumeration value="STOP_APPLICATION" />
+            <xs:enumeration value="RESTART_APPLICATION" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="NodeAlias">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute type="xs:string" name="name" use="required"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+    <xs:complexType name="ProgramModel">
+        <xs:all>
+            <xs:element type="xs:string" name="reference" minOccurs="0"/>
+            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
+            <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
+            <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
+            <xs:element type="xs:boolean" name="required" minOccurs="0"/>
+            <xs:element type="xs:boolean" name="wait_exit" minOccurs="0"/>
+            <xs:element type="Loading" name="expected_loading" minOccurs="0"/>
+            <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
+        </xs:all>
+	<!-- no way to check one of the two is required unless XSD 1.1 is supported -->
+        <xs:attribute type="xs:string" name="name"/>
+        <xs:attribute type="xs:string" name="pattern"/>
+    </xs:complexType>
+    <xs:complexType name="ApplicationModel">
+        <!-- can't find a way to use xs:all here. need XSD 1.1 -->
+        <xs:sequence>
+            <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
+            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
+            <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
+            <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
+            <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0"/>
+            <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0"/>
+            <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element type="ProgramModel" name="program"/>
+                <!-- obsolete -->
+                <xs:element type="ProgramModel" name="pattern"/>
+            </xs:choice>
+        </xs:sequence>
+	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
+        <xs:attribute type="xs:string" name="name"/>
+        <xs:attribute type="xs:string" name="pattern"/>
+    </xs:complexType>
+    <xs:element name="root">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element type="NodeAlias" name="alias"/>
+                <xs:element type="ProgramModel" name="model"/>
+                <xs:element type="ApplicationModel" name="application"/>
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+

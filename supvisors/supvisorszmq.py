@@ -42,7 +42,8 @@ class InternalEventPublisher(object):
     Attributes are:
         - logger: a reference to the Supvisors logger,
         - address: the address name where this process is running,
-        - socket: the ZeroMQ socket with a PUBLISH pattern, bound on the internal_port defined in the ['supvisors'] section of the Supervisor configuration file.
+        - socket: the ZeroMQ socket with a PUBLISH pattern, bound on the internal_port defined
+          in the ['supvisors'] section of the Supervisor configuration file.
     """
 
     def __init__(self, node_name: str, port: int, logger: Logger) -> None:
@@ -472,7 +473,7 @@ class RequestPusher(object):
         :param node_names: the nodes to isolate
         :return: Node
         """
-        self.send_message(DeferredRequestHeaders.ISOLATE_NODES, node_names)
+        self.send_message(DeferredRequestHeaders.ISOLATE_NODES, tuple(node_names))
 
     def send_start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Send request to start process.
@@ -616,13 +617,13 @@ class SupvisorsZmq(object):
             except ZMQError:
                 print('[ERROR] failed to get data from socket', file=stderr)
 
-    def disconnect_subscriber(self, node_name: str) -> None:
+    def disconnect_subscriber(self, node_names: NameList) -> None:
         """ Disconnect the node from subscription socket.
 
-        :param node_name: the name of the node to disconnect
+        :param node_names: the name of the node to disconnect
         :return: None
         """
-        self.internal_subscriber.disconnect(node_name)
+        self.internal_subscriber.disconnect(node_names)
 
     def close(self) -> None:
         """ Close the poller and the sockets.

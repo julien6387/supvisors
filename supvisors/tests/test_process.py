@@ -51,7 +51,7 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "node_names=['*'] hash_node_names=None start_sequence=0 stop_sequence=0 required=False"\
+    assert str(rules) == "node_names=['*'] hash_node_names=[] start_sequence=0 stop_sequence=0 required=False"\
         " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
 
 
@@ -101,8 +101,34 @@ def test_rules_check_start_sequence(rules):
 def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
-    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
+    # test based on programs unknown to Supervisor
     mocked_disable = rules.supvisors.info_source.disable_autorestart
+    mocked_autorestart = rules.supvisors.info_source.autorestart
+    mocked_autorestart.side_effect = KeyError
+    for strategy in RunningFailureStrategies:
+        rules.running_failure_strategy = strategy
+        rules.check_autorestart('dummy_process_1')
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
+            assert not mocked_disable.called
+        else:
+            assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
+            mocked_autorestart.reset_mock()
+        assert not mocked_disable.called
+    # test based on programs known to Supervisor but with autostart not activated
+    mocked_autorestart.side_effect = None
+    mocked_autorestart.return_value = False
+    for strategy in RunningFailureStrategies:
+        rules.running_failure_strategy = strategy
+        rules.check_autorestart('dummy_process_1')
+        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
+            assert not mocked_disable.called
+        else:
+            assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
+            mocked_autorestart.reset_mock()
+        assert not mocked_disable.called
+    # test based on programs known to Supervisor but with autostart activated
+    # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
+    mocked_autorestart.return_value = True
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
@@ -117,7 +143,7 @@ def test_rules_check_hash_nodes(rules):
     """ Test the resolution of addresses when hash_address is set. """
     # check initial attributes
     assert rules.node_names == ['*']
-    assert rules.hash_node_names is None
+    assert rules.hash_node_names == []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
     rules.check_hash_nodes('sample_test_1:xfontsel')
@@ -180,7 +206,7 @@ def test_process_create(supvisors):
     assert process.namespec == make_namespec(info['group'], info['name'])
     assert process.state == ProcessStates.UNKNOWN
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     assert process.expected_exit
     assert process.last_event_time == 0
     assert process.extra_args == ''
@@ -349,6 +375,23 @@ def test_process_conflicting(supvisors):
     assert not process.conflicting()
 
 
+def test_extra_args(supvisors):
+    """ Test the accessors of the ProcessStatus extra_args. """
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    assert process._extra_args == ''
+    assert process.extra_args == ''
+    # test assignment
+    process.extra_args = 'new args'
+    assert process._extra_args == 'new args'
+    assert process.extra_args == 'new args'
+    # test internal exception when process unknown to the local Supervisor
+    supvisors.info_source.update_extra_args.side_effect = KeyError
+    process.extra_args = 'another args'
+    assert process._extra_args == 'another args'
+    assert process.extra_args == 'another args'
+
+
 def test_serialization(supvisors):
     """ Test the serialization of the ProcessStatus. """
     # test with a STOPPED process
@@ -421,7 +464,7 @@ def test_add_info(supvisors):
     assert info['extra_args'] == ''
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
@@ -442,7 +485,7 @@ def test_add_info(supvisors):
     assert process.expected_exit
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     # update rules to test '#'
     process.rules.hash_addresses = ['*']
     # 3. add a RUNNING process info
@@ -520,7 +563,7 @@ def test_update_info(supvisors):
     assert info['uptime'] == 5
     # check forced_state
     assert process.forced_state is None
-    assert process.forced_reason is None
+    assert process.forced_reason == ''
     process.force_state(ProcessStates.FATAL, 'failure')
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
@@ -764,7 +807,9 @@ def test_process_running_state():
     # check running states with several combinations
     assert ProcessStatus.running_state(STOPPED_STATES) == ProcessStates.UNKNOWN
     states = {ProcessStates.STOPPING}
-    assert ProcessStatus.running_state(states) == ProcessStates.UNKNOWN
+    assert ProcessStatus.running_state(states) == ProcessStates.STOPPING
+    states = {ProcessStates.STOPPING, ProcessStates.RUNNING}
+    assert ProcessStatus.running_state(states) == ProcessStates.RUNNING
     assert ProcessStatus.running_state(RUNNING_STATES) == ProcessStates.RUNNING
     states = {ProcessStates.STARTING, ProcessStates.BACKOFF}
     assert ProcessStatus.running_state(states) == ProcessStates.BACKOFF

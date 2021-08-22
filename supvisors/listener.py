@@ -20,13 +20,16 @@
 import json
 import time
 
+from typing import Any, Optional
+
 from supervisor import events
 from supervisor.datatypes import boolean
+from supervisor.loggers import Logger
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 
 from .mainloop import SupvisorsMainLoop
-from .supvisorszmq import SupervisorZmq
+from .supvisorszmq import SupervisorZmq, InternalEventPublisher
 from .ttypes import SupvisorsStates
 from .utils import InternalEventHeaders, RemoteCommEvents
 
@@ -40,16 +43,19 @@ class SupervisorListener(object):
 
     Attributes are:
 
-        - supvisors: a reference to the Supvisors context,
-        - address: the address name where this process is running,
-        - main_loop: the Supvisors' event thread,
-        - publisher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads.
+        - supvisors: a reference to the Supvisors global structure ;
+        - logger: a reference to the Supvisors logger ;
+        - collector: the statistics compiler ;
+        - local_node_name: the node name where this process is running ;
+        - sequence_counter: the counter for TICK events ;
+        - publisher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads ;
+        - main_loop: the Supvisors' event thread.
     """
 
-    def __init__(self, supvisors):
+    def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         self.supvisors = supvisors
-        self.logger = supvisors.logger
+        self.logger: Logger = supvisors.logger
         # test if statistics collector can be created for local host
         try:
             from supvisors.statscollector import instant_statistics
@@ -59,9 +65,10 @@ class SupervisorListener(object):
             instant_statistics = None
         self.collector = instant_statistics
         # other attributes
-        self.local_node_name = self.supvisors.address_mapper.local_node_name
-        self.publisher = None
-        self.main_loop = None
+        self.local_node_name: str = self.supvisors.address_mapper.local_node_name
+        self.sequence_counter: int = 0
+        self.publisher: Optional[InternalEventPublisher] = None
+        self.main_loop: Optional[SupvisorsMainLoop] = None
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self.on_running)
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
@@ -102,7 +109,7 @@ class SupervisorListener(object):
         # unsubscribe from events
         events.clear()
         # finally, close logger
-        # WARN: only if it is not the supervisor one
+        # WARN: only if it is not the supervisor logger
         if hasattr(self.logger, 'SUPVISORS'):
             self.logger.close()
 
@@ -127,7 +134,8 @@ class SupervisorListener(object):
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
         Then statistics are published and periodic task is triggered. """
-        payload = {'when': event.when}
+        self.sequence_counter += 1
+        payload = {'sequence_counter': self.sequence_counter, 'when': event.when}
         self.logger.debug('SupervisorListener.on_tick: got Tick event from supervisord: {}'.format(payload))
         self.publisher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
@@ -137,7 +145,7 @@ class SupervisorListener(object):
             self.publisher.send_statistics(stats)
         # periodic task
         node_names = self.supvisors.fsm.on_timer_event()
-        # pushes isolated addresses to main loop
+        # send isolated nodes to main loop
         self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
@@ -177,12 +185,12 @@ class SupervisorListener(object):
     def unstack_info(self, message: str):
         """ Unstack the process info received. """
         # unstack the queue for process info
-        address_name, info = json.loads(message)
-        self.logger.trace('SupervisorListener.unstack_info: got process info event from {}'.format(address_name))
-        self.supvisors.fsm.on_process_info(address_name, info)
+        node_name, info = json.loads(message)
+        self.logger.trace('SupervisorListener.unstack_info: got process info event from {}'.format(node_name))
+        self.supvisors.fsm.on_process_info(node_name, info)
 
     def authorization(self, data):
-        """ Extract authorization and address from data and process event. """
+        """ Extract authorization and node name from data and process event. """
         self.logger.trace('SupervisorListener.authorization: got authorization event: {}'.format(data))
         # split the line received
         node_name, authorized, master_node_name, supvisors_state = tuple(x.split(':')[1] for x in data.split())
@@ -205,7 +213,7 @@ class SupervisorListener(object):
         try:
             payload['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
         except KeyError:
-            self.logger.trace('SupervisorListener.force_process_state: namespec={} cannot get extra_args'
+            self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
         self.publisher.send_process_event(payload)

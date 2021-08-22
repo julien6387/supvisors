@@ -37,7 +37,7 @@ class ApplicationView(ViewHandler):
         self.page_name = APPLICATION_PAGE
         # init parameters
         self.application_name: str = ''
-        self.application: ApplicationStatus = None
+        self.application: Optional[ApplicationStatus] = None
 
     def handle_parameters(self):
         """ Retrieve the parameters selected on the web page. """

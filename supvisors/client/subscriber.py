@@ -39,26 +39,27 @@ def create_logger(logfile=r'subscriber.log', loglevel=LevelsByName.INFO,
 
 
 class SupvisorsEventInterface(threading.Thread):
-    """ The SupvisorsEventInterface is a python thread that connects to **Supvisors** and receives the events published.
+    """ The *SupvisorsEventInterface* is a python thread that connects to |Supvisors| and receives the events published.
     The subscriber attribute shall be used to define the event types of interest.
 
-    The SupvisorsEventInterface requires:
-        - a ZeroMQ context,
+    The *SupvisorsEventInterface* requires:
+        - a PyZMQ_ context,
         - the event port number used by **Supvisors** to publish its events,
         - a logger reference to log traces.
 
-    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]`` section of the Supervisor configuration file.
+    This event port number MUST correspond to the ``event_port`` value set in the ``[supvisors]`` section
+    of the |Supervisor| configuration file.
 
     The default behaviour is to print the messages received.
     For any other behaviour, just specialize the methods `on_xxx_status`.
 
     Attributes:
         - logger: the reference to the logger,
-        - subscriber: the wrapper of the ZeroMQ socket connected to **Supvisors**,
+        - subscriber: the wrapper of the PyZMQ_ socket connected to |Supvisors|,
         - stop_event: when set, breaks the infinite loop of the thread.
 
     Constants:
-        - _Poll_timeout: duration used to time out the ZeroMQ poller, defaulted to 500 milli-seconds.
+        - _Poll_timeout: duration used to time out the PyZMQ_ poller, defaulted to 500 milli-seconds.
     """
 
     _Poll_timeout = 500
@@ -120,7 +121,7 @@ class SupvisorsEventInterface(threading.Thread):
         self.subscriber.subscribe_all()
 
     def on_supvisors_status(self, data):
-        """ Just logs the contents of the Supvisors Status message. """
+        """ Just logs the contents of the |Supvisors| Status message. """
         self.logger.info('got Supvisors Status message: {}'.format(data))
 
     def on_address_status(self, data):

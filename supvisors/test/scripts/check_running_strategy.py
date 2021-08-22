@@ -69,6 +69,10 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         except:
             # exception is expected if application already running
             pass
+        # wait for the OPERATION state and flush
+        if self.local_supvisors.get_supvisors_state()['statename'] != 'OPERATION':
+            self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'statename': 'OPERATION'}], 60)
+        self.evloop.flush()
         # call parent
         RunningAddressesTest.tearDown(self)
 
@@ -80,8 +84,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
         assert {'name': 'movie_server_01', 'expected': False, 'state': 100}.items() < event.items()
-        # application should be still running with 2 other movie servers,
-        # but with minor failure
+        # application should be still running with 2 other movie servers, but with minor failure
         event = self._get_next_application_status()
         subset = {'application_name': 'database', 'major_failure': False, 'minor_failure': True,
                   'statename': 'RUNNING'}
@@ -92,33 +95,32 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         with self.assertRaises(Empty):
             self.evloop.application_queue.get(True, 2)
 
-    def _test_restart_process(self):
+    def test_restart_process(self):
         """ Test the RESTART_PROCESS running failure strategy. """
-        # FIXME
         print('### Testing RESTART_PROCESS running failure strategy')
         # call for restart on the node where web_browser is running
         proxy = self.proxies[self.web_browser_node_name]
         proxy.supervisor.restart()
-        # STARTING / RUNNING events are expected for this process from a new node
-        event = self._get_next_process_event()
-        assert {'name': 'web_browser', 'state': 10}.items() < event.items()
-        node_name = event['address']
-        event = self._get_next_application_status()
-        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
-                  'statename': 'STARTING'}
-        assert subset.items() < event.items()
-        event = self._get_next_process_event()
-        assert {'name': 'web_browser', 'state': 20, 'address': node_name}.items() < event.items()
-        # application should be running
-        event = self._get_next_application_status()
-        subset = {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
-                  'statename': 'RUNNING'}
-        assert subset.items() < event.items()
-        # no further event expected
-        with self.assertRaises(Empty):
-            self.evloop.event_queue.get(True, 5)
-        with self.assertRaises(Empty):
-            self.evloop.application_queue.get(True, 2)
+        # STARTING / RUNNING events are expected for web_browser from a new node
+        # STARTING / RUNNING events may be received for disk_handler from the restarted node
+        # as a node is being restarted, lots of events may be expected (new DEPLOYMENT)
+        # focus only on web_browser
+        expected_events = [{'group': 'web_movies', 'name': 'web_browser', 'state': 10},
+                           {'group': 'web_movies', 'name': 'web_browser', 'state': 20}]
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 15)
+        self.assertEqual(2, len(received_events))
+        self.assertEqual([], expected_events)
+        # STARTING / RUNNING events are expected for web_movies application
+        # nothing for disk_handler as it is unmanaged
+        expected_events = [{'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
+                            'statename': 'STARTING'},
+                           {'application_name': 'web_movies', 'major_failure': False, 'minor_failure': False,
+                            'statename': 'RUNNING'}]
+        received_events = self.evloop.wait_until_events(self.evloop.application_queue, expected_events, 2)
+        self.assertEqual(2, len(received_events))
+        self.assertEqual([], expected_events)
+        # with for Supvisors to reach the OPERATION state before leaving
+        self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'statename': 'OPERATION'}], 60)
 
     def test_stop_application(self):
         """ Test the STOP_APPLICATION running failure strategy. """
@@ -135,9 +137,8 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         # an EXIT event is expected for this process
         event = self._get_next_process_event()
         assert {'name': 'hmi', 'expected': False, 'state': 100}.items() < event.items()
-        # application should be still running with manager,
-        # but with major failure due to web_server that cannot be started,
-        # and with minor failure due to hmi crash
+        # application should be still running with manager, but with major failure due to web_server
+        # that cannot be started, and with minor failure due to hmi crash
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': True,
                   'statename': 'RUNNING'}
@@ -227,8 +228,7 @@ class RunningFailureStrategyTest(RunningAddressesTest):
         # STARTING / RUNNING events are expected for the hmi
         event = self._get_next_process_event()
         assert {'name': 'hmi', 'state': 10}.items() < event.items()
-        # application should be starting, with major failure because of
-        # web_server that cannot be started
+        # application should be starting, with major failure because of web_server that cannot be started
         event = self._get_next_application_status()
         subset = {'application_name': 'my_movies', 'major_failure': True, 'minor_failure': False,
                   'statename': 'STARTING'}

@@ -39,6 +39,7 @@ def test_creation_no_collector(mocker, supvisors):
     assert listener.supvisors == supvisors
     assert listener.collector is None
     assert listener.local_node_name == '127.0.0.1'
+    assert listener.sequence_counter == 0
     assert listener.publisher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -56,6 +57,7 @@ def test_creation(mocker, supvisors, listener):
     assert listener.supvisors is supvisors
     assert listener.collector is mocked_collector
     assert listener.local_node_name == '127.0.0.1'
+    assert listener.sequence_counter == 0
     assert listener.publisher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -141,10 +143,12 @@ def test_on_tick(mocker, listener):
     # test non-process event
     with pytest.raises(AttributeError):
         listener.on_tick(ProcessStateFatalEvent(None, ''))
+    assert listener.sequence_counter == 1
     # test process event
     event = Tick60Event(120, None)
     listener.on_tick(event)
-    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 120})]
+    assert listener.sequence_counter == 2
+    assert listener.publisher.send_tick_event.call_args_list == [call({'when': 120, 'sequence_counter': 2})]
     assert listener.publisher.send_statistics.call_args_list == [call((8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))]
     assert listener.supvisors.fsm.on_timer_event.call_args_list == [call()]
     assert listener.supvisors.zmq.pusher.send_isolate_nodes.call_args_list == [call(['10.0.0.1', '10.0.0.4'])]

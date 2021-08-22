@@ -1,8 +1,10 @@
-:command:`supervisorctl` extension
+.. _extended_supervisorctl:
+
+:program:`supervisorctl` extension
 ==================================
 
-This is an extension of the existing :command:`supervisorctl` API.
-The additional commands provided by **Supvisors** are available by typing :command:`help` at the prompt.
+This is an extension of the existing :program:`supervisorctl` API.
+The additional commands provided by |Supvisors| are available by typing :command:`help` at the prompt.
 
 .. code-block:: bash
 
@@ -25,32 +27,34 @@ The additional commands provided by **Supvisors** are available by typing :comma
     local_status       sreload              start_process
 
 
+.. _extended_status:
+
 Status
 ------
 
 ``sversion``
 
-    Get the API version of **Supvisors**.
+    Get the API version of |Supvisors|.
 
 ``sstate``
 
-    Get the **Supvisors** state.
+    Get the |Supvisors| state.
 
 ``master``
 
-    Get the **Supvisors** master address.
+    Get the |Supvisors| master address.
 
 ``strategies``
 
-    Get the strategies applied in **Supvisors**.
+    Get the strategies applied in |Supvisors|.
 
 ``address_status``
 
-    Get the status of all Supervisor instances managed in **Supvisors**.
+    Get the status of all |Supervisor| instances managed in |Supvisors|.
 
 ``address_status addr``
 
-    Get the status of the Supervisor instance managed in **Supvisors** and running on addr.
+    Get the status of the |Supervisor| instance managed in |Supvisors| and running on addr.
 
 ``address_status addr1 addr2``
 
@@ -86,7 +90,7 @@ Status
 
 ``local_status``
 
-    Get the local status (subset of Supervisor status, with extra arguments) of all processes.
+    Get the local status (subset of |Supervisor| status, with extra arguments) of all processes.
 
 ``local_status proc``
 
@@ -130,28 +134,33 @@ Status
 
 ``conflicts``
 
-    Get the **Supvisors** conflicts among the *managed* applications.
+    Get the |Supvisors| conflicts among the *managed* applications.
 
 
-**Supvisors** Control
+.. _supvisors_control:
+
+|Supvisors| Control
 ---------------------
 
 ``loglevel level``
 
-    Change the level of **Supvisors** logger.
+    Change the level of |Supvisors| logger.
 
 ``conciliate strategy``
 
-    Conciliate the conflicts detected by **Supvisors** if default strategy is ``USER`` and **Supvisors** is in ``CONCILIATION``` state.
+    Conciliate the conflicts detected by |Supvisors| if default strategy is ``USER`` and |Supvisors| is
+    in ``CONCILIATION``` state.
 
 ``sreload``
 
-    Restart **Supvisors** through all Supervisor instances.
+    Restart |Supvisors| through all |Supervisor| instances.
 
 ``sshutdown``
 
-    Shutdown **Supvisors** through all Supervisor instances.
+    Shutdown |Supvisors| through all |Supervisor| instances.
 
+
+.. _application_control:
 
 Application Control
 -------------------
@@ -213,11 +222,13 @@ Process Control
 
 ``start_args proc arg_list``
 
-    Start the process named proc on the local node and with the additional arguments arg_list passed to the command line.
+    Start the process named proc on the local node and with the additional arguments arg_list passed
+    to the command line.
 
 ``start_process_args strategy proc arg_list``
 
-    Start the process named proc with a starting strategy and with the additional arguments arg_list passed to the command line.
+    Start the process named proc with a starting strategy and with the additional arguments arg_list passed
+    to the command line.
 
 ``stop_process``
 
@@ -242,3 +253,5 @@ Process Control
 ``restart_process strategy appli1 appli2``
 
     Restart multiple named process with a starting strategy.
+
+.. include:: common.rst

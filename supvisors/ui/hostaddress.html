@@ -17,21 +17,26 @@
         <div id="left_side">
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
-                <p><span meld:id="version_mid" class="version"></span></p>
+                <p><span meld:id="version_mid"></span></p>
+                <p>view from <span meld:id="node_mid"></span></p>
             </header>
 
             <nav id="address-list">
-                <h2>Addresses</h2>
-                <ul>
-                    <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
-                </ul>
+                <h2>Nodes</h2>
+                <div>
+                    <ul>
+                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <nav id="application-list">
-                <h2>Applications</h2>
-                <ul>
-                    <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
-                </ul>
+                <h2 meld:id="appli_h_mid">Applications</h2>
+                <div>
+                    <ul>
+                        <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <footer>
@@ -92,15 +97,13 @@
             </header>
 
             <div id="address_contents" meld:id="stats_div_mid">
-                <div class="horizontal_contents">
-                    <div class="vertical_contents">
-                        <figure>
+                    <div id="rsc_grid">
+                        <figure id="mem_fig">
                             <img src="address_mem.png" alt="Address Memory Graph"/>
-                            <figcaption>Memory occupation</figcaption>
                         </figure>
-                        <div>
-                            <table>
-                                <caption>Memory Statistics</caption>
+                        <div id="mem_stats">
+                            <h6>Memory Statistics</h6>
+                            <div><table>
                                 <tr>
                                     <th rowspan="2">
                                         <a href="#" class="button off active">mem</a>
@@ -116,17 +119,15 @@
                                     <td meld:id="memslope_td_mid">--</td>
                                     <td meld:id="memdev_td_mid">--</td>
                                 </tr>
-                            </table>
+                            </table></div>
                         </div>
-                    </div>
-                    <div class="vertical_contents">
-                        <figure>
+                        <figure id="cpu_fig">
                             <img src="address_cpu.png" alt="Address CPU Graph"/>
-                            <figcaption>CPU loading</figcaption>
                         </figure>
-                        <div>
+                        <div id="cpu_stats">
+                            <h6>Processor Statistics</h6>
+                            <div>
                             <table>
-                                <caption>Processor Statistics</caption>
                                 <tr>
                                     <th>#</th>
                                     <th>Last %</th>
@@ -144,36 +145,35 @@
                                     <td meld:id="cpudev_td_mid">--</td>
                                 </tr>
                             </table>
+                            </div>
+                        </div>
+                        <figure id="io_fig">
+                            <img src="address_io.png" alt="Address Network Graph"/>
+                        </figure>
+                        <div id="io_stats">
+                            <h6>Network Statistics</h6>
+                            <div><table>
+                                <tr>
+                                    <th>Interface</th>
+                                    <th>Rx/Tx</th>
+                                    <th>Last kbit/s</th>
+                                    <th>Mean kbit/s</th>
+                                    <th>Slope %</th>
+                                    <th>SD kbit/s</th>
+                                </tr>
+                                <tr meld:id="intf_tr_mid" class="brightened">
+                                    <td meld:id="intf_td_mid">
+                                        <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
+                                    </td>
+                                    <td meld:id="intfrxtx_td_mid">--</td>
+                                    <td meld:id="intfval_td_mid">--</td>
+                                    <td meld:id="intfavg_td_mid">--</td>
+                                    <td meld:id="intfslope_td_mid">--</td>
+                                    <td meld:id="intfdev_td_mid">--</td>
+                                </tr>
+                            </table></div>
                         </div>
                     </div>
-                    <div class="vertical_contents">
-                        <figure>
-                            <img src="address_io.png" alt="Address Network Graph"/>
-                            <figcaption>Network activity</figcaption>
-                        </figure>
-                        <table>
-                            <caption>Network Statistics</caption>
-                            <tr>
-                                <th>Interface</th>
-                                <th>Rx/Tx</th>
-                                <th>Last kbit/s</th>
-                                <th>Mean kbit/s</th>
-                                <th>Slope %</th>
-                                <th>SD kbit/s</th>
-                            </tr>
-                            <tr meld:id="intf_tr_mid" class="brightened">
-                                <td meld:id="intf_td_mid">
-                                    <a href="#" meld:id="intf_a_mid" class="button on">eth#</a>
-                                </td>
-                                <td meld:id="intfrxtx_td_mid">--</td>
-                                <td meld:id="intfval_td_mid">--</td>
-                                <td meld:id="intfavg_td_mid">--</td>
-                                <td meld:id="intfslope_td_mid">--</td>
-                                <td meld:id="intfdev_td_mid">--</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
             </div>
 
             <div id="messageBox" meld:id="message_mid"></div>

@@ -5,6 +5,7 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="refresh" content="5" meld:id="meta_mid"/>
+    <link rel="stylesheet" href="css/main_page.css" />
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
@@ -17,21 +18,26 @@
         <div id="left_side">
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
-                <p><span meld:id="version_mid" class="version"></span></p>
+                <p><span meld:id="version_mid"></span></p>
+                <p>view from <span meld:id="node_mid"></span></p>
             </header>
 
             <nav id="address-list">
-                <h2>Addresses</h2>
-                <ul>
-                    <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
-                </ul>
+                <h2>Nodes</h2>
+                <div>
+                    <ul>
+                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <nav id="application-list">
-                <h2>Applications</h2>
-                <ul>
-                    <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
-                </ul>
+                <h2 meld:id="appli_h_mid">Applications</h2>
+                <div>
+                    <ul>
+                        <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <footer>

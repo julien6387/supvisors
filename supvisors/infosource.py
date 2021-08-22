@@ -22,6 +22,7 @@ import os
 from typing import Dict
 
 from supervisor.http import supervisor_auth_handler
+from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates
@@ -30,9 +31,10 @@ from supervisor.states import ProcessStates
 class SupervisordSource(object):
     """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord instance. """
 
-    def __init__(self, supervisord):
+    def __init__(self, supervisord, logger: Logger):
         """ Initialization of the attributes. """
         self.supervisord = supervisord
+        self.logger: Logger = logger
         self.server_config = supervisord.options.server_configs[0]
         # server MUST be http, not unix
         server_section = self.server_config['section']
@@ -113,45 +115,46 @@ class SupervisordSource(object):
 
     def get_group_config(self, application_name: str):
         """ This method returns the group configuration related to an application. """
-        # WARN: the following line may throw a KeyError exception
+        # WARN: the method may throw a KeyError exception
         return self.supervisord.process_groups[application_name].config
 
-    def get_process(self, namespec: str):
+    def _get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
         application_name, process_name = split_namespec(namespec)
         return self.supervisord.process_groups[application_name].processes[process_name]
 
-    def get_process_config(self, namespec: str):
+    def _get_process_config(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
-        return self.get_process(namespec).config
+        return self._get_process(namespec).config
 
     def autorestart(self, namespec: str) -> bool:
         """ This method checks if autorestart is configured on the process. """
-        return self.get_process_config(namespec).autorestart is not False
+        return self._get_process_config(namespec).autorestart is not False
 
     def disable_autorestart(self, namespec: str) -> None:
         """ This method forces the autorestart to False in Supervisor internal data. """
-        self.get_process_config(namespec).autorestart = False
+        self._get_process_config(namespec).autorestart = False
 
     def update_extra_args(self, namespec: str, extra_args: str) -> None:
         """ This method is used to add extra arguments to the command line. """
-        config = self.get_process_config(namespec)
+        config = self._get_process_config(namespec)
         # reset command line
         config.command = config.command_ref
         config.extra_args = extra_args
         # apply args to command line
         if extra_args:
             config.command += ' ' + extra_args
+        self.logger.trace('SupervisordSource.update_extra_args: {} extra_args={}'.format(namespec, extra_args))
 
     def get_extra_args(self, namespec: str) -> str:
         """ Return the extra arguments passed to the command line of the process named namespec. """
-        return self.get_process_config(namespec).extra_args
+        return self._get_process_config(namespec).extra_args
 
     def force_process_fatal(self, namespec: str, reason: str) -> None:
         """ This method forces the FATAL process state into Supervisor internal data and dispatches
         process event to event listeners. """
-        process = self.get_process(namespec)
+        process = self._get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
         process.spawnerr = reason
@@ -170,7 +173,7 @@ class SupervisordSource(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.supervisord.supvisors.logger.warn('Server running without any HTTP authentication checking')
+            self.logger.warn('Server running without any HTTP authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()
         self.httpserver.install_handler(defaulthandler, True)

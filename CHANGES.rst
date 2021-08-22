@@ -1,6 +1,67 @@
 Change Log
 ==========
 
+0.8 (2021-08-22)
+----------------
+
+* Fixed exception in ``INITIALIZATION`` state when the *Master* declared by other nodes is not RUNNING yet and
+  the *core nodes* are RUNNING.
+
+* Fixed exception when program rules and extra arguments are tested against a program unknown to the local Supervisor.
+
+* Fixed issue about program patterns that were applicable to all elements. The scope of program patterns is now limited
+  to their owner application.
+
+* Fixed issue with infinite tries of application restart when the process cannot be started due to a lack of resources
+  and ``RESTART_APPLICATION`` is set on the program in the **Supvisors** rules file.
+
+* Fixed issue about application state not updated after a node has become silent.
+
+* Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
+  non-distributed applications.
+
+* Logic for application major / minor failures reviewed.
+
+* Simplify the insertion of applications to start or stop in Commander jobs.
+
+* In the rules file, support for application patterns has been added.
+
+* In the rules file, ``pattern`` elements are **deprecated** and are replaced by ``program`` elements with a ``pattern``
+  attribute instead of a ``name`` attribute.
+  Support for ``pattern`` elements will be removed in the next version of **Supvisors**.
+
+* Node aliases have been added to the rules file.
+
+* Add the current node to all pages of Web UI to be aware of the node that displays the page.
+
+* The Web UI is updated to handle a large list of applications, nodes, processor cores and network interfaces.
+
+* In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned
+  by a Supervisor group.
+
+* In the application navigation menu of the Web UI, add a red light near the Applications title if any application
+  has raised a failure.
+
+* In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
+  for the application considered.
+
+* In the Application ang Process page, the detailed process statistics can be deselected.
+
+* Titles added to the output of :program:`supervisorctl` ``address_status`` and ``application_info``.
+
+* The XML schema has been moved to a separate file ``rules.xsd``.
+
+* Remove dependency to *netifaces* as *psutil* provides the function.
+
+* Scenario 2 has been added to the **Supvisors** use cases.
+
+* A script ``breed.py`` has been added to the install package.
+  It can be used to duplicate the applications based on a template configuration and more particularly used to prepare
+  the Scenario 2 of the **Supvisors** use cases.
+
+* Update documentation.
+
+
 0.7 (2021-08-15)
 ----------------
 
@@ -11,9 +72,9 @@ Change Log
 * Fixed issue about applications that would be started automatically whereas their ``start_sequence`` is 0.
   The regression has been introduced during the implementation of applications repair in **Supvisors 0.6**.
 
-* Enable stop sequence on *unmanaged* applications.
+* Enable stop sequence on *Unmanaged* applications.
 
-* In the application navigation part of the Web UI, add a red light to applications having a failure raised.
+* In the application navigation menu of the Web UI, add a red light to applications having raised a failure.
 
 * New application rules ``distributed`` and ``addresses`` added to the **Supvisors** rules file.
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
@@ -21,7 +82,7 @@ Change Log
 
 * Starting strategy added to the application rules.
 
-* Fixed issue when choosing node in ``Starter``. The starting strategies considers the current load of the nodes
+* Fixed issue when choosing a node in ``Starter``. The starting strategies considers the current load of the nodes
   and includes the requests that have not been satisfied yet.
 
 * Fixed issue with infinite process restart when the process crashes and ``RESTART_PROCESS`` is set on the program
@@ -41,10 +102,11 @@ Change Log
 
 * Add reciprocity to isolation even if ``auto_fence`` is not activated.
 
-* In the process description of the Web UI Application page, add information about the node_name.
+* In the process description of the Web UI Application page, add information about the node name.
   In particular, it is useful to know where the process was running when it is stopped.
 
 * Start adding use cases to documentation, inspired by real examples.
+  Scenario 1 has been added.
 
 * Documentation updated.
 

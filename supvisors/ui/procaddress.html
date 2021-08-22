@@ -17,21 +17,26 @@
         <div id="left_side">
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
-                <p><span meld:id="version_mid" class="version"></span></p>
+                <p><span meld:id="version_mid"></span></p>
+                <p>view from <span meld:id="node_mid"></span></p>
             </header>
 
             <nav id="address-list">
-                <h2>Addresses</h2>
-                <ul>
-                    <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid" class="off">Address</a></li>
-                </ul>
+                <h2>Nodes</h2>
+                <div>
+                    <ul>
+                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <nav id="application-list">
-                <h2>Applications</h2>
-                <ul>
-                    <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
-                </ul>
+                <h2 meld:id="appli_h_mid">Applications</h2>
+                <div>
+                    <ul>
+                        <li meld:id="appli_li_mid"><a href="#" meld:id="appli_a_mid">Application</a></li>
+                    </ul>
+                </div>
             </nav>
 
             <footer>
@@ -44,7 +49,7 @@
             <header>
                 <div>
                     <h2><span meld:id="address_mid">address</span> - <span meld:id="percent_mid">50%</span></h2>
-                    <h3><code meld:id="state_mid" class="classState">RemoteStates</code> at <span meld:id="date_mid">Time</span></h3>
+                    <h3><code meld:id="state_mid">RemoteStates</code> at <span meld:id="date_mid">Time</span></h3>
                 </div>
 
                 <div>
@@ -62,7 +67,7 @@
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
                             <li meld:id="period_li_mid">
-                                <a href="#" meld:id="period_a_mid" class="button on">5</a>
+                                <a href="#" meld:id="period_a_mid" class="button">Period</a>
                             </li>
                         </ul></td></tr>
                     </table>

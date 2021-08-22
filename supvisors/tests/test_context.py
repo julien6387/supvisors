@@ -25,7 +25,7 @@ from unittest.mock import call, Mock
 from supvisors.context import *
 from supvisors.ttypes import AddressStates, ApplicationStates, InvalidTransition
 
-from .base import DummyAddressMapper, database_copy, any_process_info
+from .base import database_copy, any_process_info
 from .conftest import create_application
 
 
@@ -56,9 +56,9 @@ def test_create(supvisors, context):
     """ Test the values set at construction of Context. """
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
-    assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
-    for address_name, address in context.nodes.items():
-        assert address.address_name == address_name
+    assert set(supvisors.address_mapper.node_names), set(context.nodes.keys())
+    for node_name, address in context.nodes.items():
+        assert address.node_name == node_name
         assert isinstance(address, AddressStatus)
     assert context.applications == {}
     assert context._master_node_name == ''
@@ -83,7 +83,7 @@ def test_reset(mocker, context):
     context.applications['dummy_appli'] = application
     # call reset and check result
     context.reset()
-    assert set(DummyAddressMapper().node_names), set(context.nodes.keys())
+    assert set(context.supvisors.address_mapper.node_names), set(context.nodes.keys())
     context.nodes['127.0.0.1']._state = AddressStates.UNKNOWN
     context.nodes['10.0.0.1']._state = AddressStates.SILENT
     context.nodes['10.0.0.2']._state = AddressStates.ISOLATING
@@ -116,14 +116,14 @@ def test_master_node_name(context):
 def test_nodes_by_states(context):
     """ Test the access to addresses in unknown state. """
     # test initial states
-    assert context.unknown_nodes() == DummyAddressMapper().node_names
+    assert context.unknown_nodes() == context.supvisors.address_mapper.node_names
     assert context.running_core_nodes() is None
     assert context.running_nodes() == []
     assert context.isolating_nodes() == []
     assert context.isolation_nodes() == []
     assert context.nodes_by_states([AddressStates.RUNNING, AddressStates.ISOLATED]) == []
     assert context.nodes_by_states([AddressStates.SILENT]) == []
-    assert context.nodes_by_states([AddressStates.UNKNOWN]) == DummyAddressMapper().node_names
+    assert context.nodes_by_states([AddressStates.UNKNOWN]) == context.supvisors.address_mapper.node_names
     # change states
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
     context.nodes['10.0.0.1']._state = AddressStates.SILENT
@@ -147,7 +147,7 @@ def test_running_core_nodes(supvisors):
     supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
-    assert context.unknown_nodes() == DummyAddressMapper().node_names
+    assert context.unknown_nodes() == context.supvisors.address_mapper.node_names
     assert not context.running_core_nodes()
     # change states
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
@@ -437,7 +437,7 @@ def test_authorization(mocker, context):
         assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
 
 
-def test_tick_event(mocker, context):
+def test_on_tick_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_check = context.supvisors.zmq.pusher.send_check_node
@@ -455,39 +455,46 @@ def test_tick_event(mocker, context):
     # set local node state to RUNNING
     context.nodes['127.0.0.1']._state = AddressStates.RUNNING
     # get node status used for tests
-    address = context.nodes['10.0.0.1']
+    status = context.nodes['10.0.0.1']
+    assert status.sequence_counter == 0
     # check no change with known address in isolation
     for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
-        address._state = state
+        status._state = state
         context.on_tick_event('10.0.0.1', {})
-        assert address.state == state
+        assert status.state == state
         assert not mocked_check.called
         assert not mocked_send.called
     # check that node is CHECKING and send_check_node is called before node time is updated and address status is sent
     for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-        address._state = state
-        context.on_tick_event('10.0.0.1', {'when': 1234})
-        assert address.state == AddressStates.CHECKING
-        assert address.remote_time == 1234
+        status._state = state
+        context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
+        assert status.state == AddressStates.CHECKING
+        assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
-        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1',
+        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1', 'sequence_counter': 31,
                                                     'statecode': 1, 'statename': 'CHECKING',
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
     # check that node time is updated and address status is sent
-    mocked_check.reset_mock()
-    mocked_send.reset_mock()
     for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
-        address._state = state
-        context.on_tick_event('10.0.0.1', {'when': 5678})
-        assert address.state == state
-        assert address.remote_time == 5678
+        status._state = state
+        context.on_tick_event('10.0.0.1', {'sequence_counter': 57, 'when': 5678})
+        assert status.state == state
+        assert status.remote_time == 5678
         assert not mocked_check.called
-        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1',
+        assert mocked_send.call_args_list == [call({'address_name': '10.0.0.1', 'sequence_counter': 57,
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
+    # check that node is forced to SILENT is its sequence_counter is lower than expected
+    status.sequence_counter = 102
+    status._state = AddressStates.RUNNING
+    context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
+    assert status.state == AddressStates.RUNNING
+    assert status.local_time == 0
+    assert not mocked_check.called
+    assert not mocked_send.called
 
 
 def test_process_event_unknown_node(mocker, context):
@@ -521,25 +528,6 @@ def test_process_event_isolated_node(mocker, context):
         assert not mocked_publisher.send_application_status.called
 
 
-def test_process_event_unknown_process(mocker, context):
-    """ Test the handling of a process event corresponding to an unknown process. """
-    mocker.patch('supvisors.process.time', return_value=1234)
-    mocked_publisher = context.supvisors.zmq.publisher
-    mocked_update_args = context.supvisors.info_source.update_extra_args
-    # get address status used for tests
-    node = context.nodes['10.0.0.1']
-    # check no exception with unknown process
-    for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-        node._state = state
-        result = context.on_process_event('10.0.0.1', {'groupname': 'dummy_application',
-                                                       'processname': 'dummy_process'})
-        assert result is None
-        assert not mocked_update_args.called
-        assert not mocked_publisher.send_process_event.called
-        assert not mocked_publisher.send_process_status.called
-        assert not mocked_publisher.send_application_status.called
-
-
 def test_process_event(mocker, context):
     """ Test the handling of a process event. """
     mocker.patch('supvisors.process.time', return_value=1234)
@@ -559,31 +547,40 @@ def test_process_event(mocker, context):
     # update sequences for the test
     application.rules.managed = True
     application.update_sequences()
-    # check normal behaviour with known process
+    # payload for parameter
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'extra_args': '',
                    'now': 2345, 'stop': 0}
-    for state in [AddressStates.UNKNOWN, AddressStates.SILENT, AddressStates.CHECKING, AddressStates.RUNNING]:
-        node._state = state
-        result = context.on_process_event('10.0.0.1', dummy_event)
-        assert result is process
-        assert process.state == 10
-        assert application.state == ApplicationStates.STARTING
-        assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
-        assert mocked_publisher.send_process_event.call_args_list == \
-               [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
-                                  'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
-        assert mocked_publisher.send_process_status.call_args_list == \
-               [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
-                      'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                      'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
-        assert mocked_publisher.send_application_status.call_args_list == \
-               [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
-                      'major_failure': False, 'minor_failure': False})]
-        # reset mocks
-        mocked_update_args.reset_mock()
-        mocked_publisher.send_process_event.reset_mock()
-        mocked_publisher.send_process_status.reset_mock()
-        mocked_publisher.send_application_status.reset_mock()
+    # check behaviour when not in RUNNING state
+    for state in AddressStates:
+        if state != AddressStates.RUNNING:
+            node._state = state
+            assert context.on_process_event('10.0.0.1', dummy_event) is None
+            assert not mocked_update_args.called
+            assert not mocked_publisher.send_process_event.called
+            assert not mocked_publisher.send_process_status.called
+            assert not mocked_publisher.send_application_status.called
+    # check normal behaviour in RUNNING state
+    node._state = AddressStates.RUNNING
+    result = context.on_process_event('10.0.0.1', dummy_event)
+    assert result is process
+    assert process.state == 10
+    assert application.state == ApplicationStates.STARTING
+    assert mocked_update_args.call_args_list == [call('dummy_application:dummy_process', '')]
+    assert mocked_publisher.send_process_event.call_args_list == \
+           [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process',
+                              'state': 10, 'extra_args': '', 'now': 2345, 'stop': 0})]
+    assert mocked_publisher.send_process_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
+                  'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
+                  'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
+    assert mocked_publisher.send_application_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
+                  'major_failure': False, 'minor_failure': False})]
+    # reset mocks
+    mocked_update_args.reset_mock()
+    mocked_publisher.send_process_event.reset_mock()
+    mocked_publisher.send_process_status.reset_mock()
+    mocked_publisher.send_application_status.reset_mock()
     # check degraded behaviour with process to Supvisors but unknown to Supervisor (remote program)
     # basically same check as previous, just being confident that no exception is raised by the method
     mocked_update_args.side_effect = KeyError
@@ -631,16 +628,20 @@ def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_send = context.supvisors.zmq.publisher.send_address_status
-    # update node context
+    # update context nodes
     context.nodes['127.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3598})
     context.nodes['10.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3593})
     context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3588})
     context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_time': 1800})
     context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_time': 0})
     context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.UNKNOWN, 'local_time': 0})
+    # update context applications
+    application_1 = Mock()
+    context.applications['dummy_application'] = application_1
     # patch the expected future invalidated node
     proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_node.return_value': False})
-    proc_2 = Mock(rules=Mock(expected_load=12), **{'invalidate_node.return_value': True})
+    proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
+                  **{'invalidate_node.return_value': True})
     mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
     # test when start_date is more recent than synchro_timeout
     context.start_date = 3590
@@ -654,10 +655,13 @@ def test_on_timer_event(mocker, context):
     assert context.on_timer_event() == {proc_2}
     assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 3588, 'loading': 15}),
+                                                'remote_time': 0, 'local_time': 3588, 'loading': 15,
+                                                'sequence_counter': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]
-    assert proc_2.invalidate_node.call_args_list == [(call('10.0.0.2'))]
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0})]
+    assert proc_2.invalidate_node.call_args_list == [call('10.0.0.2')]
+    assert application_1.update_status.call_args_list == [call()]
     # only '10.0.0.2' and '10.0.0.5' nodes changed state
     for node_name, state in [('127.0.0.1', AddressStates.RUNNING), ('10.0.0.1', AddressStates.RUNNING),
                              ('10.0.0.2', AddressStates.ISOLATING), ('10.0.0.3', AddressStates.SILENT),
@@ -685,6 +689,8 @@ def test_handle_isolation(mocker, context):
     assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATED
     # check calls to publisher.send_address_status
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0}),
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
-                                                'remote_time': 0, 'local_time': 0, 'loading': 0})]
+                                                'remote_time': 0, 'local_time': 0, 'loading': 0,
+                                                'sequence_counter': 0})]

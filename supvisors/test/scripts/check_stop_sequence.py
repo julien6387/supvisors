@@ -73,6 +73,10 @@ class CheckStopSequenceTest(CheckSequenceTest):
         self.context.get_program('my_movies:web_server').required = True
         # set managed status
         self.context.get_application('service').managed = False
+        disk_handler = self.context.get_application('disk_handler')
+        if disk_handler:
+            # only on cliche83
+            disk_handler.managed = False
 
     def check_converter_running(self):
         """ Check the start sequence of the converter program. """
@@ -86,19 +90,29 @@ class CheckStopSequenceTest(CheckSequenceTest):
 
     def check_service_stopping(self):
         """ Check the stopping sequence of the service application.
-        This one is complex to test as there may ne multiple instances running for the same program. """
+        This one is complex to test as there may be multiple instances running for the same program.
+        And this is mixed with the stopping of disk_handler group. """
+        # configure service application stop sequence
         program = self.context.get_program('service:disk_handler')
         if program.state in RUNNING_STATES:
-            node_names = program.node_names.copy()
-            # event sequence on nodes is quite unpredictable so test only process states
-            while len(node_names) > 1:
-                # STOPPING then STOPPED on one node in list. still RUNNING on others
+            # 2 instances max on cliche81 and cliche82
+            # 2 possible sequences, depending on when the first event of the second node arrives before or
+            # after the second event of the first node:
+            #    * RUNNING RUNNING STOPPING STOPPED
+            #    * RUNNING STOPPING STOPPING STOPPED
+            print(program.node_names)
+            if len(program.node_names) > 1:
                 program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
-                program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
-                node_names.pop()
-            # STOPPING then STOPPED on last node
+                program.add_event(ProcessStateEvent([ProcessStates.RUNNING, ProcessStates.STOPPING]))
             program.add_event(ProcessStateEvent(ProcessStates.STOPPING))
             program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure disk_handler stop sequence
+        program = self.context.get_program('disk_handler')
+        if program:
+            if program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())

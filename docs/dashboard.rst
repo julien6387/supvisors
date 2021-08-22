@@ -3,8 +3,8 @@
 Dashboard
 =========
 
-Each Supervisor instance provides a `Web Server <http://supervisord.org/introduction.html#supervisor-components>`_
-and the **Supvisors** extension provides its own web user interface, as a replacement of the Supervisor one.
+Each |Supervisor| instance provides a `Web Server <http://supervisord.org/introduction.html#supervisor-components>`_
+and the |Supvisors| extension provides its own web user interface, as a replacement of the |Supervisor| one.
 
 .. note:: *About the browser compliance*.
 
@@ -26,10 +26,11 @@ Common Menu
     :align: center
 
 Clicking on the 'Supvisors' title brings the `Main page`_ back or the `Conciliation page`_ if it blinks in red.
-The version of **Supvisors** is displayed underneath.
+The version of |Supvisors| is displayed underneath.
 
-Below is the Addresses part that lists all the nodes defined in the :ref:`supvisors_section` of the Supervisor configuration file.
-The color gives the state of the Address, as seen by the **Supvisors** instance that is displaying this page:
+Below is the Addresses part that lists all the nodes defined in the :ref:`supvisors_section` of the |Supervisor|
+configuration file.
+The color gives the state of the Address, as seen by the |Supvisors| instance that is displaying this page:
 
     * grey for ``UNKNOWN``,
     * grey-to-green gradient for ``CHECKING``,
@@ -37,13 +38,14 @@ The color gives the state of the Address, as seen by the **Supvisors** instance 
     * green for ``RUNNING``,
     * red for ``ISOLATED``.
 
-Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_ of the corresponding Web Server.
-The **Supvisors** instance playing the role of "Master" is pointed out with the ✪ sign.
+Only the hyperlinks of the ``RUNNING`` nodes are active. The browser is redirected to the `Address page`_
+of the corresponding Web Server.
+The |Supvisors| instance playing the role of *Master* is pointed out with the ✪ sign.
 
 Below is the Application part that lists all the *Managed* applications defined through the
-`group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_ of the Supervisor configuration file
-and also declared in the **Supvisors** :ref:`rules_file`.
-The color gives the state of the Application, as seen by the **Supvisors** instance that is displaying this page:
+`group sections <http://supervisord.org/configuration.html#group-x-section-settings>`_
+of the |Supervisor| configuration file and also declared in the |Supvisors| :ref:`rules_file`.
+The color gives the state of the Application, as seen by the |Supvisors| instance that is displaying this page:
 
     * grey for ``UNKNOWN``,
     * yellow for ``STOPPED``,
@@ -61,7 +63,7 @@ The bottom part of the menu contains a contact link and copyright information.
 Main Page
 ---------
 
-The Main Page shows a synoptic of the **Supvisors** status.
+The Main Page shows a synoptic of the |Supvisors| status.
 
 .. image:: images/supvisors_main_page.png
     :alt: Supvisors Main page
@@ -70,74 +72,77 @@ The Main Page shows a synoptic of the **Supvisors** status.
 Main Page Header
 ~~~~~~~~~~~~~~~~
 
-The state of **Supvisors** is displayed on the left side of the header:
+The state of |Supvisors| is displayed on the left side of the header:
 
 ``INITIALIZATION``
     
-    This is the **Supvisors** starting phase, waiting for all **Supvisors** instances to connect themselves.
+    This is the |Supvisors| starting phase, waiting for all |Supvisors| instances to connect themselves.
     Refer to the :ref:`synchronizing` section for more details.
 
-    In this state, the **Supvisors** :ref:`xml_rpc` is restricted so that version, master and node information only are available.
+    In this state, the |Supvisors| :ref:`xml_rpc` is restricted so that version, master and node information only
+    are available.
 
 ``DEPLOYMENT``
 
-    In this state, **Supvisors** is automatically starting applications (here for more details).
+    In this state, |Supvisors| is automatically starting applications (here for more details).
     Refer to the :ref:`starting_strategy` section for more details.
 
-    The whole :ref:`xml_rpc_status` part and the :ref:`xml_rpc_supvisors` part of the **Supvisors** :ref:`xml_rpc`
+    The whole :ref:`xml_rpc_status` part and the :ref:`xml_rpc_supvisors` part of the |Supvisors| :ref:`xml_rpc`
     are available from this state.
 
 ``OPERATION``
 
-    In this state, **Supvisors** is mainly:
+    In this state, |Supvisors| is mainly:
     
-        * listening to Supervisor events,
+        * listening to |Supervisor| events,
         * publishing the events on its :ref:`event_interface`,
-        * checking the activity of all remote **Supvisors** instances,
+        * checking the activity of all remote |Supvisors| instances,
         * detecting eventual multiple running instances of the same program,
         * providing statistics to its Dashboard.
 
-    The whole **Supvisors** :ref:`xml_rpc` is available in this state.
+    The whole |Supvisors| :ref:`xml_rpc` is available in this state.
 
 ``CONCILIATION``
 
-    This state is reached when **Supvisors** has detected multiple running instances of the same program.
-    **Supvisors** is either solving conflicts itself or waiting for the user to do it.
+    This state is reached when |Supvisors| has detected multiple running instances of the same program.
+    |Supvisors| is either solving conflicts itself or waiting for the user to do it.
     Refer to the :ref:`conciliation` section for more details.
 
-    The **Supvisors** :ref:`xml_rpc` is restricted in this state. It is possible to stop applications and processes
+    The |Supvisors| :ref:`xml_rpc` is restricted in this state. It is possible to stop applications and processes
     but the start requests are rejected.
 
 ``RESTARTING``
 
-    **Supvisors** is stopping all processes before commanding its own restart, i.e. the restart of all Supervisor instances.
+    |Supvisors| is stopping all processes before commanding its own restart, i.e. the restart
+    of all |Supervisor| instances.
     Refer to the :ref:`stopping_strategy` section for more details.
 
-    The **Supvisors** :ref:`xml_rpc` is NOT available in this state.
+    The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
 ``SHUTTING_DOWN``
 
-    **Supvisors** is stopping all processes before commanding its own shutdown, i.e. the shutdown of all Supervisor instances.
+    |Supvisors| is stopping all processes before commanding its own shutdown, i.e. the shutdown
+    of all |Supervisor| instances.
     Refer to the :ref:`stopping_strategy` section for more details.
 
 ``SHUTDOWN``
 
-    This is the final state of **Supvisors**, in which it remains inactive and waits for the Supervisor stopping event.
+    This is the final state of |Supvisors|, in which it remains inactive and waits for the |Supervisor| stopping event.
 
-    The **Supvisors** :ref:`xml_rpc` is NOT available in this state.
+    The |Supvisors| :ref:`xml_rpc` is NOT available in this state.
 
 
 On the right side, 3 buttons are available:
 
-    * |restart| restarts **Supvisors** through all Supervisor instances,
-    * |shutdown| shuts down **Supvisors** through all Supervisor instances,
+    * |restart| restarts |Supvisors| through all |Supervisor| instances,
+    * |shutdown| shuts down |Supvisors| through all |Supervisor| instances,
     * |refresh| refreshes the current page,
     * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
 Main Page Contents
 ~~~~~~~~~~~~~~~~~~
 
-For every nodes, a box is displayed in the contents of the **Supvisors** Main Page.
+For every nodes, a box is displayed in the contents of the |Supvisors| Main Page.
 Each box contains:
 
     * the Address name, which is a hyperlink to the corresponding `Address Page`_ if the Address state is ``RUNNING``,
@@ -149,10 +154,11 @@ Each box contains:
 Conciliation Page
 -----------------
 
-If the page is refreshed when **Supvisors** is in ``CONCILIATION`` state, the 'Supvisors' label in the top left
+If the page is refreshed when |Supvisors| is in ``CONCILIATION`` state, the 'Supvisors' label in the top left
 of the `Common Menu`_ becomes red and blinks.
 This situation is unlikely to happen if the ``conciliation_strategy`` chosen in the :ref:`supvisors_section`
-of the Supervisor configuration file is different from ``USER``, as the other values will lead to an immediate conciliation of the conflicts.
+of the |Supervisor| configuration file is different from ``USER``, as the other values will lead
+to an immediate conciliation of the conflicts.
 
 The Conciliation Page can be reached by clicking on this blinking red label.
 
@@ -182,40 +188,44 @@ So the table lists, for each conflict:
         + Stop the process,
         + Keep this process (and Stop all others),
 
-    * for each process, a list of automatic strategies (refer to :ref:`conciliation`) helping to the solving of this conflict.
+    * for each process, a list of automatic strategies (refer to :ref:`conciliation`) helping to the solving
+      of this conflict.
 
-The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts, using one of the automatic strategies.
+The left side of the page contains a simple box that enables the user to perform a global conciliation on all conflicts,
+using one of the automatic strategies.
 
 
 Address Page
 ------------
 
-The Address Page of **Supvisors** is a bit less "sparse" than the web page provided by Supervisor.
-It shows the status of the node, as seen by the local **Supvisors** instance.
-It also enables the user to command the processes declared on this node and provides statistics that may be useful at software integration time.
+The Address Page of |Supvisors| is a bit less "sparse" than the web page provided by |Supervisor|.
+It shows the status of the node, as seen by the local |Supvisors| instance.
+It also enables the user to command the processes declared on this node and provides statistics that may be useful
+at software integration time.
 
 Address Page Header
 ~~~~~~~~~~~~~~~~~~~
 
 The status of the Address is displayed on the left side of the header:
 
-    * the Address name, marked with the ✪ sign if it corresponds to the "Master",
+    * the Address name, marked with the ✪ sign if it corresponds to the *Master*,
     * the current loading of the processes running on this node,
     * the Address state,
-    * the date of the last tick received from the Supervisor running on this node.
+    * the date of the last tick received from the |Supervisor| running on this node.
 
-In the middle of the header, the 'Statistics View' box enables the user to choose the information presented on this page.
+In the middle of the header, the 'Statistics View' box enables the user to choose the information presented
+on this page.
 By default, the `Processes Section`_ is displayed. The other choice is the `Host Section`_.
-The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
+The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
 Next to it, the 'Statistics Period' box enables the user to choose the period used for the statistics of this page.
-The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
+The periods can be updated in the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
 On the right side, 5 buttons are available:
 
-    * |stop| stops all processes handled by Supervisor on this node,
-    * |restart| restarts Supervisor on this node,
-    * |shutdown| shuts down Supervisor on this node,
+    * |stop| stops all processes handled by |Supervisor| on this node,
+    * |restart| restarts |Supervisor| on this node,
+    * |shutdown| shuts down |Supervisor| on this node,
     * |refresh| refreshes the current page,
     * |autorefresh| refreshes the current page and sets a periodic 5s refresh to the page.
 
@@ -226,8 +236,8 @@ Processes Section
     :alt: Processes Section of Supvisors Address Page
     :align: center
 
-The Processes Section looks like the page provided by Supervisor.
-Indeed, it lists the programs that are configured in Supervisor, it presents their current state with an associated
+The Processes Section looks like the page provided by |Supervisor|.
+Indeed, it lists the programs that are configured in |Supervisor|, it presents their current state with an associated
 description and enables the user to perform some actions on them:
 
     * Log tail (with a refresh button, click on the program name itself),
@@ -238,13 +248,14 @@ description and enables the user to perform some actions on them:
     * Tail stdout log (auto-refreshed),
     * Tail stderr log (auto-refreshed).
 
-**Supvisors** shows additional information for each process, such as:
+|Supvisors| shows additional information for each process, such as:
 
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
-    * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``),
+    * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process
+      is ``RUNNING``),
 
-All processes are grouped by their application and **Supvisors** provides expand / shrink actions per application
+All processes are grouped by their application and |Supvisors| provides expand / shrink actions per application
 to enable the user to show / hide blocks of processes.
 The application line displays:
 
@@ -256,8 +267,9 @@ The application line displays:
         * the sum of their CPU usage,
         * the sum of their instant memory occupation.
 
-A click on the CPU or RAM measures shows detailed statistics about the process. This is not active on the application values.
-More particularly, **Supvisors** displays on the right side of the page a table showing for both CPU and Memory:
+A click on the CPU or RAM measures shows detailed statistics about the process. This is not active
+on the application values.
+More particularly, |Supvisors| displays on the right side of the page a table showing for both CPU and Memory:
 
     * the last measure,
     * the mean value,
@@ -270,7 +282,8 @@ A color and a sign are associated to the last value, so that:
     * red and ↘ point out a significant decrease of the value since the last measure,
     * blue and ↝ point out the stability of the value since the last measure,
 
-Underneath, **Supvisors** shows two graphs (CPU and Memory) built from the series of measures taken from the selected process:
+Underneath, |Supvisors| shows two graphs (CPU and Memory) built from the series of measures taken
+from the selected process:
 
     * the history of the values with a plain line,
     * the mean value with a dashed line and value in the top right corner,
@@ -292,7 +305,8 @@ The Memory table shows statistics about the amount of used (and not available) m
 
 The Network table shows statistics about the receive and sent flows on each network interface.
 
-Clicking on a button associated to the resource displays detailed statistics (graph and table), similarly to the process buttons.
+Clicking on a button associated to the resource displays detailed statistics (graph and table),
+similarly to the process buttons.
 
 
 .. _dashboard_application:
@@ -300,9 +314,9 @@ Clicking on a button associated to the resource displays detailed statistics (gr
 Application Page
 ----------------
 
-The Application Page of **Supvisors**:
+The Application Page of |Supvisors|:
 
-    * shows the status of the *managed* application, as seen by the considered **Supvisors** instance,
+    * shows the status of the *managed* application, as seen by the considered |Supvisors| instance,
     * enables the user to command the application and its processes
     * and provides statistics that may be useful at software integration time.
 
@@ -330,7 +344,8 @@ to start the application programs listed below.
 Strategies are detailed in :ref:`starting_strategy`.
 
 The third part of the header is the 'Statistics Period' box that enables the user to choose the period used
-for the statistics of this page. The periods can be updated in the :ref:`supvisors_section` of the Supervisor configuration file.
+for the statistics of this page. The periods can be updated in the :ref:`supvisors_section`
+of the |Supervisor| configuration file.
 
 On the right side, 4 buttons are available:
 
@@ -347,10 +362,11 @@ The table lists all the programs belonging to the application, and it shows:
 
     * the 'synthetic' state of the process (refer to this note for details about the synthesis),
     * the node where it runs, if appropriate,
-    * the description (from Supervisor),
+    * the description (initialized from |Supervisor|, node_name added depending on the state),
     * the loading declared for the process in the rules file,
     * the CPU usage of the process during the last period (only if the process is ``RUNNING``),
-    * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process is ``RUNNING``).
+    * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process
+      is ``RUNNING``).
 
 Like the `Address page`_, the Application page enables the user to perform some actions on programs:
 
@@ -362,26 +378,9 @@ Like the `Address page`_, the Application page enables the user to perform some 
     * Tail stderr log (auto-refreshed).
 
 The difference is that the process is not started necessarily on the node that displays this page.
-Indeed, **Supvisors** uses the rules of the program (as defined in the rules file) and the starting strategy selected
+Indeed, |Supvisors| uses the rules of the program (as defined in the rules file) and the starting strategy selected
 in the header part to choose a relevant node. If no rule is defined for the program, the starting will fail.
 
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
-
-.. |start| image:: images/start_button.png
-    :alt: Start button
-
-.. |stop| image:: images/stop_button.png
-    :alt: Stop button
-
-.. |restart| image:: images/restart_button.png
-    :alt: Restart button
-
-.. |shutdown| image:: images/shutdown_button.png
-    :alt: Shutdown button
-
-.. |refresh| image:: images/refresh_button.png
-    :alt: Refresh button
-
-.. |autorefresh| image:: images/autorefresh_button.png
-    :alt: Refresh button
+.. include:: common.rst

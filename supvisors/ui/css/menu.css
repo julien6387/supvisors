@@ -3,7 +3,8 @@
  */
 nav ul {
 	margin: 0;
-	padding: 0;
+	padding-left: 0;
+	padding-right: 2px;
 	list-style: none;
 }
 
@@ -11,7 +12,7 @@ nav li {
     background-image: linear-gradient(165deg, var(--vlight2-color) 40%, var(--vlight1-color), orange);
     margin-bottom: 2px;
     border: 1px #111 solid;
-    border-radius: 0px 6px 0 6px;
+    border-radius: 0 6px 0 6px;
 }
 
 nav li a {

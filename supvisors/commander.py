@@ -83,8 +83,10 @@ class Commander(object):
     """ Base class handling the starting / stopping of processes and applications.
 
     Attributes are:
-        - planned_sequence: the applications to be commanded, as a dictionary of process commands, grouped by application sequence order, application name and process sequence order,
-        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands, grouped by application name and process sequence order,
+        - planned_sequence: the applications to be commanded, as a dictionary of process commands,
+          grouped by application sequence order, application name and process sequence order,
+        - planned_jobs: the current sequence of applications to be commanded, as a dictionary of process commands,
+          grouped by application name and process sequence order,
         - current_jobs: a dictionary of process commands, grouped by application name.
     """
 
@@ -295,7 +297,7 @@ class Commander(object):
             else:
                 # no commands in the pipe
                 # this can happen when nothing had to be stopped inside the planned_jobs
-                self.logger.warn('Starter.is_job_completed: no commands in progress but planned sequence still ongoing')
+                self.logger.warn('Commander.is_job_completed: no current job but planned sequence still ongoing')
                 # check if there are planned jobs
                 if not self.planned_jobs:
                     # trigger next sequence of applications
@@ -396,15 +398,14 @@ class Starter(Commander):
                          .format(application.application_name, strategy.name))
         # push program list in job list and start work
         if application.stopped():
+            in_progress = self.in_progress()
             self.store_application_start_sequence(application, strategy)
             self.logger.debug('Starter.start_application: planned_sequence={}'
                               .format(self.printable_planned_sequence()))
-            if self.planned_sequence:
-                # add application immediately to planned jobs if something already in list
-                self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
-                # prepare commands and trigger application jobs
-                self.prepare_application_jobs(application.application_name, application)
-                self.process_application_jobs(application.application_name)
+            # if nothing in progress, trigger the jobs
+            # else let the Starter logic take the new jobs when relevant
+            if not in_progress:
+                self.trigger_jobs()
         # return True when started
         return not self.in_progress()
 
@@ -657,12 +658,20 @@ class Starter(Commander):
         :return: the additional loading per node
         """
         load_request_map = {}
+        # for distributed applications, add loading of current jobs
         for command_list in self.current_jobs.values():
             for command in command_list:
                 # if process is not stopped, its loading is already considered in AddressStatus
                 if command.process.stopped():
                     load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
-        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items()}
+        # for non-distributed applications, add loading of planned jobs
+        for application_sequence in self.planned_jobs.values():
+            for command_list in application_sequence.values():
+                for command in command_list:
+                    # if process is not stopped, its loading is already considered in AddressStatus
+                    if not command.distributed and command.process.stopped():
+                        load_request_map.setdefault(command.node_name, []).append(command.process.rules.expected_load)
+        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items() if node_name}
 
 
 class Stopper(Commander):
@@ -685,12 +694,14 @@ class Stopper(Commander):
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
         # push program list in jobs list and start work
         if application.has_running_processes():
+            in_progress = self.in_progress()
             self.store_application_stop_sequence(application)
             self.logger.debug('Stopper.stop_application: planned_sequence={}'.format(self.printable_planned_sequence()))
-            # add application immediately to planned jobs
-            self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
-            self.process_application_jobs(application.application_name)
-        # return True when stopped
+            # if nothing in progress, trigger the jobs
+            # else let the Stopper logic take the new jobs when relevant
+            if not in_progress:
+                self.trigger_jobs()
+        # return True when no job in progress
         return not self.in_progress()
 
     def stop_process(self, process):
@@ -750,7 +761,8 @@ class Stopper(Commander):
                 if process.running():
                     # several cases:
                     # 1) expected upon conciliation of a conflicting process
-                    # 2) concurrent stopping / starting
+                    # 2) expected when stopping unmanaged applications with multiple running instances of a program
+                    # 3) concurrent stopping / starting
                     self.logger.warn('Stopper.on_event: {} still running when stopping'.format(process.namespec))
                 elif process.stopped():
                     # goal reached, whatever the state

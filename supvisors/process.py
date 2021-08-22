@@ -37,9 +37,12 @@ class ProcessRules(object):
         - start_sequence: the order in the starting sequence of the application,
         - stop_sequence: the order in the stopping sequence of the application,
         - required: a status telling if the process is required within the application,
-        - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase in the starting sequence of the application,
-        - expected_load: the expected loading of the process on the considered hardware (can be anything at the user discretion: CPU, RAM, etc),
-        - running_failure_strategy: supersedes the application rule and defines the strategy to apply when the process crashes when the application is running.
+        - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase
+          in the starting sequence of the application,
+        - expected_load: the expected loading of the process on the considered hardware (can be anything
+          at the user discretion: CPU, RAM, etc),
+        - running_failure_strategy: supersedes the application rule and defines the strategy to apply
+          when the process crashes when the application is running.
     """
 
     def __init__(self, supvisors: Any) -> None:
@@ -53,7 +56,7 @@ class ProcessRules(object):
         self.logger: Logger = supvisors.logger
         # attributes
         self.node_names: NameList = ['*']
-        self.hash_node_names: NameList = None
+        self.hash_node_names: NameList = []
         self.start_sequence: int = 0
         self.stop_sequence: int = 0
         self.required: bool = False
@@ -82,11 +85,15 @@ class ProcessRules(object):
         """
         if self.running_failure_strategy in [RunningFailureStrategies.STOP_APPLICATION,
                                              RunningFailureStrategies.RESTART_APPLICATION]:
-            if self.supvisors.info_source.autorestart(namespec):
-                self.supvisors.info_source.disable_autorestart(namespec)
-                self.logger.warn('ProcessRules.check_autorestart: program={} - autorestart disabled due to '
-                                 'running failure strategy {}'
-                                 .format(namespec, self.running_failure_strategy.name))
+            try:
+                if self.supvisors.info_source.autorestart(namespec):
+                    self.supvisors.info_source.disable_autorestart(namespec)
+                    self.logger.warn('ProcessRules.check_autorestart: namespec={} - autorestart disabled due to '
+                                     'running failure strategy {}'
+                                     .format(namespec, self.running_failure_strategy.name))
+            except KeyError:
+                self.logger.debug('ProcessRules.check_autorestart: namespec={} unknown to local Supervisor'
+                                  .format(namespec))
 
     def check_hash_nodes(self, namespec: str) -> None:
         """ When a '#' is set in program rules, an association has to be done between the procnumber of the process
@@ -190,8 +197,8 @@ class ProcessStatus(object):
         self.process_name: str = process_name
         self.namespec = make_namespec(application_name, process_name)
         self._state: ProcessStates = ProcessStates.UNKNOWN
-        self.forced_state: ProcessStates = None
-        self.forced_reason: str = None
+        self.forced_state: Optional[ProcessStates] = None
+        self.forced_reason: str = ''
         self.expected_exit: bool = True
         self.last_event_time: int = 0
         self._extra_args: str = ''
@@ -249,8 +256,11 @@ class ProcessStatus(object):
         """
         if self._extra_args != new_args:
             self._extra_args = new_args
-            self.supvisors.info_source.update_extra_args(self.namespec, new_args)
-            self.logger.trace('ProcessStatus.extra_args: {} extra_args={}'.format(self.namespec, self._extra_args))
+            try:
+                self.supvisors.info_source.update_extra_args(self.namespec, new_args)
+            except KeyError:
+                self.logger.debug('ProcessStatus.extra_args: namespec={} unknown to local Supervisor'
+                                  .format(self.namespec))
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
@@ -400,7 +410,7 @@ class ProcessStatus(object):
         # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
         if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
             self.forced_state = None
-            self.forced_reason = None
+            self.forced_reason = ''
             self.logger.debug('ProcessStatus.add_info: namespec={} - forced_state unset'.format(self.namespec))
         # update process status
         self.update_status(node_name, info['state'])
@@ -477,7 +487,7 @@ class ProcessStatus(object):
         :param node_name: the node from which no more information is received
         :return: True if process not running anywhere anymore
         """
-        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name= {} invalidated'
+        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name={} invalidated'
                           .format(self.namespec, node_name))
         if node_name in self.running_nodes:
             # update process status with a FATAL payload
@@ -535,8 +545,7 @@ class ProcessStatus(object):
             # several processes seems to be in a running state so that becomes tricky
             states = {self.info_map[running_node_name]['state'] for running_node_name in self.running_nodes}
             self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
-                              .format(self.process_name,
-                                      [getProcessStateDescription(x) for x in states],
+                              .format(self.process_name, [getProcessStateDescription(x) for x in states],
                                       list(self.running_nodes)))
             # state synthesis done using the sorting of RUNNING_STATES
             self.state = self.running_state(states)
@@ -548,6 +557,9 @@ class ProcessStatus(object):
          The sequence defined in the Supervisor RUNNING_STATES is suitable here.
 
         :param states: a list of all process states of the present process over all nodes
-        :return: a running state if found in list, UNKNOWN otherwise
+        :return: a running state if found in list, STOPPING otherwise
         """
-        return next((state for state in RUNNING_STATES if state in states), ProcessStates.UNKNOWN)
+        # There may be STOPPING states in the list
+        # In this state, the process is not removed yet from the running_nodes
+        return next((state for state in list(RUNNING_STATES) + [ProcessStates.STOPPING]
+                     if state in states), ProcessStates.UNKNOWN)

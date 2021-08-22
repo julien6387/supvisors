@@ -20,7 +20,7 @@
 from typing import Any, Dict, List, Sequence
 
 from supervisor.loggers import Logger
-from supervisor.states import ProcessStates, STOPPED_STATES
+from supervisor.states import ProcessStates
 
 from .process import ProcessStatus
 from .ttypes import (ApplicationStates, NameList, Payload, StartingStrategies,
@@ -34,11 +34,16 @@ class ApplicationRules(object):
         - managed: set to True when application rules are found from the rules file;
         - distributed: set to False if all processes must be running on the same node;
         - node_names: the nodes where the application can be started (all by default) if not distributed,
-        - start_sequence: defines the order of this application when starting all the applications in the DEPLOYMENT state (0 means: no automatic start);
-        - stop_sequence: defines the order of this application when stopping all the applications (0 means: immediate stop);
-        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started during the starting of the application;
-        - starting_failure_strategy: defines the strategy to apply when a required process cannot be started during the starting of the application;
-        - running_failure_strategy: defines the default strategy to apply when a required process crashes when the application is running.
+        - start_sequence: defines the order of this application when starting all the applications
+          in the DEPLOYMENT state (0 means: no automatic start);
+        - stop_sequence: defines the order of this application when stopping all the applications
+          (0 means: immediate stop);
+        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started
+          during the starting of the application;
+        - starting_failure_strategy: defines the strategy to apply when a required process cannot be started
+          during the starting of the application;
+        - running_failure_strategy: defines the default strategy to apply when a required process crashes
+          when the application is running.
     """
 
     def __init__(self) -> None:
@@ -168,10 +173,11 @@ class ApplicationStatus(object):
             self._state = new_state
             self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
 
-    def has_running_processes(self) -> str:
-        """ Get a description of the operational status of the application.
+    def has_running_processes(self) -> bool:
+        """ Check if one of the application processes is running.
+        The application state may be STOPPED in this case if the running process is out of the starting sequence.
 
-        :return: the operational status as string
+        :return: True if one of the application processes is running
         """
         for process in self.processes.values():
             if process.running():
@@ -297,8 +303,7 @@ class ApplicationStatus(object):
         :return: None
         """
         # always reset failures
-        self.major_failure = False
-        self.minor_failure = False
+        self.major_failure, self.minor_failure, possible_major_failure = (False, ) * 3
         # get the processes from the starting sequence
         sequenced_processes = [process for sub_seq in self.start_sequence.values()
                                for process in sub_seq]
@@ -321,23 +326,24 @@ class ApplicationStatus(object):
             # STOPPING is not in STOPPED_STATES
             elif process.state == ProcessStates.STOPPING:
                 stopping = True
-            elif process.state in STOPPED_STATES:
+            elif (process.state in [ProcessStates.FATAL, ProcessStates.UNKNOWN]
+                    or process.state == ProcessStates.EXITED and not process.expected_exit):
+                # a major/minor failure is raised in this states depending on the required option
                 if process.rules.required:
-                    # any required stopped process is a major failure for a running application
-                    # exception is made for an EXITED process with an expected exit code
-                    if process.state != ProcessStates.EXITED or not process.expected_exit:
-                        self.major_failure = True
+                    self.major_failure = True
                 else:
-                    # an optional process is a minor failure for a running application
-                    # when its state is FATAL or unexpectedly EXITED
-                    if ((process.state == ProcessStates.FATAL) or
-                            (process.state == ProcessStates.EXITED and not process.expected_exit)):
-                        self.minor_failure = True
-            # all other STOPPED-like states are considered normal
+                    self.minor_failure = True
+            elif process.state == ProcessStates.STOPPED:
+                # possible major failure raised if STOPPED
+                # consideration will depend on the global application state
+                if process.rules.required:
+                    possible_major_failure = True
+            # only remaining case is EXITED + expected
+            # TODO: possible_major_failure could be set if it has not been run yet
         self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
-                          ' major_failure={} minor_failure={}'
+                          ' major_failure={} minor_failure={} possible_major_failure={}'
                           .format(self.application_name, starting, running, stopping,
-                                  self.major_failure, self.minor_failure))
+                                  self.major_failure, self.minor_failure, possible_major_failure))
         # apply rules for state
         if stopping:
             # if at least one process is STOPPING, let's consider that application is stopping
@@ -352,5 +358,8 @@ class ApplicationStatus(object):
         else:
             # all processes in the sequence are STOPPED, so application is STOPPED
             self.state = ApplicationStates.STOPPED
+        # consider possible failure
+        if self.state != ApplicationStates.STOPPED:
+            self.major_failure |= possible_major_failure
         self.logger.debug('Application {}: state={} major_failure={} minor_failure={}'
                           .format(self.application_name, self.state, self.major_failure, self.minor_failure))

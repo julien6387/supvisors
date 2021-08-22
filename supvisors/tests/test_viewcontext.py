@@ -22,7 +22,7 @@ import pytest
 from supvisors.viewcontext import *
 from unittest.mock import call, patch, Mock
 
-from .base import DummyAddressMapper, DummyHttpContext, DummyOptions
+from .base import DummyHttpContext, DummyOptions
 
 url_attr_template = r'(.+=.+)'
 
@@ -44,7 +44,7 @@ def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_node_name == DummyAddressMapper().local_node_name
+    assert ctx.local_node_name == ctx.supvisors.address_mapper.local_node_name
     assert ctx.parameters == {'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
@@ -78,8 +78,8 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'period=5&amp;strategy=CONFIG&amp;node=10.0.0.4'
-    assert ctx.url_parameters(True) == 'period=5&amp;strategy=CONFIG&amp;node=10.0.0.4'
+    assert ctx.url_parameters(False) == 'period=5&strategy=CONFIG&node=10.0.0.4'
+    assert ctx.url_parameters(True) == 'period=5&strategy=CONFIG&node=10.0.0.4'
     # update internal parameters
     ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'node': '10.0.0.1', 'cpuid': 3,
                            'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
@@ -88,7 +88,7 @@ def test_url_parameters(ctx):
     # don't reset shex
     url = ctx.url_parameters(False)
     # result depends on dict contents so ordering is unreliable
-    regexp = r'&amp;'.join([url_attr_template for _ in range(9)])
+    regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'node=10.0.0.1', 'cpuid=3', 'intfname=eth0',
@@ -97,7 +97,7 @@ def test_url_parameters(ctx):
     # reset shex
     url = ctx.url_parameters(True)
     # result depends on dict contents so ordering is unreliable
-    regexp = r'&amp;'.join([url_attr_template for _ in range(8)])
+    regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'node=10.0.0.1', 'cpuid=3', 'intfname=eth0',
@@ -106,7 +106,7 @@ def test_url_parameters(ctx):
     # test with additional parameters
     # don't reset shex
     url = ctx.url_parameters(False, **{'node': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
-    regexp = r'&amp;'.join([url_attr_template for _ in range(9)])
+    regexp = r'&'.join([url_attr_template for _ in range(9)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'node=127.0.0.1', 'cpuid=3', 'intfname=lo',
@@ -115,7 +115,7 @@ def test_url_parameters(ctx):
     # test with additional parameters
     # reset shex
     url = ctx.url_parameters(True, **{'node': '127.0.0.1', 'intfname': 'lo', 'shex': 'args'})
-    regexp = r'&amp;'.join([url_attr_template for _ in range(8)])
+    regexp = r'&'.join([url_attr_template for _ in range(8)])
     matches = re.match(regexp, url)
     assert matches is not None
     expected = sorted(('processname=dummy_proc', 'namespec=dummy_ns', 'node=127.0.0.1', 'cpuid=3', 'intfname=lo',
@@ -365,12 +365,12 @@ def test_update_interface_name(mocker, ctx):
 def test_format_url(ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?period=5&amp;strategy=CONFIG&amp;node=10.0.0.4'
+    assert ctx.format_url(None, 'index.html') == 'index.html?period=5&strategy=CONFIG&node=10.0.0.4'
     # test with local node and arguments
     url = ctx.format_url('127.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     # result depends on dict contents so ordering is unreliable
     base_address = r'http://127.0.0.1:7777/index.html\?'
-    parameters = r'&amp;'.join([url_attr_template for _ in range(5)])
+    parameters = r'&'.join([url_attr_template for _ in range(5)])
     regexp = base_address + parameters
     matches = re.match(regexp, url)
     assert matches is not None
@@ -380,7 +380,7 @@ def test_format_url(ctx):
     url = ctx.format_url('10.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     # result depends on dict contents so ordering is unreliable
     base_address = r'http://10.0.0.1:7777/index.html\?'
-    parameters = r'&amp;'.join([url_attr_template for _ in range(4)])
+    parameters = r'&'.join([url_attr_template for _ in range(4)])
     regexp = base_address + parameters
     matches = re.match(regexp, url)
     assert matches is not None
@@ -394,12 +394,12 @@ def test_message(ctx):
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = r'http://10.0.0.1:7777/index.html\?'
-    parameters = r'&amp;'.join([url_attr_template for _ in range(3)])
+    parameters = r'&'.join([url_attr_template for _ in range(3)])
     regexp = base_address + parameters
     matches = re.match(regexp, url)
     assert matches is not None
     assert sorted(matches.groups()) == sorted(('message=not%20as%20expected',
-                                               'period=5&amp;strategy=CONFIG&amp;node=10.0.0.4', 'gravity=warning'))
+                                               'period=5&strategy=CONFIG&node=10.0.0.4', 'gravity=warning'))
 
 
 def test_get_nbcores(ctx):

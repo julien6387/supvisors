@@ -17,11 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-from collections import OrderedDict
 from distutils.util import strtobool
-from io import StringIO
+from os import path
 from sys import stderr
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from supervisor.datatypes import list_of_strings
 from supervisor.options import split_namespec
@@ -30,81 +29,9 @@ from .application import ApplicationRules
 from .process import ProcessRules
 from .ttypes import StartingStrategies, StartingFailureStrategies, RunningFailureStrategies, EnumClassType
 
-
-# XSD contents for XML validation
-XSDContents = StringIO('''\
-<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified"
-xmlns:xs="http://www.w3.org/2001/XMLSchema">
-    <xs:simpleType name="Loading">
-        <xs:restriction base="xs:int">
-            <xs:minInclusive value="0"/>
-            <xs:maxInclusive value="100"/>
-        </xs:restriction>
-    </xs:simpleType>
-    <xs:simpleType name="StartingStrategy" final="restriction" >
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="CONFIG" />
-            <xs:enumeration value="LESS_LOADED" />
-            <xs:enumeration value="MOST_LOADED" />
-            <xs:enumeration value="LOCAL" />
-        </xs:restriction>
-    </xs:simpleType>
-    <xs:simpleType name="StartingFailureStrategy" final="restriction" >
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="ABORT" />
-            <xs:enumeration value="CONTINUE" />
-            <xs:enumeration value="STOP" />
-        </xs:restriction>
-    </xs:simpleType>
-    <xs:simpleType name="RunningFailureStrategy" final="restriction" >
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="CONTINUE" />
-            <xs:enumeration value="RESTART_PROCESS" />
-            <xs:enumeration value="STOP_APPLICATION" />
-            <xs:enumeration value="RESTART_APPLICATION" />
-        </xs:restriction>
-    </xs:simpleType>
-    <xs:complexType name="ProgramModel">
-        <xs:sequence>
-            <xs:element type="xs:string" name="reference" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:boolean" name="required" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:boolean" name="wait_exit" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="Loading" name="expected_loading" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
-        </xs:sequence>
-        <xs:attribute type="xs:string" name="name" use="required"/>
-    </xs:complexType>
-    <xs:complexType name="ApplicationModel">
-        <xs:sequence>
-            <xs:element type="xs:boolean" name="distributed" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:byte" name="start_sequence" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="xs:byte" name="stop_sequence" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="StartingStrategy" name="starting_strategy" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0" maxOccurs="1"/>
-            <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0" maxOccurs="1"/>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:element type="ProgramModel" name="program"/>
-                <xs:element type="ProgramModel" name="pattern"/>
-            </xs:choice>
-        </xs:sequence>
-        <xs:attribute type="xs:string" name="name" use="required"/>
-    </xs:complexType>
-    <xs:element name="root">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:choice minOccurs="0" maxOccurs="unbounded">
-                    <xs:element type="ProgramModel" name="model"/>
-                    <xs:element type="ApplicationModel" name="application"/>
-                </xs:choice>
-            </xs:sequence>
-        </xs:complexType>
-    </xs:element>
-</xs:schema>
-''')
+# XSD for XML validation
+supvisors_folder = path.dirname(__file__)
+rules_xsd = path.join(supvisors_folder, 'rules.xsd')
 
 
 class Parser(object):
@@ -125,14 +52,43 @@ class Parser(object):
         self.logger = supvisors.logger
         self.tree = self.parse(supvisors.options.rules_file)
         self.root = self.tree.getroot()
+        # get aliases - check nodes and back to string as it is easier to process
+        self.aliases = {element.get('name'): list_of_strings(element.text)
+                        for element in self.root.findall("./alias[@name]")
+                        if element.text}
+        self.logger.debug('Parser: found aliases {}'.format(self.aliases))
         # get models
         elements = self.root.findall("./model[@name]")
         self.models = {element.get('name'): element for element in elements}
-        self.logger.debug('Parser.__init__: found models {}'.format(self.models.keys()))
-        # get patterns
-        elements = self.root.findall(".//pattern[@name]")
-        self.patterns = {element.get('name'): element for element in elements}
-        self.logger.debug('Parser.__init__: found patterns {}'.format(self.patterns.keys()))
+        self.logger.debug('Parser: found models {}'.format(self.models.keys()))
+        # get application patterns
+        app_elements = self.root.findall(".//application[@pattern]")
+        self.application_patterns = {app_element.get('pattern'): app_element for app_element in app_elements}
+        self.logger.debug('Parser: found application patterns {}'.format(self.application_patterns.keys()))
+        # get program patterns
+        self.program_patterns = {}
+        app_elements = self.root.findall(".//application/pattern[@name]/..")
+        for app_element in app_elements:
+            prg_elements = app_element.findall("./pattern[@name]")
+            self.program_patterns[app_element] = {prg_element.get('name'): prg_element for prg_element in prg_elements}
+        if self.program_patterns:
+            self.logger.warn('Parser: usage of pattern elements is deprecated -'
+                             ' please convert {} to program elements with pattern attribute.'
+                             .format(self.printable_program_patterns()))
+        app_elements = self.root.findall(".//application/program[@pattern]/..")
+        for app_element in app_elements:
+            prg_elements = app_element.findall("./program[@pattern]")
+            prg_patterns = self.program_patterns.setdefault(app_element, {})
+            prg_patterns.update({prg_element.get('pattern'): prg_element for prg_element in prg_elements})
+        self.logger.debug('Parser: found program patterns {}'.format(self.printable_program_patterns()))
+
+    def printable_program_patterns(self) -> Dict[str, List[str]]:
+        """ Get a printable version of program patterns (without parser elements).
+
+        :return: a list of program patterns per application name or patterns
+        """
+        return {Parser.get_element_name(app_element): list(prg_patterns.keys())
+                for app_element, prg_patterns in self.program_patterns.items()}
 
     def load_application_rules(self, application_name: str, rules: ApplicationRules) -> None:
         """ Find an entry corresponding to the application in the rules file, then load the parameters found.
@@ -144,7 +100,7 @@ class Parser(object):
         # find application element using an xpath
         self.logger.trace('Parser.load_application_rules: searching application element for {}'
                           .format(application_name))
-        application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
+        application_elt = self.get_application_element(application_name)
         if application_elt is not None:
             rules.managed = True
             self.load_boolean(application_elt, 'distributed', rules)
@@ -157,7 +113,32 @@ class Parser(object):
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'
                               .format(application_name, rules))
 
-    def load_process_rules(self, namespec: str, rules: ProcessRules) -> None:
+    def get_application_element(self, application_name: str) -> Optional[Any]:
+        """ Try to find the definition of an application in rules files.
+        First try to to find the definition based on the exact application name.
+        If not found, second try to find a corresponding pattern.
+
+        :param application_name: the application name
+        :return: the XML element containing rules definition for an application
+        """
+        # try to find program name in file
+        application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
+        self.logger.trace('Parser.get_application_element: direct search for application={} found={}'
+                          .format(application_name, application_elt is not None))
+        if application_elt is None:
+            # if not found as it is, try to find a corresponding pattern
+            # TODO: use regexp ?
+            patterns = [name for name, element in self.application_patterns.items() if name in application_name]
+            self.logger.trace('Parser.get_application_element: found patterns={} for application={}'
+                              .format(patterns, application_name))
+            if patterns:
+                pattern = max(patterns, key=len)
+                application_elt = self.application_patterns[pattern]
+                self.logger.trace('Parser.get_application_element: pattern={} chosen for application={}'
+                                  .format(pattern, application_name))
+        return application_elt
+
+    def load_program_rules(self, namespec: str, rules: ProcessRules) -> None:
         """ Find an entry corresponding to the process in the rules, then load the parameters found.
         A final check is performed to detect inconsistencies.
 
@@ -192,8 +173,8 @@ class Parser(object):
         # find check if a model is referenced in the program rules
         model_elt = self.get_model_element(program_elt)
         if model_elt is not None:
-            self.logger.trace('Parser.load_model_rules: found model {} from program {}'
-                              .format(model_elt.get('name'), program_elt.get('name')))
+            self.logger.trace('Parser.load_model_rules: found model={} from program={}'
+                              .format(model_elt.get('name'), Parser.get_element_name(program_elt)))
             # a model can reference another model
             # WARN: recursive call, counter decreased
             self.load_model_rules(model_elt, rules, loop_check - 1)
@@ -206,6 +187,15 @@ class Parser(object):
         self.load_expected_loading(program_elt, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
+    @staticmethod
+    def get_element_name(elt: Any):
+        """ Return the name or the pattern name of the element.
+
+        :param elt: the application or program element
+        :return: the name or pattern name attribute of the element
+        """
+        return elt.get('name') or elt.get('pattern')
+
     def get_program_element(self, namespec: str) -> Optional[Any]:
         """ Try to find the definition of a program in rules files.
         First try to to find the definition based on the exact program name.
@@ -216,20 +206,27 @@ class Parser(object):
         """
         application_name, process_name = split_namespec(namespec)
         # try to find program name in file
-        program_elt = self.root.find('./application[@name="{}"]/program[@name="{}"]'
-                                     .format(application_name, process_name))
+        application_elt = self.get_application_element(application_name)
+        if application_elt is None:
+            self.logger.debug('Parser.get_program_element: no application element found for program={}'
+                              .format(namespec))
+            return None
+        program_elt = application_elt.find('./program[@name="{}"]'.format(process_name))
         self.logger.trace('Parser.get_program_element: direct search for program={} found={}'
                           .format(namespec, program_elt is not None))
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            patterns = [name for name, element in self.patterns.items() if name in process_name]
-            self.supvisors.logger.trace('Parser.get_program_element: found patterns={} for program={}'
-                                        .format(patterns, namespec))
-            if patterns:
-                pattern = max(patterns, key=len)
-                program_elt = self.patterns[pattern]
-                self.logger.trace('Parser.get_program_element: pattern={} chosen for program={}'
-                                  .format(pattern, namespec))
+            # TODO: use regexp ?
+            if application_elt in self.program_patterns:
+                prg_patterns = self.program_patterns[application_elt]
+                patterns = [name for name in prg_patterns.keys() if name in process_name]
+                self.logger.trace('Parser.get_program_element: found patterns={} for program={}'
+                                  .format(patterns, namespec))
+                if patterns:
+                    pattern = max(patterns, key=len)
+                    program_elt = prg_patterns[pattern]
+                    self.logger.trace('Parser.get_program_element: pattern={} chosen for program={}'
+                                      .format(pattern, namespec))
         return program_elt
 
     def get_model_element(self, elt: Any) -> Optional[Any]:
@@ -241,6 +238,39 @@ class Parser(object):
         model = elt.findtext('reference')
         return self.models.get(model, None)
 
+    def check_node_list(self, str_node_list: str):
+        """ Resolve and check the list of nodes provided.
+
+        :param str_node_list: the node names, separated by commas
+        :return: the list of validated nodes and of validated hash_nodes
+        """
+        # resolve aliases
+        # Version 1: simple pass on input elements considering that an alias cannot include another alias
+        # node_names = []
+        # for node_name in list_of_strings(str_node_list):
+        #     if node_name in self.aliases:
+        #         node_names.extend(self.aliases[node_name])
+        #     else:
+        #         node_names.append(node_name)
+        # Version 2: use list slicing to insert aliases
+        # here an alias can be referenced in another alias if declared after in the XML
+        node_names = list_of_strings(str_node_list)
+        for alias_name, alias in self.aliases.items():
+            if alias_name in node_names:
+                pos = node_names.index(alias_name)
+                node_names[pos:pos] = alias
+        # keep reference to hashtag as it will be removed by the filters
+        ref_hashtag = '#' in node_names
+        if '*' in node_names:
+            node_names = ['*']
+        else:
+            # filter the unknown nodes (or remaining aliases)
+            node_names = self.supvisors.address_mapper.filter(node_names)
+        # re-inject the hashtag if needed. position does not matter
+        if ref_hashtag:
+            node_names.append('#')
+        return node_names
+
     def load_application_nodes(self, elt: Any, rules: ApplicationRules) -> None:
         """ Get the nodes where the non-distributed application is authorized to run.
 
@@ -250,12 +280,7 @@ class Parser(object):
         """
         value = elt.findtext('addresses')
         if value:
-            # sort and trim list of values
-            node_names = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            if '*' in node_names:
-                rules.node_names = ['*']
-            else:
-                rules.node_names = self.supvisors.address_mapper.filter(node_names)
+            rules.node_names = self.check_node_list(value)
 
     def load_program_nodes(self, elt: Any, rules: ProcessRules) -> None:
         """ Get the nodes where the program is authorized to run.
@@ -266,22 +291,19 @@ class Parser(object):
         """
         value = elt.findtext('addresses')
         if value:
-            # sort and trim list of values
-            node_names = list(OrderedDict.fromkeys(filter(None, list_of_strings(value))))
-            if '#' in node_names:
-                # process cannot be started anywhere until hash node is resolved
-                rules.node_names = []
+            rules.node_names = self.check_node_list(value)
+            if '#' in rules.node_names:
                 # if '#' is alone or associated to '*', the logic is applicable to all addresses
-                if len(node_names) == 1 or '*' in node_names:
+                if len(rules.node_names) == 1 or '*' in rules.node_names:
                     rules.hash_node_names = ['*']
                 else:
                     # '#' is applicable to a subset of node names
-                    node_names.remove('#')
-                    rules.hash_node_names = node_names
-            elif '*' in node_names:
+                    rules.node_names.remove('#')
+                    rules.hash_node_names = rules.node_names
+                # process cannot be started anywhere until hash node is resolved
+                rules.node_names = []
+            elif '*' in rules.node_names:
                 rules.node_names = ['*']
-            else:
-                rules.node_names = self.supvisors.address_mapper.filter(node_names)
 
     def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the sequence value found from the XML element.
@@ -299,11 +321,11 @@ class Parser(object):
                 if value >= 0:
                     setattr(rules, attr_string, value)
                 else:
-                    self.logger.warn('Parser.load_sequence: invalid value for {} {}: {} (expected integer >= 0)'
-                                     .format(elt.get('name'), attr_string, value))
+                    self.logger.error('Parser.load_sequence: invalid value for elt={} {}: {} (expected integer >= 0)'
+                                      .format(Parser.get_element_name(elt), attr_string, value))
             except (TypeError, ValueError):
-                self.logger.warn('Parser.load_sequence: not an integer for {} {}: {}'
-                                 .format(elt.get('name'), attr_string, str_value))
+                self.logger.error('Parser.load_sequence: not an integer for elt={} {}: {}'
+                                  .format(Parser.get_element_name(elt), attr_string, str_value))
 
     def load_expected_loading(self, elt: Any, rules: ProcessRules) -> None:
         """ Return the expected_loading value found from the XML element.
@@ -320,11 +342,11 @@ class Parser(object):
                 if 0 <= value <= 100:
                     setattr(rules, 'expected_load', value)
                 else:
-                    self.logger.warn('Parser.load_expected_loading: invalid value for {} expected_loading: {}'
-                                     '(expected integer in [0;100])'.format(elt.get('name'), value))
+                    self.logger.warn('Parser.load_expected_loading: invalid value for elt={} expected_loading: {}'
+                                     '(expected integer in [0;100])'.format(Parser.get_element_name(elt), value))
             except (TypeError, ValueError):
-                self.logger.warn('Parser.load_expected_loading: not an integer for {} expected_loading: {}'
-                                 .format(elt.get('name'), str_value))
+                self.logger.warn('Parser.load_expected_loading: not an integer for elt={} expected_loading: {}'
+                                 .format(Parser.get_element_name(elt), str_value))
 
     def load_boolean(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
         """ Return the boolean value found from XML element.
@@ -340,8 +362,8 @@ class Parser(object):
                 value = bool(strtobool(str_value))
                 setattr(rules, attr_string, value)
             except ValueError:
-                self.logger.warn('Parser.load_boolean: not a boolean-like for {} {}: {}'
-                                 .format(elt.get('name'), attr_string, str_value))
+                self.logger.warn('Parser.load_boolean: not a boolean-like for elt={} {}: {}'
+                                 .format(Parser.get_element_name(elt), attr_string, str_value))
 
     def load_enum(self, elt: Any, attr_string: str, klass: EnumClassType, rules: AnyRules) -> None:
         """ Return the running_failure_strategy value found from XML element.
@@ -358,8 +380,8 @@ class Parser(object):
             try:
                 setattr(rules, attr_string, klass[value])
             except KeyError:
-                self.logger.warn('Pattern.load_enum: invalid value for {} {}: {} (expected in {})'
-                                 .format(elt.get('name'), attr_string, value, klass._member_names_))
+                self.logger.warn('Pattern.load_enum: invalid value for elt={} {}: {} (expected in {})'
+                                 .format(Parser.get_element_name(elt), attr_string, value, klass._member_names_))
 
     def parse(self, filename: str) -> Optional[Any]:
         """ Parse the file depending on the modules installed.
@@ -376,7 +398,7 @@ class Parser(object):
             # parse XML and validate it
             tree = parse(filename)
             # get XSD
-            schema_doc = parse(XSDContents)
+            schema_doc = parse(rules_xsd)
             schema = XMLSchema(schema_doc)
             if schema.validate(tree):
                 self.logger.info('Parser.parse: XML validated')

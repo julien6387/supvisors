@@ -4,23 +4,24 @@ Configuration
 =============
 
 Supervisor's Configuration File
--------------------------------
+---------------------------------
 
-This section explains how **Supvisors** uses and complements the `Supervisor configuration <http://supervisord.org/configuration.html>`_.
+This section explains how |Supvisors| uses and complements the
+`Supervisor configuration <http://supervisord.org/configuration.html>`_.
 
 
 Extension points
 ~~~~~~~~~~~~~~~~
 
-**Supvisors** extends the `Supervisor's XML-RPC API <http://supervisord.org/xmlrpc.html>`_.
+|Supvisors| extends the `Supervisor's XML-RPC API <http://supervisord.org/xmlrpc.html>`_.
 
 .. code-block:: ini
 
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
 
-**Supvisors** extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
-This feature is not described in Supervisor documentation.
+|Supvisors| extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
+This feature is not described in |Supervisor| documentation.
 
 .. code-block:: ini
 
@@ -33,13 +34,13 @@ This feature is not described in Supervisor documentation.
 ``[supvisors]`` Section Values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The parameters of **Supvisors** are set through an additional section ``[supvisors]`` in the Supervisor configuration file.
-It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters) or it may lead
-to unpredictable behavior.
+The parameters of |Supvisors| are set through an additional section ``[supvisors]`` in the |Supervisor| configuration
+file. It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters)
+or it may lead to unpredictable behavior.
 
 ``address_list``
 
-    The list of node names where **Supvisors** will be running, separated by commas.
+    The list of node names where |Supvisors| will be running, separated by commas.
 
     *Default*:  local host name.
 
@@ -52,7 +53,7 @@ to unpredictable behavior.
 
     .. hint::
 
-        If the `netifaces <https://pypi.python.org/pypi/netifaces>`_ package is installed, it is possible to use
+        If the `psutil <https://pypi.python.org/pypi/psutil>`_ package is installed, it is possible to use
         IP addresses in addition to node names.
 
         Like the node names, the IP addresses are expected to be known to every related systems in the list.
@@ -61,7 +62,8 @@ to unpredictable behavior.
 
 ``rules_file``
 
-    The absolute or relative path of the XML rules file. The contents of this file is described in `Supvisors' Rules File`_.
+    The absolute or relative path of the XML rules file. The contents of this file is described in
+    `Supvisors' Rules File`_.
 
     *Default*:  None.
 
@@ -69,7 +71,7 @@ to unpredictable behavior.
 
 ``auto_fence``
 
-    When true, **Supvisors** won't try to reconnect to a **Supvisors** instance that is inactive.
+    When true, |Supvisors| won't try to reconnect to a |Supvisors| instance that is inactive.
     This functionality is detailed in :ref:`auto_fencing`.
 
     *Default*:  ``false``.
@@ -78,7 +80,7 @@ to unpredictable behavior.
 
 ``internal_port``
 
-    The internal port number used to publish local events to remote **Supvisors** instances.
+    The internal port number used to publish local events to remote |Supvisors| instances.
     Events are published through a PyZMQ TCP socket.
 
     *Default*:  ``65001``.
@@ -88,8 +90,9 @@ to unpredictable behavior.
 
 ``event_port``
 
-    The port number used to publish all **Supvisors** events (Address, Application and Process events).
-    Events are published through a PyZMQ TCP socket. The protocol of this interface is explained in :ref:`event_interface`.
+    The port number used to publish all |Supvisors| events (Address, Application and Process events).
+    Events are published through a PyZMQ TCP socket. The protocol of this interface is explained
+    in :ref:`event_interface`.
 
     *Default*:  ``65002``.
 
@@ -97,7 +100,7 @@ to unpredictable behavior.
 
 ``synchro_timeout``
 
-    The time in seconds that **Supvisors** waits for all expected **Supvisors** instances to publish.
+    The time in seconds that |Supvisors| waits for all expected |Supvisors| instances to publish.
     Value in [``15`` ; ``1200``].
     This use of this option is detailed in :ref:`synchronizing`.
 
@@ -107,8 +110,9 @@ to unpredictable behavior.
 
 ``force_synchro_if``
 
-    The subset of ``address_list`` that will force the end of the synchronization phase in **Supvisors**, separated by commas.
-    If not set, **Supvisors** waits for all expected **Supvisors** instances to publish until ``synchro_timeout``.
+    The subset of ``address_list`` that will force the end of the synchronization phase in |Supvisors|,
+    separated by commas.
+    If not set, |Supvisors| waits for all expected |Supvisors| instances to publish until ``synchro_timeout``.
 
     *Default*:  None.
 
@@ -136,7 +140,8 @@ to unpredictable behavior.
 
 ``stats_periods``
 
-    The list of periods for which the statistics will be provided in the **Supvisors** :ref:`dashboard`, separated by commas.
+    The list of periods for which the statistics will be provided in the |Supvisors| :ref:`dashboard`,
+    separated by commas.
     Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
 
     *Default*:  ``10``.
@@ -161,15 +166,16 @@ to unpredictable behavior.
 
     *Required*:  No.
 
-The logging options are strictly identical to Supervisor's. By the way, it is the same logger that is used.
-These options are more detailed in `supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
+The logging options are strictly identical to |Supervisor|'s. By the way, it is the same logger that is used.
+These options are more detailed in
+`supervisord Section values <http://supervisord.org/configuration.html#supervisord-section-values>`_.
 
 ``logfile``
 
-    The path to the **Supvisors** activity log of the supervisord process. This option can include the value ``%(here)s``,
-    which expands to the directory in which the supervisord configuration file was found.
-    If ``logfile`` is unset or set to ``AUTO``, **Supvisors** will use the same logger as Supervisor. It makes it easier
-    to understand what happens when Supervisor and **Supvisors** output sequentially.
+    The path to the |Supvisors| activity log of the ``supervisord`` process. This option can include the value
+    ``%(here)s``, which expands to the directory in which the |Supervisor| configuration file was found.
+    If ``logfile`` is unset or set to ``AUTO``, |Supvisors| will use the same logger as |Supervisor|.
+    It makes it easier to understand what happens when both |Supervisor| and |Supvisors| log in the same file.
 
     *Default*:  ``AUTO``.
 
@@ -177,7 +183,7 @@ These options are more detailed in `supervisord Section values <http://superviso
 
 ``logfile_maxbytes``
 
-    The maximum number of bytes that may be consumed by the **Supvisors** activity log file before it is rotated
+    The maximum number of bytes that may be consumed by the |Supvisors| activity log file before it is rotated
     (suffix multipliers like ``KB``, ``MB``, and ``GB`` can be used in the value).
     Set this value to ``0`` to indicate an unlimited log size. No effect if ``logfile`` is unset or set to ``AUTO``.
 
@@ -187,7 +193,7 @@ These options are more detailed in `supervisord Section values <http://superviso
 
 ``logfile_backups``
 
-    The number of backups to keep around resulting from **Supvisors** activity log file rotation.
+    The number of backups to keep around resulting from |Supvisors| activity log file rotation.
     If set to ``0``, no backups will be kept. No effect if ``logfile`` is unset or set to ``AUTO``.
 
     *Default*:  ``10``.
@@ -196,7 +202,7 @@ These options are more detailed in `supervisord Section values <http://superviso
 
 ``loglevel``
 
-    The logging level, dictating what is written to the **Supvisors** activity log.
+    The logging level, dictating what is written to the |Supvisors| activity log.
     One of [``critical``, ``error``, ``warn``, ``info``, ``debug``, ``trace``,  ``blather``].
     See also: `supervisord Activity Log Levels <http://supervisord.org/logging.html#activity-log-levels>`_.
     No effect if ``logfile`` is unset or set to ``AUTO``.
@@ -256,29 +262,29 @@ Configuration File Example
 
 .. _rules_file:
 
-**Supvisors**' Rules File
+|Supvisors|' Rules File
 --------------------------
 
 This part describes the contents of the XML rules file declared in the ``rules_file`` option.
 
 Basically, the rules file contains rules that define how applications and programs should be started and stopped,
 and the quality of service expected.
-It relies on the Supervisor group and program definitions.
+It relies on the |Supervisor| group and program definitions.
 
 .. note:: *About the declaration of Supervisor groups/processes in the rules file*
 
-        It is important to notice that all applications declared in this file will be considered as *managed* by **Supvisors**.
-        The main consequence is that **Supvisors** will try to ensure that one single instance of the program is running
-        over all the nodes considered. If two instances of the same program are running on two different nodes, **Supvisors**
-        will consider there is a conflict. Only the *managed* applications have an entry in the navigation menu of the
-        **Supvisors** web page.
+    It is important to notice that all applications declared in this file will be considered as *Managed*
+    by |Supvisors|.
+    The main consequence is that |Supvisors| will try to ensure that one single instance of the program is running
+    over all the nodes considered. If two instances of the same program are running on two different nodes,
+    |Supvisors| will consider there is a conflict.
+    Only the *Managed* applications have an entry in the navigation menu of the |Supvisors| web page.
 
-        The groups declared in Supervisor configuration files and not declared in the rules file will thus be considered
-        as *unmanaged* by **Supvisors**. So they have no entry in the navigation menu of the **Supvisors** web page.
-        There can be as many running instances of the same program as Supervisor allows over the available nodes.
+    The groups declared in |Supervisor| configuration files and not declared in the rules file will thus be considered
+    as *Unmanaged* by |Supvisors|. So they have no entry in the navigation menu of the |Supvisors| web page.
+    There can be as many running instances of the same program as |Supervisor| allows over the available nodes.
 
-
-If the `lxml <http://lxml.de>`_ package is available on the system, **Supvisors** uses it to validate
+If the `lxml <http://lxml.de>`_ package is available on the system, |Supvisors| uses it to validate
 the XML rules file before it is used.
 
 .. hint::
@@ -292,28 +298,183 @@ the XML rules file before it is used.
         [bash] > xmllint --noout --schema rules.xsd user_rules.xml
 
 
-``program`` Rules
-~~~~~~~~~~~~~~~~~
+``application`` rules
+~~~~~~~~~~~~~~~~~~~~~
 
-The ``program`` element defines rules applicable to a program. This element must be included in an ``application`` element.
-Here follows the definition of the attributes and rules applicable to a ``program`` element.
+Here follows the definition of the attributes and rules applicable to an ``application`` element.
 
 ``name``
 
-    This attribute gives the name of the program.
-    It MUST correspond to a `Supervisor program name <http://supervisord.org/configuration.html#program-x-section-settings>`_.
+    This attribute gives the name of the application. The name MUST match a
+    `Supervisor group name <http://supervisord.org/configuration.html#group-x-section-settings>`_.
 
     *Default*:  None.
 
-    *Required*:  Yes.
+    *Required*:  Yes, unless a ``pattern`` attribute is provided.
+
+``pattern``
+
+    A substring matching one or more |Supervisor| application names is expected in this attribute.
+    Refer to the `Pattern Rules`_ for more details.
+
+    *Default*:  None.
+
+    *Required*:  Yes, unless an attribute ``name`` is provided.
+
+``distributed``
+
+    In the introduction, it is written that the aim of |Supvisors| is to manage distributed applications.
+    However, it may happen that some applications are not designed to be distributed (for example due to inter-process
+    communication choices) and thus distributing the application processes over a set of nodes would just make
+    the application non operational.
+    If set to ``true``, |Supvisors| will start all the application processes on the same node, provided that a node
+    can be found based on the application rules ``starting_strategy`` and ``addresses``.
+
+    *Default*:  ``true``.
+
+    *Required*:  No.
+
+``addresses``
+
+    This element is only used when ``distributed`` is set to ``false`` and gives the list of nodes where the application
+    processes can be started. The node names are to be taken from the ``address_list`` defined in
+    `[supvisors] Section Values`_ or from the declared `Node aliases`_, and separated by commas.
+    Special values can be applied.
+
+    The wildcard ``*`` stands for all node names in ``address_list``.
+    Any node list including a ``*`` is strictly equivalent to ``*`` alone. Unlike the process rule ``addresses``,
+    the hashtag ``#`` is NOT valid here.
+
+    *Default*:  ``*``.
+
+    *Required*:  No.
+
+.. note::
+
+    When the application is not to be distributed (``distributed`` set to ``false``), the rule ``addresses`` of the
+    application programs is not considered.
+
+
+``start_sequence``
+
+    This element gives the starting rank of the application in the ``DEPLOYMENT`` state,
+    when applications are started automatically.
+    When <= ``0``, the application is not started.
+    When > ``0``, the application is started in the given order.
+
+    *Default*:  ``0``.
+
+    *Required*:  No.
+
+``stop_sequence``
+
+    This element gives the stopping rank of the application when all applications are stopped just before |Supvisors|
+    is restarted or shut down.
+    When <= ``0``, |Supvisors| does nothing and let |Supervisor| do the job, i.e. stop everything in any order.
+    When > ``0``, |Supvisors| stops the application in the given order BEFORE the restart or shutdown of |Supervisor|
+    is requested.
+
+    *Default*:  ``0``.
+
+    *Required*:  No.
+
+    .. attention::
+
+        The ``stop_sequence`` is **not** taken into account:
+
+            * when calling |Supervisor|'s ``restart`` or ``shutdown`` XML-RPC,
+            * when stopping the :command:`supervisord` daemon.
+
+        It only works when calling |Supvisors|' ``restart`` or ``shutdown`` XML-RPC.
+
+``starting_strategy``
+
+    The strategy used to start applications on nodes.
+    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+    The use of this option is detailed in :ref:`starting_strategy`.
+
+    *Default*:  the value set (or defaulted) in the :ref:`supvisors_section` of the |Supervisor| configuration file.
+
+    *Required*:  No.
+
+``starting_failure_strategy``
+
+    This element gives the strategy applied upon a major failure in the starting phase of an application.
+    The possible values are { ``ABORT``, ``STOP``, ``CONTINUE`` } and are detailed in :ref:`starting_failure_strategy`.
+
+    *Default*:  ``ABORT``.
+
+    *Required*:  No.
+
+``running_failure_strategy``
+
+    This element gives the strategy applied when any process of the application is unexpectedly stopped when
+    the application is running. This value can be superseded by the value set at program level.
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    and are detailed in :ref:`running_failure_strategy`.
+
+    *Default*:  ``CONTINUE``.
+
+    *Required*:  No.
+
+``program``
+
+    This element defines the program rules that are applicable to the program whose name correspond to the name
+    attribute of the ``program`` element. When associated with a ``name`` attribute, the program name MUST be defined
+    in the program list of the
+    `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
+    of the application considered here.
+    Obviously, the definition of an application can include multiple ``program`` elements.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+``pattern``
+
+    **Deprecated**. This element defines the program rules that are applicable to all programs whose name matches
+    the name attribute of the ``pattern`` element. Obviously, the definition of an application can include multiple
+    ``program`` elements.
+
+    *Default*:  None.
+
+    *Required*:  No.
+
+
+``program`` rules
+~~~~~~~~~~~~~~~~~
+
+The ``program`` element defines the rules applicable to one program or more. This element must be included in an
+``application`` element. Here follows the definition of the attributes and rules applicable to this element.
+
+``name``
+
+    This attribute MUST match exactly the name of a program as defined in
+    `Supervisor program settings <http://supervisord.org/configuration.html#program-x-section-settings>`_.
+
+    *Default*:  None.
+
+    *Required*:  Yes, unless an attribute ``pattern`` is provided.
+
+``pattern``
+
+    A substring matching one or more |Supervisor| program names is expected in this attribute.
+    Refer to the `Pattern Rules`_ for more details.
+
+    *Default*:  None.
+
+    *Required*:  Yes, unless an attribute ``name`` is provided.
 
 ``addresses``
 
     This element gives the list of nodes where the process can be started. The node names are to be taken from
-    the ``address_list`` defined in `[supvisors] Section Values`_, and separated by commas.
-    Special values can be applied. The wildcard ``*`` stands for all node names in ``address_list``.
+    the ``address_list`` defined in `[supvisors] Section Values`_ or from the declared `Node aliases`_,
+    and separated by commas. Special values can be applied.
+
+    The wildcard ``*`` stands for all node names in ``address_list``.
     Any node list including a ``*`` is strictly equivalent to ``*`` alone.
-    The hashtag ``#`` must be used within a ``pattern`` element and eventually complemented by a list of nodes.
+
+    The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of nodes.
     The aim is to assign the nth node of either ``address_list`` or the subsequent node list to the nth instance
     of the program in a homogeneous group. An example will be given in `Pattern Rules`_.
 
@@ -325,7 +486,7 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
     This element gives the importance of the program for the application.
     If ``true`` (resp. ``false``), a failure of the program is considered major (resp. minor).
-    This is quite informative and is mainly used to give the operational status of the application.
+    This is quite informative and is mainly used to give the operational status of the application in the Web UI.
 
     *Default*:  ``false``.
 
@@ -353,21 +514,22 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
 ``wait_exit``
 
-    If the value of this element is set to ``true``, **Supvisors** waits for the process to exit before starting the next sequence.
-    This is particularly useful for scripts used to load a database, to mount disks, to prepare the application working directory, etc.
+    If the value of this element is set to ``true``, |Supvisors| waits for the process to exit before starting
+    the next sequence. This may be particularly useful for scripts used to load a database, to mount disks, to prepare
+    the application working directory, etc.
 
     *Default*:  ``false``.
 
     *Required*:  No.
 
-``loading``
+``expected_loading``
 
     This element gives the expected percent usage of *resources*. The value is a estimation and the meaning
     in terms of resources (CPU, memory, network) is in the user's hands.
 
-    This can be used in **Supvisors** to ensure that a system is not overloaded with greedy processes.
-    When multiple nodes are available, the ``loading`` value helps to distribute processes over the available nodes,
-    so that the system remains safe.
+    This can be used in |Supvisors| to ensure that a system is not overloaded with greedy processes.
+    When multiple nodes are available, the ``expected_loading`` value helps to distribute processes over the available
+    nodes, so that the system remains safe.
 
     *Default*:  ``0``.
 
@@ -375,47 +537,27 @@ Here follows the definition of the attributes and rules applicable to a ``progra
 
     .. note:: *About the choice of an user estimation*
 
-        Although **Supvisors** may be taking measurements on each system where it is running, it has
-        been chosen not to use these figures for the loading purpose. Indeed, the resources consumption
-        of a process may be very variable in time and is not foreseeable.
+        Although |Supvisors| may be taking measurements on each node where it is running, it has been chosen not to use
+        these figures for the loading purpose. Indeed, the resources consumption of a process may be very variable
+        in time and is not foreseeable.
 
         It is recommended to give a value based on an average usage of the resources in the worst case
         configuration and to add a margin corresponding to the standard deviation.
 
 ``running_failure_strategy``
 
-    This element gives the strategy applied when the required process is unexpectedly stopped in a running application.
+    This element gives the strategy to apply when the process is unexpectedly stopped in a running application.
     This value supersedes the value set at application level.
     The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
-    and are detailed in :ref:`running_failure_strategy`.
+    and their impact is detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
 
     *Required*:  No.
 
-    .. hint::
-
-        This strategy provides an answer to the following Supervisor request:
-
-            * `#874 - Bring down one process when other process gets killed in a group <https://github.com/Supervisor/supervisor/issues/874>`_
-
-    .. attention:: *About the Running Failure Strategy*
-
-        This functionality is NOT compatible with the ``autostart`` parameter of the program configuration in Supervisor.
-        It is undesirable that Supervisor and **Supvisors** trigger a different behaviour for the same event.
-        So, unless the value of the running failure strategy is set to ``CONTINUE`` (default value), **Supvisors** forces
-        ``autostart=False`` in Supervisor internal model.
-
-        ``RESTART_PROCESS`` is almost equivalent to ``autorestart=unexpected``, except that **Supvisors** may restart
-        the crashed program somewhere else, in accordance with the starting rules defined, instead of just restarting it
-        on the same node.
-
-        There is no equivalent in **Supvisors** for ``autorestart=True``. Although there are workarounds for that,
-        it might be a future improvement.
-
 ``reference``
 
-    This element gives the name of an applicable ``model``, as defined in `model Rules`_.
+    This element gives the name of an applicable ``model``, as defined in `Model Rules`_.
 
     *Default*:  None.
 
@@ -441,30 +583,36 @@ Here follows an example of a ``program`` definition:
         <start_sequence>1</start_sequence>
         <stop_sequence>1</stop_sequence>
         <wait_exit>false</wait_exit>
-        <loading>3</loading>
+        <expected_loading>3</expected_loading>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
     </program>
 
 
-``pattern`` Rules
+``pattern`` rules
 ~~~~~~~~~~~~~~~~~
 
-It may be quite tedious to give all this information to each program, especially if multiple programs use quite common rules.
-So two mechanisms were put in place to help.
+It may be quite tedious to give all this information to every programs, especially if multiple programs use a common
+set of rules. So two mechanisms are put in place to help.
 
-The first one is the ``pattern`` element. It can be used to configure a set of programs in a more flexible way than just
-considering homogeneous programs, like Supervisor does.
+The first one is the ``pattern`` attribute that may be used instead of the ``name`` attribute in a ``program`` element.
+It can be used to configure a set of programs in a more flexible way than just considering homogeneous programs,
+like |Supervisor| does.
 
-Like the ``program`` element, the ``pattern`` element must be included in an ``application`` element. The same options are applicable.
-The difference is in the ``name`` usage. For a pattern definition, a substring of a Supervisor program name is expected.
+.. attention::
+
+    The ``pattern`` element is **deprecated**. It will be removed from next |Supvisors| version.
+    It has to be replaced by a ``program`` element with a ``pattern`` attribute.
+
+The same ``program`` options are applicable, whatever a ``name`` attribute or a ``pattern`` attribute is used.
+For a ``pattern`` attribute, a substring matching one |Supervisor| program name or more is expected.
 
 .. code-block:: xml
 
-    <pattern name="prg_">
+    <program pattern="prg_">
         <addresses>cliche01,cliche03,cliche02</addresses>
         <start_sequence>2</start_sequence>
         <required>true</required>
-    </pattern>
+    </program>
 
 .. attention:: *About the pattern names*.
 
@@ -472,18 +620,19 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
     In the previous example, the rules are applicable to every program names containing the ``"prg_"`` substring,
     so that it matches ``prg_00``, ``prg_dummy``, but also ``dummy_prg_2``.
 
-    As a general rule when looking for program rules, **Supvisors** always searches for a ``program`` definition with
-    the exact program name, and if not found only, **Supvisors** tries to find a corresponding ``pattern`` definition.
+    As a general rule when looking for program rules, |Supvisors| always searches for a ``program`` definition having
+    the exact program name set in the ``name`` attribute, and only if not found, |Supvisors| tries to find a
+    corresponding ``program`` definition with a matching ``pattern``.
 
-    It also may happen that several patterns match the same program name. In this case, **Supvisors** chooses the pattern
-    with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
-    So considering the program ``prg_00`` and the two matching pattern names ``prg`` and ``prg_``, **Supvisors** will
+    It also may happen that several patterns match the same program name. In this case, |Supvisors| chooses the
+    pattern with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
+    So considering the program ``prg_00`` and the two matching patterns ``prg`` and ``prg_``, |Supvisors| will
     apply the rules related to ``prg_``.
 
 .. hint:: *About the use of* ``#`` *in* ``addresses``.
 
-    This is designed for a program that is meant to be started on every nodes of the address list, or a subset of them.
-    As an example, based on the following simplified Supervisor configuration:
+    This is designed for a program that is meant to be started on every nodes of the node list, or a subset of them.
+    As an example, based on the following simplified |Supervisor| configuration:
 
     .. code-block:: ini
 
@@ -512,17 +661,17 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 
     .. code-block:: xml
 
-        <pattern name="prg_">
+        <program pattern="prg_">
             <addresses>#</addresses>
-        </pattern>
+        </program>
 
     It is also possible to give a subset of nodes only.
 
     .. code-block:: xml
 
-        <pattern name="prg_">
+        <program pattern="prg_">
             <addresses>#,cliche04,cliche02</addresses>
-        </pattern>
+        </program>
 
 .. attention::
 
@@ -531,15 +680,34 @@ The difference is in the ``name`` usage. For a pattern definition, a substring o
 
 .. attention::
 
-    In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in ``address_list``.
-    If the number of nodes in ``address_list`` is greater than the ``numprocs`` value, programs will be assigned to the ``numprocs`` first nodes.
+    In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in
+    ``address_list``. If the number of nodes in ``address_list`` is greater than the ``numprocs`` value, programs will
+    be assigned to the ``numprocs`` first nodes.
     On the other side, if the number of nodes in ``address_list`` is lower than the ``numprocs`` value,
-    the last programs won't be assigned to any node and it won't be possible to start them using **Supvisors**,
+    the last programs won't be assigned to any node and it won't be possible to start them using |Supvisors|,
     as the list of applicable nodes will be empty.
-    Nevertheless, in this case, it will be still possible to start them with Supervisor.
+    Nevertheless, in this case, it will be still possible to start them with |Supervisor|.
+
+The ``pattern`` attribute can be applied to ``application`` elements too. The same logic as per ``program`` elements
+applies. This is particularly useful when dealing with an application that can be requested to run simultaneously
+on multiple nodes and following the same rules.
+
+.. note::
+
+    |Supervisor| does not provide any support for *homogeneous* groups. So in order to have X running instances
+    of the same application, the only possible solution it to define X times the |Supervisor| group using a variation
+    in the group name (e.g. an index suffix) and to define X times the |Supervisor| programs related to this group
+    using also a variation in the program name.
+
+    Unfortunately, using *homogeneous* programs with ``numprocs`` set to X cannot help in the present case because
+    |Supervisor| considers the program name in the group and not the ``process_name``.
+
+    As it may be a bit clumsy to define the X definition sets, a script ``breed.py`` is provided in |Supvisors|
+    package to help the user to duplicate an application from a template.
+    An use example can be found in the |Supvisors| use case :ref:`scenario_2`.
 
 
-``model`` Rules
+``model`` rules
 ~~~~~~~~~~~~~~~
 
 The second mechanism is the ``model`` definition.
@@ -547,7 +715,7 @@ The ``program`` rules definition is extended to a generic model, that can be def
 so that the same rules definition can be applied to multiple programs, in any application.
 
 The same options are applicable, **including** the ``reference`` option (recursion is yet limited to a depth of 2).
-There is no particular expectation for the name attribute of a ``model``.
+There is no particular expectation for the ``name`` attribute of a ``model``.
 
 Here follows an example of model:
 
@@ -560,7 +728,7 @@ Here follows an example of model:
         <wait_exit>false</wait_exit>
     </model>
 
-Here follows examples of program and pattern definitions referencing a model:
+Here follows examples of ``program`` definitions referencing a model:
 
 .. code-block:: xml
 
@@ -568,164 +736,62 @@ Here follows examples of program and pattern definitions referencing a model:
         <reference>X11_model</reference>
     </program>
 
-    <pattern name="prg">
+    <program pattern="prg">
         <reference>X11_model</reference>
         <!-- prg-like programs have the same rules as X11_model, but with required=true-->
         <required>true</required>
-    </pattern>
+    </program>
 
 
-``application`` Rules
-~~~~~~~~~~~~~~~~~~~~~
+Node aliases
+~~~~~~~~~~~~
 
-Here follows the definition of the attributes and rules applicable to an ``application`` element.
+When dealing with long lists of nodes, the content of application or program ``addresses`` options may impair
+the readability of the rules file. It is possible to declare node aliases and to use the alias names in place
+of the node names in the ``addresses`` option.
 
-``name``
+Here follows a few usage examples:
 
-    This attribute gives the name of the application.
-    It MUST correspond to a `Supervisor group name <http://supervisord.org/configuration.html#group-x-section-settings>`_.
+.. code-block:: xml
 
-    *Default*:  None.
+    <alias name="consoles">console01,console02,console03</alias>
+    <alias name="servers">server01,server02</alias>
 
-    *Required*:  Yes.
+    <!-- working alias reference -->
+    <alias name="all_ok">servers,consoles</alias>
 
-.. note::
+    <model name="hci">
+        <addresses>consoles</addresses>
+    </model>
 
-    The applications that are declared in a *Supervisor* group and in this rules file are considered as *Managed* in
-    **Supvisors**. The applications will benefit from **Supvisors** functionalities such as a staged start sequence,
-    an entry in the navigation menu of the Web UI (see :ref:`dashboard_application`), an operational status and a
-    management of the uniqueness of the application programs across the nodes used.
+    <model name="service">
+        <addresses>servers,consoles</addresses>
+    </model>
 
-    The applications that are declared in a *Supervisor* group and NOT in this rules file are considered as *Unmanaged*
-    in **Supvisors**. In this case, **Supvisors** will provide only a minimal set of functionalities in the WebUI.
+.. hint:: *About aliases referencing other aliases*
 
-``distributed``
+    Based on the previous example, an alias referencing other aliases will only work if it is placed *before*
+    the aliases referenced.
 
-    In the introduction, it is written that the aim of **Supvisors** is to manage distributed applications.
-    However, it may happen that some applications are not designed to be distributed (for example due to inter-process
-    communication choices) and thus distributing the application processes over a set of nodes would just make
-    the application non operational.
-    If set to ``true``, **Supvisors** will start all the application processes on the same node, provided that a node
-    can be found based on the application rules ``starting_strategy`` and ``addresses``.
+    At some point, the resulting node names are checked against the ``address_list``
+    of the `[supvisors] Section Values`_ so any unknown node name or remaining alias will simply be discarded.
 
-    *Default*:  ``true``.
+.. code-block:: xml
 
-    *Required*:  No.
+    <!-- Correct alias reference -->
+    <alias name="all_ok">servers,consoles</alias>
 
-``addresses``
+    <alias name="consoles">console01,console02,console03</alias>
+    <alias name="servers">server01,server02</alias>
 
-    This element is only used when ``distributed`` is set to ``false`` and gives the list of nodes where the application
-    processes can be started. The node names are to be taken from the ``address_list`` defined in
-    `[supvisors] Section Values`_, and separated by commas.
-    Special values can be applied. The wildcard ``*`` stands for all node names in ``address_list``.
-    Any node list including a ``*`` is strictly equivalent to ``*`` alone. Unlike the process rules ``addresses``,
-    the hashtag ``#`` is NOT valid here.
-
-    *Default*:  ``*``.
-
-    *Required*:  No.
-
-.. note::
-
-    When the application is not to be distributed (``distributed`` set to ``false``), the rule ``addresses`` of the
-    application programs is not considered.
-
-.. hint::
-
-    The ``distributed`` and ``addresses`` elements of the application rules have been introduced in **Supvisors 0.7**.
-    In previous versions, there is a workaround to address non-distributed applications using the starting strategy
-    ``CONFIG`` only and assuming that all processes have the same ``addresses`` definition.
-
-    From **Supvisors 0.7**, it is then possible to start non-distributed applications using ``LESS_LOADED`` or
-    ``MOST_LOADED`` starting strategies.
-
-
-``start_sequence``
-
-    This element gives the starting rank of the application in the ``DEPLOYMENT`` state, when applications are started automatically.
-    When <= ``0``, the application is not started.
-    When > ``0``, the application is started in the given order.
-
-    *Default*:  ``0``.
-
-    *Required*:  No.
-
-``stop_sequence``
-
-    This element gives the stopping rank of the application when all applications are stopped just before **Supvisors** is restarted or shut down.
-    When <= ``0``, **Supvisors** does nothing and let Supervisor do the job, i.e. stop everything in any order.
-    When > ``0``, **Supvisors** stops the application in the given order BEFORE the restart or shutdown of Supervisor is requested.
-
-    *Default*:  ``0``.
-
-    *Required*:  No.
-
-    .. attention::
-
-        The ``stop_sequence`` is **not** taken into account:
-
-            * when calling Supervisor's ``restart`` or ``shutdown`` XML-RPC,
-            * when stopping the :command:`supervisord` daemon.
-
-        It only works when calling **Supvisors**' ``restart`` or ``shutdown`` XML-RPC.
-
-``starting_strategy``
-
-    The strategy used to start applications on nodes.
-    Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
-    The use of this option is detailed in :ref:`starting_strategy`.
-
-    *Default*:  the value set (or defaulted) in the :ref:`supvisors_section` of the Supervisor configuration file.
-
-    *Required*:  No.
-
-``starting_failure_strategy``
-
-    This element gives the strategy applied upon a major failure in the starting phase of an application.
-    The possible values are { ``ABORT``, ``STOP``, ``CONTINUE`` } and are detailed in :ref:`starting_failure_strategy`.
-
-    *Default*:  ``ABORT``.
-
-    *Required*:  No.
-
-``running_failure_strategy``
-
-    This element gives the strategy applied when any process of the application is unexpectedly stopped when
-    the application is running. This value can be superseded by the value set at program level.
-    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
-    and are detailed in :ref:`running_failure_strategy`.
-
-    *Default*:  ``CONTINUE``.
-
-    *Required*:  No.
-
-``program``
-
-    This element defines the program rules that are applicable to the program whose name correspond to the name
-    attribute of the ``program`` element. The program MUST be defined in the program list of
-    the `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
-    of the application considered here.
-    Obviously, the definition of an application can include multiple ``program`` elements.
-
-    *Default*:  None.
-
-    *Required*:  No.
-
-``pattern``
-
-    This element defines the program rules that are applicable to all programs whose name matches the name attribute
-    of the ``pattern`` element.
-    Obviously, the definition of an application can include multiple ``program`` elements.
-
-    *Default*:  None.
-
-    *Required*:  No.
+    <!-- Wrong alias reference -->
+    <alias name="all_ko">servers,consoles</alias>
 
 
 Rules File Example
 ~~~~~~~~~~~~~~~~~~
 
-Here follows a complete example of rules files. It is used in **Supvisors** self tests.
+Here follows a complete example of a rules file. It is used in |Supvisors| self tests.
 
 .. code-block:: xml
 
@@ -740,7 +806,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
 
         <model name="disk_02">
             <reference>disk_01</reference>
-            <addresses>cliche82</addresses>
+            <addresses>192.168.1.49</addresses>
         </model>
 
         <model name="disk_03">
@@ -771,13 +837,13 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <start_sequence>2</start_sequence>
             <starting_failure_strategy>STOP</starting_failure_strategy>
 
-            <pattern name="mount_disk_">
-                <addresses>#,cliche82,cliche83,cliche84</addresses>
+            <program pattern="mount_disk_">
+                <addresses>#,192.168.1.49,cliche83,cliche84</addresses>
                 <start_sequence>1</start_sequence>
                 <stop_sequence>2</stop_sequence>
                 <required>true</required>
                 <expected_loading>0</expected_loading>
-            </pattern>
+            </program>
 
             <program name="copy_error">
                 <addresses>cliche81</addresses>
@@ -795,20 +861,20 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <start_sequence>3</start_sequence>
             <stop_sequence>3</stop_sequence>
 
-            <pattern name="movie_server_">
+            <program pattern="movie_server_">
                 <addresses>#</addresses>
                 <start_sequence>1</start_sequence>
                 <stop_sequence>1</stop_sequence>
                 <expected_loading>5</expected_loading>
                 <running_failure_strategy>CONTINUE</running_failure_strategy>
-            </pattern>
+            </program>
 
-            <pattern name="register_movies_">
+            <program pattern="register_movies_">
                 <addresses>#,cliche81,cliche83</addresses>
                 <start_sequence>2</start_sequence>
                 <wait_exit>true</wait_exit>
                 <expected_loading>25</expected_loading>
-            </pattern>
+            </program>
 
         </application>
 
@@ -836,43 +902,43 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             </program>
 
             <program name="hmi">
-                <addresses>cliche82,cliche81</addresses>
+                <addresses>192.168.1.49,cliche81</addresses>
                 <start_sequence>3</start_sequence>
                 <stop_sequence>1</stop_sequence>
                 <expected_loading>10</expected_loading>
                 <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
             </program>
 
-            <pattern name="disk_01_">
+            <program pattern="disk_01_">
                 <reference>disk_01</reference>
-            </pattern>
+            </program>
 
-            <pattern name="disk_02_">
+            <program pattern="disk_02_">
                 <reference>disk_02</reference>
-            </pattern>
+            </program>
 
-            <pattern name="disk_03_">
+            <program pattern="disk_03_">
                 <reference>disk_03</reference>
-            </pattern>
+            </program>
 
-            <pattern name="error_disk_">
+            <program pattern="error_disk_">
                 <reference>disk_01</reference>
                 <addresses>*</addresses>
-            </pattern>
+            </program>
 
             <program name="converter_04">
                 <reference>converter</reference>
-                <addresses>cliche83,cliche81,cliche82</addresses>
+                <addresses>cliche83,cliche81,192.168.1.49</addresses>
             </program>
 
             <program name="converter_07">
                 <reference>converter</reference>
-                <addresses>cliche81,cliche83,cliche82</addresses>
+                <addresses>cliche81,cliche83,192.168.1.49</addresses>
             </program>
 
-            <pattern name="converter_">
+            <program pattern="converter_">
                 <reference>converter</reference>
-            </pattern>
+            </program>
 
          </application>
 
@@ -881,7 +947,7 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
             <distributed>false</distributed>
             <addresses>cliche81,cliche83</addresses>
             <start_sequence>5</start_sequence>
-            <starting_strategy>LESS_LOADED</starting_strategy>
+            <starting_strategy>MOST_LOADED</starting_strategy>
             <starting_failure_strategy>ABORT</starting_failure_strategy>
 
             <program name="test_reader">
@@ -899,10 +965,10 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
         </application>
 
         <!-- web_movies application -->
-        <application name="web_movies">
+        <application pattern="web_">
             <start_sequence>6</start_sequence>
             <stop_sequence>1</stop_sequence>
-            <starting_strategy>MOST_LOADED</starting_strategy>
+            <starting_strategy>LESS_LOADED</starting_strategy>
 
             <program name="web_browser">
                 <addresses>*</addresses>
@@ -919,3 +985,5 @@ Here follows a complete example of rules files. It is used in **Supvisors** self
         </application>
 
     </root>
+
+.. include:: common.rst

@@ -77,6 +77,13 @@ nav {
     color: var(--text-color);
 }
 
+nav div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+
 #left_side footer {
     font-style: italic;
     color: var(--text-color);
@@ -118,26 +125,6 @@ nav {
     justify-content: space-between;
 }
 
-/* Supvisors page: address boxes */
-#index_contents {
-    display: flex;
-    flex: 1;
-    overflow: auto;
-    margin-top: 10px;
-}
-
-#box_part {
-    display: flex;
-    flex: 1;
-    justify-content: space-around;
-    flex-wrap: wrap;
-    margin: 5px;
-}
-
-#conflict_part {
-    flex: 1;
-}
-
 /* Address page: Process section */
 #process_contents {
     display: flex;
@@ -166,20 +153,80 @@ nav {
 #address_contents {
     display: flex;
     flex: 1;
-    flex-direction: column;
-    justify-content: space-around;
-}
-
-.horizontal_contents {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-around;
+    overflow: auto;
 }
 
 .vertical_contents {
     display: flex;
+    flex: 1;
     flex-direction: column;
     justify-content: start;
+}
+
+.horizontal_contents {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+#rsc_grid {
+    display: grid;
+    grid-template-columns: 1fr 300px 1fr;
+    grid-template-rows: 1fr 1fr;
+    grid-gap: 10px;
+}
+
+#mem_fig {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+#mem_stats {
+    grid-column: 2;
+    grid-row: 2;
+    margin: auto;
+}
+
+#cpu_fig {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+#cpu_stats {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+    flex-direction: column;
+    grid-column: 2;
+    grid-row: 1;
+}
+
+#cpu_stats div {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+}
+
+#io_fig {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+#io_stats {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+    flex-direction: column;
+    grid-column: 3;
+    grid-row: 2;
+}
+
+#io_stats div {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+    margin: auto;
 }
 
 
@@ -205,6 +252,8 @@ h1, h2, h3, h4 {
 
 h1 {
     font-size: 1.6em;
+    margin-top: 0.2em;
+    margin-bottom: 0.4em;
 }
 
 h2, h3 {
@@ -221,6 +270,15 @@ h4 {
     background-image: linear-gradient(180deg, var(--light2-color), var(--light1-color));
 }
 
+h6 {
+    padding: 0;
+    margin: 0;
+    text-align: center;
+    font-size: .8em;
+    font-style: italic;
+    font-weight: normal;
+}
+
 h3 code {
     display: inline-block;
     padding: 5px 10px;
@@ -231,6 +289,11 @@ h3 code {
 
 nav ul, p {
     font-size: .8em;
+}
+
+p {
+    margin-top: 0.1em;
+    margin-bottom: 0;
 }
 
 a {
@@ -372,7 +435,8 @@ ul.vertical li {
  * Common Table style
  */
 table {
-    border-collapse: collapse;
+    border-collapse: separate; #collapse;
+    border-spacing: 0;
     caption-side: top;
     background-color: var(--tr-color);
     margin: 0 auto;
@@ -394,6 +458,8 @@ th, td {
 th {
     background-color: var(--th-color);
     text-align: center;
+    position: sticky;
+    top: 0;
 }
 
 .brightened {
@@ -445,45 +511,6 @@ table .desc {
 }
 
 .optionBox ul {
-    text-align: center;
-}
-
-
-/*
- * Style for nodeBox (main page)
- */
-.nodeBox {
-    display: flex;
-    min-width: 200px;
-    max-width: 30%;
-    min-height: 60px;
-    height: 60px;
-}
-
-.nodeBox table {
-    height: 100%;
-    border: 3px ridge var(--border-color);
-}
-
-.nodeBox th {
-    height: 18px;
-    background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
-}
-
-.nodeBox td:nth-child(1) {
-    vertical-align: top;
-}
-
-.nodeBox .button {
-    /*display: inline-block;*/
-    padding: 2px 4px;
-    margin-bottom: 4px;
-    background-color: #007600;
-    border-radius: 6px;
-    cursor: default;
-}
-
-.nodeBox td:nth-child(2) {
     text-align: center;
 }
 
@@ -578,11 +605,18 @@ nav li.STOPPING.active {
     background-image: linear-gradient(165deg, #cc0, green 20%, #1a1a1a 40%, #1a1a1a);
 }
 
-nav li.failure:after {
+nav li.failure::after {
     content: url(../img/red_light_30.png);
     float: right;
     position: relative;
     top: -30px;
+}
+
+h2.failure::after {
+    content: url(../img/red_light_30.png);
+    float: right;
+    position: relative;
+    top: -3px;
 }
 
 /*

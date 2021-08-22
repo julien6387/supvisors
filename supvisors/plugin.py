@@ -58,7 +58,7 @@ def update_views():
     # set address /processpage
     VIEWS['procaddress.html'] = {'template': os.path.join(here, 'ui/procaddress.html'), 'view': ProcAddressView}
     # set address/host page
-    VIEWS['hostaddress.html'] = {'template': os.path.join(here, 'ui/hostaddress.html'),'view': HostAddressView}
+    VIEWS['hostaddress.html'] = {'template': os.path.join(here, 'ui/hostaddress.html'), 'view': HostAddressView}
     # set application page
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set fake page to export images

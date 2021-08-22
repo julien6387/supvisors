@@ -91,10 +91,12 @@ class SupvisorsView(ViewHandler):
         elt = node_div_elt.findmeld('node_tda_mid')
         if status.state == AddressStates.RUNNING:
             # go to web page located on node
-            url = self.view_ctx.format_url(status.address_name, PROC_NODE_PAGE)
+            url = self.view_ctx.format_url(status.node_name, PROC_NODE_PAGE)
             elt.attributes(href=url)
-            elt.attrib['class'] = 'on' + (' master' if status.address_name == self.sup_ctx.master_node_name else '')
-        elt.content(status.address_name)
+            update_attrib(elt, 'class', 'on')
+            if status.node_name == self.sup_ctx.master_node_name:
+                update_attrib(elt, 'class', 'master')
+        elt.content(status.node_name)
         # set state
         elt = node_div_elt.findmeld('state_td_mid')
         elt.attrib['class'] = status.state.name + ' state'

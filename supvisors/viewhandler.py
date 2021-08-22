@@ -98,9 +98,11 @@ class ViewHandler(MeldView):
         elt.attributes(href=url)
         # blink main title in conciliation state
         if self.supvisors.fsm.state == SupvisorsStates.CONCILIATION and self.sup_ctx.conflicts():
-            elt.attrib['class'] = 'blink'
+            update_attrib(elt, 'class', 'blink')
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
+        # set hosting node name
+        root.findmeld('node_mid').content(self.local_node_name)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
@@ -110,7 +112,7 @@ class ViewHandler(MeldView):
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
         elt.attributes(href=url)
         if auto_refresh:
-            elt.attrib['class'] = elt.attrib['class'] + ' active'
+            update_attrib(elt, 'class', 'active')
         # set bottom message
         print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
 
@@ -134,37 +136,52 @@ class ViewHandler(MeldView):
                 self.logger.debug('failed to get AddressStatus from {}'.format(item))
             else:
                 # set element class
-                li_elt.attrib['class'] = status.state.name + (' active' if item == node_name else '')
+                update_attrib(li_elt, 'class', status.state.name)
+                if item == node_name:
+                    update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
                 if status.state == AddressStates.RUNNING:
                     # go to web page located on node, so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_NODE_PAGE)
                     elt.attributes(href=url)
-                    elt.attrib['class'] = 'on' + (' master' if item == self.sup_ctx.master_node_name else '')
+                    update_attrib(elt, 'class', 'on')
+                    if item == self.sup_ctx.master_node_name:
+                        update_attrib(elt, 'class', 'master')
                 else:
-                    elt.attrib['class'] = 'off'
+                    update_attrib(elt, 'class', 'off')
                 elt.content(item)
 
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """
+        any_failure = False
+        # write applications
         mid_elt = root.findmeld('appli_li_mid')
         applications = self.sup_ctx.get_managed_applications()
         # forced to list otherwise not easily testable
         for li_elt, item in mid_elt.repeat(list(applications)):
+            failure = item.major_failure or item.minor_failure
+            any_failure |= failure
             # set element class
-            li_elt.attrib['class'] = '{} {} {}'.format(item.state.name,
-                                                       'active' if item.application_name == appli else '',
-                                                       'failure' if item.major_failure or item.minor_failure else '')
+            update_attrib(li_elt, 'class', item.state.name)
+            if item.application_name == appli:
+                update_attrib(li_elt, 'class', 'active')
+            if failure:
+                update_attrib(li_elt, 'class', 'failure')
             # set hyperlink attributes
             elt = li_elt.findmeld('appli_a_mid')
             if self.supvisors.fsm.state == SupvisorsStates.INITIALIZATION:
-                elt.attrib['class'] = 'off'
+                update_attrib(elt, 'class', 'off')
             else:
-                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name})
+                # force default application starting strategy
+                url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: item.application_name,
+                                                                        STRATEGY: item.rules.starting_strategy.name})
                 elt.attributes(href=url)
-                elt.attrib['class'] = 'on'
+                update_attrib(elt, 'class', 'on')
             elt.content(item.application_name)
+        # warn at title level if any application has a failure
+        if any_failure:
+            update_attrib(root.findmeld('appli_h_mid'), 'class', 'failure')
 
     def write_header(self, root):
         """ Write the header part of the page.
@@ -178,7 +195,7 @@ class ViewHandler(MeldView):
             # print period button
             elt = li_elt.findmeld('period_a_mid')
             if item == self.view_ctx.parameters[PERIOD]:
-                elt.attrib['class'] = 'button off active'
+                update_attrib(elt, 'class', 'button off active')
             else:
                 url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
                 elt.attributes(href=url)
@@ -199,13 +216,13 @@ class ViewHandler(MeldView):
             if not self.supvisors.options.stats_irix_mode:
                 cpuvalue /= info['nb_cores']
             if info['namespec']:  # empty for an application info
+                update_attrib(elt, 'class', 'button on')
+                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
                 if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    elt.attrib['class'] = 'button off active'
-                else:
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                    url = self.view_ctx.format_url('', self.page_name, **parameters)
-                    elt.attributes(href=url)
-                    elt.attrib['class'] = 'button on'
+                    update_attrib(elt, 'class', 'active')
+                    parameters[PROCESS] = None
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
+                elt.attributes(href=url)
                 elt.content('{:.2f}%'.format(cpuvalue))
             else:
                 # print data with no link
@@ -223,13 +240,13 @@ class ViewHandler(MeldView):
             # print last MEM value of process
             memvalue = proc_stats[1][-1]
             if info['namespec']:  # empty for an application info
+                update_attrib(elt, 'class', 'button on')
+                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
                 if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    elt.attrib['class'] = 'button off active'
-                else:
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                    url = self.view_ctx.format_url('', self.page_name, **parameters)
-                    elt.attributes(href=url)
-                    elt.attrib['class'] = 'button on'
+                    update_attrib(elt, 'class', 'active')
+                    parameters[PROCESS] = None
+                url = self.view_ctx.format_url('', self.page_name, **parameters)
+                elt.attributes(href=url)
                 elt.content('{:.2f}%'.format(memvalue))
             else:
                 # print data with no link
@@ -283,11 +300,11 @@ class ViewHandler(MeldView):
         elt = tr_elt.findmeld(elt_name)
         if namespec:
             if state in state_list:
-                elt.attrib['class'] = 'button on'
+                update_attrib(elt, 'class', 'button on')
                 url = self.view_ctx.format_url(node_name, page, **{ACTION: action, NAMESPEC: namespec})
                 elt.attributes(href=url)
             else:
-                elt.attrib['class'] = 'button off'
+                update_attrib(elt, 'class', 'button off')
         else:
             # this corresponds to an application row: no action available
             elt.content('')
@@ -440,8 +457,8 @@ class ViewHandler(MeldView):
     def set_slope_class(elt, value):
         """ Set attribute class iaw positive or negative slope. """
         if abs(value) < .005:
-            elt.attrib['class'] = 'stable'
+            update_attrib(elt, 'class', 'stable')
         elif value > 0:
-            elt.attrib['class'] = 'increase'
+            update_attrib(elt, 'class', 'increase')
         else:
-            elt.attrib['class'] = 'decrease'
+            update_attrib(elt, 'class', 'decrease')
