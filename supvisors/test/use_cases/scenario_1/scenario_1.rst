@@ -506,7 +506,7 @@ To restart the whole application (|Req 5 abbr|), the following is available:
 
     * the :ref:`xml_rpc` (example below),
     * the extended :program:`supervisorctl` :ref:`application_control` (example below),
-    * the restart button |restart| at the top right of the :ref:`dashboard_application` of the  |Supvisors| Web UI.
+    * the restart button |restart| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI.
 
 >>> from supvisors.rpcrequests import getRPCInterface
 >>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
