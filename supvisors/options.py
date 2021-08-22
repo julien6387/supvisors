@@ -55,6 +55,8 @@ class SupvisorsOptions(object):
         - procnumbers: a dictionary giving the number of the program in a homogeneous group.
     """
 
+    SYNCHRO_TIMEOUT_MIN = 15
+
     _Options = ['address_list', 'rules_file', 'internal_port', 'event_port', 'auto_fence',
                 'synchro_timeout', 'force_synchro_if',
                 'conciliation_strategy', 'starting_strategy',
@@ -93,6 +95,7 @@ class SupvisorsServerOptions(ServerOptions):
         - _Section: constant for the name of the Supvisors section in the Supervisor configuration file.
     """
 
+    # Name of the Supvisors section in the Supervisor configuration file
     _Section = 'supvisors'
 
     def __init__(self):
@@ -136,7 +139,7 @@ class SupvisorsServerOptions(ServerOptions):
         opt.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
         opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
         opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
-        opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', '15'))
+        opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', str(opt.SYNCHRO_TIMEOUT_MIN)))
         opt.force_synchro_if = filter(None, list_of_strings(parser.getdefault('force_synchro_if', None)))
         opt.force_synchro_if = {node for node in opt.force_synchro_if if node in opt.address_list}
         opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))

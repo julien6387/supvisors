@@ -4,7 +4,8 @@ Change Log
 0.8 (2021-xx-xx)
 ----------------
 
-* In the rules file, support for application patterns has been added.
+* Fixed exception in ``INITIALIZATION`` state when the *Master* declared by other nodes is not RUNNING yet and
+  the *core nodes* are RUNNING.
 
 * Fixed exception when program rules and extra arguments are tested against a program unknown to the local Supervisor.
 
@@ -16,16 +17,18 @@ Change Log
 
 * Fixed issue about application state not updated after a node has become silent.
 
+* Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
+  non-distributed applications.
+
 * Logic for application major / minor failures reviewed.
+
+* In the rules file, support for application patterns has been added.
 
 * In the rules file, ``pattern`` elements are **deprecated** and are replaced by ``program`` elements with a ``pattern``
   attribute instead of a ``name`` attribute.
   Support for ``pattern`` elements will be removed in the next version of **Supvisors**.
 
 * Node aliases have been added to the rules file.
-
-* Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
-  non-distributed applications.
 
 * Add the current node to all pages of Web UI to be aware of the node that displays the page.
 
