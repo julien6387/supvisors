@@ -165,7 +165,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
                 template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
                 # print title
-                payload = {'name': 'Node', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
+                payload = {'name': 'Application', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
                 self._output_info(template, payload)
                 # check request args
                 applications = arg.split()
