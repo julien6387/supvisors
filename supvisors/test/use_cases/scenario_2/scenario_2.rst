@@ -1,15 +1,15 @@
 .. _scenario_2:
 
-Scenario 2
-==========
+:program:`Scenario 2`
+=====================
 
 Context
 -------
 
-In this use case, the application "Scenario2" is used to control an item.
+In this use case, the application :program:`Scenario 2` is used to control an item.
 It is delivered in 2 parts:
 
-    * :program:`scen2_srv`: dedicated to services and designed to run on a server only,
+    * :program:`scen2_srv`: dedicated to application services and designed to run on a server only,
     * :program:`scen2_hci`: dedicated to Human Computer Interfaces (HCI) and designed to run on a console only.
 
 :program:`scen2_hci` is started on demand from a console, whereas :program:`scen2_srv` is available on startup.
@@ -17,10 +17,10 @@ It is delivered in 2 parts:
 :program:`scen2_hci` is not distributed so that the user gets all the windows on the same screen.
 An internal data bus will allow :program:`scen2_hci` to communicate with :program:`scen2_srv`.
 
-Multiple instances of the "Scenario2" application can be started because there are multiple items to control.
+Multiple instances of the :program:`Scenario 2` application can be started because there are multiple items to control.
 
-A common data bus - out of this application's scope - is available to exchange data between "Scenario2" instances
-and other applications dealing with other types of items and/or a higher control/command application.
+A common data bus - out of this application's scope - is available to exchange data between :program:`Scenario 2`
+instances and other applications dealing with other types of items and/or a higher control/command application.
 
 
 Requirements
@@ -97,8 +97,8 @@ Requirement 17
 .. |Req 14 abbr| replace:: :abbr:`Requirement 14 (Upon failure in its starting sequence, scen2_srv shall be stopped so that it doesn't consume resources uselessly.)`
 .. |Req 15| replace:: As :program:`scen2_srv` is highly dependent on its internal data bus, :program:`scen2_srv` shall be fully restarted if its internal data bus crashes.
 .. |Req 15 abbr| replace:: :abbr:`Requirement 15 (As scen2_srv is highly dependent on its internal data bus, scen2_srv shall be fully restarted if its internal data bus crashes.)`
-.. |Req 16| replace:: Upon server failure, :program:`scen2_srv` shall be restarted on another server, in accordance with the load-balancing strategy.
-.. |Req 16 abbr| replace:: :abbr:`Requirement 16 (Upon server failure, scen2_srv shall be restarted on another server, in accordance with the load-balancing strategy.)`
+.. |Req 16| replace:: Upon server power down or failure, :program:`scen2_srv` shall be restarted on another server, in accordance with the load-balancing strategy.
+.. |Req 16 abbr| replace:: :abbr:`Requirement 16 (Upon server power down or failure, scen2_srv shall be restarted on another server, in accordance with the load-balancing strategy.)`
 .. |Req 17| replace:: The :program:`scen2_srv` interface with the common data bus shall be started only when the common data bus is operational.
 .. |Req 17 abbr| replace:: :abbr:`Requirement 17 (The scen2_srv interface with the common data bus shall be started only when the common data bus is operational.)`
 
@@ -153,9 +153,9 @@ Supervisor configuration
 
 The initial |Supervisor| configuration is as follows:
 
-    * The ``bin`` folder includes all the program scripts of the "Scenario2" application.
+    * The ``bin`` folder includes all the program scripts of the :program:`Scenario 2` application.
       The scripts get the |Supervisor| ``program_name`` from the environment variable ``${SUPERVISOR_PROCESS_NAME}``.
-    * The ``template_etc`` folder contains the generic configuration for the "Scenario2" application:
+    * The ``template_etc`` folder contains the generic configuration for the :program:`Scenario 2` application:
 
         - the ``console/group_hci.ini`` file that contains the definition of the :program:`scen2_hci` group
           and programs,
@@ -178,12 +178,12 @@ The initial |Supervisor| configuration is as follows:
     [bash] > tree
     .
     ├── bin
+    │         ├── check_common_data_bus.sh
+    │         ├── check_internal_data_bus.sh
     │         ├── common_bus_interface.sh
-    │         ├── common_check_data_bus.sh
     │         ├── common.sh
     │         ├── config_manager.sh
     │         ├── data_processing.sh
-    │         ├── internal_check_data_bus.sh
     │         ├── internal_data_bus.sh
     │         ├── sensor_acquisition.sh
     │         ├── sensor_control.sh
@@ -207,12 +207,11 @@ Let's tackle the first big issue about |Req 1 abbr|. |Supervisor| does not provi
 groups. It only provides support for *homogeneous* process groups. Defining *homogeneous* process groups in the present
 case won't help as the program instances cannot be shared across multiple groups.
 
-Assuming that the "Scenario2" application is delivered with the |Supervisor| configuration files for one generic item
-to control and assuming that there are X items to control, the first job is duplicate X times all programs and groups
-definitions.
+Assuming that the :program:`Scenario 2` application is delivered with the |Supervisor| configuration files for one
+generic item to control and assuming that there are X items to control, the first job is duplicate X times all programs
+and groups definitions.
 
 This may be a bit painful when X is great, so a script is provided in the |Supvisors| package to make life easier.
-The next section will detail how it will be used.
 
 .. code-block:: bash
 
@@ -235,45 +234,62 @@ The next section will detail how it will be used.
                             the applications to breed
       -v, --verbose         activate logs
 
-For this example, let's stick to X=3. Using greater values don't change the complexity of what follows. It would just
+For this example, let's define X=3. Using greater values don't change the complexity of what follows. It would just
 need more resources to test.
 The :program:`breed` script duplicates 3 times the :program:`scen2_srv` and :program:`scen2_hci` groups and programs
 found in the ``template_etc`` folder and writes new configuration files into the ``etc`` folder.
 
 .. code-block:: bash
 
-    [bash] > python ../../../tools/breed.py -d etc -t template_etc -b scen2_srv=3 scen2_hci=3 -v
-    ArgumentParser: Namespace(breed={'scen2_srv': 3, 'scen2_hci': 3}, destination='etc', pattern='**/*.ini', template='template_etc', verbose=True)
+    [bash] > python ../../../tools/breed.py -d etc -t template_etc -p server/*.ini -b scen2_srv=3 -v
+    ArgumentParser: Namespace(breed={'scen2_srv': 3}, destination='etc', pattern='server/*.ini', template='template_etc', verbose=True)
+    Configuration files found:
+        server/group_server.ini
+    Template elements found:
+        group:scen2_srv
+        program:config_manager
+        program:check_common_data_bus
+        program:common_bus_interface
+        program:check_internal_data_bus
+        program:internal_data_bus
+        program:data_processing
+        program:sensor_acquisition
+    New [group:scen2_srv_01]
+        programs=config_manager_01,common_bus_interface_01,check_common_data_bus_01,check_internal_data_bus_01,internal_data_bus_01,data_processing_01,sensor_acquisition_01
+    New [group:scen2_srv_02]
+        programs=config_manager_02,common_bus_interface_02,check_common_data_bus_02,check_internal_data_bus_02,internal_data_bus_02,data_processing_02,sensor_acquisition_02
+    New [group:scen2_srv_03]
+        programs=config_manager_03,common_bus_interface_03,check_common_data_bus_03,check_internal_data_bus_03,internal_data_bus_03,data_processing_03,sensor_acquisition_03
+    Writing file: etc/server/group_server.ini
+    [bash] > python ../../../tools/breed.py -d etc -t template_etc -p console/*ini -b scen2_hci=3 -v
+    ArgumentParser: Namespace(breed={'scen2_hci': 3}, destination='etc', pattern='console/*ini', template='template_etc', verbose=True)
     Configuration files found:
         console/group_hci.ini
-        server/group_server.ini
     Template elements found:
         group:scen2_hci
         program:chart_view
         program:sensor_control
         program:sensor_view
-        program:hci_internal_check_data_bus
-        program:hci_internal_data_bus
-        group:scen2_srv
-        program:config_manager
-        program:common_check_data_bus
-        program:common_bus_interface
-        program:internal_check_data_bus
+        program:check_internal_data_bus
         program:internal_data_bus
-        program:data_processing
-        program:sensor_acquisition
-    New [group:scen2_srv_01]
-        programs=config_manager_01,common_bus_interface_01,common_check_data_bus_01,internal_check_data_bus_01,internal_data_bus_01,data_processing_01,sensor_acquisition_01
-    New [group:scen2_srv_02]
-        programs=config_manager_02,common_bus_interface_02,common_check_data_bus_02,internal_check_data_bus_02,internal_data_bus_02,data_processing_02,sensor_acquisition_02
-    New [group:scen2_srv_03]
-        programs=config_manager_03,common_bus_interface_03,common_check_data_bus_03,internal_check_data_bus_03,internal_data_bus_03,data_processing_03,sensor_acquisition_03
     New [group:scen2_hci_01]
-        programs=chart_view_01,sensor_control_01,sensor_view_01,hci_internal_check_data_bus_01,hci_internal_data_bus_01
+        programs=chart_view_01,sensor_control_01,sensor_view_01,check_internal_data_bus_01,internal_data_bus_01
     New [group:scen2_hci_02]
-        programs=chart_view_02,sensor_control_02,sensor_view_02,hci_internal_check_data_bus_02,hci_internal_data_bus_02
+        programs=chart_view_02,sensor_control_02,sensor_view_02,check_internal_data_bus_02,internal_data_bus_02
     New [group:scen2_hci_03]
-        programs=chart_view_03,sensor_control_03,sensor_view_03,hci_internal_check_data_bus_03,hci_internal_data_bus_03
+        programs=chart_view_03,sensor_control_03,sensor_view_03,check_internal_data_bus_03,internal_data_bus_03
+    Writing file: etc/console/group_hci.ini
+
+.. attention::
+
+    The program definitions :program:`internal_data_bus` and :program:`internal_check_data_bus` are common to
+    :program:`scen2_srv` and :program:`scen2_hci`: . In the use case design, it doesn't matter as :program:`supervisord`
+    is not meant to include these definitions together. Anyway, it would have failed as there would be a conflict in
+    loading the same program definition in two groups.
+
+    The same problem applies to the :program:`breed` script. Processing both applications together using
+    :command:`python breed.py ... -b scen2_srv=3 scen2_hci=3` would result in an inappropriate configuration as the
+    second program definition would overwrite the first one.
 
 The resulting file tree is as follows.
 
@@ -282,12 +298,12 @@ The resulting file tree is as follows.
     [bash] > tree
     .
     ├── bin
+    │         ├── check_common_data_bus.sh
+    │         ├── check_internal_data_bus.sh
     │         ├── common_bus_interface.sh
-    │         ├── common_check_data_bus.sh
     │         ├── common.sh
     │         ├── config_manager.sh
     │         ├── data_processing.sh
-    │         ├── internal_check_data_bus.sh
     │         ├── internal_data_bus.sh
     │         ├── sensor_acquisition.sh
     │         ├── sensor_control.sh
@@ -309,8 +325,8 @@ The resulting file tree is as follows.
 
 .. note::
 
-    As a definition, let's say that the combination of ``scen2_srv_01`` and ``scen2_hci_01`` is the "Scenario2"
-    application that controls the item 01.
+    As a definition, let's say that the combination of :program:`scen2_srv_01` and :program:`scen2_hci_01` is the
+    :program:`Scenario 2` application that controls the item 01.
 
 Here follows what the include section may look like in both |Supervisor| configuration files.
 
@@ -355,7 +371,7 @@ This all ends up with a dedicated ``supervisord_server_S.conf`` configuration fi
 Console side
 ************
 
-Now let's look at the console side.
+Now let's have a look at the console side.
 Like for the server configuration, all :program:`scen2_hci` must be available on all consoles to satisfy |Req 22 abbr|.
 Per definition, choosing one of the :program:`scen2_hci` is a way to choose the item to control.
 
@@ -366,12 +382,10 @@ Per definition, choosing one of the :program:`scen2_hci` is a way to choose the 
     [bash] > supervisorctl start scen2_hci_01:*
     [bash] > supervisorctl stop scen2_hci_01:*
 
-It is possible to do that from the |Supervisor| web UI too, one program at a time.
-Clumsy and there's a risk of mistakes.
+It is possible to do that from the |Supervisor| Web UI too, one program at a time, although it would be a bit clumsy
+and a source of mistakes that would break |Req 2 abbr|.
 
-Of course, the use of commands like :program:`supervisorctl -s http://other_console:port` should be prohibited.
-
-However, there's nothing to prevent another user to start the same ``scen2_hci`` on his console, as required in
+However, there's nothing to prevent another user to start the same :program:`scen2_hci` on his console, as required in
 |Req 23 abbr|.
 
 All the other requirements are about automatic behaviour and there's no |Supervisor| function for that.
@@ -382,7 +396,7 @@ Or |Supvisors| may be used, which is the point of the next section.
 Involving |Supvisors|
 ---------------------
 
-When involving |Supvisors|, all "Scenario2" programs are configured using ``autostart=false``.
+When involving |Supvisors|, all :program:`Scenario 2` programs are configured using ``autostart=false``.
 Only the common data bus - that is outside of the application scope - will be auto-started.
 
 The |Supvisors| configuration is built over the |Supervisor| configuration defined above.
@@ -390,13 +404,13 @@ The |Supvisors| configuration is built over the |Supervisor| configuration defin
 Rules file
 ~~~~~~~~~~
 
-All the requirements about automatic behaviour are dealt in the |Supvisors| rules file. This section will detail step
-by step how it is built against the requirements.
+All the requirements about automatic behaviour are dealt within the |Supvisors| rules file. This section will detail
+step by step how it is built against the requirements.
 
-First, as all ``scen2_srv`` instances have the same rules, a single application entry with a matching pattern is used
-for all of them. The same idea applies to ``scen2_hci``.
+First, as all :program:`scen2_srv` instances have the same rules, a single application entry with a matching pattern is
+used for all of them. The same idea applies to :program:`scen2_hci`.
 Declaring these applications in the |Supvisors| rules file makes them all *Managed* in |Supvisors|, which gives control
-over the X instances of the "Scenario2" application, as required in |Req 1 abbr|.
+over the X instances of the :program:`Scenario 2` application, as required in |Req 1 abbr|.
 
 .. code-block:: xml
 
@@ -422,8 +436,8 @@ programs of the application have to be started on the same node.
         </application>
     </root>
 
-So far, all applications can be started on any node. Let's compel ``scen2_hci`` to consoles and ``scen2_srv`` to
-servers, which satisfies |Req 10 abbr| and contributes to some console-related requirements.
+So far, all applications can be started on any node. Let's compel :program:`scen2_hci` to consoles and
+:program:`scen2_srv` to servers, which satisfies |Req 10 abbr| and contributes to some console-related requirements.
 For better readability, node aliases are introduced.
 
 .. code-block:: xml
@@ -444,27 +458,27 @@ For better readability, node aliases are introduced.
         </application>
     </root>
 
-It's time to introduce the staged start sequences. |Req 11 abbr| asks for an automatic start of ``scen2_srv``, so
+It's time to introduce the staged start sequences. |Req 11 abbr| asks for an automatic start of :program:`scen2_srv`, so
 a strictly positive ``start_sequence`` is added to the application configuration.
 
-Because of |Req 4 abbr|, ``scen2_srv`` and ``scen2_hci`` applications will be started in three phases:
+Because of |Req 4 abbr|, :program:`scen2_srv` and :program:`scen2_hci` applications will be started in three phases:
 
-    * first the ``internal_data_bus_X`` program,
-    * then the ``internal_check_data_bus_X`` whose job is to periodically check the ``internal_data_bus_X`` status and
-      exit when it is operational,
+    * first the :program:`internal_data_bus_X` program,
+    * then the :program:`check_internal_data_bus_X` whose job is to periodically check the
+      :program:`internal_data_bus_X` status and exit when it is operational,
     * other programs.
 
-``internal_data_bus_X`` and ``internal_check_data_bus_X`` are common to ``scen2_srv`` and ``scen2_hci`` and follow
-the same rules so it make sense to define a common model for them.
+:program:`internal_data_bus_X` and :program:`check_internal_data_bus_X` are common to :program:`scen2_srv` and
+:program:`scen2_hci` and follow the same rules so it makes sense to define a common model for them.
 
-Due to |Req 17 abbr|, two additional phases are needed for ``scen2_srv``:
+Due to |Req 17 abbr|, two additional phases are needed for :program:`scen2_srv`:
 
-    * the ``common_check_data_bus_X`` whose job is to periodically check the ``common_data_bus`` status and exit
-      when it is operational,
-    * finally the ``common_bus_interface_X``.
+    * the :program:`check_common_data_bus_X` whose job is to periodically check the :program:`common_data_bus` status
+      and exit when it is operational,
+    * finally the :program:`common_bus_interface_X`.
 
-They are set at the end of the starting sequence so that the core of the ``scen2_srv`` application can be operational
-as a standalone application, even if it's not connected to other possible applications in the system.
+They are set at the end of the starting sequence so that the core of the :program:`scen2_srv` application can be
+operational as a standalone application, even if it's not connected to other possible applications in the system.
 
 .. code-block:: xml
 
@@ -496,14 +510,14 @@ as a standalone application, even if it's not connected to other possible applic
                 <reference>model_services</reference>
                 <start_sequence>4</start_sequence>
             </program>
-            <program pattern="common_check_">
+            <program pattern="check_common">
                 <reference>check_data_bus</reference>
                 <start_sequence>3</start_sequence>
             </program>
             <pattern name="">
                 <reference>model_services</reference>
             </pattern>
-            <program pattern="internal_check_">
+            <program pattern="check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
             <program pattern="internal_data_bus">
@@ -518,7 +532,7 @@ as a standalone application, even if it's not connected to other possible applic
             <program pattern="">
                 <start_sequence>3</start_sequence>
             </program>
-            <program pattern="internal_check_">
+            <program pattern="check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
             <program pattern="internal_data_bus">
@@ -537,31 +551,46 @@ as a standalone application, even if it's not connected to other possible applic
     In the rules file, several program patters are used, including empty patterns. As a rule, given a program name to
     match, |Supvisors| always chooses the most specific pattern.
 
+    That's why the pattern related to :program:`check_internal_data_bus_X` programs is that long. It may be argued that
+    a ``check`` pattern would have been enough as it is the only program having the word 'check' in its name but
+    actually the pattern :program:`internal_data_bus` is a better match than the pattern ``check``, as it is more
+    specific.
+
 Let's now introduce the automatic behaviors.
 
 |Req 5 abbr| implies to check the resources available before allowing an application or a program to be started.
 |Supvisors| has been designed to consider the resources needed by the program over the resources actually taken.
 To achieve that, the ``expected_loading`` elements of the programs have been set (quite arbitrarily for the example).
 
-The ``starting_strategy`` element of the ``scen2_srv`` application is set to ``LESS_LOADED`` to satisfy |Req 13 abbr|.
-Before |Supvisors| starts a program or an application, it relies on the ``expected_loading`` set just before to:
+The ``starting_strategy`` element of the :program:`scen2_srv` application is set to ``LESS_LOADED`` to satisfy
+|Req 13 abbr|. Before |Supvisors| starts an application or a program, it relies on the ``expected_loading`` set just
+before to:
 
-    * evaluate the current load on all nodes (due to processes already running)
+    * evaluate the current load on all nodes (due to processes already running),
     * choose the node having the lowest load and that can accept the additional load required by the program
-      or application to start,
-    * if none found, the application and/or the program is not started, which satisfies |Req 5 abbr| .
+      or application to start.
 
-The ``starting_strategy`` element of the ``scen2_hci`` application is set to ``LOCAL`` to satisfy |Req 21 abbr|.
+If none found, the application or the program is not started, which satisfies |Req 5 abbr|.
+
+The ``starting_strategy`` element of the :program:`scen2_hci` application is set to ``LOCAL`` to satisfy |Req 21 abbr|.
 Actually this value is only used as a default parameter in the :ref:`dashboard_application` of the |Supvisors| Web UI
 and can be overridden.
 
-|Req 14 abbr| starting failure strategy = STOP_APPLICATION
-|Req 24 abbr| starting failure strategy = CONTINUE
+In the same vein, the ``starting_failure_strategy`` element of the :program:`scen2_srv` application is set to
+``STOP_APPLICATION`` (|Req 14 abbr|) and the ``starting_failure_strategy`` element of the :program:`scen2_hci`
+application is set to ``CONTINUE`` (|Req 24 abbr|).
 
-|Req 15 abbr| internal_data_bus running failure strategy = RESTART_APPLICATION
-|Req 25 abbr| internal_data_bus running failure strategy = STOP_APPLICATION
+Finally, there is automatic behavior to be set on the :program:`internal_data_bus_X` programs.
+The ``running_failure_strategy`` element of the :program:`internal_data_bus` pattern is set to:
 
-|Req 3 abbr| operational status
+    * ``RESTART_APPLICATION`` for :program:`scen2_srv` applications (|Req 15 abbr|),
+    * ``STOP_APPLICATION`` for :program:`scen2_hci` applications (|Req 25 abbr|),
+
+A last impact on the rules file is about the application operational status (|Req 3 abbr|). Setting the ``required``
+element on the program definitions will discriminate between major and minor failures for the applications. |Supvisors|
+will provide a separate operational status for  :program:`scen2_srv` and :program:`scen2_hci`. It is still the user's
+responsibility to merge the status of ``scen2_srv_N`` and ``scen2_hci_N`` to get a global status for the
+:program:`Scenario 2` application controlling the Nth item.
 
 .. code-block:: xml
 
@@ -600,14 +629,14 @@ and can be overridden.
                 <reference>model_services</reference>
                 <start_sequence>4</start_sequence>
             </program>
-            <program pattern="common_check_">
+            <program pattern="check_common">
                 <reference>check_data_bus</reference>
                 <start_sequence>3</start_sequence>
             </program>
             <pattern name="">
                 <reference>model_services</reference>
             </pattern>
-            <program pattern="internal_check_">
+            <program pattern="check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
             <program pattern="internal_data_bus">
@@ -626,7 +655,7 @@ and can be overridden.
                 <start_sequence>3</start_sequence>
                 <expected_loading>8</expected_loading>
             </program>
-            <program pattern="internal_check_">
+            <program pattern="check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
             <program pattern="internal_data_bus">
@@ -637,31 +666,125 @@ and can be overridden.
 
     </root>
 
-no impact
-|Req 16 abbr| not distributed => all app stopped + internal_data_bus running failure strategy = RESTART_APPLICATION + starting strategy = LESS_LOADED
-|Req 26 abbr| default running failure strategy is CONTINUE. only RESTART_APPLICATION or RESTART_PROCESS would restart something elsewhere
+Two last requirements to discuss. Actually they're already met by the combination of others.
+
+|Req 16 abbr| aks for a restart of :program:`scen2_srv` on another server if the server it is running on is shut down or
+crashes. Due to the non-distributed status of this application, all its processes will be declared ``FATAL`` in
+|Supvisors| for such an event and the application will be declared stopped. The ``RESTART_APPLICATION`` set to the
+:program:`internal_data_bus` program (|Req 15 abbr|) will then take over and restart the application on another server,
+using the starting strategy ``LESS_LOADED`` set to the :program:`scen2_srv` application (|Req 13 abbr|) and in
+accordance with the resources available (|Req 5 abbr|).
+
+On the same principle, the running failure strategy applied to the :program:`internal_data_bus` program of the
+:program:`scen2_hci` application is ``STOP_APPLICATION``. In the event of a console shutdown or crash, the
+:program:`scen2_hci` will already be declared stopped, so nothing more to do and |Req 26 abbr| is therefore satisfied.
 
 
-|Supvisors| Web UI
-~~~~~~~~~~~~~~~~~~
+Control & Status
+~~~~~~~~~~~~~~~~
 
-use Web UI but supervisorctl ok
+The operational status of :program:`Scenario 2` required by the |Req 3 abbr| is made available through:
 
-Status
-|Req 3 abbr| operational status
+    * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
+    * the :ref:`xml_rpc` (example below),
+    * the extended :program:`supervisorctl` :ref:`extended_status` (example below),
+    * the :ref:`event_interface`.
 
-Control
-|Req 20 abbr| + |Req 22 abbr| choix appli X sur web UI
-|Req 12| + |Req 23 abbr| max une instance running
-|Req 27 abbr| stop appli web UI
+For the examples, the following context applies:
 
+    * the :program:`common_data_bus` is *Unmanaged* so |Supvisors| always considers this 'application' ``STOPPED`` ;
+    * :program:`scen2_srv_01` and :program:`scen2_srv_03` are running on the server ``cliche81`` ;
+    * :program:`scen2_srv_02` is running on the server ``cliche82`` ;
+    * :program:`scen2_hci_02` has been started on the console ``cliche83`` ;
+    * an attempt to start :program:`scen2_hci_03` on the server ``cliche81`` has been rejected.
+
+>>> from supvisors.rpcrequests import getRPCInterface
+>>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
+>>> proxy.supvisors.get_all_applications_info()
+[{'application_name': 'common_data_bus', 'statecode': 0, 'statename': 'STOPPED', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_srv_01', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_srv_02', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_srv_03', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_hci_01', 'statecode': 0, 'statename': 'STOPPED', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_hci_02', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen2_hci_03', 'statecode': 0, 'statename': 'STOPPED', 'major_failure': True, 'minor_failure': True}]
+
+.. code-block:: bash
+
+    [bash] > supervisorctl -c etc/supervisord_server.conf application_info
+    Application      State     Major  Minor
+    common_data_bus  STOPPED   False  False
+    scen2_srv_01     RUNNING   False  False
+    scen2_srv_02     RUNNING   False  False
+    scen2_srv_03     RUNNING   False  False
+    scen2_hci_01     STOPPED   False  False
+    scen2_hci_02     RUNNING   False  False
+    scen2_hci_03     STOPPED   True   True
+
+
+To start a :program:`scen2_hci` in accordance with |Req 20 abbr|, |Req 21 abbr| and |Req 22 abbr|, the following methods
+are available:
+
+    * the :ref:`xml_rpc` (example below - **beware of the target**),
+    * the extended :program:`supervisorctl` :ref:`application_control` **if executed from the targeted console**
+      (example below),
+    * the start button |start| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI,
+      **assuming that the user has navigated to this page using the relevant node** (check the url if necessary).
+
+>>> from supvisors.rpcrequests import getRPCInterface
+>>> proxy = getRPCInterface('cliche83', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
+>>> proxy.supvisors.start_application('LOCAL', 'scen2_hci_02')
+True
+
+.. code-block:: bash
+
+    [bash] > hostname
+    cliche83
+    [bash] > supervisorctl -c etc/supervisord_console.conf start_application LOCAL scen2_hci_02
+    scen2_hci_02 started
+
+
+|Req 12 abbr| and |Req 23 abbr| require that one instance of one instance of :program:`scen2_srv_N` and
+:program:`scen2_hci_N` are running at most. This is all managed by |Supvisors| as they are *Managed* applications.
+If the :program:`scen2_srv_N` is already running on a console, the |Supvisors| Web UI will prevent the user to start
+:program:`scen2_srv_N` from another console. |Supvisors| XML-RPC and extended :program:`supervisorctl` commands will be
+rejected.
+
+.. attention::
+
+    The |Supervisor| commands (XML-RPC or :program:`supervisorctl`) are NOT curbed in any way by |Supvisors| so it is
+    still possible to break the rule using |Supervisor| itself. In the event of multiple :program:`Scenario 2` programs running,
+    |Supvisors| will detect the conflicts and enter a ``CONCILIATION`` state. Please refer to :ref:`conciliation` for
+    more details.
+
+To stop a :program:`scen2_hci` (|Req 27 abbr|), the following methods are available:
+
+    * the :ref:`xml_rpc` (example below - **whatever the target**),
+    * the extended :program:`supervisorctl` :ref:`application_control` **from any node where |Supvisors| is running**
+      (example below),
+    * the stop button |stop| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI,
+      **whatever the node hosting this page**.
+
+Indeed, as |Supvisors| knows where the application is running, it is able to drive the application stop from anywhere.
+
+>>> from supvisors.rpcrequests import getRPCInterface
+>>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
+>>> proxy.supvisors.stop_application('scen2_hci_02')
+True
+
+.. code-block:: bash
+
+    [bash] > hostname
+    cliche81
+    [bash] > supervisorctl -c etc/supervisord_server.conf stop_application scen2_hci_02
+    scen2_hci_02 stopped
 
 .. image:: images/supvisors_scenario_2.png
     :alt: Supvisors Use Cases - Scenario 2
     :align: center
 
 As a conclusion, all the requirements are met using |Supvisors| and without any impact on the application to be
-supervised. |Supvisors| brings gain over application control and status.
+supervised. |Supvisors| brings automatic behavior and gain over application control and status.
 
 
 Example

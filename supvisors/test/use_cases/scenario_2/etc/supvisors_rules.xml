@@ -33,14 +33,14 @@
             <reference>model_services</reference>
             <start_sequence>4</start_sequence>
         </program>
-        <program pattern="common_check_">
+        <program pattern="check_common">
             <reference>check_data_bus</reference>
             <start_sequence>3</start_sequence>
         </program>
         <pattern name="">
             <reference>model_services</reference>
         </pattern>
-        <program pattern="internal_check_">
+        <program pattern="check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
         <program pattern="internal_data_bus">
@@ -59,7 +59,7 @@
             <start_sequence>3</start_sequence>
             <expected_loading>8</expected_loading>
         </program>
-        <program pattern="internal_check_">
+        <program pattern="check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
         <program pattern="internal_data_bus">

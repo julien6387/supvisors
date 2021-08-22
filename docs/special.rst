@@ -488,7 +488,7 @@ although all of them may have the capability to start it.
 
 Nevertheless, it is still likely to happen in a few cases:
 
-    * using a request to |Supervisor| itself (through web ui, :program:`supervisorctl`, XML-RPC),
+    * using a request to |Supervisor| itself (through Web UI, :program:`supervisorctl`, XML-RPC),
     * upon a network failure.
 
 .. attention::
@@ -499,14 +499,14 @@ Nevertheless, it is still likely to happen in a few cases:
     When the network failure is fixed, |Supvisors| has likely to deal with a duplicated list of applications
     and processes.
 
-When such a conflict is detected, |Supvisors| enters a ``CONCILIATION`` phase.
-Depending on the ``conciliation_strategy`` option set in the :ref:`supvisors_section`, it applies a strategy
-to be rid of all duplicates:
+When such a conflict is detected, |Supvisors| enters in the ``CONCILIATION`` state.
+Depending on the ``conciliation_strategy`` option set in the :ref:`supvisors_section`, it applies a strategy to be rid
+of all duplicates:
 
 ``SENICIDE``
 
-    When applying the ``SENICIDE`` strategy, |Supvisors| keeps the youngest process, i.e. the process
-    that has been started the most recently, and stops all the others.
+    When applying the ``SENICIDE`` strategy, |Supvisors| keeps the youngest process, i.e. the process that has been
+    started the most recently, and stops all the others.
 
 ``INFANTICIDE``
 

@@ -1,7 +1,7 @@
 .. _scenario_1:
 
-Scenario 1
-==========
+:program:`Scenario 1`
+=====================
 
 Context
 -------
@@ -57,14 +57,14 @@ Requirement 7
 
 There are undoubtedly many ways to skin the cat. Here follows one solution.
 
-As an answer to |Req 1 abbr| and |Req 7 abbr|, let's split the |Supervisor| configuration file into 4 parts:
+As an answer to |Req 1 abbr| and |Req 4 abbr|, let's split the |Supervisor| configuration file into 4 parts:
 
     * the ``supervisord.conf`` configuration file ;
     * the program definitions and the group definition (``.ini`` files) for the first node ;
     * the program definitions and the group definition (``.ini`` files) for the second node ;
     * the program definitions and the group definition (``.ini`` files) for the third node.
 
-All program are configured using ``autostart=true``.
+All programs are configured using ``autostart=true``.
 
 For packaging facility, the full configuration is available to all nodes but the ``include`` section of the
 configuration file uses the ``host_node_name`` so that the running configuration is actually different on all nodes.
@@ -96,16 +96,6 @@ The resulting file tree would be as follows.
 For |Req 6 abbr|, let's just define a group where all programs are declared.
 The proposal is to have 2 |Supervisor| configuration files, one for the distributed application and the other
 for the non-distributed application, the variation being just in the include section.
-
-About |Req 2 abbr|, |Supervisor| does not provide any facility to stage the starting sequence (refer to
-`Issue #122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_).
-A workaround here would be to insert a wait loop in all the application programs (in the program command line
-or in the program source code). The idea of pushing this wait loop outside the |Supervisor| scope - just before
-starting :program:`supervisord` - is excluded as it would impose this dependency on other applications eventually managed
-by |Supervisor|.
-
-With regard to |Req 7 abbr|, this workaround would require different program commands or parameters, so finally
-different program definitions from |Supervisor| configuration perspective.
 
 .. code-block:: bash
 
@@ -141,6 +131,16 @@ Here is the resulting ``include`` sections:
     [include]
     files = localhost/*.ini
 
+About |Req 2 abbr|, |Supervisor| does not provide any facility to stage the starting sequence (refer to
+`Issue #122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_).
+A workaround here would be to insert a wait loop in all the application programs (in the program command line
+or in the program source code). The idea of pushing this wait loop outside the |Supervisor| scope - just before
+starting :program:`supervisord` - is excluded as it would impose this dependency on other applications eventually managed
+by |Supervisor|.
+
+With regard to |Req 7 abbr|, this workaround would require different program commands or parameters, so finally
+different program definitions from |Supervisor| configuration perspective.
+
 |Supervisor| provides nothing for |Req 3 abbr|. The user has to evaluate the operational status based on the process
 status provided by the |Supervisor| instances on the 3 nodes, either using multiple :program:`supervisorctl` shell
 commands, XML-RPCs or event listeners.
@@ -152,10 +152,10 @@ or XML-RPCs on each |Supervisor| instance.
 
     [bash] > for i in cliche81 cliche82 cliche83
     ... do
-    ...    supervisorctl -s http://$i:<port> restart <group>:*
+    ...    supervisorctl -s http://$i:<port> restart scenario_1:*
     ... done
 
-Eventually, all the requirements could be met using |Supervisor| but it would require additional development
+Eventually, all the requirements could be met using |Supervisor| but it would require additional software development
 at application level to build an operational status, based on process information provided by |Supervisor|.
 
 It would also require some additional complexity in the configuration files and in the program command lines
@@ -183,11 +183,11 @@ Introducing the staged start sequence
 
 About |Req 2 abbr|, |Supvisors| manages staged starting sequences and it offers a possibility to wait for a
 planned exit of a process in the sequence.
-So let's define a new program ``wait_nfs_mount_X`` per node and whose role is to exit (using an expected exit code,
+So let's define a program :program:`wait_nfs_mount_X` per node and whose role is to exit (using an expected exit code,
 as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
 as soon as the NFS mount is available.
 
-Complying about |Req 7 abbr| is just about avoiding the inclusion of the ``wait_nfs_mount_X`` programs in the
+Satisfying |Req 7 abbr| is just about avoiding the inclusion of the :program:`wait_nfs_mount_X` programs in the
 |Supervisor| configuration file in the case of a non-distributed application. That's why the |Supervisor|
 configuration of these programs is isolated from the configuration of the other programs.
 That way, |Supvisors| makes it possible to avoid an impact to program definitions, scripts and source code
@@ -285,12 +285,12 @@ to be started on the same node.
 
 .. note::
 
-    A few words about how the ``wait_nfs_mount_X`` programs have been introduced here. It has to be noted that:
+    A few words about how the :program:`wait_nfs_mount_X` programs have been introduced here. It has to be noted that:
 
         * the ``start_sequence`` of these programs is lower than the ``start_sequence`` of the other application programs ;
         * their attribute ``wait_exit`` is set to ``true``.
 
-    The consequence is that the 3 programs ``wait_nfs_mount_X`` are started first on their respective node
+    The consequence is that the 3 programs :program:`wait_nfs_mount_X` are started first on their respective node
     when starting the :program:`scenario_1` application. Then |Supvisors| waits for *all* of them to exit before it triggers
     the starting of the other programs.
 
@@ -484,7 +484,7 @@ The final file tree is as follows.
 Control & Status
 ~~~~~~~~~~~~~~~~
 
-The operational status of Scenario 1 required by the |Req 3 abbr| is made available through:
+The operational status of :program:`Scenario 1` required by the |Req 3 abbr| is made available through:
 
     * the :ref:`dashboard_application` of the |Supvisors| Web UI, as a LED near the application state,
     * the :ref:`xml_rpc` (example below),
@@ -502,7 +502,7 @@ The operational status of Scenario 1 required by the |Req 3 abbr| is made availa
     Node         State     Major  Minor
     scenario_1   RUNNING   True   False
 
-To restart the whole application (|Req 5 abbr|), the following is available:
+To restart the whole application (|Req 5 abbr|), the following methods are available:
 
     * the :ref:`xml_rpc` (example below),
     * the extended :program:`supervisorctl` :ref:`application_control` (example below),
@@ -518,7 +518,7 @@ True
     [bash] > supervisorctl -c etc/supervisord_localhost.conf restart_application CONFIG scenario_1
     scenario_1 restarted
 
-Here is a snapshot of the Application page of the |Supvisors| Web UI for the Scenario 1 application.
+Here is a snapshot of the Application page of the |Supvisors| Web UI for the :program:`Scenario 1` application.
 
 .. image:: images/supvisors_scenario_1.png
     :alt: Supvisors Use Cases - Scenario 1
