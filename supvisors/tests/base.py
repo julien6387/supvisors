@@ -38,6 +38,8 @@ from supvisors.utils import extract_process_info
 class DummyOptions:
     """ Simple options with dummy attributes. """
 
+    SYNCHRO_TIMEOUT_MIN = 15
+
     def __init__(self):
         """ Configuration options. """
         self.address_list = [gethostname()]

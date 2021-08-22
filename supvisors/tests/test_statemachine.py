@@ -107,11 +107,24 @@ def test_initialization_state(mocker, supvisors_ctx):
     supvisors_ctx.options.force_synchro_if = {'10.0.0.2', '10.0.0.4'}
     nodes['10.0.0.3']._state = AddressStates.UNKNOWN
     nodes['10.0.0.4']._state = AddressStates.RUNNING
+    # SYNCHRO_TIMEOUT_MIN not passed yet
+    state.context.start_date = time() - 10
+    result = state.next()
+    assert result == SupvisorsStates.INITIALIZATION
+    # no master set
+    state.context.start_date = 0
+    result = state.next()
+    assert result == SupvisorsStates.DEPLOYMENT
+    # master known, not in core nodes and not running
+    supvisors_ctx.context.master_node_name = '10.0.0.3'
+    result = state.next()
+    assert result == SupvisorsStates.INITIALIZATION
+    # master known, not in core nodes and running
+    supvisors_ctx.context.master_node_name = '127.0.0.1'
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # 3. test exit method
     # test when master_node_name is already set: no change
-    supvisors_ctx.context.master_node_name = '127.0.0.1'
     state.exit()
     assert supvisors_ctx.context.master_node_name == '127.0.0.1'
     # test when master_node_name is not set and no core nodes
