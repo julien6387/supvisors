@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-0.8 (2021-xx-xx)
+0.8 (2021-08-22)
 ----------------
 
 * Fixed exception in ``INITIALIZATION`` state when the *Master* declared by other nodes is not RUNNING yet and
@@ -21,6 +21,8 @@ Change Log
   non-distributed applications.
 
 * Logic for application major / minor failures reviewed.
+
+* Simplify the insertion of applications to start or stop in Commander jobs.
 
 * In the rules file, support for application patterns has been added.
 

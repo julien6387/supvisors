@@ -297,7 +297,7 @@ class Commander(object):
             else:
                 # no commands in the pipe
                 # this can happen when nothing had to be stopped inside the planned_jobs
-                self.logger.warn('Starter.is_job_completed: no commands in progress but planned sequence still ongoing')
+                self.logger.warn('Commander.is_job_completed: no current job but planned sequence still ongoing')
                 # check if there are planned jobs
                 if not self.planned_jobs:
                     # trigger next sequence of applications
@@ -398,15 +398,14 @@ class Starter(Commander):
                          .format(application.application_name, strategy.name))
         # push program list in job list and start work
         if application.stopped():
+            in_progress = self.in_progress()
             self.store_application_start_sequence(application, strategy)
             self.logger.debug('Starter.start_application: planned_sequence={}'
                               .format(self.printable_planned_sequence()))
-            if self.planned_sequence:
-                # add application immediately to planned jobs if something already in list
-                self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
-                # prepare commands and trigger application jobs
-                self.prepare_application_jobs(application.application_name, application)
-                self.process_application_jobs(application.application_name)
+            # if nothing in progress, trigger the jobs
+            # else let the Starter logic take the new jobs when relevant
+            if not in_progress:
+                self.trigger_jobs()
         # return True when started
         return not self.in_progress()
 
@@ -695,12 +694,14 @@ class Stopper(Commander):
         self.logger.info('Stopper.stop_application: stop application {}'.format(application.application_name))
         # push program list in jobs list and start work
         if application.has_running_processes():
+            in_progress = self.in_progress()
             self.store_application_stop_sequence(application)
             self.logger.debug('Stopper.stop_application: planned_sequence={}'.format(self.printable_planned_sequence()))
-            # add application immediately to planned jobs
-            self.planned_jobs.update(self.planned_sequence.pop(min(self.planned_sequence.keys())))
-            self.process_application_jobs(application.application_name)
-        # return True when stopped
+            # if nothing in progress, trigger the jobs
+            # else let the Stopper logic take the new jobs when relevant
+            if not in_progress:
+                self.trigger_jobs()
+        # return True when no job in progress
         return not self.in_progress()
 
     def stop_process(self, process):

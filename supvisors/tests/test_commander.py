@@ -829,34 +829,30 @@ def test_starter_default_start_process(mocker, starter):
     assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process)]
 
 
-def test_starter_start_application(mocker, starter, command_list):
+def test_starter_start_application(mocker, starter):
     """ Test the Starter.start_application method. """
     # create application start_sequence
     appli = create_application('sample_test_1', starter.supvisors)
-    for command in command_list:
-        if command.process.application_name == 'sample_test_1':
-            appli.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-    # patch the starter.process_application_jobs
-    mocked_jobs = mocker.patch.object(starter, 'process_application_jobs')
+    # patch the starter
+    mocker.patch.object(starter, 'in_progress', side_effect=[False, False, True, True, True])
+    mocked_store = mocker.patch.object(starter, 'store_application_start_sequence')
+    mocked_jobs = mocker.patch.object(starter, 'trigger_jobs')
     # test start_application on a running application
     appli._state = ApplicationStates.RUNNING
     assert starter.start_application(StartingStrategies.LESS_LOADED, appli)
-    assert starter.planned_sequence == {}
-    assert starter.planned_jobs == {}
+    assert not mocked_store.called
     assert not mocked_jobs.called
     # test start_application on a stopped application
     appli._state = ApplicationStates.STOPPED
     assert not starter.start_application(StartingStrategies.LESS_LOADED, appli)
-    # only planned jobs and not current jobs because of process_application_jobs patch
-    assert starter.planned_sequence == {}
-    expected = {'sample_test_1': {1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                                  2: ['sample_test_1:xclock']}}
-    assert starter.printable_planned_jobs() == expected
-    assert mocked_jobs.call_args_list == [call('sample_test_1')]
-    # check strategy applied
-    for proc_list in starter.planned_jobs['sample_test_1'].values():
-        for proc in proc_list:
-            assert proc.strategy == StartingStrategies.LESS_LOADED
+    # first call: no job in progress
+    assert mocked_store.call_args_list == [call(appli, StartingStrategies.LESS_LOADED)]
+    assert mocked_jobs.called
+    mocker.resetall()
+    # second call: jobs in progress
+    assert not starter.start_application(StartingStrategies.MOST_LOADED, appli)
+    assert mocked_store.call_args_list == [call(appli, StartingStrategies.MOST_LOADED)]
+    assert not mocked_jobs.called
 
 
 def test_starter_default_start_application(mocker, starter):
@@ -1156,34 +1152,29 @@ def test_stopper_stop_process_success(mocker, stopper, command_list):
     assert stopper.current_jobs == {'sample_test_1': [args1[0]], 'sample_test_2': [args2[0]]}
 
 
-def test_stopper_stop_application(mocker, stopper, command_list):
+def test_stopper_stop_application(mocker, stopper):
     """ Test the Stopper.stop_application method. """
     # create application start_sequence
     appli = create_application('sample_test_1', stopper.supvisors)
-    for command in command_list:
-        if command.process.application_name == 'sample_test_1':
-            appli.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
-
-    # patch the starter.process_application_jobs
-    def success_job(*args, **_):
-        args[1].append(args[0])
-
-    mocked_jobs = mocker.patch.object(stopper, 'process_job', side_effect=success_job)
-    # test start_application on a stopped application
-    assert appli.state == ApplicationStates.STOPPED
+    mocker.patch.object(appli, 'has_running_processes', side_effect=[False, True, True])
+    # patch the stopper
+    mocker.patch.object(stopper, 'in_progress', side_effect=[False, False, True, True, True])
+    mocked_store = mocker.patch.object(stopper, 'store_application_stop_sequence')
+    mocked_jobs = mocker.patch.object(stopper, 'trigger_jobs')
+    # test start_application on a running application
     assert stopper.stop_application(appli)
-    assert stopper.planned_sequence == {}
-    assert stopper.planned_jobs == {}
-    assert stopper.current_jobs == {}
+    assert not mocked_store.called
     assert not mocked_jobs.called
-    # test start_application on an application having at least one running process
-    mocker.patch.object(appli, 'has_running_processes', return_value=True)
+    # test start_application on a stopped application
     assert not stopper.stop_application(appli)
-    # only planned jobs and not current jobs because of process_application_jobs patch
-    assert stopper.planned_sequence == {}
-    assert stopper.printable_planned_jobs() == {'sample_test_1': {2: ['sample_test_1:xclock']}}
-    assert stopper.printable_current_jobs() == {'sample_test_1': ['sample_test_1:xfontsel', 'sample_test_1:xlogo']}
-    assert mocked_jobs.call_count == 2
+    # first call: no job in progress
+    assert mocked_store.call_args_list == [call(appli)]
+    assert mocked_jobs.called
+    mocker.resetall()
+    # second call: jobs in progress
+    assert not stopper.stop_application(appli)
+    assert mocked_store.call_args_list == [call(appli)]
+    assert not mocked_jobs.called
 
 
 def test_stopper_stop_applications(mocker, stopper, command_list):
