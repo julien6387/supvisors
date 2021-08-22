@@ -1,2 +1,4 @@
 [run]
-omit = */client/* */tools/*
+omit =
+    */client/*
+    */tools/*
