@@ -135,20 +135,21 @@ def test_write_common(mocker, handler):
     mocked_meta = Mock(attrib={})
     mocked_supv = Mock(attrib={})
     mocked_version = Mock()
+    mocked_node = Mock()
     mocked_refresh = Mock()
     mocked_autorefresh = Mock(attrib={'class': 'button'})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_meta, mocked_supv, mocked_version,
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_meta, mocked_supv, mocked_version, mocked_node,
                                                    mocked_refresh, mocked_autorefresh] * 2})
     # 1. test no conflict and auto-refresh
     handler.supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert call('version_mid' == [call('meta_mid'), call('supvisors_mid'),
-                                  call('refresh_a_mid'), call('autorefresh_a_mid')],
-                mocked_root.findmeld.call_args_list)
+    assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
+                                                   call('node_mid'), call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert not mocked_meta.deparent.called
     assert mocked_supv.attributes.call_args_list == [call(href='an url')]
     assert 'class' not in mocked_supv.attrib
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
+    assert mocked_node.content.call_args_list == [call(handler.local_node_name)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button active'
@@ -161,6 +162,7 @@ def test_write_common(mocker, handler):
     handler.view_ctx.format_url.reset_mock()
     mocked_supv.attributes.reset_mock()
     mocked_version.content.reset_mock()
+    mocked_node.content.reset_mock()
     mocked_refresh.attributes.reset_mock()
     mocked_autorefresh.attributes.reset_mock()
     mocked_autorefresh.attrib['class'] = 'button'
@@ -171,11 +173,12 @@ def test_write_common(mocker, handler):
     handler.view_ctx.parameters[AUTO] = False
     handler.write_common(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
-                                                   call('refresh_a_mid'), call('autorefresh_a_mid')]
+                                                   call('node_mid'), call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert mocked_meta.deparent.called
     assert mocked_supv.attributes.call_args_list == [call(href='an url')]
     assert mocked_supv.attrib == {'class': 'blink'}
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
+    assert mocked_node.content.call_args_list == [call(handler.local_node_name)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'

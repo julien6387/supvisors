@@ -27,6 +27,8 @@ Change Log
 * Fixed issue when choosing a node in ``Starter``. Apply the requests that have not been satisfied yet for
   non-distributed applications.
 
+* Add the current node to all pages of Web UI to be aware of the node that displays the page.
+
 * The Web UI is updated to handle a large list of applications, nodes, processor cores and network interfaces.
 
 * In the Process page of the Web UI, expand / shrink actions are not applicable to programs that are not owned

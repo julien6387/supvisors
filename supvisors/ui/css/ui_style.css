@@ -272,6 +272,8 @@ h1, h2, h3, h4 {
 
 h1 {
     font-size: 1.6em;
+    margin-top: 0.2em;
+    margin-bottom: 0.4em;
 }
 
 h2, h3 {
@@ -307,6 +309,11 @@ h3 code {
 
 nav ul, p {
     font-size: .8em;
+}
+
+p {
+    margin-top: 0.1em;
+    margin-bottom: 0;
 }
 
 a {

@@ -101,6 +101,8 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'blink')
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
+        # set hosting node name
+        root.findmeld('node_mid').content(self.local_node_name)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
