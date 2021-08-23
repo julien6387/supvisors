@@ -20,7 +20,6 @@
 from typing import Any
 
 from supervisor import loggers
-from supervisor.datatypes import Automatic
 from supervisor.xmlrpc import Faults, RPCError
 
 from .addressmapper import AddressMapper
@@ -28,7 +27,7 @@ from .commander import Starter, Stopper
 from .context import Context
 from .infosource import SupervisordSource
 from .listener import SupervisorListener
-from .options import SupvisorsServerOptions
+from .options import *
 from .sparser import Parser
 from .statemachine import FiniteStateMachine
 from .statscompiler import StatisticsCompiler
@@ -41,7 +40,7 @@ class Supvisors(object):
     # logger output (use ';' as separator as easier to cut)
     LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
-    def __init__(self, supervisord: Any) -> None:
+    def __init__(self, supervisord: Any, **config) -> None:
         """ Instantiation of all the Supvisors objects.
 
         :param supervisord: the Supervisor global structure
@@ -49,9 +48,10 @@ class Supvisors(object):
         # declare zmq context (will be created in listener)
         self.zmq = None
         # get options from config file
+        self.options = SupvisorsOptions(**config)
         server_options = SupvisorsServerOptions()
         server_options.realize()
-        self.options = server_options.supvisors_options
+        self.options.procnumbers = server_options.procnumbers
         # create logger
         self.logger = self.create_logger(supervisord)
         # configure supervisor info source
@@ -77,8 +77,7 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('Supvisors.__init__: cannot parse rules file: {} - {}'
-                             .format(self.options.rules_file, exc))
+            self.logger.warn('Supvisors: cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

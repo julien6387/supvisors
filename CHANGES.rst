@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+0.9 (2021-xx-xx)
+----------------
+
+* Move the contents of the ``[supvisors]`` section into the ``[rpcinterface:supvisors]`` section and benefit from the
+  configuration structure provided by Supervisor. The ``[supvisors]`` section itself is thus obsolete.
+
+* Remove deprecated support of ``pattern`` elements.
+
+* Update documentation.
+
+
 0.8 (2021-08-22)
 ----------------
 

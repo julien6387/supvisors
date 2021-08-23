@@ -9,9 +9,10 @@ Supervisor's Configuration File
 This section explains how |Supvisors| uses and complements the
 `Supervisor configuration <http://supervisord.org/configuration.html>`_.
 
+.. _supvisors_section:
 
-Extension points
-~~~~~~~~~~~~~~~~
+rpcinterface extension point
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 |Supvisors| extends the `Supervisor's XML-RPC API <http://supervisord.org/xmlrpc.html>`_.
 
@@ -20,22 +21,8 @@ Extension points
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
 
-|Supvisors| extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
-This feature is not described in |Supervisor| documentation.
-
-.. code-block:: ini
-
-    [ctlplugin:supvisors]
-    supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
-
-
-.. _supvisors_section:
-
-``[supvisors]`` Section Values
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The parameters of |Supvisors| are set through an additional section ``[supvisors]`` in the |Supervisor| configuration
-file. It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters)
+The parameters of |Supvisors| are set in this section of the |Supervisor| configuration file.
+It is expected that all **Supvisors instances** use the same configuration (excluding logger parameters)
 or it may lead to unpredictable behavior.
 
 ``address_list``
@@ -211,6 +198,19 @@ These options are more detailed in
 
     *Required*:  No.
 
+
+ctlplugin extension point
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|Supvisors| extends also `supervisorctl <http://supervisord.org/running.html#running-supervisorctl>`_.
+This feature is not described in |Supervisor| documentation.
+
+.. code-block:: ini
+
+    [ctlplugin:supvisors]
+    supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
+
+
 Configuration File Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -237,24 +237,22 @@ Configuration File Example
     files = */*.ini
 
     # Supvisors dedicated part
-    [supvisors]
-    address_list=cliche01,cliche03,cliche02,cliche04
-    rules_file=./etc/my_movies.xml
-    auto_fence=false
-    internal_port=60001
-    event_port=60002
-    synchro_timeout=20
-    starting_strategy=LESS_LOADED
-    conciliation_strategy=INFANTICIDE
-    stats_periods=5,60,600
-    stats_histo=100
-    logfile=./log/supvisors.log
-    logfile_maxbytes=50MB
-    logfile_backups=10
-    loglevel=info
-
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+    address_list = cliche01,cliche03,cliche02,cliche04
+    rules_file = ./etc/my_movies.xml
+    auto_fence = false
+    internal_port = 60001
+    event_port = 60002
+    synchro_timeout = 20
+    starting_strategy = LESS_LOADED
+    conciliation_strategy = INFANTICIDE
+    stats_periods = 5,60,600
+    stats_histo = 100
+    logfile = ./log/supvisors.log
+    logfile_maxbytes = 50MB
+    logfile_backups = 10
+    loglevel = info
 
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
@@ -338,7 +336,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     This element is only used when ``distributed`` is set to ``false`` and gives the list of nodes where the application
     processes can be started. The node names are to be taken from the ``address_list`` defined in
-    `[supvisors] Section Values`_ or from the declared `Node aliases`_, and separated by commas.
+    `rpcinterface extension point`_ or from the declared `Node aliases`_, and separated by commas.
     Special values can be applied.
 
     The wildcard ``*`` stands for all node names in ``address_list``.
@@ -458,7 +456,7 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 ``addresses``
 
     This element gives the list of nodes where the process can be started. The node names are to be taken from
-    the ``address_list`` defined in `[supvisors] Section Values`_ or from the declared `Node aliases`_,
+    the ``address_list`` defined in `rpcinterface extension point`_ or from the declared `Node aliases`_,
     and separated by commas. Special values can be applied.
 
     The wildcard ``*`` stands for all node names in ``address_list``.
@@ -621,12 +619,13 @@ For a ``pattern`` attribute, a substring matching one |Supervisor| program name 
 
     .. code-block:: ini
 
-        [supvisors]
-        address_list=cliche01,cliche02,cliche03,cliche04,cliche05
+        [rpcinterface:supvisors]
+        supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+        address_list = cliche01,cliche02,cliche03,cliche04,cliche05
 
         [program:prg]
-        process_name=prg_%(process_num)02d
-        numprocs=5
+        process_name = prg_%(process_num)02d
+        numprocs = 5
 
     Without this option, it is necessary to define rules for all instances of the program.
 

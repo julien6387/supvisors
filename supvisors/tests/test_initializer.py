@@ -22,80 +22,61 @@ import pytest
 from supervisor.loggers import Logger
 from unittest.mock import Mock
 
-from .base import DummySupervisor, DummyOptions
+from supvisors.initializer import *
+
+from .base import DummySupervisor
 
 
 def test_creation(mocker):
     """ Test the values set at construction. """
     mocked_parser = mocker.patch('supvisors.initializer.Parser', return_value='Parser')
-    mocked_logger = mocker.patch('supvisors.initializer.Supvisors.create_logger', return_value=Mock(spec=Logger))
-    mocked_supv_options = DummyOptions()
-    mocked_srv_options = Mock(supvisors_options=mocked_supv_options)
+    mocked_srv_options = Mock(procnumbers={})
     mocked_options = mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
     # create the instance to test
-    from supvisors.initializer import (AddressMapper, Context, Supvisors, SupervisordSource, Starter, Stopper,
-                                       StatisticsCompiler, FiniteStateMachine, SupervisorListener)
     supv = Supvisors(DummySupervisor())
     # test calls
     assert mocked_options.called
-    assert mocked_logger.called
     assert mocked_parser.called
     # test instances
-    assert supv.options is not None
+    assert isinstance(supv.options, SupvisorsOptions)
     assert mocked_srv_options.realize.called
-    assert supv.logger is not None
-    assert supv.info_source is not None
+    assert isinstance(supv.logger, Logger)
     assert isinstance(supv.info_source, SupervisordSource)
-    assert supv.address_mapper is not None
     assert isinstance(supv.address_mapper, AddressMapper)
-    assert supv.context is not None
     assert isinstance(supv.context, Context)
-    assert supv.starter is not None
     assert isinstance(supv.starter, Starter)
-    assert supv.stopper is not None
     assert isinstance(supv.stopper, Stopper)
-    assert supv.statistician is not None
     assert isinstance(supv.statistician, StatisticsCompiler)
-    assert supv.fsm is not None
     assert isinstance(supv.fsm, FiniteStateMachine)
     assert supv.parser == 'Parser'
-    assert supv.listener is not None
     assert isinstance(supv.listener, SupervisorListener)
 
 
 def test_create_logger(mocker):
     """ Test the create_logger method. """
-    from supervisor.datatypes import Automatic
-    from supvisors.initializer import Supvisors
     # create mocked supvisors options
-    mocked_options = Mock(supvisors_options=DummyOptions())
-    mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_options)
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     # create Supvisors instance
     supervisord = DummySupervisor()
     supvisors = Supvisors(supervisord)
     # test AUTO logfile
-    mocked_options.supvisors_options.logfile = Automatic
+    supvisors.options.logfile = Automatic
     assert supvisors.create_logger(supervisord) is supervisord.options.logger
-    # for the following, supervisord must be silent because of logger
-    # for unknown reason test_initializer got this exception
-    # ValueError: I/O operation on closed file
-    supervisord.options.silent = True
     # test defined logfile
-    mocked_options.supvisors_options.logfile = '/tmp/dummy.log'
+    supvisors.options.logfile = '/tmp/dummy.log'
     logger = supvisors.create_logger(supervisord)
     assert logger is not supervisord.options.logger
 
 
 def test_address_exception(mocker):
     """ Test the values set at construction. """
-    mocker.patch('supvisors.initializer.loggers')
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
-    from supvisors.initializer import Supvisors, Faults, RPCError
+    mocker.patch('supvisors.initializer.AddressMapper.node_names')
     # create Supvisors instance
     supervisord = DummySupervisor()
     # patches Faults codes
     setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
-    # test that local address exception raises a failure to Supervisor
+    # test that local node exception raises a failure to Supervisor
     with pytest.raises(RPCError):
         Supvisors(supervisord)
 
@@ -103,12 +84,8 @@ def test_address_exception(mocker):
 def test_parser_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.Parser', side_effect=Exception)
-    mocker.patch('supvisors.initializer.Supvisors.create_logger', return_value=Mock(spec=Logger))
-    mocked_supv_options = DummyOptions()
-    mocked_srv_options = Mock(supvisors_options=mocked_supv_options)
-    mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
+    mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     # create Supvisors instance
-    from supvisors.initializer import Supvisors
     supvisors = Supvisors(DummySupervisor())
     # test that parser exception is accepted
     assert supvisors.parser is None

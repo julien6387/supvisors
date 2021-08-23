@@ -427,12 +427,10 @@ of the |Supvisors| plugin.
     [include]
     files = %(host_node_name)s/*.ini
 
-    [supvisors]
-    address_list=cliche81,cliche82,cliche83
-    rules_file=etc/supvisors_rules.xml
-
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+    address_list = cliche81,cliche82,cliche83
+    rules_file = etc/supvisors_rules.xml
 
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin
@@ -445,11 +443,9 @@ the default value is the local host name, which is perfectly suitable here.
     [include]
     files = */programs_*.ini localhost/group_localhost.ini
 
-    [supvisors]
-    rules_file=etc/supvisors_rules.xml
-
     [rpcinterface:supvisors]
     supervisor.rpcinterface_factory = supvisors.plugin:make_supvisors_rpcinterface
+    rules_file = etc/supvisors_rules.xml
 
     [ctlplugin:supvisors]
     supervisor.ctl_factory = supvisors.supvisorsctl:make_supvisors_controller_plugin

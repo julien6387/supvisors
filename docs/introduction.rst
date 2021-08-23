@@ -128,7 +128,8 @@ Running |Supvisors|
 However, the |Supervisor| configuration file **MUST**:
 
     * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings) ;
-    * include the ``[supvisors]`` section (refer to the :ref:`Configuration` part) ;
+    * include the ``[rpcinterface:supvisors]`` and the ``[ctlplugin:supvisors]`` sections
+      (refer to the :ref:`Configuration` part) ;
     * be identical on all considered nodes.
 
 .. note::
