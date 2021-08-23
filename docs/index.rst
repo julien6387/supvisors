@@ -26,7 +26,7 @@
     :maxdepth: 2
     :caption: Release History
 
-    CHANGES.rst
+    CHANGES.md
 
 Indices and tables
 ------------------
