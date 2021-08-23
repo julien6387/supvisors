@@ -1,6 +1,6 @@
-## Change Log
+# Change Log
 
-### 0.9 (2021-xx-xx)
+## 0.9 (2021-xx-xx)
 
 * Move the contents of the `[supvisors]` section into the `[rpcinterface:supvisors]` section and benefit from the
   configuration structure provided by Supervisor. The `[supvisors]` section itself is thus obsolete.
@@ -12,7 +12,7 @@
 * Update documentation.
 
 
-### 0.8 (2021-08-22)
+## 0.8 (2021-08-22)
 
 * Fixed exception in `INITIALIZATION` state when the *Master* declared by other nodes is not RUNNING yet and
   the *core nodes* are RUNNING.
@@ -72,7 +72,7 @@
 * Update documentation.
 
 
-### 0.7 (2021-08-15)
+## 0.7 (2021-08-15)
 
 * Fixed [Issue #92](https://github.com/julien6387/supvisors/issues/92).
   The *Master* drives the state of all **Supvisors** instances and a simplified state machine has been assigned
@@ -120,7 +120,7 @@
 * Documentation updated.
 
 
-### 0.6 (2021-08-01)
+## 0.6 (2021-08-01)
 
 * Applications that are not declared in the rules file are not *managed*.
   *Unmanaged* applications have no start/stop sequence, no state and status (always STOPPED) and **Supvisors**
@@ -164,7 +164,7 @@
 * Documentation updated.
 
 
-### 0.5 (2021-03-01)
+## 0.5 (2021-03-01)
 
 * New option `force_synchro_if` to force the end of the synchronization phase when a subset of nodes are active.
 
@@ -199,7 +199,7 @@
 * Documentation updated.
 
 
-### 0.4 (2021-02-14)
+## 0.4 (2021-02-14)
 
 * Auto-refresh button added to all pages.
 
@@ -212,7 +212,7 @@
 * Documentation updated.
 
 
-### 0.3 (2020-12-29)
+## 0.3 (2020-12-29)
 
 * Fixed [Issue #81](https://github.com/julien6387/supvisors/issues/81).
   When **Supvisors** logfile is set to `AUTO`, **Supvisors** uses the same logger as **Supervisor**.
@@ -229,7 +229,7 @@
 * Documentation updated.
 
 
-### 0.2 (2020-12-14)
+## 0.2 (2020-12-14)
 
 * Migration to **Python 3.6**.
   Versions of dependencies are refreshed, more particularly **Supervisor 4.2.1**.
@@ -261,6 +261,6 @@
 * Documentation formatting issues fixed.
 
 
-### 0.1 (2017-08-11)
+## 0.1 (2017-08-11)
 
 Initial release.
