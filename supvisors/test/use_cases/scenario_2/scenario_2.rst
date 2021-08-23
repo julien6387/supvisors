@@ -283,7 +283,7 @@ found in the ``template_etc`` folder and writes new configuration files into the
 .. attention::
 
     The program definitions :program:`internal_data_bus` and :program:`internal_check_data_bus` are common to
-    :program:`scen2_srv` and :program:`scen2_hci`: . In the use case design, it doesn't matter as :program:`supervisord`
+    :program:`scen2_srv` and :program:`scen2_hci`. In the use case design, it doesn't matter as :program:`supervisord`
     is not meant to include these definitions together. Anyway, it would have failed as there would be a conflict in
     loading the same program definition in two groups.
 

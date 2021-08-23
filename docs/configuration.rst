@@ -758,7 +758,7 @@ Here follows a few usage examples:
     the aliases referenced.
 
     At some point, the resulting node names are checked against the ``address_list``
-    of the `[supvisors] Section Values`_ so any unknown node name or remaining alias will simply be discarded.
+    of the `rpcinterface extension point`_ so any unknown node name or remaining alias will simply be discarded.
 
 .. code-block:: xml
 
