@@ -67,14 +67,6 @@ class Parser(object):
         self.logger.debug('Parser: found application patterns {}'.format(self.application_patterns.keys()))
         # get program patterns
         self.program_patterns = {}
-        app_elements = self.root.findall(".//application/pattern[@name]/..")
-        for app_element in app_elements:
-            prg_elements = app_element.findall("./pattern[@name]")
-            self.program_patterns[app_element] = {prg_element.get('name'): prg_element for prg_element in prg_elements}
-        if self.program_patterns:
-            self.logger.warn('Parser: usage of pattern elements is deprecated -'
-                             ' please convert {} to program elements with pattern attribute.'
-                             .format(self.printable_program_patterns()))
         app_elements = self.root.findall(".//application/program[@pattern]/..")
         for app_element in app_elements:
             prg_elements = app_element.findall("./program[@pattern]")

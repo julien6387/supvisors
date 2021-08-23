@@ -430,16 +430,6 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
     *Required*:  No.
 
-``pattern``
-
-    **Deprecated**. This element defines the program rules that are applicable to all programs whose name matches
-    the name attribute of the ``pattern`` element. Obviously, the definition of an application can include multiple
-    ``program`` elements.
-
-    *Default*:  None.
-
-    *Required*:  No.
-
 
 ``program`` rules
 ~~~~~~~~~~~~~~~~~
@@ -597,11 +587,6 @@ set of rules. So two mechanisms are put in place to help.
 The first one is the ``pattern`` attribute that may be used instead of the ``name`` attribute in a ``program`` element.
 It can be used to configure a set of programs in a more flexible way than just considering homogeneous programs,
 like |Supervisor| does.
-
-.. attention::
-
-    The ``pattern`` element is **deprecated**. It will be removed from next |Supvisors| version.
-    It has to be replaced by a ``program`` element with a ``pattern`` attribute.
 
 The same ``program`` options are applicable, whatever a ``name`` attribute or a ``pattern`` attribute is used.
 For a ``pattern`` attribute, a substring matching one |Supervisor| program name or more is expected.

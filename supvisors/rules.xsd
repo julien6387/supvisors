@@ -63,8 +63,6 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
-                <!-- obsolete -->
-                <xs:element type="ProgramModel" name="pattern"/>
             </xs:choice>
         </xs:sequence>
 	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
