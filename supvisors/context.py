@@ -165,7 +165,7 @@ class Context(object):
         application = self.applications.get(application_name)
         if not application:
             # load rules from rules file
-            rules = ApplicationRules()
+            rules = ApplicationRules(self.supvisors)
             if self.supvisors.parser:
                 # apply default starting strategy from options
                 rules.starting_strategy = self.supvisors.options.starting_strategy

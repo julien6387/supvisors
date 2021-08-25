@@ -66,7 +66,7 @@ def assert_process_rules(rules, nodes, hash_nodes, start, stop, required,
 
 
 def load_application_rules(parser, application_name):
-    rules = ApplicationRules()
+    rules = ApplicationRules(parser.supvisors)
     parser.load_application_rules(application_name, rules)
     return rules
 
@@ -113,7 +113,6 @@ def check_valid(parser):
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
-    print(rules)
     assert_application_rules(rules, True, False, ['10.0.0.1', '10.0.0.5'], 0, 100, StartingStrategies.LESS_LOADED,
                              StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
     # check loop application
@@ -134,16 +133,13 @@ def check_valid(parser):
     assert_default_process_rules(rules)
     # check dash addresses and valid other values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B1')
-    assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5,
-                         RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0,
-                         RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, True, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100,
-                         RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100,  RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
     assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], [], 0, 0, False, False, 0,
@@ -235,7 +231,7 @@ def check_invalid(parser):
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, True, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
@@ -287,6 +283,7 @@ def lxml_import():
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -317,6 +314,7 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -325,5 +323,6 @@ def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
     parser = Parser(supvisors)
     check_invalid(parser)

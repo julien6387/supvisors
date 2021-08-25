@@ -38,7 +38,7 @@ class ProcessCommand(object):
         - node_name: the node to which the command is requested,
         - request_time: the date when the command is requested,
         - strategy: the strategy used to start the process if applicable,
-        - distributed: set to False if the process belongs to an application that cannot de distributed,
+        - distributed: set to False if the process belongs to an application that cannot be distributed,
         - ignore_wait_exit: used to command a process out of its application starting sequence,
         - extra_args: additional arguments to the command line.
     """

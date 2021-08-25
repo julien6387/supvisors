@@ -51,7 +51,7 @@ class ProcessRules(object):
         :param supvisors: the global Supvisors structure.
         """
         # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
-        # keep a reference to the Supvisors data
+        # keep a reference to the Supvisors global structure
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # attributes
@@ -105,14 +105,15 @@ class ProcessRules(object):
         :param namespec: the namespec of the program considered.
         :return: None
         """
+        error = True
         _, process_name = split_namespec(namespec)
         try:
             procnumber = self.supvisors.options.procnumbers[process_name]
         except KeyError:
-            self.logger.error('ProcessStatus.check_hash_nodes: cannot apply "#" to unknown program={}'
+            self.logger.error('ProcessRules.check_hash_nodes: cannot apply "#" to unknown program={}'
                               .format(namespec))
         else:
-            self.logger.debug('ProcessStatus.check_hash_nodes: namespec={} procnumber={}'
+            self.logger.debug('ProcessRules.check_hash_nodes: namespec={} procnumber={}'
                               .format(namespec, procnumber))
             if '*' in self.hash_node_names:
                 # all nodes defined in the supvisors section of the supervisor configuration file are applicable
@@ -122,9 +123,13 @@ class ProcessRules(object):
                 ref_node_names = self.hash_node_names
             if procnumber < len(ref_node_names):
                 self.node_names = [ref_node_names[procnumber]]
+                error = False
             else:
-                self.logger.warn('ProcessStatus.check_hash_nodes: program={} has no applicable node'.format(namespec))
-                self.start_sequence = 0
+                self.logger.error('ProcessRules.check_hash_nodes: program={} has no applicable node'.format(namespec))
+        if error:
+            self.logger.warn('ProcessRules.check_hash_nodes: program={} start_sequence reset'
+                             .format(namespec))
+            self.start_sequence = 0
 
     def check_dependencies(self, namespec: str) -> None:
         """ Update rules after they have been read from the rules file.

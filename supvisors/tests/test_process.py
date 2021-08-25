@@ -41,6 +41,7 @@ def test_rules_create(supvisors, rules):
     """ Test the values set at construction. """
     assert rules.supvisors is supvisors
     assert rules.node_names == ['*']
+    assert rules.hash_node_names == []
     assert rules.start_sequence == 0
     assert rules.stop_sequence == 0
     assert not rules.required
@@ -140,18 +141,17 @@ def test_rules_check_autorestart(rules):
 
 
 def test_rules_check_hash_nodes(rules):
-    """ Test the resolution of addresses when hash_address is set. """
-    # check initial attributes
-    assert rules.node_names == ['*']
-    assert rules.hash_node_names == []
+    """ Test the resolution of nodes when hash_node_names is set. """
+    # set initial attributes
+    rules.hash_node_names = ['*']
+    rules.node_names = []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
     rules.check_hash_nodes('sample_test_1:xfontsel')
     # node_names is unchanged
-    assert rules.node_names == ['*']
+    assert rules.hash_node_names == ['*']
+    assert rules.node_names == []
     # 2. update rules to test '#' with all nodes available
-    rules.hash_node_names = ['*']
-    rules.node_names = []
     # address '10.0.0.2' has an index of 2 in address_mapper
     rules.check_hash_nodes('sample_test_1:xclock')
     assert rules.node_names == ['10.0.0.2']

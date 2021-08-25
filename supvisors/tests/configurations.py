@@ -257,8 +257,7 @@ XmlTest = b'''\
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
-        <program name="dummy_program_B0">
-        </program>
+        <program name="dummy_program_B0"/>
 
         <program name="dummy_program_B1">
             <addresses>#</addresses>
