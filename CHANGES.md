@@ -2,6 +2,8 @@
 
 ## 0.9 (2021-xx-xx)
 
+* Enable the hash '#' for the `addresses` of a non-distributed application.
+
 * Move the contents of the `[supvisors]` section into the `[rpcinterface:supvisors]` section and benefit from the
   configuration structure provided by Supervisor. The `[supvisors]` section itself is thus obsolete.
 
