@@ -213,7 +213,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = max(len(rules['application_name']) for rules in rules_list)
                 max_appli = max(max_appli, len('Application')) + 2
                 # get longer from distribution nodes and title
-                max_nodes = max(len(rules.get('addresses', '')) for rules in rules_list)
+                max_nodes = max(len('{}'.format(rules.get('addresses', ''))) for rules in rules_list)
                 max_nodes = max(max_nodes, len('Nodes')) + 2
                 # print title
                 template_managed = '%(appli)-{}s%(managed)-9s%(distributed)-13s%(nodes)-{}s' \

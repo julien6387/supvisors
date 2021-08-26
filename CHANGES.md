@@ -7,12 +7,18 @@
 * Add `supvisorsctl` to pally the lack of support of `supervisorctl` when used with `--serverurl URL` option.
   See related [Supervisor Issue #1455](https://github.com/Supervisor/supervisor/issues/1455).
 
+* Provide `breed.py` as a binary of **Supvisors**: `supvisors_breed`.
+
 * Move the contents of the `[supvisors]` section into the `[rpcinterface:supvisors]` section and benefit from the
   configuration structure provided by Supervisor. The `[supvisors]` section itself is thus obsolete.
 
 * Remove deprecated support of `pattern` elements.
 
+* Fixed Nodes column width for `supervisorctl application_rules`.
+
 * `CHANGES.rst` replaced with `CHANGES.md`.
+
+* Scenario 3 has been added to the **Supvisors** use cases.
 
 * Update documentation.
 
