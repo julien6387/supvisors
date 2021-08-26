@@ -105,9 +105,8 @@ class Parser(object):
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'
                               .format(application_name, rules))
             # check that rules are compliant with dependencies
-            self.logger.critical('Parser.load_application_rules: BEFORE application={} rules={}'.format(application_name, rules))
             rules.check_dependencies(application_name)
-            self.logger.info('Parser.load_application_rules: application={} rules={}'.format(application_name, rules))
+            self.logger.debug('Parser.load_application_rules: application={} rules={}'.format(application_name, rules))
 
     def get_application_element(self, application_name: str) -> Optional[Any]:
         """ Try to find the definition of an application in rules files.
