@@ -4,6 +4,9 @@
 
 * Enable the hash '#' for the `addresses` of a non-distributed application.
 
+* Add `supvisorsctl` to pally the lack of support of `supervisorctl` when used with `--serverurl URL` option.
+  See related [Supervisor Issue #1455](https://github.com/Supervisor/supervisor/issues/1455).
+
 * Move the contents of the `[supvisors]` section into the `[rpcinterface:supvisors]` section and benefit from the
   configuration structure provided by Supervisor. The `[supvisors]` section itself is thus obsolete.
 

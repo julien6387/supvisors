@@ -21,7 +21,6 @@ import pytest
 
 from unittest.mock import call, Mock
 
-from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
 
 from supvisors.supvisorsctl import *
@@ -531,3 +530,27 @@ def test_make_plugin(mocker, controller):
     mocked_plugin = mocker.patch('supvisors.supvisorsctl.ControllerPlugin')
     make_supvisors_controller_plugin(controller)
     assert mocked_plugin.call_args_list == [call(controller)]
+
+
+def test_main(mocker):
+    """ Test the plugin factory. """
+    mocked_client_options = Mock(args=['start', 'program'], interactive=False, plugin_factories=[])
+    mocked_controller = Mock(exitstatus=2)
+    mocked_options = mocker.patch('supvisors.supvisorsctl.ClientOptions', return_value=mocked_client_options)
+    mocked_ctl = mocker.patch('supvisors.supvisorsctl.Controller', return_value=mocked_controller)
+    mocked_sys = mocker.patch('supvisors.supvisorsctl.sys')
+    # test with arguments
+    main(args='command args')
+    assert mocked_client_options.realize.call_args_list == [call('command args', doc=supervisorctl.__doc__)]
+    assert mocked_controller.onecmd.call_args_list == [call('start program')]
+    assert not mocked_controller.exec_cmdloop.called
+    assert mocked_sys.exit.call_args_list == [call(2)]
+    mocker.resetall()
+    # test without arguments
+    mocked_client_options.args = None
+    mocked_client_options.interactive = True
+    main()
+    assert mocked_client_options.realize.call_args_list == [call(None, doc=supervisorctl.__doc__)]
+    assert not mocked_controller.onecmd.called
+    assert mocked_controller.exec_cmdloop.call_args_list == [call(None, mocked_client_options)]
+    assert mocked_sys.exit.call_args_list == [call(0)]

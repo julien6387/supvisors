@@ -84,4 +84,6 @@ dist = setup(
     zip_safe=False,
     namespace_packages=['supvisors'],
     test_suite="supvisors.tests",
+    entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
+                                      'supvisors_breed = supvisors.tools.breed:main']}
 )
