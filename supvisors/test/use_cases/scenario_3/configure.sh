@@ -14,7 +14,7 @@ NB_CONSOLES=`echo $CONSOLES | wc -w`
 
 # duplicate Scenario 3 HCI applications iaw the number of consoles
 # option -x is used to separate the definitions
-supvisors_breed -d etc -t template_etc -b scen3_hci=$NB_CONSOLES -x
+supvisors_breed -d etc -t template_etc -b scen3_hci=$NB_CONSOLES -x -v
 
 # assign one HCI application per console
 for console in $CONSOLES

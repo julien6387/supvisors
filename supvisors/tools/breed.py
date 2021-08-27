@@ -23,15 +23,15 @@ import sys
 from argparse import Action, ArgumentParser
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, List, Tuple
 
 
 def is_folder(arg_parser, arg):
-    """
+    """ Test if the argument is a folder.
 
-    :param arg_parser:
-    :param arg:
-    :return:
+    :param arg_parser: the argument parser
+    :param arg: the argument to test
+    :return: True if the argument is a folder
     """
     if not os.path.isdir(arg):
         arg_parser.error('The folder "%s" does not exist' % arg)
@@ -41,7 +41,15 @@ def is_folder(arg_parser, arg):
 class KeyValue(Action):
     """ Simple action to manage key / value pairs. """
 
-    def __call__(self, arg_parser, namespace, values, option_string=None):
+    def __call__(self, arg_parser, namespace, values, option_string=None) -> None:
+        """ Check the format and store key/value pairs found from values.
+
+        :param arg_parser: the argument parser
+        :param namespace: the destination storage in argument parser
+        :param values: the argument to process
+        :param option_string: not used. kept for signature
+        :return: None
+        """
         setattr(namespace, self.dest, {})
         for value in values:
             if '=' not in value:
@@ -49,7 +57,10 @@ class KeyValue(Action):
             key, value = value.split('=')
             if not value.isdigit():
                 arg_parser.error('breed value must be an integer')
-            getattr(namespace, self.dest)[key] = int(value)
+            int_value = int(value)
+            if int_value < 1:
+                arg_parser.error('breed value must be strictly positive')
+            getattr(namespace, self.dest)[key] = int_value
 
 
 class Breed(object):
@@ -62,7 +73,7 @@ class Breed(object):
 
     # annotation types
     TemplateGroups = Mapping[str, int]
-    TemplatePrograms = Mapping[str, Sequence[str]]
+    TemplatePrograms = List[Tuple[str, str, ConfigParser, ConfigParser]]
     SectionConfigMap = Dict[str, ConfigParser]
     FileConfigMap = Dict[Path, ConfigParser]
 
@@ -98,74 +109,123 @@ class Breed(object):
         :return: None
         """
         for filename, config in self.config_files.items():
-            filepath = os.path.join(dst_folder, filename)
-            if self.verbose:
-                print('Writing file: {}'.format(filepath))
-            # create path if it doesn't exist
-            folder_name = os.path.dirname(filepath)
-            os.makedirs(folder_name, exist_ok=True)
-            # write new config file from parser
-            with open(filepath, 'w') as configfile:
-                config.write(configfile)
+            if config.sections():
+                filepath = os.path.join(dst_folder, filename)
+                if self.verbose:
+                    print('Writing file: {}'.format(filepath))
+                # create path if it doesn't exist
+                folder_name = os.path.dirname(filepath)
+                os.makedirs(folder_name, exist_ok=True)
+                # write new config file from parser
+                with open(filepath, 'w') as configfile:
+                    config.write(configfile)
+            else:
+                if self.verbose:
+                    print('Empty sections for file: {}'.format(filename))
 
-    def breed_groups(self, parsers, template_groups: TemplateGroups) -> TemplatePrograms:
+    def breed_groups(self, template_groups: TemplateGroups, new_files: bool) -> TemplatePrograms:
         """ Find template groups in config files and replace them by X versions of the group.
-        Return the template programs that have to be multiplied.
+        Return the template programs that have to be duplicated.
 
-        :param parsers: all the config parsers found
         :param template_groups: the template groups
+        :param new_files: True if new configuration
         :return: the template programs
         """
-        template_programs = {}
+        template_programs = []
         for group, cardinality in template_groups.items():
-            if group in parsers:
-                config = parsers[group]
-                programs = config[group]['programs'].split(',')
+            if group in self.config_map:
+                ref_group_config = self.config_map[group]
+                programs = ref_group_config[group]['programs'].split(',')
                 # duplicate and update <cardinality> versions of the group
                 for idx in range(1, cardinality + 1):
                     new_section = group + '_%02d' % idx
+                    # if new files are requested, add the new configuration in a new parser
+                    if new_files:
+                        group_config = self.create_new_parser(new_section, ref_group_config)
+                    else:
+                        group_config = ref_group_config
                     new_programs = [program + '_%02d' % idx for program in programs]
-                    config[new_section] = {'programs': ','.join(new_programs)}
+                    group_config[new_section] = {'programs': ','.join(new_programs)}
                     if self.verbose:
                         print('New [{}]'.format(new_section))
                         print('\tprograms={}'.format(','.join(new_programs)))
                     for program in programs:
-                        template_programs.setdefault('program:' + program, []).append(program + '_%02d' % idx)
+                        template_programs.append(('program:' + program, program + '_%02d' % idx,
+                                                  ref_group_config, group_config))
                 # remove template
-                del config[group]
+                del ref_group_config[group]
         return template_programs
 
-    def breed_programs(self, template_programs: TemplatePrograms) -> None:
+    def create_new_parser(self, section: str, ref_config: ConfigParser) -> ConfigParser:
+        """ Create a new ConfigParser whose dirpath is similar to reference.
+        The new instance is stored in internal maps.
+
+        :param section: the config section to store in a new ConfigParser
+        :param ref_config: the reference ConfigParser
+        :return: the new ConfigParser
+        """
+        config = ConfigParser(interpolation=None)
+        self.config_map[section] = config
+        # add a new file reference
+        ref_filename = next(filename for filename, config in self.config_files.items()
+                            if config is ref_config)
+        filename = Path(os.path.join(os.path.dirname(ref_filename), '_'.join(section.split(':')) + '.ini'))
+        self.config_files[filename] = config
+        if self.verbose:
+            print('New File: {}'.format(filename))
+        return config
+
+    def breed_programs(self, template_programs: TemplatePrograms, new_files: bool) -> None:
         """ Find template programs in config files and replace them by X versions of the program.
 
         :param template_programs: the template programs
+        :param new_files: True if new configuration
         :return: None
         """
-        for program, new_programs in template_programs.items():
+        for program, new_program, ref_group_config, group_config in template_programs:
+            ref_config = self.config_map[program]
+            new_section = 'program:' + new_program
+            # if new files are requested, add the new configuration in a new parser
+            if new_files:
+                if ref_config is ref_group_config:
+                    # reference program definition was in the same file than the group
+                    # keep the logic
+                    config = group_config
+                else:
+                    # create a new file for program
+                    config = self.create_new_parser(new_section, ref_config)
+            else:
+                config = ref_config
+            # copy template section to new_section
+            config[new_section] = ref_config[program]
+        # remove templates
+        for program, new_program, ref_group_config, group_config in template_programs:
             if program in self.config_map:
-                config = self.config_map[program]
-                # duplicate and update X versions of the program
-                # at the end, remove template
-                for new_program in new_programs:
-                    # copy template section to new_section
-                    new_section = 'program:' + new_program
-                    config[new_section] = config[program]
-                # remove template
-                del config[program]
+                ref_config = self.config_map[program]
+                ref_config.pop(program, None)
 
 
-def main():
-    # get arguments
+def parse_args(args):
+    """ Parse arguments got from the command line.
+
+    :param args: the command line arguments
+    :return: the parsed arguments
+    """
     parser = ArgumentParser(description='Duplicate the application definitions')
     parser.add_argument('-t', '--template', type=lambda x: is_folder(parser, x), required=True,
                         help='the template folder')
     parser.add_argument('-p', '--pattern', type=str, default='**/*.ini',
                         help='the search pattern from the template folder')
     parser.add_argument('-d', '--destination', type=str, required=True, help='the destination folder')
-    parser.add_argument('-b', '--breed', metavar='app=nb', action=KeyValue, nargs='+',
+    parser.add_argument('-b', '--breed', metavar='app=nb', action=KeyValue, nargs='+', required=True,
                         help='the applications to breed')
+    parser.add_argument('-x', '--extra', action='store_true', help='create new files')
     parser.add_argument('-v', '--verbose', action='store_true', help='activate logs')
-    args = parser.parse_args()
+    return parser.parse_args(args)
+
+
+def main():
+    args = parse_args(sys.argv[1:])
     if args.verbose:
         print('ArgumentParser: {}'.format(args))
     # change working directory
@@ -180,13 +240,9 @@ def main():
         sys.exit(0)
     # update all groups configurations
     group_breed = {'group:' + key: value for key, value in args.breed.items()}
-    program_breed = breed.breed_groups(group_breed)
+    program_breed = breed.breed_groups(group_breed, args.extra)
     # update program configurations found in groups
-    breed.breed_programs(program_breed)
+    breed.breed_programs(program_breed, args.extra)
     # back to previous directory and write files
     os.chdir(ref_directory)
     breed.write_config_files(args.destination)
-
-
-if __name__ == '__main__':
-    main()
