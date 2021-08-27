@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
-    <!-- aliases -->
-    <alias name="servers">cliche81,cliche82,cliche85</alias>
-    <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
-
     <!-- models -->
     <model name="model_services">
         <start_sequence>3</start_sequence>
@@ -23,9 +19,8 @@
 
     <!-- Scenario 2 Applications -->
     <!-- Services -->
-    <application pattern="scen2_srv_">
+    <application name="scen2_srv_01">
         <distributed>false</distributed>
-        <addresses>servers</addresses>
         <start_sequence>1</start_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>STOP</starting_failure_strategy>
@@ -50,9 +45,9 @@
     </application>
 
     <!-- HCI -->
-    <application pattern="scen2_hci_">
+    <application name="scen2_hci_01">
         <distributed>false</distributed>
-        <addresses>consoles</addresses>
+        <start_sequence>2</start_sequence>
         <starting_strategy>LOCAL</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <program pattern="">

@@ -792,4 +792,9 @@ Example
 
 The full example is available in `Supvisors Use Cases - Scenario 2 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_2>`_.
 
+An additional configuration for a single node and with automatic start of a HCI is also provided:
+
+    * etc/supervisord_localhost.conf
+    * etc/supvisors_localhost_rules.xml
+
 .. include:: common.rst
