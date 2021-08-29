@@ -127,9 +127,8 @@ or it may lead to unpredictable behavior.
 
 ``stats_periods``
 
-    The list of periods for which the statistics will be provided in the |Supvisors| :ref:`dashboard`,
-    separated by commas.
-    Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
+    The list of periods for which the statistics will be provided in the |Supvisors| :ref:`dashboard`, separated by
+    commas. Up to 3 values are allowed in [``5`` ; ``3600``] seconds, each of them MUST be a multiple of 5.
 
     *Default*:  ``10``.
 
@@ -266,8 +265,7 @@ Configuration File Example
 This part describes the contents of the XML rules file declared in the ``rules_file`` option.
 
 Basically, the rules file contains rules that define how applications and programs should be started and stopped,
-and the quality of service expected.
-It relies on the |Supervisor| group and program definitions.
+and the quality of service expected. It relies on the |Supervisor| group and program definitions.
 
 .. note:: *About the declaration of Supervisor groups/processes in the rules file*
 
@@ -406,8 +404,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``running_failure_strategy``
 
-    This element gives the strategy applied when any process of the application is unexpectedly stopped when
-    the application is running. This value can be superseded by the value set at program level.
+    This element gives the strategy applied when the application loses running processes due to a node that becomes
+    silent (crash, power down, network failure, etc). This value can be superseded by the value set at program level.
     The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
     and are detailed in :ref:`running_failure_strategy`.
 
@@ -534,8 +532,8 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 
 ``running_failure_strategy``
 
-    This element gives the strategy to apply when the process is unexpectedly stopped in a running application.
-    This value supersedes the value set at application level.
+    This element gives the strategy applied when the process is running on a node that becomes silent (crash, power
+    down, network failure, etc). This value supersedes the value set at application level.
     The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
     and their impact is detailed in :ref:`running_failure_strategy`.
 
@@ -576,8 +574,8 @@ Here follows an example of a ``program`` definition:
     </program>
 
 
-``pattern`` rules
-~~~~~~~~~~~~~~~~~
+Using patterns
+~~~~~~~~~~~~~~
 
 It may be quite tedious to give all this information to every programs, especially if multiple programs use a common
 set of rules. So two mechanisms are put in place to help.
@@ -601,7 +599,7 @@ For a ``pattern`` attribute, a substring matching one |Supervisor| program name 
 
     Precautions must be taken when using a ``pattern`` definition.
     In the previous example, the rules are applicable to every program names containing the ``"prg_"`` substring,
-    so that it matches ``prg_00``, ``prg_dummy``, but also ``dummy_prg_2``.
+    so that it matches :program:`prg_00`, :program:`prg_dummy`, but also :program:`dummy_prg_2`.
 
     As a general rule when looking for program rules, |Supvisors| always searches for a ``program`` definition having
     the exact program name set in the ``name`` attribute, and only if not found, |Supvisors| tries to find a
@@ -609,7 +607,7 @@ For a ``pattern`` attribute, a substring matching one |Supervisor| program name 
 
     It also may happen that several patterns match the same program name. In this case, |Supvisors| chooses the
     pattern with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
-    So considering the program ``prg_00`` and the two matching patterns ``prg`` and ``prg_``, |Supvisors| will
+    So considering the program :program:`prg_00` and the two matching patterns ``prg`` and ``prg_``, |Supvisors| will
     apply the rules related to ``prg_``.
 
 .. hint:: *About the use of* ``#`` *in* ``addresses``.
@@ -660,7 +658,8 @@ For a ``pattern`` attribute, a substring matching one |Supervisor| program name 
 .. attention::
 
     Nodes are chosen in accordance with the sequence given in ``address_list`` or in the subsequent list.
-    In the second example above, `prg_00`` will be assigned to ``cliche04`` and ``prg_01`` to ``cliche02``.
+    In the second example above, :program:`prg_00` will be assigned to ``cliche04`` and :program:`prg_01` to
+    ``cliche02``.
 
 .. attention::
 
@@ -678,16 +677,16 @@ on multiple nodes and following the same rules.
 
 .. note::
 
-    |Supervisor| does not provide any support for *homogeneous* groups. So in order to have X running instances
-    of the same application, the only possible solution it to define X times the |Supervisor| group using a variation
-    in the group name (e.g. an index suffix) and to define X times the |Supervisor| programs related to this group
+    |Supervisor| does not provide any support for *homogeneous* groups. So in order to have N running instances
+    of the same application, the only possible solution it to define N times the |Supervisor| group using a variation
+    in the group name (e.g. an index suffix) and to define N times the |Supervisor| programs related to this group
     using also a variation in the program name.
 
-    Unfortunately, using *homogeneous* programs with ``numprocs`` set to X cannot help in the present case because
+    Unfortunately, using *homogeneous* programs with ``numprocs`` set to N cannot help in the present case because
     |Supervisor| considers the program name in the group and not the ``process_name``.
 
-    As it may be a bit clumsy to define the X definition sets, a script ``breed.py`` is provided in |Supvisors|
-    package to help the user to duplicate an application from a template.
+    As it may be a bit clumsy to define the N definition sets, a script :command:`supvisors_breed` is provided in
+    |Supvisors| package to help the user to duplicate an application from a template.
     An use example can be found in the |Supvisors| use case :ref:`scenario_2`.
 
 
