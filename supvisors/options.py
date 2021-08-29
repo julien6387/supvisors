@@ -56,6 +56,7 @@ class SupvisorsOptions(object):
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
+    SYNCHRO_TIMEOUT_MAX = 1200
 
     def __init__(self, **config):
         """ Initialization of the attributes.
@@ -123,9 +124,10 @@ class SupvisorsOptions(object):
         :return: the timeout as an integer
         """
         value = integer(value)
-        if 15 <= value <= 1200:
+        if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN <= value <= SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
             return value
-        raise ValueError('invalid value for synchro_timeout: %d. expected in [15;1200] (seconds)' % value)
+        raise ValueError('invalid value for synchro_timeout: {}. expected in [{};{}] (seconds)'
+                         .format(value, SupvisorsOptions.SYNCHRO_TIMEOUT_MIN, SupvisorsOptions.SYNCHRO_TIMEOUT_MAX))
 
     @staticmethod
     def to_conciliation_strategy(value):
