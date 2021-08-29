@@ -214,6 +214,7 @@ def test_commander_printable_planned_sequence(commander, command_list_1, command
 
 def test_commander_process_application_jobs(mocker, commander, command_list_1, command_list_2):
     """ Test the Commander.process_application_jobs method. """
+    commander.pickup_logic = min
     # fill planned_jobs
     commander.planned_jobs = {'if': {0: command_list_1, 1: []}, 'then': {2: command_list_2}, 'else': {}}
 
@@ -246,6 +247,7 @@ def test_commander_process_application_jobs(mocker, commander, command_list_1, c
 
 def test_commander_trigger_jobs(mocker, commander, command_list_1, command_list_2):
     """ Test the Commander.trigger_jobs method. """
+    commander.pickup_logic = min
     # test with empty structure
     commander.planned_sequence = {}
     commander.trigger_jobs()
@@ -1179,6 +1181,7 @@ def test_stopper_stop_application(mocker, stopper):
 
 def test_stopper_stop_applications(mocker, stopper, command_list):
     """ Test the Stopper.stop_applications method. """
+    stopper.pickup_logic = max
     # create one running application with a start_sequence > 0
     appli = create_application('sample_test_1', stopper.supvisors)
     mocker.patch.object(appli, 'has_running_processes', return_value=True)

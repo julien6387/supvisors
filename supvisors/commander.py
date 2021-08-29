@@ -114,6 +114,8 @@ class Commander(object):
         self.planned_sequence: Commander.PlannedSequence = {}
         self.planned_jobs: Commander.PlannedJobs = {}
         self.current_jobs: Commander.CurrentJobs = {}
+        # pickup logic
+        self.pickup_logic = None
 
     def in_progress(self) -> bool:
         """ Return True if there are jobs planned or in progress.
@@ -191,14 +193,14 @@ class Commander(object):
         self.logger.info('Commander.trigger_jobs: planned_sequence={}'.format(self.printable_planned_sequence()))
         # pop lower sequence from planned_sequence
         while self.planned_sequence and not self.planned_jobs and not self.current_jobs:
-            min_sequence = min(self.planned_sequence.keys())
-            self.planned_jobs = self.planned_sequence.pop(min_sequence)
-            self.logger.debug('Commander.trigger_jobs: min_sequence={} planned_jobs={}'
-                              .format(min_sequence, self.printable_planned_jobs()))
+            sequence = self.pickup_logic(self.planned_sequence.keys())
+            self.planned_jobs = self.planned_sequence.pop(sequence)
+            self.logger.debug('Commander.trigger_jobs: sequence={} planned_jobs={}'
+                              .format(sequence, self.printable_planned_jobs()))
             # iterate on copy to avoid problems with key deletions
             for application_name in list(self.planned_jobs.keys()):
                 self.logger.info('Commander.trigger_jobs: triggering sequence {} - application_name={}'
-                                 .format(min_sequence, application_name))
+                                 .format(sequence, application_name))
                 self.prepare_application_jobs(application_name)
                 self.process_application_jobs(application_name)
 
@@ -223,11 +225,11 @@ class Commander(object):
             # loop until there is something to do in sequence
             while sequence and not jobs and application_name in self.planned_jobs:
                 # pop lower group from sequence
-                min_sequence = min(sequence.keys())
-                group = sequence.pop(min_sequence)
+                app_sequence = self.pickup_logic(sequence.keys())
+                group = sequence.pop(app_sequence)
                 self.logger.debug('Commander.process_application_jobs: application_name={}'
-                                  ' - next group: min_sequence={} group={}'
-                                  .format(application_name, min_sequence, self.printable_command_list(group)))
+                                  ' - next group: app_sequence={} group={}'
+                                  .format(application_name, app_sequence, self.printable_command_list(group)))
                 for command in group:
                     self.logger.debug('Commander.process_application_jobs: {} - state={}'
                                       .format(command.process.namespec, command.process.state_string()))
@@ -347,8 +349,10 @@ class Starter(Commander):
         :param supvisors: the global Supvisors structure.
         """
         super().__init__(supvisors)
+        # pick jobs from the planned sequence using the lowest sequence number
+        self.pickup_logic = min
         # attributes
-        self.application_stop_requests = []
+        self.application_stop_requests: List[str] = []
 
     def abort(self) -> None:
         """ Abort all planned current jobs.
@@ -677,13 +681,22 @@ class Starter(Commander):
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
 
+    def __init__(self, supvisors: Any) -> None:
+        """ Initialization of the attributes.
+
+        :param supvisors: the global Supvisors structure.
+        """
+        super().__init__(supvisors)
+        # pick jobs from the planned sequence using the greatest sequence number
+        self.pickup_logic = max
+
     def stop_applications(self):
         """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
         self.logger.info('Stopper.stop_applications: stop all applications')
         # stopping initialization: push program list in jobs list
         for application in self.supvisors.context.applications.values():
             # do not check the application state are running processes may be excluded in the evaluation
-            if application.has_running_processes() and application.rules.stop_sequence >= 0:
+            if application.has_running_processes():
                 self.store_application_stop_sequence(application)
         self.logger.debug('Stopper.stop_applications: planned_sequence={}'.format(self.printable_planned_sequence()))
         # start work
