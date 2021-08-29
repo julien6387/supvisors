@@ -44,19 +44,20 @@ class ApplicationView(ViewHandler):
         ViewHandler.handle_parameters(self)
         # check if application name is available
         self.application_name = self.view_ctx.parameters[APPLI]
-        if self.application_name:
+        try:
             # store application
             self.application = self.sup_ctx.applications[self.application_name]
-        else:
+        except KeyError:
             # may happen when the user clicks from a page of the previous launch while the current Supvisors is still
-            # in INITIALIZATION stats
+            # in INITIALIZATION stats or if wrong appliname set in URL
             self.logger.error('ApplicationView.handle_parameters: unknown application_name={}'
                               .format(self.application_name))
-            self.view_ctx.message(error_message('No application found with name {}'.format(self.application_name)))
+            # redirect page to main page to avoid infinite error loop
+            self.view_ctx.store_message = error_message('Unknown application: {}'.format(self.application_name))
+            self.view_ctx.redirect = True
 
     def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection
-        of the current application. """
+        """ Rendering of the navigation menu with selection of the current application. """
         self.write_nav(root, appli=self.application_name)
 
     # RIGHT SIDE / HEADER part

@@ -25,7 +25,7 @@ from urllib.parse import quote
 
 from .process import ProcessStatus
 from .ttypes import StartingStrategies, NameList
-from .webutils import error_message
+from .webutils import SUPVISORS_PAGE, error_message
 
 
 # form parameters
@@ -71,6 +71,8 @@ class ViewContext:
         self.local_node_name = self.supvisors.address_mapper.local_node_name
         # initialize parameters
         self.parameters = {}
+        self.store_message = None
+        self.redirect = False
         # extract parameters from context
         # WARN: period must be done before processname and cpuid as it requires to be set to access statistics
         self.update_period()
@@ -161,7 +163,7 @@ class ViewContext:
             if re.match(r'^[0-1]{%d}$' % len(value), str_value):
                 value = str_value
             else:
-                self.message(error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value)))
+                self.store_message = error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value))
         self.logger.trace('ViewContext.update_shrink_expand: SHRINK_EXPAND set to {}'.format(value))
         self.parameters[SHRINK_EXPAND] = value
 
@@ -178,12 +180,15 @@ class ViewContext:
         url = 'http://{}:{}/'.format(quote(node_name), self.get_server_port()) if node_name else ''
         return '{}{}?{}'.format(url, page, self.url_parameters(not local_node_name, **kwargs))
 
-    def message(self, message):
+    def fire_message(self) -> None:
         """ Set message in context response to be displayed at next refresh. """
-        form = self.http_context.form
-        args = {MESSAGE: message[1], GRAVITY: message[0]}
-        location = '{}{}?{}'.format(form[SERVER_URL], form[PATH_TRANSLATED], self.url_parameters(False, **args))
-        self.http_context.response[HEADERS][LOCATION] = location
+        if self.store_message:
+            form = self.http_context.form
+            args = {MESSAGE: self.store_message[1], GRAVITY: self.store_message[0]}
+            # if redirect requested, go back to main page
+            path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
+            location = '{}{}?{}'.format(form[SERVER_URL], path_translated, self.url_parameters(False, **args))
+            self.http_context.response[HEADERS][LOCATION] = location
 
     def get_nbcores(self, node_name=None):
         """ Get the number of processors of the local node. """
@@ -245,7 +250,7 @@ class ViewContext:
             if str_value in check_list:
                 value = str_value
             else:
-                self.message(error_message('Incorrect {}: {}'.format(param, str_value)))
+                self.store_message = error_message('Incorrect {}: {}'.format(param, str_value))
         # assign value found or default
         self.logger.trace('ViewContext._update_string: {} set to {}'.format(param, value))
         self.parameters[param] = value
@@ -258,13 +263,13 @@ class ViewContext:
             try:
                 int_value = int(str_value)
             except ValueError:
-                self.message(error_message('{} is not an integer: {}'.format(param, str_value)))
+                self.store_message = error_message('{} is not an integer: {}'.format(param, str_value))
             else:
                 # check that int_value is defined in check list
                 if int_value in check_list:
                     value = int_value
                 else:
-                    self.message(error_message('Incorrect {}: {}'.format(param, int_value)))
+                    self.store_message = error_message('Incorrect {}: {}'.format(param, int_value))
         # assign value found or default
         self.logger.trace('ViewContext._update_integer: {} set to {}'.format(param, value))
         self.parameters[param] = value
@@ -277,7 +282,7 @@ class ViewContext:
             try:
                 value = strtobool(str_value)
             except ValueError:
-                self.message(error_message('{} is not a boolean-like: {}'.format(param, str_value)))
+                self.store_message = error_message('{} is not a boolean-like: {}'.format(param, str_value))
         # assign value found or default
         self.logger.trace('ViewContext._update_boolean: {} set to {}'.format(param, value))
         self.parameters[param] = value
