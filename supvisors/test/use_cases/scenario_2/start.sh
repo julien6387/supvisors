@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SRV_CONFIG_CMD="python ../../../tools/breed.py -d etc -t template_etc -p server/*.ini -b scen2_srv=3"
-HCI_CONFIG_CMD="python ../../../tools/breed.py -d etc -t template_etc -p console/*ini -b scen2_hci=3"
+SRV_CONFIG_CMD="supvisors_breed -d etc -t template_etc -p server/*.ini -b scen2_srv=3 -x -v"
+HCI_CONFIG_CMD="supvisors_breed -d etc -t template_etc -p console/*ini -b scen2_hci=3 -x -v"
 
 test_dir=$(dirname "$(readlink -f "$0")")
 

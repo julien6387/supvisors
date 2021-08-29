@@ -135,8 +135,8 @@ About |Req 2 abbr|, |Supervisor| does not provide any facility to stage the star
 `Issue #122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_).
 A workaround here would be to insert a wait loop in all the application programs (in the program command line
 or in the program source code). The idea of pushing this wait loop outside the |Supervisor| scope - just before
-starting :program:`supervisord` - is excluded as it would impose this dependency on other applications eventually managed
-by |Supervisor|.
+starting :program:`supervisord` - is excluded as it would impose this dependency on other applications eventually
+managed by |Supervisor|.
 
 With regard to |Req 7 abbr|, this workaround would require different program commands or parameters, so finally
 different program definitions from |Supervisor| configuration perspective.
@@ -183,11 +183,11 @@ Introducing the staged start sequence
 
 About |Req 2 abbr|, |Supvisors| manages staged starting sequences and it offers a possibility to wait for a
 planned exit of a process in the sequence.
-So let's define a program :program:`wait_nfs_mount_X` per node and whose role is to exit (using an expected exit code,
-as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
+So let's define a program :program:`scen1_wait_nfs_mount_X` per node and whose role is to exit (using an expected exit
+code, as defined in `Supervisor program configuration <http://supervisord.org/configuration.html#program-x-section-values>`_)
 as soon as the NFS mount is available.
 
-Satisfying |Req 7 abbr| is just about avoiding the inclusion of the :program:`wait_nfs_mount_X` programs in the
+Satisfying |Req 7 abbr| is just about avoiding the inclusion of the :program:`scen1_wait_nfs_mount_X` programs in the
 |Supervisor| configuration file in the case of a non-distributed application. That's why the |Supervisor|
 configuration of these programs is isolated from the configuration of the other programs.
 That way, |Supvisors| makes it possible to avoid an impact to program definitions, scripts and source code
@@ -232,50 +232,50 @@ to be started on the same node.
             <addresses>cliche83</addresses>
         </model>
         <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+        <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <!-- Programs on cliche81 -->
-            <program name="hci">
+            <program name="scen1_hci">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="config_manager">
+            <program name="scen1_config_manager">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="data_processing">
+            <program name="scen1_data_processing">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="external_interface">
+            <program name="scen1_external_interface">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="data_recorder">
+            <program name="scen1_data_recorder">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="wait_nfs_mount_1">
+            <program name="scen1_wait_nfs_mount_1">
                 <reference>model_cliche81</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
             </program>
             <!-- Programs on cliche82 -->
-            <program name="sensor_acquisition_1">
+            <program name="scen1_sensor_acquisition_1">
                 <reference>model_cliche82</reference>
             </program>
-            <program name="sensor_processing_1">
+            <program name="scen1_sensor_processing_1">
                 <reference>model_cliche82</reference>
             </program>
-            <program name="wait_nfs_mount_2">
+            <program name="scen1_wait_nfs_mount_2">
                 <reference>model_cliche82</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
             </program>
             <!-- Programs on cliche83 -->
-            <program name="sensor_acquisition_2">
+            <program name="scen1_sensor_acquisition_2">
                 <reference>model_cliche83</reference>
             </program>
-            <program name="sensor_processing_2">
+            <program name="scen1_sensor_processing_2">
                 <reference>model_cliche83</reference>
             </program>
-            <program name="wait_nfs_mount_3">
+            <program name="scen1_wait_nfs_mount_3">
                 <reference>model_cliche83</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
@@ -283,19 +283,28 @@ to be started on the same node.
         </application>
     </root>
 
+.. note:: *About the choice to prefix all program names with ``scen1_``*
+
+    These programs are all included in a |supervisor| group named ``scen1``. It may indeed seem useless to do that.
+    Actually the program names are quite generic and at some point the intention is to group all the applications of the
+    different use cases into an unique |Supvisors| configuration. As |Supervisor| will not work with identical program
+    names, even if assigned to different groups, adding ``scen1`` at this point is just to avoid future conflicts.
+
 .. note::
 
-    A few words about how the :program:`wait_nfs_mount_X` programs have been introduced here. It has to be noted that:
+    A few words about how the :program:`scen1_wait_nfs_mount_X` programs have been introduced here. It has to be noted
+    that:
 
-        * the ``start_sequence`` of these programs is lower than the ``start_sequence`` of the other application programs ;
+        * the ``start_sequence`` of these programs is lower than the ``start_sequence`` of the other application
+          programs ;
         * their attribute ``wait_exit`` is set to ``true``.
 
-    The consequence is that the 3 programs :program:`wait_nfs_mount_X` are started first on their respective node
-    when starting the :program:`scenario_1` application. Then |Supvisors| waits for *all* of them to exit before it triggers
+    The consequence is that the 3 programs :program:`scen1_wait_nfs_mount_X` are started first on their respective node
+    when starting the :program:`scen1` application. Then |Supvisors| waits for *all* of them to exit before it triggers
     the starting of the other programs.
 
-Well, assuming that the node name could be included as a prefix to the program names, that would simplify
-the rules file a bit.
+Well, assuming that the node name could be included as a prefix to the program names, that would simplify the rules file
+a bit.
 
 .. code-block:: xml
 
@@ -316,14 +325,14 @@ the rules file a bit.
             <addresses>cliche83</addresses>
         </model>
         <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+        <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <!-- Programs on cliche81 -->
             <program pattern="cliche81_">
                 <reference>model_cliche81</reference>
             </program>
-            <program name="wait_nfs_mount_1">
+            <program name="scen1_wait_nfs_mount_1">
                 <reference>model_cliche81</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
@@ -332,7 +341,7 @@ the rules file a bit.
             <program pattern="cliche82_">
                 <reference>model_cliche82</reference>
             </program>
-            <program name="wait_nfs_mount_2">
+            <program name="scen1_wait_nfs_mount_2">
                 <reference>model_cliche82</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
@@ -341,7 +350,7 @@ the rules file a bit.
             <program pattern="cliche83_">
                 <reference>model_cliche83</reference>
             </program>
-            <program name="wait_nfs_mount_3">
+            <program name="scen1_wait_nfs_mount_3">
                 <reference>model_cliche83</reference>
                 <start_sequence>1</start_sequence>
                 <wait_exit>true</wait_exit>
@@ -358,7 +367,7 @@ host name - assumed called ``cliche81`` here for the example.
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+        <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <!-- Programs on localhost -->
@@ -370,7 +379,7 @@ host name - assumed called ``cliche81`` here for the example.
         </application>
     </root>
 
-This rules file is very simple here as all programs have the exactly same rules.
+This rules file is fairly simple here as all programs have the exactly same rules.
 
 .. hint::
 
@@ -389,7 +398,7 @@ But actually, there is a much more simple solution in the present case. Let's co
             <required>true</required>
         </model>
         <!-- Scenario 1 Application -->
-        <application name="scenario_1">
+        <application name="scen1">
             <start_sequence>1</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
             <program pattern="">
@@ -417,7 +426,7 @@ processes, in accordance with their importance. In the present example, all prog
 importance (``required`` set to ``true``).
 
 The key point here is that |Supvisors| is able to build a single application from the processes configured
-on the 3 nodes because the same group name (:program:`scenario_1`) is used in all |Supervisor| configuration files.
+on the 3 nodes because the same group name (:program:`scen1`) is used in all |Supervisor| configuration files.
 
 Here follows the relevant sections of the ``supervisord_distributed.conf`` configuration file, including the declaration
 of the |Supvisors| plugin.
@@ -489,14 +498,14 @@ The operational status of :program:`Scenario 1` required by the |Req 3 abbr| is 
 
 >>> from supvisors.rpcrequests import getRPCInterface
 >>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
->>> proxy.supvisors.get_application_info('scenario_1')
-{'application_name': 'scenario_1', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False}
+>>> proxy.supvisors.get_application_info('scen1')
+{'application_name': 'scen1', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False}
 
 .. code-block:: bash
 
-    [bash] > supervisorctl -c etc/supervisord_localhost.conf application_info scenario_1
+    [bash] > supervisorctl -c etc/supervisord_localhost.conf application_info scen1
     Node         State     Major  Minor
-    scenario_1   RUNNING   True   False
+    scen1        RUNNING   True   False
 
 To restart the whole application (|Req 5 abbr|), the following methods are available:
 
@@ -506,12 +515,12 @@ To restart the whole application (|Req 5 abbr|), the following methods are avail
 
 >>> from supvisors.rpcrequests import getRPCInterface
 >>> proxy = getRPCInterface('localhost', {'SUPERVISOR_SERVER_URL': 'http://:61000'})
->>> proxy.supvisors.restart_application('CONFIG', 'scenario_1')
+>>> proxy.supvisors.restart_application('CONFIG', 'scen1')
 True
 
 .. code-block:: bash
 
-    [bash] > supervisorctl -c etc/supervisord_localhost.conf restart_application CONFIG scenario_1
+    [bash] > supervisorctl -c etc/supervisord_localhost.conf restart_application CONFIG scen1
     scenario_1 restarted
 
 Here is a snapshot of the Application page of the |Supvisors| Web UI for the :program:`Scenario 1` application.
@@ -521,7 +530,7 @@ Here is a snapshot of the Application page of the |Supvisors| Web UI for the :pr
     :align: center
 
 As a conclusion, all the requirements are met using |Supvisors| and without any impact on the application to be
-supervised. |Supvisors| brings gain over application control and status.
+supervised. |Supvisors| improves application control and status.
 
 
 Example

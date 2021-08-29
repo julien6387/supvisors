@@ -13,6 +13,7 @@
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
     </model>
 	<model name="check_data_bus">
+        <addresses>servers</addresses>
         <start_sequence>1</start_sequence>
         <required>true</required>
         <wait_exit>true</wait_exit>
@@ -23,7 +24,7 @@
     <application name="scen3_srv">
         <start_sequence>1</start_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
-        <starting_failure_strategy>STOP</starting_failure_strategy>
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <program pattern="common_bus_interface">
             <reference>model_services</reference>
             <start_sequence>3</start_sequence>
