@@ -16,6 +16,11 @@
 
 * Fixed issue when using the Web UI Application page from a previous launch.
 
+* Invert the stop sequence logic, starting from the greatest ``stop_sequence`` number to the lowest one.
+
+* When ``stop_sequence`` is not set in the rules files, it is defaulted to the ``start_sequence`` value.
+  With the new stop sequence logic, the stop sequence is by default exactly the opposite of the start sequence.
+
 * Fixed Nodes column width for `supervisorctl application_rules`.
 
 * `CHANGES.rst` replaced with `CHANGES.md`.

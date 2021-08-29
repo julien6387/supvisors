@@ -152,25 +152,21 @@ def check_valid(parser):
     assert_default_process_rules(rules)
     # check known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25,
-                         RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
-    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0,
-                         RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, [], ['*'], 1, 1, True, True, 0, RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_any')
     assert_process_rules(rules, ['10.0.0.4', '10.0.0.2'], [], 50, 100, False, False, 10,
                          RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and configuration
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
-    assert_process_rules(rules, [], ['10.0.0.1', '10.0.0.5'], 1, 1, False, True, 75,
-                         RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, [], ['10.0.0.1', '10.0.0.5'], 1, 1, False, True, 75, RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and incorrect reference (model calling for another model)
     # this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 20,
-                         RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 20, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple reference (over the maximum defined)
     # almost all rules set to default, despite enf of chain is on dummy_model_01
     rules = load_program_rules(parser, 'dummy_application_E', 'dummy_program_E')

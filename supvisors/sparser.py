@@ -98,7 +98,7 @@ class Parser(object):
             self.load_boolean(application_elt, 'distributed', rules)
             self.load_nodes(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
-            self.load_sequence(application_elt, 'stop_sequence', rules)
+            self.load_sequence(application_elt, 'stop_sequence', rules, rules.start_sequence)
             self.load_enum(application_elt, 'starting_strategy', StartingStrategies, rules)
             self.load_enum(application_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
@@ -176,7 +176,7 @@ class Parser(object):
         # other attributes found may be used to complete or supersede the possible model
         self.load_nodes(program_elt, rules)
         self.load_sequence(program_elt, 'start_sequence', rules)
-        self.load_sequence(program_elt, 'stop_sequence', rules)
+        self.load_sequence(program_elt, 'stop_sequence', rules, rules.start_sequence)
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
         self.load_expected_loading(program_elt, rules)
@@ -289,27 +289,32 @@ class Parser(object):
             elif '*' in rules.node_names:
                 rules.node_names = ['*']
 
-    def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules) -> None:
+    def load_sequence(self, elt: Any, attr_string: str, rules: AnyRules, default_value: int = None) -> None:
         """ Return the sequence value found from the XML element.
         The value must be greater than or equal to 0.
 
         :param elt: the XML element containing rules definition for an application or a program
         :param attr_string: the XML tag searched and the name of the rule attribute
         :param rules: the structure used to store the rules found
+        :param default_value: the default value to apply if not found or incorrect
         :return: None
         """
+        error = True
         str_value = elt.findtext(attr_string)
         if str_value:
             try:
                 value = int(str_value)
                 if value >= 0:
                     setattr(rules, attr_string, value)
+                    error = False
                 else:
                     self.logger.error('Parser.load_sequence: invalid value for elt={} {}: {} (expected integer >= 0)'
                                       .format(Parser.get_element_name(elt), attr_string, value))
             except (TypeError, ValueError):
                 self.logger.error('Parser.load_sequence: not an integer for elt={} {}: {}'
                                   .format(Parser.get_element_name(elt), attr_string, str_value))
+        if error and default_value is not None:
+            setattr(rules, attr_string, default_value)
 
     def load_expected_loading(self, elt: Any, rules: ProcessRules) -> None:
         """ Return the expected_loading value found from the XML element.
