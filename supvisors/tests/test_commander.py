@@ -1077,12 +1077,14 @@ def test_stopper_on_event(mocker, stopper, command_list):
 
 def test_stopper_store_application_stop_sequence(stopper, command_list):
     """ Test the Stopper.store_application_stop_sequence method. """
-    # create 2 application start_sequences
+    # create 2 application stop sequences
     appli1 = create_application('sample_test_1', stopper.supvisors)
+    appli1.rules.stop_sequence = 0
     for command in command_list:
         if command.process.application_name == 'sample_test_1':
             appli1.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     appli2 = create_application('sample_test_2', stopper.supvisors)
+    appli2.rules.stop_sequence = 0
     for command in command_list:
         if command.process.application_name == 'sample_test_2':
             appli2.stop_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
@@ -1204,13 +1206,13 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     # call starter start_applications and check that only sample_test_2 is triggered
     mocked_jobs = mocker.patch.object(stopper, 'process_application_jobs')
     stopper.stop_applications()
-    expected = {2: {'sample_test_1': {1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
-                                      2: ['sample_test_1:xclock']}}}
+    expected = {0: {'crash': {0: ['crash:late_segv'], 1: ['crash:segv']}}}
     assert stopper.printable_planned_sequence() == expected
-    assert stopper.printable_planned_jobs() == {'crash': {0: ['crash:late_segv'], 1: ['crash:segv']}}
+    assert stopper.printable_planned_jobs() == {'sample_test_1': {1: ['sample_test_1:xfontsel', 'sample_test_1:xlogo'],
+                                                                  2: ['sample_test_1:xclock']}}
     # current jobs is empty because of process_application_jobs mocking
     assert stopper.printable_current_jobs() == {}
-    assert mocked_jobs.call_args_list == [call('crash')]
+    assert mocked_jobs.call_args_list == [call('sample_test_1')]
 
 
 def test_stopper_after_jobs(stopper):
