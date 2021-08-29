@@ -14,6 +14,8 @@
 
 * Remove deprecated support of `pattern` elements.
 
+* Fixed issue when using the Web UI Application page from a previous launch.
+
 * Fixed Nodes column width for `supervisorctl application_rules`.
 
 * `CHANGES.rst` replaced with `CHANGES.md`.
