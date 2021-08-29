@@ -51,24 +51,25 @@ def test_init(view):
 
 def test_handle_parameters(mocker, view):
     """ Test the handle_parameters method. """
-    mocked_message = mocker.patch('supvisors.viewapplication.error_message', return_value='an error')
+    mocker.patch('supvisors.viewapplication.error_message', return_value='an error')
     mocked_handle = mocker.patch('supvisors.viewhandler.ViewHandler.handle_parameters')
     # patch context
-    view.view_ctx = Mock(parameters={APPLI: None})
+    view.view_ctx = Mock(parameters={APPLI: None}, store_message=None, redirect=False)
     # test with no application selected
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call(view)]
     assert view.application is None
-    assert view.view_ctx.message.call_args_list == [call('an error')]
+    assert view.view_ctx.store_message == 'an error'
+    assert view.view_ctx.redirect
     mocked_handle.reset_mock()
-    view.view_ctx.message.reset_mock()
     # test with application selected
-    view.view_ctx = Mock(parameters={APPLI: 'dummy_appli'})
+    view.view_ctx = Mock(parameters={APPLI: 'dummy_appli'}, store_message=None, redirect=False)
     view.sup_ctx.applications['dummy_appli'] = 'dummy_appli'
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call(view)]
     assert view.application == 'dummy_appli'
-    assert view.view_ctx.message.call_args_list == []
+    assert view.view_ctx.store_message is None
+    assert not view.view_ctx.redirect
 
 
 def test_write_navigation(mocker, view):
@@ -197,6 +198,7 @@ def test_write_contents(mocker, view):
                                             [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}],
                                             [{'namespec': 'dummy_proc'}]))
     view.application_name = 'dummy_appli'
+    view.application = Mock()
     # patch context
     view.view_ctx = Mock(parameters={PROCESS: None}, **{'get_process_status.return_value': None})
     # patch the meld elements
@@ -367,6 +369,7 @@ def test_make_callback(mocker, view):
     mocker.patch.object(view, 'refresh_action', return_value='Refresh')
     # patch view context
     view.view_ctx = Mock(parameters={STRATEGY: 'LOCAL'}, **{'get_process_status.return_value': None})
+    view.application = Mock()
     # test calls for different actions
     assert view.make_callback('', 'refresh') == 'Refresh'
     assert view.make_callback('', 'startapp') == 'Start application'
