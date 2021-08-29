@@ -874,7 +874,7 @@ def test_handle_action(handler):
 def test_make_callback(handler):
     """ Test the make_callback method. """
     with pytest.raises(NotImplementedError):
-        handler.make_callback(Mock())
+        handler.make_callback('dummy_namespec', 'dummy_action')
 
 
 def test_set_slope_class():

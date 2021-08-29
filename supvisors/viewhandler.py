@@ -453,7 +453,7 @@ class ViewHandler(MeldView):
             if message is not None:
                 self.view_ctx.store_message = format_gravity_message(message)
 
-    def make_callback(self, namespec, action):
+    def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested.
         Subclasses will define what's to be done. """
         raise NotImplementedError
