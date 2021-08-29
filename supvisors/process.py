@@ -58,7 +58,7 @@ class ProcessRules(object):
         self.node_names: NameList = ['*']
         self.hash_node_names: NameList = []
         self.start_sequence: int = 0
-        self.stop_sequence: int = 0
+        self.stop_sequence: int = -1
         self.required: bool = False
         self.wait_exit: bool = False
         self.expected_load: int = 0
@@ -75,6 +75,18 @@ class ProcessRules(object):
             self.logger.warn('ProcessRules.check_start_sequence: {} - required forced to False because '
                              'no start_sequence defined'.format(namespec))
             self.required = False
+
+    def check_stop_sequence(self, namespec: str) -> None:
+        """ Check the stop_sequence value.
+        If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
+
+        :param namespec: the namespec of the program considered.
+        :return: None
+        """
+        if self.stop_sequence < 0:
+            self.logger.trace('ProcessRules.check_stop_sequence: {} - set stop_sequence to {} '
+                              .format(namespec, self.start_sequence))
+            self.stop_sequence = self.start_sequence
 
     def check_autorestart(self, namespec: str) -> None:
         """ Disable autorestart when RunningFailureStrategies is related to applications.
@@ -138,6 +150,7 @@ class ProcessRules(object):
         :return: None
         """
         self.check_start_sequence(namespec)
+        self.check_stop_sequence(namespec)
         self.check_autorestart(namespec)
         if self.hash_node_names:
             self.check_hash_nodes(namespec)

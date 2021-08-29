@@ -136,10 +136,10 @@ def check_valid(parser):
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, True, False, 0, RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100,  RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple addresses, all other incorrect values
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B4')
     assert_process_rules(rules, ['10.0.0.3', '10.0.0.1', '10.0.0.5'], [], 0, 0, False, False, 0,
@@ -227,7 +227,7 @@ def check_invalid(parser):
     assert_process_rules(rules, [], ['*'], 3, 50, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check single address with required not applicable and out of range loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B2')
-    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, True, False, 0, RunningFailureStrategies.RESTART_PROCESS)
+    assert_process_rules(rules, ['10.0.0.3'], [], 0, 0, False, False, 0, RunningFailureStrategies.RESTART_PROCESS)
     # check wildcard address, optional and max loading
     rules = load_program_rules(parser, 'dummy_application_B', 'dummy_program_B3')
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 100, RunningFailureStrategies.STOP_APPLICATION)
@@ -250,9 +250,8 @@ def check_invalid(parser):
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
     # check other known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
-    assert_process_rules(rules, [], ['*'], 1, 0, True, True, 0, RunningFailureStrategies.CONTINUE)
+    assert_process_rules(rules, [], ['*'], 1, 1, True, True, 0, RunningFailureStrategies.CONTINUE)
     # check other known reference with additional unexpected configuration
-    # WARN: this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C4')
     assert_process_rules(rules, [], ['*'], 3, 100, True, False, 5, RunningFailureStrategies.CONTINUE)
     # check pattern with single matching and reference
@@ -266,7 +265,6 @@ def check_invalid(parser):
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
     assert_process_rules(rules, [], ['*'], 1, 1, False, True, 75, RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and recursive reference
-    # WARN: this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
 
@@ -279,7 +277,8 @@ def lxml_import():
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
-    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -310,7 +309,8 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
-    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -319,6 +319,7 @@ def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     # create Parser instance
     mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
-    mocker.patch('supvisors.process.ProcessRules.check_dependencies')
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)
     check_invalid(parser)

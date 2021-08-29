@@ -43,10 +43,26 @@ def test_rules_create(rules):
     assert rules.node_names == ['*']
     assert rules.hash_node_names == []
     assert rules.start_sequence == 0
-    assert rules.stop_sequence == 0
+    assert rules.stop_sequence == -1
     assert rules.starting_strategy == StartingStrategies.CONFIG
     assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
+
+
+def test_rules_check_stop_sequence(rules):
+    """ Test the assignment of stop sequence to start sequence if default still set. """
+    # test when default still used
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == -1
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == 0
+    # test when value has been set
+    rules.start_sequence = 12
+    rules.stop_sequence = 50
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 12
+    assert rules.stop_sequence == 50
 
 
 def test_rules_check_hash_nodes(rules):
@@ -91,20 +107,24 @@ def test_rules_check_hash_nodes(rules):
 
 def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
+    mocked_stop = mocker.patch('supvisors.application.ApplicationRules.check_stop_sequence')
     mocked_hash = mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
     # test with no hash
     rules.hash_node_names = []
     rules.check_dependencies('dummy')
+    assert mocked_stop.call_args_list == [call('dummy')]
     assert not mocked_hash.called
+    mocker.resetall()
     # test with hash
     rules.hash_node_names = ['*']
     rules.check_dependencies('dummy')
+    assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_hash.call_args_list == [call('dummy')]
 
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=0"\
+    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=-1"\
                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
 
 
@@ -115,13 +135,13 @@ def test_rules_serial(rules):
     # check managed and distributed
     rules.managed = True
     assert rules.serial() == {'managed': True, 'distributed': True,
-                              'start_sequence': 0, 'stop_sequence': 0,
+                              'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
     assert rules.serial() == {'managed': True, 'distributed': False, 'addresses': ['*'],
-                              'start_sequence': 0, 'stop_sequence': 0,
+                              'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -142,7 +162,7 @@ def test_application_create(supvisors):
     assert not application.rules.managed
     assert application.rules.distributed
     assert application.rules.start_sequence == 0
-    assert application.rules.stop_sequence == 0
+    assert application.rules.stop_sequence == -1
     assert application.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert application.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 

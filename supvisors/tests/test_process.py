@@ -43,7 +43,7 @@ def test_rules_create(supvisors, rules):
     assert rules.node_names == ['*']
     assert rules.hash_node_names == []
     assert rules.start_sequence == 0
-    assert rules.stop_sequence == 0
+    assert rules.stop_sequence == -1
     assert not rules.required
     assert not rules.wait_exit
     assert rules.expected_load == 0
@@ -52,13 +52,13 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "node_names=['*'] hash_node_names=[] start_sequence=0 stop_sequence=0 required=False"\
+    assert str(rules) == "node_names=['*'] hash_node_names=[] start_sequence=0 stop_sequence=-1 required=False"\
         " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': 0,
+    assert rules.serial() == {'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -97,6 +97,22 @@ def test_rules_check_start_sequence(rules):
     # check rules unchanged
     assert rules.start_sequence == 1
     assert rules.required
+
+
+def test_rules_check_stop_sequence(rules):
+    """ Test the assignment of stop sequence to start sequence if default still set. """
+    # test when default still used
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == -1
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == 0
+    # test when value has been set
+    rules.start_sequence = 12
+    rules.stop_sequence = 50
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 12
+    assert rules.stop_sequence == 50
 
 
 def test_rules_check_autorestart(rules):
@@ -173,23 +189,25 @@ def test_rules_check_dependencies(mocker, rules):
     mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
     mocked_start = mocker.patch('supvisors.process.ProcessRules.check_start_sequence')
+    mocked_stop = mocker.patch('supvisors.process.ProcessRules.check_stop_sequence')
     # test with no hash
     rules.hash_node_names = []
     # check dependencies
     rules.check_dependencies('dummy')
     # test calls
     assert mocked_start.call_args_list == [call('dummy')]
+    assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_auto.call_args_list == [call('dummy')]
     assert not mocked_hash.called
     # reset mocks
-    mocked_start.reset_mock()
-    mocked_auto.reset_mock()
+    mocker.resetall()
     # test with hash
     rules.hash_node_names = ['*']
     # check dependencies
     rules.check_dependencies('dummy')
     # test calls
     assert mocked_start.call_args_list == [call('dummy')]
+    assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_auto.call_args_list == [call('dummy')]
     assert mocked_hash.call_args_list == [call('dummy')]
 

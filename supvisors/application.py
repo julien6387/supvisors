@@ -60,16 +60,28 @@ class ApplicationRules(object):
         self.node_names: NameList = ['*']
         self.hash_node_names: NameList = []
         self.start_sequence: int = 0
-        self.stop_sequence: int = 0
+        self.stop_sequence: int = -1
         self.starting_strategy: StartingStrategies = StartingStrategies.CONFIG
         self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
         self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+
+    def check_stop_sequence(self, application_name: str) -> None:
+        """ Check the stop_sequence value.
+        If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
+
+        :param namespec: the namespec of the program considered.
+        :return: None
+        """
+        if self.stop_sequence < 0:
+            self.logger.trace('ApplicationRules.check_stop_sequence: {} - set stop_sequence to {} '
+                              .format(application_name, self.start_sequence))
+            self.stop_sequence = self.start_sequence
 
     def check_hash_nodes(self, application_name: str) -> None:
         """ When a '#' is set in application rules, an association has to be done between the 'index' of the application
         and the index of the node in the applicable node list.
         Unlike programs, there is no unquestionable index that Supvisors could get because Supervisor does not support
-        homogeneous applications. It thus has to be a covenant.
+        homogeneous applications. It thus has to be a convention.
         The chosen covenant is that the application_name MUST match r'[-_]\d+$'. The first index name is 1.
 
         hash_node_names is expected to contain:
@@ -115,6 +127,7 @@ class ApplicationRules(object):
         :param application_name: the name of the application considered.
         :return: None
         """
+        self.check_stop_sequence(application_name)
         if self.hash_node_names:
             self.check_hash_nodes(application_name)
 
