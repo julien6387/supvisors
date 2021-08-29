@@ -48,7 +48,11 @@ class ApplicationView(ViewHandler):
             # store application
             self.application = self.sup_ctx.applications[self.application_name]
         else:
-            self.view_ctx.message(error_message('No application'))
+            # may happen when the user clicks from a page of the previous launch while the current Supvisors is still
+            # in INITIALIZATION stats
+            self.logger.error('ApplicationView.handle_parameters: unknown application_name={}'
+                              .format(self.application_name))
+            self.view_ctx.message(error_message('No application found with name {}'.format(self.application_name)))
 
     def write_navigation(self, root):
         """ Rendering of the navigation menu with selection
@@ -58,27 +62,28 @@ class ApplicationView(ViewHandler):
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
         """ Rendering of the header part of the Supvisors Application page. """
-        # set application name
-        elt = root.findmeld('application_mid')
-        elt.content(self.application_name)
-        # set application state
-        elt = root.findmeld('state_mid')
-        elt.content(self.application.state.name)
-        # set LED iaw major/minor failures
-        elt = root.findmeld('state_led_mid')
-        if self.application.major_failure:
-            elt.attrib['class'] = 'status_red'
-        elif self.application.minor_failure:
-            elt.attrib['class'] = 'status_yellow'
-        elif self.application.running():
-            elt.attrib['class'] = 'status_green'
-        else:
-            elt.attrib['class'] = 'status_empty'
-        # write options
-        self.write_starting_strategy(root)
-        self.write_periods(root)
-        # write actions related to application
-        self.write_application_actions(root)
+        if self.application:
+            # set application name
+            elt = root.findmeld('application_mid')
+            elt.content(self.application_name)
+            # set application state
+            elt = root.findmeld('state_mid')
+            elt.content(self.application.state.name)
+            # set LED iaw major/minor failures
+            elt = root.findmeld('state_led_mid')
+            if self.application.major_failure:
+                elt.attrib['class'] = 'status_red'
+            elif self.application.minor_failure:
+                elt.attrib['class'] = 'status_yellow'
+            elif self.application.running():
+                elt.attrib['class'] = 'status_green'
+            else:
+                elt.attrib['class'] = 'status_empty'
+            # write options
+            self.write_starting_strategy(root)
+            self.write_periods(root)
+            # write actions related to application
+            self.write_application_actions(root)
 
     def write_starting_strategy(self, root):
         """ Write applicable starting strategies. """
@@ -111,20 +116,22 @@ class ApplicationView(ViewHandler):
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
-        data = self.get_process_data()
-        self.write_process_table(root, data)
-        # check selected Process Statistics
-        namespec = self.view_ctx.parameters[PROCESS]
-        if namespec:
-            status = self.view_ctx.get_process_status(namespec)
-            if not status or status.stopped() or status.application_name != self.application_name:
-                self.logger.warn('unselect Process Statistics for {}'.format(namespec))
-                # form parameter is not consistent. remove it
-                self.view_ctx.parameters[PROCESS] = ''
-        # write selected Process Statistics
-        namespec = self.view_ctx.parameters[PROCESS]
-        info = next(filter(lambda x: x['namespec'] == namespec, data), {})
-        self.write_process_statistics(root, info)
+        if self.application:
+            data = self.get_process_data()
+            self.write_process_table(root, data)
+            # check selected Process Statistics
+            namespec = self.view_ctx.parameters[PROCESS]
+            if namespec:
+                status = self.view_ctx.get_process_status(namespec)
+                if not status or status.stopped() or status.application_name != self.application_name:
+                    self.logger.warn('ApplicationView.write_contents: unselect Process Statistics for {}'
+                                     .format(namespec))
+                    # form parameter is not consistent. remove it
+                    self.view_ctx.parameters[PROCESS] = ''
+            # write selected Process Statistics
+            namespec = self.view_ctx.parameters[PROCESS]
+            info = next(filter(lambda x: x['namespec'] == namespec, data), {})
+            self.write_process_statistics(root, info)
 
     def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
         """ Get the latest description received from the process across all nodes.
@@ -185,29 +192,30 @@ class ApplicationView(ViewHandler):
             elt.replace('')
 
     # ACTIONS
-    def make_callback(self, namespec, action):
+    def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested. """
         if action == 'refresh':
             return self.refresh_action()
-        # get current strategy
-        strategy = StartingStrategies[self.view_ctx.parameters[STRATEGY]]
-        if action == 'startapp':
-            return self.start_application_action(strategy)
-        if action == 'stopapp':
-            return self.stop_application_action()
-        if action == 'restartapp':
-            return self.restart_application_action(strategy)
-        if namespec:
-            if self.view_ctx.get_process_status(namespec) is None:
-                return delayed_error('No such process named %s' % namespec)
-            if action == 'start':
-                return self.start_process_action(strategy, namespec)
-            if action == 'stop':
-                return self.stop_process_action(namespec)
-            if action == 'restart':
-                return self.restart_process_action(strategy, namespec)
-            if action == 'clearlog':
-                return self.clearlog_process_action(namespec)
+        if self.application:
+            # get current strategy
+            strategy = StartingStrategies[self.view_ctx.parameters[STRATEGY]]
+            if action == 'startapp':
+                return self.start_application_action(strategy)
+            if action == 'stopapp':
+                return self.stop_application_action()
+            if action == 'restartapp':
+                return self.restart_application_action(strategy)
+            if namespec:
+                if self.view_ctx.get_process_status(namespec) is None:
+                    return delayed_error('No such process named %s' % namespec)
+                if action == 'start':
+                    return self.start_process_action(strategy, namespec)
+                if action == 'stop':
+                    return self.stop_process_action(namespec)
+                if action == 'restart':
+                    return self.restart_process_action(strategy, namespec)
+                if action == 'clearlog':
+                    return self.clearlog_process_action(namespec)
 
     @staticmethod
     def refresh_action():
@@ -215,7 +223,7 @@ class ApplicationView(ViewHandler):
         return delayed_info('Page refreshed')
 
     # Common processing for starting and stopping actions
-    def start_action(self, strategy, rpc_name, arg_name, arg_type):
+    def start_action(self, strategy: StartingStrategies, rpc_name: str, arg_name: str, arg_type: str):
         """ Start/Restart an application or a process iaw the strategy. """
         try:
             rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
@@ -240,7 +248,7 @@ class ApplicationView(ViewHandler):
             return delayed_info('{} {} started'.format(arg_type, arg_name))
         return delayed_warn('{} {} NOT started'.format(arg_type, arg_name))
 
-    def stop_action(self, rpc_name, arg_name, arg_type):
+    def stop_action(self, rpc_name: str, arg_name: str, arg_type):
         """ Stop an application or a process. """
         try:
             rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
@@ -264,34 +272,63 @@ class ApplicationView(ViewHandler):
         return delayed_warn('{} {} NOT stopped'.format(arg_type, arg_name))
 
     # Application actions
-    def start_application_action(self, strategy):
-        """ Start the application iaw the strategy. """
+    def start_application_action(self, strategy) -> None:
+        """ Start the application iaw the strategy.
+
+        :param strategy: the strategy to apply for starting the application
+        :return: None
+        """
         return self.start_action(strategy, 'start_application', self.application_name, 'Application')
 
-    def restart_application_action(self, strategy):
-        """ Restart the application iaw the strategy. """
+    def restart_application_action(self, strategy) -> None:
+        """ Restart the application iaw the strategy.
+
+        :param strategy: the strategy to apply for restarting the application
+        :return: None
+        """
         return self.start_action(strategy, 'restart_application', self.application_name, 'Application')
 
-    def stop_application_action(self):
-        """ Stop the application. """
+    def stop_application_action(self) -> None:
+        """ Stop the application.
+
+        :return: None
+        """
         return self.stop_action('stop_application', self.application_name, 'Application')
 
     # Process actions
-    def start_process_action(self, strategy, namespec):
-        """ Start the process named namespec iaw the strategy. """
+    def start_process_action(self, strategy: StartingStrategies, namespec: str) -> None:
+        """ Start the process named namespec iaw the strategy.
+
+        :param strategy: the strategy to apply for starting the process
+        :param namespec: the process namespec
+        :return: None
+        """
         return self.start_action(strategy, 'start_process', namespec, 'Process')
 
-    def restart_process_action(self, strategy, namespec):
-        """ Restart the process named namespec iaw the strategy. """
+    def restart_process_action(self, strategy: StartingStrategies, namespec: str) -> None:
+        """ Restart the process named namespec iaw the strategy.
+
+        :param strategy: the strategy to apply for restarting the process
+        :param namespec: the process namespec
+        :return: None
+        """
         return self.start_action(strategy, 'restart_process', namespec, 'Process')
 
-    def stop_process_action(self, namespec):
-        """ Stop the process named namespec. """
+    def stop_process_action(self, namespec: str) -> None:
+        """ Stop the process named namespec.
+
+        :param namespec: the process namespec
+        :return: None
+        """
         return self.stop_action('stop_process', namespec, 'Process')
 
-    def clearlog_process_action(self, namespec):
+    def clearlog_process_action(self, namespec: str) -> None:
         """ Can't call supervisor StatusView source code from application view.
-        Just do the same job. """
+        Just do the same job.
+
+        :param namespec: the process namespec
+        :return: None
+        """
         try:
             rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
             rpc_intf.clearProcessLogs(namespec)
