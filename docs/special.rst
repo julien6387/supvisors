@@ -72,7 +72,7 @@ the ``DEPLOYMENT`` state to start automatically the applications.
 By default, the *Master* node is the node having the smallest name among all the active nodes, unless the attribute
 ``force_synchro_if`` is used. In the latter case, candidates are taken from this list in priority.
 
-.. note:: *About late nodes*
+.. important:: *About late nodes*
 
     Back to this case, here is what happens when a node is started while the others are already in ``OPERATION``.
     During the hand-shake, the local |Supvisors| instance gets the *Master* identified by the remote |Supvisors|.
@@ -242,7 +242,7 @@ It corresponds to a dictionary where:
         * `#122 - supervisord Starts All Processes at the Same Time <https://github.com/Supervisor/supervisor/issues/122>`_
         * `#456 - Add the ability to set different "restart policies" on process workers <https://github.com/Supervisor/supervisor/issues/456>`_
 
-.. note::
+.. important::
 
     Only the *Managed* applications can have a start sequence, i.e. only those that are declared in the |Supvisors|
     :ref:`rules_file`.
@@ -295,10 +295,10 @@ The following pseudo-code explains the logic used:
 
 .. note::
 
-    The applications having a ``start_sequence`` lower or equal to 0 are not considered,
-    as they are not meant to be autostarted.
+    The applications having a ``start_sequence`` lower or equal to 0 are not considered, as they are not meant to be
+    autostarted.
 
-.. note::
+.. important::
 
     When leaving the ``DEPLOYMENT`` state, it may happen that some applications are not started properly
     due to missing nodes. When a node is started later and is authorized in the |Supvisors| ensemble,
@@ -351,7 +351,7 @@ Possible values are:
     * ``STOP_APPLICATION``: Stop the application.
     * ``RESTART_APPLICATION``: Restart the application.
 
-.. attention::
+.. important::
 
     The ``RESTART_PROCESS`` is NOT intended to replace the |Supervisor| ``autorestart`` on the local node.
     Provided a program definition where ``autorestart`` is set to ``false`` in the |Supervisor| configuration file

@@ -6,7 +6,7 @@ Dashboard
 Each |Supervisor| instance provides a `Web Server <http://supervisord.org/introduction.html#supervisor-components>`_
 and the |Supvisors| extension provides its own web user interface, as a replacement of the |Supervisor| one.
 
-.. note:: *About the browser compliance*.
+.. important:: *About the browser compliance*.
 
     The CSS of the web pages has been written for Firefox ESR 78.5.0.
     The compatibility with other browsers or other versions of Firefox is unknown.

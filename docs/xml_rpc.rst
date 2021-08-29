@@ -4,25 +4,24 @@ XML-RPC API
 ===========
 
 The |Supvisors| XML-RPC API is an extension of the |Supervisor| XML-RPC API.
-Detailed information can be found in the `Supervisor XML-RPC API Documentation
-<http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
+Detailed information can be found in the
+`Supervisor XML-RPC API Documentation <http://supervisord.org/api.html#xml-rpc-api-documentation>`_.
 
 The ``supvisors`` namespace has been added to the :program:`supervisord` XML-RPC interface.
 
-The XML-RPC ``system.listMethods`` now provides the list of methods supported for both |Supervisor| and |Supvisors|.
-An example is provided below.
+The XML-RPC :command:`system.listMethods` now provides the list of methods supported for both |Supervisor| and
+|Supvisors|.
 
 .. code-block:: python
 
     server.supvisors.getState()
 
-.. note::
+.. important::
 
-    In the following, the namespec refers to the full name of the process, including the application name.
-    For example: ``X11:xclock``, where ``X11`` is the name of a |Supervisor| group and ``xclock`` is the name
-    of a |Supervisor| program that is referenced in the group.
-    In some cases, it can also refer to all the programs of the group.
-    For example: ``X11:*``.
+    In the following, the namespec refers to the full name of the program, including the group name, as defined in
+    |Supervisor|. For example: in :program:`X11:xclock`, ``X11`` is the name of a |Supervisor| group and ``xclock``
+    is the name of a |Supervisor| program that is referenced in the group.
+    In some cases, it can also refer to all the programs of the group (:program:`X11:*`).
 
 
 .. automodule:: supvisors.rpcinterface
@@ -244,17 +243,16 @@ This section explains how to use the XML-RPC API from a Python or JAVA client.
 Python Client
 ~~~~~~~~~~~~~
 
-There are two possibilities to perform an XML-RPC from a python client.
-Both methods don't require any additional third party.
-However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be set
-for a process spawned by |Supervisor|.
+There are two possibilities to perform an XML-RPC from a python client. Both methods don't require any additional third
+party. However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be
+set for a process spawned by |Supervisor|.
 More particularly, it is expected that the following variables are set:
 
     * ``SUPERVISOR_SERVER_URL``: the url of the |Supervisor| HTTP server (ex: ``http://localhost:60000``),
-    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be empty),
-    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be empty).
+    * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be void),
+    * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
-The first is to use the ``getRPCInterface`` of the ``supervisor.childutils`` module.
+The first is to use the ``getRPCInterface`` of the :program:`supervisor.childutils` module.
 This is available in |Supervisor| but it works only for the local node.
 
 .. code-block:: python
@@ -266,9 +264,9 @@ This is available in |Supervisor| but it works only for the local node.
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 
-The second possibility is to use the ``getRPCInterface`` of the ``supvisors.rpcrequests`` module.
-This is available in |Supvisors| and works for all nodes with a |Supervisor| daemon running
-with the same HTTP configuration as the local one.
+The second possibility is to use the ``getRPCInterface`` of the :program:`supvisors.rpcrequests` module.
+This is available in |Supvisors| and works for all nodes with a |Supervisor| daemon running with the same HTTP
+configuration as the local one.
 
 .. code-block:: python
 

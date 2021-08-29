@@ -21,6 +21,7 @@
 
     scenario_1.rst
     scenario_2.rst
+    scenario_3.rst
 
 .. toctree::
     :maxdepth: 3
