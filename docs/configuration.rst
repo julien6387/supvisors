@@ -368,12 +368,10 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 ``stop_sequence``
 
     This element gives the stopping rank of the application when all applications are stopped just before |Supvisors|
-    is restarted or shut down.
-    When <= ``0``, |Supvisors| stops the processes immediately.
-    When > ``0``, |Supvisors| stops the application in the given order BEFORE the restart or shutdown of |Supervisor|
-    is requested.
+    is restarted or shut down. This value must be positive. If not set, it is defaulted to the ``start_sequence`` value.
+    |Supvisors| stops the applications sequentially from the greatest rank to the lowest.
 
-    *Default*:  ``0``.
+    *Default*:  ``start_sequence`` value.
 
     *Required*:  No.
 
@@ -392,7 +390,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     Possible values are in { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
     The use of this option is detailed in :ref:`starting_strategy`.
 
-    *Default*:  the value set (or defaulted) in the :ref:`supvisors_section` of the |Supervisor| configuration file.
+    *Default*:  the value set in the :ref:`supvisors_section` of the |Supervisor| configuration file.
 
     *Required*:  No.
 
@@ -418,11 +416,11 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``program``
 
-    This element defines the program rules that are applicable to the program whose name correspond to the name
-    attribute of the ``program`` element. When associated with a ``name`` attribute, the program name MUST be defined
+    This element defines the rules that are applicable to the program whose name matches the ``name`` or ``pattern``
+    attribute of the element. The ``name`` must match exactly a program name
     in the program list of the
     `Supervisor group definition <http://supervisord.org/configuration.html#group-x-section-settings>`_
-    of the application considered here.
+    for the application considered here.
     Obviously, the definition of an application can include multiple ``program`` elements.
 
     *Default*:  None.
@@ -430,10 +428,10 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     *Required*:  No.
 
 
-``program`` rules
-~~~~~~~~~~~~~~~~~
+``<program>`` rules
+~~~~~~~~~~~~~~~~~~~
 
-The ``program`` element defines the rules applicable to one program or more. This element must be included in an
+The ``program`` element defines the rules applicable to at least one program. This element must be included in an
 ``application`` element. Here follows the definition of the attributes and rules applicable to this element.
 
 ``name``
@@ -456,7 +454,7 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 
 ``addresses``
 
-    This element gives the list of nodes where the process can be started. The node names are to be taken from
+    This element gives the list of nodes where the program can be started. The node names are to be taken from
     the ``address_list`` defined in `rpcinterface extension point`_ or from the declared `Node aliases`_,
     and separated by commas. Special values can be applied.
 
@@ -464,8 +462,8 @@ The ``program`` element defines the rules applicable to one program or more. Thi
     Any node list including a ``*`` is strictly equivalent to ``*`` alone.
 
     The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of nodes.
-    The aim is to assign the nth node of either ``address_list`` or the subsequent node list to the nth instance
-    of the program in a homogeneous group. An example will be given in `Using patterns and hashtags`_.
+    The aim is to assign the Nth node of either ``address_list`` or the subsequent node list to the Nth instance
+    of the program in a homogeneous process group. An example will be given in `Using patterns and hashtags`_.
 
     *Default*:  ``*``.
 
@@ -484,7 +482,7 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 ``start_sequence``
 
     This element gives the starting rank of the program when the application is starting.
-    When <= ``0``, the program is not automatically started.
+    When <= ``0``, the program is not started automatically.
     When > ``0``, the program is started automatically in the given order.
 
     *Default*:  ``0``.
@@ -494,10 +492,10 @@ The ``program`` element defines the rules applicable to one program or more. Thi
 ``stop_sequence``
 
     This element gives the stopping rank of the program when the application is stopping.
-    When <= ``0``, the program is stopped immediately if running.
-    When > ``0``, the program is stopped in the given order.
+    This value must be positive. If not set, it is defaulted to the ``start_sequence`` value.
+    |Supvisors| stops the processes sequentially from the greatest rank to the lowest.
 
-    *Default*:  ``0``.
+    *Default*:  ``start_sequence`` value.
 
     *Required*:  No.
 
@@ -516,9 +514,8 @@ The ``program`` element defines the rules applicable to one program or more. Thi
     This element gives the expected percent usage of *resources*. The value is a estimation and the meaning
     in terms of resources (CPU, memory, network) is in the user's hands.
 
-    This can be used in |Supvisors| to ensure that a system is not overloaded with greedy processes.
-    When multiple nodes are available, the ``expected_loading`` value helps to distribute processes over the available
-    nodes, so that the system remains safe.
+    When multiple nodes are available, |Supvisors| uses the ``expected_loading`` value to distribute the processes over
+    the available nodes, so that the system remains safe.
 
     *Default*:  ``0``.
 
@@ -614,7 +611,7 @@ For a ``pattern`` attribute, a substring matching one |Supervisor| program name 
     apply the rules related to ``prg_``.
 
 The ``pattern`` attribute can be applied to ``application`` elements too. The same logic as per ``program`` elements
-applies. This is particularly useful in a context where there are many users over multiple nodes and who need to have
+applies. This is particularly useful in a context where many users over multiple nodes need to have
 their own application.
 
 .. note::
@@ -624,7 +621,7 @@ their own application.
     in the group name (e.g. an index suffix) and to define N times the |Supervisor| programs related to this group
     using also a variation in the program name.
 
-    Unfortunately, using *homogeneous* programs with ``numprocs`` set to N cannot help in the present case because
+    Unfortunately, using *homogeneous* program groups with ``numprocs`` set to N cannot help in the present case because
     |Supervisor| considers the program name in the group and not the ``process_name``.
 
     As it may be a bit clumsy to define the N definition sets, a script :command:`supvisors_breed` is provided in
@@ -638,7 +635,7 @@ Using patterns and hashtags
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Using a hashtag ``#`` in the program ``addresses`` is designed for a program that is meant to be started on every nodes
-of the node list, or of a subset of them.
+of the node list, or on a subset of them.
 
 As an example, based on the following simplified |Supervisor| configuration:
 
@@ -691,7 +688,7 @@ It is also possible to give a subset of nodes only.
 
     |Supvisors| does take into account the start index defined in ``numprocs_start``.
 
-.. attention::
+.. important::
 
     In the program configuration file, it is expected that the ``numprocs`` value matches the number of elements in
     ``address_list``.
@@ -720,8 +717,8 @@ It is also possible to give a subset of nodes only.
     ``N`` must be striclty positive. Zero-padding is allowed, as long as ``N`` can be converted into an integer.
 
 
-``model`` rules
-~~~~~~~~~~~~~~~
+``<model>`` rules
+~~~~~~~~~~~~~~~~~
 
 The second mechanism is the ``model`` definition.
 The ``program`` rules definition is extended to a generic model, that can be defined outside of the application scope,

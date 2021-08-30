@@ -19,14 +19,14 @@ used for synchronizing multiple instances of |Supervisor|:
     * ``auto_fence``.
 
 Once started, all |Supvisors| instances publish the events received, especially the ``TICK`` events that are
-triggered every 5 seconds, on their ``PUBLISH`` *ZeroMQ* socket bound on the ``internal_port``.
+triggered every 5 seconds, on their ``PUBLISH`` PyZMQ_ socket bound on the ``internal_port``.
 
 On the other side, all |Supvisors| instances start a thread that subscribes to the internal events
-through an internal ``SUBSCRIBE`` *ZeroMQ* socket connected to the ``internal_port`` of **all** nodes
+through an internal ``SUBSCRIBE`` PyZMQ_ socket connected to the ``internal_port`` of **all** nodes
 of the ``address_list``.
 
 At the beginning, all nodes are in an ``UNKNOWN`` state.
-When the first ``TICK`` event is received from a remote |Supvisors| instance, a sort of hand-shake is performed
+When the first ``TICK`` event is received from a remote |Supvisors| instance, a hand-shake is performed
 between the 2 nodes. The local |Supvisors| instance:
 
     * sets the remote node state to ``CHECKING``,
@@ -62,7 +62,7 @@ identified as ``RUNNING`` or ``ISOLATED`` are set to:
     * ``ISOLATED`` if `Auto-Fencing`_ is activated.
 
 Another possibility is when it is predictable that some nodes may be started later. For example, the pool of nodes
-may include servers that will always be started from the very beginning and workstations that may be started only
+may include servers that will always be started from the very beginning and consoles that may be started only
 on demand. In this case, it would be a pity to always wait for ``synchro_timeout`` seconds. That's why the
 ``force_synchro_if`` attribute has been introduced so that the synchronization phase is considered completed
 when a subset of the nodes declared in ``address_list`` are ``RUNNING``.
@@ -86,19 +86,18 @@ Auto-Fencing
 ------------
 
 Auto-fencing is applied when the ``auto_fence`` option of the :ref:`supvisors_section` is set.
-It takes place when one of the |Supvisors| instance is seen as inactive (crash, system power down, network failure)
+It takes place when one of the |Supvisors| instances is seen as inactive (crash, system power down, network failure)
 from the other |Supvisors| instances.
 
 In this case, the running |Supvisors| instances disconnect the corresponding URL from their subscription socket.
-The Address is marked as ``ISOLATED`` and, in accordance with the rules defined and the value of the ``autorestart``
-option of the program, |Supvisors| may try to restart somewhere else the processes that were eventually running
-on that node.
+The Address is marked as ``ISOLATED`` and, in accordance with the program rules defined, |Supvisors| may restart
+somewhere else the processes that were eventually running on that node.
 
 If the incriminated node restarts, and the |Supvisors| instance is restarted on that system too, the isolation
 doesn't prevent the new |Supvisors| instance to receive events from the other instances that have isolated it.
-Indeed, it is not possible to filter the subscribers from the ``PUBLISH`` side of a ZeroMQ socket.
+Indeed, it is not possible to filter the subscribers from the ``PUBLISH`` side of a PyZMQ_ socket.
 
-That's why a kind of port-knocking is performed in :ref:`synchronizing`.
+That's why the hand-shake is performed in :ref:`synchronizing`.
 Each newly arrived |Supvisors| instance asks to the others if it has been previously isolated before taking
 into account the incoming events.
 
@@ -133,7 +132,7 @@ reading instructions from its command line. That is not always possible.
 On the other hand, colleagues found the solution so clumsy that they finally preferred to use a dedicated com
 to configure the process.
 
-So, |Supvisors| introduces new XML-RPCs that are capable of taking into account extra arguments that are passed
+|Supvisors| introduces new XML-RPCs that are capable of taking into account extra arguments that are passed
 to the command line before the process is started:
 
    * ``supvisors.start_args``: start a process on the local system,
@@ -179,34 +178,34 @@ The following rules are applicable whatever the chosen strategy:
       or ``BACKOFF`` ;
     * the program definition must be known to the node ;
     * the node must be ``RUNNING`` ;
-    * the *loading* of the node must not exceed 100% when adding the ``loading`` of the process to be started.
+    * the *load* of the node must not exceed 100% when adding the ``expected_loading`` of the program to be started.
 
-The *loading* of the chosen node is defined as the sum of the ``loading`` of each process running on this address.
+The *load* of the chosen node is defined as the sum of the ``expected_loading`` of each process running on this node.
 
 When applying the ``CONFIG`` strategy, |Supvisors| chooses the first node available in the ``address_list``.
 
 When applying the ``LESS_LOADED`` strategy, |Supvisors| chooses the node in the ``address_list`` having the lowest
-expected *loading*. The aim is to distribute the process loading among the available nodes.
+*load*. The aim is to distribute the process load among the available nodes.
 
 When applying the ``MOST_LOADED`` strategy, with respect of the common rules, |Supvisors| chooses the node in
-the ``address_list`` having the greatest expected *loading*.
+the ``address_list`` having the greatest *load*.
 The aim is to maximize the loading of a node before starting to load another node.
 This strategy is more interesting when the resources are limited.
 
 When applying the ``LOCAL`` strategy, |Supvisors| chooses the local node provided that it is compliant
-with the ``address_list``. A typical use case is to start an HCI application on a given workstation,
+with the ``address_list``. A typical use case is to start an HCI application on a given console,
 while other applications / services may be distributed over other nodes.
 
 .. attention::
 
     A consequence of choosing the ``LOCAL`` strategy as the default ``starting_strategy``
-    in the :ref:`supvisors_section` is that no process will be started on other node than the *Master* node.
+    in the :ref:`supvisors_section` is that all programs will be started on the *Master* node.
 
 
 Starting a process
 ~~~~~~~~~~~~~~~~~~
 
-The internal *Starter* of |Supvisors| applies the following algorithm to start a process:
+The internal *Starter* of |Supvisors| applies the following logic to start a process:
 
 | if process state is not ``RUNNING``:
 |     choose a starting node for the program in accordance with the rules defined above
@@ -218,7 +217,7 @@ This single job is considered completed when:
     * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process,
     * an ``EXITED`` event with an expected exit code is received and the ``wait_exit`` rule is set for this process,
     * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code),
-    * no ``STARTING`` event has been received 5 seconds after the XML-RPC.
+    * no ``STARTING`` event has still been received 10 seconds after the XML-RPC.
 
 This principle is used for starting a single process using a ``supvisors.start_process`` XML-RPC.
 
@@ -230,7 +229,7 @@ The application start sequence is re-evaluated every time a new node becomes act
 explained above, the internal data structure is updated with the programs configured in the |Supervisor| instance
 of the new node and this new data may have an impact on the application start sequence.
 
-It corresponds to a dictionary where:
+The start sequence corresponds to a dictionary where:
 
     * the keys correspond to the list of ``start_sequence`` values defined in the program rules of the application,
     * the value associated to a key is the list of programs having this key as ``start_sequence``.
@@ -267,7 +266,7 @@ This principle is used for starting a single application using a ``supvisors.sta
 Starting all applications
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When entering the ``DEPLOYMENT`` state, each |Supvisors| instance evaluates the global start sequence using
+When entering the ``DEPLOYMENT`` state, all |Supvisors| instances evaluate the global start sequence using
 the ``start_sequence`` rule configured for the applications and processes.
 
 The global start sequence corresponds to a dictionary where:
@@ -389,7 +388,7 @@ Stopping strategy
 Stopping a process
 ~~~~~~~~~~~~~~~~~~
 
-The internal *Stopper* of |Supvisors| applies the following algorithm to stop a process:
+The internal *Stopper* of |Supvisors| applies the following logic to stop a process:
 
 | if process state is ``RUNNING``:
 |     perform a ``supervisor.stopProcess(namespec)`` XML-RPC to the |Supervisor| instance where the process is running
@@ -399,7 +398,7 @@ This single job is considered completed when:
 
     * a ``STOPPED`` event is received for this process,
     * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code),
-    * no ``STOPPING`` event has been received 5 seconds after the XML-RPC.
+    * no ``STOPPING`` event has still been received 10 seconds after the XML-RPC.
 
 This principle is used for stopping a single process using a ``supvisors.stop_process`` XML-RPC.
 
@@ -434,7 +433,7 @@ It corresponds to a dictionary where:
 The internal *Stopper* of |Supvisors| applies the following algorithm to stop an application:
 
 | while application stop sequence is not empty:
-|     pop the process list having the lower ``stop_sequence``
+|     pop the process list having the greater ``stop_sequence``
 |
 |     for each process in process list:
 |         apply `Stopping a process`_
@@ -464,7 +463,7 @@ the global stop sequence to stop all the running applications in the defined ord
 The following pseudo-code explains the logic used:
 
 | while global stop sequence is not empty:
-|     pop the application stop sequences having the lower ``stop_sequence``
+|     pop the application stop sequences having the greater ``stop_sequence``
 |
 |     while application stop sequences are not empty:
 |
