@@ -85,7 +85,7 @@ def test_breed_creation():
 def test_read_config_files(mocker):
     """ Test the Breed.read_config_files method. """
     mocked_path = Mock(**{'glob.return_value': ['file_1', 'file_2']})
-    mocked_config = Mock(**{'sections.side_effect': [('file_1_A', 'file_1_B'), ('file_2_A', )]})
+    mocked_config = Mock(**{'sections.side_effect': [('group:file_1_A', 'file_1_B'), ('group:file_2_A', )]})
     mocker.patch('supvisors.tools.breed.Path', return_value=mocked_path)
     mocker.patch('supvisors.tools.breed.ConfigParser', return_value=mocked_config)
     mocker.patch('builtins.print')
@@ -94,7 +94,7 @@ def test_read_config_files(mocker):
     breed.read_config_files('/dummy_folder')
     assert list(breed.config_files.keys()) == ['file_1', 'file_2']
     assert all(config is mocked_config for config in breed.config_files.values())
-    assert list(breed.config_map.keys()) == ['file_1_A', 'file_1_B', 'file_2_A']
+    assert list(breed.config_map.keys()) == ['group:file_1_A', 'group:file_2_A']
     assert all(config is mocked_config for config in breed.config_map.values())
     # don't test print outputs
 
@@ -124,20 +124,16 @@ def test_breed_groups(mocker):
     template_groups = {'group:dummy': 2}
     breed = Breed(True)
     breed.config_map = {'group:dummy_appli': ref_config}
-    assert breed.breed_groups(template_groups, False) == []
+    breed.breed_groups(template_groups, False)
     assert not mocked_create.called
     # test call with same files
     template_groups = {'group:dummy_appli': 2}
     breed = Breed(True)
     breed.config_map = {'group:dummy_appli': ref_config}
-    expected = [('program:program_1', 'program_1_01', ref_config, ref_config),
-                ('program:program_2', 'program_2_01', ref_config, ref_config),
-                ('program:program_1', 'program_1_02', ref_config, ref_config),
-                ('program:program_2', 'program_2_02', ref_config, ref_config)]
-    assert breed.breed_groups(template_groups, False) == expected
+    breed.breed_groups(template_groups, False)
     assert not mocked_create.called
-    assert ref_config == {'group:dummy_appli_01': {'programs': 'program_1_01,program_2_01'},
-                          'group:dummy_appli_02': {'programs': 'program_1_02,program_2_02'}}
+    assert ref_config == {'group:dummy_appli_01': {'programs': 'program_1,program_2'},
+                          'group:dummy_appli_02': {'programs': 'program_1,program_2'}}
     assert new_config == {}
     assert breed.config_map == {'group:dummy_appli': ref_config}
     # test call with new files
@@ -145,16 +141,12 @@ def test_breed_groups(mocker):
     template_groups = {'group:dummy_appli': 2}
     breed = Breed(True)
     breed.config_map = {'group:dummy_appli': ref_config}
-    expected = [('program:program_1', 'program_1_01', ref_config, new_config),
-                ('program:program_2', 'program_2_01', ref_config, new_config),
-                ('program:program_1', 'program_1_02', ref_config, new_config),
-                ('program:program_2', 'program_2_02', ref_config, new_config)]
-    assert breed.breed_groups(template_groups, True) == expected
+    breed.breed_groups(template_groups, True)
     assert mocked_create.call_args_list == [call('group:dummy_appli_01', ref_config),
                                             call('group:dummy_appli_02', ref_config)]
     assert ref_config == {}
-    assert new_config == {'group:dummy_appli_01': {'programs': 'program_1_01,program_2_01'},
-                          'group:dummy_appli_02': {'programs': 'program_1_02,program_2_02'}}
+    assert new_config == {'group:dummy_appli_01': {'programs': 'program_1,program_2'},
+                          'group:dummy_appli_02': {'programs': 'program_1,program_2'}}
     assert breed.config_map == {'group:dummy_appli': {}}
 
 
@@ -171,40 +163,6 @@ def test_create_new_parser(mocker):
     assert breed.config_map == {'program:file_2_A': mocked_config}
     assert breed.config_files == {'etc/file_1': mocked_ref1_config, 'etc/dummy/file_2': mocked_ref2_config,
                                   Path('etc/dummy/program_file_2_A.ini'): mocked_config}
-
-
-def test_breed_programs(mocker):
-    """ Test the Breed.breed_programs method. """
-    new_config = {}
-    mocked_create = mocker.patch('supvisors.tools.breed.Breed.create_new_parser', return_value=new_config)
-    ref_config_1 = {'program:program_1': {'option': True}, 'program:program_A': {'option': 3}}
-    ref_config_2 = {'program:program_2': {'option': False}}
-    template_programs = [('program:program_1', 'program_1_01', None, None),
-                         ('program:program_2', 'program_2_01', None, None)]
-    # test call with same files
-    breed = Breed(True)
-    breed.config_map = {'program:program_1': ref_config_1, 'program:program_2': ref_config_2}
-    breed.breed_programs(template_programs, False)
-    assert ref_config_1 == {'program:program_1_01': {'option': True}, 'program:program_A': {'option': 3}}
-    assert ref_config_2 == {'program:program_2_01': {'option': False}}
-    assert new_config == {}
-    assert breed.config_map == {'program:program_1': ref_config_1, 'program:program_2': ref_config_2}
-    assert not mocked_create.called
-    # test call with new files
-    ref_config_1 = {'program:program_1': {'option': True}, 'program:program_A': {'option': 3}}
-    ref_config_2 = {'program:program_2': {'option': False}}
-    group_config = {}
-    template_programs = [('program:program_1', 'program_1_01', ref_config_1, group_config),
-                         ('program:program_2', 'program_2_01', {}, group_config)]
-    breed = Breed(True)
-    breed.config_map = {'program:program_1': ref_config_1, 'program:program_2': ref_config_2}
-    breed.breed_programs(template_programs, True)
-    assert ref_config_1 == {'program:program_A': {'option': 3}}
-    assert ref_config_2 == {}
-    assert new_config == {'program:program_2_01': {'option': False}}
-    assert group_config == {'program:program_1_01': {'option': True}}
-    assert breed.config_map == {'program:program_1': ref_config_1, 'program:program_2': ref_config_2}
-    assert mocked_create.call_args_list == [call('program:program_2_01', ref_config_2)]
 
 
 def test_parse_args(mocker):
@@ -264,7 +222,6 @@ def test_main(mocker):
     assert mocked_chdir.call_args_list == [call('template_etc')]
     assert mocked_breed.read_config_files.call_args_list == [call('etc/*')]
     assert not mocked_breed.breed_groups.called
-    assert not mocked_breed.breed_programs.called
     assert not mocked_breed.write_config_files.called
     mocked_chdir.reset_mock()
     mocked_breed.read_config_files.reset_mock()
@@ -274,5 +231,4 @@ def test_main(mocker):
     assert mocked_chdir.call_args_list == [call('template_etc'), call(os.getcwd())]
     assert mocked_breed.read_config_files.call_args_list == [call('etc/*')]
     assert mocked_breed.breed_groups.call_args_list == [call({'group:dummy': 1, 'group:appli': 2}, True)]
-    assert mocked_breed.breed_programs.call_args_list == [call(['program_1', 'program_2'], True)]
     assert mocked_breed.write_config_files.call_args_list == [call('etc')]
