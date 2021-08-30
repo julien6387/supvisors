@@ -118,8 +118,8 @@ The initial |Supervisor| configuration is as follows:
         - the configuration of the :program:`scen3_srv` group and programs.
         - the |Supervisor| configuration files that will be used when starting :program:`supervisord`:
 
-            + the ``supervisord_console.conf`` includes the configuration files of the programs that are intended to run
-              on the consoles,
+            + the ``supervisord_console.conf`` includes the configuration files of the programs that are intended
+              to run on the consoles,
             + the ``supervisord_server.conf`` includes the configuration files of the programs that are intended to run
               on the servers.
 
@@ -196,12 +196,12 @@ files from the |Supervisor| configuration file.
     Writing file: etc/console/group_scen3_hci_04.ini
     Writing file: etc/console/group_scen3_hci_05.ini
 
-.. note:: *About the choice to prefix all program names with ``scen3_``*
+.. note:: *About the choice to prefix all program names with 'scen3_'*
 
-    These programs are all included in a |supervisor| group named ``scen3``. It may indeed seem useless to do that.
-    Actually the program names are quite generic and at some point the intention is to group all the applications of the
-    different use cases into an unique |Supvisors| configuration. As |Supervisor| will not work with identical program
-    names, even if assigned to different groups, adding ``scen3`` at this point is just to avoid future conflicts.
+    These programs are all included in a |Supervisor| group named ``scen3``. It may indeed seem useless to add the
+    information into the program name. Actually the program names are quite generic and at some point the intention is
+    to group all the applications of the different use cases into an unique |Supvisors| configuration. Adding ``scen3``
+    at this point is just to avoid overwriting of program definitions.
 
 Knowing the host names of the consoles, an additional script is used to sort the files generated.
 The resulting file tree is as follows.
@@ -239,6 +239,7 @@ The resulting file tree is as follows.
     │         │         └── group_server.ini
     │         ├── supervisord_console.conf
     │         └── supervisord_server.conf
+
     └── template_etc
         └── console
             └── group_hci.ini
@@ -282,7 +283,7 @@ Rules file
 As the logic of the starting sequence of :program:`Scenario 3` very similar to the :ref:`scenario_2` use case, there
 won't be much detail about that in the present section. Please refer to the other use case if needed.
 
-The main difference is that :program:`scen3_internal_data_bus_X` has been removed. As a reminder, the consequence of
+The main difference is that :program:`scen3_internal_data_bus[_X]` has been removed. As a reminder, the consequence of
 |Req 12 abbr| and |Req 20 abbr| is that this program must run in all nodes, so it has been moved to the services file
 and configured as auto-started.
 
@@ -294,7 +295,7 @@ running.
 |Req 3 abbr| and |Req 14 abbr| are satisfied by the following programs that are configured with a ``wait_exit`` option:
 
     * :program:`scen3_check_internal_data_bus` and :program:`scen3_check_common_data_bus` for :program:`scen3_srv`.
-    * :program:`scen3_check_internal_data_bus_X` for :program:`scen3_hci`
+    * :program:`scen3_check_internal_data_bus[_X]` for :program:`scen3_hci`
 
 The ``distributed`` options is not set for the :program:`scen3_srv` application. As it is defaulted to ``true`` and as
 all :program:`scen3_srv` programs are configured with the ``addresses`` option set with the servers alias,
