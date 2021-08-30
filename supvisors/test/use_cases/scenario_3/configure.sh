@@ -20,6 +20,6 @@ supvisors_breed -d etc -t template_etc -b scen3_hci=$NB_CONSOLES -x -v
 for console in $CONSOLES
 do
     mkdir -p etc/console/$console
-    FIRST=`ls etc/console/*.ini | head -1`
+    FIRST=`ls etc/console/group*.ini | head -1`
     mv -f $FIRST etc/console/$console
 done

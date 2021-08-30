@@ -168,28 +168,22 @@ files from the |Supervisor| configuration file.
     [bash] > supvisors_breed -d etc -t template_etc -b scen3_hci=5 -x -v
     ArgumentParser: Namespace(breed={'scen3_hci': 5}, destination='etc', extra=True, pattern='**/*.ini', template='template_etc', verbose=True)
     Configuration files found:
-        console/group_hci.ini
-    Template elements found:
+        console/group_console.ini
+        console/programs_console.ini
+    Template group elements found:
         group:scen3_hci
-        program:scen3_chart_view
-        program:scen3_item_control
-        program:scen3_check_internal_data_bus
     New File: console/group_scen3_hci_01.ini
     New [group:scen3_hci_01]
-        programs=scen3_chart_view_01,scen3_item_control_01,scen3_check_internal_data_bus_01
     New File: console/group_scen3_hci_02.ini
     New [group:scen3_hci_02]
-        programs=scen3_chart_view_02,scen3_item_control_02,scen3_check_internal_data_bus_02
     New File: console/group_scen3_hci_03.ini
     New [group:scen3_hci_03]
-        programs=scen3_chart_view_03,scen3_item_control_03,scen3_check_internal_data_bus_03
     New File: console/group_scen3_hci_04.ini
     New [group:scen3_hci_04]
-        programs=scen3_chart_view_04,scen3_item_control_04,scen3_check_internal_data_bus_04
     New File: console/group_scen3_hci_05.ini
     New [group:scen3_hci_05]
-        programs=scen3_chart_view_05,scen3_item_control_05,scen3_check_internal_data_bus_05
-    Empty sections for file: console/group_hci.ini
+    Empty sections for file: console/group_console.ini
+    Writing file: etc/console/programs_console.ini
     Writing file: etc/console/group_scen3_hci_01.ini
     Writing file: etc/console/group_scen3_hci_02.ini
     Writing file: etc/console/group_scen3_hci_03.ini
@@ -233,16 +227,17 @@ The resulting file tree is as follows.
     │         │         │         └── group_scen3_hci_03.ini
     │         │         ├── cliche87
     │         │         │         └── group_scen3_hci_04.ini
-    │         │         └── cliche88
-    │         │                   └── group_scen3_hci_05.ini
+    │         │         ├── cliche88
+    │         │         │         └── group_scen3_hci_05.ini
+    │         │         └── programs_console.ini
     │         ├── server
     │         │         └── group_server.ini
     │         ├── supervisord_console.conf
     │         └── supervisord_server.conf
-
     └── template_etc
         └── console
-            └── group_hci.ini
+            ├── group_console.ini
+            └── programs_console.ini
 
 Here follows what the include section may look like in both |Supervisor| configuration files.
 
@@ -254,7 +249,7 @@ Here follows what the include section may look like in both |Supervisor| configu
 
     # include section in supervisord_console.conf
     [include]
-    files = common/*.ini console/%(host_node_name)s/*.ini
+    files = common/*.ini console/*.ini console/%(host_node_name)s/*.ini
 
 
 Requirements met with |Supervisor| only
@@ -283,7 +278,7 @@ Rules file
 As the logic of the starting sequence of :program:`Scenario 3` very similar to the :ref:`scenario_2` use case, there
 won't be much detail about that in the present section. Please refer to the other use case if needed.
 
-The main difference is that :program:`scen3_internal_data_bus[_X]` has been removed. As a reminder, the consequence of
+The main difference is that :program:`scen3_internal_data_bus` has been removed. As a reminder, the consequence of
 |Req 12 abbr| and |Req 20 abbr| is that this program must run in all nodes, so it has been moved to the services file
 and configured as auto-started.
 
@@ -295,7 +290,7 @@ running.
 |Req 3 abbr| and |Req 14 abbr| are satisfied by the following programs that are configured with a ``wait_exit`` option:
 
     * :program:`scen3_check_internal_data_bus` and :program:`scen3_check_common_data_bus` for :program:`scen3_srv`.
-    * :program:`scen3_check_internal_data_bus[_X]` for :program:`scen3_hci`
+    * :program:`scen3_check_internal_data_bus` for :program:`scen3_hci`
 
 The ``distributed`` options is not set for the :program:`scen3_srv` application. As it is defaulted to ``true`` and as
 all :program:`scen3_srv` programs are configured with the ``addresses`` option set with the servers alias,
@@ -314,9 +309,9 @@ This will result in having exactly one :program:`scen3_hci` application per cons
 
 .. note::
 
-    In :program:`scen3_hci`, the pattern ``check_internal_data_bus`` references a model that uses server nodes in its
-    ``addresses`` option. It doesn't matter in the present case because, as told before, the ``addresses`` option of
-    the non-distributed application supersedes the ``addresses`` eventually set in its programs.
+    In :program:`scen3_hci`, the program ``scen3_check_internal_data_bus`` references a model that uses server nodes
+    in its ``addresses`` option. It doesn't matter in the present case because, as told before, the ``addresses``
+    option of the non-distributed application supersedes the ``addresses`` eventually set in its programs.
 
 Let's now focus on the strategies and options used at application level.
 
@@ -363,18 +358,19 @@ Here follows the resulting rules file.
             <start_sequence>1</start_sequence>
             <starting_strategy>LESS_LOADED</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-            <program pattern="common_bus_interface">
+
+            <program name="scen3_common_bus_interface">
                 <reference>model_services</reference>
                 <start_sequence>3</start_sequence>
             </program>
-            <program pattern="check_common">
+            <program name="scen3_check_common_data_bus">
                 <reference>check_data_bus</reference>
                 <start_sequence>2</start_sequence>
             </program>
             <program pattern="">
                 <reference>model_services</reference>
             </program>
-            <program name="check_internal_data_bus">
+            <program name="scen3_check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
         </application>
@@ -385,11 +381,12 @@ Here follows the resulting rules file.
             <addresses>#,consoles</addresses>
             <start_sequence>3</start_sequence>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+
             <program pattern="">
                 <start_sequence>2</start_sequence>
                 <expected_loading>8</expected_loading>
             </program>
-            <program pattern="check_internal_data_bus">
+            <program name="scen3_check_internal_data_bus">
                 <reference>check_data_bus</reference>
             </program>
         </application>
@@ -412,7 +409,7 @@ For the examples, the following context applies:
     * only 3 nodes among the 8 defined are running: 2 servers (``cliche81`` and ``cliche82``) and one console
       (``cliche83``) - clearly due to limited testing resources ;
     * :program:`common_data_bus` and :program:`scen3_internal_data_bus` are *Unmanaged* so |Supvisors| always considers
-        these 'applications' as ``STOPPED`` ;
+      these 'applications' as ``STOPPED`` ;
     * :program:`scen3_srv` is distributed over the servers ``cliche81`` and ``cliche82`` ;
     * :program:`scen3_hci_01` has been started on the console ``cliche83``.
 

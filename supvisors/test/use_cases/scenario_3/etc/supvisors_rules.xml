@@ -25,18 +25,19 @@
         <start_sequence>1</start_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-        <program pattern="common_bus_interface">
+
+        <program name="scen3_common_bus_interface">
             <reference>model_services</reference>
             <start_sequence>3</start_sequence>
         </program>
-        <program pattern="check_common">
+        <program name="scen3_check_common_data_bus">
             <reference>check_data_bus</reference>
             <start_sequence>2</start_sequence>
         </program>
         <program pattern="">
             <reference>model_services</reference>
         </program>
-        <program name="check_internal_data_bus">
+        <program name="scen3_check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
     </application>
@@ -47,11 +48,12 @@
         <addresses>#,consoles</addresses>
         <start_sequence>3</start_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+
         <program pattern="">
             <start_sequence>2</start_sequence>
             <expected_loading>8</expected_loading>
         </program>
-        <program pattern="check_internal_data_bus">
+        <program name="scen3_check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
     </application>
