@@ -64,16 +64,15 @@ class KeyValue(Action):
 
 
 class Breed(object):
-    """ Create X definitions of group and programs based on group/program template.
+    """ Create X group definitions based on group template.
     This is typically useful when an application could be started X times.
     As there's no concept of homogeneous group in Supervisor, this script duplicates X times the definition of a group
-    and its related programs and removes the original definition.
+    and removes the original definition.
     The resulting configuration files are written to a separate folder.
     """
 
     # annotation types
     TemplateGroups = Mapping[str, int]
-    TemplatePrograms = List[Tuple[str, str, ConfigParser, ConfigParser]]
     SectionConfigMap = Dict[str, ConfigParser]
     FileConfigMap = Dict[Path, ConfigParser]
 
@@ -97,10 +96,11 @@ class Breed(object):
             config.read(filename)
             self.config_files[filename] = config
             for section in config.sections():
-                self.config_map[section] = config
+                if section.startswith('group:'):
+                    self.config_map[section] = config
         if self.verbose:
             print('Configuration files found:\n\t{}'.format('\n\t'.join([str(file) for file in self.config_files])))
-            print('Template elements found:\n\t{}'.format('\n\t'.join(self.config_map.keys())))
+            print('Template group elements found:\n\t{}'.format('\n\t'.join(self.config_map.keys())))
 
     def write_config_files(self, dst_folder: str) -> None:
         """ Write the contents of the parsers in new config files.
@@ -123,19 +123,17 @@ class Breed(object):
                 if self.verbose:
                     print('Empty sections for file: {}'.format(filename))
 
-    def breed_groups(self, template_groups: TemplateGroups, new_files: bool) -> TemplatePrograms:
+    def breed_groups(self, template_groups: TemplateGroups, new_files: bool) -> None:
         """ Find template groups in config files and replace them by X versions of the group.
-        Return the template programs that have to be duplicated.
 
         :param template_groups: the template groups
-        :param new_files: True if new configuration
-        :return: the template programs
+        :param new_files: True if new configuration files required
+        :return: None
         """
-        template_programs = []
         for group, cardinality in template_groups.items():
             if group in self.config_map:
                 ref_group_config = self.config_map[group]
-                programs = ref_group_config[group]['programs'].split(',')
+                programs = ref_group_config[group]['programs']
                 # duplicate and update <cardinality> versions of the group
                 for idx in range(1, cardinality + 1):
                     new_section = group + '_%02d' % idx
@@ -144,17 +142,11 @@ class Breed(object):
                         group_config = self.create_new_parser(new_section, ref_group_config)
                     else:
                         group_config = ref_group_config
-                    new_programs = [program + '_%02d' % idx for program in programs]
-                    group_config[new_section] = {'programs': ','.join(new_programs)}
+                    group_config[new_section] = {'programs': programs}
                     if self.verbose:
                         print('New [{}]'.format(new_section))
-                        print('\tprograms={}'.format(','.join(new_programs)))
-                    for program in programs:
-                        template_programs.append(('program:' + program, program + '_%02d' % idx,
-                                                  ref_group_config, group_config))
                 # remove template
                 del ref_group_config[group]
-        return template_programs
 
     def create_new_parser(self, section: str, ref_config: ConfigParser) -> ConfigParser:
         """ Create a new ConfigParser whose dirpath is similar to reference.
@@ -174,35 +166,6 @@ class Breed(object):
         if self.verbose:
             print('New File: {}'.format(filename))
         return config
-
-    def breed_programs(self, template_programs: TemplatePrograms, new_files: bool) -> None:
-        """ Find template programs in config files and replace them by X versions of the program.
-
-        :param template_programs: the template programs
-        :param new_files: True if new configuration
-        :return: None
-        """
-        for program, new_program, ref_group_config, group_config in template_programs:
-            ref_config = self.config_map[program]
-            new_section = 'program:' + new_program
-            # if new files are requested, add the new configuration in a new parser
-            if new_files:
-                if ref_config is ref_group_config:
-                    # reference program definition was in the same file than the group
-                    # keep the logic
-                    config = group_config
-                else:
-                    # create a new file for program
-                    config = self.create_new_parser(new_section, ref_config)
-            else:
-                config = ref_config
-            # copy template section to new_section
-            config[new_section] = ref_config[program]
-        # remove templates
-        for program, new_program, ref_group_config, group_config in template_programs:
-            if program in self.config_map:
-                ref_config = self.config_map[program]
-                ref_config.pop(program, None)
 
 
 def parse_args(args):
@@ -240,9 +203,7 @@ def main():
         sys.exit(0)
     # update all groups configurations
     group_breed = {'group:' + key: value for key, value in args.breed.items()}
-    program_breed = breed.breed_groups(group_breed, args.extra)
-    # update program configurations found in groups
-    breed.breed_programs(program_breed, args.extra)
+    breed.breed_groups(group_breed, args.extra)
     # back to previous directory and write files
     os.chdir(ref_directory)
     breed.write_config_files(args.destination)

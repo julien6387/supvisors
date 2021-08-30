@@ -8,6 +8,8 @@
   See related [Supervisor Issue #1455](https://github.com/Supervisor/supervisor/issues/1455).
 
 * Provide `breed.py` as a binary of **Supvisors**: `supvisors_breed`.
+  The script only considers group duplication as it is fully valid to include multiple times a program definition
+  in several groups.
 
 * Move the contents of the `[supvisors]` section into the `[rpcinterface:supvisors]` section and benefit from the
   configuration structure provided by Supervisor. The `[supvisors]` section itself is thus obsolete.
