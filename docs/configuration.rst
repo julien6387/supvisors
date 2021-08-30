@@ -543,7 +543,7 @@ The ``program`` element defines the rules applicable to at least one program. Th
 
 ``reference``
 
-    This element gives the name of an applicable ``model``, as defined in `Model Rules`_.
+    This element gives the name of an applicable ``model``, as defined in `<model> rules`_.
 
     *Default*:  None.
 
