@@ -42,14 +42,14 @@ class CheckStopSequenceTest(CheckSequenceTest):
         self.check_converter_running()
         # send restart request
         self.proxy.supvisors.restart()
-        # test the stopping of service application
-        self.check_service_stopping()
-        # test the stopping of web_movies application
-        self.check_web_movies_stopping()
         # test the stopping of my_movies application
         self.check_my_movies_stopping()
         # test the stopping of database application
         self.check_database_stopping()
+        # test the stopping of web_movies application
+        self.check_web_movies_stopping()
+        # test the stopping of service application
+        self.check_service_stopping()
         # cannot test the last events received for this process
 
     def create_context(self):
@@ -100,7 +100,6 @@ class CheckStopSequenceTest(CheckSequenceTest):
             # after the second event of the first node:
             #    * RUNNING RUNNING STOPPING STOPPED
             #    * RUNNING STOPPING STOPPING STOPPED
-            print(program.node_names)
             if len(program.node_names) > 1:
                 program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
                 program.add_event(ProcessStateEvent([ProcessStates.RUNNING, ProcessStates.STOPPING]))
@@ -132,12 +131,12 @@ class CheckStopSequenceTest(CheckSequenceTest):
         """ Check the stopping sequence of the my_movies application. """
         # get my_movies application
         application = self.context.get_application('my_movies')
-        # check processes in stop_sequence 0
-        for program in application.programs.values():
-            if program.program_name not in ['hmi', 'manager'] and program.state in RUNNING_STATES:
-                for node_name in program.node_names:
-                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
-                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # check processes in stop_sequence 3
+        program = application.get_program('manager')
+        if program.state in RUNNING_STATES:
+            for node_name in program.node_names:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -150,12 +149,12 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
-        # check processes in stop_sequence 2
-        program = application.get_program('manager')
-        if program.state in RUNNING_STATES:
-            for node_name in program.node_names:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # check processes in stop_sequence 0
+        for program in application.programs.values():
+            if program.program_name not in ['hmi', 'manager'] and program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())

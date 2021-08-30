@@ -29,6 +29,7 @@
     <!-- complex test application -->
     <application name="test">
         <start_sequence>1</start_sequence>
+        <stop_sequence>0</stop_sequence>
 
         <program pattern="">
             <addresses>cliche81</addresses>
@@ -172,7 +173,7 @@
     <!-- web_movies application -->
     <application pattern="web_">
         <start_sequence>6</start_sequence>
-        <stop_sequence>1</stop_sequence>
+        <stop_sequence>2</stop_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
 
         <program name="web_browser">
