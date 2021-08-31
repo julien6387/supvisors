@@ -6,14 +6,13 @@
 Context
 -------
 
-In this use case, the application :program:`Scenario 2` is used to control an item.
-It is delivered in 2 parts:
+In this use case, the application :program:`Scenario 2` is used to control an item. It is delivered in 2 parts:
 
     * :program:`scen2_srv`: dedicated to application services and designed to run on a server only,
     * :program:`scen2_hci`: dedicated to Human Computer Interfaces (HCI) and designed to run on a console only.
 
 :program:`scen2_hci` is started on demand from a console, whereas :program:`scen2_srv` is available on startup.
-:program:`scen2_srv` cannot be distributed because of its inter-processes communication scheme.
+:program:`scen2_srv` cannot be distributed because of its inter-processes communication design.
 :program:`scen2_hci` is not distributed so that the user gets all the windows on the same screen.
 An internal data bus will allow :program:`scen2_hci` to communicate with :program:`scen2_srv`.
 
