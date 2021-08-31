@@ -11,6 +11,8 @@ matrix:
           env: TOXENV=docs
         - python: 3.7
           env: TOXENV=py37
+        - python: 3.8
+          env: TOXENV=py38
 
 install:
     - pip install tox tox-travis
