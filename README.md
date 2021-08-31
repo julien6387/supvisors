@@ -1,5 +1,5 @@
 # **Supvisors**
-[![PyPI version][pypi-image]][pypi-url] [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
+[![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url] [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
 
 
 **Supvisors** is a Control System for Distributed Applications, based on
@@ -88,6 +88,7 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 Not opened yet.
 
 [pypi-image]: https://badge.fury.io/py/supvisors.svg
+[pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
 [ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master
