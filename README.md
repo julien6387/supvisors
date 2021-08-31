@@ -1,5 +1,7 @@
 # **Supvisors**
-[![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url] [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
+[![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url]
+[![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url]
+[![Documentation Status][docs-image]][docs-url]
 
 
 **Supvisors** is a Control System for Distributed Applications, based on
