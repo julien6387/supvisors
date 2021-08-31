@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.10 (2021-xx-xx)
+
+* Update documentation.
+
+
 ## 0.9 (2021-08-31)
 
 * Enable the hash '#' for the `addresses` of a non-distributed application.
