@@ -27,7 +27,9 @@
 
 * `CHANGES.rst` replaced with `CHANGES.md`.
 
-* Scenario 3 has been added to the **Supvisors** use cases.
+* 'Scenario 3' has been added to the **Supvisors** use cases.
+
+* A 'Gathering' configuration has been added to the **Supvisors** use cases. It combines all uses cases.
 
 * Update documentation.
 
@@ -83,7 +85,7 @@
 
 * Remove dependency to *netifaces* as *psutil* provides the function.
 
-* Scenario 2 has been added to the **Supvisors** use cases.
+* 'Scenario 2' has been added to the **Supvisors** use cases.
 
 * A script `breed.py` has been added to the install package.
   It can be used to duplicate the applications based on a template configuration and more particularly used to prepare
@@ -135,7 +137,7 @@
   In particular, it is useful to know where the process was running when it is stopped.
 
 * Start adding use cases to documentation, inspired by real examples.
-  Scenario 1 has been added.
+  'Scenario 1' has been added.
 
 * Documentation updated.
 

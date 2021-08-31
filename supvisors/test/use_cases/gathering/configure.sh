@@ -12,6 +12,17 @@ print(consoles.replace(',', ' '))
 CONSOLES=`python3 -c "$PY_ALIAS"`
 NB_CONSOLES=`echo $CONSOLES | wc -w`
 
+# clear bin folder
+rm -f bin/*
+
+# link bin folders
+for scenario in `ls -d ../scen*`
+do
+  bin_path=`ls -d $scenario/bin/*`
+  bin_dir=`basename $bin_path`
+  ln -s ../$scenario/bin/$bin_dir bin/$bin_dir
+done
+
 # clear configuration files
 find etc -name "*.ini" | xargs rm -f
 

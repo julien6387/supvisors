@@ -11,5 +11,6 @@ cd $test_dir
 firefox http://localhost:61000 &
 
 # start non-daemonized supervisor
-rm -f log/*
+rm -f log
+mkdir log
 supervisord -c etc/supervisord_localhost.conf -n

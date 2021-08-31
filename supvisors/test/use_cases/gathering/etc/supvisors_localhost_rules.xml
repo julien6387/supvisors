@@ -4,12 +4,13 @@
     <model name="model_scenario_1">
         <start_sequence>2</start_sequence>
         <required>true</required>
+        <expected_loading>2</expected_loading>
     </model>
 
     <model name="model_services">
         <start_sequence>3</start_sequence>
         <required>true</required>
-        <expected_loading>10</expected_loading>
+        <expected_loading>4</expected_loading>
     </model>
 	<model name="check_data_bus">
         <start_sequence>2</start_sequence>
@@ -22,7 +23,7 @@
         <expected_loading>2</expected_loading>
     </model>
 
-	<!-- Scenario 1 Application -->
+    <!-- Scenario 1 Application -->
     <application name="scen1">
         <start_sequence>1</start_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
@@ -115,7 +116,7 @@
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <program pattern="">
             <start_sequence>2</start_sequence>
-            <expected_loading>8</expected_loading>
+            <expected_loading>5</expected_loading>
         </program>
         <program name="scen3_check_internal_data_bus">
             <reference>check_data_bus</reference>
