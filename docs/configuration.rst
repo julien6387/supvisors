@@ -616,10 +616,10 @@ their own application.
 
 .. note::
 
-    |Supervisor| does not provide any support for *homogeneous* groups. So in order to have N running instances
-    of the same application, the only possible solution it to define N times the |Supervisor| group using a variation
-    in the group name (e.g. an index suffix) and to define N times the |Supervisor| programs related to this group
-    using also a variation in the program name.
+    |Supervisor| does not provide support for *homogeneous* groups. So in order to have N running instances of the same
+    application, the only possible solution is to define N times the |Supervisor| group using a variation in the group
+    name (e.g. an index suffix). It is however possible to include the same |Supervisor| program definitions into
+    different groups.
 
     Unfortunately, using *homogeneous* program groups with ``numprocs`` set to N cannot help in the present case because
     |Supervisor| considers the program name in the group and not the ``process_name``.
