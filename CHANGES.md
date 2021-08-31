@@ -2,6 +2,8 @@
 
 ## 0.10 (2021-xx-xx)
 
+* Add targets **Python 3.7** and **Python 3.8**.
+
 * Update documentation.
 
 
