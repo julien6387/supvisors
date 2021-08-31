@@ -21,7 +21,6 @@ import pytest
 
 from unittest.mock import call, Mock
 
-from supervisor.supervisorctl import Controller
 from supervisor.xmlrpc import Faults
 
 from supvisors.supvisorsctl import *
@@ -72,7 +71,7 @@ def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc
     # test output (with no error)
     _check_output_error(controller, False)
     # test request error
-    mocked_rpc.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_rpc.side_effect = xmlrpclib.Fault(0, 'error')
     do_fct(arg)
     mocked_rpc.side_effect = None
     # test upcheck call if any
@@ -116,7 +115,7 @@ def _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
                 [call(0, sel_result[0]), call(0, sel_result[1])])
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
-    mocked_appli.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
     do_cmd('LESS_LOADED')
     assert mocked_appli.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
@@ -143,7 +142,7 @@ def _check_stop_command(controller, mocked_check, mocked_appli, mocked_rpc,
                 sel_args, [call(sel_result[0]), call(sel_result[1])])
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
-    mocked_appli.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
     do_cmd('')
     assert mocked_appli.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
@@ -284,7 +283,7 @@ def test_application_rules(controller, plugin, mocked_check):
     assert mocked_appli.call_count == 0
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
-    mocked_appli.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
     plugin.do_application_rules('')
     assert mocked_appli.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
@@ -321,7 +320,7 @@ def test_process_rules(controller, plugin, mocked_check):
     assert mocked_appli.call_count == 0
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
-    mocked_appli.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
     plugin.do_process_rules('')
     assert mocked_appli.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
@@ -497,7 +496,7 @@ def test_upcheck(controller, plugin):
     assert mocked_rpc.call_args_list == [call()]
     mocked_rpc.reset_mock()
     # test not handled RPC error
-    mocked_rpc.side_effect = xmlrpclib.Fault('0', 'error')
+    mocked_rpc.side_effect = xmlrpclib.Fault(0, 'error')
     with pytest.raises(xmlrpclib.Fault):
         plugin._upcheck()
     assert mocked_rpc.call_args_list == [call()]
@@ -531,3 +530,27 @@ def test_make_plugin(mocker, controller):
     mocked_plugin = mocker.patch('supvisors.supvisorsctl.ControllerPlugin')
     make_supvisors_controller_plugin(controller)
     assert mocked_plugin.call_args_list == [call(controller)]
+
+
+def test_main(mocker):
+    """ Test the plugin factory. """
+    mocked_client_options = Mock(args=['start', 'program'], interactive=False, plugin_factories=[])
+    mocked_controller = Mock(exitstatus=2)
+    mocker.patch('supvisors.supvisorsctl.ClientOptions', return_value=mocked_client_options)
+    mocker.patch('supvisors.supvisorsctl.Controller', return_value=mocked_controller)
+    mocked_sys = mocker.patch('supvisors.supvisorsctl.sys')
+    # test with arguments
+    main(args='command args')
+    assert mocked_client_options.realize.call_args_list == [call('command args', doc=supervisorctl.__doc__)]
+    assert mocked_controller.onecmd.call_args_list == [call('start program')]
+    assert not mocked_controller.exec_cmdloop.called
+    assert mocked_sys.exit.call_args_list == [call(2)]
+    mocker.resetall()
+    # test without arguments
+    mocked_client_options.args = None
+    mocked_client_options.interactive = True
+    main()
+    assert mocked_client_options.realize.call_args_list == [call(None, doc=supervisorctl.__doc__)]
+    assert not mocked_controller.onecmd.called
+    assert mocked_controller.exec_cmdloop.call_args_list == [call(None, mocked_client_options)]
+    assert mocked_sys.exit.call_args_list == [call(0)]

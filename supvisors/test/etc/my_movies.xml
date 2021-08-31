@@ -29,7 +29,7 @@
     <!-- complex test application -->
     <application name="test">
         <start_sequence>1</start_sequence>
-        <stop_sequence>4</stop_sequence>
+        <stop_sequence>0</stop_sequence>
 
         <program pattern="">
             <addresses>cliche81</addresses>
@@ -51,7 +51,6 @@
         <program pattern="mount_disk_">
             <addresses>#,cliche82,cliche83,cliche84</addresses>
             <start_sequence>1</start_sequence>
-            <stop_sequence>2</stop_sequence>
             <required>true</required>
             <expected_loading>0</expected_loading>
         </program>
@@ -59,7 +58,6 @@
         <program name="copy_error">
             <addresses>cliche81</addresses>
             <start_sequence>2</start_sequence>
-            <stop_sequence>1</stop_sequence>
             <required>true</required>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>
@@ -70,12 +68,10 @@
     <!-- movies_database application -->
     <application name="database">
         <start_sequence>3</start_sequence>
-        <stop_sequence>3</stop_sequence>
 
         <program pattern="movie_server_">
             <addresses>#</addresses>
             <start_sequence>1</start_sequence>
-            <stop_sequence>1</stop_sequence>
             <expected_loading>5</expected_loading>
             <running_failure_strategy>CONTINUE</running_failure_strategy>
         </program>
@@ -92,14 +88,13 @@
     <!-- my_movies application -->
     <application name="my_movies">
         <start_sequence>4</start_sequence>
-        <stop_sequence>2</stop_sequence>
         <starting_strategy>CONFIG</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
         <program name="manager">
             <addresses>*</addresses>
             <start_sequence>1</start_sequence>
-            <stop_sequence>2</stop_sequence>
+            <stop_sequence>3</stop_sequence>
             <required>true</required>
             <expected_loading>5</expected_loading>
             <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
@@ -178,7 +173,7 @@
     <!-- web_movies application -->
     <application pattern="web_">
         <start_sequence>6</start_sequence>
-        <stop_sequence>1</stop_sequence>
+        <stop_sequence>2</stop_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
 
         <program name="web_browser">

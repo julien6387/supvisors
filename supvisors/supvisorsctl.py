@@ -19,13 +19,15 @@
 
 import errno
 import socket
+import sys
 
+from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import xmlrpclib
 from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
-from supervisor.options import split_namespec
+from supervisor.options import ClientOptions, split_namespec
 from supervisor.states import getProcessStateDescription
-from supervisor.supervisorctl import ControllerPluginBase
+from supervisor.supervisorctl import Controller, ControllerPluginBase
 
 from .rpcinterface import API_VERSION, RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
@@ -211,7 +213,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = max(len(rules['application_name']) for rules in rules_list)
                 max_appli = max(max_appli, len('Application')) + 2
                 # get longer from distribution nodes and title
-                max_nodes = max(len(rules.get('addresses', '')) for rules in rules_list)
+                max_nodes = max(len('{}'.format(rules.get('addresses', ''))) for rules in rules_list)
                 max_nodes = max(max_nodes, len('Nodes')) + 2
                 # print title
                 template_managed = '%(appli)-{}s%(managed)-9s%(distributed)-13s%(nodes)-{}s' \
@@ -814,3 +816,24 @@ class ControllerPlugin(ControllerPluginBase):
 def make_supvisors_controller_plugin(controller):
     """ Create a plugin for the Supvisors commands. """
     return ControllerPlugin(controller)
+
+
+# Copied and adapted from supervisor.supervisorctl source code
+def main(args=None, options=None):
+    # read options
+    if options is None:
+        options = ClientOptions()
+    options.realize(args, doc=supervisorctl.__doc__)
+    # add supvisors plugin if not there
+    if not any(factory[0] == 'supvisors' for factory in options.plugin_factories):
+        options.plugin_factories.append(('supvisors', make_supvisors_controller_plugin, {}))
+    # create controller
+    c = Controller(options)
+    # process single command
+    if options.args:
+        c.onecmd(' '.join(options.args))
+        sys.exit(c.exitstatus)
+    # enter the interactive mode
+    if options.interactive:
+        c.exec_cmdloop(args, options)
+        sys.exit(0)  # exitstatus always 0 for interactive mode

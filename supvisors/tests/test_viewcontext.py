@@ -48,6 +48,11 @@ def test_init(http_context, ctx):
     assert ctx.parameters == {'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
+    # errors must be set due to dummy values
+    assert isinstance(ctx.store_message, tuple)
+    assert len(ctx.store_message) == 2
+    assert ctx.store_message[0] == 'erro'
+    assert not ctx.redirect
 
 
 def test_get_server_port(ctx):
@@ -388,9 +393,10 @@ def test_format_url(ctx):
     assert sorted(matches.groups()) == expected
 
 
-def test_message(ctx):
-    """ Test the ViewContext.message method. """
-    ctx.message(('warning', 'not as expected'))
+def test_fire_message(ctx):
+    """ Test the ViewContext.fire_message method. """
+    ctx.store_message = ('warning', 'not as expected')
+    ctx.fire_message()
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
     base_address = r'http://10.0.0.1:7777/index.html\?'

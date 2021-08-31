@@ -201,7 +201,7 @@ def test_application_rules(mocker, rpc):
     # test RPC call with application name and managed/distributed application
     application.rules.managed = True
     expected = {'application_name': 'appli', 'managed': True, 'distributed': True,
-                'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
+                'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]
@@ -210,7 +210,7 @@ def test_application_rules(mocker, rpc):
     # test RPC call with application name and managed/non-distributed application
     application.rules.distributed = False
     expected = {'application_name': 'appli', 'managed': True, 'distributed': False, 'addresses': ['*'],
-                'start_sequence': 0, 'stop_sequence': 0, 'starting_strategy': 'CONFIG',
+                'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]

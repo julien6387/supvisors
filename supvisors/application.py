@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from typing import Any, Dict, List, Sequence
 
 from supervisor.loggers import Logger
@@ -34,6 +36,7 @@ class ApplicationRules(object):
         - managed: set to True when application rules are found from the rules file;
         - distributed: set to False if all processes must be running on the same node;
         - node_names: the nodes where the application can be started (all by default) if not distributed,
+        - hash_node_names: when # rule is used, the application can be started on one of these nodes (to be resolved),
         - start_sequence: defines the order of this application when starting all the applications
           in the DEPLOYMENT state (0 means: no automatic start);
         - stop_sequence: defines the order of this application when stopping all the applications
@@ -46,16 +49,87 @@ class ApplicationRules(object):
           when the application is running.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes. """
+        # keep a reference to the Supvisors global structure
+        self.supvisors = supvisors
+        self.logger: Logger = supvisors.logger
+        # attributes
         self.managed: bool = False
         self.distributed: bool = True
         self.node_names: NameList = ['*']
+        self.hash_node_names: NameList = []
         self.start_sequence: int = 0
-        self.stop_sequence: int = 0
+        self.stop_sequence: int = -1
         self.starting_strategy: StartingStrategies = StartingStrategies.CONFIG
         self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
         self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
+
+    def check_stop_sequence(self, application_name: str) -> None:
+        """ Check the stop_sequence value.
+        If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
+
+        :param namespec: the namespec of the program considered.
+        :return: None
+        """
+        if self.stop_sequence < 0:
+            self.logger.trace('ApplicationRules.check_stop_sequence: {} - set stop_sequence to {} '
+                              .format(application_name, self.start_sequence))
+            self.stop_sequence = self.start_sequence
+
+    def check_hash_nodes(self, application_name: str) -> None:
+        """ When a '#' is set in application rules, an association has to be done between the 'index' of the application
+        and the index of the node in the applicable node list.
+        Unlike programs, there is no unquestionable index that Supvisors could get because Supervisor does not support
+        homogeneous applications. It thus has to be a convention.
+        The chosen covenant is that the application_name MUST match r'[-_]\d+$'. The first index name is 1.
+
+        hash_node_names is expected to contain:
+            - either ['*'] when all nodes are applicable
+            - or any subset of these nodes.
+
+        :param application_name: the name of the application considered.
+        :return: None
+        """
+        error = True
+        result = re.match(r'.*[-_](\d+)$', application_name)
+        if not result:
+            self.logger.error('ApplicationRules.check_hash_nodes: application_name={} incompatible with the use of #'
+                              .format(application_name))
+        else:
+            appnumber = int(result.group(1)) - 1
+            if appnumber < 0:
+                self.logger.error('ApplicationRules.check_hash_nodes: index of application_name={} must be > 0'
+                                  .format(application_name))
+            else:
+                self.logger.debug('ApplicationRules.check_hash_nodes: application_name={} appnumber={}'
+                                  .format(application_name, appnumber))
+                if '*' in self.hash_node_names:
+                    # all nodes defined in the supvisors section of the supervisor configuration file are applicable
+                    ref_node_names = self.supvisors.address_mapper.node_names
+                else:
+                    # the subset of applicable nodes is the hash_node_names
+                    ref_node_names = self.hash_node_names
+                if appnumber < len(ref_node_names):
+                    self.node_names = [ref_node_names[appnumber]]
+                    error = False
+                else:
+                    self.logger.error('ApplicationRules.check_hash_nodes: application={} has no applicable node'
+                                      .format(application_name))
+        if error:
+            self.logger.warn('ApplicationRules.check_hash_nodes: application={} start_sequence reset'
+                             .format(application_name))
+            self.start_sequence = 0
+
+    def check_dependencies(self, application_name: str) -> None:
+        """ Update rules after they have been read from the rules file.
+
+        :param application_name: the name of the application considered.
+        :return: None
+        """
+        self.check_stop_sequence(application_name)
+        if self.hash_node_names:
+            self.check_hash_nodes(application_name)
 
     def __str__(self) -> str:
         """ Get the application rules as string.

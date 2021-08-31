@@ -67,14 +67,6 @@ class Parser(object):
         self.logger.debug('Parser: found application patterns {}'.format(self.application_patterns.keys()))
         # get program patterns
         self.program_patterns = {}
-        app_elements = self.root.findall(".//application/pattern[@name]/..")
-        for app_element in app_elements:
-            prg_elements = app_element.findall("./pattern[@name]")
-            self.program_patterns[app_element] = {prg_element.get('name'): prg_element for prg_element in prg_elements}
-        if self.program_patterns:
-            self.logger.warn('Parser: usage of pattern elements is deprecated -'
-                             ' please convert {} to program elements with pattern attribute.'
-                             .format(self.printable_program_patterns()))
         app_elements = self.root.findall(".//application/program[@pattern]/..")
         for app_element in app_elements:
             prg_elements = app_element.findall("./program[@pattern]")
@@ -104,7 +96,7 @@ class Parser(object):
         if application_elt is not None:
             rules.managed = True
             self.load_boolean(application_elt, 'distributed', rules)
-            self.load_application_nodes(application_elt, rules)
+            self.load_nodes(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
             self.load_enum(application_elt, 'starting_strategy', StartingStrategies, rules)
@@ -112,6 +104,9 @@ class Parser(object):
             self.load_enum(application_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
             self.logger.debug('Parser.load_application_rules: application {} - rules {}'
                               .format(application_name, rules))
+        # check that rules are compliant with dependencies
+        rules.check_dependencies(application_name)
+        self.logger.debug('Parser.load_application_rules: application={} rules={}'.format(application_name, rules))
 
     def get_application_element(self, application_name: str) -> Optional[Any]:
         """ Try to find the definition of an application in rules files.
@@ -146,14 +141,14 @@ class Parser(object):
         :param rules: the process rules to fill
         :return: None
         """
-        self.logger.trace('Parser.load_process_rules: searching program element for {}'.format(namespec))
+        self.logger.trace('Parser.load_program_rules: searching program element for {}'.format(namespec))
         program_elt = self.get_program_element(namespec)
         if program_elt is not None:
             # load element parameters into rules
             self.load_model_rules(program_elt, rules, Parser.LOOP_CHECK)
-            # check that rules are compliant with dependencies
-            rules.check_dependencies(namespec)
-            self.logger.debug('Parser.load_process_rules: process {} - rules {}'.format(namespec, rules))
+        # check that rules are compliant with dependencies
+        rules.check_dependencies(namespec)
+        self.logger.debug('Parser.load_program_rules: process={} rules={}'.format(namespec, rules))
 
     def load_model_rules(self, program_elt: Any, rules: ProcessRules, loop_check: int) -> None:
         """ Load the parameters found whatever it is given by a program or a model section.
@@ -179,7 +174,7 @@ class Parser(object):
             # WARN: recursive call, counter decreased
             self.load_model_rules(model_elt, rules, loop_check - 1)
         # other attributes found may be used to complete or supersede the possible model
-        self.load_program_nodes(program_elt, rules)
+        self.load_nodes(program_elt, rules)
         self.load_sequence(program_elt, 'start_sequence', rules)
         self.load_sequence(program_elt, 'stop_sequence', rules)
         self.load_boolean(program_elt, 'required', rules)
@@ -271,18 +266,7 @@ class Parser(object):
             node_names.append('#')
         return node_names
 
-    def load_application_nodes(self, elt: Any, rules: ApplicationRules) -> None:
-        """ Get the nodes where the non-distributed application is authorized to run.
-
-        :param elt: the XML element containing rules definition for an application
-        :param rules: the application structure used to store the rules found
-        :return: None
-        """
-        value = elt.findtext('addresses')
-        if value:
-            rules.node_names = self.check_node_list(value)
-
-    def load_program_nodes(self, elt: Any, rules: ProcessRules) -> None:
+    def load_nodes(self, elt: Any, rules: AnyRules) -> None:
         """ Get the nodes where the program is authorized to run.
 
         :param elt: the XML element containing rules definition for a program

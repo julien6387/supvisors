@@ -20,6 +20,8 @@
 import pytest
 import random
 
+from unittest.mock import call
+
 from supvisors.application import *
 
 from .base import database_copy, any_process_info, any_stopped_process_info, any_process_info_by_state
@@ -28,9 +30,9 @@ from .conftest import create_application, create_process
 
 # ApplicationRules part
 @pytest.fixture
-def rules():
+def rules(supvisors):
     """ Return the instance to test. """
-    return ApplicationRules()
+    return ApplicationRules(supvisors)
 
 
 def test_rules_create(rules):
@@ -39,16 +41,90 @@ def test_rules_create(rules):
     assert not rules.managed
     assert rules.distributed
     assert rules.node_names == ['*']
+    assert rules.hash_node_names == []
     assert rules.start_sequence == 0
-    assert rules.stop_sequence == 0
+    assert rules.stop_sequence == -1
     assert rules.starting_strategy == StartingStrategies.CONFIG
     assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
+def test_rules_check_stop_sequence(rules):
+    """ Test the assignment of stop sequence to start sequence if default still set. """
+    # test when default still used
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == -1
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 0
+    assert rules.stop_sequence == 0
+    # test when value has been set
+    rules.start_sequence = 12
+    rules.stop_sequence = 50
+    rules.check_stop_sequence('crash')
+    assert rules.start_sequence == 12
+    assert rules.stop_sequence == 50
+
+
+def test_rules_check_hash_nodes(rules):
+    """ Test the resolution of nodes when hash_node_names is set. """
+    # set initial attributes
+    rules.hash_node_names = ['*']
+    rules.node_names = []
+    rules.start_sequence = 1
+    # 1. test with application without ending index
+    rules.check_hash_nodes('crash')
+    # node_names is unchanged and start_sequence is invalidated
+    assert rules.hash_node_names == ['*']
+    assert rules.node_names == []
+    assert rules.start_sequence == 0
+    # 2. test with application with 0-ending index
+    rules.start_sequence = 1
+    rules.check_hash_nodes('sample_test_0')
+    # node_names is unchanged and start_sequence is invalidated
+    assert rules.hash_node_names == ['*']
+    assert rules.node_names == []
+    assert rules.start_sequence == 0
+    # 3. update rules to test '#' with all nodes available
+    # address '127.0.0.1' has an index of 1-1 in address_mapper
+    rules.start_sequence = 1
+    rules.check_hash_nodes('sample_test_1')
+    assert rules.node_names == ['127.0.0.1']
+    assert rules.start_sequence == 1
+    # 4. update rules to test '#' with a subset of nodes available
+    rules.hash_node_names = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
+    rules.node_names = []
+    # here, at index 2-1 of this list, '10.0.0.5' can be found
+    rules.check_hash_nodes('sample_test_2')
+    assert rules.node_names == ['10.0.0.3']
+    assert rules.start_sequence == 1
+    # 5. test the case where procnumber is greater than the subset list of nodes available
+    rules.hash_node_names = ['10.0.0.1']
+    rules.node_names = []
+    rules.check_hash_nodes('sample_test_2')
+    assert rules.node_names == []
+    assert rules.start_sequence == 0
+
+
+def test_rules_check_dependencies(mocker, rules):
+    """ Test the dependencies in process rules. """
+    mocked_stop = mocker.patch('supvisors.application.ApplicationRules.check_stop_sequence')
+    mocked_hash = mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
+    # test with no hash
+    rules.hash_node_names = []
+    rules.check_dependencies('dummy')
+    assert mocked_stop.call_args_list == [call('dummy')]
+    assert not mocked_hash.called
+    mocker.resetall()
+    # test with hash
+    rules.hash_node_names = ['*']
+    rules.check_dependencies('dummy')
+    assert mocked_stop.call_args_list == [call('dummy')]
+    assert mocked_hash.call_args_list == [call('dummy')]
+
+
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=0"\
+    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=-1"\
                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
 
 
@@ -59,13 +135,13 @@ def test_rules_serial(rules):
     # check managed and distributed
     rules.managed = True
     assert rules.serial() == {'managed': True, 'distributed': True,
-                              'start_sequence': 0, 'stop_sequence': 0,
+                              'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
     assert rules.serial() == {'managed': True, 'distributed': False, 'addresses': ['*'],
-                              'start_sequence': 0, 'stop_sequence': 0,
+                              'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -86,7 +162,7 @@ def test_application_create(supvisors):
     assert not application.rules.managed
     assert application.rules.distributed
     assert application.rules.start_sequence == 0
-    assert application.rules.stop_sequence == 0
+    assert application.rules.stop_sequence == -1
     assert application.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert application.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 

@@ -31,14 +31,13 @@ from .webutils import *
 
 
 class ViewHandler(MeldView):
-    """ Helper class to commonize rendering and behavior between handlers inheriting from MeldView. """
+    """ Helper class to share rendering and behavior between handlers inheriting from MeldView. """
 
     def __init__(self, context):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.page_name = None
         # add Supvisors shortcuts
-        # WARN: do not shortcut Supvisors context as it is already used by MeldView
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
         # cannot store context as it is named or it would crush the http context
@@ -75,6 +74,8 @@ class ViewHandler(MeldView):
             self.write_navigation(root)
             self.write_header(root)
             self.write_contents(root)
+            # send error message only at the end to get all URL parameters
+            self.view_ctx.fire_message()
             return as_string(root.write_xhtmlstring())
 
     def handle_parameters(self):
@@ -119,6 +120,7 @@ class ViewHandler(MeldView):
     def write_navigation(self, root):
         """ Write the navigation menu.
         Subclasses will define the write_nav parameters to be used. """
+        raise NotImplementedError
 
     def write_nav(self, root, node_name=None, appli=None):
         """ Write the navigation menu. """
@@ -186,6 +188,7 @@ class ViewHandler(MeldView):
     def write_header(self, root):
         """ Write the header part of the page.
         Subclasses will define what's to be done. """
+        raise NotImplementedError
 
     def write_periods(self, root):
         """ Write configured periods for statistics. """
@@ -204,6 +207,7 @@ class ViewHandler(MeldView):
     def write_contents(self, root):
         """ Write the contents part of the page.
         Subclasses will define what's to be done. """
+        raise NotImplementedError
 
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
@@ -447,11 +451,12 @@ class ViewHandler(MeldView):
                 return NOT_DONE_YET
             # post to write message
             if message is not None:
-                self.view_ctx.message(format_gravity_message(message))
+                self.view_ctx.store_message = format_gravity_message(message)
 
-    def make_callback(self, namespec, action):
+    def make_callback(self, namespec: str, action: str):
         """ Triggers processing iaw action requested.
         Subclasses will define what's to be done. """
+        raise NotImplementedError
 
     @staticmethod
     def set_slope_class(elt, value):

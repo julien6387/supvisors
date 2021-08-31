@@ -24,13 +24,14 @@ from socket import gethostname
 from unittest.mock import Mock
 
 from supervisor.datatypes import Automatic
-from supervisor.loggers import LevelsByName, Logger
+from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES
 
 from supvisors.addressmapper import AddressMapper
 from supvisors.context import Context
 from supvisors.infosource import SupervisordSource
+from supvisors.initializer import Supvisors
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
@@ -139,7 +140,8 @@ class DummyServerOptions:
         self.mood = 'mood'
         self.nodaemon = True
         self.silent = False
-        self.logger = Mock(handlers=[Mock()])
+        self.logger = getLogger()
+        handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]

@@ -52,110 +52,56 @@ class SupvisorsOptions(object):
         - logfile_maxbytes: maximum size of the Supvisors log file,
         - logfile_backups: number of Supvisors backup log files,
         - loglevel: logging level,
-        - procnumbers: a dictionary giving the number of the program in a homogeneous group.
+        - procnumbers: a dictionary giving the number of the program in a homogeneous program group.
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
+    SYNCHRO_TIMEOUT_MAX = 1200
 
-    _Options = ['address_list', 'rules_file', 'internal_port', 'event_port', 'auto_fence',
-                'synchro_timeout', 'force_synchro_if',
-                'conciliation_strategy', 'starting_strategy',
-                'stats_periods', 'stats_histo', 'stats_irix_mode',
-                'logfile', 'logfile_maxbytes', 'logfile_backups', 'loglevel']
+    def __init__(self, **config):
+        """ Initialization of the attributes.
 
-    def __init__(self):
-        """ Initialization of the attributes. """
-        # option list
-        for option in SupvisorsOptions._Options:
-            setattr(self, option, None)
-        # second parse
+        :param procnumbers: the num program numbers
+        :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
+        """
+        # get values from config
+        self.address_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
+        self.address_list = list(OrderedDict.fromkeys(self.address_list))
+        self.rules_file = config.get('rules_file', None)
+        if self.rules_file:
+            self.rules_file = existing_dirpath(self.rules_file)
+        self.internal_port = self.to_port_num(config.get('internal_port', '65001'))
+        self.event_port = self.to_port_num(config.get('event_port', '65002'))
+        self.auto_fence = boolean(config.get('auto_fence', 'false'))
+        self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
+        self.force_synchro_if = filter(None, list_of_strings(config.get('force_synchro_if', None)))
+        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.address_list}
+        self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
+        self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
+        # configure statistics
+        self.stats_periods = self.to_periods(list_of_strings(config.get('stats_periods', '10')))
+        self.stats_histo = self.to_histo(config.get('stats_histo', 200))
+        self.stats_irix_mode = boolean(config.get('stats_irix_mode', 'false'))
+        # configure logger
+        self.logfile = logfile_name(config.get('logfile', Automatic))
+        self.logfile_maxbytes = byte_size(config.get('logfile_maxbytes', '50MB'))
+        self.logfile_backups = integer(config.get('logfile_backups', 10))
+        self.loglevel = logging_level(config.get('loglevel', 'info'))
+        # attribute got from SupvisorsServerOptions
         self.procnumbers = {}
 
     def __str__(self):
         """ Contents as string. """
-        return ('address_list={} rules_file={} internal_port={} event_port={} auto_fence={} '
-                'synchro_timeout={} force_synchro_if={} conciliation_strategy={} '
-                'starting_strategy={} stats_periods={} stats_histo={} '
-                'stats_irix_mode={} logfile={} logfile_maxbytes={} '
-                'logfile_backups={} loglevel={}'.format(self.address_list, self.rules_file,
-                                                        self.internal_port, self.event_port, self.auto_fence,
-                                                        self.synchro_timeout, self.force_synchro_if,
-                                                        self.conciliation_strategy, self.starting_strategy,
-                                                        self.stats_periods, self.stats_histo, self.stats_irix_mode,
-                                                        self.logfile, self.logfile_maxbytes, self.logfile_backups,
-                                                        self.loglevel))
-
-
-class SupvisorsServerOptions(ServerOptions):
-    """ Class used to parse the options of the 'supvisors' section in the
-    supervisor configuration file.
-
-    Attributes are:
-        - supvisors_options: the instance holding all Supvisors options,
-        - _Section: constant for the name of the Supvisors section in the Supervisor configuration file.
-    """
-
-    # Name of the Supvisors section in the Supervisor configuration file
-    _Section = 'supvisors'
-
-    def __init__(self):
-        """ Initialization of the attributes. """
-        ServerOptions.__init__(self)
-        self.supvisors_options = SupvisorsOptions()
-
-    def _processes_from_section(self, parser, section, group_name, klass=None):
-        """ This method is overridden to: store the program number of a homogeneous program.
-
-        This is originally used in Supervisor to set the real program name from the format defined in the ini file.
-        However, Supervisor does not keep this information in its internal structure.
-        """
-        # call super behaviour
-        programs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
-        # store the number of each program
-        for idx, program in enumerate(programs):
-            self.supvisors_options.procnumbers[program.name] = idx
-        # return original result
-        return programs
-
-    def server_configs_from_parser(self, parser):
-        """ The following has nothing to deal with Supervisor's server configurations.
-        It gets Supvisors configuration.
-        Supervisor's ServerOptions has not been designed to be specialized.
-        This method is overridden just to have an access point to the Supervisor parser.
-        """
-        configs = ServerOptions.server_configs_from_parser(self, parser)
-        # set section
-        if not parser.has_section(SupvisorsServerOptions._Section):
-            raise ValueError('.ini file ({}) does not include a [{}] section'
-                             .format(self.configfile, SupvisorsServerOptions._Section))
-        temp, parser.mysection = parser.mysection, SupvisorsServerOptions._Section
-        # get values
-        opt = self.supvisors_options
-        opt.address_list = filter(None, list_of_strings(parser.getdefault('address_list', gethostname())))
-        opt.address_list = list(OrderedDict.fromkeys(opt.address_list))
-        opt.rules_file = parser.getdefault('rules_file', None)
-        if opt.rules_file:
-            opt.rules_file = existing_dirpath(opt.rules_file)
-        opt.internal_port = self.to_port_num(parser.getdefault('internal_port', '65001'))
-        opt.event_port = self.to_port_num(parser.getdefault('event_port', '65002'))
-        opt.auto_fence = boolean(parser.getdefault('auto_fence', 'false'))
-        opt.synchro_timeout = self.to_timeout(parser.getdefault('synchro_timeout', str(opt.SYNCHRO_TIMEOUT_MIN)))
-        opt.force_synchro_if = filter(None, list_of_strings(parser.getdefault('force_synchro_if', None)))
-        opt.force_synchro_if = {node for node in opt.force_synchro_if if node in opt.address_list}
-        opt.conciliation_strategy = self.to_conciliation_strategy(parser.getdefault('conciliation_strategy', 'USER'))
-        opt.starting_strategy = self.to_starting_strategy(parser.getdefault('starting_strategy', 'CONFIG'))
-        # configure statistics
-        opt.stats_periods = self.to_periods(list_of_strings(parser.getdefault('stats_periods', '10')))
-        opt.stats_histo = self.to_histo(parser.getdefault('stats_histo', 200))
-        opt.stats_irix_mode = boolean(parser.getdefault('stats_irix_mode', 'false'))
-        # configure logger
-        opt.logfile = logfile_name(parser.getdefault('logfile', Automatic))
-        opt.logfile_maxbytes = byte_size(parser.getdefault('logfile_maxbytes', '50MB'))
-        opt.logfile_backups = integer(parser.getdefault('logfile_backups', 10))
-        opt.loglevel = logging_level(parser.getdefault('loglevel', 'info'))
-        # reset mysection and return original result
-        parser.mysection = temp
-        return configs
+        return "address_list={} rules_file={} internal_port={} event_port={} auto_fence={}"\
+               " synchro_timeout={} force_synchro_if={} conciliation_strategy={}"\
+               " starting_strategy={} stats_periods={} stats_histo={} stats_irix_mode={}"\
+               " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={} procnumbers={}"\
+               .format(self.address_list, self.rules_file, self.internal_port, self.event_port, self.auto_fence,
+                       self.synchro_timeout, self.force_synchro_if,
+                       self.conciliation_strategy.name, self.starting_strategy.name,
+                       self.stats_periods, self.stats_histo, self.stats_irix_mode,
+                       self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel,
+                       self.procnumbers)
 
     # conversion utils (completion of supervisor.datatypes)
     @staticmethod
@@ -178,9 +124,10 @@ class SupvisorsServerOptions(ServerOptions):
         :return: the timeout as an integer
         """
         value = integer(value)
-        if 15 <= value <= 1200:
+        if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN <= value <= SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
             return value
-        raise ValueError('invalid value for synchro_timeout: %d. expected in [15;1200] (seconds)' % value)
+        raise ValueError('invalid value for synchro_timeout: {}. expected in [{};{}] (seconds)'
+                         .format(value, SupvisorsOptions.SYNCHRO_TIMEOUT_MIN, SupvisorsOptions.SYNCHRO_TIMEOUT_MAX))
 
     @staticmethod
     def to_conciliation_strategy(value):
@@ -230,3 +177,26 @@ class SupvisorsServerOptions(ServerOptions):
         if 10 <= histo <= 1500:
             return histo
         raise ValueError('invalid value for stats_histo: {}. expected in [10;1500] (seconds)'.format(value))
+
+
+class SupvisorsServerOptions(ServerOptions):
+    """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file. """
+
+    def __init__(self):
+        """ Initialization of the attributes. """
+        ServerOptions.__init__(self)
+        self.procnumbers = {}
+
+    def _processes_from_section(self, parser, section, group_name, klass=None):
+        """ This method is overridden to: store the program number of a homogeneous program.
+
+        This is originally used in Supervisor to set the real program name from the format defined in the ini file.
+        However, Supervisor does not keep this information in its internal structure.
+        """
+        # call super behaviour
+        programs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
+        # store the number of each program
+        for idx, program in enumerate(programs):
+            self.procnumbers[program.name] = idx
+        # return original result
+        return programs

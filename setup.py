@@ -37,7 +37,7 @@ testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
 here = os.path.abspath(os.path.dirname(__file__))
 try:
     README = open(os.path.join(here, 'README.md')).read()
-    CHANGES = open(os.path.join(here, 'CHANGES.rst')).read()
+    CHANGES = open(os.path.join(here, 'CHANGES.md')).read()
 except:
     README = """Supvisors is a control system for distributed applications over multiple Supervisor instances. """
     CHANGES = ''
@@ -84,4 +84,6 @@ dist = setup(
     zip_safe=False,
     namespace_packages=['supvisors'],
     test_suite="supvisors.tests",
+    entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
+                                      'supvisors_breed = supvisors.tools.breed:main']}
 )

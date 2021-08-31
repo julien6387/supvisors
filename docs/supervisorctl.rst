@@ -6,9 +6,18 @@
 This is an extension of the existing :program:`supervisorctl` API.
 The additional commands provided by |Supvisors| are available by typing :command:`help` at the prompt.
 
+.. important::
+
+    When :program:`supvisorsctl` is used with the option ``-s URL``, |Supervisor| does not provide access to the
+    extended API. This is tracked through `Supervisor #1455 <https://github.com/Supervisor/supervisor/issues/1455>`_.
+
+    |Supvisors| alleviates the problem by providing the command :program:`supvisorsctl` that works with all options.
+    The use of :program:`supvisorsctl` is thus preferred to avoid issues, although :program:`supervisorctl` is suitable
+    when used - explicitly or not - with a configuration file.
+
 .. code-block:: bash
 
-    [bash] > supervisorctl help
+    [bash] > supvisorsctl help
 
     default commands (type help <topic>):
     =====================================
@@ -25,7 +34,6 @@ The additional commands provided by |Supvisors| are available by typing :command
     conciliate         restart_application  start_application  strategies
     conflicts          restart_process      start_args         sversion
     local_status       sreload              start_process
-
 
 .. _extended_status:
 

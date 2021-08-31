@@ -91,6 +91,6 @@ def make_supvisors_rpcinterface(supervisord, **config) -> RPCInterface:
     #    * to benefit from the commonalities done in supvisors.ViewHandler
     StatusView.__bases__ = (ViewHandler,)
     # store the Supvisors instance in supervisord instance to ensure persistence
-    supervisord.supvisors = Supvisors(supervisord)
+    supervisord.supvisors = Supvisors(supervisord, **config)
     # create and return handler
     return RPCInterface(supervisord.supvisors)

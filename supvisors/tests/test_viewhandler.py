@@ -188,6 +188,12 @@ def test_write_common(mocker, handler):
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message')]
 
 
+def test_write_navigation(handler):
+    """ Test the write_navigation method. """
+    with pytest.raises(NotImplementedError):
+        handler.write_navigation(Mock())
+
+
 def test_write_nav(mocker, handler):
     """ Test the write_nav method. """
     mocked_appli = mocker.patch('supvisors.viewhandler.ViewHandler.write_nav_applications')
@@ -372,6 +378,12 @@ def test_write_nav_applications_operation(handler):
     assert href_elt.content.call_args_list == [call('dummy_appli')]
 
 
+def test_write_header(handler):
+    """ Test the write_header method. """
+    with pytest.raises(NotImplementedError):
+        handler.write_header(Mock())
+
+
 def test_write_periods(handler):
     """ Test the write_periods method. """
     # patch the meld elements
@@ -404,6 +416,12 @@ def test_write_periods(handler):
     assert handler.view_ctx.format_url.call_args_list == [call('', None, period=5)]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.content.call_args_list == [call('5s')]
+
+
+def test_write_contents(handler):
+    """ Test the write_contents method. """
+    with pytest.raises(NotImplementedError):
+        handler.write_contents(Mock())
 
 
 def test_write_common_process_cpu(handler):
@@ -850,7 +868,13 @@ def test_handle_action(handler):
     handler.make_callback.reset_mock()
     assert not handler.handle_action()
     assert handler.make_callback.call_args_list == []
-    assert handler.view_ctx.message.call_args_list == [call(('info', 'a message'))]
+    assert handler.view_ctx.store_message == ('info', 'a message')
+
+
+def test_make_callback(handler):
+    """ Test the make_callback method. """
+    with pytest.raises(NotImplementedError):
+        handler.make_callback('dummy_namespec', 'dummy_action')
 
 
 def test_set_slope_class():

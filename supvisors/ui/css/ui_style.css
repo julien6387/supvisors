@@ -485,7 +485,7 @@ th {
 
 /* fix some column width (button actions have a fixed content) */
 table .name {
-  width: 180px;
+  width: 200px;
 }
 
 table .state {

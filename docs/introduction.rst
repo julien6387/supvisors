@@ -128,13 +128,16 @@ Running |Supvisors|
 However, the |Supervisor| configuration file **MUST**:
 
     * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings) ;
-    * include the ``[supvisors]`` section (refer to the :ref:`Configuration` part) ;
+    * include the ``[rpcinterface:supvisors]`` and the ``[ctlplugin:supvisors]`` sections
+      (refer to the :ref:`Configuration` part) ;
     * be identical on all considered nodes.
 
-.. note::
+.. important::
 
-    A script may be required to start |Supervisor| on several addresses if not configured to run automatically at startup (ssh loop for example).
+    A script may be required to start |Supervisor| on several addresses if not configured to run automatically at
+    startup (ssh loop for example).
 
-    All |Supervisor| instances should be started during a configurable lap of time so that |Supvisors| works as expected.
+    It is preferred that all |Supvisors| instances are started within the same (configurable) time frame so that
+    |Supvisors| works as expected. Late starting |Supvisors| instances will yet be considered.
 
 .. include:: common.rst

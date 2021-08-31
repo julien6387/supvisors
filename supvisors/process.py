@@ -51,14 +51,14 @@ class ProcessRules(object):
         :param supvisors: the global Supvisors structure.
         """
         # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
-        # keep a reference to the Supvisors data
+        # keep a reference to the Supvisors global structure
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # attributes
         self.node_names: NameList = ['*']
         self.hash_node_names: NameList = []
         self.start_sequence: int = 0
-        self.stop_sequence: int = 0
+        self.stop_sequence: int = -1
         self.required: bool = False
         self.wait_exit: bool = False
         self.expected_load: int = 0
@@ -75,6 +75,18 @@ class ProcessRules(object):
             self.logger.warn('ProcessRules.check_start_sequence: {} - required forced to False because '
                              'no start_sequence defined'.format(namespec))
             self.required = False
+
+    def check_stop_sequence(self, namespec: str) -> None:
+        """ Check the stop_sequence value.
+        If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
+
+        :param namespec: the namespec of the program considered.
+        :return: None
+        """
+        if self.stop_sequence < 0:
+            self.logger.trace('ProcessRules.check_stop_sequence: {} - set stop_sequence to {} '
+                              .format(namespec, self.start_sequence))
+            self.stop_sequence = self.start_sequence
 
     def check_autorestart(self, namespec: str) -> None:
         """ Disable autorestart when RunningFailureStrategies is related to applications.
@@ -105,14 +117,15 @@ class ProcessRules(object):
         :param namespec: the namespec of the program considered.
         :return: None
         """
+        error = True
         _, process_name = split_namespec(namespec)
         try:
             procnumber = self.supvisors.options.procnumbers[process_name]
         except KeyError:
-            self.logger.error('ProcessStatus.check_hash_nodes: cannot apply "#" to unknown program={}'
+            self.logger.error('ProcessRules.check_hash_nodes: cannot apply "#" to unknown program={}'
                               .format(namespec))
         else:
-            self.logger.debug('ProcessStatus.check_hash_nodes: namespec={} procnumber={}'
+            self.logger.debug('ProcessRules.check_hash_nodes: namespec={} procnumber={}'
                               .format(namespec, procnumber))
             if '*' in self.hash_node_names:
                 # all nodes defined in the supvisors section of the supervisor configuration file are applicable
@@ -122,9 +135,13 @@ class ProcessRules(object):
                 ref_node_names = self.hash_node_names
             if procnumber < len(ref_node_names):
                 self.node_names = [ref_node_names[procnumber]]
+                error = False
             else:
-                self.logger.warn('ProcessStatus.check_hash_nodes: program={} has no applicable node'.format(namespec))
-                self.start_sequence = 0
+                self.logger.error('ProcessRules.check_hash_nodes: program={} has no applicable node'.format(namespec))
+        if error:
+            self.logger.warn('ProcessRules.check_hash_nodes: program={} start_sequence reset'
+                             .format(namespec))
+            self.start_sequence = 0
 
     def check_dependencies(self, namespec: str) -> None:
         """ Update rules after they have been read from the rules file.
@@ -133,6 +150,7 @@ class ProcessRules(object):
         :return: None
         """
         self.check_start_sequence(namespec)
+        self.check_stop_sequence(namespec)
         self.check_autorestart(namespec)
         if self.hash_node_names:
             self.check_hash_nodes(namespec)

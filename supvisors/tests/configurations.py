@@ -34,7 +34,6 @@ ProgramConfiguration = StringIO('''
 port=:60000
 
 [supervisord]
-[supvisors]
 
 [program:dummy]
 command=ls
@@ -49,43 +48,6 @@ command=ls
 process_name=dumber_%(process_num)d
 numprocs=2
 numprocs_start=10
-''')
-
-# Contents of a minimal Supervisor configuration file without
-#  Supvisors options defined
-DefaultOptionConfiguration = StringIO('''
-[inet_http_server]
-port=:60000
-
-[supervisord]
-[supvisors]
-''')
-
-# Contents of a minimal Supervisor configuration file including
-#  Supvisors options defined
-DefinedOptionConfiguration = StringIO('''
-[inet_http_server]
-port=:60000
-
-[supervisord]
-
-[supvisors]
-address_list=cliche01,cliche03,cliche02
-rules_file=my_movies.xml
-auto_fence=true
-internal_port=60001
-event_port=60002
-synchro_timeout=20
-force_synchro_if=cliche01,cliche03
-starting_strategy=MOST_LOADED
-conciliation_strategy=SENICIDE
-stats_periods=5,60,600
-stats_histo=100
-stats_irix_mode=true
-logfile=/tmp/supvisors.log
-logfile_maxbytes=50KB
-logfile_backups=5
-loglevel=error
 ''')
 
 # Contents of a rules file including schema errors
@@ -295,8 +257,7 @@ XmlTest = b'''\
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
-        <program name="dummy_program_B0">
-        </program>
+        <program name="dummy_program_B0"/>
 
         <program name="dummy_program_B1">
             <addresses>#</addresses>
@@ -363,10 +324,10 @@ XmlTest = b'''\
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
         <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
 
-        <pattern name="dummies_">
+        <program pattern="dummies_">
             <reference>dummy_model_03</reference>
             <start_sequence>50</start_sequence>
-        </pattern>
+        </program>
 
         <program pattern="dummies_01_">
             <addresses>#, 10.0.0.1, 10.0.0.5</addresses>

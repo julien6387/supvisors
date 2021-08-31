@@ -4,7 +4,7 @@
 |Supvisors| is a Control System for Distributed Applications, based on multiple instances of |Supervisor|.
 
 .. toctree::
-    :maxdepth: 3
+    :maxdepth: 2
     :caption: Contents
 
     introduction.rst
@@ -21,12 +21,14 @@
 
     scenario_1.rst
     scenario_2.rst
+    scenario_3.rst
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
     :caption: Release History
 
-    CHANGES.rst
+    CHANGES.md
+
 
 Indices and tables
 ------------------

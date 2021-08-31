@@ -37,7 +37,7 @@ def create_any_process(supvisors):
 
 def create_application(application_name, supvisors):
     """ Create an ApplicationStatus. """
-    return ApplicationStatus(application_name, ApplicationRules(), supvisors)
+    return ApplicationStatus(application_name, ApplicationRules(supvisors), supvisors)
 
 
 # fixture for common global structures

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+    <!-- models -->
+    <model name="model_scenario_1">
+        <start_sequence>2</start_sequence>
+        <required>true</required>
+        <expected_loading>2</expected_loading>
+    </model>
+
+    <model name="model_services">
+        <start_sequence>3</start_sequence>
+        <required>true</required>
+        <expected_loading>4</expected_loading>
+    </model>
+	<model name="check_data_bus">
+        <start_sequence>2</start_sequence>
+        <required>true</required>
+        <wait_exit>true</wait_exit>
+    </model>
+	<model name="data_bus">
+        <start_sequence>1</start_sequence>
+        <required>true</required>
+        <expected_loading>2</expected_loading>
+    </model>
+
+    <!-- Scenario 1 Application -->
+    <application name="scen1">
+        <start_sequence>1</start_sequence>
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+
+        <program pattern="">
+            <reference>model_scenario_1</reference>
+        </program>
+        <program pattern="wait_nfs_mount">
+            <reference>model_scenario_1</reference>
+            <start_sequence>1</start_sequence>
+            <wait_exit>true</wait_exit>
+        </program>
+	</application>
+
+    <!-- Scenario 2 Applications -->
+    <!-- Services -->
+    <application name="scen2_srv_01">
+        <distributed>false</distributed>
+        <start_sequence>1</start_sequence>
+        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_failure_strategy>STOP</starting_failure_strategy>
+        <program name="scen2_common_bus_interface">
+            <reference>model_services</reference>
+            <start_sequence>4</start_sequence>
+        </program>
+        <program name="scen2_check_common_data_bus">
+            <reference>check_data_bus</reference>
+            <start_sequence>3</start_sequence>
+        </program>
+        <program pattern="">
+            <reference>model_services</reference>
+        </program>
+        <program name="scen2_check_internal_data_bus">
+            <reference>check_data_bus</reference>
+        </program>
+        <program name="scen2_internal_data_bus">
+            <reference>data_bus</reference>
+            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+        </program>
+    </application>
+
+    <!-- HCI -->
+    <application name="scen2_hci_01">
+        <distributed>false</distributed>
+        <start_sequence>2</start_sequence>
+        <starting_strategy>LOCAL</starting_strategy>
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <program pattern="">
+            <start_sequence>3</start_sequence>
+            <expected_loading>8</expected_loading>
+        </program>
+        <program name="scen2_check_internal_data_bus">
+            <reference>check_data_bus</reference>
+        </program>
+        <program name="scen2_internal_data_bus">
+            <reference>data_bus</reference>
+            <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+        </program>
+    </application>
+
+    <!-- Scenario 3 Applications -->
+    <!-- Services -->
+    <application name="scen3_srv">
+        <start_sequence>1</start_sequence>
+        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_failure_strategy>STOP</starting_failure_strategy>
+        <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+
+        <program name="scen3_common_bus_interface">
+            <reference>model_services</reference>
+            <start_sequence>4</start_sequence>
+        </program>
+        <program name="scen3_check_common_data_bus">
+            <reference>check_data_bus</reference>
+            <start_sequence>3</start_sequence>
+        </program>
+        <program pattern="">
+            <reference>model_services</reference>
+        </program>
+        <program name="scen3_check_internal_data_bus">
+            <reference>check_data_bus</reference>
+        </program>
+    </application>
+
+    <!-- HCI -->
+    <application name="scen3_hci_01">
+        <distributed>false</distributed>
+        <start_sequence>2</start_sequence>
+        <starting_strategy>LOCAL</starting_strategy>
+        <starting_failure_strategy>CONTINUE</starting_failure_strategy>
+        <program pattern="">
+            <start_sequence>2</start_sequence>
+            <expected_loading>5</expected_loading>
+        </program>
+        <program name="scen3_check_internal_data_bus">
+            <reference>check_data_bus</reference>
+        </program>
+    </application>
+
+</root>

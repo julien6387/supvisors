@@ -29,21 +29,22 @@
         <start_sequence>1</start_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>STOP</starting_failure_strategy>
-        <program pattern="common_bus_interface">
+
+        <program name="scen2_common_bus_interface">
             <reference>model_services</reference>
             <start_sequence>4</start_sequence>
         </program>
-        <program pattern="check_common">
+        <program name="scen2_check_common_data_bus">
             <reference>check_data_bus</reference>
             <start_sequence>3</start_sequence>
         </program>
-        <pattern name="">
+        <program pattern="">
             <reference>model_services</reference>
-        </pattern>
-        <program pattern="check_internal_data_bus">
+        </program>
+        <program name="scen2_check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
-        <program pattern="internal_data_bus">
+        <program name="scen2_internal_data_bus">
             <reference>data_bus</reference>
             <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
         </program>
@@ -59,10 +60,10 @@
             <start_sequence>3</start_sequence>
             <expected_loading>8</expected_loading>
         </program>
-        <program pattern="check_internal_data_bus">
+        <program name="scen2_check_internal_data_bus">
             <reference>check_data_bus</reference>
         </program>
-        <program pattern="internal_data_bus">
+        <program name="scen2_internal_data_bus">
             <reference>data_bus</reference>
             <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
         </program>
