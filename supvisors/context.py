@@ -274,13 +274,11 @@ class Context(object):
                 # FSM on_timer_event will handle the node invalidation
                 status.local_time = 0
             else:
-                # asynchronous port-knocking used to check how the remote Supvisors instance
-                # considers the local instance
-                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                    status.state = AddressStates.CHECKING
-                    self.supvisors.zmq.pusher.send_check_node(node_name)
                 # update internal times
                 status.update_times(event['sequence_counter'], event['when'], int(time()))
+                # check node
+                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                    self.check_node(status)
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
 
@@ -328,31 +326,49 @@ class Context(object):
             if status.state == AddressStates.RUNNING:
                 self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
                 # get internal data
-                application = self.applications[event['group']]
-                process = application.processes[event['name']]
-                # refresh process info depending on the nature of the process event
-                if 'forced' in event:
-                    process.force_state(event['state'], event['spawnerr'])
-                    del event['forced']
+                try:
+                    application = self.applications[event['group']]
+                    process = application.processes[event['name']]
+                except KeyError:
+                    # unknown process from remote node. re-sync needed
+                    # may be due to supervisor reread or supvisors update_numprocs
+                    self.check_node(status)
+                    self.supvisors.zmq.publisher.send_address_status(status.serial())
                 else:
-                    process.update_info(node_name, event)
-                    try:
-                        # update command line in Supervisor
-                        self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
-                    except KeyError:
-                        # process not found in Supervisor internal structure
-                        self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
-                                          ' to local Supervisor'.format(process.namespec))
-                # refresh application status
-                application.update_status()
-                # publish process event, status and application status
-                publisher = self.supvisors.zmq.publisher
-                publisher.send_process_event(node_name, event)
-                publisher.send_process_status(process.serial())
-                publisher.send_application_status(application.serial())
-                return process
+                    # refresh process info depending on the nature of the process event
+                    if 'forced' in event:
+                        process.force_state(event['state'], event['spawnerr'])
+                        del event['forced']
+                    else:
+                        process.update_info(node_name, event)
+                        try:
+                            # update command line in Supervisor
+                            self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
+                        except KeyError:
+                            # process not found in Supervisor internal structure
+                            self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
+                                              ' to local Supervisor'.format(process.namespec))
+                    # refresh application status
+                    application.update_status()
+                    # publish process event, status and application status
+                    publisher = self.supvisors.zmq.publisher
+                    publisher.send_process_event(node_name, event)
+                    publisher.send_process_status(process.serial())
+                    publisher.send_application_status(application.serial())
+                    return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
+
+    def check_node(self, status) -> None:
+        """ Asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance.
+        Also used to get the full process list from the node
+
+        :param status: the AddressStatus to check
+        :return: None
+        """
+        #
+        status.state = AddressStates.CHECKING
+        self.supvisors.zmq.pusher.send_check_node(status.node_name)
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING nodes to ISOLATED and publish related events. """

@@ -27,6 +27,8 @@ from supervisor.medusa import default_handler, filesys
 from supervisor.options import split_namespec
 from supervisor.states import ProcessStates
 
+from .ttypes import NameList
+
 
 class SupervisordSource(object):
     """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord instance. """
@@ -151,9 +153,50 @@ class SupervisordSource(object):
         """ Return the extra arguments passed to the command line of the process named namespec. """
         return self._get_process_config(namespec).extra_args
 
+    def update_numprocs(self, program_name: str, numprocs: int) -> NameList:
+        """ This method is used to dynamically update the program numprocs.
+
+        :param program_name: the program name, as found in the sections of the Supervisor configuration files
+        :param numprocs: the new numprocs value
+        :return: the list of processes to stop before removal
+        """
+        self.logger.trace('SupervisordSource.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
+        section = 'program:%s' % program_name
+        # update parser of ServerOptions
+        server_options = self.supervisord.supvisors.server_options
+        server_options.update_numprocs(program_name, numprocs)
+        self.logger.info('SupervisordSource.update_numprocs: parser updated')
+        # re-evaluate for all groups including the program
+        nb_programs, groups = server_options.process_groups[program_name]
+        self.logger.debug('SupervisordSource.update_numprocs: nb_programs={} groups={}'.format(nb_programs, groups))
+        for group_name in groups:
+            group = self.supervisord.process_groups[group_name]
+            # TODO: update ProcessGroupConfig ?
+            if nb_programs > numprocs:
+                # TODO: remove processes
+                self.logger.info('SupervisordSource.update_numprocs: remove {} programs'
+                                 .format(nb_programs - numprocs))
+            elif nb_programs < numprocs:
+                # get new process configs
+                process_configs = server_options.reload_processes_from_section(section, group_name)
+                new_configs = process_configs[nb_programs:]
+                # add new process configs to group
+                group.config.process_configs.extend(new_configs)
+                # create processes from new process configs
+                for process_config in new_configs:
+                    self.logger.info('SupervisordSource.update_numprocs: add program={}'.format(process_config.name))
+                    # prepare extra args
+                    process_config.command_ref = process_config.command
+                    process_config.extra_args = ''
+                    # prepare log files
+                    process_config.create_autochildlogs()
+                    # add the new process to the group
+                    group.processes[process_config.name] = process_config.make_process(group)
+            # else equal / no change
+
     def force_process_fatal(self, namespec: str, reason: str) -> None:
-        """ This method forces the FATAL process state into Supervisor internal data and dispatches
-        process event to event listeners. """
+        """ This method forces the FATAL process state into Supervisor internal data and dispatches process event
+        to event listeners. """
         process = self._get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
@@ -173,7 +216,8 @@ class SupervisordSource(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.logger.warn('Server running without any HTTP authentication checking')
+            self.logger.warn('SupervisordSource.replace_default_handler: Server running without any HTTP'
+                             ' authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()
         self.httpserver.install_handler(defaulthandler, True)

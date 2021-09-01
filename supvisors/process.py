@@ -120,7 +120,7 @@ class ProcessRules(object):
         error = True
         _, process_name = split_namespec(namespec)
         try:
-            procnumber = self.supvisors.options.procnumbers[process_name]
+            procnumber = self.supvisors.server_options.procnumbers[process_name]
         except KeyError:
             self.logger.error('ProcessRules.check_hash_nodes: cannot apply "#" to unknown program={}'
                               .format(namespec))

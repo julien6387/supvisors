@@ -27,6 +27,7 @@ from supervisor.options import make_namespec, split_namespec
 from supervisor.xmlrpc import Faults, RPCError
 
 from .application import ApplicationStatus
+from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
                      EnumClassType, EnumType)
@@ -103,14 +104,14 @@ class RPCInterface(object):
 
         *@param* ``str node_name``: the node where the Supervisor daemon is running.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_ADDRESS`` if node is unknown to **Supvisors**.
+        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if node is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
             status = self.supvisors.context.nodes[node_name]
         except KeyError:
-            raise RPCError(Faults.BAD_ADDRESS, 'node {} unknown to Supvisors'.format(node_name))
+            raise RPCError(Faults.INCORRECT_PARAMETERS, 'node {} unknown to Supvisors'.format(node_name))
         return status.serial()
 
     def get_all_applications_info(self):
@@ -258,7 +259,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
             * with code ``Faults.ALREADY_STARTED`` if application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
             * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
@@ -348,7 +349,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
             * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
 
@@ -441,7 +442,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
             * with code ``Faults.ALREADY_STARTED`` if process is in a running state,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
@@ -540,7 +541,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**,
+            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
 
@@ -570,6 +571,60 @@ class RPCInterface(object):
         onwait.job = self.stop_process(namespec, True)
         return onwait  # deferred
 
+    def update_numprocs(self, program_name: str, numprocs: int):
+        """ Update dynamically the numprocs of the program.
+
+        :param program_name: the program name, as found in the sections of the Supervisor configuration files
+        :param numprocs: the new numprocs value
+        :return:
+        """
+        self._check_operating()
+        # test that program_name is known to the ServerOptions
+        if program_name not in self.supvisors.server_options.process_groups:
+            raise RPCError(Faults.BAD_NAME, 'program {} unknown to Supvisors'.format(program_name))
+        # test that numprocs is strictly positive
+        try:
+            value = int(numprocs)
+            assert value > 0
+        except (ValueError, AssertionError):
+            raise RPCError(Faults.INCORRECT_PARAMETERS,
+                           'incorrect value for numprocs: {} (integer > 0 expected)'.format(numprocs))
+        try:
+            del_namespecs = self.supvisors.info_source.update_numprocs(program_name, value)
+        except ValueError as exc:
+            raise RPCError(Faults.SUPVISORS_CONF_ERROR, 'numprocs not applicable: {}'.format(exc))
+        # if the value is lower than the current one, processes must be stopped before they are deleted
+        if del_namespecs:
+            done = True
+            processes_to_stop = filter(ProcessStatus.running,
+                                       [self._get_application_process(del_namespec)[1]
+                                        for del_namespec in del_namespecs])
+            for process in processes_to_stop:
+                self.logger.info('RPCInterface.update_numprocs: stopping process {}'.format(process.namespec))
+                done &= self.supvisors.stopper.stop_process(process)
+            if done:
+                self.supvisors.info_source.delete_processes(del_namespecs)
+                # TODO supvisors
+                # prévenir de la suppression de processes (si pas déjà fait par Supervisor)
+            else:
+                # wait until processes are in STOPPED_STATES
+                def onwait():
+                    # check stopper
+                    if self.supvisors.stopper.in_progress():
+                        return NOT_DONE_YET
+                    for process in processes_to_stop:
+                        if process.running():
+                            raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec)
+                    # complete removal in Supervisor
+                    self.supvisors.info_source.delete_processes(del_namespecs)
+                    # TODO supvisors
+                    # prévenir de la suppression de processes (si pas déjà fait par Supervisor)
+                    return True
+
+                onwait.delay = 0.5
+                return onwait  # deferred
+        return True
+
     def conciliate(self, strategy: EnumParameterType) -> bool:
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
         with an ``USER`` conciliation strategy (using other strategies would trigger an automatic behavior that wouldn't
@@ -580,7 +635,7 @@ class RPCInterface(object):
         *@throws* ``RPCError``:
 
             * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
-            * with code ``Faults.BAD_STRATEGY`` if strategy is unknown to **Supvisors**.
+            * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**.
 
         *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
         """
@@ -622,7 +677,7 @@ class RPCInterface(object):
 
         *@param* ``LevelsByName level``: the new logger level, as a string or as a value.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_LEVEL`` if level is unknown to **Supervisor**.
+        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if level is unknown to **Supervisor**.
 
         *@return* ``bool``: always ``True`` unless error.
         """
@@ -654,7 +709,7 @@ class RPCInterface(object):
             try:
                 return enum_klass(strategy)
             except ValueError:
-                raise RPCError(Faults.BAD_STRATEGY, '{}'.format(strategy))
+                raise RPCError(Faults.INCORRECT_PARAMETERS, 'incorrect strategy: {}'.format(strategy))
 
     @staticmethod
     def _get_logger_levels() -> Dict[LevelsByName, str]:
@@ -670,7 +725,7 @@ class RPCInterface(object):
                 return level
         # check by value
         if RPCInterface._get_logger_levels().get(level_param) is None:
-            raise RPCError(Faults.BAD_LEVEL, '{}'.format(level_param))
+            raise RPCError(Faults.INCORRECT_PARAMETERS, '{}'.format(level_param))
         return level_param
 
     def _check_from_deployment(self):

@@ -37,7 +37,7 @@ from .viewsupvisors import SupvisorsView
 
 # Supvisors related faults
 class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE, BAD_ADDRESS, BAD_STRATEGY, BAD_LEVEL, BAD_EXTRA_ARGUMENTS = range(6)
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE = range(2)
 
 
 FAULTS_OFFSET = 100

@@ -19,18 +19,19 @@
 
 from collections import OrderedDict
 from socket import gethostname
+from typing import Dict, List, Set, Tuple
 
 from supervisor.datatypes import (Automatic, logfile_name,
                                   boolean, integer, byte_size,
                                   logging_level,
                                   existing_dirpath,
                                   list_of_strings)
-from supervisor.options import ServerOptions
+from supervisor.loggers import Logger
+from supervisor.options import ServerOptions, ProcessConfig
 
 from .ttypes import ConciliationStrategies, StartingStrategies
 
 
-# Options of main section
 class SupvisorsOptions(object):
     """ Holder of the Supvisors options.
 
@@ -51,8 +52,7 @@ class SupvisorsOptions(object):
         - logfile: absolute or relative path of the Supvisors log file,
         - logfile_maxbytes: maximum size of the Supvisors log file,
         - logfile_backups: number of Supvisors backup log files,
-        - loglevel: logging level,
-        - procnumbers: a dictionary giving the number of the program in a homogeneous program group.
+        - loglevel: logging level.
     """
 
     SYNCHRO_TIMEOUT_MIN = 15
@@ -61,7 +61,6 @@ class SupvisorsOptions(object):
     def __init__(self, **config):
         """ Initialization of the attributes.
 
-        :param procnumbers: the num program numbers
         :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
         """
         # get values from config
@@ -87,21 +86,18 @@ class SupvisorsOptions(object):
         self.logfile_maxbytes = byte_size(config.get('logfile_maxbytes', '50MB'))
         self.logfile_backups = integer(config.get('logfile_backups', 10))
         self.loglevel = logging_level(config.get('loglevel', 'info'))
-        # attribute got from SupvisorsServerOptions
-        self.procnumbers = {}
 
     def __str__(self):
         """ Contents as string. """
         return "address_list={} rules_file={} internal_port={} event_port={} auto_fence={}"\
                " synchro_timeout={} force_synchro_if={} conciliation_strategy={}"\
                " starting_strategy={} stats_periods={} stats_histo={} stats_irix_mode={}"\
-               " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={} procnumbers={}"\
+               " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}"\
                .format(self.address_list, self.rules_file, self.internal_port, self.event_port, self.auto_fence,
                        self.synchro_timeout, self.force_synchro_if,
                        self.conciliation_strategy.name, self.starting_strategy.name,
                        self.stats_periods, self.stats_histo, self.stats_irix_mode,
-                       self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel,
-                       self.procnumbers)
+                       self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel)
 
     # conversion utils (completion of supervisor.datatypes)
     @staticmethod
@@ -182,21 +178,68 @@ class SupvisorsOptions(object):
 class SupvisorsServerOptions(ServerOptions):
     """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file. """
 
-    def __init__(self):
+    # annotation types
+    GroupSet = Set[str]
+    ProcessConfigInfo = Tuple[int, GroupSet]
+    ProcessGroupInfo = Dict[str, ProcessConfigInfo]
+
+    def __init__(self, logger: Logger):
         """ Initialization of the attributes. """
         ServerOptions.__init__(self)
-        self.procnumbers = {}
+        # keep a reference to the logger
+        self.logger: Logger = logger
+        # attributes
+        self.parser = None
+        self.process_groups: SupvisorsServerOptions.ProcessGroupInfo = {}
+        self.procnumbers: Dict[str, int] = {}
 
-    def _processes_from_section(self, parser, section, group_name, klass=None):
+    def realize(self, *arg, **kw):
+        ServerOptions.realize(self, *arg, **kw)
+
+    def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
         """ This method is overridden to: store the program number of a homogeneous program.
 
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
+
+        :param parser: the config parser
+        :param section: the program section
+        :param group_name: the group that embeds the program definition
+        :param klass: the ProcessConfig class
+        :return: the list of ProcessConfig
         """
+        # keep a reference to the parser, so that it is not garbage-collected
+        # it will be needed to re-evaluate procnums
+        self.parser = parser
         # call super behaviour
         programs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
         # store the number of each program
         for idx, program in enumerate(programs):
             self.procnumbers[program.name] = idx
         # return original result
+        program_name = section.split(':', 1)[1]
+        if program_name in self.process_groups:
+            self.process_groups[program_name][1].add(group_name)
+        else:
+            self.process_groups[program_name] = len(programs), {group_name}
         return programs
+
+    def update_numprocs(self, program_name: str, numprocs: int) -> None:
+        """ This method updates the numprocs value directly in the configuration parser.
+
+        :param program_name: the program name, as found in the sections of the Supervisor configuration files
+        :param numprocs: the new numprocs value
+        :return: None
+        """
+        section = 'program:%s' % program_name
+        self.logger.info('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
+        self.parser[section]['numprocs'] = '%d' % numprocs
+
+    def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:
+        """ This method rebuilds the ProcessConfig instances for the program.
+
+        :param section: the program section in the configuration files
+        :param group_name: the group that embeds the program definition
+        :return: the list of ProcessConfig
+        """
+        return self.processes_from_section(self.parser, section, group_name)
