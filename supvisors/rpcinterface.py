@@ -596,9 +596,11 @@ class RPCInterface(object):
         # if the value is lower than the current one, processes must be stopped before they are deleted
         if del_namespecs:
             done = True
+            self.logger.info('RPCInterface.update_numprocs: del_namespecs={}'.format(del_namespecs))
             processes_to_stop = filter(ProcessStatus.running,
                                        [self._get_application_process(del_namespec)[1]
                                         for del_namespec in del_namespecs])
+            self.logger.info('RPCInterface.update_numprocs: processes_to_stop={}'.format(processes_to_stop))
             for process in processes_to_stop:
                 self.logger.info('RPCInterface.update_numprocs: stopping process {}'.format(process.namespec))
                 done &= self.supvisors.stopper.stop_process(process)

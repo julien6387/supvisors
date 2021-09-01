@@ -24,7 +24,7 @@ from typing import Dict
 from supervisor.http import supervisor_auth_handler
 from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
-from supervisor.options import split_namespec
+from supervisor.options import make_namespec, split_namespec
 from supervisor.states import ProcessStates
 
 from .ttypes import NameList
@@ -160,28 +160,33 @@ class SupervisordSource(object):
         :param numprocs: the new numprocs value
         :return: the list of processes to stop before removal
         """
+        obsolete_namespecs = []
         self.logger.trace('SupervisordSource.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
         section = 'program:%s' % program_name
-        # update parser of ServerOptions
-        server_options = self.supervisord.supvisors.server_options
-        server_options.update_numprocs(program_name, numprocs)
-        self.logger.info('SupervisordSource.update_numprocs: parser updated')
         # re-evaluate for all groups including the program
+        server_options = self.supervisord.supvisors.server_options
         nb_programs, groups = server_options.process_groups[program_name]
-        self.logger.debug('SupervisordSource.update_numprocs: nb_programs={} groups={}'.format(nb_programs, groups))
+        self.logger.info('SupervisordSource.update_numprocs: nb_programs={} groups={}'.format(nb_programs, groups))
         for group_name in groups:
-            group = self.supervisord.process_groups[group_name]
-            # TODO: update ProcessGroupConfig ?
+            # get new process configs
             if nb_programs > numprocs:
-                # TODO: remove processes
-                self.logger.info('SupervisordSource.update_numprocs: remove {} programs'
-                                 .format(nb_programs - numprocs))
-            elif nb_programs < numprocs:
-                # get new process configs
+                # TODO: may be easier than that. get programs from server_options.process_groups ?
                 process_configs = server_options.reload_processes_from_section(section, group_name)
-                # FIXME server_options.pidhistory vs supervisord.options.pidhistory ?
+                # get obsolete process configs
+                old_configs = process_configs[numprocs:]
+                print(len(old_configs))
+                # do not remove process configs yet as they may need to be stopped before
+                obsolete_namespecs.extend([make_namespec(group_name, process_config.name)
+                                           for process_config in old_configs])
+            elif nb_programs < numprocs:
+                # update parser of ServerOptions
+                server_options.update_numprocs(program_name, numprocs)
+                self.logger.debug('SupervisordSource.update_numprocs: parser updated')
+                # get added process configs
+                process_configs = server_options.reload_processes_from_section(section, group_name)
                 new_configs = process_configs[nb_programs:]
                 # add new process configs to group
+                group = self.supervisord.process_groups[group_name]
                 group.config.process_configs.extend(new_configs)
                 # create processes from new process configs
                 for process_config in new_configs:
@@ -197,6 +202,21 @@ class SupervisordSource(object):
                     # add the new process to the group
                     group.processes[process_config.name] = process_config.make_process(group)
             # else equal / no change
+        # return the processes to stop
+        return obsolete_namespecs
+
+    def delete_processes(self, namespecs):
+        """ Remove processes from the internal Supervisor structure.
+        This is consecutive to update_numprocs in the event where the new numprocs is lower than the existing one.
+
+        :param namespecs: the namespecs to delete
+        :return: None
+        """
+        for namespec in namespecs:
+            group_name, process_name = split_namespec(namespec)
+            group = self.supervisord.process_groups[group_name]
+            # group.processes[process_name].transition()
+            del group.processes[process_name]
 
     def force_process_fatal(self, namespec: str, reason: str) -> None:
         """ This method forces the FATAL process state into Supervisor internal data and dispatches process event
