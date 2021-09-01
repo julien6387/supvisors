@@ -179,12 +179,16 @@ class SupervisordSource(object):
             elif nb_programs < numprocs:
                 # get new process configs
                 process_configs = server_options.reload_processes_from_section(section, group_name)
+                # FIXME server_options.pidhistory vs supervisord.options.pidhistory ?
                 new_configs = process_configs[nb_programs:]
                 # add new process configs to group
                 group.config.process_configs.extend(new_configs)
                 # create processes from new process configs
                 for process_config in new_configs:
                     self.logger.info('SupervisordSource.update_numprocs: add program={}'.format(process_config.name))
+                    # WARN: replace process_config Supvisors server_options by Supervisor options
+                    # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
+                    process_config.options = self.supervisord.options
                     # prepare extra args
                     process_config.command_ref = process_config.command
                     process_config.extra_args = ''
