@@ -19,7 +19,7 @@
 
 from collections import OrderedDict
 from socket import gethostname
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Tuple
 
 from supervisor.datatypes import (Automatic, logfile_name,
                                   boolean, integer, byte_size,
@@ -29,7 +29,7 @@ from supervisor.datatypes import (Automatic, logfile_name,
 from supervisor.loggers import Logger
 from supervisor.options import ServerOptions, ProcessConfig
 
-from .ttypes import ConciliationStrategies, StartingStrategies
+from .ttypes import ConciliationStrategies, StartingStrategies, NameSet
 
 
 class SupvisorsOptions(object):
@@ -179,8 +179,8 @@ class SupvisorsServerOptions(ServerOptions):
     """ Class used to parse the options of the 'supvisors' section in the supervisor configuration file. """
 
     # annotation types
-    GroupSet = Set[str]
-    ProcessConfigInfo = Tuple[int, GroupSet]
+    ProcessConfigList = List[ProcessConfig]
+    ProcessConfigInfo = Dict[str, ProcessConfigList]
     ProcessGroupInfo = Dict[str, ProcessConfigInfo]
 
     def __init__(self, logger: Logger):
@@ -212,28 +212,28 @@ class SupvisorsServerOptions(ServerOptions):
         # it will be needed to re-evaluate procnums
         self.parser = parser
         # call super behaviour
-        programs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
+        process_configs = ServerOptions._processes_from_section(self, parser, section, group_name, klass)
         # store the number of each program
-        for idx, program in enumerate(programs):
+        for idx, program in enumerate(process_configs):
             self.procnumbers[program.name] = idx
-        # return original result
+        # store process configurations and groups
         program_name = section.split(':', 1)[1]
-        if program_name in self.process_groups:
-            self.process_groups[program_name][1].add(group_name)
-        else:
-            self.process_groups[program_name] = len(programs), {group_name}
-        return programs
+        process_group = self.process_groups.setdefault(program_name, {})
+        process_group[group_name] = process_configs
+        # return original result
+        return process_configs
 
-    def update_numprocs(self, program_name: str, numprocs: int) -> None:
+    def update_numprocs(self, program_name: str, numprocs: int) -> str:
         """ This method updates the numprocs value directly in the configuration parser.
 
         :param program_name: the program name, as found in the sections of the Supervisor configuration files
         :param numprocs: the new numprocs value
-        :return: None
+        :return: The section updated
         """
         section = 'program:%s' % program_name
         self.logger.info('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
         self.parser[section]['numprocs'] = '%d' % numprocs
+        return section
 
     def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:
         """ This method rebuilds the ProcessConfig instances for the program.

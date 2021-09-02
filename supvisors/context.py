@@ -314,11 +314,47 @@ class Context(object):
         #  return all processes that declare a failure
         return process_failures
 
-    def on_process_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
+    def on_remove_process_event(self, node_name: str, event: Payload) -> None:
+        """
+
+        :param node_name: the node that sent the event
+        :param event: the event payload
+        :return: None
+        """
+        if self.supvisors.address_mapper.valid(node_name):
+            status = self.nodes[node_name]
+            # accept events only in RUNNING state
+            if status.state == AddressStates.RUNNING:
+                self.logger.debug('Context.on_remove_process_event: got event {} from node={}'.format(event, node_name))
+                # get internal data
+                application = self.applications[event['group']]
+                process = application.processes[event['name']]
+                # TODO: remove or empty the process ?
+                process.invalidate_node(node_name)  # theoretically useless as should be stopped before removed
+                del process.info_map[node_name]
+                # TODO: remove the process if info_map empty ?
+                #  no, same logic as on_timer_event
+                # TODO: process_failures to manage ?
+                #  no this is a user stop
+                # refresh application status
+                application.update_status()
+                # publish process event, status and application status
+                publisher = self.supvisors.zmq.publisher
+                # TODO: is it relevant to send process event / status ?
+                #  how to inform using Supvisors event interface ?
+                publisher.send_process_event(node_name, event)
+                publisher.send_process_status(process.serial())
+                publisher.send_application_status(application.serial())
+
+    def on_process_state_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method updates the ProcessStatus corresponding to the event, and thus the wrapping ApplicationStatus.
         Finally, the updated ProcessStatus and ApplicationStatus are published.
+
+        :param node_name: the node that sent the event
+        :param event: the event payload
+        :return: None
         """
         if self.supvisors.address_mapper.valid(node_name):
             status = self.nodes[node_name]
@@ -331,9 +367,10 @@ class Context(object):
                     process = application.processes[event['name']]
                 except KeyError:
                     # unknown process from remote node. re-sync needed
-                    # may be due to supervisor reread or supvisors update_numprocs
-                    self.check_node(status)
-                    self.supvisors.zmq.publisher.send_address_status(status.serial())
+                    # may be due to supervisor reread (TBC) or supvisors update_numprocs
+                    # self.check_node(status)
+                    # self.supvisors.zmq.publisher.send_address_status(status.serial())
+                    self.logger.critical('Context.on_process_event: should not happen anymore for update_numprocs')
                 else:
                     # refresh process info depending on the nature of the process event
                     if 'forced' in event:

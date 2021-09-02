@@ -19,13 +19,13 @@
 
 import os
 
-from enum import Enum
-
+from supervisor.events import register
 from supervisor.options import ServerOptions
+from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
-from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
+from .ttypes import ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .rpcinterface import RPCInterface
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
@@ -35,22 +35,22 @@ from .viewprocaddress import ProcAddressView
 from .viewsupvisors import SupvisorsView
 
 
-# Supvisors related faults
-class SupvisorsFaults(Enum):
-    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE = range(2)
+def add_process_events() -> None:
+    """ Register new events in Supervisor EventTypes.
+    The new events are in support of Supervisor issue #177.
+
+    :return: None
+    """
+    register('PROCESS', ProcessEvent)  # abstract
+    register('PROCESS_ADDED', ProcessAddedEvent)
+    register('PROCESS_REMOVED', ProcessRemovedEvent)
 
 
-FAULTS_OFFSET = 100
+def update_views() -> None:
+    """ Trick to replace Supervisor Web UI.
 
-
-def expand_faults():
-    """ Expand supervisord Fault definition. """
-    for x in SupvisorsFaults:
-        setattr(Faults, x.name, x.value + FAULTS_OFFSET)
-
-
-def update_views():
-    """ Trick to replace Supervisor main page. """
+    :return:
+    """
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
     # set main page
@@ -69,18 +69,26 @@ def update_views():
     VIEWS['address_io.png'] = {'template': None, 'view': AddressNetworkImageView}
 
 
-def cleanup_fds(self):
+def cleanup_fds(self) -> None:
     """ This is a patch of the Supervisor cleanup_fds in ServerOptions.
     The default version is a bit raw and closes all file descriptors of the process, including the PyZmq ones,
     which leads to a low-level crash in select/poll.
     So, given that the issue has never been met with Supvisors and waiting for a better solution in Supervisor
-    (a TODO exists in source code), the clean-up is disabled in Supvisors. """
+    (a TODO exists in source code), the clean-up is disabled in Supvisors.
+
+    :return:
+    """
 
 
-def make_supvisors_rpcinterface(supervisord, **config) -> RPCInterface:
-    """ Supervisor entry point. """
-    # update Supervisor Fault definition
-    expand_faults()
+def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterface:
+    """ Supervisor entry point for Supvisors plugin.
+
+    :param supervisord: the global Supervisor structure
+    :param config: the config attributes read from the Supvisors section
+    :return: the Supvisors XML-RPC interface
+    """
+    # add new events to Supervisor EventTypes
+    add_process_events()
     # update Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds

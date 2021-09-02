@@ -703,7 +703,6 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to dynamically update the numprocs of the program. """
         if self._upcheck():
             args = arg.split()
-            print(args)
             if len(args) < 2:
                 self.ctl.output('ERROR: update_numprocs requires a program name and a numprocs values')
                 self.help_update_numprocs()
@@ -821,9 +820,9 @@ class ControllerPlugin(ControllerPluginBase):
         except xmlrpclib.Fault as e:
             if e.faultCode == xmlrpc.Faults.UNKNOWN_METHOD:
                 self.ctl.output('ERROR: supervisord responded but did not recognize '
-                                'the supvisors namespace commands that supvisorsctl uses to control it. '
-                                'Please check that the [rpcinterface:supervisor] section is enabled '
-                                'in the configuration file (see sample.conf).')
+                                'the supvisors namespace commands that supervisorstl uses to control it. '
+                                'Please check that the [rpcinterface:supvisors] section is enabled '
+                                'in the configuration file.')
                 return False
             raise
         except socket.error as why:

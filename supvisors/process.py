@@ -420,7 +420,7 @@ class ProcessStatus(object):
         info = self.info_map[node_name] = payload
         info['local_time'] = self.last_event_time
         self.update_uptime(info)
-        # TODO: reset extra_args. why ?
+        # TODO: why reset extra_args ?
         info['extra_args'] = ''
         self.extra_args = ''
         self.logger.trace('ProcessStatus.add_info: namespec={} - payload={} added to node_name={}'

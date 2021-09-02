@@ -22,6 +22,7 @@ The main features are:
 
 **Supvisors** proposes a contribution to the following Supervisor issues:
    * [#122 - supervisord Starts All Processes at the Same Time](https://github.com/Supervisor/supervisor/issues/122)
+   * [#177 - Dynamic numproc change](https://github.com/Supervisor/supervisor/issues/177)
    * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
    * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
    * [#723 - Restart waits for all processes to stop before starting any](https://github.com/Supervisor/supervisor/issues/723)

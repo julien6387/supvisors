@@ -18,7 +18,9 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List, Set, TypeVar
+
+from supervisor.events import Event
 
 
 # all enumerations
@@ -69,9 +71,39 @@ class InvalidTransition(Exception):
         return self.value
 
 
+# Supvisors related faults
+FAULTS_OFFSET = 100
+
+
+class SupvisorsFaults(Enum):
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE = range(FAULTS_OFFSET, FAULTS_OFFSET + 2)
+
+
+# Additional events
+class ProcessEvent(Event):
+
+    def __init__(self, process):
+        self.process = process
+
+    def payload(self):
+        groupname = ''
+        if self.process.group:
+            groupname = self.process.group.config.name
+        return 'processname:{} groupname:{} '.format(self.process.config.name, groupname)
+
+
+class ProcessAddedEvent(ProcessEvent):
+    pass
+
+
+class ProcessRemovedEvent(ProcessEvent):
+    pass
+
+
 # Types for annotations
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
+NameSet = Set[str]

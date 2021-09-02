@@ -24,7 +24,7 @@ from time import gmtime, localtime, strftime, time
 
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
-    TICK, PROCESS, STATISTICS, STATE = range(4)
+    TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, STATISTICS, STATE = range(6)
 
 
 class RemoteCommEvents:

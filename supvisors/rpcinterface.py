@@ -30,7 +30,7 @@ from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
-                     EnumClassType, EnumType)
+                     SupvisorsFaults, EnumClassType, EnumType)
 from .utils import extract_process_info
 
 
@@ -117,7 +117,7 @@ class RPCInterface(object):
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
         ``INITIALIZATION`` state.
 
         *@return* ``list(dict)``: a list of structures containing data about all applications.
@@ -133,7 +133,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the application.
@@ -148,7 +148,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
@@ -161,7 +161,7 @@ class RPCInterface(object):
     def get_all_process_info(self):
         """ Get synthetic information about all processes.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
         ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
@@ -180,7 +180,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
@@ -224,7 +224,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in ``INITIALIZATION`` state,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
 
         *@return* ``list(dict)``: a list of structures containing the rules.
@@ -238,7 +238,7 @@ class RPCInterface(object):
     def get_conflicts(self):
         """ Get the conflicting processes among the managed applications.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
         ``INITIALIZATION`` state,
 
         *@return* ``list(dict)``: a list of structures containing data about the conflicting processes.
@@ -258,7 +258,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
             * with code ``Faults.ALREADY_STARTED`` if application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
@@ -304,7 +304,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
               or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
@@ -348,7 +348,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
             * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
@@ -441,7 +441,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
             * with code ``Faults.ALREADY_STARTED`` if process is in a running state,
@@ -490,7 +490,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``
               or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**.
             * with code ``Faults.NOT_RUNNING`` if process is in a stopped state,
@@ -540,7 +540,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
             * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
@@ -574,9 +574,18 @@ class RPCInterface(object):
     def update_numprocs(self, program_name: str, numprocs: int):
         """ Update dynamically the numprocs of the program.
 
-        :param program_name: the program name, as found in the sections of the Supervisor configuration files
-        :param numprocs: the new numprocs value
-        :return:
+        *@param* ``str program_name``: the program name, as found in the section of the Supervisor configuration files.
+
+        *@param* ``int numprocs``: the new numprocs value.
+
+        *@throws* ``RPCError``:
+
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
+            * with code ``Faults.BAD_NAME`` if program_name is unknown to **Supvisors**,
+            * with code ``Faults.INCORRECT_PARAMETERS`` if numprocs is not a strictly positive integer,
+            * with code ``SupvisorsFaults.SUPVISORS_CONF_ERROR`` if the program configuration does not support numprocs.
+
+        *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
         # test that program_name is known to the ServerOptions
@@ -592,40 +601,39 @@ class RPCInterface(object):
         try:
             del_namespecs = self.supvisors.info_source.update_numprocs(program_name, value)
         except ValueError as exc:
-            raise RPCError(Faults.SUPVISORS_CONF_ERROR, 'numprocs not applicable: {}'.format(exc))
+            raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, 'numprocs not applicable: {}'.format(exc))
+        except Exception as exc2:
+            print(exc2)
+        # if the value is greater than the current one, the job is done
+        if not del_namespecs:
+            return True
         # if the value is lower than the current one, processes must be stopped before they are deleted
-        if del_namespecs:
-            done = True
-            self.logger.info('RPCInterface.update_numprocs: del_namespecs={}'.format(del_namespecs))
-            processes_to_stop = filter(ProcessStatus.running,
-                                       [self._get_application_process(del_namespec)[1]
-                                        for del_namespec in del_namespecs])
-            self.logger.info('RPCInterface.update_numprocs: processes_to_stop={}'.format(processes_to_stop))
-            for process in processes_to_stop:
-                self.logger.info('RPCInterface.update_numprocs: stopping process {}'.format(process.namespec))
-                done &= self.supvisors.stopper.stop_process(process)
-            if done:
-                self.supvisors.info_source.delete_processes(del_namespecs)
-                # TODO supvisors
-                # prévenir de la suppression de processes (si pas déjà fait par Supervisor)
-            else:
-                # wait until processes are in STOPPED_STATES
-                def onwait():
-                    # check stopper
-                    if self.supvisors.stopper.in_progress():
-                        return NOT_DONE_YET
-                    for process in processes_to_stop:
-                        if process.running():
-                            raise RPCError(Faults.ABNORMAL_TERMINATION, process.namespec)
-                    # complete removal in Supervisor
-                    self.supvisors.info_source.delete_processes(del_namespecs)
-                    # TODO supvisors
-                    # prévenir de la suppression de processes (si pas déjà fait par Supervisor)
-                    return True
+        done = True
+        self.logger.info('RPCInterface.update_numprocs: obsolete processes={}'.format(del_namespecs))
+        processes_to_stop = list(filter(ProcessStatus.running,
+                                        [self._get_application_process(del_namespec)[1]
+                                         for del_namespec in del_namespecs]))
+        for process in processes_to_stop:
+            self.logger.info('RPCInterface.update_numprocs: stopping process {}'.format(process.namespec))
+            done &= self.supvisors.stopper.stop_process(process)
+        if done:
+            self.supvisors.info_source.delete_processes(del_namespecs)
+            return True
 
-                onwait.delay = 0.5
-                return onwait  # deferred
-        return True
+        # wait until processes are in STOPPED_STATES
+        def onwait():
+            # check stopper
+            if self.supvisors.stopper.in_progress():
+                return NOT_DONE_YET
+            for proc in processes_to_stop:
+                if proc.running():
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec)
+            # complete removal in Supervisor
+            self.supvisors.info_source.delete_processes(del_namespecs)
+            return True
+
+        onwait.delay = 0.5
+        return onwait  # deferred
 
     def conciliate(self, strategy: EnumParameterType) -> bool:
         """ Apply the conciliation strategy only if **Supvisors** is in ``CONCILIATION`` state,
@@ -636,7 +644,7 @@ class RPCInterface(object):
 
         *@throws* ``RPCError``:
 
-            * with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
+            * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``CONCILIATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**.
 
         *@return* ``bool``: ``True`` if conciliation is triggered, ``False`` when the conciliation strategy is ``USER``.
@@ -652,7 +660,7 @@ class RPCInterface(object):
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
         ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
@@ -664,7 +672,7 @@ class RPCInterface(object):
     def shutdown(self) -> bool:
         """ Stops all applications and shut down **Supvisors** through all Supervisor daemons.
 
-        *@throws* ``RPCError``: with code ``Faults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is still in
         ``INITIALIZATION`` state.
 
         *@return* ``bool``: always ``True`` unless error.
@@ -731,27 +739,28 @@ class RPCInterface(object):
         return level_param
 
     def _check_from_deployment(self):
-        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
         self._check_state([SupvisorsStates.DEPLOYMENT,
                            SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
                            SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
 
     def _check_operating_conciliation(self):
-        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION or CONCILIATION. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION or
+        CONCILIATION. """
         self._check_state([SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION])
 
     def _check_operating(self):
-        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.OPERATION])
 
     def _check_conciliation(self):
-        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.CONCILIATION])
 
     def _check_state(self, states):
-        """ Raises a BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
+        """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
         if self.supvisors.fsm.state not in states:
-            raise RPCError(Faults.BAD_SUPVISORS_STATE,
+            raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE.value,
                            'Supvisors (state={}) not in state {} to perform request'
                            .format(self.supvisors.fsm.state.name, [state.name for state in states]))
 
