@@ -23,17 +23,10 @@ from unittest.mock import call, Mock
 
 from supervisor.loggers import LOG_LEVELS_BY_NUM
 
-from supvisors.plugin import expand_faults
 from supvisors.rpcinterface import *
 from supvisors.ttypes import ApplicationStates, ConciliationStrategies, SupvisorsStates
 
 from .conftest import create_application
-
-
-@pytest.fixture(autouse=True)
-def faults():
-    """ Add fault codes to Supervisor. """
-    expand_faults()
 
 
 @pytest.fixture
