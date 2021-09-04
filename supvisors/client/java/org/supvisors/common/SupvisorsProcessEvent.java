@@ -49,6 +49,9 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The extra arguments passed to the command line. */
     private String extra_args;
 
+    /** A status telling if the process has exited expectantly. */
+    private Boolean deleted;
+
     /**
      * This constructor gets all information from an HashMap.
      *

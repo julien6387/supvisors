@@ -106,4 +106,3 @@ EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
-NameSet = Set[str]

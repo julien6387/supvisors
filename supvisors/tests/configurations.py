@@ -35,6 +35,9 @@ port=:60000
 
 [supervisord]
 
+[group:dummy_group]
+programs=dummy,dummies
+
 [program:dummy]
 command=ls
 

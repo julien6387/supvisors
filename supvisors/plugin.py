@@ -19,13 +19,11 @@
 
 import os
 
-from supervisor.events import register
 from supervisor.options import ServerOptions
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
 
 from .initializer import Supvisors
-from .ttypes import ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .rpcinterface import RPCInterface
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
@@ -33,17 +31,6 @@ from .viewhostaddress import HostAddressView
 from .viewimage import *
 from .viewprocaddress import ProcAddressView
 from .viewsupvisors import SupvisorsView
-
-
-def add_process_events() -> None:
-    """ Register new events in Supervisor EventTypes.
-    The new events are in support of Supervisor issue #177.
-
-    :return: None
-    """
-    register('PROCESS', ProcessEvent)  # abstract
-    register('PROCESS_ADDED', ProcessAddedEvent)
-    register('PROCESS_REMOVED', ProcessRemovedEvent)
 
 
 def update_views() -> None:
@@ -87,8 +74,6 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
-    # add new events to Supervisor EventTypes
-    add_process_events()
     # update Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds

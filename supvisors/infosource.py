@@ -169,7 +169,7 @@ class SupervisordSource(object):
             return self._get_obsolete_processes(program_name, numprocs, program_configs)
         if current_numprocs < numprocs:
             # add the new processes into Supervisor
-            self._add_processes(program_name, numprocs, current_numprocs, program_configs.keys())
+            self._add_processes(program_name, numprocs, current_numprocs, list(program_configs.keys()))
         # else equal / no change
 
     def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> None:

@@ -25,9 +25,6 @@ from time import sleep
 from unittest.mock import call, Mock
 
 
-# pytest.skip('DEBUG')
-
-
 def test_internal_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
     # create publisher and subscriber
@@ -144,16 +141,40 @@ def test_tick_event(supvisors, internal_publisher, internal_subscriber):
     assert msg == (InternalEventHeaders.TICK.value, local_node_name, payload)
 
 
-def test_process_event(supvisors, internal_publisher, internal_subscriber):
-    """ Test the publication and subscription of the process events. """
+def test_process_state_event(supvisors, internal_publisher, internal_subscriber):
+    """ Test the publication and subscription of the process state events. """
     # get the local address
     local_node_name = supvisors.address_mapper.local_node_name
     # send a process event
     payload = {'name': 'dummy_program', 'state': 'running'}
-    internal_publisher.send_process_event(payload)
+    internal_publisher.send_process_state_event(payload)
     # check the reception of the process event
     msg = internal_subscriber_receive(internal_subscriber)
     assert msg == (InternalEventHeaders.PROCESS.value, local_node_name, payload)
+
+
+def test_process_added_event(supvisors, internal_publisher, internal_subscriber):
+    """ Test the publication and subscription of the process added events. """
+    # get the local address
+    local_node_name = supvisors.address_mapper.local_node_name
+    # send a process event
+    payload = {'name': 'dummy_program', 'state': 'running'}
+    internal_publisher.send_process_added_event(payload)
+    # check the reception of the process event
+    msg = internal_subscriber_receive(internal_subscriber)
+    assert msg == (InternalEventHeaders.PROCESS_ADDED.value, local_node_name, payload)
+
+
+def test_process_removed_event(supvisors, internal_publisher, internal_subscriber):
+    """ Test the publication and subscription of the process removed events. """
+    # get the local address
+    local_node_name = supvisors.address_mapper.local_node_name
+    # send a process event
+    payload = {'name': 'dummy_program', 'state': 'running'}
+    internal_publisher.send_process_removed_event(payload)
+    # check the reception of the process event
+    msg = internal_subscriber_receive(internal_subscriber)
+    assert msg == (InternalEventHeaders.PROCESS_REMOVED.value, local_node_name, payload)
 
 
 def test_statistics(supvisors, internal_publisher, internal_subscriber):

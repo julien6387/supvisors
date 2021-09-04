@@ -19,61 +19,96 @@
 
 import pytest
 
+from unittest.mock import Mock
+
+from supvisors.ttypes import *
+
 
 def test_AddressStates():
     """ Test the AddressStates enumeration. """
-    from supvisors.ttypes import AddressStates
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
-    assert expected == AddressStates._member_names_
+    assert AddressStates._member_names_ == expected
+    assert list(AddressStates._value2member_map_.keys()) == list(range(6))
 
 
 def test_ApplicationStates():
     """ Test the ApplicationStates enumeration. """
-    from supvisors.ttypes import ApplicationStates
     expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING']
     assert expected == ApplicationStates._member_names_
+    assert list(ApplicationStates._value2member_map_.keys()) == list(range(4))
 
 
 def test_StartingStrategies():
     """ Test the StartingStrategies enumeration. """
-    from supvisors.ttypes import StartingStrategies
     expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL']
-    assert expected == StartingStrategies._member_names_
+    assert StartingStrategies._member_names_ == expected
+    assert list(StartingStrategies._value2member_map_.keys()) == list(range(4))
 
 
 def test_ConciliationStrategies():
     """ Test the ConciliationStrategies enumeration. """
-    from supvisors.ttypes import ConciliationStrategies
     expected = ['SENICIDE', 'INFANTICIDE', 'USER', 'STOP', 'RESTART', 'RUNNING_FAILURE']
-    assert expected == ConciliationStrategies._member_names_
+    assert ConciliationStrategies._member_names_ == expected
+    assert list(ConciliationStrategies._value2member_map_.keys()) == list(range(6))
 
 
 def test_StartingFailureStrategies():
     """ Test the StartingFailureStrategies enumeration. """
-    from supvisors.ttypes import StartingFailureStrategies
     expected = ['ABORT', 'STOP', 'CONTINUE']
-    assert expected == StartingFailureStrategies._member_names_
+    assert StartingFailureStrategies._member_names_ == expected
+    assert list(StartingFailureStrategies._value2member_map_.keys()) == list(range(3))
 
 
 def test_RunningFailureStrategies():
     """ Test the RunningFailureStrategies enumeration. """
-    from supvisors.ttypes import RunningFailureStrategies
     expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION']
-    assert expected == RunningFailureStrategies._member_names_
+    assert RunningFailureStrategies._member_names_ == expected
+    assert list(RunningFailureStrategies._value2member_map_.keys()) == list(range(4))
 
 
 def test_SupvisorsStates():
     """ Test the SupvisorsStates enumeration. """
-    from supvisors.ttypes import SupvisorsStates
     expected = ['INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
                 'SHUTTING_DOWN', 'SHUTDOWN']
-    assert expected == SupvisorsStates._member_names_
+    assert SupvisorsStates._member_names_ == expected
+    assert list(SupvisorsStates._value2member_map_.keys()) == list(range(7))
 
 
 def test_exception():
     """ Test the exception InvalidTransition. """
-    from supvisors.ttypes import InvalidTransition
     # test with unknown attributes
     with pytest.raises(InvalidTransition) as exc:
         raise InvalidTransition('invalid transition')
     assert 'invalid transition' == str(exc.value)
+
+
+def test_SupvisorsFaults():
+    """ Test the SupvisorsFaults enumeration. """
+    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE']
+    assert SupvisorsFaults._member_names_ == expected
+    assert list(SupvisorsFaults._value2member_map_.keys()) == list(range(100, 102))
+
+
+def test_process_event():
+    """ Test the ProcessEvent classes. """
+    # attribute called 'name' cannot be mocked at creation
+    process = Mock(config=Mock(), group=None)
+    process.config.name = 'dummy_process'
+    # test ProcessEvent creation
+    event = ProcessEvent(process)
+    assert isinstance(event, Event)
+    assert event.process is process
+    # test payload with no group
+    assert event.payload() == 'processname:dummy_process groupname: '
+    # test payload with no group
+    process.group = Mock(config=Mock())
+    process.group.config.name = 'dummy_group'
+    assert event.payload() == 'processname:dummy_process groupname:dummy_group '
+    # test ProcessAddedEvent creation
+    event = ProcessAddedEvent(process)
+    assert isinstance(event, ProcessEvent)
+    assert event.payload() == 'processname:dummy_process groupname:dummy_group '
+    # test ProcessRemovedEvent creation
+    event = ProcessRemovedEvent(process)
+    assert isinstance(event, ProcessEvent)
+    assert event.payload() == 'processname:dummy_process groupname:dummy_group '

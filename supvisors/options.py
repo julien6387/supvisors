@@ -29,7 +29,7 @@ from supervisor.datatypes import (Automatic, logfile_name,
 from supervisor.loggers import Logger
 from supervisor.options import ServerOptions, ProcessConfig
 
-from .ttypes import ConciliationStrategies, StartingStrategies, NameSet
+from .ttypes import ConciliationStrategies, StartingStrategies
 
 
 class SupvisorsOptions(object):
@@ -193,9 +193,6 @@ class SupvisorsServerOptions(ServerOptions):
         self.process_groups: SupvisorsServerOptions.ProcessGroupInfo = {}
         self.procnumbers: Dict[str, int] = {}
 
-    def realize(self, *arg, **kw):
-        ServerOptions.realize(self, *arg, **kw)
-
     def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
         """ This method is overridden to: store the program number of a homogeneous program.
 
@@ -242,4 +239,9 @@ class SupvisorsServerOptions(ServerOptions):
         :param group_name: the group that embeds the program definition
         :return: the list of ProcessConfig
         """
+        # reset corresponding store procnumbers
+        program_name = section.split(':')[1]
+        for process_list in self.process_groups[program_name].values():
+            for process in process_list:
+                self.procnumbers.pop(process.name, None)
         return self.processes_from_section(self.parser, section, group_name)

@@ -602,8 +602,6 @@ class RPCInterface(object):
             del_namespecs = self.supvisors.info_source.update_numprocs(program_name, value)
         except ValueError as exc:
             raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, 'numprocs not applicable: {}'.format(exc))
-        except Exception as exc2:
-            print(exc2)
         # if the value is greater than the current one, the job is done
         if not del_namespecs:
             return True

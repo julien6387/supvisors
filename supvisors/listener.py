@@ -31,11 +31,22 @@ from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
 from .supvisorszmq import SupervisorZmq, InternalEventPublisher
-from .ttypes import SupvisorsStates, ProcessAddedEvent, ProcessRemovedEvent
+from .ttypes import SupvisorsStates, ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .utils import InternalEventHeaders, RemoteCommEvents
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
+
+
+def add_process_events() -> None:
+    """ Register new events in Supervisor EventTypes.
+    The new events are in support of Supervisor issue #177.
+
+    :return: None
+    """
+    events.register('PROCESS', ProcessEvent)  # abstract
+    events.register('PROCESS_ADDED', ProcessAddedEvent)
+    events.register('PROCESS_REMOVED', ProcessRemovedEvent)
 
 
 class SupervisorListener(object):
@@ -70,6 +81,8 @@ class SupervisorListener(object):
         self.sequence_counter: int = 0
         self.publisher: Optional[InternalEventPublisher] = None
         self.main_loop: Optional[SupvisorsMainLoop] = None
+        # add new events to Supervisor EventTypes
+        add_process_events()
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self.on_running)
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
@@ -151,7 +164,7 @@ class SupervisorListener(object):
             self.logger.warn('SupervisorListener.on_process_added: failed to get process info for {}: {}'
                              .format(namespec, e.text))
         else:
-            self.publisher.send_process_removed_event(process_info)
+            self.publisher.send_process_added_event(process_info)
 
     def on_process_removed(self, event: ProcessRemovedEvent) -> None:
         """ Called when a process has been removed due to a numprocs change.
@@ -258,4 +271,4 @@ class SupervisorListener(object):
             self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
-        self.publisher.send_process_event(payload)
+        self.publisher.send_process_state_event(payload)

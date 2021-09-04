@@ -314,8 +314,10 @@ class Context(object):
         #  return all processes that declare a failure
         return process_failures
 
-    def on_remove_process_event(self, node_name: str, event: Payload) -> None:
-        """
+    def on_process_removed_event(self, node_name: str, event: Payload) -> None:
+        """ Method called upon reception of a process removed event from the remote Supvisors instance.
+        Following an update_numprocs XML-RPC, the size of homogeneous process groups may decreased and lead to removal
+        of processes.
 
         :param node_name: the node that sent the event
         :param event: the event payload
@@ -329,22 +331,17 @@ class Context(object):
                 # get internal data
                 application = self.applications[event['group']]
                 process = application.processes[event['name']]
-                # TODO: remove or empty the process ?
-                process.invalidate_node(node_name)  # theoretically useless as should be stopped before removed
+                # delete the process info entry related to the node
+                # The same logic as node invalidation is applied to keep trace
                 del process.info_map[node_name]
-                # TODO: remove the process if info_map empty ?
-                #  no, same logic as on_timer_event
-                # TODO: process_failures to manage ?
-                #  no this is a user stop
-                # refresh application status
-                application.update_status()
-                # publish process event, status and application status
-                publisher = self.supvisors.zmq.publisher
-                # TODO: is it relevant to send process event / status ?
-                #  how to inform using Supvisors event interface ?
-                publisher.send_process_event(node_name, event)
-                publisher.send_process_status(process.serial())
-                publisher.send_application_status(application.serial())
+                # WARN: process_failures are not triggered as the processes have been properly stopped as a consequence
+                # of the user action
+                # refresh+publish application+process status are not needed because the process was already stopped
+                # so the application+process status will not be impacted
+                # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
+                # into the Process Event
+                event['state'] = -1
+                self.supvisors.zmq.publisher.send_process_event(node_name, event)
 
     def on_process_state_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
@@ -362,37 +359,29 @@ class Context(object):
             if status.state == AddressStates.RUNNING:
                 self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
                 # get internal data
-                try:
-                    application = self.applications[event['group']]
-                    process = application.processes[event['name']]
-                except KeyError:
-                    # unknown process from remote node. re-sync needed
-                    # may be due to supervisor reread (TBC) or supvisors update_numprocs
-                    # self.check_node(status)
-                    # self.supvisors.zmq.publisher.send_address_status(status.serial())
-                    self.logger.critical('Context.on_process_event: should not happen anymore for update_numprocs')
+                application = self.applications[event['group']]
+                process = application.processes[event['name']]
+                # refresh process info depending on the nature of the process event
+                if 'forced' in event:
+                    process.force_state(event['state'], event['spawnerr'])
+                    del event['forced']
                 else:
-                    # refresh process info depending on the nature of the process event
-                    if 'forced' in event:
-                        process.force_state(event['state'], event['spawnerr'])
-                        del event['forced']
-                    else:
-                        process.update_info(node_name, event)
-                        try:
-                            # update command line in Supervisor
-                            self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
-                        except KeyError:
-                            # process not found in Supervisor internal structure
-                            self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
-                                              ' to local Supervisor'.format(process.namespec))
-                    # refresh application status
-                    application.update_status()
-                    # publish process event, status and application status
-                    publisher = self.supvisors.zmq.publisher
-                    publisher.send_process_event(node_name, event)
-                    publisher.send_process_status(process.serial())
-                    publisher.send_application_status(application.serial())
-                    return process
+                    process.update_info(node_name, event)
+                    try:
+                        # update command line in Supervisor
+                        self.supvisors.info_source.update_extra_args(process.namespec, event['extra_args'])
+                    except KeyError:
+                        # process not found in Supervisor internal structure
+                        self.logger.debug('Context.on_process_event: cannot apply extra args to {} unknown'
+                                          ' to local Supervisor'.format(process.namespec))
+                # refresh application status
+                application.update_status()
+                # publish process event, status and application status
+                publisher = self.supvisors.zmq.publisher
+                publisher.send_process_event(node_name, event)
+                publisher.send_process_status(process.serial())
+                publisher.send_application_status(application.serial())
+                return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
 

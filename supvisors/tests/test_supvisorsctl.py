@@ -432,6 +432,28 @@ def test_stop_process(controller, plugin, mocked_check):
                         ('appli_2:proc_3', 'appli_1:proc_1'))
 
 
+def test_update_numprocs(controller, plugin, mocked_check):
+    """ Test the conciliate request. """
+    plugin.do_update_numprocs('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using incorrect numprocs
+    plugin.do_update_numprocs('dummy_process deux')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using incorrect numprocs
+    plugin.do_update_numprocs('dummy_process 0')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test help and request
+    mocked_rpc = plugin.supvisors().update_numprocs
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_update_numprocs, plugin.do_update_numprocs,
+                'dummy_process 2', [call('dummy_process', 2)])
+
+
 def test_conciliate(controller, plugin, mocked_check):
     """ Test the conciliate request. """
     plugin.do_conciliate('')

@@ -49,9 +49,9 @@ def filled_opt():
 
 
 @pytest.fixture
-def server_opt():
+def server_opt(supvisors):
     """ Create a Supvisors-like structure filled with some nodes. """
-    return SupvisorsServerOptions()
+    return SupvisorsServerOptions(supvisors.logger)
 
 
 def test_options_creation(opt):
@@ -73,7 +73,6 @@ def test_options_creation(opt):
     assert opt.logfile_maxbytes == 50 * 1024 * 1024
     assert opt.logfile_backups == 10
     assert opt.loglevel == LevelsByName.INFO
-    assert opt.procnumbers == {}
 
 
 def test_filled_options_creation(filled_opt):
@@ -101,7 +100,7 @@ def test_str(opt):
     assert str(opt) == "address_list=['{}'] rules_file=None internal_port=65001 event_port=65002 auto_fence=False"\
                        " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER"\
                        " starting_strategy=CONFIG stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
-                       " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20 procnumbers={}"\
+                       " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\
                        .format(gethostname(), Automatic, 50 * 1024 * 1024, {})
 
 
@@ -209,12 +208,6 @@ def test_histo():
     assert SupvisorsOptions.to_histo('1500') == 1500
 
 
-def test_program_numbers(mocker, server_opt):
-    """ Test that the internal numbers of homogeneous programs are stored. """
-    server = create_server(mocker, server_opt, ProgramConfiguration)
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1}
-
-
 def create_server(mocker, server_opt, config):
     """ Create a SupvisorsServerOptions instance using patches on Supervisor source code.
     This is required because the unit test does not include existing files. """
@@ -228,3 +221,30 @@ def create_server(mocker, server_opt, config):
     mocker.patch.object(ServerOptions, 'open', return_value=config)
     server_opt.realize()
     return server_opt
+
+
+def test_server_options(mocker, server_opt):
+    """ Test that the internal numbers of homogeneous programs are stored.
+    WARN: All in one test because it doesn't work when create_server is called twice.
+    """
+    # test attributes
+    assert server_opt.parser is None
+    assert server_opt.process_groups == {}
+    assert server_opt.procnumbers == {}
+    # call realize
+    server = create_server(mocker, server_opt, ProgramConfiguration)
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1}
+    expected_printable = {program_name: {group_name: [process.name for process in processes]}
+                          for program_name, program_configs in server.process_groups.items()
+                          for group_name, processes in program_configs.items()}
+    assert expected_printable == {'dumber': {'dumber': ['dumber_10', 'dumber_11']},
+                                  'dummies': {'dummy_group': ['dummy_0', 'dummy_1', 'dummy_2']},
+                                  'dummy': {'dummy_group': ['dummy']}}
+    # udpate procnums
+    assert server.update_numprocs('dummies', 1) == 'program:dummies'
+    assert server.parser['program:dummies']['numprocs'] == '1'
+    # reload programs
+    result = server.reload_processes_from_section('program:dummies', 'dummy_group')
+    expected_printable = [process.name for process in result]
+    assert expected_printable == ['dummy_0']
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1}
