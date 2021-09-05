@@ -228,7 +228,7 @@ class SupvisorsServerOptions(ServerOptions):
         :return: The section updated
         """
         section = 'program:%s' % program_name
-        self.logger.info('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
+        self.logger.debug('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
         self.parser[section]['numprocs'] = '%d' % numprocs
         return section
 

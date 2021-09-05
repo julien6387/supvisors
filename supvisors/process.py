@@ -507,13 +507,24 @@ class ProcessStatus(object):
         """
         self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name={} invalidated'
                           .format(self.namespec, node_name))
+        failure = False
         if node_name in self.running_nodes:
             # update process status with a FATAL payload
             info = self.info_map[node_name]
             payload = {'now': info['now'], 'state': ProcessStates.FATAL, 'extra_args': info['extra_args'],
                        'expected': False, 'spawnerr': 'node %s lost' % node_name}
             self.update_info(node_name, payload)
-            return self.running_nodes == set()
+            failure = self.running_nodes == set()
+        return failure
+
+    def remove_node(self, node_name: str) -> None:
+        """ Update the status of a process that has been removed from the node, following an XML-RPC update_numprocs
+
+        :param node_name: the node from which the process has been removed
+        :return: True if the process is not defined anywhere anymore
+        """
+        del self.info_map[node_name]
+        return self.info_map == {}
 
     def update_status(self, node_name: str, new_state: ProcessStates) -> None:
         """ Updates the state and list of running address iaw the new event.
@@ -532,7 +543,9 @@ class ProcessStatus(object):
             else:
                 self.running_nodes.add(node_name)
         # evaluate state iaw running addresses
-        if not self.evaluate_conflict():
+        if self.conflicting():
+            self._evaluate_conflict()
+        else:
             # no conflict so there's at most one element running
             if self.running_nodes:
                 self.state = self.info_map[list(self.running_nodes)[0]]['state']
@@ -554,20 +567,18 @@ class ProcessStatus(object):
                 log_trace += ' on {}'.format(list(self.running_nodes))
             self.logger.trace(log_trace)
 
-    def evaluate_conflict(self) -> Optional[bool]:
+    def _evaluate_conflict(self) -> None:
         """ Get a synthetic state if several processes are in a RUNNING-like state.
 
         :return: True if a conflict is detected, None otherwise
         """
-        if self.conflicting():
-            # several processes seems to be in a running state so that becomes tricky
-            states = {self.info_map[running_node_name]['state'] for running_node_name in self.running_nodes}
-            self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
-                              .format(self.process_name, [getProcessStateDescription(x) for x in states],
-                                      list(self.running_nodes)))
-            # state synthesis done using the sorting of RUNNING_STATES
-            self.state = self.running_state(states)
-            return True
+        # several processes seems to be in a running state so that becomes tricky
+        states = {self.info_map[running_node_name]['state'] for running_node_name in self.running_nodes}
+        self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
+                          .format(self.process_name, [getProcessStateDescription(x) for x in states],
+                                  list(self.running_nodes)))
+        # state synthesis done using the sorting of RUNNING_STATES
+        self.state = self.running_state(states)
 
     @staticmethod
     def running_state(states: AbstractSet[int]) -> int:

@@ -173,8 +173,8 @@ class SupervisorListener(object):
         :return: None
         """
         payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
-        self.logger.info('SupervisorListener.on_process_removed: got ProcessRemoved event from supervisord: {}'
-                         .format(payload))
+        self.logger.debug('SupervisorListener.on_process_removed: got ProcessRemoved event from supervisord: {}'
+                          .format(payload))
         self.publisher.send_process_removed_event(payload)
 
     def on_tick(self, event: events.TickEvent) -> None:

@@ -311,12 +311,13 @@ class Context(object):
             # update sequence useless as long as the application.process map is not impacted (see decision above)
             # application.update_sequences()
             application.update_status()
+            publisher.send_application_status(application.serial())
         #  return all processes that declare a failure
         return process_failures
 
     def on_process_removed_event(self, node_name: str, event: Payload) -> None:
         """ Method called upon reception of a process removed event from the remote Supvisors instance.
-        Following an update_numprocs XML-RPC, the size of homogeneous process groups may decreased and lead to removal
+        Following an XML-RPC update_numprocs, the size of homogeneous process groups may decreased and lead to removal
         of processes.
 
         :param node_name: the node that sent the event
@@ -331,17 +332,24 @@ class Context(object):
                 # get internal data
                 application = self.applications[event['group']]
                 process = application.processes[event['name']]
+                publisher = self.supvisors.zmq.publisher
+                # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
+                event['state'] = -1
+                publisher.send_process_event(node_name, event)
                 # delete the process info entry related to the node
-                # The same logic as node invalidation is applied to keep trace
-                del process.info_map[node_name]
+                # the process may be removed from the application if there's no more node supporting its definition
+                if process.remove_node(node_name):
+                    # publish a last process status before it is deleted
+                    payload = process.serial()
+                    payload.update({'statecode': -1, 'statename': 'DELETE'})
+                    publisher.send_process_status(payload)
+                    # remove the process from the application and publish
+                    application.remove_process(process.process_name)
+                    publisher.send_application_status(application.serial())
+                    # an update of numprocs cannot leave the application empty (update_numprocs 0 not allowed)
+                    # no need to dig further
                 # WARN: process_failures are not triggered as the processes have been properly stopped as a consequence
                 # of the user action
-                # refresh+publish application+process status are not needed because the process was already stopped
-                # so the application+process status will not be impacted
-                # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
-                # into the Process Event
-                event['state'] = -1
-                self.supvisors.zmq.publisher.send_process_event(node_name, event)
 
     def on_process_state_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
