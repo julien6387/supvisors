@@ -19,13 +19,17 @@
 
 import os
 
-from typing import Dict
+from typing import Dict, List, Optional
 
+from supervisor.events import notify
 from supervisor.http import supervisor_auth_handler
 from supervisor.loggers import Logger
 from supervisor.medusa import default_handler, filesys
-from supervisor.options import split_namespec
+from supervisor.options import make_namespec, split_namespec, ProcessConfig
 from supervisor.states import ProcessStates
+
+from .options import SupvisorsServerOptions
+from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, NameList
 
 
 class SupervisordSource(object):
@@ -113,11 +117,6 @@ class SupervisordSource(object):
         self.supervisord.options.close_httpservers()
         self.supervisord.options.httpservers = ()
 
-    def get_group_config(self, application_name: str):
-        """ This method returns the group configuration related to an application. """
-        # WARN: the method may throw a KeyError exception
-        return self.supervisord.process_groups[application_name].config
-
     def _get_process(self, namespec: str):
         """ This method returns the process configuration related to a namespec. """
         # WARN: the method may throw a KeyError exception
@@ -151,9 +150,114 @@ class SupervisordSource(object):
         """ Return the extra arguments passed to the command line of the process named namespec. """
         return self._get_process_config(namespec).extra_args
 
+    def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
+        """ This method is used to dynamically update the program numprocs.
+
+        :param program_name: the program name, as found in the sections of the Supervisor configuration files
+        :param numprocs: the new numprocs value
+        :return: the list of processes to eventually stop before removal
+        """
+        self.logger.trace('SupervisordSource.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
+        # re-evaluate for all groups including the program
+        server_options = self.supervisord.supvisors.server_options
+        program_configs = server_options.process_groups[program_name]
+        current_numprocs = len(next(iter(program_configs.values())))
+        self.logger.debug('SupervisordSource.update_numprocs: {} - current_numprocs={}'
+                          .format(program_name, current_numprocs))
+        if current_numprocs > numprocs:
+            # return the processes to stop if numprocs decreases
+            return self._get_obsolete_processes(program_name, numprocs, program_configs)
+        if current_numprocs < numprocs:
+            # add the new processes into Supervisor
+            self._add_processes(program_name, numprocs, current_numprocs, list(program_configs.keys()))
+        # else equal / no change
+
+    def _add_processes(self, program_name: str, new_numprocs: int, current_numprocs: int, groups: NameList) -> None:
+        """ Add new processes to all Supervisor groups already including it.
+
+        :param program_name: the program which definition has to be updated
+        :param new_numprocs: the new numprocs value
+        :param current_numprocs: the former numprocs value
+        :param groups: the groups that embed the processes issued from the existing program definition
+        :return: None
+        """
+        # update ServerOptions parser with new numprocs for program
+        server_options = self.supervisord.supvisors.server_options
+        section = server_options.update_numprocs(program_name, new_numprocs)
+        for group_name in groups:
+            # rebuild the process configs from the new Supervisor configuration
+            process_configs = server_options.reload_processes_from_section(section, group_name)
+            # the new processes are those over the previous size
+            self._add_supervisor_processes(group_name, process_configs[current_numprocs:])
+
+    def _add_supervisor_processes(self, group_name: str, new_configs: List[ProcessConfig]) -> None:
+        """ Add new processes to the Supervisor group from the configuration built.
+
+        :param group_name: the group that embed the program definition
+        :param new_configs: the new process configurations to add to the group
+        :return: None
+        """
+        # add new process configs to group in Supervisor
+        group = self.supervisord.process_groups[group_name]
+        group.config.process_configs.extend(new_configs)
+        # create processes from new process configs
+        for process_config in new_configs:
+            self.logger.info('SupervisordSource._add_supervisor_processes: add process={}'.format(process_config.name))
+            # WARN: replace process_config Supvisors server_options by Supervisor options
+            # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
+            process_config.options = self.supervisord.options
+            # prepare extra args
+            process_config.command_ref = process_config.command
+            process_config.extra_args = ''
+            # prepare log files
+            process_config.create_autochildlogs()
+            # add the new process to the group
+            group.processes[process_config.name] = process = process_config.make_process(group)
+            # fire event to Supervisor listeners
+            notify(ProcessAddedEvent(process))
+
+    def _get_obsolete_processes(self, program_name: str, numprocs: int,
+                                program_configs: SupvisorsServerOptions.ProcessConfigInfo) -> NameList:
+        """ Return the obsolete processes in accordance with the new numprocs.
+        Thee program may be used in many groups.
+
+        :param program_name: the program which definition has to be updated
+        :param numprocs: the new numprocs value
+        :param program_configs: the current program configurations per group
+        :return: The obsolete processes
+        """
+        # do not remove process configs yet as they may need to be stopped before
+        obsolete_processes = [make_namespec(group_name, process_config.name)
+                              for group_name, process_configs in program_configs.items()
+                              for process_config in process_configs[numprocs:]]
+        # update ServerOptions parser with new numprocs for program
+        server_options = self.supervisord.supvisors.server_options
+        section = server_options.update_numprocs(program_name, numprocs)
+        # rebuild the process configs from the new Supervisor configuration
+        for group_name in program_configs:
+            server_options.reload_processes_from_section(section, group_name)
+        return obsolete_processes
+
+    def delete_processes(self, namespecs: NameList):
+        """ Remove processes from the internal Supervisor structure.
+        This is consecutive to update_numprocs in the event where the new numprocs is lower than the existing one.
+
+        :param namespecs: the namespecs to delete
+        :return: None
+        """
+        for namespec in namespecs:
+            # get Supervisor process from namespec
+            group_name, process_name = split_namespec(namespec)
+            group = self.supervisord.process_groups[group_name]
+            process = group.processes[process_name]
+            # fire event to Supervisor listeners
+            notify(ProcessRemovedEvent(process))
+            # delete the process from the group
+            del group.processes[process_name]
+
     def force_process_fatal(self, namespec: str, reason: str) -> None:
-        """ This method forces the FATAL process state into Supervisor internal data and dispatches
-        process event to event listeners. """
+        """ This method forces the FATAL process state into Supervisor internal data and dispatches process event
+        to event listeners. """
         process = self._get_process(namespec)
         # need to force BACKOFF state to go through assertion
         process.state = ProcessStates.BACKOFF
@@ -173,7 +277,8 @@ class SupervisordSource(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.logger.warn('Server running without any HTTP authentication checking')
+            self.logger.warn('SupervisordSource.replace_default_handler: Server running without any HTTP'
+                             ' authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()
         self.httpserver.install_handler(defaulthandler, True)

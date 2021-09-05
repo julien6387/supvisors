@@ -8,7 +8,7 @@ The additional commands provided by |Supvisors| are available by typing :command
 
 .. important::
 
-    When :program:`supvisorsctl` is used with the option ``-s URL``, |Supervisor| does not provide access to the
+    When :program:`supervisorctl` is used with the option ``-s URL``, |Supervisor| does not provide access to the
     extended API. This is tracked through `Supervisor #1455 <https://github.com/Supervisor/supervisor/issues/1455>`_.
 
     |Supvisors| alleviates the problem by providing the command :program:`supvisorsctl` that works with all options.
@@ -33,7 +33,7 @@ The additional commands provided by |Supvisors| are available by typing :command
     application_rules  process_rules        sstatus            stop_process
     conciliate         restart_application  start_application  strategies
     conflicts          restart_process      start_args         sversion
-    local_status       sreload              start_process
+    local_status       sreload              start_process      update_numprocs
 
 .. _extended_status:
 
@@ -261,5 +261,9 @@ Process Control
 ``restart_process strategy appli1 appli2``
 
     Restart multiple named process with a starting strategy.
+
+``update_numprocs program_name numprocs``
+
+    Increase or decrease dynamically the program numprocs (including FastCGI programs and Event listeners).
 
 .. include:: common.rst

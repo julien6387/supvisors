@@ -233,6 +233,8 @@ Process Control
 
         .. automethod:: restart_process(strategy, namespec, extra_args='', wait=True)
 
+        .. automethod:: update_numprocs(program_name, numprocs)
+
 
 XML-RPC Clients
 ---------------

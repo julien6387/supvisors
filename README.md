@@ -1,5 +1,7 @@
 # **Supvisors**
-[![PyPI version][pypi-image]][pypi-url] [![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url] [![Documentation Status][docs-image]][docs-url]
+[![PyPI version][pypi-image]][pypi-url] [![Python Versions][pypi-python-versions]][pypi-url]
+[![Build Status][ci-image]][ci-url] [![Coverage Status][coveralls-image]][coveralls-url]
+[![Documentation Status][docs-image]][docs-url]
 
 
 **Supvisors** is a Control System for Distributed Applications, based on
@@ -20,6 +22,7 @@ The main features are:
 
 **Supvisors** proposes a contribution to the following Supervisor issues:
    * [#122 - supervisord Starts All Processes at the Same Time](https://github.com/Supervisor/supervisor/issues/122)
+   * [#177 - Dynamic numproc change](https://github.com/Supervisor/supervisor/issues/177)
    * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
    * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
    * [#723 - Restart waits for all processes to stop before starting any](https://github.com/Supervisor/supervisor/issues/723)
@@ -88,6 +91,7 @@ You can view the [source repository](https://github.com/julien6387/supvisors) fo
 Not opened yet.
 
 [pypi-image]: https://badge.fury.io/py/supvisors.svg
+[pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
 [ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master

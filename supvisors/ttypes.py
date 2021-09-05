@@ -20,6 +20,8 @@
 from enum import Enum
 from typing import Any, Dict, List, TypeVar
 
+from supervisor.events import Event
+
 
 # all enumerations
 class AddressStates(Enum):
@@ -67,6 +69,35 @@ class InvalidTransition(Exception):
 
     def __str__(self):
         return self.value
+
+
+# Supvisors related faults
+FAULTS_OFFSET = 100
+
+
+class SupvisorsFaults(Enum):
+    SUPVISORS_CONF_ERROR, BAD_SUPVISORS_STATE = range(FAULTS_OFFSET, FAULTS_OFFSET + 2)
+
+
+# Additional events
+class ProcessEvent(Event):
+
+    def __init__(self, process):
+        self.process = process
+
+    def payload(self):
+        groupname = ''
+        if self.process.group:
+            groupname = self.process.group.config.name
+        return 'processname:{} groupname:{} '.format(self.process.config.name, groupname)
+
+
+class ProcessAddedEvent(ProcessEvent):
+    pass
+
+
+class ProcessRemovedEvent(ProcessEvent):
+    pass
 
 
 # Types for annotations

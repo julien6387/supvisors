@@ -25,16 +25,28 @@ from typing import Any, Optional
 from supervisor import events
 from supervisor.datatypes import boolean
 from supervisor.loggers import Logger
-from supervisor.options import split_namespec
+from supervisor.options import make_namespec, split_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
+from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
 from .supvisorszmq import SupervisorZmq, InternalEventPublisher
-from .ttypes import SupvisorsStates
+from .ttypes import SupvisorsStates, ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .utils import InternalEventHeaders, RemoteCommEvents
 
 # get reverted map for ProcessStates
 _process_states_by_name = {y: x for x, y in _process_states_by_code.items()}
+
+
+def add_process_events() -> None:
+    """ Register new events in Supervisor EventTypes.
+    The new events are in support of Supervisor issue #177.
+
+    :return: None
+    """
+    events.register('PROCESS', ProcessEvent)  # abstract
+    events.register('PROCESS_ADDED', ProcessAddedEvent)
+    events.register('PROCESS_REMOVED', ProcessRemovedEvent)
 
 
 class SupervisorListener(object):
@@ -69,10 +81,14 @@ class SupervisorListener(object):
         self.sequence_counter: int = 0
         self.publisher: Optional[InternalEventPublisher] = None
         self.main_loop: Optional[SupvisorsMainLoop] = None
+        # add new events to Supervisor EventTypes
+        add_process_events()
         # subscribe to internal events
         events.subscribe(events.SupervisorRunningEvent, self.on_running)
         events.subscribe(events.SupervisorStoppingEvent, self.on_stopping)
-        events.subscribe(events.ProcessStateEvent, self.on_process)
+        events.subscribe(events.ProcessStateEvent, self.on_process_state)
+        events.subscribe(ProcessAddedEvent, self.on_process_added)
+        events.subscribe(ProcessRemovedEvent, self.on_process_removed)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
@@ -113,11 +129,12 @@ class SupervisorListener(object):
         if hasattr(self.logger, 'SUPVISORS'):
             self.logger.close()
 
-    def on_process(self, event: events.ProcessStateEvent) -> None:
-        """ Called when a ProcessEvent is sent by the local Supervisor.
+    def on_process_state(self, event: events.ProcessStateEvent) -> None:
+        """ Called when a ProcessStateEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        self.logger.debug('SupervisorListener.on_process: got Process event from supervisord: {}'.format(event_name))
+        self.logger.debug('SupervisorListener.on_process_state: got ProcessState event from supervisord: {}'
+                          .format(event_name))
         # create payload from event
         payload = {'name': event.process.config.name,
                    'group': event.process.group.config.name,
@@ -127,8 +144,38 @@ class SupervisorListener(object):
                    'pid': event.process.pid,
                    'expected': event.expected,
                    'spawnerr': event.process.spawnerr}
-        self.logger.debug('SupervisorListener.on_process: payload={}'.format(payload))
-        self.publisher.send_process_event(payload)
+        self.logger.debug('SupervisorListener.on_process_state: payload={}'.format(payload))
+        self.publisher.send_process_state_event(payload)
+
+    def on_process_added(self, event: ProcessAddedEvent) -> None:
+        """ Called when a process has been added due to a numprocs change.
+
+        :param event: the ProcessAddedEvent object
+        :return: None
+        """
+        namespec = make_namespec(event.process.group.config.name, event.process.config.name)
+        self.logger.debug('SupervisorListener.on_process_added: got ProcessAdded event from supervisord: {}'
+                          .format(namespec))
+        # use Supervisor to get local information on all processes
+        rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
+        try:
+            process_info = rpc_intf.get_local_process_info(namespec)
+        except RPCError as e:
+            self.logger.warn('SupervisorListener.on_process_added: failed to get process info for {}: {}'
+                             .format(namespec, e.text))
+        else:
+            self.publisher.send_process_added_event(process_info)
+
+    def on_process_removed(self, event: ProcessRemovedEvent) -> None:
+        """ Called when a process has been removed due to a numprocs change.
+
+        :param event: the ProcessRemovedEvent object
+        :return: None
+        """
+        payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
+        self.logger.debug('SupervisorListener.on_process_removed: got ProcessRemoved event from supervisord: {}'
+                          .format(payload))
+        self.publisher.send_process_removed_event(payload)
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
@@ -169,9 +216,17 @@ class SupervisorListener(object):
                               .format(event_node, event_data))
             self.supvisors.fsm.on_tick_event(event_node, event_data)
         elif event_type == InternalEventHeaders.PROCESS.value:
-            self.logger.trace('SupervisorListener.unstack_event: got process event from {}: {}'
+            self.logger.trace('SupervisorListener.unstack_event: got process state event from {}: {}'
                               .format(event_node, event_data))
-            self.supvisors.fsm.on_process_event(event_node, event_data)
+            self.supvisors.fsm.on_process_state_event(event_node, event_data)
+        elif event_type == InternalEventHeaders.PROCESS_ADDED.value:
+            self.logger.trace('SupervisorListener.unstack_event: got process added event from {}: {}'
+                              .format(event_node, event_data))
+            self.supvisors.fsm.on_process_added_event(event_node, event_data)
+        elif event_type == InternalEventHeaders.PROCESS_REMOVED.value:
+            self.logger.trace('SupervisorListener.unstack_event: got process removed event from {}: {}'
+                              .format(event_node, event_data))
+            self.supvisors.fsm.on_process_removed_event(event_node, event_data)
         elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
             self.logger.trace('SupervisorListener.unstack_event: got statistics event from {}: {}'
@@ -216,4 +271,4 @@ class SupervisorListener(object):
             self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
-        self.publisher.send_process_event(payload)
+        self.publisher.send_process_state_event(payload)

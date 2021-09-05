@@ -17,9 +17,10 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Any
+import sys
 
-from supervisor import loggers
+from supervisor import loggers, supervisord
+from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
 from .addressmapper import AddressMapper
@@ -40,7 +41,7 @@ class Supvisors(object):
     # logger output (use ';' as separator as easier to cut)
     LOGGER_FORMAT = '%(asctime)s;%(levelname)s;%(message)s\n'
 
-    def __init__(self, supervisord: Any, **config) -> None:
+    def __init__(self, supervisor: Supervisor, **config) -> None:
         """ Instantiation of all the Supvisors objects.
 
         :param supervisord: the Supervisor global structure
@@ -49,13 +50,13 @@ class Supvisors(object):
         self.zmq = None
         # get options from config file
         self.options = SupvisorsOptions(**config)
-        server_options = SupvisorsServerOptions()
-        server_options.realize()
-        self.options.procnumbers = server_options.procnumbers
         # create logger
-        self.logger = self.create_logger(supervisord)
+        self.logger = self.create_logger(supervisor)
+        # re-evaluate the Supervisor configuration to get what hasn't been stored
+        self.server_options = SupvisorsServerOptions(self.logger)
+        self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
-        self.info_source = SupervisordSource(supervisord, self.logger)
+        self.info_source = SupervisordSource(supervisor, self.logger)
         # set addresses and check local address
         self.address_mapper = AddressMapper(self.logger)
         self.address_mapper.node_names = self.options.address_list
@@ -82,20 +83,20 @@ class Supvisors(object):
         # create event subscriber
         self.listener = SupervisorListener(self)
 
-    def create_logger(self, supervisord):
+    def create_logger(self, supervisor):
         """ Create the logger that will be used in Supvisors.
         If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
         Else Supvisors will log in the file defined in option.
         """
         if self.options.logfile is Automatic:
             # use Supervisord logger but patch format anyway
-            logger = supervisord.options.logger
+            logger = supervisor.options.logger
             for handler in logger.handlers:
                 handler.setFormat(Supvisors.LOGGER_FORMAT)
             return logger
         # else create own Logger using Supervisor functions
-        nodaemon = supervisord.options.nodaemon
-        silent = supervisord.options.silent
+        nodaemon = supervisor.options.nodaemon
+        silent = supervisor.options.silent
         logger = loggers.getLogger(self.options.loglevel)
         # tag the logger so that it is properly closed when exiting
         logger.SUPVISORS = True

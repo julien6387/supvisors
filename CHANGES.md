@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.10 (2021-09-05)
+
+* Implement [Supervisor Issue #177](https://github.com/Supervisor/supervisor/issues/177).
+  It is possible to update dynamically the program numprocs using the new ``update_numprocs`` XML-RPC. 
+
+* Add targets **Python 3.7** and **Python 3.8** to Travis-CI.
+
+* Update documentation.
+
+
 ## 0.9 (2021-08-31)
 
 * Enable the hash '#' for the `addresses` of a non-distributed application.

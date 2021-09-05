@@ -299,6 +299,19 @@ class ApplicationStatus(object):
         """
         self.processes[process.process_name] = process
 
+    def remove_process(self, process_name: str) -> None:
+        """ Add a new process to the process list.
+
+        :param process_name: the process to be removed from the application
+        :return: None
+        """
+        self.logger.info('ApplicationStatus.remove_process: {} - removing process={}'
+                         .format(self.application_name, process_name))
+        del self.processes[process_name]
+        # re-evaluate sequences and status
+        self.update_sequences()
+        self.update_status()
+
     def possible_nodes(self) -> NameList:
         """ Return the list of nodes where the application could be started.
         To achieve that, two conditions:

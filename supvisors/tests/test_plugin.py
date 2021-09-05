@@ -27,15 +27,6 @@ from supvisors.plugin import *
 from .base import DummySupervisor
 
 
-def test_codes():
-    """ Test the addition of Supvisors fault codes to Supervisor's. """
-    # update Supervisor faults
-    expand_faults()
-    # test that enumerations are in Supervisor
-    for x in SupvisorsFaults:
-        assert hasattr(Faults, x.name)
-
-
 def test_update_views():
     """ Test the update_views function. """
     # update Supervisor views
@@ -79,8 +70,7 @@ def test_update_views():
 def test_make_rpc(mocker):
     """ Test the make_supvisors_rpcinterface function. """
     mocked_views = mocker.patch('supvisors.plugin.update_views')
-    mocked_expand = mocker.patch('supvisors.plugin.expand_faults')
-    mocked_supvisors = mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
+    mocker.patch('supvisors.plugin.Supvisors', return_value='a Supvisors instance')
     mocked_rpc = mocker.patch('supvisors.plugin.RPCInterface')
     supervisord = DummySupervisor()
     # save cleanup_fds function
@@ -90,7 +80,6 @@ def test_make_rpc(mocker):
     # test the calls to previous functions
     assert supervisord.supvisors == 'a Supvisors instance'
     assert mocked_rpc.call_args_list == [call(supervisord.supvisors)]
-    assert mocked_expand.call_args_list == [call()]
     assert mocked_views.call_args_list == [call()]
     # test inclusion of Supvisors into Supervisor
     assert ServerOptions.cleanup_fds is not cleanup

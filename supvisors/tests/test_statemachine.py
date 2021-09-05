@@ -602,19 +602,19 @@ def test_tick_event(mocker, fsm):
     assert mocked_evt.call_args == call('10.0.0.1', {'tick': 1234})
 
 
-def test_process_event(mocker, fsm):
-    """ Test the actions triggered in state machine upon reception of a process event. """
+def test_process_state_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a process state event. """
     # prepare context
     fsm.supvisors.context._is_master = True
     process = Mock(application_name='appli', forced_state=None, **{'crashed.return_value': True})
     # get patches
-    mocked_ctx = mocker.patch.object(fsm.supvisors.context, 'on_process_event', return_value=None)
+    mocked_ctx = mocker.patch.object(fsm.supvisors.context, 'on_process_state_event', return_value=None)
     mocked_start_evt = fsm.supvisors.starter.on_event
     mocked_stop_evt = fsm.supvisors.stopper.on_event
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     # context.on_process_event is always called
     # test that starter and stopper are not involved when corresponding process is not found
-    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
     assert not mocked_start_evt.called
     assert not mocked_stop_evt.called
@@ -623,7 +623,7 @@ def test_process_event(mocker, fsm):
     mocked_ctx.return_value = process
     mocked_ctx.reset_mock()
     fsm.supvisors.context._is_master = False
-    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
     assert mocked_start_evt.call_args_list == [call(process)]
     assert mocked_stop_evt.call_args_list == [call(process)]
@@ -637,7 +637,7 @@ def test_process_event(mocker, fsm):
     fsm.supvisors.context._is_master = True
     for strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
         process.rules.running_failure_strategy = strategy
-        fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+        fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
         assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
         assert mocked_start_evt.call_args_list == [call(process)]
         assert mocked_stop_evt.call_args_list == [call(process)]
@@ -649,7 +649,7 @@ def test_process_event(mocker, fsm):
     # test with running_failure_strategy set to STOP_APPLICATION
     # job is added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
-    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
     assert mocked_start_evt.call_args_list == [call(process)]
     assert mocked_stop_evt.call_args_list == [call(process)]
@@ -663,7 +663,7 @@ def test_process_event(mocker, fsm):
     # job is added to failure handler only if process crash is 'real' (not forced)
     # test with no forced state
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
-    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
     assert mocked_start_evt.call_args_list == [call(process)]
     assert mocked_stop_evt.call_args_list == [call(process)]
@@ -675,7 +675,7 @@ def test_process_event(mocker, fsm):
     mocked_add.reset_mock()
     # test with forced state
     process.forced_state = ProcessStates.FATAL
-    fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
     assert mocked_start_evt.call_args_list == [call(process)]
     assert mocked_stop_evt.call_args_list == [call(process)]
@@ -688,7 +688,7 @@ def test_process_event(mocker, fsm):
     process.crashed.return_value = False
     for strategy in RunningFailureStrategies:
         process.rules.running_failure_strategy = strategy
-        fsm.on_process_event('10.0.0.1', {'process_name': 'dummy_proc'})
+        fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
         assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
         assert mocked_start_evt.call_args_list == [call(process)]
         assert mocked_stop_evt.call_args_list == [call(process)]
@@ -700,13 +700,26 @@ def test_process_event(mocker, fsm):
         mocked_add.reset_mock()
 
 
+def test_on_process_added_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a process added event. """
+    mocked_load = mocker.patch.object(fsm.context, 'load_processes')
+    fsm.on_process_added_event('10.0.0.1', {'info': 'dummy_info'})
+    assert mocked_load.call_args_list == [call('10.0.0.1', [{'info': 'dummy_info'}])]
+
+
+def test_on_process_removed_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a process removed event. """
+    mocked_context = mocker.patch.object(fsm.context, 'on_process_removed_event')
+    fsm.on_process_removed_event('10.0.0.1', {'info': 'dummy_info'})
+    assert mocked_context.call_args_list == [call('10.0.0.1', {'info': 'dummy_info'})]
+
+
 def test_on_process_info(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a process information. """
     # inject process info and test call to context load_processes
-    mocked_load = mocker.patch.object(fsm.supvisors.context, 'load_processes')
+    mocked_load = mocker.patch.object(fsm.context, 'load_processes')
     fsm.on_process_info('10.0.0.1', {'info': 'dummy_info'})
-    assert mocked_load.call_count == 1
-    assert mocked_load.call_args == call('10.0.0.1', {'info': 'dummy_info'})
+    assert mocked_load.call_args_list == [call('10.0.0.1', {'info': 'dummy_info'})]
 
 
 def test_on_state_event(mocker, fsm):

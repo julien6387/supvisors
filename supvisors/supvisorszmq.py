@@ -60,7 +60,7 @@ class InternalEventPublisher(object):
         # create ZMQ socket
         self.socket = ZmqContext.socket(zmq.PUB)
         url = 'tcp://*:{}'.format(port)
-        self.logger.info('binding InternalEventPublisher to %s' % url)
+        self.logger.info('InternalEventPublisher: binding InternalEventPublisher to %s' % url)
         self.socket.bind(url)
 
     def close(self) -> None:
@@ -76,17 +76,35 @@ class InternalEventPublisher(object):
         :param payload: the payload to publish
         :return: None
         """
-        self.logger.trace('send TickEvent {}'.format(payload))
+        self.logger.trace('InternalEventPublisher.send_tick_event: {}'.format(payload))
         self.socket.send_pyobj((InternalEventHeaders.TICK.value, self.node_name, payload))
 
-    def send_process_event(self, payload: Payload) -> None:
-        """ Publish the process event with PyZmq.
+    def send_process_state_event(self, payload: Payload) -> None:
+        """ Publish the process state event with PyZmq.
 
         :param payload: the payload to publish
         :return: None
         """
-        self.logger.trace('send ProcessEvent {}'.format(payload))
+        self.logger.trace('InternalEventPublisher.send_process_state_event: {}'.format(payload))
         self.socket.send_pyobj((InternalEventHeaders.PROCESS.value, self.node_name, payload))
+
+    def send_process_added_event(self, payload: Payload) -> None:
+        """ Publish the process added event with PyZmq.
+
+        :param payload: the payload to publish
+        :return: None
+        """
+        self.logger.trace('InternalEventPublisher.send_process_added_event: {}'.format(payload))
+        self.socket.send_pyobj((InternalEventHeaders.PROCESS_ADDED.value, self.node_name, payload))
+
+    def send_process_removed_event(self, payload: Payload) -> None:
+        """ Publish the process removed event with PyZmq.
+
+        :param payload: the payload to publish
+        :return: None
+        """
+        self.logger.trace('InternalEventPublisher.send_process_removed_event: {}'.format(payload))
+        self.socket.send_pyobj((InternalEventHeaders.PROCESS_REMOVED.value, self.node_name, payload))
 
     def send_statistics(self, payload: Payload) -> None:
         """ Publish the statistics with PyZmq.
@@ -94,7 +112,7 @@ class InternalEventPublisher(object):
         :param payload: the payload to publish
         :return: None
         """
-        self.logger.trace('send Statistics {}'.format(payload))
+        self.logger.trace('InternalEventPublisher.send_statistics: {}'.format(payload))
         self.socket.send_pyobj((InternalEventHeaders.STATISTICS.value, self.node_name, payload))
 
     def send_state_event(self, payload: Payload) -> None:
@@ -103,7 +121,7 @@ class InternalEventPublisher(object):
         :param payload: the payload to publish
         :return: None
         """
-        self.logger.trace('send Supvisors state {}'.format(payload))
+        self.logger.trace('InternalEventPublisher.send_state_event: {}'.format(payload))
         self.socket.send_pyobj((InternalEventHeaders.STATE.value, self.node_name, payload))
 
 

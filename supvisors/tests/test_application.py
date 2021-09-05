@@ -274,9 +274,11 @@ def test_application_serial(supvisors):
     assert serialized == loaded
 
 
-def test_application_add_process(supvisors):
-    """ Test the add_process method. """
+def test_application_add_remove_process(mocker, supvisors):
+    """ Test the add_process and remove_process methods. """
     application = create_application('ApplicationTest', supvisors)
+    mocked_sequence = mocker.patch.object(application, 'update_sequences')
+    mocked_status = mocker.patch.object(application, 'update_status')
     # add a process to the application
     info = any_process_info()
     process = create_process(info, supvisors)
@@ -285,6 +287,11 @@ def test_application_add_process(supvisors):
     # check that process is stored
     assert process.process_name in application.processes
     assert process is application.processes[process.process_name]
+    # test removal
+    application.remove_process(process.process_name)
+    assert application.processes == {}
+    assert mocked_sequence.called
+    assert mocked_status.called
 
 
 def test_application_possible_nodes(supvisors):

@@ -415,7 +415,7 @@ class FiniteStateMachine:
         """ This event is used to refresh the data related to the address. """
         self.context.on_tick_event(node_name, event)
 
-    def on_process_event(self, node_name: str, event: Payload) -> None:
+    def on_process_state_event(self, node_name: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event and address.
         This event also triggers the application starter and/or stopper.
 
@@ -423,7 +423,7 @@ class FiniteStateMachine:
         :param event: the process event
         :return: None
         """
-        process = self.context.on_process_event(node_name, event)
+        process = self.context.on_process_state_event(node_name, event)
         # returned process may be None if the event is linked to an unknown or an isolated node
         if process:
             # feed starter with event
@@ -443,6 +443,24 @@ class FiniteStateMachine:
                 # retry is useless
                 if stop_strategy or restart_strategy and process.forced_state is None:
                     self.supvisors.failure_handler.add_default_job(process)
+
+    def on_process_added_event(self, node_name: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been added on a node.
+
+        :param node_name: the node that sent the information
+        :param event: the process information
+        :return: None
+        """
+        self.context.load_processes(node_name, [event])
+
+    def on_process_removed_event(self, node_name: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been added on a node.
+
+        :param node_name: the node that sent the event
+        :param event: the process identification
+        :return: None
+        """
+        self.context.on_process_removed_event(node_name, event)
 
     def on_state_event(self, node_name, event: Payload) -> None:
         """ This event is used to get the FSM state of the master node.

@@ -734,6 +734,21 @@ def test_invalidate_nodes(supvisors):
     assert process.state == ProcessStates.FATAL
 
 
+def test_remove_node(supvisors):
+    """ Test the removal of nodes. """
+    # create conflict directly with 2 process info
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.2', any_process_info())
+    # check process info_map
+    assert sorted(process.info_map.keys()) == ['10.0.0.1', '10.0.0.2']
+    assert not process.remove_node('10.0.0.2')
+    assert sorted(process.info_map.keys()) == ['10.0.0.1']
+    assert process.remove_node('10.0.0.1')
+    assert sorted(process.info_map.keys()) == []
+
+
 def test_update_status(supvisors):
     """ Test the update of state and running addresses. """
     # update_status is called in the construction
@@ -791,32 +806,34 @@ def test_update_status(supvisors):
 def test_process_evaluate_conflict(supvisors):
     """ Test the determination of a synthetic state in case of conflict. """
     # when there is only one STOPPED process info, there is no conflict
+    # this method is expected to be called aonly when a conflict (multiple running processes) is detected
+    # the state is evaluated against running states. STOPPED leads to UNKNOWN
     info = any_process_info_by_state(ProcessStates.STOPPED)
     process = create_process(info, supvisors)
     process.add_info('10.0.0.1', info)
-    assert not process.evaluate_conflict()
-    assert process.state == ProcessStates.STOPPED
+    process._evaluate_conflict()
+    assert process.state == ProcessStates.UNKNOWN
     # the addition of one RUNNING process info does not raise any conflict
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.RUNNING)
     process.running_nodes = {'10.0.0.2'}
-    assert not process.evaluate_conflict()
+    process._evaluate_conflict()
     # the addition of one STARTING process raises a conflict
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.STARTING)
     process.running_nodes.add('10.0.0.3')
-    assert process.evaluate_conflict()
+    process._evaluate_conflict()
     assert process.state == ProcessStates.RUNNING
     # replace the RUNNING process info with a BACKOFF process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.BACKOFF)
-    assert process.evaluate_conflict()
+    process._evaluate_conflict()
     assert process.state == ProcessStates.BACKOFF
     # replace the BACKOFF process info with a STARTING process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STARTING)
-    assert process.evaluate_conflict()
+    process._evaluate_conflict()
     assert process.state == ProcessStates.STARTING
     # replace the STARTING process info with an EXITED process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.EXITED)
     process.running_nodes.remove('10.0.0.2')
-    assert not process.evaluate_conflict()
+    process._evaluate_conflict()
     assert process.state == ProcessStates.STARTING
 
 

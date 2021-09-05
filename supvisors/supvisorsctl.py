@@ -699,6 +699,33 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output("restart_process <strategy> \t\t\t"
                         "Restart all processes using strategy.")
 
+    def do_update_numprocs(self, arg):
+        """ Command to dynamically update the numprocs of the program. """
+        if self._upcheck():
+            args = arg.split()
+            if len(args) < 2:
+                self.ctl.output('ERROR: update_numprocs requires a program name and a numprocs values')
+                self.help_update_numprocs()
+                return
+            try:
+                value = int(args[1])
+                assert value > 0
+            except (ValueError, AssertionError):
+                self.ctl.output('ERROR: numprocs must be a strictly positive integer')
+                self.help_update_numprocs()
+                return
+            try:
+                result = self.supvisors().update_numprocs(args[0], value)
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('{} numprocs updated: {}'.format(args[0], result))
+
+    def help_update_numprocs(self):
+        """ Print the help of the update_numprocs command. """
+        self.ctl.output('Resize the process group.')
+        self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
+
     def do_conciliate(self, arg):
         """ Command to conciliate conflicts (applicable with default USER strategy). """
         if self._upcheck():
@@ -724,7 +751,7 @@ class ControllerPlugin(ControllerPluginBase):
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
         self.ctl.output("Conciliate Supvisors conflicts.")
-        self.ctl.output("conciliate strategy\t\t\t\t\tConciliate process conflicts using strategy")
+        self.ctl.output("conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy")
 
     def do_sreload(self, _):
         """ Command to restart Supvisors on all addresses. """
@@ -793,9 +820,9 @@ class ControllerPlugin(ControllerPluginBase):
         except xmlrpclib.Fault as e:
             if e.faultCode == xmlrpc.Faults.UNKNOWN_METHOD:
                 self.ctl.output('ERROR: supervisord responded but did not recognize '
-                                'the supvisors namespace commands that supvisorsctl uses to control it. '
-                                'Please check that the [rpcinterface:supervisor] section is enabled '
-                                'in the configuration file (see sample.conf).')
+                                'the supvisors namespace commands that supervisorstl uses to control it. '
+                                'Please check that the [rpcinterface:supvisors] section is enabled '
+                                'in the configuration file.')
                 return False
             raise
         except socket.error as why:

@@ -97,9 +97,11 @@ Key	               Value
 ================== ==================
 'application_name' The Application name.
 'process_name'     The Process name.
-'statecode'        The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+'statecode'        The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}. A special value -1 means that the process
+                   has been deleted as a consequence of an XML-RPC ``update_numprocs``.
 'statename'        The Process state as string, among { ``'STOPPED'``, ``'STARTING'``, ``'RUNNING'``, ``'BACKOFF'``,
-                   ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'`` }.
+                   ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``, ``'UNKNOWN'`` }. A special value ``DELETED`` means that
+                   the process has been deleted as a consequence of an XML-RPC ``update_numprocs``.
 'expected_exit'    True if the exit status is expected (only when state is ``'EXITED'``).
 'last_event_time'  The date of the last process event received for this process, regardless of the originating
                    |Supvisors| instance.
@@ -121,7 +123,8 @@ Key                Value
 ================== ==================
 'group'            The Application name.
 'name'             The Process name.
-'state'            The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}.
+'state'            The Process state, in {0, 10, 20, 30, 40, 100, 200, 1000}. A special value -1 means that the process
+                   has been deleted as a consequence of an XML-RPC ``update_numprocs``.
 'expected'         True if the exit status is expected (only when state is 100 - ``EXITED``).
 'now'              The date of the event in the reference time of the node.
 'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).

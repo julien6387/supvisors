@@ -19,12 +19,9 @@
 
 import pytest
 
-from unittest.mock import patch, Mock
+from unittest.mock import call, patch, Mock
 
-from supervisor.http import supervisor_auth_handler
-from supervisor.medusa import default_handler
-
-from supvisors.infosource import SupervisordSource
+from supvisors.infosource import *
 
 
 @pytest.fixture
@@ -78,15 +75,6 @@ def test_close_server(source):
     assert source.supervisord.options.storage is not None
     assert source.supervisord.options.storage is http_servers
     assert source.supervisord.options.httpservers == ()
-
-
-def test_group_config(source):
-    """ Test the access of a group configuration. """
-    # test unknown application
-    with pytest.raises(KeyError):
-        source.get_group_config('unknown_application')
-    # test normal behaviour
-    assert source.get_group_config('dummy_application') == 'dummy_application_config'
 
 
 def test_process(source):
@@ -179,6 +167,106 @@ def test_extra_args(source):
     assert config.command == 'ls'
     assert config.command_ref == 'ls'
     assert config.extra_args == ''
+
+
+def test_update_numprocs(mocker, source):
+    """ Test the possibility to update numprocs. """
+    # get patches
+    mocked_obsolete = mocker.patch.object(source, '_get_obsolete_processes', return_value=['dummy_program_2'])
+    mocked_add = mocker.patch.object(source, '_add_processes')
+    # set context
+    source.supervisord.supvisors.server_options.process_groups = process_groups = {}
+    process_groups['dummy_program'] = {'dummy_group': ['dummy_program_1', 'dummy_program_2']}
+    # test numprocs increase
+    source.update_numprocs('dummy_program', 3)
+    assert not mocked_obsolete.called
+    assert mocked_add.call_args_list == [call('dummy_program', 3, 2, ['dummy_group'])]
+    mocker.resetall()
+    # test numprocs decrease
+    assert source.update_numprocs('dummy_program', 1) == ['dummy_program_2']
+    assert mocked_obsolete.call_args_list == [call('dummy_program', 1,
+                                                   {'dummy_group': ['dummy_program_1', 'dummy_program_2']})]
+    assert not mocked_add.called
+    mocker.resetall()
+    # test numprocs identity
+    source.update_numprocs('dummy_program', 2)
+    assert not mocked_obsolete.called
+    assert not mocked_add.called
+
+
+def test_add_processes(mocker, source):
+    """ Test the possibility to increase numprocs. """
+    # get the patches
+    mocked_update = source.supervisord.supvisors.server_options.update_numprocs
+    mocked_update.return_value = 'program:dummy_program'
+    mocked_reload = source.supervisord.supvisors.server_options.reload_processes_from_section
+    process_1, process_2 = Mock(), Mock()
+    mocked_reload.return_value = [process_1, process_2]
+    mocked_add = mocker.patch.object(source, '_add_supervisor_processes')
+    # test call
+    source._add_processes('dummy_program', 2, 1, ['dummy_group'])
+    assert mocked_update.call_args_list == [call('dummy_program', 2)]
+    assert mocked_reload.call_args_list == [call('program:dummy_program', 'dummy_group')]
+    assert mocked_add.call_args_list == [call('dummy_group', [process_2])]
+
+
+def test_add_supervisor_processes(mocker, source):
+    """ Test the possibility to increase numprocs. """
+    # get the patches
+    mocked_notify = mocker.patch('supvisors.infosource.notify')
+    # set context
+    process_1, process_2 = Mock(), Mock()
+    program_2 = Mock(command='bin/program_2', **{'make_process.return_value': process_2})
+    program_2.name = 'dummy_program_02'
+    source.supervisord.process_groups = {'dummy_group': Mock(processes={'dummy_program_01': process_1},
+                                                             config=Mock(process_configs=[process_1]))}
+    # test call
+    source._add_supervisor_processes('dummy_group', [program_2])
+    assert program_2.options == source.supervisord.options
+    assert program_2.command_ref == 'bin/program_2'
+    assert program_2.extra_args == ''
+    assert program_2.create_autochildlogs.call_args_list == [call()]
+    assert source.supervisord.process_groups['dummy_group'].processes == {'dummy_program_01': process_1,
+                                                                          'dummy_program_02': process_2}
+    notify_call = mocked_notify.call_args_list[0][0][0]
+    assert isinstance(notify_call, ProcessAddedEvent)
+    assert notify_call.process is process_2
+
+
+def test_get_obsolete_processes(source):
+    """ Test getting the obsolete processes before decreasing numprocs. """
+    mocked_update = source.supervisord.supvisors.server_options.update_numprocs
+    mocked_update.return_value = 'program:dummy_program'
+    mocked_reload = source.supervisord.supvisors.server_options.reload_processes_from_section
+    # set context
+    process_1, process_2 = Mock(), Mock()
+    process_1.name = 'dummy_process_1'
+    process_2.name = 'dummy_process_2'
+    program_configs = {'dummy_group': [process_1, process_2]}
+    # test call
+    assert source._get_obsolete_processes('dummy_program', 1, program_configs) == ['dummy_group:dummy_process_2']
+    assert mocked_update.call_args_list == [call('dummy_program', 1)]
+    assert mocked_reload.call_args_list == [call('program:dummy_program', 'dummy_group')]
+
+
+def test_delete_processes(mocker, source):
+    """ Test the possibility to decrease numprocs. """
+    # get the patches
+    mocked_notify = mocker.patch('supvisors.infosource.notify')
+    # set context
+    process_1, process_2, process_3 = Mock(), Mock(), Mock()
+    source.supervisord.process_groups = {'dummy_group': Mock(processes={'dummy_program_01': process_1,
+                                                                        'dummy_program_02': process_2,
+                                                                        'dummy_program_03': process_3})}
+    # test call
+    source.delete_processes(['dummy_group:dummy_program_02', 'dummy_group:dummy_program_03'])
+    notify_call_1 = mocked_notify.call_args_list[0][0][0]
+    assert isinstance(notify_call_1, ProcessRemovedEvent)
+    assert notify_call_1. process is process_2
+    notify_call_2 = mocked_notify.call_args_list[1][0][0]
+    assert isinstance(notify_call_2, ProcessRemovedEvent)
+    assert notify_call_2. process is process_3
+    assert source.supervisord.process_groups['dummy_group'].processes == {'dummy_program_01': process_1}
 
 
 def test_force_fatal(source):

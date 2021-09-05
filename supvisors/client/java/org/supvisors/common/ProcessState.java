@@ -24,6 +24,9 @@ import java.util.HashMap;
  *
  * See the description in the Supervisor documentation.
  * http://supervisord.org/subprocess.html#process-states
+ *
+ * The DELETED enumeration has been added to support the Supervisor issue #177 in the event where the user decreases
+ * dynamically the numprocs value and thus processes are removed from Supervisor.
  */
 public enum ProcessState {
     @SerializedName("0")
@@ -41,7 +44,9 @@ public enum ProcessState {
     @SerializedName("200")
     FATAL(200),
     @SerializedName("1000")
-    UNKNOWN(1000);
+    UNKNOWN(1000),
+    @SerializedName("-1")
+    DELETED(-1);
 
     /** The state code. */
     private int stateCode;
@@ -67,4 +72,3 @@ public enum ProcessState {
     }
 
 }
-

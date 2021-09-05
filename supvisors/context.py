@@ -274,13 +274,11 @@ class Context(object):
                 # FSM on_timer_event will handle the node invalidation
                 status.local_time = 0
             else:
-                # asynchronous port-knocking used to check how the remote Supvisors instance
-                # considers the local instance
-                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-                    status.state = AddressStates.CHECKING
-                    self.supvisors.zmq.pusher.send_check_node(node_name)
                 # update internal times
                 status.update_times(event['sequence_counter'], event['when'], int(time()))
+                # check node
+                if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
+                    self.check_node(status)
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_address_status(status.serial())
 
@@ -292,6 +290,9 @@ class Context(object):
         current_time = time()
         # do not check for invalidation before synchro_timeout
         if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+            # get publisher
+            publisher = self.supvisors.zmq.publisher
+            # check all nodes
             for status in self.nodes.values():
                 if status.state == AddressStates.UNKNOWN:
                     # invalid unknown nodes
@@ -307,20 +308,64 @@ class Context(object):
                     #  and their related description.
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_node(status.node_name)})
+        # publish process status in failure
+        for process in process_failures:
+            publisher.send_process_status(process.serial())
         # update all application sequences and status
         for application_name in {process.application_name for process in process_failures}:
             application = self.applications[application_name]
             # update sequence useless as long as the application.process map is not impacted (see decision above)
             # application.update_sequences()
             application.update_status()
+            publisher.send_application_status(application.serial())
         #  return all processes that declare a failure
         return process_failures
 
-    def on_process_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
+    def on_process_removed_event(self, node_name: str, event: Payload) -> None:
+        """ Method called upon reception of a process removed event from the remote Supvisors instance.
+        Following an XML-RPC update_numprocs, the size of homogeneous process groups may decreased and lead to removal
+        of processes.
+
+        :param node_name: the node that sent the event
+        :param event: the event payload
+        :return: None
+        """
+        if self.supvisors.address_mapper.valid(node_name):
+            status = self.nodes[node_name]
+            # accept events only in RUNNING state
+            if status.state == AddressStates.RUNNING:
+                self.logger.debug('Context.on_remove_process_event: got event {} from node={}'.format(event, node_name))
+                # get internal data
+                application = self.applications[event['group']]
+                process = application.processes[event['name']]
+                publisher = self.supvisors.zmq.publisher
+                # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
+                event['state'] = -1
+                publisher.send_process_event(node_name, event)
+                # delete the process info entry related to the node
+                # the process may be removed from the application if there's no more node supporting its definition
+                if process.remove_node(node_name):
+                    # publish a last process status before it is deleted
+                    payload = process.serial()
+                    payload.update({'statecode': -1, 'statename': 'DELETED'})
+                    publisher.send_process_status(payload)
+                    # remove the process from the application and publish
+                    application.remove_process(process.process_name)
+                    publisher.send_application_status(application.serial())
+                    # an update of numprocs cannot leave the application empty (update_numprocs 0 not allowed)
+                    # no need to dig further
+                # WARN: process_failures are not triggered as the processes have been properly stopped as a consequence
+                # of the user action
+
+    def on_process_state_event(self, node_name: str, event: Payload) -> Optional[ProcessStatus]:
         """ Method called upon reception of a process event from the remote Supvisors instance.
         Supvisors checks that the handling of the event is valid in case of auto fencing.
         The method updates the ProcessStatus corresponding to the event, and thus the wrapping ApplicationStatus.
         Finally, the updated ProcessStatus and ApplicationStatus are published.
+
+        :param node_name: the node that sent the event
+        :param event: the event payload
+        :return: None
         """
         if self.supvisors.address_mapper.valid(node_name):
             status = self.nodes[node_name]
@@ -353,6 +398,17 @@ class Context(object):
                 return process
         else:
             self.logger.error('Context.on_process_event: got process event from unexpected node={}'.format(node_name))
+
+    def check_node(self, status) -> None:
+        """ Asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance.
+        Also used to get the full process list from the node
+
+        :param status: the AddressStatus to check
+        :return: None
+        """
+        #
+        status.state = AddressStates.CHECKING
+        self.supvisors.zmq.pusher.send_check_node(status.node_name)
 
     def handle_isolation(self) -> NameList:
         """ Move ISOLATING nodes to ISOLATED and publish related events. """

@@ -59,8 +59,6 @@ class DummyOptions:
         self.logfile_maxbytes = 10000
         self.logfile_backups = 12
         self.loglevel = LevelsByName.BLAT
-        # additional process configuration
-        self.procnumbers = {'xclock': 2}
 
 
 class MockedSupvisors:
@@ -73,6 +71,7 @@ class MockedSupvisors:
         self.address_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
         self.address_mapper.local_node_name = '127.0.0.1'
         self.options = DummyOptions()
+        self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from address mapper
         self.context = Context(self)
         # simple mocks
