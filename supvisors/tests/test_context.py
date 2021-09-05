@@ -522,9 +522,11 @@ def test_process_removed_event_isolated_node(context):
 
 def test_process_removed_event(mocker, context):
     """ Test the handling of a process removed event. """
+    mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
     # get address status used for tests
-    node = context.nodes['10.0.0.1']
+    node1 = context.nodes['10.0.0.1']
+    node2 = context.nodes['10.0.0.2']
     # patch load_application_rules
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
@@ -532,6 +534,7 @@ def test_process_removed_event(mocker, context):
                   'now': 1234, 'stop': 0}
     process = context.setdefault_process(dummy_info)
     process.add_info('10.0.0.1', dummy_info)
+    process.add_info('10.0.0.2', dummy_info)
     application = context.applications['dummy_application']
     assert application.state == ApplicationStates.STOPPED
     # update sequences for the test
@@ -542,23 +545,40 @@ def test_process_removed_event(mocker, context):
     # check behaviour when not in RUNNING state
     for state in AddressStates:
         if state != AddressStates.RUNNING:
-            node._state = state
+            node1._state = state
             context.on_process_removed_event('10.0.0.1', dummy_event)
-            assert list(process.info_map.keys()) == ['10.0.0.1']
+            assert sorted(process.info_map.keys()) == ['10.0.0.1', '10.0.0.2']
             assert application.state == ApplicationStates.STOPPED
             assert not mocked_publisher.send_process_event.called
             assert not mocked_publisher.send_process_status.called
             assert not mocked_publisher.send_application_status.called
     # check normal behaviour in RUNNING state
-    node._state = AddressStates.RUNNING
+    # as process will still include a definition on '10.0.0.2', no impact expected on process and application
+    node1._state = AddressStates.RUNNING
+    node2._state = AddressStates.RUNNING
     context.on_process_removed_event('10.0.0.1', dummy_event)
     assert process.state == ProcessStates.STOPPED
-    assert list(process.info_map.keys()) == []
+    assert sorted(process.info_map.keys()) == ['10.0.0.2']
     assert application.state == ApplicationStates.STOPPED
     assert mocked_publisher.send_process_event.call_args_list == \
            [call('10.0.0.1', {'group': 'dummy_application', 'name': 'dummy_process', 'state': -1})]
     assert not mocked_publisher.send_process_status.called
     assert not mocked_publisher.send_application_status.called
+    mocked_publisher.send_process_event.reset_mock()
+    # check normal behaviour in RUNNING state
+    context.on_process_removed_event('10.0.0.2', dummy_event)
+    assert process.state == ProcessStates.STOPPED
+    assert list(process.info_map.keys()) == []
+    assert application.state == ApplicationStates.STOPPED
+    assert mocked_publisher.send_process_event.call_args_list == \
+           [call('10.0.0.2', {'group': 'dummy_application', 'name': 'dummy_process', 'state': -1})]
+    assert mocked_publisher.send_process_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
+                  'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
+                  'last_event_time': 1234, 'addresses': [], 'extra_args': ''})]
+    assert mocked_publisher.send_application_status.call_args_list == \
+           [call({'application_name': 'dummy_application', 'statecode': 0, 'statename': 'STOPPED',
+                  'major_failure': False, 'minor_failure': False})]
 
 
 def test_process_event_unknown_node(mocker, context):

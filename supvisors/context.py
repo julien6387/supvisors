@@ -290,6 +290,9 @@ class Context(object):
         current_time = time()
         # do not check for invalidation before synchro_timeout
         if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
+            # get publisher
+            publisher = self.supvisors.zmq.publisher
+            # check all nodes
             for status in self.nodes.values():
                 if status.state == AddressStates.UNKNOWN:
                     # invalid unknown nodes
@@ -305,6 +308,9 @@ class Context(object):
                     #  and their related description.
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_node(status.node_name)})
+        # publish process status in failure
+        for process in process_failures:
+            publisher.send_process_status(process.serial())
         # update all application sequences and status
         for application_name in {process.application_name for process in process_failures}:
             application = self.applications[application_name]
@@ -341,7 +347,7 @@ class Context(object):
                 if process.remove_node(node_name):
                     # publish a last process status before it is deleted
                     payload = process.serial()
-                    payload.update({'statecode': -1, 'statename': 'DELETE'})
+                    payload.update({'statecode': -1, 'statename': 'DELETED'})
                     publisher.send_process_status(payload)
                     # remove the process from the application and publish
                     application.remove_process(process.process_name)

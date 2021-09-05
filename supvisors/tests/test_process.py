@@ -734,6 +734,21 @@ def test_invalidate_nodes(supvisors):
     assert process.state == ProcessStates.FATAL
 
 
+def test_remove_node(supvisors):
+    """ Test the removal of nodes. """
+    # create conflict directly with 2 process info
+    info = any_process_info()
+    process = create_process(info, supvisors)
+    process.add_info('10.0.0.1', info)
+    process.add_info('10.0.0.2', any_process_info())
+    # check process info_map
+    assert sorted(process.info_map.keys()) == ['10.0.0.1', '10.0.0.2']
+    assert not process.remove_node('10.0.0.2')
+    assert sorted(process.info_map.keys()) == ['10.0.0.1']
+    assert process.remove_node('10.0.0.1')
+    assert sorted(process.info_map.keys()) == []
+
+
 def test_update_status(supvisors):
     """ Test the update of state and running addresses. """
     # update_status is called in the construction
