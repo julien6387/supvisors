@@ -575,8 +575,9 @@ class RPCInterface(object):
         """ Update dynamically the numprocs of the program.
 
         *@param* ``str program_name``: the program name, as found in the section of the Supervisor configuration files.
+        Programs, FastCGI programs and event listeners are supported.
 
-        *@param* ``int numprocs``: the new numprocs value.
+        *@param* ``int numprocs``: the new numprocs value (must be > 0).
 
         *@throws* ``RPCError``:
 

@@ -19,7 +19,7 @@
 
 from collections import OrderedDict
 from socket import gethostname
-from typing import Dict, List, Tuple
+from typing import Dict, List, TypeVar
 
 from supervisor.datatypes import (Automatic, logfile_name,
                                   boolean, integer, byte_size,
@@ -27,7 +27,7 @@ from supervisor.datatypes import (Automatic, logfile_name,
                                   existing_dirpath,
                                   list_of_strings)
 from supervisor.loggers import Logger
-from supervisor.options import ServerOptions, ProcessConfig
+from supervisor.options import ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
 from .ttypes import ConciliationStrategies, StartingStrategies
 
@@ -182,6 +182,8 @@ class SupvisorsServerOptions(ServerOptions):
     ProcessConfigList = List[ProcessConfig]
     ProcessConfigInfo = Dict[str, ProcessConfigList]
     ProcessGroupInfo = Dict[str, ProcessConfigInfo]
+    ProcessConfigType = TypeVar('ProcessConfigType', bound='Type[ProcessConfig]')
+    ProcessClassInfo = Dict[str, ProcessConfigType]
 
     def __init__(self, logger: Logger):
         """ Initialization of the attributes. """
@@ -190,6 +192,7 @@ class SupvisorsServerOptions(ServerOptions):
         self.logger: Logger = logger
         # attributes
         self.parser = None
+        self.program_class: SupvisorsServerOptions.ProcessClassInfo = {}
         self.process_groups: SupvisorsServerOptions.ProcessGroupInfo = {}
         self.procnumbers: Dict[str, int] = {}
 
@@ -202,7 +205,7 @@ class SupvisorsServerOptions(ServerOptions):
         :param parser: the config parser
         :param section: the program section
         :param group_name: the group that embeds the program definition
-        :param klass: the ProcessConfig class
+        :param klass: the ProcessConfig class (may be EventListenerConfig or FastCGIProcessConfig)
         :return: the list of ProcessConfig
         """
         # keep a reference to the parser, so that it is not garbage-collected
@@ -217,8 +220,18 @@ class SupvisorsServerOptions(ServerOptions):
         program_name = section.split(':', 1)[1]
         process_group = self.process_groups.setdefault(program_name, {})
         process_group[group_name] = process_configs
+        # store the program class type
+        self.program_class[program_name] = klass
         # return original result
         return process_configs
+
+    def get_section(self, program_name: str):
+        klass = self.program_class[program_name]
+        if klass is FastCGIProcessConfig:
+            return 'fcgi-program:%s' % program_name
+        if klass is EventListenerConfig:
+            return 'eventlistener:%s' % program_name
+        return 'program:%s' % program_name
 
     def update_numprocs(self, program_name: str, numprocs: int) -> str:
         """ This method updates the numprocs value directly in the configuration parser.
@@ -227,7 +240,7 @@ class SupvisorsServerOptions(ServerOptions):
         :param numprocs: the new numprocs value
         :return: The section updated
         """
-        section = 'program:%s' % program_name
+        section = self.get_section(program_name)
         self.logger.debug('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
         self.parser[section]['numprocs'] = '%d' % numprocs
         return section
@@ -244,4 +257,6 @@ class SupvisorsServerOptions(ServerOptions):
         for process_list in self.process_groups[program_name].values():
             for process in process_list:
                 self.procnumbers.pop(process.name, None)
-        return self.processes_from_section(self.parser, section, group_name)
+        # call parser again
+        klass = self.program_class[program_name]
+        return self.processes_from_section(self.parser, section, group_name, klass)

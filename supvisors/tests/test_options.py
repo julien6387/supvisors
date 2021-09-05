@@ -229,22 +229,47 @@ def test_server_options(mocker, server_opt):
     """
     # test attributes
     assert server_opt.parser is None
+    assert server_opt.program_class == {}
     assert server_opt.process_groups == {}
     assert server_opt.procnumbers == {}
     # call realize
     server = create_server(mocker, server_opt, ProgramConfiguration)
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1}
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dummy_1': 1, 'dummy_2': 2, 'dumber_10': 0, 'dumber_11': 1,
+                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
     expected_printable = {program_name: {group_name: [process.name for process in processes]}
                           for program_name, program_configs in server.process_groups.items()
                           for group_name, processes in program_configs.items()}
     assert expected_printable == {'dumber': {'dumber': ['dumber_10', 'dumber_11']},
                                   'dummies': {'dummy_group': ['dummy_0', 'dummy_1', 'dummy_2']},
-                                  'dummy': {'dummy_group': ['dummy']}}
-    # udpate procnums
+                                  'dummy': {'dummy_group': ['dummy']},
+                                  'dummy_ears': {'dummy_ears': ['dummy_ears_20', 'dummy_ears_21']}}
+    assert server.program_class['dummy'] is ProcessConfig
+    assert server.program_class['dummies'] is ProcessConfig
+    assert server.program_class['dumber'] is FastCGIProcessConfig
+    assert server.program_class['dummy_ears'] is EventListenerConfig
+    # udpate procnums of a program
     assert server.update_numprocs('dummies', 1) == 'program:dummies'
     assert server.parser['program:dummies']['numprocs'] == '1'
     # reload programs
     result = server.reload_processes_from_section('program:dummies', 'dummy_group')
     expected_printable = [process.name for process in result]
     assert expected_printable == ['dummy_0']
-    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1}
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dumber_11': 1,
+                                  'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    # udpate procnums of a FastCGI program
+    assert server.update_numprocs('dumber', 1) == 'fcgi-program:dumber'
+    assert server.parser['fcgi-program:dumber']['numprocs'] == '1'
+    # reload programs
+    result = server.reload_processes_from_section('fcgi-program:dumber', 'dumber')
+    expected_printable = [process.name for process in result]
+    assert expected_printable == ['dumber_10']
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0, 'dummy_ears_20': 0, 'dummy_ears_21': 1}
+    # udpate procnums of an event listener
+    assert server.update_numprocs('dummy_ears', 3) == 'eventlistener:dummy_ears'
+    assert server.parser['eventlistener:dummy_ears']['numprocs'] == '3'
+    # reload programs
+    result = server.reload_processes_from_section('eventlistener:dummy_ears', 'dummy_ears')
+    expected_printable = [process.name for process in result]
+    assert expected_printable == ['dummy_ears_20', 'dummy_ears_21', 'dummy_ears_22']
+    assert server.procnumbers == {'dummy': 0, 'dummy_0': 0, 'dumber_10': 0,
+                                  'dummy_ears_20': 0, 'dummy_ears_21': 1, 'dummy_ears_22': 2}

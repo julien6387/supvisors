@@ -46,11 +46,20 @@ command=ls
 process_name=dummy_%(process_num)d
 numprocs=3
 
-[program:dumber]
+[fcgi-program:dumber]
 command=ls
 process_name=dumber_%(process_num)d
 numprocs=2
 numprocs_start=10
+socket=tcp://localhost:9002
+
+[eventlistener:dummy_ears]
+command=ls
+process_name=dummy_ears_%(process_num)d
+events=EVENT
+buffer_size=10
+numprocs=2
+numprocs_start=20
 ''')
 
 # Contents of a rules file including schema errors
