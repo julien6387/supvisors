@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.11 (2021-xx-xx)
+
+* Update documentation.
+
+
 ## 0.10 (2021-09-05)
 
 * Implement [Supervisor Issue #177](https://github.com/Supervisor/supervisor/issues/177).

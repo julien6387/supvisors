@@ -49,8 +49,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # test the stopping of web_movies application
         self.check_web_movies_stopping()
         # test the stopping of service application
-        self.check_service_stopping()
-        # cannot test the last events received for this process
+        self.check_unmanaged_stopping()
+        # cannot test the last event received for this process
 
     def create_context(self):
         """ Store info and rules about the running processes of the application considered. """
@@ -77,6 +77,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         if disk_handler:
             # only on cliche83
             disk_handler.managed = False
+        self.context.get_application('evt_listener').managed = False
 
     def check_converter_running(self):
         """ Check the start sequence of the converter program. """
@@ -88,8 +89,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         self.check_events()
         self.assertFalse(self.context.has_events())
 
-    def check_service_stopping(self):
-        """ Check the stopping sequence of the service application.
+    def check_unmanaged_stopping(self):
+        """ Check the stopping sequence of the unmanaged applications.
         This one is complex to test as there may be multiple instances running for the same program.
         And this is mixed with the stopping of disk_handler group. """
         # configure service application stop sequence
@@ -112,6 +113,19 @@ class CheckStopSequenceTest(CheckSequenceTest):
                 for node_name in program.node_names:
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure evtlistener stop sequence
+        program = self.context.get_program('evt_listener:evt_listener_00')
+        if program:
+            if program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure self stop sequence: only the STOPPING event will be received
+        program = self.context.get_program('test:check_stop_sequence')
+        if program:
+            if program.state in RUNNING_STATES:
+                for node_name in program.node_names:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -183,7 +197,7 @@ def test_suite():
 
 
 if __name__ == '__main__':
-    # catch supervisor termination signal
+    # catch and ignore supervisor termination signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # get arguments
     import argparse
