@@ -642,26 +642,6 @@ def test_stop_process(mocker, rpc):
     mocked_progress = rpc.supvisors.stopper.in_progress
     # patch the instance
     rpc._get_application_process = Mock()
-    # test RPC call with running process
-    rpc._get_application_process.return_value = (None, Mock(namespec='proc1', **{'stopped.return_value': True}))
-    with pytest.raises(RPCError) as exc:
-        rpc.stop_process('appli_1')
-    assert exc.value.args == (Faults.NOT_RUNNING, 'proc1')
-    assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_count == 0
-    assert mocked_progress.call_count == 0
-    mocked_check.reset_mock()
-    # test RPC call with running processes
-    proc_1 = Mock(**{'stopped.return_value': False})
-    proc_2 = Mock(namespec='proc2', **{'stopped.return_value': True})
-    rpc._get_application_process.return_value = (Mock(**{'processes.values.return_value': [proc_1, proc_2]}), None)
-    with pytest.raises(RPCError) as exc:
-        rpc.stop_process('appli_1')
-    assert exc.value.args == (Faults.NOT_RUNNING, 'proc2')
-    assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_count == 0
-    assert mocked_progress.call_count == 0
-    mocked_check.reset_mock()
     # test RPC call with stopped processes
     proc_1 = Mock(namespec='proc1', **{'running.return_value': True, 'stopped.return_value': False})
     proc_2 = Mock(namespec='proc2', **{'running.return_value': False, 'stopped.return_value': False})
@@ -676,14 +656,19 @@ def test_stop_process(mocker, rpc):
     mocked_stop.reset_mock()
     # test RPC call no wait and done
     mocked_stop.return_value = True
-    assert rpc.stop_process('appli:*', False)
+    with pytest.raises(RPCError) as exc:
+        rpc.stop_process('appli:*')
+    assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
     assert mocked_check.call_args_list == [call()]
     assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
     assert mocked_progress.call_count == 0
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
     # test RPC call with wait and done
-    assert rpc.stop_process('appli:*', wait=True)
+    with pytest.raises(RPCError) as exc:
+        rpc.stop_process('appli:*', wait=True)
+    assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
+    assert mocked_check.call_args_list == [call()]
     assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
     assert mocked_progress.call_count == 0
     mocked_check.reset_mock()

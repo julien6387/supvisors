@@ -501,17 +501,16 @@ class RPCInterface(object):
         # check names
         application, process = self._get_application_process(namespec)
         processes = [process] if process else application.processes.values()
-        # check processes are not already running
-        for process in processes:
-            if process.stopped():
-                raise RPCError(Faults.NOT_RUNNING, process.namespec)
         # stop all processes
         done = True
         for process in processes:
             self.logger.info('RPCInterface.stop_process: stopping process {}'.format(process.namespec))
             done &= self.supvisors.stopper.stop_process(process)
+        # if already done, that would mean nothing was running
+        if done:
+            raise RPCError(Faults.NOT_RUNNING, namespec)
         # wait until processes are in STOPPED_STATES
-        if wait and not done:
+        if wait:
             def onwait():
                 # check stopper
                 if self.supvisors.stopper.in_progress():

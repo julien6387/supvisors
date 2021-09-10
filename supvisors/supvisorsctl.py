@@ -651,12 +651,9 @@ class ControllerPlugin(ControllerPluginBase):
     def help_stop_process(self):
         """ Print the help of the stop_process command."""
         self.ctl.output("Stop a process where it is running.")
-        self.ctl.output("stop_process <strategy> <proc>\t\t\t"
-                        "Stop the process named proc.")
-        self.ctl.output("stop_process <strategy> <proc> <proc>\t\t"
-                        "Stop multiple named processes.")
-        self.ctl.output("stop_process <strategy> \t\t\t"
-                        "Stop all named processes.")
+        self.ctl.output("stop_process <proc>\t\tStop the process named proc.")
+        self.ctl.output("stop_process <proc> <proc>\tStop multiple named processes.")
+        self.ctl.output("stop_process\t\t\tStop all named processes.")
 
     def do_restart_process(self, arg):
         """ Command to restart processes with a strategy and rules. """

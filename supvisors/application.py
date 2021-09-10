@@ -69,7 +69,7 @@ class ApplicationRules(object):
         """ Check the stop_sequence value.
         If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
 
-        :param namespec: the namespec of the program considered.
+        :param application_name: the name of the application considered.
         :return: None
         """
         if self.stop_sequence < 0:
@@ -82,7 +82,7 @@ class ApplicationRules(object):
         and the index of the node in the applicable node list.
         Unlike programs, there is no unquestionable index that Supvisors could get because Supervisor does not support
         homogeneous applications. It thus has to be a convention.
-        The chosen covenant is that the application_name MUST match r'[-_]\d+$'. The first index name is 1.
+        The chosen convention is that the application_name MUST match r'[-_]\\d+$'. The first index name is 1.
 
         hash_node_names is expected to contain:
             - either ['*'] when all nodes are applicable
