@@ -5,6 +5,8 @@
 * Fix issue with `supvisors.stop_process` XML-RPC that wouldn't stop all processes when any of the targeted processes
   is already stopped.
 
+* Add class "action" to start/stop/restart buttons in process tables of the Web UI.
+
 * Update documentation.
 
 
