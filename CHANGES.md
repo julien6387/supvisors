@@ -7,6 +7,8 @@
 
 * Fix exception when authorization is received from a node that is not in CHECKING state. 
 
+* Fix regression on node isolation (missing disconnect). 
+
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*

@@ -122,7 +122,7 @@ def test_check_requests(mocker, main_loop):
     # reset mocks
     mocked_sockets.check_puller.reset_mock()
     # test with appropriate socks but with exception
-    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_NODES, 'a message'
+    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_NODES.value, 'a message'
     main_loop.check_requests(mocked_sockets, 'poll result')
     assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
     assert mocked_sockets.disconnect_subscriber.call_args_list == [call('a message')]

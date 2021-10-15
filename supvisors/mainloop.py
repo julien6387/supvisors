@@ -111,7 +111,7 @@ class SupvisorsMainLoop(Thread):
         message = sockets.check_puller(poll_result)
         if message:
             header, body = message
-            if header == DeferredRequestHeaders.ISOLATE_NODES:
+            if header == DeferredRequestHeaders.ISOLATE_NODES.value:
                 # isolation request: disconnect the address from subscriber
                 sockets.disconnect_subscriber(body)
             else:
