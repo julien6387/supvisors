@@ -106,9 +106,17 @@ Status
             'statename'        ``str``         The Process state as string, in [``'STOPPED'``, ``'STARTING'``,
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
+            'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
+            'last_event_time'  ``int``         The timestamp of the last event received for this process.
             'addresses'        ``list(str)``   The list of all nodes where the process is running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
+
+            .. hint::
+
+                The 'expected_exit' status is an answer to the following |Supervisor| request:
+
+                    * `#763 - unexpected exit not easy to read in status or getProcessInfo <https://github.com/Supervisor/supervisor/issues/763>`_
 
             .. note::
 

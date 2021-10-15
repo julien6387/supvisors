@@ -11,6 +11,8 @@
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
+* Add `expected_exit` to the output of `supervisorctl sstatus` when the process is `EXITED`.
+
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
   applications only.
 

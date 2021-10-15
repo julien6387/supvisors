@@ -284,17 +284,17 @@ def test_sstatus(controller, plugin, mocked_check):
     """ Test the sstatus request. """
     mocked_rpc = plugin.supvisors().get_all_process_info
     mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1',
-                                'statename': 'running', 'addresses': ['10.0.1', '10.0.2']},
+                                'statename': 'running', 'expected_exit': True, 'addresses': ['10.0.1', '10.0.2']},
                                {'application_name': 'appli_2', 'process_name': 'proc_3',
-                                'statename': 'stopped', 'addresses': []}]
+                                'statename': 'stopped', 'expected_exit': False, 'addresses': []}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, 'all', [call()])
     # test help and request for process info from a selection of namespecs
     mocked_rpc = plugin.supvisors().get_process_info
     mocked_rpc.side_effect = [[{'application_name': 'appli_1', 'process_name': 'proc_1',
-                                'statename': 'running', 'addresses': ['10.0.1', '10.0.2']}],
+                                'statename': 'running', 'expected_exit': True, 'addresses': ['10.0.1', '10.0.2']}],
                               [{'application_name': 'appli_2', 'process_name': 'proc_3',
-                                'statename': 'stopped', 'addresses': []}]]
+                                'statename': 'stopped', 'expected_exit': False, 'addresses': []}]]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus,
                 'appli_2:proc_3 appli_1:proc_1', [call('appli_2:proc_3'), call('appli_1:proc_1')])
 

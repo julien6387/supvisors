@@ -26,7 +26,7 @@ from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
 from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import ClientOptions, split_namespec
-from supervisor.states import getProcessStateDescription
+from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase
 
 from .rpcinterface import API_VERSION, RPCInterface
@@ -225,6 +225,7 @@ class ControllerPlugin(ControllerPluginBase):
                          'nodes': 'Nodes', 'start_seq': 'Start', 'stop_seq': 'Stop', 'starting_strategy': 'Starting',
                          'starting_failure_strategy': 'Starting_Failure', 'running_failure_strategy': 'Running_Failure'}
                 self.ctl.output(template_managed % title)
+                # print rules
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
@@ -270,12 +271,21 @@ class ControllerPlugin(ControllerPluginBase):
             # print results
             if info_list:
                 max_appli = max(len(info['application_name']) for info in info_list) + 4
+                max_appli = max(max_appli, len('Application')) + 2
                 max_proc = max(len(info['process_name']) for info in info_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
+                max_proc = max(max_proc, len('Process')) + 2
+                # print title
+                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(expected)-10s%(addresses)s'.format(max_appli, max_proc)
+                title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
+                         'expected': 'Expected', 'addresses': 'Nodes'}
+                self.ctl.output(template % title)
+                # print process status
                 for info in info_list:
+                    expected = info['expected_exit'] if info['statecode'] == ProcessStates.EXITED else ''
                     line = template % {'appli': info['application_name'],
                                        'proc': info['process_name'],
                                        'state': info['statename'],
+                                       'expected': expected,
                                        'addresses': info['addresses']}
                     self.ctl.output(line)
 

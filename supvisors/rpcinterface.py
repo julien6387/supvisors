@@ -778,26 +778,26 @@ class RPCInterface(object):
             raise RPCError(Faults.INCORRECT_PARAMETERS, '{}'.format(level_param))
         return level_param
 
-    def _check_from_deployment(self):
+    def _check_from_deployment(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
         self._check_state([SupvisorsStates.DEPLOYMENT,
                            SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION,
                            SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN])
 
-    def _check_operating_conciliation(self):
+    def _check_operating_conciliation(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION or
         CONCILIATION. """
         self._check_state([SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION])
 
-    def _check_operating(self):
+    def _check_operating(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.OPERATION])
 
-    def _check_conciliation(self):
+    def _check_conciliation(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in OPERATION. """
         self._check_state([SupvisorsStates.CONCILIATION])
 
-    def _check_state(self, states):
+    def _check_state(self, states) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is NOT in one of the states. """
         if self.supvisors.fsm.state not in states:
             raise RPCError(SupvisorsFaults.BAD_SUPVISORS_STATE.value,
