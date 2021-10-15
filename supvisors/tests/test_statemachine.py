@@ -147,12 +147,20 @@ def test_master_deployment_state(mocker, supvisors_ctx):
     """ Test the Deployment state of the fsm. """
     state = MasterDeploymentState(supvisors_ctx)
     assert isinstance(state, AbstractState)
-    # test enter method
+    # test enter method with redeploy_mark as a boolean
     mocked_starter = supvisors_ctx.starter.start_applications
-    supvisors_ctx.fsm.redeploy_mark = True
+    for mark in [True, False]:
+        supvisors_ctx.fsm.redeploy_mark = mark
+        state.enter()
+        assert not supvisors_ctx.fsm.redeploy_mark
+        assert mocked_starter.call_args_list == [call(False)]
+        mocked_starter.reset_mock()
+    # test enter method with full restart required
+    supvisors_ctx.fsm.redeploy_mark = Forced
     state.enter()
-    assert mocked_starter.called
     assert not supvisors_ctx.fsm.redeploy_mark
+    assert mocked_starter.call_args_list == [call(True)]
+    mocked_starter.reset_mock()
     # test next method if check_nodes return something
     mocker.patch.object(state, 'check_nodes', return_value=SupvisorsStates.INITIALIZATION)
     assert state.next() == SupvisorsStates.INITIALIZATION
@@ -807,6 +815,24 @@ def test_on_authorization(mocker, fsm):
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.supvisors.context.master_node_name == ''
     assert fsm.redeploy_mark
+
+
+def test_restart_sequence_event(mocker, fsm):
+    """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
+    # inject restart event and test setting of redeploy_mark
+    mocked_zmq = fsm.supvisors.zmq.pusher.send_restart_sequence
+    fsm.supvisors.context.master_node_name = '10.0.0.1'
+    assert not fsm.redeploy_mark
+    # test when not master
+    fsm.on_restart_sequence()
+    assert not fsm.redeploy_mark
+    assert mocked_zmq.call_args_list == [call('10.0.0.1')]
+    mocked_zmq.reset_mock()
+    # test when master
+    fsm.context._is_master = True
+    fsm.on_restart_sequence()
+    assert not mocked_zmq.called
+    assert fsm.redeploy_mark is Forced
 
 
 def test_restart_event(mocker, fsm):

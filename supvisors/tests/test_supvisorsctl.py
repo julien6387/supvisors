@@ -19,9 +19,8 @@
 
 import pytest
 
-from unittest.mock import call, Mock
-
 from supervisor.xmlrpc import Faults
+from unittest.mock import call, Mock
 
 from supvisors.supvisorsctl import *
 
@@ -53,7 +52,7 @@ def _check_output_error(controller, error):
     controller.output.reset_mock()
 
 
-def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc_result):
+def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc_result, has_error=False):
     """ Generic test of help and request. """
     # test that help uses output
     help_fct()
@@ -69,7 +68,7 @@ def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc
     assert mocked_rpc.call_args_list == rpc_result
     mocked_rpc.reset_mock()
     # test output (with no error)
-    _check_output_error(controller, False)
+    _check_output_error(controller, has_error)
     # test request error
     mocked_rpc.side_effect = xmlrpclib.Fault(0, 'error')
     do_fct(arg)
@@ -85,8 +84,8 @@ def _check_call(controller, mocked_check, mocked_rpc, help_fct, do_fct, arg, rpc
     _check_output_error(controller, True)
 
 
-def _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                         help_cmd, do_cmd, all_result, sel_args, sel_result):
+def _check_start_application_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                     help_cmd, do_cmd, all_results, sel_args, sel_results):
     """ Common test of a starting command. """
     # test the request using few arguments
     do_cmd('')
@@ -99,47 +98,115 @@ def _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
     assert mocked_check.call_args_list == [call()]
     mocked_check.reset_mock()
     # test request to start all
-    mocked_appli.return_value = [{'application_name': 'appli_1'}, {'application_name': 'appli_2'}]
+    mocked_appli.return_value = [{'application_name': 'appli_1', 'managed': True},
+                                 {'application_name': 'appli_2', 'managed': True},
+                                 {'application_name': 'appli_3', 'managed': False}]
     # first possibility: use no name
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'LESS_LOADED',
-                [call(1, all_result[0]), call(1, all_result[1])])
+    rpc_result = [call(1, result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'LESS_LOADED', rpc_result)
     assert mocked_appli.call_args_list == [call(), call()]
     mocked_appli.reset_mock()
-    # second possiblity: use 'all'
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'MOST_LOADED all',
-                [call(2, all_result[0]), call(2, all_result[1])])
+    # second possibility: use 'all'
+    rpc_result = [call(2, result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'MOST_LOADED all', rpc_result)
     assert mocked_appli.call_args_list == [call(), call()]
     mocked_appli.reset_mock()
     # test help and request for starting a selection
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'CONFIG ' + sel_args,
-                [call(0, sel_result[0]), call(0, sel_result[1])])
+    rpc_result = [call(0, result) for result in sel_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'CONFIG ' + sel_args, rpc_result, True)
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
     mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
     do_cmd('LESS_LOADED')
     assert mocked_appli.call_args_list == [call()]
+    assert not mocked_rpc.called
+    _check_output_error(controller, True)
+
+
+def _check_start_process_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                 help_cmd, do_cmd, all_results, sel_args, sel_results):
+    """ Common test of a starting command. """
+    # test the request using few arguments
+    do_cmd('')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test the request using unknown strategy
+    do_cmd('strategy')
+    _check_output_error(controller, True)
+    assert mocked_check.call_args_list == [call()]
+    mocked_check.reset_mock()
+    # test request to start all
+    mocked_appli.return_value = [{'application_name': 'appli_1', 'managed': True},
+                                 {'application_name': 'appli_2', 'managed': True}]
+    # first possibility: use no name
+    rpc_result = [call(1, result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'LESS_LOADED', rpc_result)
+    assert mocked_appli.call_args_list == [call(), call()]
+    mocked_appli.reset_mock()
+    # second possibility: use 'all'
+    rpc_result = [call(2, result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'MOST_LOADED all', rpc_result)
+    assert mocked_appli.call_args_list == [call(), call()]
+    mocked_appli.reset_mock()
+    # test help and request for starting a selection
+    rpc_result = [call(0, result) for result in sel_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'CONFIG ' + sel_args, rpc_result)
+    # test help and request with get_all_applications_info error
+    mocked_appli.reset_mock()
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
+    do_cmd('LESS_LOADED')
+    assert mocked_appli.call_args_list == [call()]
+    assert not mocked_rpc.called
+    _check_output_error(controller, True)
+
+
+def _check_stop_application_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                    help_cmd, do_cmd, all_results, sel_args, sel_results):
+    """ Common test of a stopping command. """
+    # test request to stop all
+    mocked_appli.return_value = [{'application_name': 'appli_1', 'managed': True},
+                                 {'application_name': 'appli_2', 'managed': True},
+                                 {'application_name': 'appli_3', 'managed': False}]
+    # first possibility: use no name
+    rpc_result = [call(result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, '', rpc_result)
+    assert mocked_appli.call_args_list == [call(), call()]
+    mocked_appli.reset_mock()
+    # second possibility: use 'all'
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'all', rpc_result)
+    assert mocked_appli.call_args_list == [call(), call()]
+    mocked_appli.reset_mock()
+    # test help and request for starting a selection of applications
+    rpc_result = [call(result) for result in sel_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, sel_args, rpc_result, True)
+    # test help and request with get_all_applications_info error
+    mocked_appli.reset_mock()
+    mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
+    do_cmd('')
+    assert mocked_appli.call_args_list == [call()]
     assert mocked_rpc.call_count == 0
     _check_output_error(controller, True)
 
 
-def _check_stop_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                        help_cmd, do_cmd, all_result, sel_args, sel_result):
+def _check_stop_process_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                help_cmd, do_cmd, all_results, sel_args, sel_results):
     """ Common test of a stopping command. """
     # test request to stop all
-    mocked_appli.return_value = [{'application_name': 'appli_1'}, {'application_name': 'appli_2'}]
+    mocked_appli.return_value = [{'application_name': 'appli_1', 'managed': True},
+                                 {'application_name': 'appli_2', 'managed': True}]
     # first possibility: use no name
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd,
-                '', [call(all_result[0]), call(all_result[1])])
+    rpc_result = [call(result) for result in all_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, '', rpc_result)
     assert mocked_appli.call_args_list == [call(), call()]
     mocked_appli.reset_mock()
-    # second possiblity: use 'all'
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd,
-                'all', [call(all_result[0]), call(all_result[1])])
+    # second possibility: use 'all'
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, 'all', rpc_result)
     assert mocked_appli.call_args_list == [call(), call()]
     mocked_appli.reset_mock()
     # test help and request for starting a selection of applications
-    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd,
-                sel_args, [call(sel_result[0]), call(sel_result[1])])
+    rpc_result = [call(result) for result in sel_results]
+    _check_call(controller, mocked_check, mocked_rpc, help_cmd, do_cmd, sel_args, rpc_result)
     # test help and request with get_all_applications_info error
     mocked_appli.reset_mock()
     mocked_appli.side_effect = xmlrpclib.Fault(0, 'error')
@@ -341,27 +408,29 @@ def test_start_application(controller, plugin, mocked_check):
     """ Test the start_application request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().start_application
-    _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                         plugin.help_start_application, plugin.do_start_application,
-                         ('appli_1', 'appli_2'), 'appli_2 appli_1', ('appli_2', 'appli_1'))
+    _check_start_application_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                     plugin.help_start_application, plugin.do_start_application,
+                                     ('appli_1', 'appli_2'), 'appli_2 appli_1 appli_3 dummy_appli',
+                                     ('appli_2', 'appli_1'))
 
 
 def test_restart_application(controller, plugin, mocked_check):
     """ Test the restart_application request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().restart_application
-    _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                         plugin.help_restart_application, plugin.do_restart_application,
-                         ('appli_1', 'appli_2'), 'appli_2 appli_1', ('appli_2', 'appli_1'))
+    _check_start_application_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                     plugin.help_restart_application, plugin.do_restart_application,
+                                     ('appli_1', 'appli_2'), 'appli_2 appli_1 appli_3 dummy_appli',
+                                     ('appli_2', 'appli_1'))
 
 
 def test_stop_application(controller, plugin, mocked_check):
     """ Test the stop_application request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().stop_application
-    _check_stop_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                        plugin.help_stop_application, plugin.do_stop_application,
-                        ('appli_1', 'appli_2'), 'appli_2 appli_1', ('appli_2', 'appli_1'))
+    _check_stop_application_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                    plugin.help_stop_application, plugin.do_stop_application,
+                                    ('appli_1', 'appli_2'), 'appli_2 appli_1 dummy_appli', ('appli_2', 'appli_1'))
 
 
 def test_start_args(controller, plugin, mocked_check):
@@ -380,20 +449,20 @@ def test_start_process(controller, plugin, mocked_check):
     """ Test the start_process request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().start_process
-    _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                         plugin.help_start_process, plugin.do_start_process,
-                         ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
-                         ('appli_2:proc_3', 'appli_1:proc_1'))
+    _check_start_process_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                 plugin.help_start_process, plugin.do_start_process,
+                                 ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
+                                 ('appli_2:proc_3', 'appli_1:proc_1'))
 
 
 def test_restart_process(controller, plugin, mocked_check):
     """ Test the restart_process request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().restart_process
-    _check_start_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                         plugin.help_restart_process, plugin.do_restart_process,
-                         ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
-                         ('appli_2:proc_3', 'appli_1:proc_1'))
+    _check_start_process_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                 plugin.help_restart_process, plugin.do_restart_process,
+                                 ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
+                                 ('appli_2:proc_3', 'appli_1:proc_1'))
 
 
 def test_start_process_args(controller, plugin, mocked_check):
@@ -418,18 +487,20 @@ def test_start_process_args(controller, plugin, mocked_check):
     mocked_check.reset_mock()
     # test request to start the process
     mocked_rpc = plugin.supvisors().start_process
-    _check_call(controller, mocked_check, mocked_rpc, plugin.help_start_process_args, plugin.do_start_process_args,
-                'LESS_LOADED appli_2:proc_3 a list of arguments', [call(1, 'appli_2:proc_3', 'a list of arguments')])
+    _check_call(controller, mocked_check, mocked_rpc,
+                plugin.help_start_process_args, plugin.do_start_process_args,
+                'LESS_LOADED appli_2:proc_3 a list of arguments',
+                [call(1, 'appli_2:proc_3', 'a list of arguments')])
 
 
 def test_stop_process(controller, plugin, mocked_check):
     """ Test the stop_process request. """
     mocked_appli = plugin.supvisors().get_all_applications_info
     mocked_rpc = plugin.supvisors().stop_process
-    _check_stop_command(controller, mocked_check, mocked_appli, mocked_rpc,
-                        plugin.help_stop_process, plugin.do_stop_process,
-                        ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
-                        ('appli_2:proc_3', 'appli_1:proc_1'))
+    _check_stop_process_command(controller, mocked_check, mocked_appli, mocked_rpc,
+                                plugin.help_stop_process, plugin.do_stop_process,
+                                ('appli_1:*', 'appli_2:*'), 'appli_2:proc_3 appli_1:proc_1',
+                                ('appli_2:proc_3', 'appli_1:proc_1'))
 
 
 def test_update_numprocs(controller, plugin, mocked_check):
@@ -469,6 +540,13 @@ def test_conciliate(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().conciliate
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_conciliate, plugin.do_conciliate,
                 'SENICIDE', [call(0)])
+
+
+def test_restart_sequence(controller, plugin, mocked_check):
+    """ Test the restart_sequence request. """
+    mocked_rpc = plugin.supvisors().restart_sequence
+    _check_call(controller, mocked_check, mocked_rpc, plugin.help_restart_sequence, plugin.do_restart_sequence,
+                '', [call()])
 
 
 def test_sreload(controller, plugin, mocked_check):

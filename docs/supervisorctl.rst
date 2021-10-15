@@ -159,6 +159,10 @@ Status
     Conciliate the conflicts detected by |Supvisors| if default strategy is ``USER`` and |Supvisors| is
     in ``CONCILIATION``` state.
 
+``restart_sequence``
+
+    Triggers the whole |Supvisors| start sequence.
+
 ``sreload``
 
     Restart |Supvisors| through all |Supervisor| instances.
@@ -178,39 +182,39 @@ It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL
 
 ``start_application strategy``
 
-    Start all applications with a starting strategy.
+    Start all managed applications with a starting strategy.
 
 ``start_application strategy appli``
 
-    Start the application named appli with a starting strategy.
+    Start the managed application named appli with a starting strategy.
 
 ``start_application strategy appli1 appli2``
 
-    Start multiple named applications with a starting strategy.
+    Start multiple named managed applications with a starting strategy.
 
 ``stop_application``
 
-    Stop all applications.
+    Stop all managed applications.
 
 ``stop_application appli``
 
-    Stop the application named appli.
+    Stop the managed application named appli.
 
 ``stop_application appli1 appli2``
 
-    Stop multiple named applications.
+    Stop multiple named mnaged applications.
 
 ``restart_application strategy``
 
-    Restart all applications with a starting strategy.
+    Restart all managed applications with a starting strategy.
 
 ``restart_application strategy appli``
 
-    Restart the application named appli with a starting strategy.
+    Restart the managed application named appli with a starting strategy.
 
 ``restart_application strategy appli1 appli2``
 
-    Restart multiple named applications with a starting strategy.
+    Restart multiple named managed applications with a starting strategy.
 
 
 Process Control

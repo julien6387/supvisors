@@ -2,6 +2,11 @@
 
 ## 0.11 (2021-xx-xx)
 
+* Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
+
+* Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
+  applications only.
+
 * Fix issue with `supvisors.stop_process` XML-RPC that wouldn't stop all processes when any of the targeted processes
   is already stopped.
 

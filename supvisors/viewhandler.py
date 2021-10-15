@@ -161,7 +161,7 @@ class ViewHandler(MeldView):
         mid_elt = root.findmeld('appli_li_mid')
         applications = self.sup_ctx.get_managed_applications()
         # forced to list otherwise not easily testable
-        for li_elt, item in mid_elt.repeat(list(applications)):
+        for li_elt, item in mid_elt.repeat(applications.values()):
             failure = item.major_failure or item.minor_failure
             any_failure |= failure
             # set element class

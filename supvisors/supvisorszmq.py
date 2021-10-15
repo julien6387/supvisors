@@ -528,8 +528,16 @@ class RequestPusher(object):
         """
         self.send_message(DeferredRequestHeaders.SHUTDOWN, (node_name,))
 
+    def send_restart_sequence(self, node_name: str):
+        """ Send request to trigger the DEPLOYMENT phase.
+
+        :param node_name: the Supvisors Master
+        :return: None
+        """
+        self.send_message(DeferredRequestHeaders.RESTART_SEQUENCE, (node_name,))
+
     def send_restart_all(self, node_name: str):
-        """ Send request to restart the Supvisors Master.
+        """ Send request to restart Supvisors.
 
         :param node_name: the Supvisors Master
         :return: None
@@ -537,7 +545,7 @@ class RequestPusher(object):
         self.send_message(DeferredRequestHeaders.RESTART_ALL, (node_name,))
 
     def send_shutdown_all(self, node_name: str):
-        """ Send request to shutdown the Supvisors Master.
+        """ Send request to shutdown Supvisors.
 
         :param node_name: the Supvisors Master
         :return: None

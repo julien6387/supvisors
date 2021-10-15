@@ -248,7 +248,8 @@ class RPCInterface(object):
 
     # RPC Command methods
     def start_application(self, strategy: EnumParameterType, application_name, wait=True):
-        """ Start the application named application_name iaw the strategy and the rules file.
+        """ Start the *Managed* application named application_name iaw the strategy and the rules file.
+        To start *Unmanaged* applications, use ``supervisor.start('group:*')``.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
@@ -261,8 +262,9 @@ class RPCInterface(object):
             * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
-            * with code ``Faults.ALREADY_STARTED`` if application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be started.
+            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
+            * with code ``Faults.ALREADY_STARTED`` if the application is ``STARTING``, ``STOPPING`` or ``RUNNING``,
+            * with code ``Faults.ABNORMAL_TERMINATION`` if the application could not be started.
 
         *@return* ``bool``: always ``True`` unless error or nothing to start.
         """
@@ -271,6 +273,9 @@ class RPCInterface(object):
         # check application is known
         if application_name not in self.supvisors.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, application_name)
+        # check application is managed
+        if application_name not in self.supvisors.context.get_managed_applications():
+            raise RPCError(SupvisorsFaults.NOT_MANAGED.value, application_name)
         # check application is not already RUNNING
         application = self.supvisors.context.applications[application_name]
         if application.state != ApplicationStates.STOPPED:
@@ -296,7 +301,8 @@ class RPCInterface(object):
         return not done
 
     def stop_application(self, application_name, wait=True):
-        """ Stop the application named application_name.
+        """ Stop the *Managed* application named application_name.
+        To stop *Unmanaged* applications, use ``supervisor.stop('group:*')``.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -307,6 +313,7 @@ class RPCInterface(object):
             * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION`
               or ``CONCILIATION``,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**.
+            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
             * with code ``Faults.NOT_RUNNING`` if application is ``STOPPED``,
 
         *@return* ``bool``: always ``True`` unless error.
@@ -315,6 +322,9 @@ class RPCInterface(object):
         # check application is known
         if application_name not in self.supvisors.context.applications.keys():
             raise RPCError(Faults.BAD_NAME, application_name)
+        # check application is managed
+        if application_name not in self.supvisors.context.get_managed_applications():
+            raise RPCError(SupvisorsFaults.NOT_MANAGED.value, application_name)
         # check application is not already STOPPED
         application = self.supvisors.context.applications[application_name]
         if not application.has_running_processes():
@@ -339,6 +349,7 @@ class RPCInterface(object):
 
     def restart_application(self, strategy: EnumParameterType, application_name, wait=True):
         """ Restart the application named application_name iaw the strategy and the rules file.
+        To restart *Unmanaged* applications, use ``supervisor.stop('group:*')``, then ``supervisor.start('group:*')``.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
@@ -351,6 +362,7 @@ class RPCInterface(object):
             * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if application_name is unknown to **Supvisors**,
+            * with code ``SupvisorsFaults.NOT_MANAGED`` if the application is not *Managed* in **Supvisors**,
             * with code ``Faults.ABNORMAL_TERMINATION`` if application could not be restarted.
 
         *@return* ``bool``: always ``True`` unless error.
@@ -360,8 +372,7 @@ class RPCInterface(object):
         def onwait():
             # first wait for application to be stopped
             if onwait.waitstop:
-                # job may be a boolean value if stop_application has nothing
-                # to do
+                # job may be a boolean value if stop_application has nothing to do
                 value = type(onwait.job) is bool or onwait.job()
                 if value is True:
                     # done. request start application
@@ -654,6 +665,37 @@ class RPCInterface(object):
             conciliate_conflicts(self.supvisors, strategy_enum, self.supvisors.context.conflicts())
             return True
         return False
+
+    def restart_sequence(self, wait=True):
+        """ Triggers the whole starting sequence by going back to the DEPLOYMENT state.
+
+        *@param* ``bool wait``: wait for Supvisors to reach the OPERATION state.
+
+        *@throws* ``RPCError``: with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in
+        ``OPERATION`` state.
+
+        *@return* ``bool``: always ``True`` unless error.
+        """
+        self._check_operating()
+        # call for restart sequence. will be re-directed to master if local node is not
+        self.supvisors.fsm.on_restart_sequence()
+        if wait:
+            def onwait():
+                # first wait for DEPLOYMENT state
+                if onwait.wait_state == SupvisorsStates.DEPLOYMENT:
+                    if self.supvisors.fsm.state == SupvisorsStates.DEPLOYMENT:
+                        onwait.wait_state = SupvisorsStates.OPERATION
+                    return NOT_DONE_YET
+                else:
+                    # when reached, wait for OPERATION state
+                    if self.supvisors.fsm.state != SupvisorsStates.OPERATION:
+                        return NOT_DONE_YET
+                    return True
+
+            onwait.delay = 0.5
+            onwait.wait_state = SupvisorsStates.DEPLOYMENT
+            return onwait  # deferred
+        return True
 
     def restart(self) -> bool:
         """ Stops all applications and restart **Supvisors** through all Supervisor daemons.

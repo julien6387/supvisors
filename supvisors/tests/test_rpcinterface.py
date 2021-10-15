@@ -98,7 +98,7 @@ def test_application_info(mocker, rpc):
     mocked_serial = mocker.patch('supvisors.rpcinterface.RPCInterface._get_application', return_value=application)
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_from_deployment')
     # test RPC call
-    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication',
+    assert rpc.get_application_info('dummy') == {'application_name': 'TestApplication', 'managed': False,
                                                  'major_failure': False, 'minor_failure': False,
                                                  'statecode': 0, 'statename': 'STOPPED'}
     assert mocked_check.call_args_list == [call()]
@@ -249,7 +249,8 @@ def test_start_application(mocker, rpc):
     """ Test the start_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
     # prepare context
-    rpc.supvisors.context.applications = {'appli_1': Mock()}
+    rpc.supvisors.context.applications = {'appli_1': Mock(**{'rules.managed': True}),
+                                          'appli_2': Mock(**{'rules.managed': False})}
     # get patches
     mocked_start = rpc.supvisors.starter.start_application
     mocked_progress = rpc.supvisors.starter.in_progress
@@ -266,6 +267,14 @@ def test_start_application(mocker, rpc):
     with pytest.raises(RPCError) as exc:
         rpc.start_application(0, 'appli')
     assert exc.value.args == (Faults.BAD_NAME, 'appli')
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_start.call_count == 0
+    assert mocked_progress.call_count == 0
+    mocked_check.reset_mock()
+    # test RPC call with unmanaged application
+    with pytest.raises(RPCError) as exc:
+        rpc.start_application(0, 'appli_2')
+    assert exc.value.args == (SupvisorsFaults.NOT_MANAGED.value, 'appli_2')
     assert mocked_check.call_args_list == [call()]
     assert mocked_start.call_count == 0
     assert mocked_progress.call_count == 0
@@ -342,8 +351,8 @@ def test_stop_application(mocker, rpc):
     """ Test the stop_application RPC. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating_conciliation')
     # prepare context
-    appli_1 = Mock(**{'has_running_processes.return_value': False})
-    rpc.supvisors.context.applications = {'appli_1': appli_1}
+    appli_1 = Mock(**{'rules.managed': True, 'has_running_processes.return_value': False})
+    rpc.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': Mock(**{'rules.managed': False})}
     # get patches
     mocked_stop = rpc.supvisors.stopper.stop_application
     mocked_progress = rpc.supvisors.stopper.in_progress
@@ -351,6 +360,14 @@ def test_stop_application(mocker, rpc):
     with pytest.raises(RPCError) as exc:
         rpc.stop_application('appli')
     assert exc.value.args == (Faults.BAD_NAME, 'appli')
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_stop.call_count == 0
+    assert mocked_progress.call_count == 0
+    mocked_check.reset_mock()
+    # test RPC call with unmanaged application
+    with pytest.raises(RPCError) as exc:
+        rpc.stop_application('appli_2')
+    assert exc.value.args == (SupvisorsFaults.NOT_MANAGED.value, 'appli_2')
     assert mocked_check.call_args_list == [call()]
     assert mocked_stop.call_count == 0
     assert mocked_progress.call_count == 0
@@ -888,6 +905,37 @@ def test_conciliate(mocker, rpc):
     assert rpc.conciliate(1)
     assert mocked_check.call_args_list == [call()]
     assert mocked_conciliate.call_args_list == [call(rpc.supvisors, ConciliationStrategies.INFANTICIDE, [1, 2, 4])]
+
+
+def test_restart_sequence(mocker, rpc):
+    """ Test the restart_sequence RPC. """
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
+    # test no wait
+    assert rpc.restart_sequence(False)
+    assert mocked_check.call_args_list == [call()]
+    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
+    mocked_check.reset_mock()
+    rpc.supvisors.fsm.on_restart_sequence.reset_mock()
+    # test wait and done
+    deferred = rpc.restart_sequence()
+    # result is a function for deferred result
+    assert callable(deferred)
+    assert deferred.wait_state == SupvisorsStates.DEPLOYMENT
+    assert mocked_check.call_args_list == [call()]
+    assert rpc.supvisors.fsm.on_restart_sequence.call_args_list == [call()]
+    # test returned function: first wait for DEPLOYMENT state to be reached
+    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert deferred() == NOT_DONE_YET
+    assert deferred.wait_state == SupvisorsStates.DEPLOYMENT
+    # test returned function: when DEPLOYMENT state reached, wait for OPERATION state to be reached
+    rpc.supvisors.fsm.state = SupvisorsStates.DEPLOYMENT
+    assert deferred() == NOT_DONE_YET
+    assert deferred.wait_state == SupvisorsStates.OPERATION
+    assert deferred() == NOT_DONE_YET
+    assert deferred.wait_state == SupvisorsStates.OPERATION
+    # test returned function: when DEPLOYMENT state reached, return true
+    rpc.supvisors.fsm.state = SupvisorsStates.OPERATION
+    assert deferred()
 
 
 def test_restart(mocker, rpc):

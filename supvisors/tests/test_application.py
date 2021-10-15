@@ -266,8 +266,8 @@ def test_application_serial(supvisors):
     application.start_failure = False
     # test to_json method
     serialized = application.serial()
-    assert serialized == {'application_name': 'ApplicationTest', 'statecode': 2, 'statename': 'RUNNING',
-                          'major_failure': False, 'minor_failure': True}
+    assert serialized == {'application_name': 'ApplicationTest', 'managed': False,
+                          'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': True}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)

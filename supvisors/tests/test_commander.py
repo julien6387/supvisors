@@ -871,20 +871,20 @@ def test_starter_start_applications(mocker, starter, command_list):
     mocked_store = mocker.patch.object(starter, 'store_application_start_sequence')
     mocked_trigger = mocker.patch.object(starter, 'trigger_jobs')
     # create one stopped application with a start_sequence == 0
-    sample_test_3 = create_application('sample_test_3', starter.supvisors)
-    sample_test_3.rules.start_sequence = 0
-    starter.supvisors.context.applications['crash'] = sample_test_3
+    service = create_application('service', starter.supvisors)
+    service.rules.start_sequence = 0
+    starter.supvisors.context.applications['service'] = service
     # call starter start_applications and check nothing is triggered
-    starter.start_applications()
+    starter.start_applications(False)
     assert not mocked_store.called
     assert mocked_trigger.call_args_list == [call()]
-    mocked_trigger.reset_mock()
+    mocker.resetall()
     # test again with failure set
-    sample_test_3.major_failure = True
-    starter.start_applications()
+    service.major_failure = True
+    starter.start_applications(False)
     assert not mocked_store.called
     assert mocked_trigger.call_args_list == [call()]
-    mocked_trigger.reset_mock()
+    mocker.resetall()
     # create one running application
     sample_test_1 = create_application('sample_test_1', starter.supvisors)
     sample_test_1.rules.start_sequence = 1
@@ -921,14 +921,25 @@ def test_starter_start_applications(mocker, starter, command_list):
         if command.process.application_name == 'sample_test_2':
             sample_test_2.start_sequence.setdefault(len(command.process.namespec) % 3, []).append(command.process)
     starter.supvisors.context.applications['sample_test_2'] = sample_test_2
-    # create one stopped application with a start_sequence == 0
-    sample_test_3 = create_application('sample_test_3', starter.supvisors)
-    sample_test_3.rules.start_sequence = 0
-    starter.supvisors.context.applications['crash'] = sample_test_3
+    # create one stopped / never started application with a start_sequence > 0
+    stopped_app = create_application('stopped_app', starter.supvisors)
+    stopped_app.rules.start_sequence = 3
+    starter.supvisors.context.applications['stopped_app'] = stopped_app
+    info = any_process_info_by_state(ProcessStates.STOPPED)
+    process = create_process(info, starter.supvisors)
+    process.add_info('10.0.0.1', info)
+    stopped_app.add_process(process)
     # call starter start_applications and check what is triggered
-    starter.start_applications()
-    mocked_store.assert_has_calls([call(sample_test_2,), call(sample_test_major), call(sample_test_minor)],
+    starter.start_applications(False)
+    mocked_store.assert_has_calls([call(sample_test_2), call(sample_test_major), call(sample_test_minor)],
                                   any_order=True)
+    assert call(stopped_app) not in mocked_store.call_args_list
+    assert mocked_trigger.call_args_list == [call()]
+    mocker.resetall()
+    # call starter forced start_applications and check what is triggered
+    starter.start_applications(True)
+    mocked_store.assert_has_calls([call(sample_test_2), call(sample_test_major), call(sample_test_minor),
+                                   call(stopped_app)], any_order=True)
     assert mocked_trigger.call_args_list == [call()]
 
 

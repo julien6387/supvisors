@@ -46,7 +46,8 @@ class EventHeaders:
 # for deferred XML-RPC requests
 class DeferredRequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN, RESTART_ALL, SHUTDOWN_ALL = range(8)
+    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, \
+        RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL = range(9)
 
 
 def simple_localtime(now=None):

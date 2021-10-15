@@ -32,6 +32,7 @@ class Context(object):
     - applications: the dictionary of all ApplicationStatus (key is application name),
     - master_node_name: the name of the Supvisors master,
     - is_master: a boolean telling if the local node is the master node.
+    - start_date: the date since Supvisors entered the INITIALIZATION state.
     """
 
     def __init__(self, supvisors: Any):
@@ -127,9 +128,10 @@ class Context(object):
         self.supvisors.zmq.publisher.send_address_status(status.serial())
 
     # methods on applications / processes
-    def get_managed_applications(self) -> Iterator[ApplicationStatus]:
+    def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
         """ Return the managed applications (defined in rules file). """
-        return filter(lambda x: x.rules.managed, self.applications.values())
+        return {application_name: application for application_name, application in self.applications.items()
+                if application.rules.managed}
 
     def get_all_namespecs(self) -> NameList:
         """ Return the ProcessStatus corresponding to the namespec. """

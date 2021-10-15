@@ -205,16 +205,13 @@ def test_invalid(mocker, context):
 def test_get_managed_applications(filled_context):
     """ Test getting all managed applications. """
     # in this test, all applications are managed by default
-    managed_applications = list(filled_context.get_managed_applications())
-    managed_names = {application.application_name for application in managed_applications}
-    assert sorted(managed_names) == ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
+    expected = ['crash', 'firefox', 'sample_test_1', 'sample_test_2']
+    assert sorted(filled_context.get_managed_applications().keys()) == expected
     # unmanage a few ones
     filled_context.applications['firefox'].rules.managed = False
     filled_context.applications['sample_test_1'].rules.managed = False
     # re-test
-    managed_applications = list(filled_context.get_managed_applications())
-    managed_names = {application.application_name for application in managed_applications}
-    assert sorted(managed_names) == ['crash', 'sample_test_2']
+    assert sorted(filled_context.get_managed_applications().keys()) == ['crash', 'sample_test_2']
 
 
 def test_get_all_namespecs(filled_context):
@@ -577,7 +574,7 @@ def test_process_removed_event(mocker, context):
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
                   'last_event_time': 1234, 'addresses': [], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'statecode': 0, 'statename': 'STOPPED',
+           [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
                   'major_failure': False, 'minor_failure': False})]
 
 
@@ -658,7 +655,7 @@ def test_on_process_state_event(mocker, context):
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
                   'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
+           [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
                   'major_failure': False, 'minor_failure': False})]
     # reset mocks
     mocked_update_args.reset_mock()
@@ -681,7 +678,7 @@ def test_on_process_state_event(mocker, context):
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
                   'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'statecode': 1, 'statename': 'STARTING',
+           [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
                   'major_failure': False, 'minor_failure': False})]
     # reset mocks
     mocked_update_args.reset_mock()
@@ -704,7 +701,7 @@ def test_on_process_state_event(mocker, context):
                   'statecode': 200, 'statename': 'FATAL', 'expected_exit': True,
                   'last_event_time': 1234, 'addresses': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
-           [call({'application_name': 'dummy_application', 'statecode': 0, 'statename': 'STOPPED',
+           [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
                   'major_failure': False, 'minor_failure': True})]
 
 

@@ -27,6 +27,10 @@ from .strategy import conciliate_conflicts
 from .ttypes import AddressStates, RunningFailureStrategies, SupvisorsStates, NameList, Payload, PayloadList
 
 
+class Forced:
+    pass
+
+
 class AbstractState(object):
     """ Base class for a state with simple entry / next / exit actions.
 
@@ -166,8 +170,8 @@ class MasterDeploymentState(AbstractState):
 
     def enter(self):
         """ Trigger the automatic start and stop. """
+        self.supvisors.starter.start_applications(self.supvisors.fsm.redeploy_mark is Forced)
         self.supvisors.fsm.redeploy_mark = False
-        self.supvisors.starter.start_applications()
 
     def next(self) -> SupvisorsStates:
         """ Check if the starting tasks are completed.
@@ -190,7 +194,10 @@ class MasterOperationState(AbstractState):
 
     def next(self) -> SupvisorsStates:
         """ Check that all nodes are still active.
-        Look after possible conflicts due to multiple running instances of the same program. """
+        Look after possible conflicts due to multiple running instances of the same program.
+
+        :return: the new Supvisors state
+        """
         # common check on local and Master nodes
         next_state = self.check_nodes()
         if next_state:
@@ -218,7 +225,10 @@ class MasterConciliationState(AbstractState):
 
     def next(self) -> SupvisorsStates:
         """ Check that all addresses are still active.
-        Wait for all conflicts to be conciliated. """
+        Wait for all conflicts to be conciliated.
+
+        :return: the new Supvisors state
+        """
         # common check on local and Master nodes
         next_state = self.check_nodes()
         if next_state:
@@ -247,7 +257,10 @@ class MasterRestartingState(AbstractState):
         self.supvisors.stopper.stop_applications()
 
     def next(self) -> SupvisorsStates:
-        """ Wait for all processes to be stopped. """
+        """ Wait for all processes to be stopped.
+
+        :return: the new Supvisors state
+        """
         next_state = self.check_nodes()
         if next_state:
             # no way going back to INITIALIZATION state at this point
@@ -272,7 +285,10 @@ class MasterShuttingDownState(AbstractState):
         self.supvisors.stopper.stop_applications()
 
     def next(self):
-        """ Wait for all processes to be stopped. """
+        """ Wait for all processes to be stopped.
+
+        :return: the new Supvisors state
+        """
         # check eventual jobs in progress
         next_state = self.check_nodes()
         if next_state:
@@ -298,7 +314,7 @@ class SlaveMainState(AbstractState):
     def next(self) -> SupvisorsStates:
         """ the non-master instances are just checking if local and Master instances are still running.
 
-        :return: the next state
+        :return: the new Supvisors state
         """
         # common check on local and Master nodes
         next_state = self.check_nodes()
@@ -317,7 +333,10 @@ class SlaveRestartingState(AbstractState):
         self.abort_jobs()
 
     def next(self) -> SupvisorsStates:
-        """ Wait for all processes to be stopped. """
+        """ Wait for all processes to be stopped.
+
+        :return: the new Supvisors state
+        """
         next_state = self.check_nodes()
         if next_state:
             # no way going back to INITIALIZATION state at this point
@@ -531,6 +550,17 @@ class FiniteStateMachine:
                     self.logger.info('FiniteStateMachine.on_authorization: Master node_name={} is in state={}'
                                      .format(node_name, supvisors_state))
                     self.set_state(supvisors_state, True)
+
+    def on_restart_sequence(self) -> None:
+        """ This event is used to transition the state machine to the DEPLOYMENT state.
+
+        :return: None
+        """
+        if self.context.is_master:
+            self.redeploy_mark = Forced
+        else:
+            # re-route command to Master
+            self.supvisors.zmq.pusher.send_restart_sequence(self.context.master_node_name)
 
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.

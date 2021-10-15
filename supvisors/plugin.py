@@ -22,9 +22,11 @@ import os
 from supervisor.options import ServerOptions
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
+from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface
+from .ttypes import SupvisorsFaults
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
 from .viewhostaddress import HostAddressView
@@ -33,10 +35,19 @@ from .viewprocaddress import ProcAddressView
 from .viewsupvisors import SupvisorsView
 
 
+def expand_faults():
+    """ Expand supervisord Fault definition.
+
+    :return: None
+    """
+    for x in SupvisorsFaults:
+        setattr(Faults, x.name, x.value)
+
+
 def update_views() -> None:
     """ Trick to replace Supervisor Web UI.
 
-    :return:
+    :return: None
     """
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
@@ -63,7 +74,7 @@ def cleanup_fds(self) -> None:
     So, given that the issue has never been met with Supvisors and waiting for a better solution in Supervisor
     (a TODO exists in source code), the clean-up is disabled in Supvisors.
 
-    :return:
+    :return: None
     """
 
 
@@ -74,6 +85,8 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
+    # update Supervisor Fault definition
+    expand_faults()
     # update Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds

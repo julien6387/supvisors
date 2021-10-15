@@ -135,6 +135,9 @@ class SupvisorsMainLoop(Thread):
         elif header == DeferredRequestHeaders.SHUTDOWN.value:
             node_name, = body
             self.shutdown(node_name)
+        elif header == DeferredRequestHeaders.RESTART_SEQUENCE.value:
+            node_name, = body
+            self.restart_sequence(node_name)
         elif header == DeferredRequestHeaders.RESTART_ALL.value:
             node_name, = body
             self.restart_all(node_name)
@@ -197,6 +200,14 @@ class SupvisorsMainLoop(Thread):
             proxy.supervisor.shutdown()
         except SupvisorsMainLoop.RpcExceptions:
             print('[ERROR] failed to shutdown node {}'.format(node_name), file=stderr)
+
+    def restart_sequence(self, node_name: str) -> None:
+        """ Ask the Supvisors Master to trigger the DEPLOYMENT phase. """
+        try:
+            proxy = getRPCInterface(node_name, self.env)
+            proxy.supvisors.restart_sequence()
+        except SupvisorsMainLoop.RpcExceptions:
+            print('[ERROR] failed to send Supvisors restart_sequence to Master {}'.format(node_name), file=stderr)
 
     def restart_all(self, node_name: str) -> None:
         """ Ask the Supvisors Master to restart Supvisors. """

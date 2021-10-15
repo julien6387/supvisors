@@ -300,6 +300,19 @@ def test_shutdown(mocker, pusher, puller):
     pusher.send_shutdown('10.0.0.1')
 
 
+def test_restart_sequence(mocker, pusher, puller):
+    """ The method tests that the 'RestartSequence' request is sent and received correctly. """
+    pusher.send_restart_sequence('10.0.0.1')
+    request = puller.receive()
+    assert request == (DeferredRequestHeaders.RESTART_SEQUENCE.value, ('10.0.0.1',))
+    # test that the pusher socket is not blocking
+    mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
+    pusher.send_restart_sequence('10.0.0.1')
+    # test that absence of puller does not block the pusher or raise any exception
+    puller.close()
+    pusher.send_restart_sequence('10.0.0.1')
+
+
 def test_restart_all(mocker, pusher, puller):
     """ The method tests that the 'RestartAll' request is sent and received correctly. """
     pusher.send_restart_all('10.0.0.1')

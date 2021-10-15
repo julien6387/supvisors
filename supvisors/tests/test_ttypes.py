@@ -84,9 +84,9 @@ def test_exception():
 
 def test_SupvisorsFaults():
     """ Test the SupvisorsFaults enumeration. """
-    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE']
+    expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED']
     assert SupvisorsFaults._member_names_ == expected
-    assert list(SupvisorsFaults._value2member_map_.keys()) == list(range(100, 102))
+    assert list(SupvisorsFaults._value2member_map_.keys()) == list(range(100, 103))
 
 
 def test_process_event():

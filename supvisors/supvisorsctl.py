@@ -23,7 +23,7 @@ import sys
 
 from supervisor import supervisorctl
 from supervisor import xmlrpc
-from supervisor.compat import xmlrpclib
+from supervisor.compat import as_string, xmlrpclib
 from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import ClientOptions, split_namespec
 from supervisor.states import getProcessStateDescription
@@ -391,14 +391,14 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_process_rules(self):
         """ Print the help of the process rules command."""
-        self.ctl.output("process_rules <proc>\t\t\t\t"
-                        "Get the rules of the process named proc.")
-        self.ctl.output("process_rules <appli>:*\t\t\t\t"
-                        "Get the rules of all processes in the application named appli.")
-        self.ctl.output("process_rules <proc> <proc>\t\t\t"
-                        "Get the rules for multiple named processes")
-        self.ctl.output("process_rules\t\t\t\t\t"
-                        "Get the rules of all processes.")
+        self.ctl.output('process_rules <proc>\t\t\t\t'
+                        'Get the rules of the process named proc.')
+        self.ctl.output('process_rules <appli>:*\t\t\t\t'
+                        'Get the rules of all processes in the application named appli.')
+        self.ctl.output('process_rules <proc> <proc>\t\t\t'
+                        'Get the rules for multiple named processes')
+        self.ctl.output('process_rules\t\t\t\t\t'
+                        'Get the rules of all processes.')
 
     def do_conflicts(self, _):
         """ Command to get the conflicts detected by Supvisors. """
@@ -423,16 +423,35 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conflicts(self):
         """ Print the help of the conflicts command."""
-        self.ctl.output("conflicts\t\t\t\tGet the Supvisors conflicts.")
+        self.ctl.output('conflicts\t\t\t\tGet the Supvisors conflicts.')
+
+    def _get_matching_applications(self, parameters, all_info, alt_rpc):
+        """ Get the matching information from the full list. """
+        matching_info = []
+        if not parameters or 'all' in parameters:
+            # get all managed applications
+            matching_info = sorted([application_name for application_name, managed in all_info.items() if managed])
+        else:
+            for application_name in parameters:
+                if application_name in all_info:
+                    if all_info[application_name]:
+                        matching_info.append(application_name)
+                    else:
+                        self.ctl.output('{0}: IGNORED (unmanaged. use {1} {0}:*)'.format(application_name, alt_rpc))
+                else:
+                    self.ctl.output('%s: ERROR (no such application)' % application_name)
+        return matching_info
 
     def do_start_application(self, arg):
         """ Command to start Supvisors applications using a strategy and rules. """
         if self._upcheck():
-            args = arg.split()
+            args = as_string(arg).split()
+            # check number of arguments
             if len(args) < 1:
                 self.ctl.output('ERROR: start_application requires at least a strategy')
                 self.help_start_application()
                 return
+            # check strategy format
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
@@ -440,68 +459,43 @@ class ControllerPlugin(ControllerPluginBase):
                                 .format(StartingStrategies._member_names_))
                 self.help_start_application()
                 return
-            applications = args[1:]
-            if not applications or "all" in applications:
+            # get all application info
+            try:
+                all_info = {application_info['application_name']: application_info['managed']
+                            for application_info in self.supvisors().get_all_applications_info()}
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+                return
+            # match with parameters
+            matching_info = self._get_matching_applications(args[1:], all_info, 'start')
+            # request start for matching applications
+            for application_name in matching_info:
                 try:
-                    applications = [application_info['application_name']
-                                    for application_info in self.supvisors().get_all_applications_info()]
+                    result = self.supvisors().start_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
-                    applications = []
-            for application in applications:
-                try:
-                    result = self.supvisors().start_application(strategy.value, application)
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                    self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
                 else:
-                    self.ctl.output('{} started: {}'.format(application, result))
+                    self.ctl.output('{} started: {}'.format(application_name, result))
 
     def help_start_application(self):
         """ Print the help of the start_application command."""
-        self.ctl.output("start_application <strategy> <appli>\t\t"
-                        "Start the application named appli with strategy.")
-        self.ctl.output("start_application <strategy> <appli> <appli>\t"
-                        "Start multiple named applications with strategy")
-        self.ctl.output("start_application <strategy>\t\t\t"
-                        "Start all applications with strategy.")
-
-    # stop an application
-    def do_stop_application(self, arg):
-        """ Command to stop Supvisors applications using rules. """
-        if self._upcheck():
-            applications = arg.split()
-            if not applications or "all" in applications:
-                try:
-                    applications = [application_info['application_name']
-                                    for application_info in self.supvisors().get_all_applications_info()]
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
-                    applications = []
-            for application in applications:
-                try:
-                    self.supvisors().stop_application(application)
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
-                else:
-                    self.ctl.output('{} stopped'.format(application))
-
-    def help_stop_application(self):
-        """ Print the help of the stop_application command."""
-        self.ctl.output("stop_application <appli>\t\t\t"
-                        "Stop the application named appli.")
-        self.ctl.output("stop_application <appli> <appli>\t\t"
-                        "Stop multiple named applications.")
-        self.ctl.output("stop_application\t\t\t\t"
-                        "Stop all named applications.")
+        self.ctl.output('start_application <strategy> <appli>\t\t'
+                        'Start the managed application named appli with strategy.')
+        self.ctl.output('start_application <strategy> <appli> <appli>\t'
+                        'Start multiple managed named applications with strategy')
+        self.ctl.output('start_application <strategy>\t\t\t'
+                        'Start all managed applications with strategy.')
 
     def do_restart_application(self, arg):
         """ Command to restart Supvisors applications using a strategy and rules. """
         if self._upcheck():
-            args = arg.split()
+            args = as_string(arg).split()
+            # check number of arguments
             if len(args) < 1:
                 self.ctl.output('ERROR: restart_application requires at least a strategy')
                 self.help_restart_application()
                 return
+            # check strategy format
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
@@ -509,30 +503,60 @@ class ControllerPlugin(ControllerPluginBase):
                                 .format(StartingStrategies._member_names_))
                 self.help_restart_application()
                 return
-            applications = args[1:]
-            if not applications or "all" in applications:
+            # get all application info
+            try:
+                all_info = {application_info['application_name']: application_info['managed']
+                            for application_info in self.supvisors().get_all_applications_info()}
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+                return
+            # match with parameters
+            matching_info = self._get_matching_applications(args[1:], all_info, 'restart')
+            # request start for matching applications
+            for application_name in matching_info:
                 try:
-                    applications = [application_info['application_name']
-                                    for application_info in self.supvisors().get_all_applications_info()]
+                    result = self.supvisors().restart_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
-                    applications = []
-            for application in applications:
-                try:
-                    self.supvisors().restart_application(strategy.value, application)
-                except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                    self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
                 else:
-                    self.ctl.output('{} restarted'.format(application))
+                    self.ctl.output('{} restarted: {}'.format(application_name, result))
 
     def help_restart_application(self):
         """ Print the help of the restart_application command."""
-        self.ctl.output("restart_application <strategy> <appli>\t\t"
-                        "Restart the application named appli with strategy.")
-        self.ctl.output("restart_application <strategy> <appli> <appli>\t"
-                        "Restart multiple named applications with strategy")
-        self.ctl.output("restart_application <strategy> \t\t\t"
-                        "Restart all applications with strategy.")
+        self.ctl.output('restart_application <strategy> <appli>\t\t'
+                        'Restart the managed application named appli with strategy.')
+        self.ctl.output('restart_application <strategy> <appli> <appli>\t'
+                        'Restart multiple managed named applications with strategy')
+        self.ctl.output('restart_application <strategy> \t\t\t'
+                        'Restart all managed applications with strategy.')
+
+    def do_stop_application(self, arg):
+        """ Command to stop Supvisors applications using rules. """
+        if self._upcheck():
+            # get all application info
+            try:
+                all_info = {application_info['application_name']: application_info['managed']
+                            for application_info in self.supvisors().get_all_applications_info()}
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+                return
+            # match with parameters
+            args = as_string(arg).split()
+            matching_info = self._get_matching_applications(args, all_info, 'stop')
+            # request start for matching applications
+            for application_name in matching_info:
+                try:
+                    result = self.supvisors().stop_application(application_name)
+                except xmlrpclib.Fault as e:
+                    self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                else:
+                    self.ctl.output('{} stopped: {}'.format(application_name, result))
+
+    def help_stop_application(self):
+        """ Print the help of the stop_application command."""
+        self.ctl.output('stop_application <appli>\t\t\tStop the managed application named appli.')
+        self.ctl.output('stop_application <appli> <appli>\t\tStop multiple managed named applications.')
+        self.ctl.output('stop_application\t\t\t\tStop all managed applications.')
 
     def do_start_args(self, arg):
         """ Command to start a local process with additional arguments. """
@@ -552,7 +576,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_args(self):
         """ Print the help of the start_args command."""
-        self.ctl.output("Start a local process with additional arguments.")
         self.ctl.output("start_process <proc> <arg_list>\t\t\t"
                         "Start the local process named proc with additional arguments arg_list.")
 
@@ -589,7 +612,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_process(self):
         """ Print the help of the start_process command."""
-        self.ctl.output("Start a process with strategy.")
         self.ctl.output("start_process <strategy> <proc>\t\t\t"
                         "Start the process named proc with strategy.")
         self.ctl.output("start_process <strategy> <proc> <proc>\t\t"
@@ -625,7 +647,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_start_process_args(self):
         """ Print the help of the start_process_args command."""
-        self.ctl.output("Start a process with strategy and additional arguments.")
         self.ctl.output("start_process <strategy> <proc> <arg_list>\t"
                         "Start the process named proc with additional arguments arg_list.")
 
@@ -650,7 +671,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_stop_process(self):
         """ Print the help of the stop_process command."""
-        self.ctl.output("Stop a process where it is running.")
         self.ctl.output("stop_process <proc>\t\tStop the process named proc.")
         self.ctl.output("stop_process <proc> <proc>\tStop multiple named processes.")
         self.ctl.output("stop_process\t\t\tStop all named processes.")
@@ -688,7 +708,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_restart_process(self):
         """ Print the help of the restart_process command."""
-        self.ctl.output("Restart a process with strategy and rules.")
         self.ctl.output("restart_process <strategy> <proc>\t\t"
                         "Restart the process named proc using strategy.")
         self.ctl.output("restart_process <strategy> <proc> <proc>\t"
@@ -720,7 +739,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_update_numprocs(self):
         """ Print the help of the update_numprocs command. """
-        self.ctl.output('Resize the process group.')
         self.ctl.output('update_numprocs program_name numprocs\t\t\t\tUpdate the program numprocs.')
 
     def do_conciliate(self, arg):
@@ -747,8 +765,21 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output("Conciliate Supvisors conflicts.")
         self.ctl.output("conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy")
+
+    def do_restart_sequence(self, _):
+        """ Command to trigger the whole start sequence of Supvisors. """
+        if self._upcheck():
+            try:
+                result = self.supvisors().restart_sequence()
+            except xmlrpclib.Fault as e:
+                self.ctl.output('ERROR ({})'.format(e.faultString))
+            else:
+                self.ctl.output('Start sequence completed: {}'.format(result))
+
+    def help_restart_sequence(self):
+        """ Print the help of the restart_sequence command."""
+        self.ctl.output('restart_sequence\t\t\t\t\tTrigger the whole start sequence')
 
     def do_sreload(self, _):
         """ Command to restart Supvisors on all addresses. """
@@ -762,8 +793,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sreload(self):
         """ Print the help of the sreload command."""
-        self.ctl.output("Restart Supvisors.")
-        self.ctl.output("sreload\t\t\t\t\tRestart all remote supervisord")
+        self.ctl.output("sreload\t\t\t\t\tRestart Supvisors on all nodes")
 
     def do_sshutdown(self, _):
         """ Command to shutdown Supvisors on all addresses. """
@@ -777,8 +807,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sshutdown(self):
         """ Print the help of the sshutdown command."""
-        self.ctl.output("Shutdown Supvisors.")
-        self.ctl.output("sshutdown\t\t\t\tShut all remote supervisord down")
+        self.ctl.output("sshutdown\t\t\t\tShutdown Supvisors on all nodes")
 
     def do_loglevel(self, arg):
         """ Command to change the level of the local Supvisors. """
@@ -802,7 +831,6 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_loglevel(self):
         """ Print the help of the loglevel command."""
-        self.ctl.output('Change the level of local Supvisors\' logger.')
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
         self.ctl.output('\t\t\t\t\t\t\tApplicable values are: {}.'.format(LOG_LEVELS_BY_NUM.values()))
 

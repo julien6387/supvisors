@@ -197,6 +197,8 @@ Status
 
         .. automethod:: conciliate(strategy)
 
+        .. automethod:: restart_sequence()
+
         .. automethod:: restart()
 
         .. automethod:: shutdown()

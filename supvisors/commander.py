@@ -363,11 +363,12 @@ class Starter(Commander):
         self.planned_sequence = {}
         self.planned_jobs = {}
 
-    def start_applications(self) -> None:
+    def start_applications(self, forced: bool) -> None:
         """ This method is called in the DEPLOYMENT phase.
         Plan and start the necessary jobs to start all the applications having a start_sequence.
         It uses the default strategy, as defined in the Supvisors section of the Supervisor configuration file.
 
+        :param forced: a status telling if a full restart is required
         :return: None
         """
         self.logger.info('Starter.start_applications: start all applications')
@@ -377,8 +378,8 @@ class Starter(Commander):
                               .format(str(application), application.rules.start_sequence, application.never_started()))
             # auto-started applications (start_sequence > 0) are not restarted if they have been stopped intentionally
             # give a chance to all applications in failure
-            if application.rules.start_sequence > 0 \
-                    and (application.never_started() or application.major_failure or application.minor_failure):
+            if application.rules.start_sequence > 0 and (forced or application.never_started()
+                                                         or application.major_failure or application.minor_failure):
                 self.store_application_start_sequence(application)
         # start work
         self.trigger_jobs()

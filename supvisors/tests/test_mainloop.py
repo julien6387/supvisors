@@ -265,6 +265,26 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     assert mocked_shutdown.call_args == call()
 
 
+def test_restart_sequence(mocker, mocked_rpc, main_loop):
+    """ Test the protocol to trigger the start_sequence of Supvisors. """
+    mocker.patch('supvisors.mainloop.stderr')
+    # test rpc error
+    mocked_rpc.side_effect = OSError
+    main_loop.restart_sequence('10.0.0.1')
+    assert mocked_rpc.call_count == 2
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    # test with a mocked rpc interface
+    rpc_intf = DummyRpcInterface()
+    mocked_rpc.side_effect = None
+    mocked_rpc.return_value = rpc_intf
+    mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart_sequence')
+    main_loop.restart_sequence('10.0.0.1')
+    assert mocked_rpc.call_count == 3
+    assert mocked_rpc.call_args == call('10.0.0.1', main_loop.env)
+    assert mocked_supervisor.call_count == 1
+    assert mocked_supervisor.call_args == call()
+
+
 def test_restart_all(mocker, mocked_rpc, main_loop):
     """ Test the protocol to restart Supvisors. """
     mocker.patch('supvisors.mainloop.stderr')
@@ -336,7 +356,7 @@ def test_send_request(mocker, main_loop):
     # patch main loop subscriber
     mocked_loop = mocker.patch.multiple(main_loop, check_node=DEFAULT,
                                         start_process=DEFAULT, stop_process=DEFAULT,
-                                        restart=DEFAULT, shutdown=DEFAULT,
+                                        restart=DEFAULT, shutdown=DEFAULT, restart_sequence=DEFAULT,
                                         restart_all=DEFAULT, shutdown_all=DEFAULT)
     # test check address
     check_call(main_loop, mocked_loop, 'check_node',
@@ -353,6 +373,9 @@ def test_send_request(mocker, main_loop):
     # test shutdown
     check_call(main_loop, mocked_loop, 'shutdown',
                DeferredRequestHeaders.SHUTDOWN, ('10.0.0.2',))
+    # test restart_sequence
+    check_call(main_loop, mocked_loop, 'restart_sequence',
+               DeferredRequestHeaders.RESTART_SEQUENCE, ('10.0.0.2',))
     # test restart_all
     check_call(main_loop, mocked_loop, 'restart_all',
                DeferredRequestHeaders.RESTART_ALL, ('10.0.0.2',))

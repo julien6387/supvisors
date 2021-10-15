@@ -277,6 +277,7 @@ class ApplicationStatus(object):
         :return: the application status in a dictionary
         """
         return {'application_name': self.application_name,
+                'managed': self.rules.managed,
                 'statecode': self.state.value,
                 'statename': self.state.name,
                 'major_failure': self.major_failure,
@@ -287,8 +288,8 @@ class ApplicationStatus(object):
 
         :return: the printable application status
         """
-        return 'application_name={} state={} major_failure={} minor_failure={}' \
-            .format(self.application_name, self.state.name, self.major_failure, self.minor_failure)
+        return 'application_name={} managed={} state={} major_failure={} minor_failure={}' \
+            .format(self.application_name, self.rules.managed, self.state.name, self.major_failure, self.minor_failure)
 
     # methods
     def add_process(self, process: ProcessStatus) -> None:
