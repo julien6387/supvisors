@@ -237,14 +237,16 @@ class Context(object):
         """
         if self.supvisors.address_mapper.valid(node_name):
             status = self.nodes[node_name]
-            # ISOLATED address is not updated anymore
-            if not status.in_isolation():
+            if status.state == AddressStates.CHECKING:
                 if authorized:
                     self.logger.info('Context.on_authorization: local is authorized to deal with {}'.format(node_name))
                     status.state = AddressStates.RUNNING
                     return True
                 self.logger.warn('Context.on_authorization: local is not authorized to deal with {}'.format(node_name))
                 self.invalid(status, True)
+            else:
+                self.logger.error('Context.on_authorization: authorization rejected from non-CHECKING node={}'
+                                  .format(node_name))
         else:
             self.logger.warn('Context.on_authorization: got authorization from unexpected node={}'.format(node_name))
 

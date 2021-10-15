@@ -155,16 +155,16 @@ class SupvisorsMainLoop(Thread):
             # check authorization
             status = supvisors_rpc.get_address_info(self.supvisors.address_mapper.local_node_name)
             authorized = AddressStates(status['statecode']) not in [AddressStates.ISOLATING, AddressStates.ISOLATED]
+            # inform local Supvisors that authorization is available
+            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
+                                        'node_name:{} authorized:{} master_node_name:{} supvisors_state:{}'
+                                        .format(node_name, authorized, master_node_name, supvisors_state['statename']))
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
                 all_info = supvisors_rpc.get_all_local_process_info()
                 # post to local Supvisors
                 self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((node_name, all_info)))
-            # inform local Supvisors that authorization is available
-            self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        'node_name:{} authorized:{} master_node_name:{} supvisors_state:{}'
-                                        .format(node_name, authorized, master_node_name, supvisors_state['statename']))
         except SupvisorsMainLoop.RpcExceptions:
             print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
 

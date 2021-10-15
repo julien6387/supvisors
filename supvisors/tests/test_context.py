@@ -399,39 +399,31 @@ def test_authorization(mocker, context):
     """ Test the handling of an authorization event. """
     # check no exception with unknown address
     context.on_authorization('10.0.0.0', True)
-    # check no change with known address in isolation
-    for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
+    # check no change with known node not in CHECKING state
+    for fencing in [True, False]:
+        context.supvisors.options.auto_fence = fencing
         for authorization in [True, False]:
-            context.nodes['10.0.0.1']._state = state
-            context.on_authorization('10.0.0.1', authorization)
-            assert context.nodes['10.0.0.1'].state == state
-    # check exception if authorized and current state not CHECKING
-    for state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
-        context.nodes['10.0.0.2']._state = state
-        with pytest.raises(InvalidTransition):
-            context.on_authorization('10.0.0.2', True)
-        assert context.nodes['10.0.0.2'].state == state
-    # check state becomes RUNNING if authorized and current state in CHECKING
-    for state in [AddressStates.CHECKING, AddressStates.RUNNING]:
-        context.nodes['10.0.0.2']._state = state
+            for state in AddressStates:
+                if state != AddressStates.CHECKING:
+                    context.nodes['10.0.0.1']._state = state
+                    context.on_authorization('10.0.0.1', authorization)
+                    assert context.nodes['10.0.0.1'].state == state
+    # check state becomes RUNNING if authorized and current state is CHECKING
+    for fencing in [True, False]:
+        context.supvisors.options.auto_fence = fencing
+        context.nodes['10.0.0.2']._state = AddressStates.CHECKING
         context.on_authorization('10.0.0.2', True)
         assert context.nodes['10.0.0.2'].state == AddressStates.RUNNING
     # check state becomes ISOLATING if not authorized and auto fencing activated
-    for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING]:
-        context.nodes['10.0.0.4']._state = state
-        context.on_authorization('10.0.0.4', False)
-        assert context.nodes['10.0.0.4'].state == AddressStates.ISOLATING
-    # check exception if not authorized and auto fencing activated and current is SILENT
-    context.nodes['10.0.0.4']._state = AddressStates.SILENT
-    with pytest.raises(InvalidTransition):
-        context.on_authorization('10.0.0.4', True)
-    assert context.nodes['10.0.0.4'].state == AddressStates.SILENT
-    # check state becomes ISOLATED reciprocally if not authorized and even if auto fencing deactivated
-    mocker.patch.object(context.supvisors.options, 'auto_fence', False)
-    for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.SILENT, AddressStates.RUNNING]:
-        context.nodes['10.0.0.5']._state = state
-        context.on_authorization('10.0.0.5', False)
-        assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
+    context.supvisors.options.auto_fence = True
+    context.nodes['10.0.0.4']._state = AddressStates.CHECKING
+    context.on_authorization('10.0.0.4', False)
+    assert context.nodes['10.0.0.4'].state == AddressStates.ISOLATING
+    # check state becomes reciprocally ISOLATING if not authorized and auto fencing deactivated
+    context.supvisors.options.auto_fence = False
+    context.nodes['10.0.0.4']._state = AddressStates.CHECKING
+    context.on_authorization('10.0.0.4', False)
+    assert context.nodes['10.0.0.4'].state == AddressStates.ISOLATING
 
 
 def test_on_tick_event(mocker, context):
