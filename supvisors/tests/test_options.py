@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+import os.path
 
 import pytest
 import sys
@@ -29,23 +30,24 @@ from .configurations import *
 
 
 @pytest.fixture
-def opt():
+def opt(supervisor):
     """ Create a Supvisors-like structure filled with some nodes. """
-    return SupvisorsOptions()
+    return SupvisorsOptions(supervisor)
 
 
 @pytest.fixture
-def filled_opt():
+def filled_opt(mocker, supervisor):
     """ Test the values of options with defined Supvisors configuration. """
     DefinedOptionConfiguration = {'address_list': 'cliche01,cliche03,cliche02',
-                                  'rules_file': 'my_movies.xml', 'auto_fence': 'true',
+                                  'rules_files': 'my_movies.xml', 'auto_fence': 'true',
                                   'internal_port': '60001', 'event_port': '60002',
                                   'synchro_timeout': '20', 'force_synchro_if': 'cliche01,cliche03',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
                                   'stats_periods': '5,60,600', 'stats_histo': '100', 'stats_irix_mode': 'true',
                                   'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
                                   'logfile_backups': '5', 'loglevel': 'error'}
-    return SupvisorsOptions(**DefinedOptionConfiguration)
+    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
+    return SupvisorsOptions(supervisor, **DefinedOptionConfiguration)
 
 
 @pytest.fixture
@@ -58,7 +60,7 @@ def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     # all attributes are None
     assert opt.address_list == [gethostname()]
-    assert opt.rules_file is None
+    assert opt.rules_files is None
     assert opt.internal_port == 65001
     assert opt.event_port == 65002
     assert not opt.auto_fence
@@ -78,7 +80,7 @@ def test_options_creation(opt):
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
     assert filled_opt.address_list == ['cliche01', 'cliche03', 'cliche02']
-    assert filled_opt.rules_file == 'my_movies.xml'
+    assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
@@ -97,11 +99,18 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == "address_list=['{}'] rules_file=None internal_port=65001 event_port=65002 auto_fence=False"\
+    assert str(opt) == "address_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
                        " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER"\
                        " starting_strategy=CONFIG stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
                        " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\
                        .format(gethostname(), Automatic, 50 * 1024 * 1024, {})
+
+
+def test_to_filepaths(opt):
+    """ Test the validation of file globs into file paths. """
+    filepaths = opt.to_filepaths('*/*/tests/test_opt*py */*/test_options.p. %(here)s/*/test_options.py')
+    assert len(filepaths) == 1
+    assert os.path.basename(filepaths[0]) == 'test_options.py'
 
 
 common_error_message = r'invalid value for {}'

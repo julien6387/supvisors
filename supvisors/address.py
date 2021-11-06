@@ -142,7 +142,7 @@ class AddressStatus(object):
         :return: the total loading
         """
         node_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.debug('AddressStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
+        self.logger.trace('AddressStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
         return node_load
 
     # dictionary for transitions

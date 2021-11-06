@@ -47,10 +47,11 @@ parameters) or it may lead to unpredictable behavior.
         If it's not the case, check the network configuration.
 
 
-``rules_file``
+``rules_files``
 
-    The absolute or relative path of the XML rules file. The contents of this file is described in
-    `Supvisors' Rules File`_.
+    A list of paths to XML rules files, in the same format as the one used for
+    `supervisord include section <http://supervisord.org/configuration.html#include-section-values`_.
+    Their content is described in `Supvisors' Rules File`_.
 
     *Default*:  None.
 

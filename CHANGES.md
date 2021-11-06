@@ -7,7 +7,9 @@
 
 * Fix exception when authorization is received from a node that is not in CHECKING state. 
 
-* Fix regression on node isolation (missing disconnect). 
+* Fix regression (missing disconnect) on node isolation when fencing is activated.
+
+* The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 

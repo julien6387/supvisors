@@ -17,28 +17,30 @@
 # limitations under the License.
 # ======================================================================
 
+import glob
+import os
+import platform
+
 from collections import OrderedDict
 from socket import gethostname
 from typing import Dict, List, TypeVar
 
-from supervisor.datatypes import (Automatic, logfile_name,
-                                  boolean, integer, byte_size,
-                                  logging_level,
-                                  existing_dirpath,
-                                  list_of_strings)
+from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byte_size,
+                                  logging_level, list_of_strings)
 from supervisor.loggers import Logger
-from supervisor.options import ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
+from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
 from .ttypes import ConciliationStrategies, StartingStrategies
 
 
+# Options of main section
 class SupvisorsOptions(object):
     """ Holder of the Supvisors options.
 
     Attributes are:
 
         - address_list: list of node names or IP addresses where supvisors will be running,
-        - rules_file: absolute or relative path to the XML rules file,
+        - rules_files: list of absolute or relative paths to the XML rules files,
         - internal_port: port number used to publish local events to remote Supvisors instances,
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
@@ -58,17 +60,19 @@ class SupvisorsOptions(object):
     SYNCHRO_TIMEOUT_MIN = 15
     SYNCHRO_TIMEOUT_MAX = 1200
 
-    def __init__(self, **config):
+    def __init__(self, supervisord, **config):
         """ Initialization of the attributes.
 
+        :param supervisord: the global Supervisor structure
         :param config: the configuration provided by Supervisor from the [rpcinterface:supvisors] section
         """
+        self.supervisord_options = supervisord.options
         # get values from config
         self.address_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
         self.address_list = list(OrderedDict.fromkeys(self.address_list))
-        self.rules_file = config.get('rules_file', None)
-        if self.rules_file:
-            self.rules_file = existing_dirpath(self.rules_file)
+        self.rules_files = config.get('rules_files', None)
+        if self.rules_files:
+            self.rules_files = self.to_filepaths(self.rules_files)
         self.internal_port = self.to_port_num(config.get('internal_port', '65001'))
         self.event_port = self.to_port_num(config.get('event_port', '65002'))
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
@@ -89,17 +93,36 @@ class SupvisorsOptions(object):
 
     def __str__(self):
         """ Contents as string. """
-        return "address_list={} rules_file={} internal_port={} event_port={} auto_fence={}"\
+        return "address_list={} rules_files={} internal_port={} event_port={} auto_fence={}"\
                " synchro_timeout={} force_synchro_if={} conciliation_strategy={}"\
                " starting_strategy={} stats_periods={} stats_histo={} stats_irix_mode={}"\
                " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}"\
-               .format(self.address_list, self.rules_file, self.internal_port, self.event_port, self.auto_fence,
+               .format(self.address_list, self.rules_files, self.internal_port, self.event_port, self.auto_fence,
                        self.synchro_timeout, self.force_synchro_if,
                        self.conciliation_strategy.name, self.starting_strategy.name,
                        self.stats_periods, self.stats_histo, self.stats_irix_mode,
                        self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel)
 
     # conversion utils (completion of supervisor.datatypes)
+    def to_filepaths(self, value: str) -> List[str]:
+        """ Expand the file globs and return the files found.
+
+        :param value: a space-separated sequence of file globs
+        :return: the list of files found
+        """
+        # apply expansions to value
+        expansions = {'here': self.supervisord_options.here,
+                      'host_node_name': platform.node()}
+        expansions.update(self.supervisord_options.environ_expansions)
+        files = expand(value, expansions, 'rpcinterface.supvisors.rules_files')
+        # get all files
+        rules_files = set()
+        for pattern in files.split():
+            filenames = glob.glob(pattern)
+            if filenames:
+                rules_files.update(filenames)
+        return sorted(rules_files)
+
     @staticmethod
     def to_port_num(value: str) -> int:
         """ Convert a string into a port number, in [1;65535].
@@ -198,10 +221,8 @@ class SupvisorsServerOptions(ServerOptions):
 
     def _processes_from_section(self, parser, section, group_name, klass=None) -> List[ProcessConfig]:
         """ This method is overridden to: store the program number of a homogeneous program.
-
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
-
         :param parser: the config parser
         :param section: the program section
         :param group_name: the group that embeds the program definition
@@ -235,7 +256,6 @@ class SupvisorsServerOptions(ServerOptions):
 
     def update_numprocs(self, program_name: str, numprocs: int) -> str:
         """ This method updates the numprocs value directly in the configuration parser.
-
         :param program_name: the program name, as found in the sections of the Supervisor configuration files
         :param numprocs: the new numprocs value
         :return: The section updated
@@ -247,7 +267,6 @@ class SupvisorsServerOptions(ServerOptions):
 
     def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:
         """ This method rebuilds the ProcessConfig instances for the program.
-
         :param section: the program section in the configuration files
         :param group_name: the group that embeds the program definition
         :return: the list of ProcessConfig

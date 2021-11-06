@@ -268,7 +268,7 @@ class Commander(object):
         :return: True when there is no more pending jobs
         """
         in_progress = self.in_progress()
-        self.logger.debug('Starter.is_job_completed: in_progress={}'.format(in_progress))
+        self.logger.trace('Commander.is_job_completed: in_progress={}'.format(in_progress))
         if in_progress:
             commands = [command for command_list in self.current_jobs.values()
                         for command in command_list]

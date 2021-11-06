@@ -44,20 +44,20 @@ class Supvisors(object):
     def __init__(self, supervisor: Supervisor, **config) -> None:
         """ Instantiation of all the Supvisors objects.
 
-        :param supervisord: the Supervisor global structure
+        :param supervisor: the Supervisor global structure
         """
         # declare zmq context (will be created in listener)
         self.zmq = None
-        # get options from config file
-        self.options = SupvisorsOptions(**config)
+        # get options from config
+        self.options = SupvisorsOptions(supervisor, **config)
         # create logger
         self.logger = self.create_logger(supervisor)
-        # re-evaluate the Supervisor configuration to get what hasn't been stored
+        # re-realize configuration to get
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
         self.info_source = SupervisordSource(supervisor, self.logger)
-        # set addresses and check local address
+        # set addresses and check local node
         self.address_mapper = AddressMapper(self.logger)
         self.address_mapper.node_names = self.options.address_list
         if not self.address_mapper.local_node_name:
@@ -78,7 +78,7 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('Supvisors: cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
+            self.logger.warn('Supvisors: cannot parse rules files: {} - {}'.format(self.options.rules_files, exc))
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)

@@ -276,7 +276,7 @@ def lxml_import():
 
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
     mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)
@@ -286,7 +286,7 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
 def test_invalid_lxml(mocker, supvisors):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
     mocker.patch('supvisors.sparser.stderr')
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
     with pytest.raises(ValueError):
         Parser(supvisors)
 
@@ -308,7 +308,7 @@ def test_no_parser(mocker, supvisors, lxml_fail_import):
 def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
     mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)
@@ -318,7 +318,7 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
 def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
     mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
     mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
     parser = Parser(supvisors)

@@ -49,7 +49,7 @@ class DummyOptions:
         self.synchro_timeout = 10
         self.force_synchro_if = []
         self.auto_fence = True
-        self.rules_file = ''
+        self.rules_files = 'my_movies.xml'
         self.starting_strategy = StartingStrategies.CONFIG
         self.conciliation_strategy = 0
         self.stats_periods = 5, 15, 60
@@ -135,6 +135,8 @@ class DummyServerOptions:
                                 'port': 1234,
                                 'username': 'user',
                                 'password': 'p@$$w0rd'}]
+        self.here = '.'
+        self.environ_expansions = {}
         self.serverurl = 'url'
         self.mood = 'mood'
         self.nodaemon = True

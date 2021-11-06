@@ -50,29 +50,50 @@ class Parser(object):
         """
         self.supvisors = supvisors
         self.logger = supvisors.logger
-        self.tree = self.parse(supvisors.options.rules_file)
-        self.root = self.tree.getroot()
-        # get aliases - check nodes and back to string as it is easier to process
-        self.aliases = {element.get('name'): list_of_strings(element.text)
-                        for element in self.root.findall("./alias[@name]")
-                        if element.text}
-        self.logger.debug('Parser: found aliases {}'.format(self.aliases))
-        # get models
-        elements = self.root.findall("./model[@name]")
-        self.models = {element.get('name'): element for element in elements}
-        self.logger.debug('Parser: found models {}'.format(self.models.keys()))
-        # get application patterns
-        app_elements = self.root.findall(".//application[@pattern]")
-        self.application_patterns = {app_element.get('pattern'): app_element for app_element in app_elements}
-        self.logger.debug('Parser: found application patterns {}'.format(self.application_patterns.keys()))
-        # get program patterns
+        # attributes
+        self.roots = []
+        self.aliases = {}
+        self.models = {}
+        self.application_patterns = {}
         self.program_patterns = {}
-        app_elements = self.root.findall(".//application/program[@pattern]/..")
-        for app_element in app_elements:
-            prg_elements = app_element.findall("./program[@pattern]")
-            prg_patterns = self.program_patterns.setdefault(app_element, {})
-            prg_patterns.update({prg_element.get('pattern'): prg_element for prg_element in prg_elements})
-        self.logger.debug('Parser: found program patterns {}'.format(self.printable_program_patterns()))
+        # get a parser per rules file
+        self.load_rules_files(supvisors.options.rules_files)
+
+    def load_rules_files(self, rules_files: List[str]) -> None:
+        """ Get roots, models and patterns from the rules files provided.
+
+        :param rules_files: the list of rules files to load
+        :return: None
+        """
+        for rules_file in rules_files:
+            self.logger.info('Parser: parsing rules from {}'.format(rules_file))
+            root = self.parse(rules_file).getroot()
+            self.roots.append(root)
+            # get aliases - check nodes and back to string as it is easier to process
+            self.aliases.update({element.get('name'): list_of_strings(element.text)
+                                 for element in root.findall("./alias[@name]")
+                                 if element.text})
+            # get models
+            elements = root.findall("./model[@name]")
+            self.models.update({element.get('name'): element for element in elements})
+            # get application patterns
+            app_elements = root.findall("./application[@pattern]")
+            self.application_patterns.update({app_element.get('pattern'): app_element
+                                              for app_element in app_elements})
+            # get program patterns sorted by application
+            app_elements = root.findall("./application/program[@pattern]/..")
+            for app_element in app_elements:
+                prg_elements = app_element.findall("./program[@pattern]")
+                prg_patterns = self.program_patterns.setdefault(app_element, {})
+                prg_patterns.update({prg_element.get('pattern'): prg_element
+                                     for prg_element in prg_elements})
+        # log what has been found
+        self.logger.debug('Parser.load_rules_files: found aliases {}'.format(self.aliases))
+        self.logger.debug('Parser.load_rules_files: found models {}'.format(self.models.keys()))
+        self.logger.debug('Parser.load_rules_files: found application patterns {}'
+                          .format(self.application_patterns.keys()))
+        self.logger.debug('Parser.load_rules_files: found program patterns {}'
+                          .format(self.printable_program_patterns()))
 
     def printable_program_patterns(self) -> Dict[str, List[str]]:
         """ Get a printable version of program patterns (without parser elements).
@@ -116,8 +137,13 @@ class Parser(object):
         :param application_name: the application name
         :return: the XML element containing rules definition for an application
         """
-        # try to find program name in file
-        application_elt = self.root.find('./application[@name="{}"]'.format(application_name))
+        # try to find application name in rule files
+        application_elt = None
+        for root in self.roots:
+            application_elt = root.find('./application[@name="{}"]'.format(application_name))
+            # stop search on first element found
+            if application_elt is not None:
+                break
         self.logger.trace('Parser.get_application_element: direct search for application={} found={}'
                           .format(application_name, application_elt is not None))
         if application_elt is None:
@@ -376,7 +402,7 @@ class Parser(object):
         :return: the XML parser
         """
         # find parser
-        self.logger.info('Parser.parse: trying to use lxml.etree parser')
+        self.logger.debug('Parser.parse: trying to use lxml.etree parser')
         try:
             from lxml.etree import parse, XMLSchema
             # parse XML and validate it
@@ -385,16 +411,16 @@ class Parser(object):
             schema_doc = parse(rules_xsd)
             schema = XMLSchema(schema_doc)
             if schema.validate(tree):
-                self.logger.info('Parser.parse: XML validated')
+                self.logger.debug('Parser.parse: XML validated')
                 return tree
             print(schema.error_log, file=stderr)
             raise ValueError('Parser.parse: XML NOT validated: {}'.format(filename))
         except ImportError:
-            self.logger.info('Parser.parse: failed to import lxml')
-            self.logger.info('Parser.parse: trying to use xml.etree.ElementTree parser')
+            self.logger.debug('Parser.parse: failed to import lxml')
+            self.logger.debug('Parser.parse: trying to use xml.etree.ElementTree parser')
             try:
                 from xml.etree.ElementTree import parse
                 return parse(filename)
             except ImportError:
-                self.logger.critical('Parser.parse: failed to import ElementTree from any known place')
+                self.logger.critical('Parser.parse: failed to import ElementTree')
                 raise
