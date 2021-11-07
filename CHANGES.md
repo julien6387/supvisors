@@ -9,6 +9,8 @@
 
 * Fix regression (missing disconnect) on node isolation when fencing is activated.
 
+* Fix issue in statistics compiler when network interfaces are dynamically created / removed.
+
 * The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
