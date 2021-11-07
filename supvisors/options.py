@@ -118,9 +118,9 @@ class SupvisorsOptions(object):
         # get all files
         rules_files = set()
         for pattern in files.split():
-            filenames = glob.glob(pattern)
-            if filenames:
-                rules_files.update(filenames)
+            filepaths = glob.glob(pattern)
+            for filepath in filepaths:
+                rules_files.add(os.path.abspath(filepath))
         return sorted(rules_files)
 
     @staticmethod

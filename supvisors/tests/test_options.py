@@ -108,7 +108,10 @@ def test_str(opt):
 
 def test_to_filepaths(opt):
     """ Test the validation of file globs into file paths. """
-    filepaths = opt.to_filepaths('*/*/tests/test_opt*py */*/test_options.p. %(here)s/*/test_options.py')
+    # find a secure glob that would work with developer test and in Travis-CI
+    base_glob = os.path.dirname(__file__)
+    filepaths = opt.to_filepaths('*/*/tests/test_opt*py {}/test_options.p? %(here)s/*/test_options.py'
+                                 .format(base_glob))
     assert len(filepaths) == 1
     assert os.path.basename(filepaths[0]) == 'test_options.py'
 
