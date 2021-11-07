@@ -50,7 +50,7 @@ parameters) or it may lead to unpredictable behavior.
 ``rules_files``
 
     A list of paths to XML rules files, in the same format as the one used for
-    `supervisord include section <http://supervisord.org/configuration.html#include-section-values`_.
+    `supervisord include section <http://supervisord.org/configuration.html#include-section-values>`_.
     Their content is described in `Supvisors' Rules File`_.
 
     *Default*:  None.
