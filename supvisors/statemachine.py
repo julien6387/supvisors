@@ -36,7 +36,7 @@ class AbstractState(object):
 
     Attributes are:
         - supvisors: the reference to the global Supvisors structure,
-        - address_name: the name of the local node.
+        - local_node_name: the name of the local node.
      """
 
     def __init__(self, supvisors: Any) -> None:
@@ -404,7 +404,7 @@ class FiniteStateMachine:
             self.logger.info('FiniteStateMachine.set_state: Supvisors in {}'.format(self.state.name))
             if self.supvisors.zmq:
                 # the zmq does not exist yet for the first occurrence here
-                self.supvisors.zmq.internal_publisher.send_state_event(self.serial())
+                self.supvisors.zmq.pusher.send_state_event(self.serial())
                 self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # create the new state and enters it
             if self.context.is_master:
@@ -415,10 +415,10 @@ class FiniteStateMachine:
             # evaluate current state
             next_state = self.instance.next()
 
-    def on_timer_event(self) -> NameList:
+    def periodic_check(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
-        process_failures = self.context.on_timer_event()
+        process_failures = self.context.on_timer_event(event)
         self.logger.debug('FiniteStateMachine.on_timer_event: process_failures={}'.format(process_failures))
         # get invalidated nodes / use next / update processes on invalidated nodes ?
         self.next()
@@ -427,12 +427,17 @@ class FiniteStateMachine:
             for process in process_failures:
                 self.supvisors.failure_handler.add_default_job(process)
             self.supvisors.failure_handler.trigger_jobs()
-        # check if new isolating remotes and return the list of newly isolated nodes
-        return self.context.handle_isolation()
+        # check if new isolating remotes and isolate them at main loop level
+        node_names = self.context.handle_isolation()
+        self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
 
     def on_tick_event(self, node_name: str, event: Payload):
-        """ This event is used to refresh the data related to the address. """
+        """ This event is used to refresh the data related to the node.
+        If local node update, perform a global check on node status. """
         self.context.on_tick_event(node_name, event)
+        if node_name == self.instance.local_node_name:
+            # trigger periodic check
+            self.periodic_check(event)
 
     def on_process_state_event(self, node_name: str, event: Payload) -> None:
         """ This event is used to refresh the process data related to the event and address.

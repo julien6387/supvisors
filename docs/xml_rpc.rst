@@ -68,14 +68,13 @@ Status
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
-            'remote_time'      ``int``   The date, in ms, of the last heartbeat received from the |Supvisors| instance,
+            'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the remote reference time.
-            'local_time'       ``int``   The date, in ms, of the last heartbeat received from the |Supvisors| instance,
+            'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the local reference time.
             'loading'          ``int``   The sum of the expected loading of the processes running on the node,
                                          in [0;100]%.
-            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received from |Supervisor|
-                                         since it is running.
+            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
             ================== ========= ===========
 
         .. automethod:: get_all_addresses_info()

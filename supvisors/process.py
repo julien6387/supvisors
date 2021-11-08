@@ -475,7 +475,7 @@ class ProcessStatus(object):
             self.logger.warn('ProcessStatus.update_info: namespec={} - ProcessEvent rejected. Tick expected from {}'
                              .format(self.namespec, node_name))
 
-    def update_times(self, address: str, remote_time: int) -> None:
+    def update_times(self, address: str, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
 
         :param address: the name of the node from which the tick has been received
@@ -517,7 +517,7 @@ class ProcessStatus(object):
             failure = self.running_nodes == set()
         return failure
 
-    def remove_node(self, node_name: str) -> None:
+    def remove_node(self, node_name: str) -> bool:
         """ Update the status of a process that has been removed from the node, following an XML-RPC update_numprocs
 
         :param node_name: the node from which the process has been removed

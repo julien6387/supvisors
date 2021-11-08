@@ -2,6 +2,10 @@
 
 ## 0.11 (2021-xx-xx)
 
+* Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
+  Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
+  On the heartbeat reception part, consider that the node is SILENT based on a number of ticks instead of time.
+
 * Fix issue with `supvisors.stop_process` XML-RPC that wouldn't stop all processes when any of the targeted processes
   is already stopped.
 
@@ -16,6 +20,8 @@
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
 * Add `expected_exit` to the output of `supervisorctl sstatus` when the process is `EXITED`.
+
+* Change the `remote_time` and `local_time` of the `supvisors.get_address_info` XML-RPC to float.
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
   applications only.

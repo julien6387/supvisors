@@ -576,38 +576,49 @@ def test_timer_event(mocker, fsm):
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
     mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation', return_value=['2', '3'])
+    mocked_isolate = fsm.supvisors.zmq.pusher.send_isolate_nodes
     # test when not master
     assert not fsm.context.is_master
-    result = fsm.on_timer_event()
+    event = {'counter': 1234}
+    fsm.periodic_check(event)
     # check result: marked processes are started
-    assert result == ['2', '3']
-    assert mocked_event.call_count == 1
-    assert mocked_next.call_count == 1
+    assert mocked_event.call_args_list == [call(event)]
+    assert mocked_next.call_args_list == [call()]
     assert not mocked_add.called
     assert not mocked_trigger.called
-    assert mocked_isolation.call_count == 1
+    assert mocked_isolation.call_args_list == [call()]
+    assert mocked_isolate.call_args_list == [call(['2', '3'])]
     # reset mocks
     mocker.resetall()
+    mocked_isolate.reset_mock()
     # test when not master
     fsm.context._is_master = True
     assert fsm.context.is_master
-    result = fsm.on_timer_event()
+    fsm.periodic_check(event)
     # check result: marked processes are started
-    assert result == ['2', '3']
-    assert mocked_event.call_count == 1
-    assert mocked_next.call_count == 1
+    assert mocked_event.call_args_list == [call(event)]
+    assert mocked_next.call_args_list == [call()]
     assert mocked_add.call_args_list == [call('proc_1'), call('proc_2')]
-    assert mocked_trigger.call_count == 1
-    assert mocked_isolation.call_count == 1
+    assert mocked_trigger.call_args_list == [call()]
+    assert mocked_isolation.call_args_list == [call()]
+    assert mocked_isolate.call_args_list == [call(['2', '3'])]
 
 
 def test_tick_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a tick event. """
     # inject tick event and test call to context on_tick_event
     mocked_evt = mocker.patch.object(fsm.supvisors.context, 'on_tick_event')
-    fsm.on_tick_event('10.0.0.1', {'tick': 1234})
-    assert mocked_evt.call_count == 1
-    assert mocked_evt.call_args == call('10.0.0.1', {'tick': 1234})
+    mocked_check = mocker.patch.object(fsm, 'periodic_check')
+    # test when tick comes from another node
+    event = {'tick': 1234}
+    fsm.on_tick_event('10.0.0.1', event)
+    assert mocked_evt.call_args_list == [call('10.0.0.1', event)]
+    assert not mocked_check.called
+    mocker.resetall()
+    # test when tick comes from local node
+    fsm.on_tick_event('127.0.0.1', event)
+    assert mocked_evt.call_args_list == [call('127.0.0.1', event)]
+    assert mocked_check.call_args_list == [call(event)]
 
 
 def test_process_state_event(mocker, fsm):

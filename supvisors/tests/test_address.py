@@ -17,9 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
+import pickle
 import pytest
 import random
 import time
+
+from supervisor.states import ProcessStates
+
+from supvisors.address import *
+from supvisors.ttypes import AddressStates, InvalidTransition
 
 from .base import database_copy
 from .conftest import create_any_process, create_process
@@ -28,7 +34,6 @@ from .conftest import create_any_process, create_process
 @pytest.fixture
 def filled_node(supvisors):
     """ Create an AddressStatus and add all processes of the database. """
-    from supvisors.address import AddressStatus
     status = AddressStatus('10.0.0.1', supvisors.logger)
     for info in database_copy():
         process = create_process(info, supvisors)
@@ -39,22 +44,20 @@ def filled_node(supvisors):
 
 def test_create(supvisors):
     """ Test the values set at construction. """
-    from supvisors.address import AddressStatus
-    from supvisors.ttypes import AddressStates
     status = AddressStatus('10.0.0.1', supvisors.logger)
     # test all AddressStatus values
     assert status.logger == supvisors.logger
     assert status.node_name == '10.0.0.1'
     assert status.state == AddressStates.UNKNOWN
-    assert status.remote_time == 0
-    assert status.local_time == 0
+    assert status.sequence_counter == 0
+    assert status.local_sequence_counter == 0
+    assert status.remote_time == 0.0
+    assert status.local_time == 0.0
     assert status.processes == {}
 
 
 def test_isolation(supvisors):
     """ Test the in_isolation method. """
-    from supvisors.address import AddressStatus
-    from supvisors.ttypes import AddressStates
     status = AddressStatus('10.0.0.1', supvisors.logger)
     for state in AddressStates:
         status._state = state
@@ -64,19 +67,17 @@ def test_isolation(supvisors):
 
 def test_serialization(supvisors):
     """ Test the serial method used to get a serializable form of AddressStatus. """
-    import pickle
-    from supvisors.address import AddressStatus
-    from supvisors.ttypes import AddressStates
     # create address status instance
     status = AddressStatus('10.0.0.1', supvisors.logger)
     status._state = AddressStates.RUNNING
     status.checked = True
+    status.sequence_counter = 28
     status.remote_time = 50
     status.local_time = 60
     # test to_json method
     serialized = status.serial()
     assert serialized == {'address_name': '10.0.0.1', 'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
-                          'remote_time': 50, 'local_time': 60, 'sequence_counter': 0}
+                          'remote_time': 50, 'local_time': 60, 'sequence_counter': 28}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -85,8 +86,6 @@ def test_serialization(supvisors):
 
 def test_transitions(supvisors):
     """ Test the state transitions of AddressStatus. """
-    from supvisors.address import AddressStatus
-    from supvisors.ttypes import AddressStates, InvalidTransition
     status = AddressStatus('10.0.0.1', supvisors.logger)
     for state1 in AddressStates:
         for state2 in AddressStates:
@@ -105,7 +104,6 @@ def test_transitions(supvisors):
 
 def test_add_process(supvisors):
     """ Test the add_process method. """
-    from supvisors.address import AddressStatus
     status = AddressStatus('10.0.0.1', supvisors.logger)
     process = create_any_process(supvisors)
     status.add_process(process)
@@ -116,15 +114,15 @@ def test_add_process(supvisors):
 
 def test_times(filled_node):
     """ Test the update_times method. """
-    from supervisor.states import ProcessStates
     # get current process times
     ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
                 for process in filled_node.processes.values()
                 for info in [process.info_map['10.0.0.1']]}
     # update times and check
-    now = int(time.time())
-    filled_node.update_times(28, now + 10, now)
+    now = time.time()
+    filled_node.update_times(28, now + 10, 27, now)
     assert filled_node.sequence_counter == 28
+    assert filled_node.local_sequence_counter == 27
     assert filled_node.remote_time == now + 10
     assert filled_node.local_time == now
     # test process times: only RUNNING and STOPPING have a positive uptime

@@ -66,10 +66,10 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     private State statename;
 
     /** The date of the last heartbeat message, as received. */
-    private Integer remote_time;
+    private Double remote_time;
 
     /** The date of the last heartbeat message, in the local reference time. */
-    private Integer local_time;
+    private Double local_time;
 
     /** The TICK counter. */
     private Integer sequence_counter;
@@ -88,8 +88,8 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     public SupvisorsAddressInfo(HashMap addressInfo)  {
         this.address_name = (String) addressInfo.get("address_name");
         this.statename = State.valueOf((String) addressInfo.get("statename"));
-        this.remote_time = (Integer) addressInfo.get("remote_time");
-        this.local_time = (Integer) addressInfo.get("local_time");
+        this.remote_time = (Double) addressInfo.get("remote_time");
+        this.local_time = (Double) addressInfo.get("local_time");
         this.sequence_counter = (Integer) addressInfo.get("sequence_counter");
         this.loading = (Integer) addressInfo.get("loading");
     }
@@ -114,11 +114,11 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
 
     /**
      * The getRemoteTime method returns the date of the last heartbeat message,
-     * in the reference time of the address.
+     * in the reference time of the remote node.
      *
-     * @return Integer: The number of seconds since Epoch.
+     * @return Double: The number of seconds since Epoch.
      */
-    public Integer getRemoteTime() {
+    public Double getRemoteTime() {
         return this.remote_time;
     }
 
@@ -126,9 +126,9 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * The getLocalTime method returns the date of the last heartbeat message,
      * in the reference time of the local Supvisors.
      *
-     * @return Integer: The number of seconds since Epoch.
+     * @return Double: The number of seconds since Epoch.
      */
-   public Integer getLocalTime() {
+   public Double getLocalTime() {
         return this.local_time;
     }
 

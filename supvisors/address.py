@@ -30,16 +30,17 @@ class AddressStatus(object):
     """ Class defining the status of a Supvisors instance.
 
     Attributes:
-    - node_name: the node where the Supervisor instance is expected to be running,
-    - state: the state of the Supervisor instance in AddressStates,
-    - sequence_counter: the TICK counter,
-    - remote_time: the last date received from the Supvisors instance,
-    - local_time: the last date received from the Supvisors instance, in the local reference time,
-    - processes: the list of processes that are available on this address. """
+    - node_name: the node where the Supervisor instance is expected to be running ;
+    - state: the state of the Supervisor instance in AddressStates ;
+    - sequence_counter: the TICK counter ;
+    - local_sequence_counter: the last TICK counter received from the local node ;
+    - remote_time: the last date received from the Supvisors instance ;
+    - local_time: the last date received from the Supvisors instance, in the local reference time ;
+    - processes: the list of processes that are available on this node. """
 
-    # Timeout in seconds from which Supvisors considers that a node is inactive if no tick has been received in the gap.
+    # Number of local TICKs from which Supvisors considers that a node is inactive
     # TODO: could be an option in configuration file
-    INACTIVITY_TIMEOUT = 10
+    INACTIVITY_TICKS = 2
 
     def __init__(self, node_name: str, logger: Logger):
         """ Initialization of the attributes. """
@@ -49,8 +50,9 @@ class AddressStatus(object):
         self.node_name: str = node_name
         self._state: AddressStates = AddressStates.UNKNOWN
         self.sequence_counter: int = 0
-        self.remote_time: int = 0
-        self.local_time: int = 0
+        self.local_sequence_counter: int = 0
+        self.remote_time: float = 0.0
+        self.local_time: float = 0.0
         self.processes: Dict[str, ProcessStatus] = {}
 
     def reset(self):
@@ -62,8 +64,9 @@ class AddressStatus(object):
         if self.state in [AddressStates.CHECKING, AddressStates.RUNNING]:
             # do NOT use state setter as transition may be rejected
             self._state = AddressStates.UNKNOWN
-        self.remote_time = 0
-        self.local_time = 0
+        self.local_sequence_counter = 0
+        self.remote_time = 0.0
+        self.local_time = 0.0
 
     # accessors / mutators
     @property
@@ -93,22 +96,23 @@ class AddressStatus(object):
                 'loading': self.get_loading()}
 
     # methods
-    def inactive(self, current_time: float):
-        """ Return True if the latest update was received more than INACTIVITY_TIMEOUT seconds ago.
+    def inactive(self, local_sequence_counter: int):
+        """ Return True if the latest update was received more than INACTIVITY_TICKS ago.
 
-        :param current_time: the current time
+        :param local_sequence_counter: the current local sequence counter
         :return: the inactivity status
         """
         return (self.state in [AddressStates.CHECKING, AddressStates.RUNNING]
-                and (current_time - self.local_time) > self.INACTIVITY_TIMEOUT)
+                and (local_sequence_counter - self.local_sequence_counter) > self.INACTIVITY_TICKS)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
         return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
 
-    def update_times(self, sequence_counter: int, remote_time: int, local_time: int):
+    def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
         """ Update the time attributes of the AddressStatus and of all the processes running on it. """
         self.sequence_counter = sequence_counter
+        self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time
         self.local_time = local_time
         for process in self.processes.values():

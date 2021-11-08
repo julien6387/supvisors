@@ -30,7 +30,7 @@ from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
-from .supvisorszmq import SupervisorZmq, InternalEventPublisher
+from .supvisorszmq import SupervisorZmq, RequestPusher
 from .ttypes import SupvisorsStates, ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .utils import InternalEventHeaders, RemoteCommEvents
 
@@ -59,8 +59,7 @@ class SupervisorListener(object):
         - logger: a reference to the Supvisors logger ;
         - collector: the statistics compiler ;
         - local_node_name: the node name where this process is running ;
-        - sequence_counter: the counter for TICK events ;
-        - publisher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads ;
+        - pusher: the ZeroMQ socket used to publish Supervisor events to all Supvisors threads ;
         - main_loop: the Supvisors' event thread.
     """
 
@@ -78,8 +77,7 @@ class SupervisorListener(object):
         self.collector = instant_statistics
         # other attributes
         self.local_node_name: str = self.supvisors.address_mapper.local_node_name
-        self.sequence_counter: int = 0
-        self.publisher: Optional[InternalEventPublisher] = None
+        self.pusher: Optional[RequestPusher] = None
         self.main_loop: Optional[SupvisorsMainLoop] = None
         # add new events to Supervisor EventTypes
         add_process_events()
@@ -102,8 +100,8 @@ class SupervisorListener(object):
         self.supvisors.info_source.prepare_extra_args()
         # create zmq sockets
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
-        # keep a reference to the internal events publisher
-        self.publisher = self.supvisors.zmq.internal_publisher
+        # keep a reference to the internal pusher used to defer the events publication
+        self.pusher = self.supvisors.zmq.pusher
         # start the main loop
         # env is needed to create XML-RPC proxy
         self.main_loop = SupvisorsMainLoop(self.supvisors)
@@ -146,7 +144,7 @@ class SupervisorListener(object):
                    'expected': event.expected,
                    'spawnerr': event.process.spawnerr}
         self.logger.trace('SupervisorListener.on_process_state: payload={}'.format(payload))
-        self.publisher.send_process_state_event(payload)
+        self.pusher.send_process_state_event(payload)
 
     def on_process_added(self, event: ProcessAddedEvent) -> None:
         """ Called when a process has been added due to a numprocs change.
@@ -166,7 +164,7 @@ class SupervisorListener(object):
                               .format(namespec, e.text))
         else:
             self.logger.trace('SupervisorListener.on_process_added: process_info={}'.format(process_info))
-            self.publisher.send_process_added_event(process_info)
+            self.pusher.send_process_added_event(process_info)
 
     def on_process_removed(self, event: ProcessRemovedEvent) -> None:
         """ Called when a process has been removed due to a numprocs change.
@@ -179,26 +177,22 @@ class SupervisorListener(object):
                           .format(namespec))
         payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
         self.logger.trace('SupervisorListener.on_process_removed: payload={}'.format(payload))
-        self.publisher.send_process_removed_event(payload)
+        self.pusher.send_process_removed_event(payload)
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
         Then statistics are published and periodic task is triggered. """
         self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
-        self.sequence_counter += 1
-        payload = {'sequence_counter': self.sequence_counter, 'when': event.when}
+        payload = {'when': event.when}
         self.logger.trace('SupervisorListener.on_tick: payload={}'.format(payload))
-        self.publisher.send_tick_event(payload)
+        self.pusher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
+        # TODO: send only PID in pusher. main loop can collect
         if self.collector:
             status = self.supvisors.context.nodes[self.local_node_name]
             stats = self.collector(status.pid_processes())
-            self.publisher.send_statistics(stats)
-        # periodic task
-        node_names = self.supvisors.fsm.on_timer_event()
-        # send isolated nodes to main loop
-        self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
+            self.pusher.send_statistics(stats)
 
     def on_remote_event(self, event: events.RemoteCommunicationEvent) -> None:
         """ Called when a RemoteCommunicationEvent is notified.
@@ -215,7 +209,7 @@ class SupervisorListener(object):
 
     def unstack_event(self, message: str):
         """ Unstack and process one event from the event queue. """
-        event_type, event_node, event_data = json.loads(message)
+        event_type, (event_node, event_data) = json.loads(message)
         if event_type == InternalEventHeaders.TICK.value:
             self.logger.trace('SupervisorListener.unstack_event: got TICK from {}: {}'
                               .format(event_node, event_data))
@@ -276,4 +270,4 @@ class SupervisorListener(object):
             self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))
         self.logger.debug('SupervisorListener.force_process_state: payload={}'.format(payload))
-        self.publisher.send_process_state_event(payload)
+        self.pusher.send_process_state_event(payload)

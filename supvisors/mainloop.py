@@ -21,6 +21,7 @@ import json
 
 from http.client import CannotSendRequest, IncompleteRead
 from threading import Event, Thread
+from time import time
 from typing import Any
 from sys import stderr
 
@@ -30,7 +31,7 @@ from supervisor.xmlrpc import RPCError
 from .rpcrequests import getRPCInterface
 from .supvisorszmq import SupvisorsZmq
 from .ttypes import AddressStates
-from .utils import DeferredRequestHeaders, RemoteCommEvents
+from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents
 
 
 class SupvisorsMainLoop(Thread):
@@ -43,6 +44,12 @@ class SupvisorsMainLoop(Thread):
         - env: the environment variables linked to Supervisor security access,
         - proxy: the proxy to the internal RPC interface.
     """
+
+    # TICK period in seconds for internal Supvisors heartbeat
+    TICK_PERIOD = 5
+
+    # a Supervisor TICK is expected every 5 seconds
+    SUPERVISOR_ALERT_TIMEOUT = 10
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,
@@ -62,6 +69,10 @@ class SupvisorsMainLoop(Thread):
         self.env = supvisors.info_source.get_env()
         # create a XML-RPC client to the local Supervisor instance
         self.proxy = getRPCInterface('localhost', self.env)
+        # heartbeat variables
+        self.supervisor_time = 0
+        self.reference_time = 0.0
+        self.reference_counter = 0
 
     def stopping(self) -> bool:
         """ Access to the loop attribute (used to drive tests on run method).
@@ -83,19 +94,40 @@ class SupvisorsMainLoop(Thread):
 
     def run(self) -> None:
         """ Contents of the infinite loop. """
+        # init hearbeat
+        self.reference_time = self.supervisor_time = time()
+        self.reference_counter = 0
         # Create zmq sockets
         sockets = SupvisorsZmq(self.supvisors)
         # poll events forever
         while not self.stopping():
             poll_result = sockets.poll()
             # test stop condition again: if Supervisor is stopping,
-            # any XML-RPC call would block this thread, and the other
-            # because of the join
+            # any XML-RPC call would block this thread and the other because of the join
             if not self.stopping():
+                # manage heartbeat
+                self.manage_heartbeat(sockets.publisher)
+                # process events
                 self.check_requests(sockets, poll_result)
                 self.check_events(sockets, poll_result)
         # close resources gracefully
         sockets.close()
+
+    def manage_heartbeat(self, publisher) -> None:
+        """ Send a periodic TICK to other Supvisors instances.
+        Supervisor TICK is not reliable for a heartbeat as it may be blocked by HTTP requests. """
+        current_time = time()
+        current_counter = int((current_time - self.reference_time) / SupvisorsMainLoop.TICK_PERIOD)
+        if current_counter > self.reference_counter:
+            # send the Supvisors TICK to other nodes
+            self.reference_counter = current_counter
+            payload = {'sequence_counter': current_counter, 'when': current_time}
+            publisher.send_tick_event(payload)
+            # print('[DEBUG] TICK sent at {}'.format(current_time), file=stderr)
+            # check that Supervisor thread is alive
+            supervisor_silence = current_time - self.supervisor_time
+            if supervisor_silence > SupvisorsMainLoop.SUPERVISOR_ALERT_TIMEOUT:
+                print('[ERROR] no TICK received from Supervisor for {} seconds'.format(supervisor_silence), file=stderr)
 
     def check_events(self, sockets, poll_result) -> None:
         """ Forward external Supervisor events to main thread. """
@@ -111,39 +143,42 @@ class SupvisorsMainLoop(Thread):
         message = sockets.check_puller(poll_result)
         if message:
             header, body = message
-            if header == DeferredRequestHeaders.ISOLATE_NODES.value:
-                # isolation request: disconnect the address from subscriber
-                sockets.disconnect_subscriber(body)
+            # check publication event or deferred request
+            try:
+                deferred_request = DeferredRequestHeaders(header)
+            except ValueError:
+                if header == InternalEventHeaders.TICK.value:
+                    # store Supervisor TICK
+                    self.supervisor_time = body[1]['when']
+                else:
+                    # forward the publication
+                    sockets.publisher.forward_event(message)
             else:
-                # XML-RPC request
-                self.send_request(header, body)
+                if deferred_request == DeferredRequestHeaders.ISOLATE_NODES:
+                    # isolation request: disconnect the address from subscriber
+                    sockets.disconnect_subscriber(body)
+                else:
+                    # XML-RPC request
+                    self.send_request(deferred_request, body)
 
-    def send_request(self, header, body) -> None:
+    def send_request(self, header: DeferredRequestHeaders, body) -> None:
         """ Perform the XML-RPC according to the header. """
-        if header == DeferredRequestHeaders.CHECK_NODE.value:
-            node_name, = body
-            self.check_node(node_name)
-        elif header == DeferredRequestHeaders.START_PROCESS.value:
-            node_name, namespec, extra_args = body
-            self.start_process(node_name, namespec, extra_args)
-        elif header == DeferredRequestHeaders.STOP_PROCESS.value:
-            node_name, namespec = body
-            self.stop_process(node_name, namespec)
-        elif header == DeferredRequestHeaders.RESTART.value:
-            node_name, = body
-            self.restart(node_name)
-        elif header == DeferredRequestHeaders.SHUTDOWN.value:
-            node_name, = body
-            self.shutdown(node_name)
-        elif header == DeferredRequestHeaders.RESTART_SEQUENCE.value:
-            node_name, = body
-            self.restart_sequence(node_name)
-        elif header == DeferredRequestHeaders.RESTART_ALL.value:
-            node_name, = body
-            self.restart_all(node_name)
-        elif header == DeferredRequestHeaders.SHUTDOWN_ALL.value:
-            node_name, = body
-            self.shutdown_all(node_name)
+        if header == DeferredRequestHeaders.CHECK_NODE:
+            self.check_node(*body)
+        elif header == DeferredRequestHeaders.START_PROCESS:
+            self.start_process(*body)
+        elif header == DeferredRequestHeaders.STOP_PROCESS:
+            self.stop_process(*body)
+        elif header == DeferredRequestHeaders.RESTART:
+            self.restart(*body)
+        elif header == DeferredRequestHeaders.SHUTDOWN:
+            self.shutdown(*body)
+        elif header == DeferredRequestHeaders.RESTART_SEQUENCE:
+            self.restart_sequence(*body)
+        elif header == DeferredRequestHeaders.RESTART_ALL:
+            self.restart_all(*body)
+        elif header == DeferredRequestHeaders.SHUTDOWN_ALL:
+            self.shutdown_all(*body)
 
     def check_node(self, node_name: str) -> None:
         """ Check isolation and get all process info asynchronously. """
@@ -166,7 +201,7 @@ class SupvisorsMainLoop(Thread):
                 # post to local Supvisors
                 self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((node_name, all_info)))
         except SupvisorsMainLoop.RpcExceptions:
-            print('[ERROR] failed to check address {}'.format(node_name), file=stderr)
+            print('[ERROR] failed to check node {}'.format(node_name), file=stderr)
 
     def start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """

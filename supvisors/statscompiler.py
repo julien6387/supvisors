@@ -197,8 +197,9 @@ class StatisticsInstance(object):
                 # add new Process CPU / Mem values to Process list
                 self._push_process_stats(integ_stats[4])
             else:
-                # init CPU data structures (mem static, io and proc will build themselves)
+                # init some data structures
                 self.cpu = [[] for _ in stats[1]]
+                self.io = {intf: ([], []) for intf in stats[3]}
             self.ref_stats = stats
 
     # remove first data of all lists if size exceeds depth

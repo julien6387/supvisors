@@ -22,9 +22,18 @@ from math import sqrt
 from time import gmtime, localtime, strftime, time
 
 
+# for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
     TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, STATISTICS, STATE = range(6)
+
+
+# for deferred XML-RPC requests
+class DeferredRequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop.
+    Range is shifted as InternalEventHeaders are used within the same context. """
+    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, \
+        RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL = range(10, 19)
 
 
 class RemoteCommEvents:
@@ -41,13 +50,6 @@ class EventHeaders:
     APPLICATION = u'application'
     PROCESS_EVENT = u'event'
     PROCESS_STATUS = u'process'
-
-
-# for deferred XML-RPC requests
-class DeferredRequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, \
-        RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL = range(9)
 
 
 def simple_localtime(now=None):

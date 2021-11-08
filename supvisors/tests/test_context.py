@@ -430,7 +430,7 @@ def test_on_tick_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
     mocked_check = context.supvisors.zmq.pusher.send_check_node
-    mocked_send = context.supvisors.zmq.publisher.send_address_status
+    mocked_send = context.supvisors.zmq.publisher.send_node_status
     # check no exception with unknown address
     context.on_tick_event('10.0.0.0', {})
     assert not mocked_check.called
@@ -476,12 +476,12 @@ def test_on_tick_event(mocker, context):
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
-    # check that node is forced to SILENT is its sequence_counter is lower than expected
+    # check that the node local_sequence_counter is forced to 0 when its sequence_counter is lower than expected
     status.sequence_counter = 102
     status._state = AddressStates.RUNNING
     context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
     assert status.state == AddressStates.RUNNING
-    assert status.local_time == 0
+    assert status.local_sequence_counter == 0
     assert not mocked_check.called
     assert not mocked_send.called
 
@@ -700,14 +700,14 @@ def test_on_process_state_event(mocker, context):
 def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
-    mocked_send = context.supvisors.zmq.publisher.send_address_status
+    mocked_send = context.supvisors.zmq.publisher.send_node_status
     # update context nodes
-    context.nodes['127.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3598})
-    context.nodes['10.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3593})
-    context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_time': 3588})
-    context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_time': 1800})
-    context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_time': 0})
-    context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.UNKNOWN, 'local_time': 0})
+    context.nodes['127.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_sequence_counter': 31})
+    context.nodes['10.0.0.1'].__dict__.update({'_state': AddressStates.RUNNING, 'local_sequence_counter': 30})
+    context.nodes['10.0.0.2'].__dict__.update({'_state': AddressStates.RUNNING, 'local_sequence_counter': 29})
+    context.nodes['10.0.0.3'].__dict__.update({'_state': AddressStates.SILENT, 'local_sequence_counter': 10})
+    context.nodes['10.0.0.4'].__dict__.update({'_state': AddressStates.ISOLATING, 'local_sequence_counter': 0})
+    context.nodes['10.0.0.5'].__dict__.update({'_state': AddressStates.UNKNOWN, 'local_sequence_counter': 0})
     # update context applications
     application_1 = Mock()
     context.applications['dummy_application'] = application_1
@@ -716,19 +716,21 @@ def test_on_timer_event(mocker, context):
     proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
                   **{'invalidate_node.return_value': True})
     mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
-    # test when start_date is more recent than synchro_timeout
+    # test when start_date is recent
     context.start_date = 3590
-    assert context.on_timer_event() == set()
+    assert context.on_timer_event({'sequence_counter': 31}) == set()
+    assert context.local_sequence_counter == 31
     assert not mocked_send.called
     assert not proc_1.invalidate_node.called
     assert not proc_2.invalidate_node.called
     assert context.nodes['10.0.0.5'].state == AddressStates.UNKNOWN
-    # test call and check results
+    # test when synchro_timeout has passed
     context.start_date = 3589
-    assert context.on_timer_event() == {proc_2}
+    assert context.on_timer_event({'sequence_counter': 32}) == {proc_2}
+    assert context.local_sequence_counter == 32
     assert context.nodes['10.0.0.5'].state == AddressStates.ISOLATING
     assert mocked_send.call_args_list == [call({'address_name': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
-                                                'remote_time': 0, 'local_time': 3588, 'loading': 15,
+                                                'remote_time': 0, 'local_time': 0, 'loading': 15,
                                                 'sequence_counter': 0}),
                                           call({'address_name': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
@@ -744,7 +746,7 @@ def test_on_timer_event(mocker, context):
 
 def test_handle_isolation(mocker, context):
     """ Test the isolation of addresses. """
-    mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_address_status')
+    mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_node_status')
     # update address states
     context.nodes['127.0.0.1']._state = AddressStates.CHECKING
     context.nodes['10.0.0.1']._state = AddressStates.RUNNING

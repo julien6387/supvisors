@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Iterator, List
+from typing import List
 
 from .address import *
 from .application import ApplicationRules, ApplicationStatus
@@ -33,6 +33,7 @@ class Context(object):
     - master_node_name: the name of the Supvisors master,
     - is_master: a boolean telling if the local node is the master node.
     - start_date: the date since Supvisors entered the INITIALIZATION state.
+    - local_sequence_counter: the last sequence counter received from the local TICK.
     """
 
     def __init__(self, supvisors: Any):
@@ -48,7 +49,9 @@ class Context(object):
         self._master_node_name: str = ''
         self._is_master: bool = False
         # start time to manage end of synchronization phase
-        self.start_date = 0
+        self.start_date: float = 0.0
+        # last local TICK sequence counter, used for node invalidation
+        self.local_sequence_counter: int = 0
 
     def reset(self) -> None:
         """ Reset the context to prepare a new synchronization phase.
@@ -57,7 +60,7 @@ class Context(object):
         :return: None
         """
         self.master_node_name = ''
-        self.start_date = int(time())
+        self.start_date = time()
         for status in self.nodes.values():
             status.reset()
 
@@ -125,7 +128,7 @@ class Context(object):
         else:
             status.state = AddressStates.SILENT
         # publish AddressStatus
-        self.supvisors.zmq.publisher.send_address_status(status.serial())
+        self.supvisors.zmq.publisher.send_node_status(status.serial())
 
     # methods on applications / processes
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
@@ -239,10 +242,12 @@ class Context(object):
             status = self.nodes[node_name]
             if status.state == AddressStates.CHECKING:
                 if authorized:
-                    self.logger.info('Context.on_authorization: local is authorized to deal with {}'.format(node_name))
+                    self.logger.info('Context.on_authorization: local node is authorized to work with {}'
+                                     .format(node_name))
                     status.state = AddressStates.RUNNING
                     return True
-                self.logger.warn('Context.on_authorization: local is not authorized to deal with {}'.format(node_name))
+                self.logger.warn('Context.on_authorization: local node is not authorized to work with {}'
+                                 .format(node_name))
                 self.invalid(status, True)
             else:
                 self.logger.error('Context.on_authorization: authorization rejected from non-CHECKING node={}'
@@ -274,24 +279,25 @@ class Context(object):
             if status.state in [AddressStates.CHECKING, AddressStates.RUNNING] \
                     and event['sequence_counter'] < status.sequence_counter:
                 self.logger.warn('Context.on_tick_event: stealth restart of node={}'.format(node_name))
-                # force node inactivity by resetting its local_time
+                # force node inactivity by resetting its local_sequence_counter
                 # FSM on_timer_event will handle the node invalidation
-                status.local_time = 0
+                status.local_sequence_counter = 0
             else:
                 # update internal times
-                status.update_times(event['sequence_counter'], event['when'], int(time()))
+                status.update_times(event['sequence_counter'], event['when'], self.local_sequence_counter, time())
                 # check node
                 if status.state in [AddressStates.UNKNOWN, AddressStates.SILENT]:
                     self.check_node(status)
                 # publish AddressStatus event
-                self.supvisors.zmq.publisher.send_address_status(status.serial())
+                self.supvisors.zmq.publisher.send_node_status(status.serial())
 
-    def on_timer_event(self) -> Set[ProcessStatus]:
+    def on_timer_event(self, event: Payload) -> Set[ProcessStatus]:
         """ Check that all Supvisors instances are still publishing.
         Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
-        process_failures = set({})
-        # find all nodes that do not send their periodic tick
+        process_failures = set({})  # strange but avoids IDE warning
+        # find all nodes that did not send their periodic tick
         current_time = time()
+        self.local_sequence_counter = event['sequence_counter']
         # do not check for invalidation before synchro_timeout
         if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
             # get publisher
@@ -302,7 +308,7 @@ class Context(object):
                     # invalid unknown nodes
                     # nothing to do on processes as none received yet
                     self.invalid(status)
-                elif status.inactive(current_time):
+                elif status.inactive(self.local_sequence_counter):
                     # invalid silent nodes
                     self.invalid(status)
                     # for processes that were running on node, invalidate node in process
@@ -312,16 +318,16 @@ class Context(object):
                     #  and their related description.
                     process_failures.update({process for process in status.running_processes()
                                              if process.invalidate_node(status.node_name)})
-        # publish process status in failure
-        for process in process_failures:
-            publisher.send_process_status(process.serial())
-        # update all application sequences and status
-        for application_name in {process.application_name for process in process_failures}:
-            application = self.applications[application_name]
-            # update sequence useless as long as the application.process map is not impacted (see decision above)
-            # application.update_sequences()
-            application.update_status()
-            publisher.send_application_status(application.serial())
+            # publish process status in failure
+            for process in process_failures:
+                publisher.send_process_status(process.serial())
+            # update all application sequences and status
+            for application_name in {process.application_name for process in process_failures}:
+                application = self.applications[application_name]
+                # update sequence useless as long as the application.process map is not impacted (see decision above)
+                # application.update_sequences()
+                application.update_status()
+                publisher.send_application_status(application.serial())
         #  return all processes that declare a failure
         return process_failures
 
@@ -382,6 +388,7 @@ class Context(object):
                 # refresh process info depending on the nature of the process event
                 if 'forced' in event:
                     process.force_state(event['state'], event['spawnerr'])
+                    # remove the 'forced' information before publication
                     del event['forced']
                 else:
                     process.update_info(node_name, event)
@@ -407,10 +414,9 @@ class Context(object):
         """ Asynchronous port-knocking used to check how the remote Supvisors instance considers the local instance.
         Also used to get the full process list from the node
 
-        :param status: the AddressStatus to check
+        :param status: the node to check
         :return: None
         """
-        #
         status.state = AddressStates.CHECKING
         self.supvisors.zmq.pusher.send_check_node(status.node_name)
 
@@ -421,5 +427,5 @@ class Context(object):
             status = self.nodes[node_name]
             status.state = AddressStates.ISOLATED
             # publish AddressStatus event
-            self.supvisors.zmq.publisher.send_address_status(status.serial())
+            self.supvisors.zmq.publisher.send_node_status(status.serial())
         return node_names
