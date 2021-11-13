@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.11 (2021-xx-xx)
+## 0.11 (2021-11-xx)
 
 * Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
   Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
@@ -25,6 +25,8 @@
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
   applications only.
+
+* Review the logic of the refresh button in the Web UI.
 
 * Add class "action" to Web UI buttons that trigger an XML-RPC.
 

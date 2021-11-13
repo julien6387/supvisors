@@ -183,8 +183,8 @@ class ViewContext:
     def fire_message(self) -> None:
         """ Set message in context response to be displayed at next refresh. """
         if self.store_message:
-            form = self.http_context.form
             args = {MESSAGE: self.store_message[1], GRAVITY: self.store_message[0]}
+            form = self.http_context.form
             # if redirect requested, go back to main page
             path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
             location = '{}{}?{}'.format(form[SERVER_URL], path_translated, self.url_parameters(False, **args))

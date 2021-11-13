@@ -54,55 +54,62 @@ def format_gravity_message(message):
 
 def print_message(root: Any, gravity: str, message: str):
     """ Print message as a result of action. """
+    # print time
+    elt = root.findmeld('time_mid')
+    elt.content(ctime())
+    # print message
     elt = root.findmeld('message_mid')
-    if message is not None:
-        elt.attrib['class'] = gravity
-        elt.content(message)
-    else:
+    if message is None:
+        # always set the refresh time by default
         elt.attrib['class'] = 'empty'
         elt.content('')
+    else:
+        elt.attrib['class'] = gravity
+        elt.content(message)
+
+
+def format_message(msg, node_name=None) -> Tuple[str, str]:
+    """ Define a global message structure. """
+    return msg + ' at {}'.format(ctime()) + (' on {}'.format(node_name) if node_name else '')
 
 
 def info_message(msg, node_name=None) -> Tuple[str, str]:
     """ Define an information message. """
-    return Info, msg + ' at {}'.format(ctime()) + (' on {}'.format(node_name) if node_name else '')
+    return Info, format_message(msg, node_name)
 
 
 def warn_message(msg, node_name=None) -> Tuple[str, str]:
     """ Define a warning message. """
-    return Warn, msg + ' at {}'.format(ctime()) + (' on {}'.format(node_name) if node_name else '')
+    return Warn, format_message(msg, node_name)
 
 
 def error_message(msg, node_name=None) -> Tuple[str, str]:
     """ Define an error message. """
-    return Error, msg + ' at {}'.format(ctime()) + (' on {}'.format(node_name) if node_name else '')
+    return Error, format_message(msg, node_name)
+
+
+def delayed_message(fct: Callable, msg: str, node_name=None) -> Callable:
+    """ Define a delayed message. """
+    def on_wait():
+        return fct(msg, node_name)
+
+    on_wait.delay = 0.05
+    return on_wait
 
 
 def delayed_info(msg: str, node_name=None) -> Callable:
     """ Define a delayed information message. """
-    def on_wait():
-        return info_message(msg, node_name)
-
-    on_wait.delay = 0.05
-    return on_wait
+    return delayed_message(info_message, msg, node_name)
 
 
 def delayed_warn(msg, node_name=None) -> Callable:
     """ Define a delayed warning message. """
-    def on_wait():
-        return warn_message(msg, node_name)
-
-    on_wait.delay = 0.05
-    return on_wait
+    return delayed_message(warn_message, msg, node_name)
 
 
 def delayed_error(msg, node_name=None) -> Callable:
     """ Define a delayed error message. """
-    def on_wait():
-        return error_message(msg, node_name)
-
-    on_wait.delay = 0.05
-    return on_wait
+    return delayed_message(error_message, msg, node_name)
 
 
 def update_attrib(elt, attribute: str, value: str) -> None:

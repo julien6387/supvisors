@@ -470,13 +470,6 @@ def test_get_conciliation_data(mocker, view):
         assert any(actual_single == expected_single for expected_single in expected)
 
 
-def test_refresh_action(mocker, view):
-    """ Test the refresh_action method. """
-    mocked_info = mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info')
-    assert view.refresh_action() == 'delayed info'
-    assert mocked_info.call_args_list == [call('Page refreshed')]
-
-
 def test_sup_restart_action(mocker, view):
     """ Test the sup_shutdown_action method. """
     mocked_methods = [mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error'),
@@ -638,7 +631,7 @@ def test_make_callback(mocker, view):
     assert not any(mocked.called for mocked in view.global_methods.values())
     assert not any(mocked.called for mocked in view.process_methods.values())
     # test global actions
-    for action in ['refresh', 'sup_restart', 'sup_shutdown']:
+    for action in ['sup_restart', 'sup_shutdown']:
         assert view.make_callback(None, action) == '%s called' % action
         assert view.global_methods[action].call_args_list == [call()]
         view.global_methods[action].reset_mock()

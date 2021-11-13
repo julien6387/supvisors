@@ -64,7 +64,7 @@ def test_write_navigation(mocker, view):
 def test_write_header(mocker, view):
     """ Test the write_header method. """
     mocker.patch('supvisors.viewsupstatus.simple_localtime', return_value='07:05:30')
-    mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_address_actions')
+    mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_node_actions')
     mocked_periods = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
     from supvisors.ttypes import AddressStates
     # build root structure
@@ -104,8 +104,8 @@ def test_write_header(mocker, view):
     assert mocked_actions.call_args_list == [call(mocked_root)]
 
 
-def test_write_address_actions(view):
-    """ Test the write_address_actions method. """
+def test_write_node_actions(view):
+    """ Test the write_node_actions method. """
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure
@@ -113,7 +113,7 @@ def test_write_address_actions(view):
     mocked_stop_mid = Mock(attrib={'class': ''})
     mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 2})
     # test call
-    view.write_address_actions(mocked_root)
+    view.write_node_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE),
                                                        call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})]
@@ -126,7 +126,7 @@ def test_write_address_actions(view):
     mocked_stop_mid.attributes.reset_mock()
     # test call with PROC_ADDRESS_PAGE as self.page_name
     view.page_name = PROC_NODE_PAGE
-    view.write_address_actions(mocked_root)
+    view.write_node_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', HOST_NODE_PAGE),
                                                        call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]

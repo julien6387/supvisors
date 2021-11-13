@@ -55,6 +55,7 @@ def supvisors():
 class DummyElement:
     def __init__(self):
         self.attrib = {}
+        self.attributes = {}
 
     def content(self, cnt):
         self.attrib['content'] = cnt
@@ -62,10 +63,10 @@ class DummyElement:
 
 class DummyRoot:
     def __init__(self):
-        self.elt = DummyElement()
+        self.elts = {}
 
-    def findmeld(self, _):
-        return self.elt
+    def findmeld(self, name):
+        return self.elts.setdefault(name, DummyElement())
 
 
 @pytest.fixture

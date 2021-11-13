@@ -52,8 +52,7 @@ class SupvisorsView(ViewHandler):
         self.strategies = {str.lower(x) for x in ConciliationStrategies._member_names_}
         self.strategies.remove(ConciliationStrategies.USER.name.lower())
         # global actions (no parameter)
-        self.global_methods = {'refresh': self.refresh_action,
-                               'sup_restart': self.sup_restart_action,
+        self.global_methods = {'sup_restart': self.sup_restart_action,
                                'sup_shutdown': self.sup_shutdown_action}
         # process actions
         self.process_methods: SupvisorsView.ProcessCallableMap = {'pstop': self.stop_action, 'pkeep': self.keep_action}
@@ -261,11 +260,6 @@ class SupvisorsView(ViewHandler):
         if action in self.process_methods:
             node_name = self.view_ctx.get_node_name()
             return self.process_methods[action](namespec, node_name)
-
-    @staticmethod
-    def refresh_action() -> Callable:
-        """ Refresh web page. """
-        return delayed_info('Page refreshed')
 
     def sup_restart_action(self):
         """ Restart all Supervisor instances. """

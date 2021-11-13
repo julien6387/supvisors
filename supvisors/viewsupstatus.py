@@ -69,9 +69,9 @@ class SupvisorsAddressView(StatusView):
         # write periods of statistics
         self.write_periods(root)
         # write actions related to address
-        self.write_address_actions(root)
+        self.write_node_actions(root)
 
-    def write_address_actions(self, root):
+    def write_node_actions(self, root):
         """ Write actions related to the address. """
         # configure host address button / switch page
         elt = root.findmeld('view_a_mid')
@@ -95,12 +95,9 @@ class SupvisorsAddressView(StatusView):
     def restart_sup_action(self):
         """ Restart the local supervisor. """
         self.supvisors.zmq.pusher.send_restart(self.local_node_name)
-        # cannot defer result as restart address is self address
-        # message is sent but it will be likely not displayed
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
         self.supvisors.zmq.pusher.send_shutdown(self.local_node_name)
-        # cannot defer result if shutdown address is self address
         return delayed_warn('Supervisor shutdown requested')

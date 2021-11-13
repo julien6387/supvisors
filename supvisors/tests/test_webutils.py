@@ -17,15 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-from time import ctime
 from types import FunctionType
-
 from unittest.mock import Mock
+
+from supvisors.webutils import *
 
 
 def test_format_gravity_message():
     """ Test the formatting of web messages. """
-    from supvisors.webutils import format_gravity_message
     # test Supervisor information message
     msg = format_gravity_message('an information message')
     assert type(msg) is tuple
@@ -46,13 +45,19 @@ def test_format_gravity_message():
 
 def test_print_message(root):
     """ Test the meld formatting of a message. """
-    from supvisors.webutils import print_message
     # test with empty message
     print_message(root, 'gravity', None)
-    assert all(item in root.elt.attrib.items() for item in {'class': 'empty', 'content': ''}.items())
-    # test with filled message
+    assert list(root.elts['time_mid'].attrib.keys()) == ['content']
+    assert root.elts['message_mid'].attrib['class'] == 'empty'
+    assert root.elts['message_mid'].attrib['content'] == ''
+    current_time_content = root.elts['time_mid'].attrib['content']
+    assert current_time_content is root.elts['time_mid'].attrib['content']
+    # test with filled message&
     print_message(root, 'gravity', 'a simple message')
-    assert all(item in root.elt.attrib.items() for item in {'class': 'gravity', 'content': 'a simple message'}.items())
+    assert list(root.elts['time_mid'].attrib.keys()) == ['content']
+    assert root.elts['message_mid'].attrib['class'] == 'gravity'
+    assert root.elts['message_mid'].attrib['content'] == 'a simple message'
+    assert current_time_content is not root.elts['time_mid'].attrib['content']
 
 
 def check_message(func, gravity):
@@ -95,43 +100,36 @@ def check_delayed_message(func, gravity):
 
 def test_info_message():
     """ Test the formatting of an information message. """
-    from supvisors.webutils import info_message
     check_message(info_message, 'info')
 
 
 def test_warn_message():
     """ Test the formatting of a warning message. """
-    from supvisors.webutils import warn_message
     check_message(warn_message, 'warn')
 
 
 def test_error_message():
     """ Test the formatting of an error message. """
-    from supvisors.webutils import error_message
     check_message(error_message, 'erro')
 
 
 def test_delayed_info():
     """ Test the callable returned for a delayed information message. """
-    from supvisors.webutils import delayed_info
     check_delayed_message(delayed_info, 'info')
 
 
 def test_delayed_warn():
     """ Test the callable returned for a delayed warning message. """
-    from supvisors.webutils import delayed_warn
     check_delayed_message(delayed_warn, 'warn')
 
 
 def test_delayed_error():
     """ Test the callable returned for a delayed error message. """
-    from supvisors.webutils import delayed_error
     check_delayed_message(delayed_error, 'erro')
 
 
 def test_apply_shade():
     """ Test the formatting of shaded / non-shaded elements. """
-    from supvisors.webutils import apply_shade
     elt = Mock(attrib={})
     # test shaded
     apply_shade(elt, True)

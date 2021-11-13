@@ -138,12 +138,12 @@ def test_write_common(mocker, handler):
     mocked_node = Mock()
     mocked_refresh = Mock()
     mocked_autorefresh = Mock(attrib={'class': 'button'})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_meta, mocked_supv, mocked_version, mocked_node,
-                                                   mocked_refresh, mocked_autorefresh] * 2})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_supv, mocked_version, mocked_node, mocked_refresh,
+                                                   mocked_autorefresh]})
     # 1. test no conflict and auto-refresh
     handler.supvisors.fsm.state = SupvisorsStates.OPERATION
     handler.write_common(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('meta_mid'), call('supvisors_mid'), call('version_mid'),
+    assert mocked_root.findmeld.call_args_list == [call('supvisors_mid'), call('version_mid'),
                                                    call('node_mid'), call('refresh_a_mid'), call('autorefresh_a_mid')]
     assert not mocked_meta.deparent.called
     assert mocked_supv.attributes.call_args_list == [call(href='an url')]
@@ -154,8 +154,8 @@ def test_write_common(mocker, handler):
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button active'
     assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
-                                                          call('', 'dummy.html', action='refresh'),
-                                                          call('', 'dummy.html', action='refresh', auto=False)]
+                                                          call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=False)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message')]
     # reset mocks
     mocked_root.findmeld.reset_mock()
@@ -168,6 +168,8 @@ def test_write_common(mocker, handler):
     mocked_autorefresh.attrib['class'] = 'button'
     mocked_msg.reset_mock()
     # 2. test conflicts and no auto-refresh
+    mocked_root.findmeld.side_effect = [mocked_meta, mocked_supv, mocked_version, mocked_node, mocked_refresh,
+                                        mocked_autorefresh]
     handler.supvisors.fsm.state = SupvisorsStates.CONCILIATION
     mocker.patch.object(handler.sup_ctx, 'conflicts', return_value=True)
     handler.view_ctx.parameters[AUTO] = False
@@ -183,8 +185,8 @@ def test_write_common(mocker, handler):
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'
     assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
-                                                          call('', 'dummy.html', action='refresh'),
-                                                          call('', 'dummy.html', action='refresh', auto=True)]
+                                                          call('', 'dummy.html'),
+                                                          call('', 'dummy.html', auto=True)]
     assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message')]
 
 
@@ -845,24 +847,25 @@ def test_write_process_statistics(mocker, handler):
 
 def test_handle_action(handler):
     """ Test the handle_action method. """
-    handler.view_ctx = Mock(parameters={'namespec': 'dummy_proc'}, **{'get_action.return_value': 'test'})
+    handler.view_ctx = Mock(parameters={'namespec': 'dummy_proc'}, **{'get_action.return_value': None})
     handler.callback = None
     handler.make_callback = Mock(return_value=lambda: NOT_DONE_YET)
+    # test no action requested
+    assert not handler.handle_action()
+    assert not handler.make_callback.called
     # test no action in progress
+    handler.view_ctx.get_action.return_value = 'test'
     assert handler.handle_action() == NOT_DONE_YET
     assert handler.make_callback.call_args_list == [call('dummy_proc', 'test')]
     handler.make_callback.reset_mock()
     # test action in progress
     assert handler.handle_action() == NOT_DONE_YET
-    assert handler.make_callback.call_args_list == []
+    assert not handler.make_callback.called
     # test action completed
     handler.callback = None
     handler.make_callback = Mock(return_value=lambda: 'a message')
-    assert handler.handle_action() == NOT_DONE_YET
-    assert handler.make_callback.call_args_list == [call('dummy_proc', 'test')]
-    handler.make_callback.reset_mock()
     assert not handler.handle_action()
-    assert handler.make_callback.call_args_list == []
+    assert handler.make_callback.call_args_list == [call('dummy_proc', 'test')]
     assert handler.view_ctx.store_message == ('info', 'a message')
 
 

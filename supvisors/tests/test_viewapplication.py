@@ -19,7 +19,7 @@
 
 import pytest
 
-from unittest.mock import call, patch, Mock
+from unittest.mock import call, Mock
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.web import MeldView
@@ -27,7 +27,7 @@ from supervisor.xmlrpc import RPCError
 
 from supvisors.ttypes import ApplicationStates, StartingStrategies
 from supvisors.viewapplication import ApplicationView
-from supvisors.viewcontext import APPLI, PROCESS, STRATEGY
+from supvisors.viewcontext import APPLI, AUTO, PROCESS, STRATEGY
 from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import APPLICATION_PAGE
 
@@ -366,12 +366,10 @@ def test_make_callback(mocker, view):
     mocked_restart_app = mocker.patch.object(view, 'restart_application_action', return_value='Restart application')
     mocked_stop_app = mocker.patch.object(view, 'stop_application_action', return_value='Stop application')
     mocked_start_app = mocker.patch.object(view, 'start_application_action', return_value='Start application')
-    mocker.patch.object(view, 'refresh_action', return_value='Refresh')
     # patch view context
     view.view_ctx = Mock(parameters={STRATEGY: 'LOCAL'}, **{'get_process_status.return_value': None})
     view.application = Mock()
     # test calls for different actions
-    assert view.make_callback('', 'refresh') == 'Refresh'
     assert view.make_callback('', 'startapp') == 'Start application'
     assert mocked_start_app.call_args_list == [call(StartingStrategies.LOCAL)]
     assert view.make_callback('', 'stopapp') == 'Stop application'
@@ -395,13 +393,6 @@ def test_make_callback(mocker, view):
     assert mocked_clear_proc.call_args_list == [call('dummy')]
 
 
-def test_refresh_action(mocker, view):
-    """ Test the refresh_action method. """
-    mocked_delayed = mocker.patch('supvisors.viewapplication.delayed_info', return_value='Delayed')
-    assert view.refresh_action() == 'Delayed'
-    assert mocked_delayed.call_args_list == [call('Page refreshed')]
-
-
 @pytest.fixture
 def messages(mocker):
     """ Install patches on all message functions"""
@@ -418,39 +409,41 @@ def messages(mocker):
 
 def check_start_action(view, rpc_name, action_name, *args):
     """ Test the method named action_name. """
-    # get methods involved
-    rpc_call = getattr(view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
-    action = getattr(view, action_name)
-    # test call with error on main RPC call
-    rpc_call.side_effect = RPCError('failed RPC')
-    assert action('strategy', *args) == 'Delay err'
-    # test call with direct result (application started)
-    rpc_call.side_effect = None
-    rpc_call.return_value = True
-    assert action('strategy', *args) == 'Delay info'
-    # test call with direct result (application NOT started)
-    rpc_call.return_value = False
-    assert action('strategy', *args) == 'Delay warn'
-    # test call with indirect result leading to internal RPC error
-    rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
-    result = action('strategy', *args)
-    assert callable(result)
-    assert result() == 'Msg err'
-    # test call with indirect result leading to unfinished job
-    rpc_call.return_value = lambda: NOT_DONE_YET
-    result = action('strategy', *args)
-    assert callable(result)
-    assert result() is NOT_DONE_YET
-    # test call with indirect result leading to failure
-    rpc_call.return_value = lambda: False
-    result = action('strategy', *args)
-    assert callable(result)
-    assert result() == 'Msg warn'
-    # test call with indirect result leading to success
-    rpc_call.return_value = lambda: True
-    result = action('strategy', *args)
-    assert callable(result)
-    assert result() == 'Msg info'
+    for auto in [True, False]:
+        view.view_ctx = Mock(parameters={AUTO: auto})
+        # get methods involved
+        rpc_call = getattr(view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
+        action = getattr(view, action_name)
+        # test call with error on main RPC call
+        rpc_call.side_effect = RPCError('failed RPC')
+        assert action('strategy', *args) == 'Delay err'
+        # test call with direct result (application started)
+        rpc_call.side_effect = None
+        rpc_call.return_value = True
+        assert action('strategy', *args) == 'Delay info'
+        # test call with direct result (application NOT started)
+        rpc_call.return_value = False
+        assert action('strategy', *args) == 'Delay warn'
+        # test call with indirect result leading to internal RPC error
+        rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
+        result = action('strategy', *args)
+        assert callable(result)
+        assert result() == 'Msg err'
+        # test call with indirect result leading to unfinished job
+        rpc_call.return_value = lambda: NOT_DONE_YET
+        result = action('strategy', *args)
+        assert callable(result)
+        assert result() is NOT_DONE_YET
+        # test call with indirect result leading to failure
+        rpc_call.return_value = lambda: False
+        result = action('strategy', *args)
+        assert callable(result)
+        assert result() == 'Msg warn'
+        # test call with indirect result leading to success
+        rpc_call.return_value = lambda: True
+        result = action('strategy', *args)
+        assert callable(result)
+        assert result() == 'Msg info'
 
 
 def test_start_application_action(view, messages):
@@ -475,34 +468,36 @@ def test_restart_process_action(view, messages):
 
 def check_stop_action(view, rpc_name, action_name, *args):
     """ Test the stop-like method named action_name. """
-    # get methods involved
-    rpc_call = getattr(view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
-    action = getattr(view, action_name)
-    # test call with error on main RPC call
-    rpc_call.side_effect = RPCError('failed RPC')
-    assert action(*args) == 'Delay err'
-    # test call with direct result (application started)
-    rpc_call.side_effect = None
-    rpc_call.return_value = True
-    assert action(*args) == 'Delay info'
-    # test call with direct result (application NOT started)
-    rpc_call.return_value = False
-    assert action(*args) == 'Delay warn'
-    # test call with indirect result leading to internal RPC error
-    rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
-    result = action(*args)
-    assert callable(result)
-    assert result() == 'Msg err'
-    # test call with indirect result leading to unfinished job
-    rpc_call.return_value = lambda: NOT_DONE_YET
-    result = action(*args)
-    assert callable(result)
-    assert result() is NOT_DONE_YET
-    # test call with indirect result leading to success
-    rpc_call.return_value = lambda: True
-    result = action(*args)
-    assert callable(result)
-    assert result() == 'Msg info'
+    for auto in [True, False]:
+        view.view_ctx = Mock(parameters={AUTO: auto})
+        # get methods involved
+        rpc_call = getattr(view.supvisors.info_source.supvisors_rpc_interface, rpc_name)
+        action = getattr(view, action_name)
+        # test call with error on main RPC call
+        rpc_call.side_effect = RPCError('failed RPC')
+        assert action(*args) == 'Delay err'
+        # test call with direct result (application started)
+        rpc_call.side_effect = None
+        rpc_call.return_value = True
+        assert action(*args) == 'Delay info'
+        # test call with direct result (application NOT started)
+        rpc_call.return_value = False
+        assert action(*args) == 'Delay warn'
+        # test call with indirect result leading to internal RPC error
+        rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
+        result = action(*args)
+        assert callable(result)
+        assert result() == 'Msg err'
+        # test call with indirect result leading to unfinished job
+        rpc_call.return_value = lambda: NOT_DONE_YET
+        result = action(*args)
+        assert callable(result)
+        assert result() is NOT_DONE_YET
+        # test call with indirect result leading to success
+        rpc_call.return_value = lambda: True
+        result = action(*args)
+        assert callable(result)
+        assert result() == 'Msg info'
 
 
 def test_stop_application_action(view, messages):

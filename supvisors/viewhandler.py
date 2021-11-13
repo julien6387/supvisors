@@ -74,7 +74,7 @@ class ViewHandler(MeldView):
             self.write_navigation(root)
             self.write_header(root)
             self.write_contents(root)
-            # send error message only at the end to get all URL parameters
+            # send message only at the end to get all URL parameters
             self.view_ctx.fire_message()
             return as_string(root.write_xhtmlstring())
 
@@ -87,12 +87,8 @@ class ViewHandler(MeldView):
         """ Common rendering of the Supvisors pages. """
         # set auto-refresh status on page
         auto_refresh = self.view_ctx.parameters[AUTO]
-        elt = root.findmeld('meta_mid')
-        if auto_refresh:
-            # consider to bind the statistics period to auto-refresh period
-            pass
-        else:
-            elt.deparent()
+        if not auto_refresh:
+            root.findmeld('meta_mid').deparent()
         # configure Supvisors hyperlink
         elt = root.findmeld('supvisors_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE)
@@ -106,11 +102,11 @@ class ViewHandler(MeldView):
         root.findmeld('node_mid').content(self.local_node_name)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
+        url = self.view_ctx.format_url('', self.page_name)
         elt.attributes(href=url)
         # configure auto-refresh button
         elt = root.findmeld('autorefresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
+        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
         elt.attributes(href=url)
         if auto_refresh:
             update_attrib(elt, 'class', 'active')
@@ -438,14 +434,14 @@ class ViewHandler(MeldView):
 
     def handle_action(self):
         """ Handling of the actions requested from the Supvisors web pages. """
+        # check if any action is requested
         action = self.view_ctx.get_action()
         if action:
             # trigger deferred action and wait
             namespec = self.view_ctx.parameters[NAMESPEC]
             if not self.callback:
                 self.callback = self.make_callback(namespec, action)
-                return NOT_DONE_YET
-            # intermediate check
+            # immediate check
             message = self.callback()
             if message is NOT_DONE_YET:
                 return NOT_DONE_YET
