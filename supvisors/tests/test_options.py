@@ -43,7 +43,8 @@ def filled_opt(mocker, supervisor):
                                   'internal_port': '60001', 'event_port': '60002',
                                   'synchro_timeout': '20', 'force_synchro_if': 'cliche01,cliche03',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
-                                  'stats_periods': '5,60,600', 'stats_histo': '100', 'stats_irix_mode': 'true',
+                                  'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
+                                  'stats_irix_mode': 'true',
                                   'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
                                   'logfile_backups': '5', 'loglevel': 'error'}
     mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
@@ -59,7 +60,7 @@ def server_opt(supvisors):
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     # all attributes are None
-    assert opt.address_list == [gethostname()]
+    assert opt.node_list == [gethostname()]
     assert opt.rules_files is None
     assert opt.internal_port == 65001
     assert opt.event_port == 65002
@@ -68,6 +69,7 @@ def test_options_creation(opt):
     assert opt.force_synchro_if == set()
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
+    assert opt.stats_enabled
     assert opt.stats_periods == [10]
     assert opt.stats_histo == 200
     assert not opt.stats_irix_mode
@@ -79,7 +81,7 @@ def test_options_creation(opt):
 
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
-    assert filled_opt.address_list == ['cliche01', 'cliche03', 'cliche02']
+    assert filled_opt.node_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_port == 60002
@@ -88,6 +90,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.force_synchro_if == {'cliche01', 'cliche03'}
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
+    assert not filled_opt.stats_enabled
     assert filled_opt.stats_periods == [5, 60, 600]
     assert filled_opt.stats_histo == 100
     assert filled_opt.stats_irix_mode
@@ -99,9 +102,9 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == "address_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
-                       " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER"\
-                       " starting_strategy=CONFIG stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
+    assert str(opt) == "node_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
+                       " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER starting_strategy=CONFIG"\
+                       " stats_enabled=True stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
                        " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\
                        .format(gethostname(), Automatic, 50 * 1024 * 1024, {})
 
@@ -189,9 +192,9 @@ def test_periods():
     """ Test the conversion of a string to a list of periods. """
     error_message = common_error_message.format('stats_periods')
     # test invalid values
-    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+    with pytest.raises(ValueError, match='unexpected number of stats_periods: 0. minimum is 1'):
         SupvisorsOptions.to_periods([])
-    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+    with pytest.raises(ValueError, match='unexpected number of stats_periods: 4. maximum is 3'):
         SupvisorsOptions.to_periods(['1', '2', '3', '4'])
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_periods(['4', '3600'])
@@ -199,10 +202,12 @@ def test_periods():
         SupvisorsOptions.to_periods(['5', '3601'])
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_periods(['6', '3599'])
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_periods(['90', 'none'])
     # test valid values
     assert SupvisorsOptions.to_periods(['5']) == [5]
     assert SupvisorsOptions.to_periods(['60', '3600']) == [60, 3600]
-    assert SupvisorsOptions.to_periods(['120', '720', '1800']) == [120, 720, 1800]
+    assert SupvisorsOptions.to_periods(['720', '120', '1800']) == [120, 720, 1800]
 
 
 def test_histo():

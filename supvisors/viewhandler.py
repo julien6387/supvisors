@@ -188,17 +188,21 @@ class ViewHandler(MeldView):
 
     def write_periods(self, root):
         """ Write configured periods for statistics. """
-        mid_elt = root.findmeld('period_li_mid')
-        periods = self.supvisors.options.stats_periods
-        for li_elt, item in mid_elt.repeat(periods):
-            # print period button
-            elt = li_elt.findmeld('period_a_mid')
-            if item == self.view_ctx.parameters[PERIOD]:
-                update_attrib(elt, 'class', 'button off active')
-            else:
-                url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
-                elt.attributes(href=url)
-            elt.content('{}s'.format(item))
+        if self.supvisors.options.stats_enabled:
+            # write the available periods
+            mid_elt = root.findmeld('period_li_mid')
+            for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
+                # print period button
+                elt = li_elt.findmeld('period_a_mid')
+                if item == self.view_ctx.parameters[PERIOD]:
+                    update_attrib(elt, 'class', 'button off active')
+                else:
+                    url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
+                    elt.attributes(href=url)
+                elt.content('{}s'.format(item))
+        else:
+            # hide the Statistics periods box
+            root.findmeld('period_div_mid').replace('')
 
     def write_contents(self, root):
         """ Write the contents part of the page.
@@ -208,52 +212,60 @@ class ViewHandler(MeldView):
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
         Statistics data comes from node. """
-        proc_stats = info['proc_stats']
-        elt = tr_elt.findmeld('pcpu_a_mid')
-        if proc_stats and len(proc_stats[0]) > 0:
-            # print last CPU value of process
-            cpuvalue = proc_stats[0][-1]
-            if not self.supvisors.options.stats_irix_mode:
-                cpuvalue /= info['nb_cores']
-            if info['namespec']:  # empty for an application info
-                update_attrib(elt, 'class', 'button on')
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'active')
-                    parameters[PROCESS] = None
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.content('{:.2f}%'.format(cpuvalue))
+        if self.supvisors.options.stats_enabled:
+            proc_stats = info['proc_stats']
+            elt = tr_elt.findmeld('pcpu_a_mid')
+            if proc_stats and len(proc_stats[0]) > 0:
+                # print last CPU value of process
+                cpuvalue = proc_stats[0][-1]
+                if not self.supvisors.options.stats_irix_mode:
+                    cpuvalue /= info['nb_cores']
+                if info['namespec']:  # empty for an application info
+                    update_attrib(elt, 'class', 'button on')
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                        update_attrib(elt, 'class', 'active')
+                        parameters[PROCESS] = None
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.content('{:.2f}%'.format(cpuvalue))
+                else:
+                    # print data with no link
+                    elt.replace('{:.2f}%'.format(cpuvalue))
             else:
-                # print data with no link
-                elt.replace('{:.2f}%'.format(cpuvalue))
+                # when no data, do not write link
+                elt.replace('--')
         else:
-            # when no data, no not write link
-            elt.replace('--')
+            # remove cell
+            tr_elt.findmeld('pcpu_td_mid').deparent()
 
     def write_common_process_mem(self, tr_elt, info):
         """ Write the MEM part of the common process status.
         Statistics data comes from node. """
-        proc_stats = info['proc_stats']
-        elt = tr_elt.findmeld('pmem_a_mid')
-        if proc_stats and len(proc_stats[1]) > 0:
-            # print last MEM value of process
-            memvalue = proc_stats[1][-1]
-            if info['namespec']:  # empty for an application info
-                update_attrib(elt, 'class', 'button on')
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'active')
-                    parameters[PROCESS] = None
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.content('{:.2f}%'.format(memvalue))
+        if self.supvisors.options.stats_enabled:
+            proc_stats = info['proc_stats']
+            elt = tr_elt.findmeld('pmem_a_mid')
+            if proc_stats and len(proc_stats[1]) > 0:
+                # print last MEM value of process
+                memvalue = proc_stats[1][-1]
+                if info['namespec']:  # empty for an application info
+                    update_attrib(elt, 'class', 'button on')
+                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                        update_attrib(elt, 'class', 'active')
+                        parameters[PROCESS] = None
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.content('{:.2f}%'.format(memvalue))
+                else:
+                    # print data with no link
+                    elt.replace('{:.2f}%'.format(memvalue))
             else:
-                # print data with no link
-                elt.replace('{:.2f}%'.format(memvalue))
+                # when no data, no not write link
+                elt.replace('--')
         else:
-            # when no data, no not write link
-            elt.replace('--')
+            # remove cell
+            tr_elt.findmeld('pmem_td_mid').deparent()
 
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
@@ -308,6 +320,12 @@ class ViewHandler(MeldView):
         else:
             # this corresponds to an application row: no action available
             elt.content('')
+
+    def write_common_process_table(self, root):
+        """ Hide MEM+CPU head+foot cells if statistics disabled"""
+        if not self.supvisors.options.stats_enabled:
+            for mid_name in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid']:
+                root.findmeld(mid_name).deparent()
 
     def write_common_status(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process or application status into a table. """

@@ -52,6 +52,7 @@ class DummyOptions:
         self.rules_files = 'my_movies.xml'
         self.starting_strategy = StartingStrategies.CONFIG
         self.conciliation_strategy = 0
+        self.stats_enabled = True
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
         # logger options

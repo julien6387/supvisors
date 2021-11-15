@@ -111,13 +111,15 @@ def test_write_node_actions(view):
     # build root structure
     mocked_view_mid = Mock(attrib={'class': ''})
     mocked_stop_mid = Mock(attrib={'class': ''})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 2})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 3})
     # test call
+    assert view.supvisors.options.stats_enabled
     view.write_node_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
     assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE),
                                                        call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})]
     assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert not mocked_view_mid.replace.called
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     # reset mocks
     mocked_root.findmeld.reset_mock()
@@ -131,6 +133,20 @@ def test_write_node_actions(view):
     assert view.view_ctx.format_url.call_args_list == [call('', HOST_NODE_PAGE),
                                                        call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]
     assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
+    assert not mocked_view_mid.replace.called
+    assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
+    # reset mocks
+    mocked_root.findmeld.reset_mock()
+    view.view_ctx.format_url.reset_mock()
+    mocked_view_mid.attributes.reset_mock()
+    mocked_stop_mid.attributes.reset_mock()
+    # test call with statistics disabled
+    view.supvisors.options.stats_enabled = False
+    view.write_node_actions(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('view_div_mid'), call('stopall_a_mid')]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert not mocked_view_mid.attributes.called
+    assert mocked_view_mid.replace.call_args_list == [call('')]
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
 
 

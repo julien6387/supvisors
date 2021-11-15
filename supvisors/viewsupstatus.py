@@ -66,18 +66,22 @@ class SupvisorsAddressView(StatusView):
         # since self is running on the 'remote' address
         elt = root.findmeld('date_mid')
         elt.content(simple_localtime(status.remote_time))
-        # write periods of statistics
+        # write statistics parameters
         self.write_periods(root)
         # write actions related to address
         self.write_node_actions(root)
 
     def write_node_actions(self, root):
-        """ Write actions related to the address. """
+        """ Write actions related to the node. """
         # configure host address button / switch page
-        elt = root.findmeld('view_a_mid')
-        target = PROC_NODE_PAGE if self.page_name == HOST_NODE_PAGE else HOST_NODE_PAGE
-        url = self.view_ctx.format_url('', target)
-        elt.attributes(href=url)
+        if self.supvisors.options.stats_enabled:
+            elt = root.findmeld('view_a_mid')
+            target = PROC_NODE_PAGE if self.page_name == HOST_NODE_PAGE else HOST_NODE_PAGE
+            url = self.view_ctx.format_url('', target)
+            elt.attributes(href=url)
+        else:
+            # remove whole box if statistics disabled. Host node page is useless in this case
+            root.findmeld('view_div_mid').replace('')
         # configure stop all button
         elt = root.findmeld('stopall_a_mid')
         url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'stopall'})

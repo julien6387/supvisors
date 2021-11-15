@@ -115,7 +115,7 @@ def test_get_process_data(mocker, view):
     process_status_3 = Mock(rules=Mock(expected_load=26))
     mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[process_status_1, process_status_2, process_status_3])
     view.view_ctx = Mock(local_node_name='10.0.0.1',
-                         **{'get_process_stats.side_effect': [(2, 'stats #1'), (8, 'stats #2'), (4, 'stats #3')]})
+                         **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
     # test RPC Error
     mocked_process_info = mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo')
     mocked_process_info.side_effect = RPCError('failed RPC')
@@ -136,7 +136,7 @@ def test_get_process_data(mocker, view):
              'single': False, 'node_name': '10.0.0.1',
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF',
              'description': 'Exited too quickly (process log may have details)',
-             'expected_load': 17, 'nb_cores': 8, 'proc_stats': 'stats #2'}
+             'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
              'single': True, 'node_name': '10.0.0.1',
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED',

@@ -32,7 +32,7 @@ def test_creation(mocker):
     mocked_parser = mocker.patch('supvisors.initializer.Parser', return_value='Parser')
     mocked_srv_options = Mock(procnumbers={})
     mocked_options = mocker.patch('supvisors.initializer.SupvisorsServerOptions', return_value=mocked_srv_options)
-    # create the instance to test
+    # create the instance to test, using default empty configuration
     supv = Supvisors(DummySupervisor())
     # test calls
     assert mocked_options.called
@@ -52,6 +52,7 @@ def test_creation(mocker):
     assert isinstance(supv.listener, SupervisorListener)
 
 
+
 def test_create_logger(mocker):
     """ Test the create_logger method. """
     # create mocked supvisors options
@@ -68,17 +69,17 @@ def test_create_logger(mocker):
     assert logger is not supervisord.options.logger
 
 
-def test_address_exception(mocker):
+def test_node_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     mocker.patch('supvisors.initializer.AddressMapper.node_names')
     # create Supvisors instance
-    supervisord = DummySupervisor()
+    supervisord_instance = DummySupervisor()
     # patches Faults codes
     setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
     # test that local node exception raises a failure to Supervisor
     with pytest.raises(RPCError):
-        Supvisors(supervisord)
+        Supvisors(supervisord_instance)
 
 
 def test_parser_exception(mocker):

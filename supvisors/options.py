@@ -39,7 +39,7 @@ class SupvisorsOptions(object):
 
     Attributes are:
 
-        - address_list: list of node names or IP addresses where supvisors will be running,
+        - node_list: list of node names or IP addresses where supvisors will be running,
         - rules_files: list of absolute or relative paths to the XML rules files,
         - internal_port: port number used to publish local events to remote Supvisors instances,
         - event_port: port number used to publish all Supvisors events,
@@ -49,6 +49,7 @@ class SupvisorsOptions(object):
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program,
         - starting_strategy: strategy used to start processes on addresses,
+        - stats_enable: when False, no statistics will be collected and displayed from this node,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
         - stats_histo: depth of statistics history,
         - logfile: absolute or relative path of the Supvisors log file,
@@ -68,8 +69,8 @@ class SupvisorsOptions(object):
         """
         self.supervisord_options = supervisord.options
         # get values from config
-        self.address_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
-        self.address_list = list(OrderedDict.fromkeys(self.address_list))
+        self.node_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
+        self.node_list = list(OrderedDict.fromkeys(self.node_list))
         self.rules_files = config.get('rules_files', None)
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
@@ -78,10 +79,11 @@ class SupvisorsOptions(object):
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
         self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
         self.force_synchro_if = filter(None, list_of_strings(config.get('force_synchro_if', None)))
-        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.address_list}
+        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.node_list}
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
         self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
         # configure statistics
+        self.stats_enabled = boolean(config.get('stats_enabled', 'true'))
         self.stats_periods = self.to_periods(list_of_strings(config.get('stats_periods', '10')))
         self.stats_histo = self.to_histo(config.get('stats_histo', 200))
         self.stats_irix_mode = boolean(config.get('stats_irix_mode', 'false'))
@@ -93,14 +95,14 @@ class SupvisorsOptions(object):
 
     def __str__(self):
         """ Contents as string. """
-        return "address_list={} rules_files={} internal_port={} event_port={} auto_fence={}"\
-               " synchro_timeout={} force_synchro_if={} conciliation_strategy={}"\
-               " starting_strategy={} stats_periods={} stats_histo={} stats_irix_mode={}"\
+        return "node_list={} rules_files={} internal_port={} event_port={} auto_fence={}"\
+               " synchro_timeout={} force_synchro_if={} conciliation_strategy={} starting_strategy={}"\
+               " stats_enabled={} stats_periods={} stats_histo={} stats_irix_mode={}"\
                " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}"\
-               .format(self.address_list, self.rules_files, self.internal_port, self.event_port, self.auto_fence,
+               .format(self.node_list, self.rules_files, self.internal_port, self.event_port, self.auto_fence,
                        self.synchro_timeout, self.force_synchro_if,
                        self.conciliation_strategy.name, self.starting_strategy.name,
-                       self.stats_periods, self.stats_histo, self.stats_irix_mode,
+                       self.stats_enabled, self.stats_periods, self.stats_histo, self.stats_irix_mode,
                        self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel)
 
     # conversion utils (completion of supervisor.datatypes)
@@ -172,18 +174,23 @@ class SupvisorsOptions(object):
     def to_periods(value):
         """ Convert a string into a list of period values. """
         if len(value) == 0:
-            raise ValueError('unexpected number of stats_periods: {}. minimum is 1'.format(value))
+            raise ValueError('unexpected number of stats_periods: {}. minimum is 1'.format(len(value)))
         if len(value) > 3:
-            raise ValueError('unexpected number of stats_periods: {}. maximum is 3'.format(value))
+            raise ValueError('unexpected number of stats_periods: {}. maximum is 3'.format(len(value)))
         periods = []
         for val in value:
-            period = integer(val)
-            if 5 > period or period > 3600:
-                raise ValueError('invalid value for stats_periods: {}. expected in [5;3600] (seconds)'.format(val))
-            if period % 5 != 0:
-                raise ValueError('invalid value for stats_periods: %d. expected multiple of 5' % period)
-            periods.append(period)
-        return sorted(filter(None, periods))
+            try:
+                period = integer(val)
+            except ValueError:
+                raise ValueError('invalid value for stats_periods: {}. expected integer'.format(val))
+            else:
+                if 5 > period or period > 3600:
+                    raise ValueError('invalid value for stats_periods: {}. expected in [5;3600] (seconds)'
+                                     .format(val))
+                if period % 5 != 0:
+                    raise ValueError('invalid value for stats_periods: %d. expected multiple of 5' % period)
+                periods.append(period)
+        return sorted(periods)
 
     @staticmethod
     def to_histo(value: str) -> int:

@@ -383,12 +383,21 @@ def test_write_header(handler):
 
 def test_write_periods(handler):
     """ Test the write_periods method. """
+    # test call with period selection identical to parameter
+    mocked_mid = Mock()
+    mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
+    # test call when statistics are disabled
+    handler.supvisors.options.stats_enabled = False
+    handler.write_periods(mocked_root)
+    assert mocked_root.findmeld.call_args_list == [call('period_div_mid')]
+    assert mocked_mid.replace.call_args_list == [call('')]
     # patch the meld elements
     href_elt = Mock(attrib={'class': ''})
     period_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_mid = Mock(**{'repeat.return_value': [(period_elt, 5)]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with period selection identical to parameter
+    handler.supvisors.options.stats_enabled = True
     handler.view_ctx = Mock(parameters={PERIOD: 5}, **{'format_url.return_value': 'an url'})
     handler.write_periods(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('period_li_mid')]
@@ -432,6 +441,7 @@ def test_write_common_process_cpu(handler):
     info = {'proc_stats': None}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.content.called
@@ -442,6 +452,7 @@ def test_write_common_process_cpu(handler):
     info = {'proc_stats': [[]]}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.content.called
@@ -452,6 +463,7 @@ def test_write_common_process_cpu(handler):
     info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, node='10.0.0.1')]
     assert cell_elt.attrib['class'] == 'button on active'
@@ -467,6 +479,7 @@ def test_write_common_process_cpu(handler):
     info = {'namespec': 'dummy', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('15.00%')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', node='10.0.0.1')]
@@ -483,11 +496,24 @@ def test_write_common_process_cpu(handler):
     info = {'namespec': None, 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('15.00%')]
     assert not cell_elt.content.called
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.attributes.called
     assert 'class' not in cell_elt.attrib
+    # reset context
+    tr_elt.findmeld.reset_mock()
+    cell_elt.replace.reset_mock()
+    # test with statistics disabled
+    handler.supvisors.options.stats_enabled = False
+    handler.write_common_process_cpu(tr_elt, info)
+    assert tr_elt.findmeld.call_args_list == [call('pcpu_td_mid')]
+    assert cell_elt.deparent.call_args_list == [call()]
+    assert not cell_elt.replace.called
+    assert not cell_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.attributes.called
 
 
 def test_write_common_process_mem(handler):
@@ -501,6 +527,7 @@ def test_write_common_process_mem(handler):
     info = {'proc_stats': []}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.content.called
@@ -511,6 +538,7 @@ def test_write_common_process_mem(handler):
     info = {'proc_stats': ([], [])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('--')]
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.content.called
@@ -521,6 +549,7 @@ def test_write_common_process_mem(handler):
     info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('20.00%')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, node='10.0.0.2')]
@@ -535,6 +564,7 @@ def test_write_common_process_mem(handler):
     info = {'namespec': 'dummy', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('30.00%')]
     assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', node='10.0.0.2')]
@@ -551,11 +581,24 @@ def test_write_common_process_mem(handler):
     info = {'namespec': None, 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
+    assert not cell_elt.deparent.called
     assert cell_elt.replace.call_args_list == [call('30.00%')]
     assert not cell_elt.content.called
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.attributes.called
     assert 'class' not in cell_elt.attrib
+    # reset context
+    tr_elt.findmeld.reset_mock()
+    cell_elt.replace.reset_mock()
+    # test with statistics disabled
+    handler.supvisors.options.stats_enabled = False
+    handler.write_common_process_mem(tr_elt, info)
+    assert tr_elt.findmeld.call_args_list == [call('pmem_td_mid')]
+    assert cell_elt.deparent.call_args_list == [call()]
+    assert not cell_elt.replace.called
+    assert not cell_elt.content.called
+    assert not handler.view_ctx.format_url.called
+    assert not cell_elt.attributes.called
 
 
 def test_write_process_start_button(mocker, handler):
@@ -661,6 +704,30 @@ def test_write_process_button(handler):
     assert not handler.view_ctx.format_url.called
     assert not cell_elt.attributes.called
     assert cell_elt.content.call_args_list == [call('')]
+
+
+def test_write_common_process_table(handler):
+    """ Test the write_common_process_table method. """
+    mem_head_elt = Mock()
+    mem_foot_elt = Mock()
+    cpu_head_elt = Mock()
+    cpu_foot_elt = Mock()
+    root = Mock(attrib={}, **{'findmeld.side_effect': [mem_head_elt, cpu_head_elt, mem_foot_elt, cpu_foot_elt]})
+    # test with statistics enabled
+    handler.supvisors.options.stats_enabled = True
+    handler.write_common_process_table(root)
+    assert not root.findmeld.called
+    assert not mem_head_elt.deparent.called
+    assert not mem_foot_elt.deparent.called
+    assert not cpu_head_elt.deparent.called
+    assert not cpu_foot_elt.deparent.called
+    # test with statistics enabled
+    handler.supvisors.options.stats_enabled = False
+    handler.write_common_process_table(root)
+    assert mem_head_elt.deparent.call_args_list == [call()]
+    assert mem_foot_elt.deparent.call_args_list == [call()]
+    assert cpu_head_elt.deparent.call_args_list == [call()]
+    assert cpu_foot_elt.deparent.call_args_list == [call()]
 
 
 def test_write_common_status(mocker, handler):

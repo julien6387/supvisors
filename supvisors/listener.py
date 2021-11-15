@@ -68,15 +68,15 @@ class SupervisorListener(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # test if statistics collector can be created for local host
+        self.collector = None
         try:
             from supvisors.statscollector import instant_statistics
+            self.collector = instant_statistics
         except ImportError:
-            self.logger.warn('SupervisorListener.init: psutil not installed')
-            self.logger.warn('SupervisorListener.init: this Supvisors will not publish statistics')
-            instant_statistics = None
-        self.collector = instant_statistics
+            self.logger.info('SupervisorListener: psutil not installed')
+            self.logger.warn('SupervisorListener: this Supvisors instance cannot not collect statistics')
         # other attributes
-        self.local_node_name: str = self.supvisors.address_mapper.local_node_name
+        self.local_node_name: str = supvisors.address_mapper.local_node_name
         self.pusher: Optional[RequestPusher] = None
         self.main_loop: Optional[SupvisorsMainLoop] = None
         # add new events to Supervisor EventTypes
@@ -189,7 +189,7 @@ class SupervisorListener(object):
         self.pusher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
         # TODO: send only PID in pusher. main loop can collect
-        if self.collector:
+        if self.collector and self.supvisors.options.stats_enabled:
             status = self.supvisors.context.nodes[self.local_node_name]
             stats = self.collector(status.pid_processes())
             self.pusher.send_statistics(stats)
@@ -228,12 +228,13 @@ class SupervisorListener(object):
             self.supvisors.fsm.on_process_removed_event(event_node, event_data)
         elif event_type == InternalEventHeaders.STATISTICS.value:
             # this Supvisors could handle statistics even if psutil is not installed
+            # unless the function is explicitly disabled
             self.logger.trace('SupervisorListener.unstack_event: got STATISTICS from {}: {}'
                               .format(event_node, event_data))
-            self.supvisors.statistician.push_statistics(event_node, event_data)
+            if self.supvisors.options.stats_enabled:
+                self.supvisors.statistician.push_statistics(event_node, event_data)
         elif event_type == InternalEventHeaders.STATE.value:
-            self.logger.trace('SupervisorListener.unstack_event: got STATE from {}'
-                              .format(event_node))
+            self.logger.trace('SupervisorListener.unstack_event: got STATE from {}'.format(event_node))
             self.supvisors.fsm.on_state_event(event_node, event_data)
 
     def unstack_info(self, message: str):

@@ -38,7 +38,7 @@ APPLI = 'appliname'  # nav
 
 ACTION = 'action'
 NAMESPEC = 'namespec'   # used for actions
-PROCESS = 'processname'  # used to tail (but also to display stats)
+PROCESS = 'processname'  # used to tail (but also to display statistics)
 
 PERIOD = 'period'
 STRATEGY = 'strategy'
@@ -74,17 +74,18 @@ class ViewContext:
         self.store_message = None
         self.redirect = False
         # extract parameters from context
-        # WARN: period must be done before processname and cpuid as it requires to be set to access statistics
-        self.update_period()
         self.update_strategy()
         self.update_auto_refresh()
         self.update_node_name()
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
-        self.update_cpu_id()
-        self.update_interface_name()
         self.update_shrink_expand()
+        # if the statistics function is not enabled, skip the following parameters
+        if self.supvisors.options.stats_enabled:
+            self.update_period()
+            self.update_cpu_id()
+            self.update_interface_name()
 
     def get_server_port(self):
         """ Get the port number of the web server. """
@@ -131,10 +132,9 @@ class ViewContext:
 
     def update_process_name(self):
         """ Extract process name from context.
-        ApplicationView may select instance from another node. """
-        stats_node = self.get_node_stats(self.parameters[NODE])
-        named_pids = stats_node.proc.keys() if stats_node else []
-        self._update_string(PROCESS, [x for x, _ in named_pids])
+        ApplicationView may select a process unknown to this node. """
+        node = self.supvisors.context.nodes[self.parameters[NODE]]
+        self._update_string(PROCESS, [x.namespec for x in node.running_processes()])
 
     def update_namespec(self):
         """ Extract namespec from context. """
@@ -172,7 +172,8 @@ class ViewContext:
         parameters = dict(self.parameters, **kwargs)
         if reset_shex:
             del parameters[SHRINK_EXPAND]
-        return '&'.join(['{}={}'.format(key, quote(str(value))) for key, value in parameters.items() if value])
+        return '&'.join(['{}={}'.format(key, quote(str(value)))
+                         for key, value in sorted(parameters.items()) if value])
 
     def format_url(self, node_name, page, **kwargs):
         """ Format URL from parameters. """
@@ -192,14 +193,15 @@ class ViewContext:
 
     def get_nbcores(self, node_name=None):
         """ Get the number of processors of the local node. """
-        stats_node = node_name or self.local_node_name
-        return self.supvisors.statistician.nbcores.get(stats_node, 0)
+        stats_node_name = node_name or self.local_node_name
+        return self.supvisors.statistician.nbcores.get(stats_node_name, 0)
 
     def get_node_stats(self, node_name: str = None):
         """ Get the statistics structure related to the node and the period selected.
         If no node name is specified, local node name is used. """
-        stats_node = node_name or self.local_node_name
-        return self.supvisors.statistician.data.get(stats_node, {}).get(self.parameters[PERIOD], None)
+        stats_node_name = node_name or self.local_node_name
+        stats_node = self.supvisors.statistician.data.get(stats_node_name, {})
+        return stats_node.get(self.parameters.get(PERIOD))
 
     def get_process_stats(self, namespec: str, node_name: str = None):
         """ Get the statistics structure related to the process and the period selected.

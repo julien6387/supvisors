@@ -157,7 +157,7 @@ def test_on_process_added(listener):
     assert not listener.pusher.send_process_added_event.called
 
 
-def test_on_process_removed(mocker, listener):
+def test_on_process_removed(listener):
     """ Test the reception of a Supervisor PROCESS_REMOVED event. """
     # create a publisher patch
     listener.pusher = Mock(**{'send_process_removed_event.return_value': None})
@@ -184,6 +184,21 @@ def test_on_tick(mocker, listener):
     listener.on_tick(event)
     assert listener.pusher.send_tick_event.call_args_list == [call({'when': 120})]
     assert listener.pusher.send_statistics.call_args_list == [call((8.5, [(25, 400)], 76.1, {'lo': (500, 500)}, {}))]
+    listener.pusher.reset_mock()
+    # test process event when statistics disabled
+    event = Tick60Event(150, None)
+    listener.supvisors.options.stats_enabled = False
+    listener.on_tick(event)
+    assert listener.pusher.send_tick_event.call_args_list == [call({'when': 150})]
+    assert not listener.pusher.send_statistics.called
+    listener.pusher.reset_mock()
+    # test process event when statistics collector is not available
+    event = Tick60Event(150, None)
+    listener.supvisors.options.stats_enabled = True
+    listener.collector = None
+    listener.on_tick(event)
+    assert listener.pusher.send_tick_event.call_args_list == [call({'when': 150})]
+    assert not listener.pusher.send_statistics.called
 
 
 def test_unstack_event(listener):
@@ -236,6 +251,16 @@ def test_unstack_event(listener):
     expected = [call('10.0.0.3', [0, [[20, 30]], {'lo': [100, 200]}, {}])]
     assert listener.supvisors.statistician.push_statistics.call_args_list == expected
     listener.supvisors.statistician.push_statistics.reset_mock()
+    # test statistics event when statistics disabled
+    listener.supvisors.options.stats_enabled = False
+    listener.unstack_event('[4, ["10.0.0.3", [0, [[20, 30]], {"lo": [100, 200]}, {}]]]')
+    assert not listener.supvisors.fsm.on_tick_event.called
+    assert not listener.supvisors.fsm.on_process_state_event.called
+    assert not listener.supvisors.fsm.on_process_added_event.called
+    assert not listener.supvisors.fsm.on_process_removed_event.called
+    assert not listener.supvisors.fsm.on_state_event.called
+    assert not listener.supvisors.statistician.push_statistics.called
+    listener.supvisors.options.stats_enabled = True
     # test state event
     listener.unstack_event('[5, ["10.0.0.1", {"statecode": 10, "statename": "RUNNING"}]]')
     assert not listener.supvisors.fsm.on_tick_event.called
@@ -300,14 +325,14 @@ def test_force_process_state(mocker, listener):
     # patch publisher
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
-    listener.force_process_state('appli:process', 200, 'bad luck')
+    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
     expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
                       'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()
     # test the call with unknown process in Supervisor
     listener.supvisors.info_source.get_extra_args.side_effect = KeyError
-    listener.force_process_state('appli:process', 200, 'bad luck')
+    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
     expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
                       'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected

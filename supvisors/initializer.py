@@ -59,10 +59,10 @@ class Supvisors(object):
         self.info_source = SupervisordSource(supervisor, self.logger)
         # set addresses and check local node
         self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.node_names = self.options.address_list
+        self.address_mapper.node_names = self.options.node_list
         if not self.address_mapper.local_node_name:
             raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local node is expected in node list: {}'.format(self.options.address_list))
+                           'local node is expected in node list: {}'.format(self.options.node_list))
         # create context data
         self.context = Context(self)
         # create application starter and stopper

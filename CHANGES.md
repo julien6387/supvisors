@@ -21,6 +21,8 @@
 
 * Add `expected_exit` to the output of `supervisorctl sstatus` when the process is `EXITED`.
 
+* Add the new option `stats_enabled` to enable/disable the statistics function.
+
 * Change the `remote_time` and `local_time` of the `supvisors.get_address_info` XML-RPC to float.
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*

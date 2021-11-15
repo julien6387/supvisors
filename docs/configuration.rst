@@ -40,11 +40,12 @@ parameters) or it may lead to unpredictable behavior.
 
     .. hint::
 
-        If the `psutil <https://pypi.python.org/pypi/psutil>`_ package is installed, it is possible to use
-        IP addresses in addition to node names.
+        If the |psutil| module is installed, it is possible to use IP addresses in addition to node names.
 
         Like the node names, the IP addresses are expected to be known to every nodes in the list.
         If it's not the case, check the network configuration.
+
+        Choosing an IP address may change the network interface used by |Supvisors| to share information.
 
 
 ``rules_files``
@@ -123,6 +124,16 @@ parameters) or it may lead to unpredictable behavior.
     The use of this option is detailed in :ref:`conciliation`.
 
     *Default*:  ``USER``.
+
+    *Required*:  No.
+
+``stats_enabled``
+
+    By default, |Supvisors| can provide basic statistics on the node and the processes spawned by |Supervisor|
+    on the |Supvisors| :ref:`dashboard`, provided that the |psutil| module is installed.
+    This option can be used to disable the collection and the display of the statistics.
+
+    *Default*:  ``true``.
 
     *Required*:  No.
 
@@ -247,6 +258,7 @@ Configuration File Example
     synchro_timeout = 20
     starting_strategy = LESS_LOADED
     conciliation_strategy = INFANTICIDE
+    stats_enabled = true
     stats_periods = 5,60,600
     stats_histo = 100
     logfile = ./log/supvisors.log

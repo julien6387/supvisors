@@ -40,6 +40,15 @@ def ctx(mocker, http_context):
     return ViewContext(http_context)
 
 
+@pytest.fixture
+def ctx_no_stats(mocker, http_context):
+    """ Fixture for the instance to test. """
+    supvisors = http_context.supervisord.supvisors
+    mocker.patch.object(supvisors.context, 'get_all_namespecs', return_value={})
+    supvisors.options.stats_enabled = False
+    return ViewContext(http_context)
+
+
 def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
@@ -53,6 +62,20 @@ def test_init(http_context, ctx):
     assert len(ctx.store_message) == 2
     assert ctx.store_message[0] == 'erro'
     assert not ctx.redirect
+
+
+def test_init_no_stats(http_context, ctx_no_stats):
+    """ Test the values set at ViewContext construction. """
+    assert ctx_no_stats.http_context is http_context
+    assert ctx_no_stats.supvisors is http_context.supervisord.supvisors
+    assert ctx_no_stats.local_node_name == ctx_no_stats.supvisors.address_mapper.local_node_name
+    assert ctx_no_stats.parameters == {'node': '10.0.0.4', 'namespec': None, 'appliname': None, 'processname': None,
+                              'auto': False, 'strategy': 'CONFIG', 'shex': ''}
+    # errors must be set due to dummy values
+    assert isinstance(ctx_no_stats.store_message, tuple)
+    assert len(ctx_no_stats.store_message) == 2
+    assert ctx_no_stats.store_message[0] == 'erro'
+    assert not ctx_no_stats.redirect
 
 
 def test_get_server_port(ctx):
@@ -83,8 +106,8 @@ def test_get_gravity(ctx):
 def test_url_parameters(ctx):
     """ Test the ViewContext.url_parameters method. """
     # test default
-    assert ctx.url_parameters(False) == 'period=5&strategy=CONFIG&node=10.0.0.4'
-    assert ctx.url_parameters(True) == 'period=5&strategy=CONFIG&node=10.0.0.4'
+    assert ctx.url_parameters(False) == 'node=10.0.0.4&period=5&strategy=CONFIG'
+    assert ctx.url_parameters(True) == 'node=10.0.0.4&period=5&strategy=CONFIG'
     # update internal parameters
     ctx.parameters.update({'processname': 'dummy_proc', 'namespec': 'dummy_ns', 'node': '10.0.0.1', 'cpuid': 3,
                            'intfname': 'eth0', 'appliname': 'dummy_appli', 'period': 8, 'strategy': 'CONFIG',
@@ -239,9 +262,16 @@ def test_update_boolean(ctx):
 def test_update_period(mocker, ctx):
     """ Test the ViewContext.update_period method. """
     mocked_update = mocker.patch('supvisors.viewcontext.ViewContext._update_integer')
+    # test method with statistics enabled
     ctx.update_period()
     assert mocked_update.call_args_list == [call(PERIOD, DummyOptions().stats_periods,
                                                  DummyOptions().stats_periods[0])]
+    mocker.resetall()
+    # test method with statistics disabled
+    ctx.supvisors.options.stats_periods = []
+    with pytest.raises(StopIteration):
+        ctx.update_period()
+    assert not mocked_update.called
 
 
 def test_update_node_name(ctx):
@@ -299,16 +329,18 @@ def test_update_application_name(ctx):
 
 def test_update_process_name(mocker, ctx):
     """ Test the ViewContext.update_process_name method. """
-    mocked_stats = mocker.patch('supvisors.viewcontext.ViewContext.get_node_stats', return_value=None)
+    ctx.parameters[NODE] = '127.0.0.1'
+    node = ctx.supvisors.context.nodes['127.0.0.1']
+    mocker.patch.object(node, 'running_processes', return_value=[])
     # reset parameter because called in constructor
     del ctx.parameters[PROCESS]
-    # test call in case of address stats are not found
+    # test call in case of node stats are not found
     ctx.update_process_name()
     assert ctx.parameters[PROCESS] is None
     # reset parameter
     del ctx.parameters[PROCESS]
     # test call when address stats are found and process in list
-    mocked_stats.return_value = Mock(proc={('abc', 12): [], ('dummy_proc', 345): []})
+    node.running_processes.return_value = [Mock(namespec='abc'), Mock(namespec='dummy_proc')]
     ctx.update_process_name()
     assert ctx.parameters[PROCESS] == 'dummy_proc'
     # reset parameter
@@ -370,27 +402,17 @@ def test_update_interface_name(mocker, ctx):
 def test_format_url(ctx):
     """ Test the ViewContext.format_url method. """
     # test without node and arguments
-    assert ctx.format_url(None, 'index.html') == 'index.html?period=5&strategy=CONFIG&node=10.0.0.4'
+    assert ctx.format_url(None, 'index.html') == 'index.html?node=10.0.0.4&period=5&strategy=CONFIG'
     # test with local node and arguments
+    base_address = 'http://127.0.0.1:7777/index.html?'
     url = ctx.format_url('127.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    # result depends on dict contents so ordering is unreliable
-    base_address = r'http://127.0.0.1:7777/index.html\?'
-    parameters = r'&'.join([url_attr_template for _ in range(5)])
-    regexp = base_address + parameters
-    matches = re.match(regexp, url)
-    assert matches is not None
-    expected = ['appliname=dummy_appli', 'node=10.0.0.4', 'period=10', 'shex=args', 'strategy=CONFIG']
-    assert sorted(matches.groups()) == expected
+    expected = 'appliname=dummy_appli&node=10.0.0.4&period=10&shex=args&strategy=CONFIG'
+    assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
     url = ctx.format_url('10.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
-    # result depends on dict contents so ordering is unreliable
-    base_address = r'http://10.0.0.1:7777/index.html\?'
-    parameters = r'&'.join([url_attr_template for _ in range(4)])
-    regexp = base_address + parameters
-    matches = re.match(regexp, url)
-    assert matches is not None
-    expected = ['appliname=dummy_appli', 'node=10.0.0.4', 'period=10', 'strategy=CONFIG']
-    assert sorted(matches.groups()) == expected
+    base_address = 'http://10.0.0.1:7777/index.html?'
+    expected = 'appliname=dummy_appli&node=10.0.0.4&period=10&strategy=CONFIG'
+    assert url == base_address + expected
 
 
 def test_fire_message(ctx):
@@ -399,13 +421,9 @@ def test_fire_message(ctx):
     ctx.fire_message()
     # result depends on dict contents so ordering is unreliable
     url = ctx.http_context.response['headers']['Location']
-    base_address = r'http://10.0.0.1:7777/index.html\?'
-    parameters = r'&'.join([url_attr_template for _ in range(3)])
-    regexp = base_address + parameters
-    matches = re.match(regexp, url)
-    assert matches is not None
-    assert sorted(matches.groups()) == sorted(('message=not%20as%20expected',
-                                               'period=5&strategy=CONFIG&node=10.0.0.4', 'gravity=warning'))
+    base_address = 'http://10.0.0.1:7777/index.html?'
+    expected = 'gravity=warning&message=not%20as%20expected&node=10.0.0.4&period=5&strategy=CONFIG'
+    assert url == base_address + expected
 
 
 def test_get_nbcores(ctx):

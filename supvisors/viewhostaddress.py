@@ -39,17 +39,18 @@ class HostAddressView(SupvisorsAddressView):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection
         stats_instance = self.view_ctx.get_node_stats()
-        self.write_processor_statistics(root, stats_instance.cpu)
-        self.write_memory_statistics(root, stats_instance.mem)
-        self.write_network_statistics(root, stats_instance.io)
-        # write CPU / Memory / Network plots
-        try:
-            self._write_cpu_image(stats_instance.cpu)
-            self._write_mem_image(stats_instance.mem)
-            self._write_io_image(stats_instance.io)
-        except ImportError:
-            # matplotlib not installed
-            pass
+        if stats_instance:
+            self.write_processor_statistics(root, stats_instance.cpu)
+            self.write_memory_statistics(root, stats_instance.mem)
+            self.write_network_statistics(root, stats_instance.io)
+            # write CPU / Memory / Network plots
+            try:
+                self._write_cpu_image(stats_instance.cpu)
+                self._write_mem_image(stats_instance.mem)
+                self._write_io_image(stats_instance.io)
+            except ImportError:
+                # matplotlib not installed
+                pass
 
     def _write_processor_single_title(self, tr_elt, selected_cpu_id, cpu_id):
         """ Rendering of the title of a single core. """

@@ -161,6 +161,7 @@ class ApplicationView(ViewHandler):
     def write_process_table(self, root, data):
         """ Rendering of the application processes managed through Supervisor. """
         if data:
+            self.write_common_process_table(root)
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_tr = False  # used to invert background style

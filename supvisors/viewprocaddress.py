@@ -79,12 +79,13 @@ class ProcAddressView(SupvisorsAddressView):
             unexpected_exit = info['state'] == ProcessStates.EXITED and 'Bad exit code' in info['spawnerr']
             expected_load = process.rules.expected_load
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
-            data.append({'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                         'single': info['group'] == info['name'], 'node_name': self.view_ctx.local_node_name,
-                         'statename': info['statename'], 'statecode': info['state'],
-                         'gravity': 'FATAL' if unexpected_exit else info['statename'],
-                         'description': info['description'],
-                         'expected_load': expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
+            payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
+                       'single': info['group'] == info['name'], 'node_name': self.view_ctx.local_node_name,
+                       'statename': info['statename'], 'statecode': info['state'],
+                       'gravity': 'FATAL' if unexpected_exit else info['statename'],
+                       'description': info['description'], 'expected_load': expected_load,
+                       'nb_cores': nb_cores, 'proc_stats': proc_stats}
+            data.append(payload)
         # re-arrange data
         return self.sort_data(data)
 
@@ -131,9 +132,9 @@ class ProcAddressView(SupvisorsAddressView):
         for proc in application_processes:
             if proc['statecode'] in RUNNING_STATES:
                 expected_load = expected_load + proc['expected_load']
-                nb_cores = proc['nb_cores']
+                nb_cores = proc.get('nb_cores', 0)
                 # sum CPU / Mem stats
-                proc_stats = proc['proc_stats']
+                proc_stats = proc.get('proc_stats')
                 if proc_stats:
                     if len(proc_stats[0]) > 0 and len(proc_stats[1]) > 0:
                         reset = False
@@ -142,16 +143,18 @@ class ProcAddressView(SupvisorsAddressView):
         # reset appli_stats if no process involved
         if reset:
             appli_stats = None
-        return {'application_name': application_name, 'process_name': None, 'namespec': None,
-                'node_name': self.view_ctx.local_node_name,
-                'statename': application.state.name, 'statecode': application.state.value,
-                'description': application.get_operational_status(),
-                'nb_processes': len(application_processes),
-                'expected_load': expected_load, 'nb_cores': nb_cores, 'proc_stats': appli_stats}
+        payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
+                   'node_name': self.view_ctx.local_node_name,
+                   'statename': application.state.name, 'statecode': application.state.value,
+                   'description': application.get_operational_status(),
+                   'nb_processes': len(application_processes), 'expected_load': expected_load}
+        payload.update({'nb_cores': nb_cores, 'proc_stats': appli_stats})
+        return payload
 
     def write_process_table(self, root, data: PayloadList):
         """ Rendering of the processes managed through Supervisor. """
         if data:
+            self.write_common_process_table(root)
             # loop on all processes
             iterator = root.findmeld('tr_mid').repeat(data)
             shaded_appli_tr, shaded_proc_tr = False, False  # used to invert background style
