@@ -24,10 +24,10 @@ import sys
 from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
-from supervisor.loggers import getLevelNumByDescription, LOG_LEVELS_BY_NUM
+from supervisor.loggers import LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
 from supervisor.options import ClientOptions, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
-from supervisor.supervisorctl import Controller, ControllerPluginBase
+from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface
 from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
@@ -49,6 +49,7 @@ class ControllerPlugin(ControllerPluginBase):
                 version = self.supvisors().get_api_version()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output(version)
 
@@ -63,6 +64,7 @@ class ControllerPlugin(ControllerPluginBase):
                 state = self.supvisors().get_supvisors_state()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 template = '%(code)-3s%(state)-12s'
                 line = template % {'code': state['statecode'], 'state': state['statename']}
@@ -79,6 +81,7 @@ class ControllerPlugin(ControllerPluginBase):
                 address = self.supvisors().get_master_address()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output(address)
 
@@ -93,6 +96,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategies = self.supvisors().get_strategies()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 line = 'Auto-fencing: {}'.format(strategies['auto-fencing'])
                 self.ctl.output(line)
@@ -113,6 +117,7 @@ class ControllerPlugin(ControllerPluginBase):
                 info_list = self.supvisors().get_all_addresses_info()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 # create template. node name has variable length
                 max_nodes = ControllerPlugin.max_template(info_list, 'address_name', 'Node')
@@ -162,6 +167,7 @@ class ControllerPlugin(ControllerPluginBase):
                 info_list = self.supvisors().get_all_applications_info()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 # create template. node name has variable length
                 max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
@@ -198,6 +204,7 @@ class ControllerPlugin(ControllerPluginBase):
                                     for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     applications = []
             rules_list = []
             for application in applications:
@@ -205,6 +212,7 @@ class ControllerPlugin(ControllerPluginBase):
                     rules = self.supvisors().get_application_rules(application)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     rules_list.append(rules)
             # print results
@@ -258,6 +266,7 @@ class ControllerPlugin(ControllerPluginBase):
                     info_list = self.supvisors().get_all_process_info()
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     info_list = []
             else:
                 info_list = []
@@ -266,6 +275,7 @@ class ControllerPlugin(ControllerPluginBase):
                         info = self.supvisors().get_process_info(process)
                     except xmlrpclib.Fault as e:
                         self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                        self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     else:
                         info_list.extend(info)
             # print results
@@ -310,6 +320,7 @@ class ControllerPlugin(ControllerPluginBase):
                 info_list = self.supvisors().get_all_local_process_info()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 info_list = []
             # filter information iaw arguments
             processes = arg.split()
@@ -368,6 +379,7 @@ class ControllerPlugin(ControllerPluginBase):
                                  for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
             rules_list = []
             for process in processes:
@@ -375,6 +387,7 @@ class ControllerPlugin(ControllerPluginBase):
                     rules = self.supvisors().get_process_rules(process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     rules_list.extend(rules)
             # print results
@@ -417,6 +430,7 @@ class ControllerPlugin(ControllerPluginBase):
                 conflicts = self.supvisors().get_conflicts()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 if conflicts:
                     max_appli = max(len(conflict['application_name'])
@@ -450,6 +464,7 @@ class ControllerPlugin(ControllerPluginBase):
                         self.ctl.output('{0}: IGNORED (unmanaged. use {1} {0}:*)'.format(application_name, alt_rpc))
                 else:
                     self.ctl.output('%s: ERROR (no such application)' % application_name)
+                    self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
         return matching_info
 
     def do_start_application(self, arg):
@@ -459,6 +474,7 @@ class ControllerPlugin(ControllerPluginBase):
             # check number of arguments
             if len(args) < 1:
                 self.ctl.output('ERROR: start_application requires at least a strategy')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_application()
                 return
             # check strategy format
@@ -467,6 +483,7 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'
                                 .format(StartingStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_application()
                 return
             # get all application info
@@ -475,6 +492,7 @@ class ControllerPlugin(ControllerPluginBase):
                             for application_info in self.supvisors().get_all_applications_info()}
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 return
             # match with parameters
             matching_info = self._get_matching_applications(args[1:], all_info, 'start')
@@ -484,6 +502,7 @@ class ControllerPlugin(ControllerPluginBase):
                     result = self.supvisors().start_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} started: {}'.format(application_name, result))
 
@@ -503,6 +522,7 @@ class ControllerPlugin(ControllerPluginBase):
             # check number of arguments
             if len(args) < 1:
                 self.ctl.output('ERROR: restart_application requires at least a strategy')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_application()
                 return
             # check strategy format
@@ -511,6 +531,7 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'
                                 .format(StartingStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_application()
                 return
             # get all application info
@@ -519,6 +540,7 @@ class ControllerPlugin(ControllerPluginBase):
                             for application_info in self.supvisors().get_all_applications_info()}
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 return
             # match with parameters
             matching_info = self._get_matching_applications(args[1:], all_info, 'restart')
@@ -528,6 +550,7 @@ class ControllerPlugin(ControllerPluginBase):
                     result = self.supvisors().restart_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} restarted: {}'.format(application_name, result))
 
@@ -549,6 +572,7 @@ class ControllerPlugin(ControllerPluginBase):
                             for application_info in self.supvisors().get_all_applications_info()}
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 return
             # match with parameters
             args = as_string(arg).split()
@@ -559,6 +583,7 @@ class ControllerPlugin(ControllerPluginBase):
                     result = self.supvisors().stop_application(application_name)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} stopped: {}'.format(application_name, result))
 
@@ -574,6 +599,7 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 2:
                 self.ctl.output('ERROR: start_args requires a program name and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_args()
                 return
             namespec = args[0]
@@ -581,6 +607,7 @@ class ControllerPlugin(ControllerPluginBase):
                 result = self.supvisors().start_args(namespec, ' '.join(args[1:]))
             except xmlrpclib.Fault as e:
                 self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('{} started: {}'.format(namespec, result))
 
@@ -595,6 +622,7 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 1:
                 self.ctl.output('ERROR: start_process requires at least a strategy')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process()
                 return
             try:
@@ -602,6 +630,7 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'
                                 .format(StartingStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process()
                 return
             processes = args[1:]
@@ -611,12 +640,14 @@ class ControllerPlugin(ControllerPluginBase):
                                  for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
             for process in processes:
                 try:
                     result = self.supvisors().start_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} started: {}'.format(process, result))
 
@@ -638,6 +669,7 @@ class ControllerPlugin(ControllerPluginBase):
             if len(args) < 3:
                 self.ctl.output('ERROR: start_process_args requires a strategy, '
                                 'a program name and extra arguments')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
             try:
@@ -645,6 +677,7 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'
                                 .format(StartingStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
             namespec = args[1]
@@ -652,6 +685,7 @@ class ControllerPlugin(ControllerPluginBase):
                 result = self.supvisors().start_process(strategy.value, namespec, ' '.join(args[2:]))
             except xmlrpclib.Fault as e:
                 self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('{} started: {}'.format(namespec, result))
 
@@ -670,12 +704,14 @@ class ControllerPlugin(ControllerPluginBase):
                                  for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
             for process in processes:
                 try:
                     self.supvisors().stop_process(process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} stopped'.format(process))
 
@@ -691,6 +727,7 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 1:
                 self.ctl.output('ERROR: restart_process requires a strategy and a program name')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_process()
                 return
             try:
@@ -698,6 +735,7 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'
                                 .format(StartingStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_process()
                 return
             processes = args[1:]
@@ -707,12 +745,14 @@ class ControllerPlugin(ControllerPluginBase):
                                  for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
             for process in processes:
                 try:
                     result = self.supvisors().restart_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
                     self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     self.ctl.output('{} restarted: {}'.format(process, result))
 
@@ -731,6 +771,7 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 2:
                 self.ctl.output('ERROR: update_numprocs requires a program name and a numprocs values')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_update_numprocs()
                 return
             try:
@@ -738,12 +779,14 @@ class ControllerPlugin(ControllerPluginBase):
                 assert value > 0
             except (ValueError, AssertionError):
                 self.ctl.output('ERROR: numprocs must be a strictly positive integer')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_update_numprocs()
                 return
             try:
                 result = self.supvisors().update_numprocs(args[0], value)
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('{} numprocs updated: {}'.format(args[0], result))
 
@@ -757,6 +800,7 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 1:
                 self.ctl.output('ERROR: conciliate requires a strategy')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return
             try:
@@ -764,12 +808,14 @@ class ControllerPlugin(ControllerPluginBase):
             except KeyError:
                 self.ctl.output('ERROR: unknown strategy for conciliate. use one of {}'
                                 .format(ConciliationStrategies._member_names_))
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return
             try:
                 result = self.supvisors().conciliate(strategy.value)
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('Conciliated: {}'.format(result))
 
@@ -784,6 +830,7 @@ class ControllerPlugin(ControllerPluginBase):
                 result = self.supvisors().restart_sequence()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('Start sequence completed: {}'.format(result))
 
@@ -798,6 +845,7 @@ class ControllerPlugin(ControllerPluginBase):
                 result = self.supvisors().restart()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('Restarted: {}'.format(result))
 
@@ -812,6 +860,7 @@ class ControllerPlugin(ControllerPluginBase):
                 result = self.supvisors().shutdown()
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('Shut down: {}'.format(result))
 
@@ -825,24 +874,28 @@ class ControllerPlugin(ControllerPluginBase):
             args = arg.split()
             if len(args) < 1:
                 self.ctl.output('ERROR: loglevel requires a level')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_loglevel()
                 return
             level = getLevelNumByDescription(args[0])
             if level is None:
                 self.ctl.output('ERROR: unknown level for Logger.')
+                self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_loglevel()
                 return
             try:
                 result = self.supvisors().change_log_level(level)
             except xmlrpclib.Fault as e:
                 self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('Logger level changed: {}'.format(result))
 
     def help_loglevel(self):
         """ Print the help of the loglevel command."""
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
-        self.ctl.output('\t\t\t\t\t\t\tApplicable values are: {}.'.format(LOG_LEVELS_BY_NUM.values()))
+        values = {name for name in LevelsByDescription.__dict__ if not name.startswith('_')}
+        self.ctl.output('\t\t\t\t\tApplicable values are: {}.'.format(values))
 
     def _upcheck(self):
         """ Check of the API versions. """
@@ -851,6 +904,7 @@ class ControllerPlugin(ControllerPluginBase):
             if api != API_VERSION:
                 self.ctl.output('ERROR: this version of supvisorsctl expects to talk to a server '
                                 'with API version %s, but the remote version is %s.' % (API_VERSION, api))
+                self.ctl.exitstatus = LSBInitExitStatuses.NOT_INSTALLED
                 return False
         except xmlrpclib.Fault as e:
             if e.faultCode == xmlrpc.Faults.UNKNOWN_METHOD:
@@ -858,15 +912,20 @@ class ControllerPlugin(ControllerPluginBase):
                                 'the supvisors namespace commands that supervisorstl uses to control it. '
                                 'Please check that the [rpcinterface:supvisors] section is enabled '
                                 'in the configuration file.')
+                self.ctl.exitstatus = LSBInitExitStatuses.UNIMPLEMENTED_FEATURE
                 return False
+            self.exitstatus = LSBInitExitStatuses.GENERIC
             raise
         except socket.error as why:
             if why.args[0] == errno.ECONNREFUSED:
                 self.ctl.output('ERROR: %s refused connection' % self.ctl.options.serverurl)
+                self.ctl.exitstatus = LSBInitExitStatuses.INSUFFICIENT_PRIVILEGES
                 return False
             elif why.args[0] == errno.ENOENT:
                 self.ctl.output('ERROR: %s no such file' % self.ctl.options.serverurl)
+                self.ctl.exitstatus = LSBInitExitStatuses.NOT_RUNNING
                 return False
+            self.exitstatus = LSBInitExitStatuses.GENERIC
             raise
         return True
 

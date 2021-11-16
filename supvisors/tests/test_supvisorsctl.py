@@ -27,7 +27,7 @@ from supvisors.supvisorsctl import *
 
 @pytest.fixture
 def controller():
-    controller = Mock(spec=Controller)
+    controller = Mock(spec=Controller, exitstatus=LSBInitExitStatuses.SUCCESS)
     controller.get_server_proxy.return_value = Mock(spec=RPCInterface)
     controller.options = Mock(serverurl='dummy_url')
     return controller
@@ -49,6 +49,7 @@ def _check_output_error(controller, error):
     """ Test output error of controller. """
     assert controller.output.called
     assert any('ERROR' in str(ocall) for ocall in controller.output.call_args_list) == error
+    assert not error or controller.exitstatus != LSBInitExitStatuses.SUCCESS
     controller.output.reset_mock()
 
 

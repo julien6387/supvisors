@@ -23,6 +23,8 @@
 
 * Add the new option `stats_enabled` to enable/disable the statistics function.
 
+* Add exit codes to erroneous **Supvisors** calls in `supervisorctl`.
+
 * Change the `remote_time` and `local_time` of the `supvisors.get_address_info` XML-RPC to float.
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
