@@ -194,7 +194,6 @@ class Context(object):
         namespec = make_namespec(application_name, info['name'])
         # get application
         application = self.setdefault_application(application_name)
-        self.logger.debug('Context.setdefault_process: application={}'.format(application.application_name))
         # search for existing process in application
         process = application.processes.get(process_name)
         if not process:

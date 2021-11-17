@@ -420,7 +420,8 @@ class FiniteStateMachine:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
         process_failures = self.context.on_timer_event(event)
-        self.logger.debug('FiniteStateMachine.on_timer_event: process_failures={}'.format(process_failures))
+        self.logger.debug('FiniteStateMachine.on_timer_event: process_failures={}'
+                          .format([process.namespec for process in process_failures]))
         # get invalidated nodes / use next / update processes on invalidated nodes ?
         self.next()
         # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
