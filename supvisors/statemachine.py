@@ -431,7 +431,8 @@ class FiniteStateMachine:
             self.supvisors.failure_handler.trigger_jobs()
         # check if new isolating remotes and isolate them at main loop level
         node_names = self.context.handle_isolation()
-        self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
+        if node_names:
+            self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
 
     def on_tick_event(self, node_name: str, event: Payload):
         """ This event is used to refresh the data related to the node.

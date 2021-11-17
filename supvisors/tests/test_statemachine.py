@@ -71,7 +71,7 @@ def test_abstract_state(supvisors_ctx):
     assert supvisors_ctx.stopper.abort.called
 
 
-def test_initialization_state(mocker, supvisors_ctx):
+def test_initialization_state(supvisors_ctx):
     """ Test the Initialization state of the fsm. """
     state = InitializationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -572,13 +572,16 @@ def test_master_complex_next(fsm, mock_master_events):
 def test_timer_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a timer event. """
     # apply patches
-    mocked_event = mocker.patch.object(fsm.supvisors.context, 'on_timer_event', return_value=['proc_1', 'proc_2'])
+    proc_1 = Mock(namespec='proc_1')
+    proc_2 = Mock(namespec='proc_2')
+    mocked_event = mocker.patch.object(fsm.supvisors.context, 'on_timer_event', return_value=[proc_1, proc_2])
     mocked_next = mocker.patch.object(fsm, 'next')
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
-    mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation', return_value=['2', '3'])
+    mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation',
+                                           return_value=['10.0.0.2', '10.0.0.3'])
     mocked_isolate = fsm.supvisors.zmq.pusher.send_isolate_nodes
-    # test when not master
+    # test when not master and nodes to isolate
     assert not fsm.context.is_master
     event = {'counter': 1234}
     fsm.periodic_check(event)
@@ -588,21 +591,22 @@ def test_timer_event(mocker, fsm):
     assert not mocked_add.called
     assert not mocked_trigger.called
     assert mocked_isolation.call_args_list == [call()]
-    assert mocked_isolate.call_args_list == [call(['2', '3'])]
+    assert mocked_isolate.call_args_list == [call(['10.0.0.2', '10.0.0.3'])]
     # reset mocks
     mocker.resetall()
     mocked_isolate.reset_mock()
-    # test when not master
+    # test when not master and no node to isolate
     fsm.context._is_master = True
+    mocked_isolation.return_value = []
     assert fsm.context.is_master
     fsm.periodic_check(event)
     # check result: marked processes are started
     assert mocked_event.call_args_list == [call(event)]
     assert mocked_next.call_args_list == [call()]
-    assert mocked_add.call_args_list == [call('proc_1'), call('proc_2')]
+    assert mocked_add.call_args_list == [call(proc_1), call(proc_2)]
     assert mocked_trigger.call_args_list == [call()]
     assert mocked_isolation.call_args_list == [call()]
-    assert mocked_isolate.call_args_list == [call(['2', '3'])]
+    assert not mocked_isolate.called
 
 
 def test_tick_event(mocker, fsm):
