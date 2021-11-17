@@ -29,7 +29,7 @@ if py_version < (3, 4):
 requires = ['supervisor >= 4.2.1', 'pyzmq >= 20.0.0']
 
 ip_require = ['psutil >= 5.7.3']
-statistics_require = ['psutil >= 5.7.3', 'matplotlib >= 3.3.3']
+statistics_require = ['psutil >= 5.7.3', 'pyparsing >= 2.0.2, < 3', 'matplotlib >= 3.3.3']
 xml_valid_require = ['lxml >= 4.6.2']
 
 testing_extras = ['pytest >= 2.5.2', 'pytest-cov']
