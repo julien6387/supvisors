@@ -90,6 +90,7 @@ class AbstractState(object):
         """
         self.supvisors.failure_handler.abort()
         self.supvisors.starter.abort()
+        self.supvisors.stopper.abort()
 
 
 class InitializationState(AbstractState):

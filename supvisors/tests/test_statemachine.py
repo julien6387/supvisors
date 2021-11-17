@@ -68,6 +68,7 @@ def test_abstract_state(supvisors_ctx):
     state.abort_jobs()
     assert supvisors_ctx.failure_handler.abort.called
     assert supvisors_ctx.starter.abort.called
+    assert supvisors_ctx.stopper.abort.called
 
 
 def test_initialization_state(mocker, supvisors_ctx):

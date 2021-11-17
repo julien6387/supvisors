@@ -137,6 +137,19 @@ def test_commander_in_progress(commander, command_list_1, command_list_2):
     assert not commander.in_progress()
 
 
+def test_commander_abort(commander):
+    """ Test the Commander.abort method. """
+    # prepare some context
+    commander.planned_sequence = {3: {'else': {}}}
+    commander.planned_jobs = {'if': {2: []}}
+    commander.current_jobs = {'if': ['dummy_1', 'dummy_2'], 'then': ['dummy_3']}
+    # call abort and check attributes
+    commander.abort()
+    assert commander.planned_sequence == {}
+    assert commander.planned_jobs == {}
+    assert commander.current_jobs == {}
+
+
 def test_commander_get_job_applications(commander, command_list_1, command_list_2):
     """ Test the Commander.has_application method. """
     assert commander.get_job_applications() == set()
@@ -405,19 +418,6 @@ def starter(supvisors):
 def test_starter_create(starter):
     """ Test the values set at construction of Starter. """
     assert isinstance(starter, Commander)
-
-
-def test_starter_abort(starter):
-    """ Test the Starter.abort method. """
-    # prepare some context
-    starter.planned_sequence = {3: {'else': {}}}
-    starter.planned_jobs = {'if': {2: []}}
-    starter.current_jobs = {'if': ['dummy_1', 'dummy_2'], 'then': ['dummy_3']}
-    # call abort and check attributes
-    starter.abort()
-    assert starter.planned_sequence == {}
-    assert starter.planned_jobs == {}
-    assert starter.current_jobs == {'if': ['dummy_1', 'dummy_2'], 'then': ['dummy_3']}
 
 
 def test_starter_store_application_start_sequence(starter, command_list):

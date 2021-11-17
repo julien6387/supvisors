@@ -128,6 +128,15 @@ class Commander(object):
                                   self.printable_current_jobs()))
         return len(self.planned_sequence) > 0 or len(self.planned_jobs) > 0 or len(self.current_jobs) > 0
 
+    def abort(self) -> None:
+        """ Abort all jobs.
+
+        :return: None
+        """
+        self.planned_sequence = {}
+        self.planned_jobs = {}
+        self.current_jobs = {}
+
     def get_job_applications(self) -> Set[str]:
         """ Return all application names involved in any sequence.
 
@@ -353,15 +362,6 @@ class Starter(Commander):
         self.pickup_logic = min
         # attributes
         self.application_stop_requests: List[str] = []
-
-    def abort(self) -> None:
-        """ Abort all planned current jobs.
-        Do not erase current_jobs. Wait for their completion.
-
-        :return: None
-        """
-        self.planned_sequence = {}
-        self.planned_jobs = {}
 
     def start_applications(self, forced: bool) -> None:
         """ This method is called in the DEPLOYMENT phase.

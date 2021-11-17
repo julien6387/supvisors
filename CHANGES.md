@@ -4,12 +4,12 @@
 
 * Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
   Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
-  On the heartbeat reception part, consider that the node is SILENT based on a number of ticks instead of time.
+  On the heartbeat reception part, consider that the node is `SILENT` based on a number of ticks instead of time.
 
 * Fix issue with `supvisors.stop_process` XML-RPC that wouldn't stop all processes when any of the targeted processes
   is already stopped.
 
-* Fix exception when authorization is received from a node that is not in CHECKING state. 
+* Fix exception when authorization is received from a node that is not in `CHECKING` state. 
 
 * Fix regression (missing disconnect) on node isolation when fencing is activated.
 
@@ -24,6 +24,10 @@
 * Add the new option `stats_enabled` to enable/disable the statistics function.
 
 * Add exit codes to erroneous **Supvisors** calls in `supervisorctl`.
+
+* When aborting jobs when re-entering the `INITIALIZATION` state, clear the structure holding the jobs in progress.
+  It has been found to stick **Supvisors** in the `DEPLOYMENT` state in the event where the *Master* node is temporarily
+ `SILENT`.
 
 * Change the `remote_time` and `local_time` of the `supvisors.get_address_info` XML-RPC to float.
 
