@@ -36,7 +36,9 @@
 
 * Review the logic of the refresh button in the Web UI.
 
-* Update the mouse pointer look on nodes from the Main and Host pages of the Web UI.
+* Add node time to the node boxes in the Main page of the Web UI.
+
+* Update the mouse pointer look on nodes in the Main and Host pages of the Web UI.
 
 * Remove the useless timecode in the header of the Process and Host pages of the Web UI as it is now provided
   at the bottom right of all pages.

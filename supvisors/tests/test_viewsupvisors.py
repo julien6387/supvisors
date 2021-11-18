@@ -111,15 +111,18 @@ def test_write_contents(mocker, view):
 def test_write_node_box_title(view):
     """ Test the _write_node_box_title method. """
     # patch context
-    mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.RUNNING, **{'get_loading.return_value': 17})
+    mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.RUNNING,
+                         **{'get_loading.return_value': 17, 'get_remote_time.return_value': 1234})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_node_mid = Mock(attrib={})
     mocked_state_mid = Mock(attrib={})
+    mocked_time_mid = Mock(attrib={})
     mocked_percent_mid = Mock(attrib={})
-    mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid, mocked_percent_mid] * 3})
+    mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid, mocked_time_mid,
+                                                   mocked_percent_mid] * 3})
     # test call in RUNNING state but not master
-    view._write_node_box_title(mocked_root, mocked_status)
+    view._write_node_box_title(mocked_root, mocked_status, 10)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -127,17 +130,20 @@ def test_write_node_box_title(view):
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
+    # test time element
+    assert mocked_time_mid.content.call_args_list == [call('01:20:34')]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
     mocked_node_mid.reset_mock()
     mocked_state_mid.reset_mock()
+    mocked_time_mid.reset_mock()
     mocked_percent_mid.reset_mock()
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in RUNNING state and master
     view.sup_ctx.master_node_name = '10.0.0.1'
-    view._write_node_box_title(mocked_root, mocked_status)
+    view._write_node_box_title(mocked_root, mocked_status, 0)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on master'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -145,17 +151,20 @@ def test_write_node_box_title(view):
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
+    # test time element
+    assert mocked_time_mid.content.call_args_list == [call('01:20:34')]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
     mocked_node_mid.reset_mock()
     mocked_state_mid.reset_mock()
+    mocked_time_mid.reset_mock()
     mocked_percent_mid.reset_mock()
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
     mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.SILENT, **{'get_loading.return_value': 0})
-    view._write_node_box_title(mocked_root, mocked_status)
+    view._write_node_box_title(mocked_root, mocked_status, 5)
     # test node element
     assert mocked_node_mid.attrib['class'] == ''
     assert not mocked_node_mid.attributes.called
@@ -163,6 +172,8 @@ def test_write_node_box_title(view):
     # test state element
     assert mocked_state_mid.attrib['class'] == 'SILENT state'
     assert mocked_state_mid.content.call_args_list == [call('SILENT')]
+    # test time element
+    assert not mocked_time_mid.content.called
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('0%')]
 
@@ -216,6 +227,7 @@ def test_write_node_box_processes(view):
 
 def test_write_node_boxes(mocker, view):
     """ Test the write_node_boxes method. """
+    mocker.patch('supvisors.viewsupvisors.time', return_value=1234)
     mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_processes')
     mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_title')
     # patch context
@@ -231,8 +243,8 @@ def test_write_node_boxes(mocker, view):
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
     # test call
     view.write_node_boxes(mocked_root)
-    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
-                                               call(mocked_box_mid_2, mocked_node_2)]
+    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1, 1234),
+                                               call(mocked_box_mid_2, mocked_node_2, 1234)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
                                                    call(mocked_box_mid_2, mocked_node_2)]
 

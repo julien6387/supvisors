@@ -112,7 +112,7 @@ def test_add_process(supvisors):
     assert process is status.processes[process.namespec]
 
 
-def test_times(filled_node):
+def test_update_times(filled_node):
     """ Test the update_times method. """
     # get current process times
     ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
@@ -137,6 +137,14 @@ def test_times(filled_node):
             assert new_info[2] > ref_info[2]
         else:
             assert new_info[2] == ref_info[2]
+
+
+def test_get_remote_time(filled_node):
+    """ Test the get_remote_time method. """
+    # update times and check
+    filled_node.remote_time = 10
+    filled_node.local_time = 5
+    assert filled_node.get_remote_time(15) == 20
 
 
 def test_running_process(filled_node):

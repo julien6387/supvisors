@@ -17,14 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
+from time import time
+from typing import Dict
 
 from .address import AddressStatus
 from .strategy import conciliate_conflicts
 from .ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
-from .utils import simple_gmtime
+from .utils import simple_gmtime, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
@@ -84,10 +85,16 @@ class SupvisorsView(ViewHandler):
             self.write_node_boxes(root)
 
     # Standard part
-    def _write_node_box_title(self, node_div_elt, status: AddressStatus) -> None:
-        """ Rendering of the node box title. """
+    def _write_node_box_title(self, node_div_elt, status: AddressStatus, current_time: float) -> None:
+        """ Rendering of the node box title.
+
+        :param node_div_elt: the node box element
+        :param status: the node status
+        :param current_time: the reference time to display the current remote time
+        :return: None
+        """
         # set node name
-        elt = node_div_elt.findmeld('node_tda_mid')
+        elt = node_div_elt.findmeld('node_th_mid')
         if status.state == AddressStates.RUNNING:
             # go to web page located on node
             url = self.view_ctx.format_url(status.node_name, PROC_NODE_PAGE)
@@ -97,11 +104,16 @@ class SupvisorsView(ViewHandler):
                 update_attrib(elt, 'class', 'master')
         elt.content(status.node_name)
         # set state
-        elt = node_div_elt.findmeld('state_td_mid')
+        elt = node_div_elt.findmeld('state_th_mid')
         elt.attrib['class'] = status.state.name + ' state'
         elt.content(status.state.name)
+        # set node current time
+        elt = node_div_elt.findmeld('time_th_mid')
+        if status.state == AddressStates.RUNNING:
+            remote_time = status.get_remote_time(current_time)
+            elt.content(simple_localtime(remote_time))
         # set node current load
-        elt = node_div_elt.findmeld('percent_td_mid')
+        elt = node_div_elt.findmeld('percent_th_mid')
         elt.content('{}%'.format(status.get_loading()))
 
     @staticmethod
@@ -132,13 +144,14 @@ class SupvisorsView(ViewHandler):
 
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
+        current_time = time()
         node_div_mid = root.findmeld('node_div_mid')
         node_names = self.supvisors.address_mapper.node_names
         for node_div_elt, node_name in node_div_mid.repeat(node_names):
             # get node status from Supvisors context
             status = self.sup_ctx.nodes[node_name]
             # write box_title
-            self._write_node_box_title(node_div_elt, status)
+            self._write_node_box_title(node_div_elt, status, current_time)
             # fill with running processes
             self._write_node_box_processes(node_div_elt, status)
 

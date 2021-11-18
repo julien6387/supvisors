@@ -118,6 +118,14 @@ class AddressStatus(object):
         for process in self.processes.values():
             process.update_times(self.node_name, remote_time)
 
+    def get_remote_time(self, local_time: float) -> float:
+        """ Return the remote time corresponding to a local time.
+
+        :param local_time: the reference time
+        :return: the remote time
+        """
+        return self.remote_time + (local_time - self.local_time)
+
     def check_transition(self, new_state):
         """ Check that the state transition is valid. """
         return new_state in self._Transitions[self.state]

@@ -9,7 +9,7 @@
 #box_part {
     display: flex;
     flex: 1;
-    height: 60px;
+    height: 90px;
     justify-content: space-around;
     flex-wrap: wrap;
 }
