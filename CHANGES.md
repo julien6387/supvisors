@@ -36,6 +36,8 @@
 
 * Review the logic of the refresh button in the Web UI.
 
+* Update the mouse pointer look on nodes from the Host page of the Web UI.
+
 * Add class "action" to Web UI buttons that trigger an XML-RPC.
 
 * Update documentation.
