@@ -38,6 +38,9 @@
 
 * Update the mouse pointer look on nodes from the Host page of the Web UI.
 
+* Remove the useless timecode in the header of the Process and Host pages of the Web UI as it is now provided
+  at the bottom right of all pages.
+
 * Add class "action" to Web UI buttons that trigger an XML-RPC.
 
 * Update documentation.

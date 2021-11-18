@@ -62,10 +62,6 @@ class SupvisorsAddressView(StatusView):
         # set node load
         elt = root.findmeld('percent_mid')
         elt.content('{}%'.format(status.get_loading()))
-        # set last tick date: remote_time and local_time should be identical
-        # since self is running on the 'remote' address
-        elt = root.findmeld('date_mid')
-        elt.content(simple_localtime(status.remote_time))
         # write statistics parameters
         self.write_periods(root)
         # write actions related to address

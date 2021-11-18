@@ -63,25 +63,22 @@ def test_write_navigation(mocker, view):
 
 def test_write_header(mocker, view):
     """ Test the write_header method. """
-    mocker.patch('supvisors.viewsupstatus.simple_localtime', return_value='07:05:30')
     mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_node_actions')
     mocked_periods = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
     from supvisors.ttypes import AddressStates
     # build root structure
-    mocked_mids = [Mock(attrib={}) for _ in range(4)]
+    mocked_mids = [Mock(attrib={}) for _ in range(3)]
     mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
     # first call tests with not master
     mocked_status = Mock(remote_time=3600, state=AddressStates.RUNNING, **{'get_loading.return_value': 12})
     view.sup_ctx._is_master = False
     view.sup_ctx.nodes['127.0.0.1'] = mocked_status
     view.write_header(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid'),
-                                                   call('date_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid')]
     assert mocked_mids[0].attrib == {}
     assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
     assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
     assert mocked_mids[2].content.call_args_list == [call('12%')]
-    assert mocked_mids[3].content.call_args_list == [call('07:05:30')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root)]
     # reset mocks
@@ -93,13 +90,11 @@ def test_write_header(mocker, view):
     # second call tests with master
     view.sup_ctx._is_master = True
     view.write_header(mocked_root)
-    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid'),
-                                                   call('date_mid')]
+    assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid')]
     assert mocked_mids[0].attrib == {'class': 'master'}
     assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
     assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
     assert mocked_mids[2].content.call_args_list == [call('12%')]
-    assert mocked_mids[3].content.call_args_list == [call('07:05:30')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root)]
 
