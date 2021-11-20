@@ -71,7 +71,8 @@ class SupvisorsOptions(object):
         # get values from config
         self.node_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
         self.node_list = list(OrderedDict.fromkeys(self.node_list))
-        self.rules_files = config.get('rules_files', None)
+        # keep rules_file for next version but state obsolescence
+        self.rules_files = config.get('rules_files', config.get('rules_file', None))
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
         self.internal_port = self.to_port_num(config.get('internal_port', '65001'))

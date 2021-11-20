@@ -58,6 +58,17 @@ parameters) or it may lead to unpredictable behavior.
 
     *Required*:  No.
 
+``rules_file``
+
+    **Obsolete. Will be removed in next version. Please use ``rules_files`` instead.**
+    The absolute or relative path of the XML rules file. The contents of this file is described in
+    `Supvisors' Rules File`_.
+
+    *Default*: None.
+
+    *Required*: No.
+
+
 ``auto_fence``
 
     When true, |Supvisors| won't try to reconnect to a |Supvisors| instance that is inactive.
@@ -273,14 +284,14 @@ Configuration File Example
 .. _rules_file:
 
 |Supvisors|' Rules File
---------------------------
+-----------------------
 
-This part describes the contents of the XML rules file declared in the ``rules_file`` option.
+This part describes the contents of the XML rules files declared in the ``rules_files`` option.
 
-Basically, the rules file contains rules that define how applications and programs should be started and stopped,
+Basically, a rules file contains rules that define how applications and programs should be started and stopped,
 and the quality of service expected. It relies on the |Supervisor| group and program definitions.
 
-.. important:: *About the declaration of Supervisor groups/processes in the rules file*
+.. important:: *About the declaration of Supervisor groups/processes in a rules file*
 
     It is important to notice that all applications declared in this file will be considered as *Managed*
     by |Supvisors|. The main consequence is that |Supvisors| will try to ensure that one single instance of the program
@@ -288,16 +299,16 @@ and the quality of service expected. It relies on the |Supervisor| group and pro
     |Supvisors| will consider this as a conflict. Only the *Managed* applications have an entry in the navigation menu
     of the |Supvisors| web page.
 
-    The groups declared in |Supervisor| configuration files and not declared in the rules file will thus be considered
+    The groups declared in |Supervisor| configuration files and not declared in a rules file will thus be considered
     as *Unmanaged* by |Supvisors|. So they have no entry in the navigation menu of the |Supvisors| web page.
     There can be as many running instances of the same program as |Supervisor| allows over the available nodes.
 
-If the `lxml <http://lxml.de>`_ package is available on the system, |Supvisors| uses it to validate
-the XML rules file before it is used.
+If the `lxml <http://lxml.de>`_ package is available on the system, |Supvisors| uses it to validate the XML rules files
+before they are used.
 
 .. hint::
 
-    It is still possible to validate the XML rules file manually. The XSD file :file:`rules.xsd` used to validate the
+    It is still possible to validate the XML rules files manually. The XSD file :file:`rules.xsd` used to validate the
     XML can be found in the |Supvisors| package. Just use :command:`xmllint` to validate:
 
     .. code-block:: bash

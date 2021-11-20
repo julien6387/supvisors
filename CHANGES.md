@@ -16,6 +16,7 @@
 * Fix issue in statistics compiler when network interfaces are dynamically created / removed.
 
 * The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
+  The option `rules_file` is thus obsolete and will be removed in next version.
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
