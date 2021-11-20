@@ -108,9 +108,10 @@ def test_write_contents(mocker, view):
     assert not mocked_conflict_mid.replace.called
 
 
-def test_write_node_box_title(view):
+def test_write_node_box_title(mocker, view):
     """ Test the _write_node_box_title method. """
     # patch context
+    mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
     mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.RUNNING,
                          **{'get_loading.return_value': 17, 'get_remote_time.return_value': 1234})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
@@ -131,7 +132,7 @@ def test_write_node_box_title(view):
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
-    assert mocked_time_mid.content.call_args_list == [call('01:20:34')]
+    assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
@@ -152,7 +153,7 @@ def test_write_node_box_title(view):
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
     # test time element
-    assert mocked_time_mid.content.call_args_list == [call('01:20:34')]
+    assert mocked_time_mid.content.call_args_list == [call('12:34:30')]
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
