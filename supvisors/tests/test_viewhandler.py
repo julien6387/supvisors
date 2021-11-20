@@ -18,6 +18,7 @@
 # ======================================================================
 
 import pytest
+import time
 
 from unittest.mock import call, Mock
 
@@ -53,6 +54,9 @@ def test_init(http_context, handler):
     # test MeldView inheritance
     assert handler.context == http_context
     # test ViewHandler initialization
+    assert handler.page_name is None
+    current_time = time.time()
+    assert current_time - 1 < handler.current_time < current_time
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
     assert handler.local_node_name == handler.supvisors.address_mapper.local_node_name
@@ -156,7 +160,7 @@ def test_write_common(mocker, handler):
     assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
                                                           call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=False)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message')]
+    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
     # reset mocks
     mocked_root.findmeld.reset_mock()
     handler.view_ctx.format_url.reset_mock()
@@ -187,7 +191,7 @@ def test_write_common(mocker, handler):
     assert handler.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE),
                                                           call('', 'dummy.html'),
                                                           call('', 'dummy.html', auto=True)]
-    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message')]
+    assert mocked_msg.call_args_list == [call(mocked_root, 'severe', 'a message', handler.current_time)]
 
 
 def test_write_navigation(handler):

@@ -19,7 +19,6 @@
 
 from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
-from time import time
 from typing import Dict
 
 from .address import AddressStatus
@@ -85,12 +84,11 @@ class SupvisorsView(ViewHandler):
             self.write_node_boxes(root)
 
     # Standard part
-    def _write_node_box_title(self, node_div_elt, status: AddressStatus, current_time: float) -> None:
+    def _write_node_box_title(self, node_div_elt, status: AddressStatus) -> None:
         """ Rendering of the node box title.
 
         :param node_div_elt: the node box element
         :param status: the node status
-        :param current_time: the reference time to display the current remote time
         :return: None
         """
         # set node name
@@ -110,7 +108,7 @@ class SupvisorsView(ViewHandler):
         # set node current time
         elt = node_div_elt.findmeld('time_th_mid')
         if status.state == AddressStates.RUNNING:
-            remote_time = status.get_remote_time(current_time)
+            remote_time = status.get_remote_time(self.current_time)
             elt.content(simple_localtime(remote_time))
         # set node current load
         elt = node_div_elt.findmeld('percent_th_mid')
@@ -144,14 +142,13 @@ class SupvisorsView(ViewHandler):
 
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
-        current_time = time()
         node_div_mid = root.findmeld('node_div_mid')
         node_names = self.supvisors.address_mapper.node_names
         for node_div_elt, node_name in node_div_mid.repeat(node_names):
             # get node status from Supvisors context
             status = self.sup_ctx.nodes[node_name]
             # write box_title
-            self._write_node_box_title(node_div_elt, status, current_time)
+            self._write_node_box_title(node_div_elt, status)
             # fill with running processes
             self._write_node_box_processes(node_div_elt, status)
 

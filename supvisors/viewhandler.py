@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import time
+
 from supervisor.compat import as_bytes, as_string
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
@@ -37,6 +39,7 @@ class ViewHandler(MeldView):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.page_name = None
+        self.current_time = time.time()
         # add Supvisors shortcuts
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
@@ -111,7 +114,7 @@ class ViewHandler(MeldView):
         if auto_refresh:
             update_attrib(elt, 'class', 'active')
         # set bottom message
-        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
+        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message(), self.current_time)
 
     def write_navigation(self, root):
         """ Write the navigation menu.

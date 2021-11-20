@@ -19,7 +19,6 @@
 
 from supervisor.web import StatusView
 
-from .utils import simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *

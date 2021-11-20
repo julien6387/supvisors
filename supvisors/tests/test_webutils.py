@@ -43,21 +43,19 @@ def test_format_gravity_message():
     assert msg == ('info', 'an information message')
 
 
-def test_print_message(root):
+def test_print_message(mocker, root):
     """ Test the meld formatting of a message. """
+    mocker.patch('supvisors.webutils.ctime', return_value='a date')
     # test with empty message
-    print_message(root, 'gravity', None)
-    assert list(root.elts['time_mid'].attrib.keys()) == ['content']
+    print_message(root, 'gravity', None, 1234)
+    assert root.elts['time_mid'].attrib['content'] == 'a date'
     assert root.elts['message_mid'].attrib['class'] == 'empty'
     assert root.elts['message_mid'].attrib['content'] == ''
-    current_time_content = root.elts['time_mid'].attrib['content']
-    assert current_time_content is root.elts['time_mid'].attrib['content']
-    # test with filled message&
-    print_message(root, 'gravity', 'a simple message')
-    assert list(root.elts['time_mid'].attrib.keys()) == ['content']
+    # test with filled message
+    print_message(root, 'gravity', 'a simple message', 1234)
+    assert root.elts['time_mid'].attrib['content'] == 'a date'
     assert root.elts['message_mid'].attrib['class'] == 'gravity'
     assert root.elts['message_mid'].attrib['content'] == 'a simple message'
-    assert current_time_content is not root.elts['time_mid'].attrib['content']
 
 
 def check_message(func, gravity):

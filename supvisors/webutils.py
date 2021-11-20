@@ -52,11 +52,11 @@ def format_gravity_message(message):
     return message
 
 
-def print_message(root: Any, gravity: str, message: str):
+def print_message(root: Any, gravity: str, message: str, current_time: float):
     """ Print message as a result of action. """
     # print time
     elt = root.findmeld('time_mid')
-    elt.content(ctime())
+    elt.content(ctime(current_time))
     # print message
     elt = root.findmeld('message_mid')
     if message is None:

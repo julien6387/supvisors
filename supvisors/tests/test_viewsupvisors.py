@@ -123,7 +123,7 @@ def test_write_node_box_title(mocker, view):
     mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid, mocked_time_mid,
                                                    mocked_percent_mid] * 3})
     # test call in RUNNING state but not master
-    view._write_node_box_title(mocked_root, mocked_status, 10)
+    view._write_node_box_title(mocked_root, mocked_status)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -144,7 +144,7 @@ def test_write_node_box_title(mocker, view):
     mocked_state_mid.attrib['class'] = ''
     # test call in RUNNING state and master
     view.sup_ctx.master_node_name = '10.0.0.1'
-    view._write_node_box_title(mocked_root, mocked_status, 0)
+    view._write_node_box_title(mocked_root, mocked_status)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on master'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -165,7 +165,7 @@ def test_write_node_box_title(mocker, view):
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
     mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.SILENT, **{'get_loading.return_value': 0})
-    view._write_node_box_title(mocked_root, mocked_status, 5)
+    view._write_node_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_node_mid.attrib['class'] == ''
     assert not mocked_node_mid.attributes.called
@@ -228,7 +228,6 @@ def test_write_node_box_processes(view):
 
 def test_write_node_boxes(mocker, view):
     """ Test the write_node_boxes method. """
-    mocker.patch('supvisors.viewsupvisors.time', return_value=1234)
     mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_processes')
     mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_title')
     # patch context
@@ -244,8 +243,8 @@ def test_write_node_boxes(mocker, view):
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
     # test call
     view.write_node_boxes(mocked_root)
-    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1, 1234),
-                                               call(mocked_box_mid_2, mocked_node_2, 1234)]
+    assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
+                                               call(mocked_box_mid_2, mocked_node_2)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
                                                    call(mocked_box_mid_2, mocked_node_2)]
 
