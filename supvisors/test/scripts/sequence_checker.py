@@ -260,14 +260,14 @@ class CheckSequenceTest(unittest.TestCase):
             self.nodes = self.evloop.node_queue.get(True, 30)
             self.assertGreater(len(self.nodes), 0)
         except Empty:
-            self.fail('failed to get the nodes event in the last 30 seconds')
+            self.fail('failed to get the nodes event in the last 20 seconds')
 
     def check_events(self, application_name=None):
         """ Receive and check events for processes and applications. """
         while self.context.has_events(application_name):
             # wait for a process event
             try:
-                data = self.evloop.process_queue.get(True, 30)
+                data = self.evloop.process_queue.get(True, 40)
             except Empty:
                 self.fail('failed to get the expected events for this process')
             self.check_process_event(data)
@@ -275,7 +275,7 @@ class CheckSequenceTest(unittest.TestCase):
             try:
                 data = self.evloop.application_queue.get(True, 2)
             except Empty:
-                self.fail('failed to get the expected events for this process')
+                self.fail(f'failed to get the expected events for application={application_name}')
             self.check_application_event(data)
 
     def check_process_event(self, event):

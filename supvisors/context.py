@@ -290,33 +290,38 @@ class Context(object):
                 # publish AddressStatus event
                 self.supvisors.zmq.publisher.send_node_status(status.serial())
 
-    def on_timer_event(self, event: Payload) -> Set[ProcessStatus]:
+    def on_timer_event(self, event: Payload) -> Tuple[NameList, Set[ProcessStatus]]:
         """ Check that all Supvisors instances are still publishing.
-        Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s. """
-        process_failures = set({})  # strange but avoids IDE warning
+        Supvisors considers that there a Supvisors instance is not active if no tick received in last 10s.
+
+        :param event: the local tick event
+        :return: the invalidated nodes and the processes in failure
+        """
+        invalidated_nodes, process_failures = [], set({})  # strange but avoids IDE warning on annotations
         # find all nodes that did not send their periodic tick
-        current_time = time()
+        current_time = event['when']
         self.local_sequence_counter = event['sequence_counter']
         # do not check for invalidation before synchro_timeout
         if (current_time - self.start_date) > self.supvisors.options.synchro_timeout:
             # get publisher
             publisher = self.supvisors.zmq.publisher
             # check all nodes
-            for status in self.nodes.values():
-                if status.state == AddressStates.UNKNOWN:
+            for node_status in self.nodes.values():
+                if node_status.state == AddressStates.UNKNOWN:
                     # invalid unknown nodes
                     # nothing to do on processes as none received yet
-                    self.invalid(status)
-                elif status.inactive(self.local_sequence_counter):
+                    self.invalid(node_status)
+                elif node_status.inactive(self.local_sequence_counter):
                     # invalid silent nodes
-                    self.invalid(status)
+                    self.invalid(node_status)
+                    invalidated_nodes.append(node_status.node_name)
                     # for processes that were running on node, invalidate node in process
-                    # WARN: it has been decided NOT to remove the node payload from the ProcessStatus and NOT to remove
+                    # WARN: decision is made NOT to remove the node payload from the ProcessStatus and NOT to remove
                     #  the ProcessStatus from the Context if no more node payload left.
                     #  The aim is to keep a trace in the Web UI about the application processes that have been lost
                     #  and their related description.
-                    process_failures.update({process for process in status.running_processes()
-                                             if process.invalidate_node(status.node_name)})
+                    process_failures.update({process for process in node_status.running_processes()
+                                             if process.invalidate_node(node_status.node_name)})
             # publish process status in failure
             for process in process_failures:
                 publisher.send_process_status(process.serial())
@@ -327,8 +332,8 @@ class Context(object):
                 # application.update_sequences()
                 application.update_status()
                 publisher.send_application_status(application.serial())
-        #  return all processes that declare a failure
-        return process_failures
+        #  return all invalidated nodes and processes that declare a failure
+        return invalidated_nodes, process_failures
 
     def on_process_removed_event(self, node_name: str, event: Payload) -> None:
         """ Method called upon reception of a process removed event from the remote Supvisors instance.
@@ -377,9 +382,9 @@ class Context(object):
         :return: None
         """
         if self.supvisors.address_mapper.valid(node_name):
-            status = self.nodes[node_name]
+            node_status = self.nodes[node_name]
             # accept events only in RUNNING state
-            if status.state == AddressStates.RUNNING:
+            if node_status.state == AddressStates.RUNNING:
                 self.logger.debug('Context.on_process_event: got event {} from node={}'.format(event, node_name))
                 # get internal data
                 application = self.applications[event['group']]

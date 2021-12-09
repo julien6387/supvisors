@@ -419,9 +419,12 @@ class FiniteStateMachine:
     def periodic_check(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
-        process_failures = self.context.on_timer_event(event)
-        self.logger.debug('FiniteStateMachine.on_timer_event: process_failures={}'
-                          .format([process.namespec for process in process_failures]))
+        invalidated_nodes, process_failures = self.context.on_timer_event(event)
+        self.logger.debug('FiniteStateMachine.periodic_check: invalidated_nodes={} process_failures={}'
+                          .format(invalidated_nodes, [process.namespec for process in process_failures]))
+        # inform Starter and Stopper. process_failures may be removed
+        self.supvisors.starter.on_nodes_invalidation(invalidated_nodes, process_failures)
+        self.supvisors.stopper.on_nodes_invalidation(invalidated_nodes, process_failures)
         # get invalidated nodes / use next / update processes on invalidated nodes ?
         self.next()
         # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
@@ -443,7 +446,7 @@ class FiniteStateMachine:
             self.periodic_check(event)
 
     def on_process_state_event(self, node_name: str, event: Payload) -> None:
-        """ This event is used to refresh the process data related to the event and address.
+        """ This event is used to refresh the process data related to the event sent from the node.
         This event also triggers the application starter and/or stopper.
 
         :param node_name: the node that sent the event
@@ -453,10 +456,9 @@ class FiniteStateMachine:
         process = self.context.on_process_state_event(node_name, event)
         # returned process may be None if the event is linked to an unknown or an isolated node
         if process:
-            # feed starter with event
-            self.supvisors.starter.on_event(process)
-            # feed stopper with event
-            self.supvisors.stopper.on_event(process)
+            # inform starter and stopper
+            self.supvisors.starter.on_event(process, node_name, event)
+            self.supvisors.stopper.on_event(process, node_name)
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)

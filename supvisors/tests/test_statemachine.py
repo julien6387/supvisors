@@ -574,8 +574,11 @@ def test_timer_event(mocker, fsm):
     # apply patches
     proc_1 = Mock(namespec='proc_1')
     proc_2 = Mock(namespec='proc_2')
-    mocked_event = mocker.patch.object(fsm.supvisors.context, 'on_timer_event', return_value=[proc_1, proc_2])
+    mocked_event = mocker.patch.object(fsm.supvisors.context, 'on_timer_event',
+                                       return_value=(['10.0.0.3'], [proc_1, proc_2]))
     mocked_next = mocker.patch.object(fsm, 'next')
+    mocked_starter = fsm.supvisors.starter.on_nodes_invalidation
+    mocked_stopper = fsm.supvisors.stopper.on_nodes_invalidation
     mocked_add = fsm.supvisors.failure_handler.add_default_job
     mocked_trigger = fsm.supvisors.failure_handler.trigger_jobs
     mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation',
@@ -587,6 +590,8 @@ def test_timer_event(mocker, fsm):
     fsm.periodic_check(event)
     # check result: marked processes are started
     assert mocked_event.call_args_list == [call(event)]
+    assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
+    assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
     assert mocked_next.call_args_list == [call()]
     assert not mocked_add.called
     assert not mocked_trigger.called
@@ -595,6 +600,8 @@ def test_timer_event(mocker, fsm):
     # reset mocks
     mocker.resetall()
     mocked_isolate.reset_mock()
+    mocked_starter.reset_mock()
+    mocked_stopper.reset_mock()
     # test when not master and no node to isolate
     fsm.context._is_master = True
     mocked_isolation.return_value = []
@@ -602,6 +609,8 @@ def test_timer_event(mocker, fsm):
     fsm.periodic_check(event)
     # check result: marked processes are started
     assert mocked_event.call_args_list == [call(event)]
+    assert mocked_starter.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
+    assert mocked_stopper.call_args_list == [call(['10.0.0.3'], [proc_1, proc_2])]
     assert mocked_next.call_args_list == [call()]
     assert mocked_add.call_args_list == [call(proc_1), call(proc_2)]
     assert mocked_trigger.call_args_list == [call()]
@@ -649,8 +658,8 @@ def test_process_state_event(mocker, fsm):
     fsm.supvisors.context._is_master = False
     fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process)]
-    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -663,8 +672,8 @@ def test_process_state_event(mocker, fsm):
         process.rules.running_failure_strategy = strategy
         fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
         assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_start_evt.call_args_list == [call(process)]
-        assert mocked_stop_evt.call_args_list == [call(process)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
         assert mocked_add.call_args_list == []
         # reset mocks
         mocked_ctx.reset_mock()
@@ -675,8 +684,8 @@ def test_process_state_event(mocker, fsm):
     process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
     fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process)]
-    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -689,8 +698,8 @@ def test_process_state_event(mocker, fsm):
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
     fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process)]
-    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -701,8 +710,8 @@ def test_process_state_event(mocker, fsm):
     process.forced_state = ProcessStates.FATAL
     fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
     assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process)]
-    assert mocked_stop_evt.call_args_list == [call(process)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -714,8 +723,8 @@ def test_process_state_event(mocker, fsm):
         process.rules.running_failure_strategy = strategy
         fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
         assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_start_evt.call_args_list == [call(process)]
-        assert mocked_stop_evt.call_args_list == [call(process)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
         assert not mocked_add.called
         # reset mocks
         mocked_ctx.reset_mock()

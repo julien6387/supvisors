@@ -50,7 +50,6 @@ class ProcessRules(object):
 
         :param supvisors: the global Supvisors structure.
         """
-        # TODO: think about adding a period for tasks (period > startsecs / autorestart = False)
         # keep a reference to the Supvisors global structure
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
@@ -314,7 +313,15 @@ class ProcessStatus(object):
 
         :return: the crash status of the process
         """
-        return self.state == ProcessStates.FATAL or (self.state == ProcessStates.EXITED and not self.expected_exit)
+        return ProcessStatus.is_crashed_event(self.state, self.expected_exit)
+
+    @staticmethod
+    def is_crashed_event(state: ProcessStates, expected_exit: bool) -> bool:
+        """ Return True if the process has crashed or has exited unexpectedly.
+
+        :return: the crash status of the process
+        """
+        return state == ProcessStates.FATAL or (state == ProcessStates.EXITED and not expected_exit)
 
     def stopped(self) -> bool:
         """ Return True if the process is stopped, as designed in Supervisor.
@@ -374,7 +381,7 @@ class ProcessStatus(object):
 
         :return: the node where the description comes, the process state description
         """
-        self.logger.trace('ProcessStatus.get_last_description: START namespec={}'.format(self.namespec))
+        self.logger.trace(f'ProcessStatus.get_last_description: START namespec={self.namespec}')
         # if the state is forced, return the reason why
         if self.forced_state is not None:
             self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name=None [FORCED]description={}'
@@ -423,13 +430,13 @@ class ProcessStatus(object):
         # TODO: why reset extra_args ?
         info['extra_args'] = ''
         self.extra_args = ''
-        self.logger.trace('ProcessStatus.add_info: namespec={} - payload={} added to node_name={}'
-                          .format(self.namespec, info, node_name))
+        self.logger.trace(f'ProcessStatus.add_info: namespec={self.namespec} - payload={info}'
+                          ' added to node_name={node_name}')
         # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
         if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
             self.forced_state = None
             self.forced_reason = ''
-            self.logger.debug('ProcessStatus.add_info: namespec={} - forced_state unset'.format(self.namespec))
+            self.logger.debug(f'ProcessStatus.add_info: namespec={self.namespec} - forced_state unset')
         # update process status
         self.update_status(node_name, info['state'])
 
@@ -449,8 +456,8 @@ class ProcessStatus(object):
             self.extra_args = payload['extra_args']
             # refresh internal information
             info = self.info_map[node_name]
-            self.logger.trace('ProcessStatus.update_info: namespec={} - updating info[{}]={} with payload={}'
-                              .format(self.namespec, node_name, info, payload))
+            self.logger.trace(f'ProcessStatus.update_info: namespec={self.namespec} - updating info[{node_name}]={info}'
+                              ' with payload={payload}')
             info['local_time'] = self.last_event_time
             info.update(payload)
             # re-evaluate description using Supervisor function
@@ -466,14 +473,14 @@ class ProcessStatus(object):
             if self.forced_state is not None:
                 self.forced_state = None
                 self.forced_reason = None
-                self.logger.debug('ProcessStatus.update_info: namespec={} - forced_state unset'.format(self.namespec))
+                self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - forced_state unset')
             # update / check running addresses
             self.update_status(node_name, new_state)
-            self.logger.debug('ProcessStatus.update_info: namespec={} - new info[{}]={}'
-                              .format(self.namespec, node_name, info))
+            self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} '
+                              '- new info[{node_name}]={info}')
         else:
-            self.logger.warn('ProcessStatus.update_info: namespec={} - ProcessEvent rejected. Tick expected from {}'
-                             .format(self.namespec, node_name))
+            self.logger.warn(f'ProcessStatus.update_info: namespec={self.namespec} - ProcessEvent rejected.'
+                             ' Tick expected from {node_name}')
 
     def update_times(self, address: str, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
@@ -505,8 +512,8 @@ class ProcessStatus(object):
         :param node_name: the node from which no more information is received
         :return: True if process not running anywhere anymore
         """
-        self.logger.debug('ProcessStatus.invalidate_node: namespec={} - node_name={} invalidated'
-                          .format(self.namespec, node_name))
+        self.logger.debug(f'ProcessStatus.invalidate_node: namespec={self.namespec} '
+                          '- node_name={node_name} invalidated')
         failure = False
         if node_name in self.running_nodes:
             # update process status with a FATAL payload

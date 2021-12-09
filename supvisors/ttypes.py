@@ -18,7 +18,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List, Set, TypeVar
 
 from supervisor.events import Event
 
@@ -106,3 +106,4 @@ EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
+NameSet = Set[str]

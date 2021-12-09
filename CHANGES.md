@@ -15,6 +15,8 @@
 
 * Fix issue in statistics compiler when network interfaces are dynamically created / removed.
 
+* When a node is invalidated, check the impact on the jobs in progress in `Starter` / `Stopper`.
+
 * The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
   The option `rules_file` is thus obsolete and will be removed in next version.
 

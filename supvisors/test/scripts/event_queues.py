@@ -20,7 +20,7 @@
 from time import time
 from queue import Empty, Queue
 
-from supvisors.client.subscriber import SupvisorsEventInterface, create_logger
+from supvisors.client.subscriber import SupvisorsEventInterface
 
 
 class SupvisorsEventQueues(SupvisorsEventInterface):
