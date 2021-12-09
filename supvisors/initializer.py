@@ -61,8 +61,9 @@ class Supvisors(object):
         self.address_mapper = AddressMapper(self.logger)
         self.address_mapper.node_names = self.options.node_list
         if not self.address_mapper.local_node_name:
-            raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local node is expected in node list: {}'.format(self.options.node_list))
+            message = f'local node is expected in node list: {self.options.node_list}'
+            self.logger.critical(f'Supvisors: {message}')
+            raise RPCError(Faults.SUPVISORS_CONF_ERROR, message)
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -78,12 +79,12 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('Supvisors: cannot parse rules files: {} - {}'.format(self.options.rules_files, exc))
+            self.logger.warn(f'Supvisors: cannot parse rules files: {self.options.rules_files} - {exc}')
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
 
-    def create_logger(self, supervisor):
+    def create_logger(self, supervisor: Supervisor) -> Logger:
         """ Create the logger that will be used in Supvisors.
         If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
         Else Supvisors will log in the file defined in option.
