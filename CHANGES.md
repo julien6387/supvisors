@@ -41,6 +41,8 @@
 
 * Add node time to the node boxes in the Main page of the Web UI.
 
+* Sort alphabetically the entries of the application menu of the Web UI.
+
 * Update the mouse pointer look on nodes in the Main and Host pages of the Web UI.
 
 * Remove the useless timecode in the header of the Process and Host pages of the Web UI as it is now provided

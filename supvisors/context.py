@@ -132,7 +132,10 @@ class Context(object):
 
     # methods on applications / processes
     def get_managed_applications(self) -> Dict[str, ApplicationStatus]:
-        """ Return the managed applications (defined in rules file). """
+        """ Get the managed applications (defined in rules file).
+
+        :return: the managed applications
+        """
         return {application_name: application for application_name, application in self.applications.items()
                 if application.rules.managed}
 
