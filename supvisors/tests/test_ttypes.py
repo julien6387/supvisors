@@ -27,51 +27,51 @@ from supvisors.ttypes import *
 def test_AddressStates():
     """ Test the AddressStates enumeration. """
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
-    assert AddressStates._member_names_ == expected
-    assert list(AddressStates._value2member_map_.keys()) == list(range(6))
+    assert enum_names(AddressStates) == expected
+    assert enum_values(AddressStates) == list(range(6))
 
 
 def test_ApplicationStates():
     """ Test the ApplicationStates enumeration. """
     expected = ['STOPPED', 'STARTING', 'RUNNING', 'STOPPING']
-    assert expected == ApplicationStates._member_names_
-    assert list(ApplicationStates._value2member_map_.keys()) == list(range(4))
+    assert enum_names(ApplicationStates) == expected
+    assert enum_values(ApplicationStates) == list(range(4))
 
 
 def test_StartingStrategies():
     """ Test the StartingStrategies enumeration. """
     expected = ['CONFIG', 'LESS_LOADED', 'MOST_LOADED', 'LOCAL']
-    assert StartingStrategies._member_names_ == expected
-    assert list(StartingStrategies._value2member_map_.keys()) == list(range(4))
+    assert enum_names(StartingStrategies) == expected
+    assert enum_values(StartingStrategies) == list(range(4))
 
 
 def test_ConciliationStrategies():
     """ Test the ConciliationStrategies enumeration. """
     expected = ['SENICIDE', 'INFANTICIDE', 'USER', 'STOP', 'RESTART', 'RUNNING_FAILURE']
-    assert ConciliationStrategies._member_names_ == expected
-    assert list(ConciliationStrategies._value2member_map_.keys()) == list(range(6))
+    assert enum_names(ConciliationStrategies) == expected
+    assert enum_values(ConciliationStrategies) == list(range(6))
 
 
 def test_StartingFailureStrategies():
     """ Test the StartingFailureStrategies enumeration. """
     expected = ['ABORT', 'STOP', 'CONTINUE']
-    assert StartingFailureStrategies._member_names_ == expected
-    assert list(StartingFailureStrategies._value2member_map_.keys()) == list(range(3))
+    assert enum_names(StartingFailureStrategies) == expected
+    assert enum_values(StartingFailureStrategies) == list(range(3))
 
 
 def test_RunningFailureStrategies():
     """ Test the RunningFailureStrategies enumeration. """
     expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION']
-    assert RunningFailureStrategies._member_names_ == expected
-    assert list(RunningFailureStrategies._value2member_map_.keys()) == list(range(4))
+    assert enum_names(RunningFailureStrategies) == expected
+    assert enum_values(RunningFailureStrategies) == list(range(4))
 
 
 def test_SupvisorsStates():
     """ Test the SupvisorsStates enumeration. """
     expected = ['INITIALIZATION', 'DEPLOYMENT', 'OPERATION', 'CONCILIATION', 'RESTARTING',
                 'SHUTTING_DOWN', 'SHUTDOWN']
-    assert SupvisorsStates._member_names_ == expected
-    assert list(SupvisorsStates._value2member_map_.keys()) == list(range(7))
+    assert enum_names(SupvisorsStates) == expected
+    assert enum_values(SupvisorsStates) == list(range(7))
 
 
 def test_exception():
@@ -85,8 +85,8 @@ def test_exception():
 def test_SupvisorsFaults():
     """ Test the SupvisorsFaults enumeration. """
     expected = ['SUPVISORS_CONF_ERROR', 'BAD_SUPVISORS_STATE', 'NOT_MANAGED']
-    assert SupvisorsFaults._member_names_ == expected
-    assert list(SupvisorsFaults._value2member_map_.keys()) == list(range(100, 103))
+    assert enum_names(SupvisorsFaults) == expected
+    assert enum_values(SupvisorsFaults) == list(range(100, 103))
 
 
 def test_process_event():

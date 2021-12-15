@@ -30,7 +30,7 @@ from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import conciliate_conflicts
 from .ttypes import (ApplicationStates, ConciliationStrategies, StartingStrategies, SupvisorsStates,
-                     SupvisorsFaults, EnumClassType, EnumType)
+                     SupvisorsFaults, enum_values, enum_names, EnumClassType, EnumType)
 from .utils import extract_process_info
 
 
@@ -367,29 +367,40 @@ class RPCInterface(object):
 
         *@return* ``bool``: always ``True`` unless error.
         """
+        self.logger.trace(f'RPCInterface.restart_application: strategy={strategy} application={application_name}'
+                          ' wait={wait}')
         self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
+        # check application name
+        application = self._get_application(application_name)
+        # restart the application
+        done = self.supvisors.stopper.restart_application(strategy_enum, application)
+        if done:
+            self.logger.error(f'RPCInterface.restart_application: failed restarting {application_name}')
+            raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed restarting {application_name}')
+        # theoretically, wait until application is stopped then running
+        # in practice, just check stopper and start activity, even if not fully related to this call
+        if wait:
+            def onwait():
+                # stopping phase
+                if onwait.waitstop:
+                    if not self.supvisors.stopper.in_progress():
+                        self.logger.debug(f'RPCInterface.restart_application: stopping {application_name} completed')
+                        onwait.waitstop = False
+                    return NOT_DONE_YET
+                # starting phase
+                if self.supvisors.starter.in_progress():
+                    return NOT_DONE_YET
+                self.logger.debug(f'RPCInterface.restart_application: starting {application_name} completed')
+                if application.stopped():
+                    self.logger.error(f'RPCInterface.restart_application: {application_name} still stopped')
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed to restart {application_name}')
+                return True
 
-        def onwait():
-            # first wait for application to be stopped
-            if onwait.waitstop:
-                # job may be a boolean value if stop_application has nothing to do
-                value = type(onwait.job) is bool or onwait.job()
-                if value is True:
-                    # done. request start application
-                    onwait.waitstop = False
-                    value = self.start_application(strategy, application_name, wait)
-                    if type(value) is bool:
-                        return value
-                    # deferred job to wait for application to be started
-                    onwait.job = value
-                return NOT_DONE_YET
-            return onwait.job()
-
-        onwait.delay = 0.5
-        onwait.waitstop = True
-        # request stop application. job is for deferred result
-        onwait.job = self.stop_application(application_name, True)
-        return onwait  # deferred
+            onwait.delay = 0.5
+            onwait.waitstop = True
+            return onwait  # deferred
+        return True
 
     def start_args(self, namespec, extra_args='', wait=True):
         """ Start a process on the local node.
@@ -515,71 +526,97 @@ class RPCInterface(object):
         # stop all processes
         done = True
         for process in processes:
-            self.logger.info('RPCInterface.stop_process: stopping process {}'.format(process.namespec))
+            self.logger.debug(f'RPCInterface.stop_process: stopping process={process.namespec}')
             done &= self.supvisors.stopper.stop_process(process)
         # if already done, that would mean nothing was running
         if done:
+            self.logger.error(f'RPCInterface.stop_process: failed stopping {namespec}')
             raise RPCError(Faults.NOT_RUNNING, namespec)
-        # wait until processes are in STOPPED_STATES
+        # theoretically, wait until processes are stopped
+        # in practice, just check stopper, even if not fully related to this call
         if wait:
             def onwait():
                 # check stopper
                 if self.supvisors.stopper.in_progress():
                     return NOT_DONE_YET
+                self.logger.debug(f'RPCInterface.stop_process: stopping {namespec} completed')
+                proc_errors = []
                 for proc in processes:
                     if proc.running():
-                        raise RPCError(Faults.ABNORMAL_TERMINATION, proc.namespec)
+                        self.logger.error(f'RPCInterface.stop_process: process={proc.namespec} still running')
+                        proc_errors.append(proc.namespec)
+                if proc_errors:
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
                 return True
 
             onwait.delay = 0.5
             return onwait  # deferred
         return True
 
-    def restart_process(self, strategy: EnumParameterType, namespec, extra_args='', wait=True):
-        """ Restart a process named namespec iaw the strategy and some of the rules defined in the rules file.
+    def restart_process(self, strategy: EnumParameterType, namespec: str, extra_args: str = '', wait: bool = True):
+        """ Restart the process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
         *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
-        *@param* ``str extra_args``: extra arguments to be passed to command line. If None, use the arguments passed
-        with the last call.
+        *@param* ``str extra_args``: extra arguments to be passed to the command line.
+        If None, use the arguments passed with the last call.
 
-        *@param* ``bool wait``: wait for process to be fully stopped.
+        *@param* ``bool wait``: wait for process to be fully restarted.
 
         *@throws* ``RPCError``:
 
             * with code ``SupvisorsFaults.BAD_SUPVISORS_STATE`` if **Supvisors** is not in state ``OPERATION``,
             * with code ``Faults.INCORRECT_PARAMETERS`` if strategy is unknown to **Supvisors**,
             * with code ``Faults.BAD_NAME`` if namespec is unknown to **Supvisors**,
-            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be started.
+            * with code ``Faults.ABNORMAL_TERMINATION`` if process could not be restarted.
 
         *@return* ``bool``: always ``True`` unless error.
         """
+        self.logger.trace(f'RPCInterface.restart_process: strategy={strategy} process={namespec} args={extra_args}'
+                          ' wait={wait}')
         self._check_operating()
+        strategy_enum = self._get_starting_strategy(strategy)
+        # check namespec
+        application, process = self._get_application_process(namespec)
+        processes = [process] if process else application.processes.values()
+        # restart all processes
+        done = True
+        for process in processes:
+            self.logger.debug(f'RPCInterface.restart_process: restarting process={process.namespec}')
+            done &= self.supvisors.stopper.restart_process(strategy_enum, process, extra_args)
+        if done:
+            self.logger.error(f'RPCInterface.restart_process: failed restarting {namespec}')
+            raise RPCError(Faults.ABNORMAL_TERMINATION, f'failed restarting {namespec}')
+        # theoretically, wait until processes are stopped then running
+        # in practice, just check stopper and start activity, even if not fully related to this call
+        if wait:
+            def onwait():
+                # stopping phase
+                if onwait.waitstop:
+                    if not self.supvisors.stopper.in_progress():
+                        self.logger.debug(f'RPCInterface.restart_process: stopping {namespec} completed')
+                        onwait.waitstop = False
+                    return NOT_DONE_YET
+                # starting phase
+                if self.supvisors.starter.in_progress():
+                    return NOT_DONE_YET
+                self.logger.debug(f'RPCInterface.restart_process: starting {namespec} completed')
+                proc_errors = []
+                for proc in processes:
+                    if proc.stopped():
+                        self.logger.error(f'RPCInterface.restart_process: process={proc.namespec} still stopped')
+                        proc_errors.append(proc.namespec)
+                if proc_errors:
+                    raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
+                return True
 
-        def onwait():
-            # first wait for process to be stopped
-            if onwait.waitstop:
-                # job may be a boolean value if stop_process has nothing to do
-                value = type(onwait.job) is bool or onwait.job()
-                if value is True:
-                    # done. request start application
-                    onwait.waitstop = False
-                    value = self.start_process(strategy, namespec, extra_args, wait)
-                    if type(value) is bool:
-                        return value
-                    # deferred job to wait for application to be started
-                    onwait.job = value
-                return NOT_DONE_YET
-            return onwait.job()
-
-        onwait.delay = 0.5
-        onwait.waitstop = True
-        # request stop process. job is for deferred result
-        onwait.job = self.stop_process(namespec, True)
-        return onwait  # deferred
+            onwait.delay = 0.5
+            onwait.waitstop = True
+            return onwait  # deferred
+        return True
 
     def update_numprocs(self, program_name: str, numprocs: int):
         """ Update dynamically the numprocs of the program.
@@ -601,29 +638,32 @@ class RPCInterface(object):
         self._check_operating()
         # test that program_name is known to the ServerOptions
         if program_name not in self.supvisors.server_options.process_groups:
-            raise RPCError(Faults.BAD_NAME, 'program {} unknown to Supvisors'.format(program_name))
+            self.logger.error(f'RPCInterface.update_numprocs: program={program_name} unknown')
+            raise RPCError(Faults.BAD_NAME, f'program {program_name} unknown to Supvisors')
         # test that numprocs is strictly positive
         try:
             value = int(numprocs)
             assert value > 0
         except (ValueError, AssertionError):
+            self.logger.error(f'RPCInterface.update_numprocs: program={program_name} incorrect numprocs={numprocs}')
             raise RPCError(Faults.INCORRECT_PARAMETERS,
-                           'incorrect value for numprocs: {} (integer > 0 expected)'.format(numprocs))
+                           f'incorrect value for numprocs: {numprocs} (integer > 0 expected)')
         try:
             del_namespecs = self.supvisors.info_source.update_numprocs(program_name, value)
         except ValueError as exc:
-            raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, 'numprocs not applicable: {}'.format(exc))
+            self.logger.error(f'RPCInterface.update_numprocs: numprocs invalid to program={program_name}')
+            raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, f'numprocs not applicable: {exc}')
         # if the value is greater than the current one, the job is done
         if not del_namespecs:
             return True
         # if the value is lower than the current one, processes must be stopped before they are deleted
         done = True
-        self.logger.info('RPCInterface.update_numprocs: obsolete processes={}'.format(del_namespecs))
+        self.logger.info(f'RPCInterface.update_numprocs: obsolete processes={del_namespecs}')
         processes_to_stop = list(filter(ProcessStatus.running,
                                         [self._get_application_process(del_namespec)[1]
                                          for del_namespec in del_namespecs]))
         for process in processes_to_stop:
-            self.logger.info('RPCInterface.update_numprocs: stopping process {}'.format(process.namespec))
+            self.logger.debug(f'RPCInterface.update_numprocs: stopping process={process.namespec}')
             done &= self.supvisors.stopper.stop_process(process)
         if done:
             self.supvisors.info_source.delete_processes(del_namespecs)
@@ -661,7 +701,7 @@ class RPCInterface(object):
         self._check_conciliation()
         strategy_enum = self._get_conciliation_strategy(strategy)
         # trigger conciliation
-        if strategy != ConciliationStrategies.USER:
+        if strategy_enum != ConciliationStrategies.USER:
             conciliate_conflicts(self.supvisors, strategy_enum, self.supvisors.context.conflicts())
             return True
         return False
@@ -738,45 +778,71 @@ class RPCInterface(object):
         return True
 
     # utilities
-    @staticmethod
-    def _get_starting_strategy(strategy: EnumParameterType) -> StartingStrategies:
+    def _get_starting_strategy(self, strategy: EnumParameterType) -> StartingStrategies:
         """ Check if the strategy given can fit to a StartingStrategies enum. """
-        return RPCInterface._get_strategy(strategy, StartingStrategies)
+        return self._get_strategy(strategy, StartingStrategies)
 
-    @staticmethod
-    def _get_conciliation_strategy(strategy: EnumParameterType) -> ConciliationStrategies:
+    def _get_conciliation_strategy(self, strategy: EnumParameterType) -> ConciliationStrategies:
         """ Check if the strategy given can fit to a ConciliationStrategies enum. """
-        return RPCInterface._get_strategy(strategy, ConciliationStrategies)
+        return self._get_strategy(strategy, ConciliationStrategies)
 
-    @staticmethod
-    def _get_strategy(strategy: EnumParameterType, enum_klass: EnumClassType) -> EnumType:
+    def _get_strategy(self, strategy: EnumParameterType, enum_klass: EnumClassType) -> EnumType:
         """ Check if the strategy given can fit to string or value of the StartingStrategies enum. """
         # check by string
-        try:
-            return enum_klass[strategy]
-        except KeyError:
-            # check by value
+        if type(strategy) is str:
+            try:
+                return enum_klass[strategy]
+            except KeyError:
+                self.logger.error(f'RPCInterface._get_strategy: invalid string for {enum_klass} ({strategy})')
+                raise RPCError(Faults.INCORRECT_PARAMETERS,
+                               f'invalid {enum_klass}: {strategy} (string expected in {enum_names(enum_klass)})')
+        # check by value
+        if type(strategy) is int:
             try:
                 return enum_klass(strategy)
             except ValueError:
-                raise RPCError(Faults.INCORRECT_PARAMETERS, 'incorrect strategy: {}'.format(strategy))
+                self.logger.error(f'RPCInterface._get_strategy: invalid integer for {enum_klass} ({strategy})')
+                raise RPCError(Faults.INCORRECT_PARAMETERS,
+                               f'incorrect strategy: {strategy} (integer expected in {enum_values(enum_klass)}')
+        # other types are wrong
+        self.logger.error(f'RPCInterface._get_strategy: invalid {enum_klass} ({strategy})')
+        raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid {enum_klass}: {strategy} (string or integer expected)')
 
     @staticmethod
-    def _get_logger_levels() -> Dict[LevelsByName, str]:
+    def get_logger_levels() -> Dict[LevelsByName, str]:
+        """ Return a dictionary of Supervisor Logger levels.
+
+        :return: the Supervisor Logger levels
+        """
         return {level: desc for desc, level in LevelsByDescription.__dict__.items() if not desc.startswith('_')}
 
-    @staticmethod
-    def _get_logger_level(level_param: EnumParameterType) -> EnumType:
-        """ Check if the strategy given can fit to string or value of the StartingStrategies enum. """
+    def _get_logger_level(self, level_param: EnumParameterType) -> int:
+        """ Check if the logger level fits to Supervisor Logger levels.
+        The function returns a Logger level as defined in the LevelsByName class of the module ``supervisor.loggers``.
+
+        :param level_param: the logger level to be checked, as string or integer
+        :return: the checked logger level as integer
+        """
         # check by string
         if type(level_param) is str:
             level = getLevelNumByDescription(level_param)
-            if level is not None:
-                return level
-        # check by value
-        if RPCInterface._get_logger_levels().get(level_param) is None:
-            raise RPCError(Faults.INCORRECT_PARAMETERS, '{}'.format(level_param))
-        return level_param
+            if level is None:
+                self.logger.error(f'RPCInterface._get_logger_level: invalid string for logger level={level_param}')
+                values = list(RPCInterface.get_logger_levels().values())
+                raise RPCError(Faults.INCORRECT_PARAMETERS,
+                               f'invalid logger level: {level_param} (string expected in {values})')
+            return level
+        # check by integer
+        if type(level_param) is int:
+            if level_param not in RPCInterface.get_logger_levels():
+                self.logger.error(f'RPCInterface._get_logger_level: invalid integer logger level={level_param}')
+                values = list(RPCInterface.get_logger_levels().keys())
+                raise RPCError(Faults.INCORRECT_PARAMETERS,
+                               f'invalid logger level: {level_param} (integer expected in {values})')
+            return level_param
+        # other types are wrong
+        self.logger.error(f'RPCInterface._get_logger_level: invalid logger level={level_param}')
+        raise RPCError(Faults.INCORRECT_PARAMETERS, f'invalid logger level: {level_param} (string or integer expected)')
 
     def _check_from_deployment(self) -> None:
         """ Raises a SupvisorsFaults.BAD_SUPVISORS_STATE exception if Supvisors' state is in INITIALIZATION. """
@@ -818,7 +884,8 @@ class RPCInterface(object):
         try:
             return self.supvisors.context.applications[application_name]
         except KeyError:
-            raise RPCError(Faults.BAD_NAME, 'application {} unknown to Supvisors'.format(application_name))
+            self.logger.error(f'RPCInterface._get_application: unknown application={application_name}')
+            raise RPCError(Faults.BAD_NAME, f'application {application_name} unknown to Supvisors')
 
     @staticmethod
     def _get_process(application: ApplicationStatus, process_name: str):

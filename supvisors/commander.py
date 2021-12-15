@@ -19,13 +19,13 @@
 
 import time
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 from supervisor.childutils import get_asctime
 from supervisor.states import ProcessStates
 
 from .application import ApplicationStatus
-from .process import ProcessRules, ProcessStatus
+from .process import ProcessStatus
 from .strategy import get_node, LoadRequestMap
 from .ttypes import NameList, Payload, StartingStrategies, StartingFailureStrategies
 
@@ -202,17 +202,17 @@ class Commander(object):
 
         :return: None
         """
-        self.logger.info('Commander.trigger_jobs: planned_sequence={}'.format(self.printable_planned_sequence()))
+        self.logger.debug(f'Commander.trigger_jobs: planned_sequence={self.printable_planned_sequence()}')
         # pop lower sequence from planned_sequence
         while self.planned_sequence and not self.planned_jobs and not self.current_jobs:
             sequence = self.pickup_logic(self.planned_sequence.keys())
             self.planned_jobs = self.planned_sequence.pop(sequence)
-            self.logger.debug('Commander.trigger_jobs: sequence={} planned_jobs={}'
-                              .format(sequence, self.printable_planned_jobs()))
+            self.logger.trace(f'Commander.trigger_jobs: sequence={sequence}'
+                              ' planned_jobs={self.printable_planned_jobs()}')
             # iterate on copy to avoid problems with key deletions
             for application_name in list(self.planned_jobs.keys()):
-                self.logger.info('Commander.trigger_jobs: triggering sequence {} - application_name={}'
-                                 .format(sequence, application_name))
+                self.logger.debug(f'Commander.trigger_jobs: triggering sequence={sequence}'
+                                  ' - application={application_name}')
                 self.prepare_application_jobs(application_name)
                 self.process_application_jobs(application_name)
 
@@ -357,9 +357,9 @@ class Commander(object):
             if not jobs:
                 self.after_event(application_name)
         # don't trigger an automatic behaviour on processes in failure when jobs are already planned
-        self.clear_process_failures(process_failures)
+        self._clear_process_failures(process_failures)
 
-    def clear_process_failures(self, process_failures: Set[ProcessStatus]) -> None:
+    def _clear_process_failures(self, process_failures: Set[ProcessStatus]) -> None:
         """ Clear the processes from process_failures if their starting or stopping is planned.
         An additional automatic behaviour on the same entity may not be suitable or even consistent.
 
@@ -376,14 +376,14 @@ class Commander(object):
         """
         for process in list(process_failures):
             # clear process failure if the process is included in the planned jobs in progress
-            self.clear_process_failure(process, self.planned_jobs, process_failures)
+            self._clear_process_failure(process, self.planned_jobs, process_failures)
             # clear process failure if the process is included in the planned sequence
             for planned_jobs in self.planned_sequence.values():
-                self.clear_process_failure(process, planned_jobs, process_failures)
+                self._clear_process_failure(process, planned_jobs, process_failures)
 
     @staticmethod
-    def clear_process_failure(process: ProcessStatus, planned_jobs: PlannedJobs,
-                              process_failures: Set[ProcessStatus]) -> None:
+    def _clear_process_failure(process: ProcessStatus, planned_jobs: PlannedJobs,
+                               process_failures: Set[ProcessStatus]) -> None:
         """ Clear the process from process_failures if its starting or stopping is planned.
 
         :param process: the process declared in failure
@@ -412,9 +412,8 @@ class Commander(object):
         if application_name in self.planned_jobs:
             self.process_application_jobs(application_name)
         else:
-            # nothing left for this application
-            self.logger.info('Commander.after_event: application={} - planned jobs completed'
-                             .format(application_name))
+            # nothing left for this application. check if there's any pending request on this application
+            self.logger.debug(f'Commander.after_event: application={application_name} - planned jobs completed')
             self.after_jobs(application_name)
             # check if there are planned jobs
             if not self.planned_jobs:
@@ -520,8 +519,7 @@ class Starter(Commander):
         :param extra_args: the arguments to be added to the command line
         :return: True if no job has been queued.
         """
-        self.logger.info('Starter.start_process: start process {} using strategy {}'
-                         .format(process.namespec, strategy.name))
+        self.logger.info('Starter.start_process: start process {process.namespec} using strategy {strategy.name}')
         # store extra arguments to be passed to the command line
         command = ProcessCommand(process, strategy)
         command.extra_args = extra_args
@@ -756,10 +754,11 @@ class Starter(Commander):
         :param application_name: the application name
         :return: None
         """
-        application = self.supvisors.context.applications[application_name]
         if application_name in self.application_stop_requests:
-            self.logger.warn('Starter.after_jobs: apply pending stop application={}'.format(application_name))
+            self.logger.warn(f'Starter.after_jobs: apply pending stop application={application_name}')
             self.application_stop_requests.remove(application_name)
+            # trigger application stop
+            application = self.supvisors.context.applications[application_name]
             self.supvisors.stopper.stop_application(application)
 
     def get_load_requests(self) -> LoadRequestMap:
@@ -790,6 +789,10 @@ class Starter(Commander):
 class Stopper(Commander):
     """ Class handling the stopping of processes and applications. """
 
+    # Annotation types
+    StartApplicationParameters = Tuple[StartingStrategies, ApplicationStatus]
+    StartProcessParameters = Tuple[StartingStrategies, ProcessStatus, str]  # str is for extra args
+
     def __init__(self, supvisors: Any) -> None:
         """ Initialization of the attributes.
 
@@ -798,6 +801,9 @@ class Stopper(Commander):
         super().__init__(supvisors)
         # pick jobs from the planned sequence using the greatest sequence number
         self.pickup_logic = max
+        # attributes
+        self.application_start_requests: Dict[str, Stopper.StartApplicationParameters] = {}
+        self.process_start_requests: Dict[str, List[Stopper.StartProcessParameters]] = {}
 
     def stop_applications(self):
         """ Plan and start the necessary jobs to stop all the applications having a stop_sequence. """
@@ -826,9 +832,30 @@ class Stopper(Commander):
         # return True when no job in progress
         return not self.in_progress()
 
-    def stop_process(self, process):
-        """ Plan and start the necessary job to stop the process in parameter.
-        Return False when stopping not completed. """
+    def restart_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> bool:
+        """ Plan and trigger the necessary jobs to restart the application in parameter.
+        The application start is deferred until the application has been stopped.
+
+        :param strategy: the strategy used to choose a node
+        :param application: the application to restart
+        :return: False when restart is in progress (application is either stopping or starting)
+        """
+        stopped = self.stop_application(application)
+        if stopped:
+            # application is already stopped. Trigger starting immediately
+            self.logger.debug(f'Stopper.restart_application: application={application.application_name} stopped.'
+                              ' start immediately')
+            return self.supvisors.starter.start_application(strategy, application)
+        # application is stopping. defer start until fully stopped
+        self.application_start_requests[application.application_name] = (strategy, application)
+        return False
+
+    def stop_process(self, process: ProcessStatus) -> bool:
+        """ Plan and trigger the necessary job to stop the process in parameter.
+
+        :param process: the process to stop
+        :return: True when already stopped / False when stopping is in progress
+        """
         self.logger.info('Stopper.stop_process: stop process {}'.format(process.namespec))
         # push program list in current jobs list and start work
         job = self.current_jobs.setdefault(process.application_name, [])
@@ -839,6 +866,26 @@ class Stopper(Commander):
             del self.current_jobs[process.application_name]
         # return True when stopped
         return not stopping
+
+    def restart_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str) -> bool:
+        """ Plan and trigger the necessary jobs to restart the process in parameter.
+        The process start is deferred until the process has been stopped.
+        The method should return False, unless the process is already stopped and no node was found to start it.
+
+        :param strategy: the strategy used to choose a node
+        :param process: the process to restart
+        :param extra_args: extra arguments to be passed to the command line
+        :return: False when restart is in progress (process is either stopping or starting)
+        """
+        stopped = self.stop_process(process)
+        if stopped:
+            # process is already stopped. Trigger starting immediately
+            self.logger.debug(f'Stopper.restart_process: process={process.namespec} stopped. start immediately')
+            return self.supvisors.starter.start_process(strategy, process, extra_args)
+        # process is stopping. defer start until fully stopped
+        process_list = self.process_start_requests.setdefault(process.application_name, [])
+        process_list.append((strategy, process, extra_args))
+        return False
 
     def store_application_stop_sequence(self, application):
         """ Schedules the application processes to stop. """
@@ -895,10 +942,25 @@ class Stopper(Commander):
                     self.after_event(process.application_name)
 
     def after_jobs(self, application_name: str) -> None:
-        """ Unset the application start failure.
+        """ Once an application has been properly stopped, unset the application start failure.
+        Trigger any pending application / process start once all stopper jobs are completed.
 
         :param application_name: the application name
         :return: None
         """
+        self.logger.warn(f'Stopper.after_jobs: application={application_name}')
+        # unset the application start failure
         application = self.supvisors.context.applications[application_name]
         application.start_failure = False
+        # trigger pending application start requests
+        appli_parameters = self.application_start_requests.pop(application_name, None)
+        if appli_parameters is not None:
+            strategy, application = appli_parameters
+            self.logger.debug(f'Stopper.after_jobs: apply pending start application={application.application_name}')
+            self.supvisors.starter.start_application(strategy, application)
+        # trigger pending process start requests
+        process_list = self.process_start_requests.pop(application_name, None)
+        if process_list is not None:
+            for strategy, process, extra_args in process_list:
+                self.logger.debug(f'Stopper.after_jobs: apply pending start process={process.namespec}')
+                self.supvisors.starter.start_process(strategy, process, extra_args)

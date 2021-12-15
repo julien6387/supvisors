@@ -22,6 +22,8 @@
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
+* Update the `restart_application` and `restart_process` XML-RPC so that processes can restart themselves using them.
+
 * Add `expected_exit` to the output of `supervisorctl sstatus` when the process is `EXITED`.
 
 * Add the new option `stats_enabled` to enable/disable the statistics function.

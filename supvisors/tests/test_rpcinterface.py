@@ -257,7 +257,7 @@ def test_start_application(mocker, rpc):
     # test RPC call with unknown strategy
     with pytest.raises(RPCError) as exc:
         rpc.start_application('strategy', 'appli')
-    assert exc.value.args == (Faults.INCORRECT_PARAMETERS, 'incorrect strategy: strategy')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
     assert mocked_check.call_args_list == [call()]
     assert mocked_start.call_count == 0
     assert mocked_start.call_count == 0
@@ -432,65 +432,48 @@ def test_stop_application(mocker, rpc):
     mocked_progress.reset_mock()
 
 
-def test_restart_application(mocker, rpc):
-    """ Test the restart_application RPC. """
+def test_restart_application_done(mocker, rpc):
+    """ Test the RPCInterface.restart_application RPC when no job has been queued. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_start = mocker.patch('supvisors.rpcinterface.RPCInterface.start_application')
-    mocked_stop = mocker.patch('supvisors.rpcinterface.RPCInterface.stop_application')
-    # test RPC call with sub-RPC calls return a direct result
-    mocked_stop.return_value = True
-    mocked_start.return_value = False
-    deferred = rpc.restart_application(0, 'appli', 'wait')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_application', return_value=True)
+    application = Mock()
+    mocker.patch.object(rpc, '_get_application', return_value=application)
+    # wait parameter doesn't matter
+    for wait in [True, False]:
+        with pytest.raises(RPCError) as exc:
+            rpc.restart_application(0, 'appli_1', wait)
+        assert exc.value.args == (Faults.ABNORMAL_TERMINATION, 'failed restarting appli_1')
+        assert mocked_check.call_args_list == [call()]
+        assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, application)]
+        mocker.resetall()
+
+
+def test_restart_application_no_wait(mocker, rpc):
+    """ Test the RPCInterface.restart_application RPC when jobs have been queued but result is not requested. """
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_application', return_value=False)
+    application = Mock()
+    mocker.patch.object(rpc, '_get_application', return_value=application)
+    # test with application
+    result = rpc.restart_application(0, 'appli_1', False)
+    assert type(result) is bool
+    assert result
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call('appli', True)]
-    assert mocked_start.call_count == 0
-    mocked_stop.reset_mock()
-    mocked_check.reset_mock()
-    # result is a function
-    assert callable(deferred)
-    assert deferred.waitstop
-    # test this function
-    assert not deferred()
-    assert not deferred.waitstop
-    assert mocked_stop.call_count == 0
-    assert mocked_start.call_args_list == [call(0, 'appli', 'wait')]
-    mocked_start.reset_mock()
-    # test RPC call with sub_RPC calls returning jobs
-    # test with mocking functions telling that the jobs are not completed
-    mocked_stop_job = Mock(return_value=False)
-    mocked_start_job = Mock(return_value=False)
-    mocked_stop.return_value = mocked_stop_job
-    mocked_start.return_value = mocked_start_job
-    deferred = rpc.restart_application(0, 'appli', 'wait')
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, application)]
+
+
+def test_restart_application_wait(mocker, rpc):
+    """ Test the RPCInterface.restart_application RPC when jobs have been queued and result is requested. """
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_application', return_value=False)
+    application = Mock(**{'stopped.return_value': False})
+    mocker.patch.object(rpc, '_get_application', return_value=application)
+    # test with single process
+    result = rpc.restart_application(0, 'appli_1', True)
+    assert callable(result)
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call('appli', True)]
-    assert mocked_start.call_count == 0
-    mocked_stop.reset_mock()
-    # result is a function for deferred result
-    assert callable(deferred)
-    assert deferred.waitstop
-    # first call to this function tells that job is still in progress
-    assert mocked_stop_job.call_count == 0
-    assert mocked_start_job.call_count == 0
-    assert deferred() == NOT_DONE_YET
-    assert mocked_stop.call_count == 0
-    assert mocked_start.call_count == 0
-    assert mocked_stop_job.call_args_list == [call()]
-    assert mocked_start_job.call_count == 0
-    mocked_stop_job.reset_mock()
-    # replace the stop job with a function telling that the job is completed
-    mocked_stop_job.return_value = True
-    assert deferred() == NOT_DONE_YET
-    assert not deferred.waitstop
-    assert mocked_stop.call_count == 0
-    assert mocked_start.call_args_list == [call(0, 'appli', 'wait')]
-    assert mocked_stop_job.call_args_list == [call()]
-    assert mocked_start_job.call_count == 0
-    mocked_stop_job.reset_mock()
-    # call the deferred function again to check that the start is engaged
-    assert not deferred()
-    assert mocked_start_job.call_args_list == [call()]
-    assert mocked_stop_job.call_count == 0
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, application)]
+    check_restart_deferred_function(mocker, rpc, application, result)
 
 
 def test_start_args(mocker, rpc):
@@ -565,7 +548,7 @@ def test_start_process(mocker, rpc):
     # test RPC call with unknown strategy
     with pytest.raises(RPCError) as exc:
         rpc.start_process('strategy', 'appli:proc')
-    assert exc.value.args == (Faults.INCORRECT_PARAMETERS, 'incorrect strategy: strategy')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
     assert mocked_check.call_args_list == [call()]
     assert mocked_start.call_count == 0
     assert mocked_progress.call_count == 0
@@ -716,65 +699,134 @@ def test_stop_process(mocker, rpc):
     assert mocked_progress.call_args_list == [call()]
 
 
-def test_restart_process(mocker, rpc):
-    """ Test the restart_process RPC. """
+def test_restart_process_done(mocker, rpc):
+    """ Test the restart_process RPC when no job has been queued. """
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
-    mocked_start = mocker.patch('supvisors.rpcinterface.RPCInterface.start_process')
-    mocked_stop = mocker.patch('supvisors.rpcinterface.RPCInterface.stop_process')
-    # test RPC call with sub-RPC calls return a direct result
-    mocked_stop.return_value = True
-    mocked_start.return_value = False
-    deferred = rpc.restart_process(0, 'appli:*', 'arg list', 'wait')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_process', return_value=True)
+    mocked_get = mocker.patch.object(rpc, '_get_application_process')
+    process_1 = Mock(namespec='proc1')
+    process_2 = Mock(namespec='proc2')
+    application = Mock(processes={'proc1': process_1, 'proc2': process_2})
+    # wait parameter doesn't matter
+    for wait in [True, False]:
+        # test with single process
+        mocked_get.return_value = (None, process_1)
+        with pytest.raises(RPCError) as exc:
+            rpc.restart_process(0, 'proc1', 'arg list', wait)
+        assert exc.value.args == (Faults.ABNORMAL_TERMINATION, 'failed restarting proc1')
+        assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list')]
+        assert mocked_check.call_args_list == [call()]
+        mocker.resetall()
+        # test with application
+        mocked_get.return_value = (application, None)
+        with pytest.raises(RPCError) as exc:
+            rpc.restart_process(0, 'proc1', 'arg list', wait)
+        assert exc.value.args == (Faults.ABNORMAL_TERMINATION, 'failed restarting proc1')
+        assert mocked_check.call_args_list == [call()]
+        assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list'),
+                                                 call(StartingStrategies.CONFIG, process_2, 'arg list')]
+        mocker.resetall()
+
+
+def test_restart_process_no_wait(mocker, rpc):
+    """ Test the restart_process RPC when jobs have been queued but result is not requested. """
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_process', return_value=False)
+    mocked_get = mocker.patch.object(rpc, '_get_application_process')
+    process_1 = Mock(namespec='proc1')
+    process_2 = Mock(namespec='proc2')
+    application = Mock(processes={'proc1': process_1, 'proc2': process_2})
+    # test with single process
+    mocked_get.return_value = (None, process_1)
+    result = rpc.restart_process(0, 'proc1', 'arg list', False)
+    assert type(result) is bool
+    assert result
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call('appli:*', True)]
-    assert not mocked_start.called
-    mocked_stop.reset_mock()
-    mocked_check.reset_mock()
-    # result is a function
-    assert callable(deferred)
-    assert deferred.waitstop
-    # test this function
-    assert not deferred()
-    assert not deferred.waitstop
-    assert not mocked_stop.called
-    assert mocked_start.call_args_list == [call(0, 'appli:*', 'arg list', 'wait')]
-    mocked_start.reset_mock()
-    # test RPC call with sub_RPC calls returning jobs
-    # test with mocking functions telling that the jobs are not completed
-    mocked_stop_job = Mock(return_value=False)
-    mocked_start_job = Mock(return_value=False)
-    mocked_stop.return_value = mocked_stop_job
-    mocked_start.return_value = mocked_start_job
-    deferred = rpc.restart_process(0, 'appli:*', '', 'wait')
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list')]
+    mocker.resetall()
+    # test with application
+    mocked_get.return_value = (application, None)
+    result = rpc.restart_process(0, 'proc1', 'arg list', False)
+    assert type(result) is bool
+    assert result
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call('appli:*', True)]
-    assert not mocked_start.called
-    mocked_stop.reset_mock()
-    # result is a function for deferred result
-    assert callable(deferred)
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list'),
+                                             call(StartingStrategies.CONFIG, process_2, 'arg list')]
+
+
+def check_restart_deferred_function(mocker, rpc, app_proc, deferred):
+    """ Check the deferred function provided by the restart_process or the restart_application RPC. """
+    mocked_start_progress = mocker.patch.object(rpc.supvisors.starter, 'in_progress')
+    mocked_stop_progress = mocker.patch.object(rpc.supvisors.stopper, 'in_progress')
+    # in normal case, Stopper is first working, then Starter
+    mocked_start_progress.return_value = False
+    mocked_stop_progress.return_value = True
     assert deferred.waitstop
-    # test this function
-    assert not mocked_stop_job.called
-    assert not mocked_start_job.called
-    assert deferred() == NOT_DONE_YET
-    assert not mocked_stop.called
-    assert not mocked_start.called
-    assert mocked_stop_job.call_args_list == [call()]
-    assert not mocked_start_job.called
-    mocked_stop_job.reset_mock()
-    # replace the stop job with a function telling that the job is completed
-    mocked_stop_job.return_value = True
-    assert deferred() == NOT_DONE_YET
+    # 1st call: Stopper working
+    assert deferred() is NOT_DONE_YET
+    assert deferred.waitstop
+    assert mocked_stop_progress.called
+    assert not mocked_start_progress.called
+    mocked_stop_progress.reset_mock()
+    # 2nd call: Stopper completed / Starter working
+    mocked_start_progress.return_value = True
+    mocked_stop_progress.return_value = False
+    assert deferred() is NOT_DONE_YET
     assert not deferred.waitstop
-    assert not mocked_stop.called
-    assert mocked_start.call_args_list == [call(0, 'appli:*', '', 'wait')]
-    assert mocked_stop_job.call_args_list == [call()]
-    assert not mocked_start_job.called
-    mocked_stop_job.reset_mock()
-    # call the deferred function again to check that the start is engaged
-    assert not deferred()
-    assert mocked_start_job.call_args_list == [call()]
-    assert not mocked_stop_job.called
+    assert mocked_stop_progress.called
+    assert not mocked_start_progress.called
+    mocked_stop_progress.reset_mock()
+    # 3rd call: Starter still working
+    assert deferred() is NOT_DONE_YET
+    assert not deferred.waitstop
+    assert not mocked_stop_progress.called
+    assert mocked_start_progress.called
+    mocked_start_progress.reset_mock()
+    # 4th call: Starter completed. results are evaluated
+    mocked_start_progress.return_value = False
+    # normal case, application or all processes are running
+    assert deferred()
+    assert not deferred.waitstop
+    assert not mocked_stop_progress.called
+    assert mocked_start_progress.called
+    mocked_start_progress.reset_mock()
+    # error case, one process is still stopped
+    # process in parameter is used in both test cases (single process and application)
+    app_proc.stopped.return_value = True
+    with pytest.raises(RPCError) as exc:
+        assert deferred()
+    assert exc.value.args[0] == Faults.ABNORMAL_TERMINATION
+    assert not deferred.waitstop
+    assert not mocked_stop_progress.called
+    assert mocked_start_progress.called
+    # reset stopped for next test case
+    app_proc.stopped.return_value = False
+
+
+def test_restart_process_wait(mocker, rpc):
+    """ Test the restart_process RPC when jobs have been queued and result is requested. """
+    mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating')
+    mocked_restart = mocker.patch.object(rpc.supvisors.stopper, 'restart_process', return_value=False)
+    mocked_get = mocker.patch.object(rpc, '_get_application_process')
+    process_1 = Mock(namespec='proc1', **{'stopped.return_value': False})
+    process_2 = Mock(namespec='proc2', **{'stopped.return_value': False})
+    application = Mock(processes={'proc1': process_1, 'proc2': process_2})
+    # test with single process
+    mocked_get.return_value = (None, process_1)
+    result = rpc.restart_process(0, 'proc1', 'arg list', True)
+    assert callable(result)
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list')]
+    check_restart_deferred_function(mocker, rpc, process_1, result)
+    mocker.resetall()
+    # test with application
+    mocked_get.return_value = (application, None)
+    result = rpc.restart_process(0, 'proc1', 'arg list', True)
+    assert callable(result)
+    assert mocked_check.call_args_list == [call()]
+    assert mocked_restart.call_args_list == [call(StartingStrategies.CONFIG, process_1, 'arg list'),
+                                             call(StartingStrategies.CONFIG, process_2, 'arg list')]
+    check_restart_deferred_function(mocker, rpc, process_1, result)
 
 
 def test_update_numprocs(mocker, rpc):
@@ -894,10 +946,10 @@ def test_conciliate(mocker, rpc):
     with pytest.raises(RPCError) as exc:
         assert rpc.conciliate('a strategy')
     assert mocked_check.call_args_list == [call()]
-    assert exc.value.args == (Faults.INCORRECT_PARAMETERS, 'incorrect strategy: a strategy')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
     mocked_check.reset_mock()
     # test RPC call with USER strategy
-    assert not rpc.conciliate(ConciliationStrategies.USER)
+    assert not rpc.conciliate(ConciliationStrategies.USER.value)
     assert mocked_check.call_args_list == [call()]
     assert not mocked_conciliate.called
     mocked_check.reset_mock()
@@ -962,7 +1014,7 @@ def test_change_log_level(rpc):
     # test RPC call with unknown level
     with pytest.raises(RPCError) as exc:
         rpc.change_log_level(22)
-    assert exc.value.args == (Faults.INCORRECT_PARAMETERS, '22')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
     assert rpc.logger.level == ref_level
     # test RPC call with known level by enum
     for new_level in LOG_LEVELS_BY_NUM:
@@ -970,15 +1022,83 @@ def test_change_log_level(rpc):
         assert rpc.logger.level == new_level
         assert rpc.logger.handlers[0].level == new_level
     # test RPC call with known level by enum
-    for new_level in RPCInterface._get_logger_levels().values():
+    for new_level in RPCInterface.get_logger_levels().values():
         assert rpc.change_log_level(new_level)
         level = getLevelNumByDescription(new_level)
         assert rpc.logger.level == level
         assert rpc.logger.handlers[0].level == level
 
 
+def test_get_logger_levels():
+    """ Test the RPCInterface._get_logger_levels function. """
+    assert RPCInterface.get_logger_levels() == {LevelsByName.BLAT: 'blather', LevelsByName.TRAC: 'trace',
+                                                LevelsByName.DEBG: 'debug', LevelsByName.INFO: 'info',
+                                                LevelsByName.WARN: 'warn', LevelsByName.ERRO: 'error',
+                                                LevelsByName.CRIT: 'critical'}
+
+
+def test_get_logger_level(rpc):
+    """ Test the RPCInterface._get_logger_level method. """
+    # test call using all logger levels as string or integer
+    for int_level, str_level in RPCInterface.get_logger_levels().items():
+        assert rpc._get_logger_level(str_level) == int_level
+        assert rpc._get_logger_level(int_level) == int_level
+    # test with unexpected string
+    with pytest.raises(RPCError) as exc:
+        rpc._get_logger_level('serious')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected integer
+    with pytest.raises(RPCError) as exc:
+        rpc._get_logger_level(0)
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected type
+    with pytest.raises(RPCError) as exc:
+        rpc._get_logger_level({'test'})
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+
+
+def test_get_starting_strategy(rpc):
+    """ Test the RPCInterface._get_starting_strategy function. """
+    # test call using all starting strategies as string or integer
+    for strategy in StartingStrategies:
+        assert rpc._get_starting_strategy(strategy.value) == strategy
+        assert rpc._get_starting_strategy(strategy.name) == strategy
+    # test with unexpected string
+    with pytest.raises(RPCError) as exc:
+        rpc._get_starting_strategy('serious')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected integer
+    with pytest.raises(RPCError) as exc:
+        rpc._get_starting_strategy(100)
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected type
+    with pytest.raises(RPCError) as exc:
+        rpc._get_starting_strategy({'test'})
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+
+
+def test_get_conciliation_strategy(rpc):
+    """ Test the RPCInterface._get_conciliation_strategy function. """
+    # test call using all starting strategies as string or integer
+    for strategy in ConciliationStrategies:
+        assert rpc._get_conciliation_strategy(strategy.value) == strategy
+        assert rpc._get_conciliation_strategy(strategy.name) == strategy
+    # test with unexpected string
+    with pytest.raises(RPCError) as exc:
+        rpc._get_conciliation_strategy('serious')
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected integer
+    with pytest.raises(RPCError) as exc:
+        rpc._get_conciliation_strategy(100)
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+    # test with unexpected type
+    with pytest.raises(RPCError) as exc:
+        rpc._get_conciliation_strategy({'test'})
+    assert exc.value.args[0] == Faults.INCORRECT_PARAMETERS
+
+
 def test_check_state(rpc):
-    """ Test the _check_state utility. """
+    """ Test the RPCInterface._check_state function. """
     # prepare context
     rpc.supvisors.fsm.state = SupvisorsStates.DEPLOYMENT
     # test there is no exception when internal state is in list

@@ -24,13 +24,13 @@ import sys
 from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
-from supervisor.loggers import LevelsByDescription, getLevelNumByDescription, LOG_LEVELS_BY_NUM
+from supervisor.loggers import LevelsByDescription, getLevelNumByDescription
 from supervisor.options import ClientOptions, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
 from .rpcinterface import API_VERSION, RPCInterface
-from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList
+from .ttypes import ConciliationStrategies, StartingStrategies, PayloadList, enum_names
 from .utils import simple_localtime
 
 
@@ -733,8 +733,7 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for restart_process. use one of {}'
-                                .format(StartingStrategies._member_names_))
+                self.ctl.output(f'ERROR: unknown strategy={args[0]}. use one of {enum_names(StartingStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_process()
                 return
@@ -785,7 +784,7 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().update_numprocs(args[0], value)
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output('{} numprocs updated: {}'.format(args[0], result))
@@ -806,22 +805,22 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = ConciliationStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for conciliate. use one of {}'
-                                .format(ConciliationStrategies._member_names_))
+                self.ctl.output(f'ERROR: unknown strategy for conciliate.'
+                                ' use one of {enum_names(ConciliationStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return
             try:
                 result = self.supvisors().conciliate(strategy.value)
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('Conciliated: {}'.format(result))
+                self.ctl.output(f'Conciliated: {result}')
 
     def help_conciliate(self):
         """ Print the help of the conciliate command. """
-        self.ctl.output("conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy")
+        self.ctl.output('conciliate <strategy>\t\t\t\t\tConciliate process conflicts using strategy')
 
     def do_restart_sequence(self, _):
         """ Command to trigger the whole start sequence of Supvisors. """
@@ -829,10 +828,10 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().restart_sequence()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('Start sequence completed: {}'.format(result))
+                self.ctl.output(f'Start sequence completed: {result}')
 
     def help_restart_sequence(self):
         """ Print the help of the restart_sequence command."""
@@ -844,14 +843,14 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().restart()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('Restarted: {}'.format(result))
+                self.ctl.output(f'Restarted: {result}')
 
     def help_sreload(self):
         """ Print the help of the sreload command."""
-        self.ctl.output("sreload\t\t\t\t\tRestart Supvisors on all nodes")
+        self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all nodes')
 
     def do_sshutdown(self, _):
         """ Command to shutdown Supvisors on all addresses. """
@@ -859,14 +858,14 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().shutdown()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('Shut down: {}'.format(result))
+                self.ctl.output(f'Shut down: {result}')
 
     def help_sshutdown(self):
         """ Print the help of the sshutdown command."""
-        self.ctl.output("sshutdown\t\t\t\tShutdown Supvisors on all nodes")
+        self.ctl.output('sshutdown\t\t\t\tShutdown Supvisors on all nodes')
 
     def do_loglevel(self, arg):
         """ Command to change the level of the local Supvisors. """
@@ -879,23 +878,23 @@ class ControllerPlugin(ControllerPluginBase):
                 return
             level = getLevelNumByDescription(args[0])
             if level is None:
-                self.ctl.output('ERROR: unknown level for Logger.')
+                self.ctl.output('ERROR: unknown level for Logger')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_loglevel()
                 return
             try:
                 result = self.supvisors().change_log_level(level)
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('Logger level changed: {}'.format(result))
+                self.ctl.output(f'Logger level changed: {result}')
 
     def help_loglevel(self):
         """ Print the help of the loglevel command."""
         self.ctl.output('loglevel lvl\t\t\t\tChange the level of local Supvisors\' logger to lvl.')
-        values = {name for name in LevelsByDescription.__dict__ if not name.startswith('_')}
-        self.ctl.output('\t\t\t\t\tApplicable values are: {}.'.format(values))
+        values = self.supvisors().get_logger_levels().values()
+        self.ctl.output(f'\t\t\t\t\tApplicable values are: {values}.')
 
     def _upcheck(self):
         """ Check of the API versions. """

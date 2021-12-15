@@ -384,13 +384,13 @@ def test_commander_on_nodes_invalidation(mocker, commander, command_list_1, comm
     """ Test the Commander.on_nodes_invalidation method. """
     mocked_after = mocker.patch.object(commander, 'after_event')
     mocked_failure = mocker.patch.object(commander, 'process_failure')
+    mocked_clear = mocker.patch.object(commander, '_clear_process_failures')
     # prepare context
     for command, node_name in zip(command_list_1, ['10.0.0.1', '10.0.0.2', '10.0.0.3']):
         command.node_names = [node_name]
     for command in command_list_2:
         command.node_names = ['10.0.0.1']
     process_A1 = command_list_1[0].process
-    process_A3 = command_list_1[2].process
     process_B1 = command_list_2[0].process
     commander.planned_jobs = {'appli_A': {2: [command_list_1[2]]}}
     commander.current_jobs = {'appli_A': command_list_1[0:2], 'appli_B': command_list_2}
@@ -399,12 +399,13 @@ def test_commander_on_nodes_invalidation(mocker, commander, command_list_1, comm
     commander.on_nodes_invalidation(['10.0.0.1'], process_failures)
     assert mocked_failure.call_args_list == [call(process_A1), call(process_B1)]
     assert mocked_after.call_args_list == [call('appli_B')]
+    assert mocked_clear.call_args_list == [call(set())]
     assert process_failures == set()
 
 
 def test_commander_clear_process_failures(mocker, commander, command_list_1, command_list_2):
     """ Test the Commander.clear_process_failures method. """
-    mocked_clear = mocker.patch.object(commander, 'clear_process_failure')
+    mocked_clear = mocker.patch.object(commander, '_clear_process_failure')
     # prepare context
     for command, node_name in zip(command_list_1, ['10.0.0.1', '10.0.0.2', '10.0.0.3']):
         command.node_names = [node_name]
@@ -417,7 +418,7 @@ def test_commander_clear_process_failures(mocker, commander, command_list_1, com
     process_A1 = command_list_1[0].process
     process_B1 = command_list_2[0].process
     process_failures = [process_A1, process_B1]
-    commander.clear_process_failures(process_failures)
+    commander._clear_process_failures(process_failures)
     assert mocked_clear.call_args_list == [call(process_A1, commander.planned_jobs, process_failures),
                                            call(process_A1, {'appli_A': {2: [command_list_1[1]]}}, process_failures),
                                            call(process_B1, commander.planned_jobs, process_failures),
@@ -426,7 +427,7 @@ def test_commander_clear_process_failures(mocker, commander, command_list_1, com
 
 
 def test_commander_clear_process_failure(commander, command_list_1, command_list_2):
-    """ Test the Commander.clear_process_failure method. """
+    """ Test the Commander._clear_process_failure method. """
     # prepare context
     for command, node_name in zip(command_list_1, ['10.0.0.1', '10.0.0.2', '10.0.0.3']):
         command.node_names = [node_name]
@@ -438,13 +439,13 @@ def test_commander_clear_process_failure(commander, command_list_1, command_list
     process_A1 = command_list_1[0].process
     process_B1 = command_list_2[0].process
     process_failures = {process_A1, process_B1}
-    commander.clear_process_failure(process_A1, commander.planned_jobs, process_failures)
+    commander._clear_process_failure(process_A1, commander.planned_jobs, process_failures)
     assert process_failures == {process_B1}
-    commander.clear_process_failure(process_A1, commander.planned_sequence[4], process_failures)
+    commander._clear_process_failure(process_A1, commander.planned_sequence[4], process_failures)
     assert process_failures == {process_B1}
-    commander.clear_process_failure(process_B1, commander.planned_jobs, process_failures)
+    commander._clear_process_failure(process_B1, commander.planned_jobs, process_failures)
     assert process_failures == {process_B1}
-    commander.clear_process_failure(process_B1, commander.planned_sequence[4], process_failures)
+    commander._clear_process_failure(process_B1, commander.planned_sequence[4], process_failures)
     assert process_failures == set()
 
 
@@ -1280,6 +1281,44 @@ def test_stopper_stop_process_success(mocker, stopper, command_list):
     assert stopper.current_jobs == {'sample_test_1': [args1[0]], 'sample_test_2': [args2[0]]}
 
 
+def test_stopper_restart_process_already_stopped(mocker, stopper, command_list):
+    """ Test the Stopper.restart_process method when the process is already stopped. """
+    xlogo_command = get_test_command(command_list, 'xlogo')
+    # patch methods
+    mocked_stop = mocker.patch.object(stopper, 'stop_process', return_value=True)
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_process', return_value=True)
+    # check initial condition
+    assert stopper.process_start_requests == {}
+    # test restart call when starter failed
+    assert stopper.restart_process(StartingStrategies.CONFIG, xlogo_command.process, 'any args')
+    assert mocked_stop.call_args_list == [call(xlogo_command.process)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, xlogo_command.process, 'any args')]
+    assert stopper.process_start_requests == {}
+    mocker.resetall()
+    # test restart call when starter has a job in progress
+    mocked_start.return_value = False
+    assert not stopper.restart_process(StartingStrategies.CONFIG, xlogo_command.process, 'any args')
+    assert mocked_stop.call_args_list == [call(xlogo_command.process)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, xlogo_command.process, 'any args')]
+    assert stopper.process_start_requests == {}
+
+
+def test_stopper_restart_process(mocker, stopper, command_list):
+    """ Test the Stopper.restart_process method when the process is already stopped. """
+    xlogo_command = get_test_command(command_list, 'xlogo')
+    # patch methods
+    mocked_stop = mocker.patch.object(stopper, 'stop_process', return_value=False)
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_process', return_value=True)
+    # check initial condition
+    assert stopper.process_start_requests == {}
+    # test restart call
+    start_parameters = (StartingStrategies.CONFIG, xlogo_command.process, 'any args')
+    assert not stopper.restart_process(*start_parameters)
+    assert mocked_stop.call_args_list == [call(xlogo_command.process)]
+    assert not mocked_start.called
+    assert stopper.process_start_requests == {'sample_test_1': [start_parameters]}
+
+
 def test_stopper_stop_application(mocker, stopper):
     """ Test the Stopper.stop_application method. """
     # create application start_sequence
@@ -1339,15 +1378,77 @@ def test_stopper_stop_applications(mocker, stopper, command_list):
     assert mocked_jobs.call_args_list == [call('sample_test_1')]
 
 
-def test_stopper_after_jobs(stopper):
+def test_stopper_restart_application_already_stopped(mocker, stopper):
+    """ Test the Stopper.restart_application method when the process is already stopped. """
+    appli = create_application('appli_1', stopper.supvisors)
+    # patch methods
+    mocked_stop = mocker.patch.object(stopper, 'stop_application', return_value=True)
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_application', return_value=True)
+    # check initial condition
+    assert stopper.application_start_requests == {}
+    # test restart call when starter failed
+    assert stopper.restart_application(StartingStrategies.CONFIG, appli)
+    assert mocked_stop.call_args_list == [call(appli)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, appli)]
+    assert stopper.application_start_requests == {}
+    mocker.resetall()
+    # test restart call when starter has a job in progress
+    mocked_start.return_value = False
+    assert not stopper.restart_application(StartingStrategies.CONFIG, appli)
+    assert mocked_stop.call_args_list == [call(appli)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, appli)]
+    assert stopper.application_start_requests == {}
+
+
+def test_stopper_restart_application(mocker, stopper):
+    """ Test the Stopper.restart_application method when the process is already stopped. """
+    appli = create_application('appli_1', stopper.supvisors)
+    # patch methods
+    mocked_stop = mocker.patch.object(stopper, 'stop_application', return_value=False)
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_application', return_value=True)
+    # check initial condition
+    assert stopper.application_start_requests == {}
+    # test restart call
+    start_parameters = (StartingStrategies.CONFIG, appli)
+    assert not stopper.restart_application(*start_parameters)
+    assert mocked_stop.call_args_list == [call(appli)]
+    assert not mocked_start.called
+    assert stopper.application_start_requests == {'appli_1': start_parameters}
+
+
+def test_stopper_after_jobs(mocker, stopper):
     """ Test the Stopper.after_jobs method. """
+    mocked_start_app = mocker.patch.object(stopper.supvisors.starter, 'start_application')
+    mocked_start_proc = mocker.patch.object(stopper.supvisors.starter, 'start_process')
     # patch context
     appli_1 = Mock(start_failure=True)
     appli_2 = Mock(start_failure=False)
-    stopper.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2}
-    # test with application with no start_failure set
+    appli_3 = Mock(start_failure=False)
+    stopper.supvisors.context.applications = {'appli_1': appli_1, 'appli_2': appli_2, 'appli_3': appli_3}
+    # add pending requests
+    process_1, process_2 = Mock(), Mock()
+    stopper.process_start_requests = {'appli_2': [(StartingStrategies.MOST_LOADED, process_1, ''),
+                                                  (StartingStrategies.LOCAL, process_2, 'any args')]}
+    stopper.application_start_requests = {'appli_3': (StartingStrategies.LESS_LOADED, appli_3)}
+    # test with application with start_failure set
+    # no corresponding pending request
     stopper.after_jobs('appli_1')
     assert not appli_1.start_failure
-    # test with application with start_failure set
+    assert not mocked_start_app.called
+    assert not mocked_start_proc.called
+    # test with application with no start_failure set
+    # appli_2 has pending process start requests
     stopper.after_jobs('appli_2')
     assert not appli_2.start_failure
+    assert not mocked_start_app.called
+    assert mocked_start_proc.call_args_list == [call(StartingStrategies.MOST_LOADED, process_1, ''),
+                                                call(StartingStrategies.LOCAL, process_2, 'any args')]
+    assert stopper.process_start_requests == {}
+    mocked_start_proc.reset_mock()
+    # test with another application with no start_failure set
+    # appli_3 has pending application start requests
+    stopper.after_jobs('appli_3')
+    assert not appli_3.start_failure
+    assert mocked_start_app.call_args_list == [call(StartingStrategies.LESS_LOADED, appli_3)]
+    assert stopper.application_start_requests == {}
+    assert not mocked_start_proc.called
