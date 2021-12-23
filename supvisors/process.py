@@ -71,8 +71,8 @@ class ProcessRules(object):
         :return: None
         """
         if self.required and self.start_sequence == 0:
-            self.logger.warn('ProcessRules.check_start_sequence: {} - required forced to False because '
-                             'no start_sequence defined'.format(namespec))
+            self.logger.warn(f'ProcessRules.check_start_sequence: {namespec} - required forced to False'
+                             ' because no start_sequence defined')
             self.required = False
 
     def check_stop_sequence(self, namespec: str) -> None:
@@ -83,8 +83,8 @@ class ProcessRules(object):
         :return: None
         """
         if self.stop_sequence < 0:
-            self.logger.trace('ProcessRules.check_stop_sequence: {} - set stop_sequence to {} '
-                              .format(namespec, self.start_sequence))
+            self.logger.trace(f'ProcessRules.check_stop_sequence: {namespec}'
+                              f' - set stop_sequence to {self.start_sequence}')
             self.stop_sequence = self.start_sequence
 
     def check_autorestart(self, namespec: str) -> None:
@@ -99,17 +99,15 @@ class ProcessRules(object):
             try:
                 if self.supvisors.info_source.autorestart(namespec):
                     self.supvisors.info_source.disable_autorestart(namespec)
-                    self.logger.warn('ProcessRules.check_autorestart: namespec={} - autorestart disabled due to '
-                                     'running failure strategy {}'
-                                     .format(namespec, self.running_failure_strategy.name))
+                    self.logger.warn(f'ProcessRules.check_autorestart: namespec={namespec} - autorestart disabled'
+                                     f' due to running failure strategy {self.running_failure_strategy.name}')
             except KeyError:
-                self.logger.debug('ProcessRules.check_autorestart: namespec={} unknown to local Supervisor'
-                                  .format(namespec))
+                self.logger.debug(f'ProcessRules.check_autorestart: namespec={namespec} unknown to local Supervisor')
 
     def check_hash_nodes(self, namespec: str) -> None:
         """ When a '#' is set in program rules, an association has to be done between the procnumber of the process
         and the index of the node in the applicable node list.
-        In this case, rules.hash_addresses is expected to contain:
+        In this case, rules.hash_nodes is expected to contain:
             - either ['*'] when all nodes are applicable
             - or any subset of these nodes.
 
@@ -121,25 +119,22 @@ class ProcessRules(object):
         try:
             procnumber = self.supvisors.server_options.procnumbers[process_name]
         except KeyError:
-            self.logger.error('ProcessRules.check_hash_nodes: cannot apply "#" to unknown program={}'
-                              .format(namespec))
+            self.logger.error(f'ProcessRules.check_hash_nodes: cannot apply "#" to unknown program={namespec}')
         else:
-            self.logger.debug('ProcessRules.check_hash_nodes: namespec={} procnumber={}'
-                              .format(namespec, procnumber))
+            self.logger.debug(f'ProcessRules.check_hash_nodes: namespec={namespec} procnumber={procnumber}')
             if '*' in self.hash_node_names:
                 # all nodes defined in the supvisors section of the supervisor configuration file are applicable
-                ref_node_names = self.supvisors.address_mapper.node_names
+                ref_node_names = self.supvisors.node_mapper.node_names
             else:
-                # the subset of applicable nodes is the second element of rule addresses
+                # the subset of applicable nodes is the second element of rule nodes
                 ref_node_names = self.hash_node_names
             if procnumber < len(ref_node_names):
                 self.node_names = [ref_node_names[procnumber]]
                 error = False
             else:
-                self.logger.error('ProcessRules.check_hash_nodes: program={} has no applicable node'.format(namespec))
+                self.logger.error(f'ProcessRules.check_hash_nodes: program={namespec} has no applicable node')
         if error:
-            self.logger.warn('ProcessRules.check_hash_nodes: program={} start_sequence reset'
-                             .format(namespec))
+            self.logger.warn(f'ProcessRules.check_hash_nodes: program={namespec} start_sequence reset')
             self.start_sequence = 0
 
     def check_dependencies(self, namespec: str) -> None:
@@ -159,19 +154,18 @@ class ProcessRules(object):
 
         :return: the printable process rules
         """
-        return 'node_names={} hash_node_names={} start_sequence={} stop_sequence={} required={}' \
-               ' wait_exit={} expected_load={} running_failure_strategy={}' \
-            .format(self.node_names, self.hash_node_names,
-                    self.start_sequence, self.stop_sequence, self.required,
-                    self.wait_exit, self.expected_load, self.running_failure_strategy.name)
+        return (f'node_names={self.node_names} hash_node_names={self.hash_node_names}'
+                f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence} required={self.required}'
+                f' wait_exit={self.wait_exit} expected_load={self.expected_load}'
+                f' running_failure_strategy={self.running_failure_strategy.name}')
 
     def serial(self) -> Payload:
         """ Get a serializable form of the process rules.
-        hash_addresses is not exported as used internally to resolve addresses.
+        hash_node_names is not exported as used internally to resolve nodes.
 
         :return: the process rules in a dictionary
         """
-        return {'addresses': self.node_names,
+        return {'nodes': self.node_names,
                 'start_sequence': self.start_sequence,
                 'stop_sequence': self.stop_sequence,
                 'required': self.required,
@@ -193,8 +187,8 @@ class ProcessStatus(object):
         - expected_exit: a status telling if the process has exited expectantly,
         - last_event_time: the local date of the last information received,
         - extra_args: the additional arguments passed to the command line,
-        - addresses: the list of all addresses where the process is running,
-        - info_map: a process info dictionary for each address (running or not),
+        - running_nodes: the list of all nodes where the process is running,
+        - info_map: a process info dictionary for each node (running or not),
         - rules: the rules related to this process.
     """
 
@@ -243,7 +237,7 @@ class ProcessStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('ProcessStatus.state: {} is {}'.format(self.namespec, self.state_string()))
+            self.logger.info(f'ProcessStatus.state: {self.namespec} is {self.state_string()}')
 
     def force_state(self, state: ProcessStates, reason: str = None) -> None:
         """ Force the process state due to an unexpected event.
@@ -276,8 +270,7 @@ class ProcessStatus(object):
             try:
                 self.supvisors.info_source.update_extra_args(self.namespec, new_args)
             except KeyError:
-                self.logger.debug('ProcessStatus.extra_args: namespec={} unknown to local Supervisor'
-                                  .format(self.namespec))
+                self.logger.debug(f'ProcessStatus.extra_args: namespec={self.namespec} unknown to local Supervisor')
 
     def serial(self) -> Payload:
         """ Get a serializable form of the ProcessStatus.
@@ -290,7 +283,8 @@ class ProcessStatus(object):
                 'statename': self.state_string(),
                 'expected_exit': self.expected_exit,
                 'last_event_time': self.last_event_time,
-                'addresses': list(self.running_nodes),
+                'nodes': list(self.running_nodes),
+                'addresses': list(self.running_nodes),  # TODO: DEPRECATED
                 'extra_args': self.extra_args}
 
     # access
@@ -304,7 +298,7 @@ class ProcessStatus(object):
         """
         node_names = self.rules.node_names
         if '*' in self.rules.node_names:
-            node_names = self.supvisors.address_mapper.node_names
+            node_names = self.supvisors.node_mapper.node_names
         return [node_name for node_name in node_names
                 if node_name in self.info_map.keys()]
 
@@ -346,7 +340,7 @@ class ProcessStatus(object):
         return self.running() and node_name in self.running_nodes
 
     def pid_running_on(self, node_name: str) -> bool:
-        """ Return True if process is RUNNING on address.
+        """ Return True if process is RUNNING on node_name.
         Different from running_on as it considers only the RUNNING state and not STARTING or BACKOFF.
         This is used by the statistics module that requires an existing PID.
 
@@ -384,21 +378,21 @@ class ProcessStatus(object):
         self.logger.trace(f'ProcessStatus.get_last_description: START namespec={self.namespec}')
         # if the state is forced, return the reason why
         if self.forced_state is not None:
-            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name=None [FORCED]description={}'
-                              .format(self.namespec, self.forced_reason))
+            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
+                              f' - node_name=None [FORCED]description={self.forced_reason}')
             return None, self.forced_reason
         # search for process info where process is running
         info_map = dict(filter(lambda x: x[0] in self.running_nodes, self.info_map.items()))
         if info_map:
             # sort info_map them by local_time (local_time is local time of latest received event)
             node_name, info = max(info_map.items(), key=lambda x: x[1]['local_time'])
-            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [running]description={}'
-                              .format(self.namespec, node_name, info['description']))
+            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
+                              f' - node_name={node_name} [running]description={info["description"]}')
         else:
             # none running. sort info_map them by stop date
             node_name, info = max(self.info_map.items(), key=lambda x: x[1]['stop'])
-            self.logger.trace('ProcessStatus.get_last_description: namespec={} - node_name={} [stopped]description={}'
-                              .format(self.namespec, node_name, info['description']))
+            self.logger.trace(f'ProcessStatus.get_last_description: namespec={self.namespec}'
+                              f' - node_name={node_name} [stopped]description={info["description"]}')
         # extract description from information found and add node_name
         desc = info['description']
         if desc and desc != 'Not started':
@@ -431,7 +425,7 @@ class ProcessStatus(object):
         info['extra_args'] = ''
         self.extra_args = ''
         self.logger.trace(f'ProcessStatus.add_info: namespec={self.namespec} - payload={info}'
-                          ' added to node_name={node_name}')
+                          f' added to node_name={node_name}')
         # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
         if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
             self.forced_state = None
@@ -457,7 +451,7 @@ class ProcessStatus(object):
             # refresh internal information
             info = self.info_map[node_name]
             self.logger.trace(f'ProcessStatus.update_info: namespec={self.namespec} - updating info[{node_name}]={info}'
-                              ' with payload={payload}')
+                              f' with payload={payload}')
             info['local_time'] = self.last_event_time
             info.update(payload)
             # re-evaluate description using Supervisor function
@@ -474,23 +468,23 @@ class ProcessStatus(object):
                 self.forced_state = None
                 self.forced_reason = None
                 self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - forced_state unset')
-            # update / check running addresses
+            # update / check running nodes
             self.update_status(node_name, new_state)
             self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} '
-                              '- new info[{node_name}]={info}')
+                              f'- new info[{node_name}]={info}')
         else:
             self.logger.warn(f'ProcessStatus.update_info: namespec={self.namespec} - ProcessEvent rejected.'
-                             ' Tick expected from {node_name}')
+                             f' Tick expected from {node_name}')
 
-    def update_times(self, address: str, remote_time: float) -> None:
+    def update_times(self, node_name: str, remote_time: float) -> None:
         """ Update the internal process information when a new tick is received from the remote Supvisors instance.
 
-        :param address: the name of the node from which the tick has been received
+        :param node_name: the name of the node from which the tick has been received
         :param remote_time: the timestamp (seconds from Epoch) of the tick in the reference time of the node
         :return: None
         """
-        if address in self.info_map:
-            info = self.info_map[address]
+        if node_name in self.info_map:
+            info = self.info_map[node_name]
             info['now'] = remote_time
             self.update_uptime(info)
             # it may have an impact on the description depending on the process state
@@ -513,13 +507,13 @@ class ProcessStatus(object):
         :return: True if process not running anywhere anymore
         """
         self.logger.debug(f'ProcessStatus.invalidate_node: namespec={self.namespec} '
-                          '- node_name={node_name} invalidated')
+                          f'- node_name={node_name} invalidated')
         failure = False
         if node_name in self.running_nodes:
             # update process status with a FATAL payload
             info = self.info_map[node_name]
             payload = {'now': info['now'], 'state': ProcessStates.FATAL, 'extra_args': info['extra_args'],
-                       'expected': False, 'spawnerr': 'node %s lost' % node_name}
+                       'expected': False, 'spawnerr': f'node {node_name} lost'}
             self.update_info(node_name, payload)
             failure = self.running_nodes == set()
         return failure
@@ -534,7 +528,7 @@ class ProcessStatus(object):
         return self.info_map == {}
 
     def update_status(self, node_name: str, new_state: ProcessStates) -> None:
-        """ Updates the state and list of running address iaw the new event.
+        """ Updates the state and list of running nodes iaw the new event.
 
         :param node_name: the node from which new information has been received
         :param new_state: the new state of the process on the considered node
@@ -549,7 +543,7 @@ class ProcessStatus(object):
                 self.running_nodes = {node_name}
             else:
                 self.running_nodes.add(node_name)
-        # evaluate state iaw running addresses
+        # evaluate state iaw running nodes
         if self.conflicting():
             self._evaluate_conflict()
         else:
@@ -569,9 +563,9 @@ class ProcessStatus(object):
                     self.expected_exit = info['expected']
         # log the new status
         if LevelsByName.DEBG >= self.logger.level:
-            log_trace = 'ProcessStatus.update_status: namespec={} - is {}'.format(self.namespec, self.state_string())
+            log_trace = f'ProcessStatus.update_status: namespec={self.namespec} - is {self.state_string()}'
             if self.running_nodes:
-                log_trace += ' on {}'.format(list(self.running_nodes))
+                log_trace += f' on {list(self.running_nodes)}'
             self.logger.trace(log_trace)
 
     def _evaluate_conflict(self) -> None:
@@ -581,9 +575,8 @@ class ProcessStatus(object):
         """
         # several processes seems to be in a running state so that becomes tricky
         states = {self.info_map[running_node_name]['state'] for running_node_name in self.running_nodes}
-        self.logger.debug('ProcessStatus.evaluate_conflict: {} multiple states {} for nodes {}'
-                          .format(self.process_name, [getProcessStateDescription(x) for x in states],
-                                  list(self.running_nodes)))
+        self.logger.debug(f'ProcessStatus.evaluate_conflict: {self.process_name} multiple states'
+                          f' {[getProcessStateDescription(x) for x in states]} for nodes {list(self.running_nodes)}')
         # state synthesis done using the sorting of RUNNING_STATES
         self.state = self.running_state(states)
 

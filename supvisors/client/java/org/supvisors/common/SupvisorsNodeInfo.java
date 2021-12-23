@@ -16,30 +16,27 @@
 
 package org.supvisors.common;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
-
 import com.google.gson.annotations.SerializedName;
 
 /**
- * The Class SupvisorsAddressInfo.
+ * The Class SupvisorsNodeInfo.
  *
- * It gives a structured form to the address information received from a XML-RPC.
+ * It gives a structured form to the node information received from a XML-RPC.
  */
-public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
+public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
 
     /**
-     * The State enumeration for an address.
+     * The State enumeration for a node.
      *
-     * UNKNOWN:   used at initialization, before any heartbeat message is
-     *            received from this address.
-     * CHECKING:  used when the local Supvisors checks the isolation status of
-     *            this address.
-     * RUNNING:   used when the local Supvisors receives heartbeat messages
-     *            from this address.
-     * SILENT:    used when the local Supvisors does not receive any heartbeat
-     *            message from this address.
-     * ISOLATING: used when the local Supvisors is about to disconnect this address.
-     * ISOLATED:  used when the local Supvisors has disconnected this address.
+     * UNKNOWN:   used at initialization, before any heartbeat message is received from this node.
+     * CHECKING:  used when the local Supvisors checks the isolation status of this node.
+     * RUNNING:   used when the local Supvisors receives heartbeat messages from this node.
+     * SILENT:    used when the local Supvisors does not receive any heartbeat message from this node.
+     * ISOLATING: used when the local Supvisors is about to disconnect this node.
+     * ISOLATED:  used when the local Supvisors has disconnected this node.
      */
     public enum State {
         UNKNOWN(0),
@@ -59,23 +56,23 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
         }
     }
 
-    /** The address name. */
-    private String address_name;
+    /** The node name. */
+    private String node_name;
 
-    /** The address state. */
+    /** The node state. */
     private State statename;
 
     /** The date of the last heartbeat message, as received. */
-    private Double remote_time;
+    private Integer remote_time;
 
     /** The date of the last heartbeat message, in the local reference time. */
-    private Double local_time;
+    private Integer local_time;
 
     /** The TICK counter. */
     private Integer sequence_counter;
 
     /**
-     * The current declared loading of the address.
+     * The current declared loading of the node.
      * Note: This is not a measurement. It corresponds to the sum of the declared loading of the running processes.
      */
     private Integer loading;
@@ -83,30 +80,30 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     /**
      * This constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap nodeInfo: The untyped structure got from the XML-RPC.
      */
-    public SupvisorsAddressInfo(HashMap addressInfo)  {
-        this.address_name = (String) addressInfo.get("address_name");
-        this.statename = State.valueOf((String) addressInfo.get("statename"));
-        this.remote_time = (Double) addressInfo.get("remote_time");
-        this.local_time = (Double) addressInfo.get("local_time");
-        this.sequence_counter = (Integer) addressInfo.get("sequence_counter");
-        this.loading = (Integer) addressInfo.get("loading");
+    public SupvisorsNodeInfo(HashMap nodeInfo)  {
+        this.node_name = (String) nodeInfo.get("node_name");
+        this.statename = State.valueOf((String) nodeInfo.get("statename"));
+        this.remote_time = (Integer) nodeInfo.get("remote_time");
+        this.local_time = (Integer) nodeInfo.get("local_time");
+        this.sequence_counter = (Integer) nodeInfo.get("sequence_counter");
+        this.loading = (Integer) nodeInfo.get("loading");
     }
 
     /**
-     * The getName method returns the name of the address.
+     * The getName method returns the name of the node.
      *
-     * @return String: The name of the address.
+     * @return String: The name of the node.
      */
     public String getName() {
-        return this.address_name;
+        return this.node_name;
     }
 
     /**
-     * The getState method returns the state of the address.
+     * The getState method returns the state of the node.
      *
-     * @return State: The state of the address.
+     * @return State: The state of the node.
      */
     public State getState() {
         return this.statename;
@@ -116,9 +113,9 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * The getRemoteTime method returns the date of the last heartbeat message,
      * in the reference time of the remote node.
      *
-     * @return Double: The number of seconds since Epoch.
+     * @return Integer: The number of seconds since Epoch.
      */
-    public Double getRemoteTime() {
+    public Integer getRemoteTime() {
         return this.remote_time;
     }
 
@@ -126,9 +123,9 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * The getLocalTime method returns the date of the last heartbeat message,
      * in the reference time of the local Supvisors.
      *
-     * @return Double: The number of seconds since Epoch.
+     * @return Integer: The number of seconds since Epoch.
      */
-   public Double getLocalTime() {
+   public Integer getLocalTime() {
         return this.local_time;
     }
 
@@ -144,7 +141,7 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getLoading method returns the loading of the address.
+     * The getLoading method returns the loading of the node.
      *
      * @return State: The loading in percent.
      */
@@ -158,10 +155,11 @@ public class SupvisorsAddressInfo implements SupvisorsAnyInfo {
      * @return String: The contents of the instance.
      */
     public String toString() {
-        return "SupvisorsAddressInfo(name=" + this.address_name
-            + " state=" + this.statename + " remoteTime=" + this.remote_time
-            + " localTime=" + this.local_time + " loading=" + this.loading
-            + " sequenceCounter=" + this.sequence_counter + ")";
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return "SupvisorsNodeInfo(name=" + this.node_name
+            + " state=" + this.statename + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
+            + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
+            + " loading=" + this.loading + " sequenceCounter=" + this.sequence_counter + ")";
     }
 
 }

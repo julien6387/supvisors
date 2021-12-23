@@ -140,7 +140,7 @@ def test_rules_serial(rules):
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
-    assert rules.serial() == {'managed': True, 'distributed': False, 'addresses': ['*'],
+    assert rules.serial() == {'managed': True, 'distributed': False, 'nodes': ['*'], 'addresses': ['*'],  # TOODO: DEPRECATED
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
@@ -321,10 +321,10 @@ def test_application_possible_nodes(supvisors):
     application.rules.node_names = ['*']
     assert application.possible_nodes() == ['10.0.0.1', '10.0.0.4']
     # test with full status and all nodes in rules
-    for node_name in supvisors.address_mapper.node_names:
+    for node_name in supvisors.node_mapper.node_names:
         process1.add_info(node_name, info)
         process2.add_info(node_name, info)
-    assert application.possible_nodes() == supvisors.address_mapper.node_names
+    assert application.possible_nodes() == supvisors.node_mapper.node_names
     # restrict again nodes in rules
     application.rules.node_names = ['10.0.0.5']
     assert application.possible_nodes() == ['10.0.0.5']

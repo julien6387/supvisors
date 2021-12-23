@@ -25,7 +25,7 @@ from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from .rpcinterface import API_VERSION
-from .ttypes import AddressStates, SupvisorsStates, Payload
+from .ttypes import NodeStates, SupvisorsStates, Payload
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -46,7 +46,7 @@ class ViewHandler(MeldView):
         # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
-        self.local_node_name = self.supvisors.address_mapper.local_node_name
+        self.local_node_name = self.supvisors.node_mapper.local_node_name
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -129,7 +129,7 @@ class ViewHandler(MeldView):
     def write_nav_nodes(self, root, node_name):
         """ Write the node part of the navigation menu. """
         mid_elt = root.findmeld('address_li_mid')
-        node_names = self.supvisors.address_mapper.node_names
+        node_names = self.supvisors.node_mapper.node_names
         for li_elt, item in mid_elt.repeat(node_names):
             try:
                 status = self.sup_ctx.nodes[item]
@@ -142,7 +142,7 @@ class ViewHandler(MeldView):
                     update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
                 elt = li_elt.findmeld('address_a_mid')
-                if status.state == AddressStates.RUNNING:
+                if status.state == NodeStates.RUNNING:
                     # go to web page located on node, so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_NODE_PAGE)
                     elt.attributes(href=url)

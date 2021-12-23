@@ -71,13 +71,13 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
     /**
      * This constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap applicationInfo: The untyped structure got from the XML-RPC.
      */
-    public SupvisorsApplicationInfo(HashMap addressInfo) {
-        this.application_name = (String) addressInfo.get("application_name");
-        this.statename = State.valueOf((String) addressInfo.get("statename"));
-        this.major_failure = (Boolean) addressInfo.get("major_failure");
-        this.minor_failure = (Boolean) addressInfo.get("minor_failure");
+    public SupvisorsApplicationInfo(HashMap applicationInfo) {
+        this.application_name = (String) applicationInfo.get("application_name");
+        this.statename = State.valueOf((String) applicationInfo.get("statename"));
+        this.major_failure = (Boolean) applicationInfo.get("major_failure");
+        this.minor_failure = (Boolean) applicationInfo.get("minor_failure");
     }
 
     /**

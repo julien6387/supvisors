@@ -53,7 +53,7 @@ def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_node_name == ctx.supvisors.address_mapper.local_node_name
+    assert ctx.local_node_name == ctx.supvisors.node_mapper.local_node_name
     assert ctx.parameters == {'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
@@ -68,7 +68,7 @@ def test_init_no_stats(http_context, ctx_no_stats):
     """ Test the values set at ViewContext construction. """
     assert ctx_no_stats.http_context is http_context
     assert ctx_no_stats.supvisors is http_context.supervisord.supvisors
-    assert ctx_no_stats.local_node_name == ctx_no_stats.supvisors.address_mapper.local_node_name
+    assert ctx_no_stats.local_node_name == ctx_no_stats.supvisors.node_mapper.local_node_name
     assert ctx_no_stats.parameters == {'node': '10.0.0.4', 'namespec': None, 'appliname': None, 'processname': None,
                               'auto': False, 'strategy': 'CONFIG', 'shex': ''}
     # errors must be set due to dummy values

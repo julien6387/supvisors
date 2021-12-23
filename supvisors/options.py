@@ -48,7 +48,7 @@ class SupvisorsOptions(object):
         - force_synchro_if: subset of address_list that will force the end of synchro when all RUNNING,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program,
-        - starting_strategy: strategy used to start processes on addresses,
+        - starting_strategy: strategy used to start processes on nodes,
         - stats_enable: when False, no statistics will be collected and displayed from this node,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
         - stats_histo: depth of statistics history,

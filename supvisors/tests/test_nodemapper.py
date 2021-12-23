@@ -22,13 +22,13 @@ import random
 import re
 import socket
 
-from supvisors.addressmapper import AddressMapper
+from supvisors.nodemapper import NodeMapper
 
 
 @pytest.fixture
 def mapper(supvisors):
     """ Return the instance to test. """
-    return AddressMapper(supvisors.logger)
+    return NodeMapper(supvisors.logger)
 
 
 def test_create(supvisors, mapper):
@@ -116,7 +116,7 @@ def test_ipv4():
     # test that psutil is installed
     pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
     # test function
-    ip_list = AddressMapper.ipv4()
+    ip_list = NodeMapper.ipv4()
     assert ip_list
     for ip in ip_list:
         assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip)
@@ -125,4 +125,4 @@ def test_ipv4():
 def test_ipv4_importerror(mocker):
     """ Test the ipv4 method with a mocking of import (psutil not installed). """
     mocker.patch.dict('sys.modules', {'psutil': None})
-    assert AddressMapper.ipv4() == []
+    assert NodeMapper.ipv4() == []

@@ -46,15 +46,17 @@ def test_gmtime():
 def test_extract_process_info():
     """ Test the extraction of useful data from process info. """
     # test with no spawn error
-    dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING', 'start': 5, 'stop': 0,
                   'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data',
                   'description': 'process dead'}
-    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING',
+                                                'start': 5, 'stop': 0,
                                                 'now': 10, 'pid': 1234, 'expected': True, 'spawnerr': '',
                                                 'description': 'process dead'}
     # test with spawn error
     dummy_info['spawnerr'] = 'something'
-    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING',
+                                                'start': 5, 'stop': 0,
                                                 'now': 10, 'pid': 1234, 'expected': False, 'spawnerr': 'something',
                                                 'description': 'process dead'}
 

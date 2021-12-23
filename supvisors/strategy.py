@@ -21,7 +21,7 @@ from typing import Any, Mapping, Optional, Sequence, Set, Tuple
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .ttypes import AddressStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
+from .ttypes import NodeStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 # types for annotations
 LoadRequestMap = Mapping[str, int]
@@ -63,7 +63,7 @@ class AbstractStartingStrategy(AbstractStrategy):
             status = self.supvisors.context.nodes[node_name]
             self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} state={}'
                               .format(node_name, status.state.name))
-            if status.state == AddressStates.RUNNING:
+            if status.state == NodeStates.RUNNING:
                 loading = status.get_loading() + load_request_map.get(node_name, 0)
                 self.logger.debug('AbstractStartingStrategy.is_loading_valid: node_name={} loading={} expected_load={}'
                                   .format(node_name, loading, expected_load))
@@ -98,7 +98,7 @@ class AbstractStartingStrategy(AbstractStrategy):
     def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
         """ Choose the node that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in AddressStatus.
+        are not considered yet in NodeStatus.
 
         :param node_names: the candidate nodes
         :param expected_load: the load of the program to be started
@@ -114,7 +114,7 @@ class ConfigStrategy(AbstractStartingStrategy):
     def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
         """ Choose the first node in the list that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in AddressStatus.
+        are not considered yet in NodeStatus.
 
         :param node_names: the candidate nodes
         :param expected_load: the load of the program to be started
@@ -133,7 +133,7 @@ class LessLoadedStrategy(AbstractStartingStrategy):
     def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
         """ Choose the node having the lowest loading that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in AddressStatus.
+        are not considered yet in NodeStatus.
 
         :param node_names: the candidate nodes
         :param expected_load: the load of the program to be started
@@ -153,7 +153,7 @@ class MostLoadedStrategy(AbstractStartingStrategy):
     def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
         """ Choose the node having the highest loading that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in AddressStatus.
+        are not considered yet in NodeStatus.
 
         :param node_names: the candidate nodes
         :param expected_load: the load of the program to be started
@@ -173,7 +173,7 @@ class LocalStrategy(AbstractStartingStrategy):
     def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
         """ Choose the local node provided that it can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in AddressStatus.
+        are not considered yet in NodeStatus.
 
         :param node_names: the candidate nodes
         :param expected_load: the load of the program to be started
@@ -183,12 +183,11 @@ class LocalStrategy(AbstractStartingStrategy):
         self.logger.trace('LocalStrategy: node_names={} expected_load={} load_request_map={}'
                           .format(node_names, expected_load, load_request_map))
         loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
-        local_node_name = self.supvisors.address_mapper.local_node_name
+        local_node_name = self.supvisors.node_mapper.local_node_name
         return local_node_name if loading_validity_map.get(local_node_name, (False,))[0] else None
 
 
-def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList, expected_load: int,
-             load_request_map: LoadRequestMap) -> Optional[str]:
+def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList, expected_load: int) -> Optional[str]:
     """ Creates a strategy and let it find a node to start a process having a defined load. """
     instance = None
     if strategy == StartingStrategies.CONFIG:
@@ -199,7 +198,9 @@ def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList,
         instance = MostLoadedStrategy(supvisors)
     if strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
-    # apply strategy result
+    # consider all pending requests into global load
+    load_request_map = supvisors.starter.get_load_requests()
+    # apply strategy
     return instance.get_node(node_rules, expected_load, load_request_map) if instance else None
 
 
@@ -493,12 +494,12 @@ class RunningFailureHandler(AbstractStrategy):
                                  .format(process.namespec))
                 self.add_job(RunningFailureStrategies.RESTART_APPLICATION, process)
 
-    def get_job_applications(self) -> Set[str]:
+    def get_application_job_names(self) -> Set[str]:
         """ Get all application names involved in Commanders.
 
         :return: the list of application names
         """
-        return self.supvisors.starter.get_job_applications() | self.supvisors.stopper.get_job_applications()
+        return self.supvisors.starter.get_application_job_names() | self.supvisors.stopper.get_application_job_names()
 
     def trigger_stop_application_jobs(self, job_applications: Set[str]) -> None:
         """ Trigger the STOP_APPLICATION strategy on stored jobs. """
@@ -576,16 +577,16 @@ class RunningFailureHandler(AbstractStrategy):
 
     def trigger_jobs(self):
         """ Trigger the configured strategy when a process of a running application crashes. """
-        job_applications = self.get_job_applications()
+        application_job_names = self.get_application_job_names()
         # consider applications to stop
-        self.trigger_stop_application_jobs(job_applications)
+        self.trigger_stop_application_jobs(application_job_names)
         # consider applications to restart
-        self.trigger_restart_application_jobs(job_applications)
+        self.trigger_restart_application_jobs(application_job_names)
         # consider processes to restart
-        self.trigger_restart_process_jobs(job_applications)
+        self.trigger_restart_process_jobs(application_job_names)
         # consider applications to start
-        self.trigger_start_application_jobs(job_applications)
+        self.trigger_start_application_jobs(application_job_names)
         # consider processes to start
-        self.trigger_start_process_jobs(job_applications)
+        self.trigger_start_process_jobs(application_job_names)
         # log only the continuation jobs
         self.trigger_continue_process_jobs()

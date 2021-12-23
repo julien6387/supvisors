@@ -20,7 +20,7 @@
 import pytest
 
 from supvisors.mainloop import *
-from supvisors.ttypes import AddressStates
+from supvisors.ttypes import NodeStates
 from supvisors.utils import DeferredRequestHeaders
 
 from threading import Thread
@@ -213,14 +213,14 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     rpc_intf = DummyRpcInterface()
     mocked_all = rpc_intf.supervisor.getAllProcessInfo = Mock()
     mocked_local = rpc_intf.supvisors.get_all_local_process_info = Mock(return_value=dummy_info)
-    mocked_addr = rpc_intf.supvisors.get_address_info = Mock()
-    rpc_intf.supvisors.get_master_address = Mock(return_value='10.0.0.5')
+    mocked_addr = rpc_intf.supvisors.get_node_info = Mock()
+    rpc_intf.supvisors.get_master_node = Mock(return_value='10.0.0.5')
     rpc_intf.supvisors.get_supvisors_state = Mock(return_value={'statename': 'RUNNING'})
     mocked_rpc.return_value = rpc_intf
     mocked_rpc.side_effect = None
     mocked_rpc.reset_mock()
-    # test with address in isolation
-    for state in [AddressStates.ISOLATING, AddressStates.ISOLATED]:
+    # test with node in isolation
+    for state in [NodeStates.ISOLATING, NodeStates.ISOLATED]:
         mocked_addr.return_value = {'statecode': state}
         main_loop.check_node('10.0.0.1')
         assert mocked_rpc.call_args_list == [call('10.0.0.1', main_loop.env)]
@@ -230,8 +230,8 @@ def test_check_node(mocker, mocked_rpc, main_loop):
         # reset counters
         mocked_evt.reset_mock()
         mocked_rpc.reset_mock()
-    # test with address not in isolation
-    for state in [AddressStates.UNKNOWN, AddressStates.CHECKING, AddressStates.RUNNING, AddressStates.SILENT]:
+    # test with node not in isolation
+    for state in [NodeStates.UNKNOWN, NodeStates.CHECKING, NodeStates.RUNNING, NodeStates.SILENT]:
         mocked_addr.return_value = {'statecode': state}
         main_loop.check_node('10.0.0.1')
         assert mocked_rpc.call_count == 1
@@ -417,7 +417,7 @@ def test_send_request(mocker, main_loop):
                                         start_process=DEFAULT, stop_process=DEFAULT,
                                         restart=DEFAULT, shutdown=DEFAULT, restart_sequence=DEFAULT,
                                         restart_all=DEFAULT, shutdown_all=DEFAULT)
-    # test check address
+    # test check node
     check_call(main_loop, mocked_loop, 'check_node',
                DeferredRequestHeaders.CHECK_NODE, ('10.0.0.2',))
     # test start process

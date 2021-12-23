@@ -76,7 +76,7 @@ class SupervisorListener(object):
             self.logger.info('SupervisorListener: psutil not installed')
             self.logger.warn('SupervisorListener: this Supvisors instance cannot not collect statistics')
         # other attributes
-        self.local_node_name: str = supvisors.address_mapper.local_node_name
+        self.local_node_name: str = supvisors.node_mapper.local_node_name
         self.pusher: Optional[RequestPusher] = None
         self.main_loop: Optional[SupvisorsMainLoop] = None
         # add new events to Supervisor EventTypes
@@ -266,7 +266,8 @@ class SupervisorListener(object):
                    'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
         # get extra_args if process is known to local Supervisor
         try:
-            payload['extra_args'] = self.supvisors.info_source.get_extra_args(namespec)
+            options = self.supvisors.info_source.get_process_config_options(namespec, ('extra_args',))
+            payload.update(options)
         except KeyError:
             self.logger.trace('SupervisorListener.force_process_state: cannot get extra_args from namespec={}'
                               ' because the program is unknown to local Supervisor'.format(namespec))

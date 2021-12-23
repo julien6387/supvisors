@@ -24,8 +24,8 @@ import time
 
 from supervisor.states import ProcessStates
 
-from supvisors.address import *
-from supvisors.ttypes import AddressStates, InvalidTransition
+from supvisors.node import *
+from supvisors.ttypes import NodeStates, InvalidTransition
 
 from .base import database_copy
 from .conftest import create_any_process, create_process
@@ -34,7 +34,7 @@ from .conftest import create_any_process, create_process
 @pytest.fixture
 def filled_node(supvisors):
     """ Create an AddressStatus and add all processes of the database. """
-    status = AddressStatus('10.0.0.1', supvisors.logger)
+    status = NodeStatus('10.0.0.1', supvisors.logger)
     for info in database_copy():
         process = create_process(info, supvisors)
         process.add_info('10.0.0.1', info)
@@ -44,11 +44,11 @@ def filled_node(supvisors):
 
 def test_create(supvisors):
     """ Test the values set at construction. """
-    status = AddressStatus('10.0.0.1', supvisors.logger)
+    status = NodeStatus('10.0.0.1', supvisors.logger)
     # test all AddressStatus values
     assert status.logger == supvisors.logger
     assert status.node_name == '10.0.0.1'
-    assert status.state == AddressStates.UNKNOWN
+    assert status.state == NodeStates.UNKNOWN
     assert status.sequence_counter == 0
     assert status.local_sequence_counter == 0
     assert status.remote_time == 0.0
@@ -58,25 +58,26 @@ def test_create(supvisors):
 
 def test_isolation(supvisors):
     """ Test the in_isolation method. """
-    status = AddressStatus('10.0.0.1', supvisors.logger)
-    for state in AddressStates:
+    status = NodeStatus('10.0.0.1', supvisors.logger)
+    for state in NodeStates:
         status._state = state
-        assert (status.in_isolation() and state in [AddressStates.ISOLATING, AddressStates.ISOLATED] or
-                not status.in_isolation() and state not in [AddressStates.ISOLATING, AddressStates.ISOLATED])
+        assert (status.in_isolation() and state in [NodeStates.ISOLATING, NodeStates.ISOLATED] or
+                not status.in_isolation() and state not in [NodeStates.ISOLATING, NodeStates.ISOLATED])
 
 
 def test_serialization(supvisors):
     """ Test the serial method used to get a serializable form of AddressStatus. """
     # create address status instance
-    status = AddressStatus('10.0.0.1', supvisors.logger)
-    status._state = AddressStates.RUNNING
+    status = NodeStatus('10.0.0.1', supvisors.logger)
+    status._state = NodeStates.RUNNING
     status.checked = True
     status.sequence_counter = 28
     status.remote_time = 50
     status.local_time = 60
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'address_name': '10.0.0.1', 'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
+    assert serialized == {'node_name': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+                          'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
                           'remote_time': 50, 'local_time': 60, 'sequence_counter': 28}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
@@ -86,9 +87,9 @@ def test_serialization(supvisors):
 
 def test_transitions(supvisors):
     """ Test the state transitions of AddressStatus. """
-    status = AddressStatus('10.0.0.1', supvisors.logger)
-    for state1 in AddressStates:
-        for state2 in AddressStates:
+    status = NodeStatus('10.0.0.1', supvisors.logger)
+    for state1 in NodeStates:
+        for state2 in NodeStates:
             # check all possible transitions from each state
             status._state = state1
             if state2 in status._Transitions[state1]:
@@ -104,7 +105,7 @@ def test_transitions(supvisors):
 
 def test_add_process(supvisors):
     """ Test the add_process method. """
-    status = AddressStatus('10.0.0.1', supvisors.logger)
+    status = NodeStatus('10.0.0.1', supvisors.logger)
     process = create_any_process(supvisors)
     status.add_process(process)
     # check that process is stored

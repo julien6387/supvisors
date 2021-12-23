@@ -321,7 +321,7 @@ def test_on_remote_event(mocker, listener):
 def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('supvisors.listener.time.time', return_value=56)
-    mocker.patch.object(listener.supvisors.info_source, 'get_extra_args', return_value='-h')
+    mocker.patch.object(listener.supvisors.info_source, 'get_process_config_options', return_value={'extra_args': '-h'})
     # patch publisher
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
@@ -331,7 +331,7 @@ def test_force_process_state(mocker, listener):
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()
     # test the call with unknown process in Supervisor
-    listener.supvisors.info_source.get_extra_args.side_effect = KeyError
+    listener.supvisors.info_source.get_process_config_options.side_effect = KeyError
     listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
     expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
                       'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]

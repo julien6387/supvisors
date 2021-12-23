@@ -24,29 +24,35 @@ from supervisor.loggers import Logger
 from .ttypes import NameList
 
 
-class AddressMapper(object):
-    """ Class used for storage of the addresses defined in the configuration file.
-    These addresses are expected to be host names or IP addresses where a Supvisors instance is running.
+class NodeMapper(object):
+    """ Class used for storage of the nodes defined in the configuration file.
+    These nodes are expected to be host names or IP addresses where a Supvisors instance is running.
     The instance holds:
-        - logger: a reference to the common logger;
-        - _node_names: the list of nodes defined in the Supvisors configuration file;
+        - logger: a reference to the common logger ;
+        - _node_names: the list of nodes defined in the Supvisors configuration file ;
         - local_node_references: the list of known aliases of the current node, i.e. the host name
-          and the IPv4 addresses;
+          and the IPv4 addresses ;
         - local_node_name: the usage name of the current node, i.e. the name in the known aliases corresponding
           to a node of the Supvisors list. """
 
     def __init__(self, logger: Logger):
-        """ Initialization of the attributes. """
+        """ Initialization of the attributes.
+
+        :param logger: the Supvisors logger
+        """
         # keep reference of common logger
         self.logger = logger
         # init
-        self._node_names = []
+        self._node_names: NameList = []
         self.local_node_references = [gethostname(), *self.ipv4()]
         self.local_node_name = None
 
     @property
-    def node_names(self):
-        """ Property getter for the _node_names attribute. """
+    def node_names(self) -> NameList:
+        """ Property getter for the _node_names attribute.
+
+        :return: the list of node names configured in Supvisors
+        """
         return self._node_names
 
     @node_names.setter
@@ -56,13 +62,13 @@ class AddressMapper(object):
         :param node_name_list: the nodes defined in the supvisors section of the configuration file
         :return: None
         """
-        self.logger.info('AddressMapper.node_names: expected nodes: {}'.format(node_name_list))
+        self.logger.info(f'NodeMapper.node_names: expected nodes: {node_name_list}')
         # store IP list as found in config file
         self._node_names = node_name_list
         # get IP list for local node
         self.local_node_name = self.expected(self.local_node_references)
-        self.logger.info('AddressMapper.node_names: local node references: {} - local node name: {}'
-                         .format(self.local_node_references, self.local_node_name))
+        self.logger.info(f'NodeMapper.node_names: local node references: {self.local_node_references}'
+                         f' - local node name: {self.local_node_name}')
 
     def valid(self, node_name: str) -> bool:
         """ Return True if the node name is among the node list defined in the configuration file.
@@ -80,7 +86,7 @@ class AddressMapper(object):
         :param node_name_list: a list of node names
         :return: the filtered list of node names
         """
-        # filter unknown addresses
+        # filter unknown nodes
         node_names = [node_name for node_name in node_name_list if self.valid(node_name)]
         # remove duplicates keeping the same ordering
         return list(OrderedDict.fromkeys(node_names))

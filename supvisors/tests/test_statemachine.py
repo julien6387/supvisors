@@ -22,21 +22,21 @@ import pytest
 from supervisor.states import ProcessStates
 from unittest.mock import call, Mock
 
-from supvisors.address import AddressStatus
+from supvisors.node import NodeStatus
 from supvisors.statemachine import *
-from supvisors.ttypes import AddressStates, SupvisorsStates
+from supvisors.ttypes import NodeStates, SupvisorsStates
 
 
 @pytest.fixture
 def supvisors_ctx(supvisors):
     """ Create a Supvisors-like structure filled with some nodes. """
     nodes = supvisors.context.nodes
-    nodes['127.0.0.1']._state = AddressStates.RUNNING
-    nodes['10.0.0.1']._state = AddressStates.SILENT
-    nodes['10.0.0.2']._state = AddressStates.RUNNING
-    nodes['10.0.0.3']._state = AddressStates.ISOLATING
-    nodes['10.0.0.4']._state = AddressStates.RUNNING
-    nodes['10.0.0.5']._state = AddressStates.ISOLATED
+    nodes['127.0.0.1']._state = NodeStates.RUNNING
+    nodes['10.0.0.1']._state = NodeStates.SILENT
+    nodes['10.0.0.2']._state = NodeStates.RUNNING
+    nodes['10.0.0.3']._state = NodeStates.ISOLATING
+    nodes['10.0.0.4']._state = NodeStates.RUNNING
+    nodes['10.0.0.5']._state = NodeStates.ISOLATED
     return supvisors
 
 
@@ -53,16 +53,16 @@ def test_abstract_state(supvisors_ctx):
     # test check_nodes method
     # declare local and master address running
     supvisors_ctx.context._master_node_name = '10.0.0.3'
-    supvisors_ctx.context.nodes['127.0.0.1']._state = AddressStates.RUNNING
-    supvisors_ctx.context.nodes['10.0.0.3']._state = AddressStates.RUNNING
+    supvisors_ctx.context.nodes['127.0.0.1']._state = NodeStates.RUNNING
+    supvisors_ctx.context.nodes['10.0.0.3']._state = NodeStates.RUNNING
     assert state.check_nodes() is None
     # transition to INITIALIZATION state if the local address or master address is not RUNNING
-    supvisors_ctx.context.nodes['127.0.0.1']._state = AddressStates.SILENT
+    supvisors_ctx.context.nodes['127.0.0.1']._state = NodeStates.SILENT
     assert state.check_nodes() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.nodes['127.0.0.1']._state = AddressStates.RUNNING
-    supvisors_ctx.context.nodes['10.0.0.3']._state = AddressStates.SILENT
+    supvisors_ctx.context.nodes['127.0.0.1']._state = NodeStates.RUNNING
+    supvisors_ctx.context.nodes['10.0.0.3']._state = NodeStates.SILENT
     assert state.check_nodes() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.nodes['127.0.0.1']._state = AddressStates.SILENT
+    supvisors_ctx.context.nodes['127.0.0.1']._state = NodeStates.SILENT
     assert state.check_nodes() == SupvisorsStates.INITIALIZATION
     # test abort_jobs method
     state.abort_jobs()
@@ -80,12 +80,12 @@ def test_initialization_state(supvisors_ctx):
     state.enter()
     assert state.context.master_node_name == ''
     nodes = supvisors_ctx.context.nodes
-    assert nodes['127.0.0.1'].state == AddressStates.UNKNOWN
-    assert nodes['10.0.0.1'].state == AddressStates.SILENT
-    assert nodes['10.0.0.2'].state == AddressStates.UNKNOWN
-    assert nodes['10.0.0.3'].state == AddressStates.ISOLATING
-    assert nodes['10.0.0.4'].state == AddressStates.UNKNOWN
-    assert nodes['10.0.0.5'].state == AddressStates.ISOLATED
+    assert nodes['127.0.0.1'].state == NodeStates.UNKNOWN
+    assert nodes['10.0.0.1'].state == NodeStates.SILENT
+    assert nodes['10.0.0.2'].state == NodeStates.UNKNOWN
+    assert nodes['10.0.0.3'].state == NodeStates.ISOLATING
+    assert nodes['10.0.0.4'].state == NodeStates.UNKNOWN
+    assert nodes['10.0.0.5'].state == NodeStates.ISOLATED
     # 2. test next method
     # trigger log for synchro time out
     state.context.start_date = 0
@@ -94,20 +94,20 @@ def test_initialization_state(supvisors_ctx):
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # test case where addresses are still unknown and timeout is not reached
-    nodes['127.0.0.1']._state = AddressStates.RUNNING
-    nodes['10.0.0.2']._state = AddressStates.RUNNING
-    nodes['10.0.0.4']._state = AddressStates.SILENT
+    nodes['127.0.0.1']._state = NodeStates.RUNNING
+    nodes['10.0.0.2']._state = NodeStates.RUNNING
+    nodes['10.0.0.4']._state = NodeStates.SILENT
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # test case where no more nodes are still unknown
-    nodes['10.0.0.1']._state = AddressStates.SILENT
-    nodes['10.0.0.3']._state = AddressStates.ISOLATED
+    nodes['10.0.0.1']._state = NodeStates.SILENT
+    nodes['10.0.0.3']._state = NodeStates.ISOLATED
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # test case where end of synchro is forced based on core nodes running
     supvisors_ctx.options.force_synchro_if = {'10.0.0.2', '10.0.0.4'}
-    nodes['10.0.0.3']._state = AddressStates.UNKNOWN
-    nodes['10.0.0.4']._state = AddressStates.RUNNING
+    nodes['10.0.0.3']._state = NodeStates.UNKNOWN
+    nodes['10.0.0.4']._state = NodeStates.RUNNING
     # SYNCHRO_TIMEOUT_MIN not passed yet
     state.context.start_date = time() - 10
     result = state.next()
@@ -165,17 +165,17 @@ def test_master_deployment_state(mocker, supvisors_ctx):
     # test next method if check_nodes return something
     mocker.patch.object(state, 'check_nodes', return_value=SupvisorsStates.INITIALIZATION)
     assert state.next() == SupvisorsStates.INITIALIZATION
-    assert not supvisors_ctx.starter.is_starting_completed.called
+    assert not supvisors_ctx.starter.in_progress.called
     # test next method if check_nodes return nothing
     state.check_nodes.return_value = None
     # test next method if the local node is master
     supvisors_ctx.context._is_master = True
     # stay in DEPLOYMENT if a start sequence is in progress
-    supvisors_ctx.starter.is_starting_completed.return_value = False
+    supvisors_ctx.starter.in_progress.return_value = True
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # return OPERATION and no start sequence is in progress
-    supvisors_ctx.starter.is_starting_completed.return_value = True
+    supvisors_ctx.starter.in_progress.return_value = False
     result = state.next()
     assert result == SupvisorsStates.OPERATION
     # no exit implementation. just call it without test
@@ -184,7 +184,8 @@ def test_master_deployment_state(mocker, supvisors_ctx):
 
 def test_master_operation_state(mocker, supvisors_ctx):
     """ Test the Operation state of the fsm. """
-    mocked_start = supvisors_ctx.starter.is_starting_completed
+    mocked_start = supvisors_ctx.starter.in_progress
+    mocked_stop = supvisors_ctx.stopper.in_progress
     # create instance
     state = MasterOperationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -197,17 +198,17 @@ def test_master_operation_state(mocker, supvisors_ctx):
     # test next method if check_nodes return nothing
     state.check_nodes.return_value = None
     # do not leave OPERATION state if a starting or a stopping is in progress
-    mocked_start.return_value = False
-    result = state.next()
-    assert result == SupvisorsStates.OPERATION
     mocked_start.return_value = True
-    mocked_stop = mocker.patch.object(supvisors_ctx.stopper, 'is_stopping_completed', return_value=False)
     result = state.next()
     assert result == SupvisorsStates.OPERATION
+    mocked_start.return_value = False
     mocked_stop.return_value = True
+    result = state.next()
+    assert result == SupvisorsStates.OPERATION
+    mocked_stop.return_value = False
     # create address context
-    for node_name in supvisors_ctx.address_mapper.node_names:
-        status = AddressStatus(node_name, supvisors_ctx.logger)
+    for node_name in supvisors_ctx.node_mapper.node_names:
+        status = NodeStatus(node_name, supvisors_ctx.logger)
         supvisors_ctx.context.nodes[node_name] = status
     # no starting or stopping is in progress
     # stay in OPERATION if no conflict
@@ -227,8 +228,8 @@ def test_master_operation_state(mocker, supvisors_ctx):
 def test_master_conciliation_state(mocker, supvisors_ctx):
     """ Test the Conciliation state of the fsm. """
     mocked_conciliate = mocker.patch('supvisors.statemachine.conciliate_conflicts')
-    mocked_start = supvisors_ctx.starter.is_starting_completed
-    mocked_stop = supvisors_ctx.stopper.is_stopping_completed
+    mocked_start = supvisors_ctx.starter.in_progress
+    mocked_stop = supvisors_ctx.stopper.in_progress
     # create instance
     state = MasterConciliationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -243,27 +244,27 @@ def test_master_conciliation_state(mocker, supvisors_ctx):
     # test next method if check_nodes return nothing
     state.check_nodes.return_value = None
     # do not leave CONCILIATION state if a starting or a stopping is in progress
-    mocked_start.return_value = False
-    mocked_stop.return_value = False
-    result = state.next()
-    assert result == SupvisorsStates.CONCILIATION
     mocked_start.return_value = True
-    mocked_stop.return_value = False
+    mocked_stop.return_value = True
     result = state.next()
     assert result == SupvisorsStates.CONCILIATION
     mocked_start.return_value = False
     mocked_stop.return_value = True
+    result = state.next()
+    assert result == SupvisorsStates.CONCILIATION
+    mocked_start.return_value = True
+    mocked_stop.return_value = False
     result = state.next()
     assert result == SupvisorsStates.CONCILIATION
     # consider that no starting or stopping is in progress
-    mocked_start.return_value = True
-    mocked_stop.return_value = True
-    # if local address and master address are RUNNING and conflict still detected, re-enter CONCILIATION
+    mocked_start.return_value = False
+    mocked_stop.return_value = False
+    # if local node and master node are RUNNING and conflict still detected, re-enter CONCILIATION without transition
     mocker.patch.object(supvisors_ctx.context, 'conflicting', return_value=True)
     mocked_enter = mocker.patch.object(state, 'enter')
     result = state.next()
     assert mocked_enter.call_count == 1
-    assert result == SupvisorsStates.CONCILIATION
+    assert result is None
     # transit to OPERATION if local node and master node are RUNNING and no conflict detected
     supvisors_ctx.context.conflicting.return_value = False
     result = state.next()
@@ -276,7 +277,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     """ Test the Restarting state of the fsm. """
     mocked_starter = supvisors_ctx.starter.abort
     mocked_stopper = supvisors_ctx.stopper.stop_applications
-    mocked_stopping = supvisors_ctx.stopper.is_stopping_completed
+    mocked_stopping = supvisors_ctx.stopper.in_progress
     # create instance to test
     state = MasterRestartingState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -291,10 +292,10 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     # test next method if check_nodes return nothing
     state.check_nodes.return_value = None
     # test next method: all processes are stopped
-    mocked_stopping.return_value = True
+    mocked_stopping.return_value = False
     result = state.next()
     assert result == SupvisorsStates.SHUTDOWN
-    mocked_stopping.return_value = False
+    mocked_stopping.return_value = True
     result = state.next()
     assert result == SupvisorsStates.RESTARTING
     # test exit method: call to pusher send_restart for all addresses
@@ -307,7 +308,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     """ Test the ShuttingDown state of the fsm. """
     mocked_starter = supvisors_ctx.starter.abort
     mocked_stopper = supvisors_ctx.stopper.stop_applications
-    mocked_stopping = supvisors_ctx.stopper.is_stopping_completed
+    mocked_stopping = supvisors_ctx.stopper.in_progress
     # create instance to test
     state = MasterShuttingDownState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -322,12 +323,13 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     # test next method if check_nodes return nothing
     state.check_nodes.return_value = None
     # test next method: all processes are stopped
-    result = state.next()
-    assert result == SupvisorsStates.SHUTDOWN
     mocked_stopping.return_value = False
     result = state.next()
+    assert result == SupvisorsStates.SHUTDOWN
+    mocked_stopping.return_value = True
+    result = state.next()
     assert result == SupvisorsStates.SHUTTING_DOWN
-    # test exit method: call to pusher send_restart for all addresses
+    # test exit method: call to pusher send_restart for all nodes
     assert not state.supvisors.zmq.pusher.send_shutdown.called
     state.exit()
     assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call('127.0.0.1')]
@@ -527,8 +529,17 @@ def test_master_complex_set_state(fsm, mock_master_events):
     assert fsm.state == SupvisorsStates.OPERATION
 
 
+def test_fsm_next(mocker, fsm):
+    """ Test the principle of the FiniteStateMachine.next method. """
+    mocker_state = mocker.patch.object(fsm, 'set_state')
+    fsm.next()
+    assert fsm.supvisors.starter.check.called
+    assert fsm.supvisors.stopper.check.called
+    assert mocker_state.called
+
+
 def test_master_no_next(fsm, mock_master_events):
-    """ Test no transition of the state machine using next_method. """
+    """ Test no transition of the state machine using next method. """
     mock_master_events[1].return_value = SupvisorsStates.INITIALIZATION
     instance_ref = fsm.instance
     # test set_state with authorized transition
@@ -656,10 +667,11 @@ def test_process_state_event(mocker, fsm):
     mocked_ctx.return_value = process
     mocked_ctx.reset_mock()
     fsm.supvisors.context._is_master = False
-    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+    event = {'process_name': 'dummy_proc'}
+    fsm.on_process_state_event('10.0.0.1', event)
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -670,10 +682,10 @@ def test_process_state_event(mocker, fsm):
     fsm.supvisors.context._is_master = True
     for strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
         process.rules.running_failure_strategy = strategy
-        fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-        assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+        fsm.on_process_state_event('10.0.0.1', event)
+        assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
         assert mocked_add.call_args_list == []
         # reset mocks
         mocked_ctx.reset_mock()
@@ -682,10 +694,10 @@ def test_process_state_event(mocker, fsm):
     # test with running_failure_strategy set to STOP_APPLICATION
     # job is added to failure handler
     process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
-    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+    fsm.on_process_state_event('10.0.0.1', event)
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -696,10 +708,10 @@ def test_process_state_event(mocker, fsm):
     # job is added to failure handler only if process crash is 'real' (not forced)
     # test with no forced state
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
-    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+    fsm.on_process_state_event('10.0.0.1', event)
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -708,10 +720,10 @@ def test_process_state_event(mocker, fsm):
     mocked_add.reset_mock()
     # test with forced state
     process.forced_state = ProcessStates.FATAL
-    fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-    assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+    fsm.on_process_state_event('10.0.0.1', event)
+    assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -721,10 +733,10 @@ def test_process_state_event(mocker, fsm):
     process.crashed.return_value = False
     for strategy in RunningFailureStrategies:
         process.rules.running_failure_strategy = strategy
-        fsm.on_process_state_event('10.0.0.1', {'process_name': 'dummy_proc'})
-        assert mocked_ctx.call_args_list == [call('10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', {'process_name': 'dummy_proc'})]
-        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
+        fsm.on_process_state_event('10.0.0.1', event)
+        assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
         assert not mocked_add.called
         # reset mocks
         mocked_ctx.reset_mock()
@@ -777,10 +789,10 @@ def test_on_authorization(mocker, fsm):
     # prepare context
     mocked_auth = mocker.patch.object(fsm.context, 'on_authorization', return_value=False)
     # set initial condition
-    assert fsm.supvisors.address_mapper.local_node_name == '127.0.0.1'
+    assert fsm.supvisors.node_mapper.local_node_name == '127.0.0.1'
     nodes = fsm.context.nodes
-    nodes['127.0.0.1']._state = AddressStates.RUNNING
-    nodes['10.0.0.5']._state = AddressStates.RUNNING
+    nodes['127.0.0.1']._state = NodeStates.RUNNING
+    nodes['10.0.0.5']._state = NodeStates.RUNNING
     # test rejected authorization
     fsm.on_authorization('10.0.0.1', False, '10.0.0.5', SupvisorsStates.INITIALIZATION)
     assert mocked_auth.call_args_list == [call('10.0.0.1', False)]
@@ -821,8 +833,8 @@ def test_on_authorization(mocker, fsm):
     assert fsm.context.master_node_name == ''
     assert not fsm.redeploy_mark
     # change context while instance is not master
-    nodes['127.0.0.1']._state = AddressStates.RUNNING
-    nodes['10.0.0.5']._state = AddressStates.RUNNING
+    nodes['127.0.0.1']._state = NodeStates.RUNNING
+    nodes['10.0.0.5']._state = NodeStates.RUNNING
     # as local is not master is operational, no automatic transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
     assert fsm.state == SupvisorsStates.DEPLOYMENT

@@ -58,7 +58,7 @@ def test_rules_str(rules):
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'addresses': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
+    assert rules.serial() == {'nodes': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -252,9 +252,9 @@ def test_process_possible_nodes(supvisors):
     process.rules.node_names = ['*']
     assert process.possible_nodes() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
     # test with full status and all nodes in rules
-    for node_name in supvisors.address_mapper.node_names:
+    for node_name in supvisors.node_mapper.node_names:
         process.add_info(node_name, info)
-    assert process.possible_nodes() == supvisors.address_mapper.node_names
+    assert process.possible_nodes() == supvisors.node_mapper.node_names
     # restrict again nodes in rules
     process.rules.node_names = ['10.0.0.5']
     assert process.possible_nodes() == ['10.0.0.5']
@@ -419,7 +419,8 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'addresses': [], 'extra_args': ''}
+                          'last_event_time': process.last_event_time, 'nodes': [], 'addresses': [],  # TODO: DEPRECATED
+                          'extra_args': ''}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -430,7 +431,8 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'addresses': [], 'extra_args': ''}
+                          'last_event_time': process.last_event_time, 'nodes': [], 'addresses': [],  # TODO: DEPRECATED
+                          'extra_args': ''}
 
 
 def test_get_last_description(supvisors):

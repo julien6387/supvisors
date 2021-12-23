@@ -68,7 +68,7 @@ class ViewContext:
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
         # keep reference to the local node
-        self.local_node_name = self.supvisors.address_mapper.local_node_name
+        self.local_node_name = self.supvisors.node_mapper.local_node_name
         # initialize parameters
         self.parameters = {}
         self.store_message = None
@@ -124,7 +124,7 @@ class ViewContext:
     def update_node_name(self):
         """ Extract node name from context. """
         # assign value found or default
-        self._update_string(NODE, self.supvisors.address_mapper.node_names, self.local_node_name)
+        self._update_string(NODE, self.supvisors.node_mapper.node_names, self.local_node_name)
 
     def update_application_name(self):
         """ Extract application name from context. """

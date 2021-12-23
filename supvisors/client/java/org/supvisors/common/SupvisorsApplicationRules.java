@@ -60,7 +60,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /**
      * The constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap rulesInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsApplicationRules(HashMap rulesInfo)  {
         this.applicationName = (String) rulesInfo.get("application_name");
@@ -68,7 +68,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         if (this.isManaged) {
             this.isDistributed = (Boolean) rulesInfo.get("distributed");
             if (!this.isDistributed) {
-                Object[] nodes = (Object[]) rulesInfo.get("addresses");
+                Object[] nodes = (Object[]) rulesInfo.get("nodes");
                 this.nodes = Arrays.asList(nodes);
             }
             this.startSequence = (Integer) rulesInfo.get("start_sequence");

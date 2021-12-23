@@ -29,7 +29,7 @@ from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES
 
-from supvisors.addressmapper import AddressMapper
+from supvisors.nodemapper import NodeMapper
 from supvisors.context import Context
 from supvisors.infosource import SupervisordSource
 from supvisors.initializer import Supvisors
@@ -67,14 +67,14 @@ class MockedSupvisors:
     """ Simple supvisors with all dummies. """
 
     def __init__(self):
-        """ Use a dummy address mapper and options. """
+        """ Use mocks when not possible to use real structures. """
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
-        self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
-        self.address_mapper.local_node_name = '127.0.0.1'
+        self.node_mapper = NodeMapper(self.logger)
+        self.node_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
+        self.node_mapper.local_node_name = '127.0.0.1'
         self.options = DummyOptions()
         self.server_options = Mock(procnumbers={'xclock': 2})
-        # build context from address mapper
+        # build context from node mapper
         self.context = Context(self)
         # simple mocks
         self.fsm = Mock()
@@ -276,4 +276,4 @@ def any_process_info_by_state(state):
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+    return next((extract_process_info(info) for info in ProcessInfoDatabase if info['name'] == name), None)

@@ -76,7 +76,7 @@ class EventPublisher(object):
         :return: None
         """
         self.logger.trace('EventPublisher.send_node_status: {}'.format(status))
-        self.socket.send_string(EventHeaders.ADDRESS, zmq.SNDMORE)
+        self.socket.send_string(EventHeaders.NODE, zmq.SNDMORE)
         self.socket.send_json(status)
 
     def send_application_status(self, status: Payload) -> None:
@@ -98,7 +98,7 @@ class EventPublisher(object):
         """
         # build the event before it is sent
         evt = event.copy()
-        evt['address'] = node_name
+        evt['node'] = node_name
         self.logger.trace('EventPublisher.send_process_event: {}'.format(evt))
         self.socket.send_string(EventHeaders.PROCESS_EVENT, zmq.SNDMORE)
         self.socket.send_json(evt)
@@ -139,9 +139,9 @@ class EventSubscriber(object):
         self.logger = logger
         # create ZeroMQ socket
         self.socket = zmq_context.socket(zmq.SUB)
-        # WARN: this is a local binding, only visible to processes located on the same address
-        url = 'tcp://127.0.0.1:%d' % port
-        self.logger.info('EventSubscriber: connecting %s' % url)
+        # WARN: this is a local binding, only visible to processes located on the same node
+        url = f'tcp://127.0.0.1:{port}'
+        self.logger.info(f'EventSubscriber: connecting {url}')
         self.socket.connect(url)
 
     def close(self) -> None:
@@ -166,12 +166,12 @@ class EventSubscriber(object):
         """
         self.subscribe(EventHeaders.SUPVISORS)
 
-    def subscribe_address_status(self) -> None:
-        """ Subscribe to Address Status messages.
+    def subscribe_node_status(self) -> None:
+        """ Subscribe to Node Status messages.
 
         :return: None
         """
-        self.subscribe(EventHeaders.ADDRESS)
+        self.subscribe(EventHeaders.NODE)
 
     def subscribe_application_status(self) -> None:
         """ Subscribe to Application Status messages.
@@ -217,12 +217,12 @@ class EventSubscriber(object):
         """
         self.unsubscribe(EventHeaders.SUPVISORS)
 
-    def unsubscribe_address_status(self) -> None:
-        """ Unsubscribe from Address Status messages
+    def unsubscribe_node_status(self) -> None:
+        """ Unsubscribe from Node Status messages
 
         :return: None
         """
-        self.unsubscribe(EventHeaders.ADDRESS)
+        self.unsubscribe(EventHeaders.NODE)
 
     def unsubscribe_application_status(self) -> None:
         """ Unsubscribe from Application Status messages
@@ -325,7 +325,7 @@ class InternalEventSubscriber(object):
         """
         self.port = port
         self.socket = ZmqContext.socket(zmq.SUB)
-        # connect all addresses
+        # connect all nodes
         for node_name in node_names:
             self.socket.connect('tcp://{}:{}'.format(node_name, self.port))
         self.socket.setsockopt(zmq.SUBSCRIBE, b'')
@@ -571,7 +571,7 @@ class SupervisorZmq(object):
         :param supvisors: the Supvisors global structure
         """
         self.publisher = EventPublisher(supvisors.options.event_port, supvisors.logger)
-        self.pusher = RequestPusher(supvisors.address_mapper.local_node_name, supvisors.logger)
+        self.pusher = RequestPusher(supvisors.node_mapper.local_node_name, supvisors.logger)
 
     def close(self) -> None:
         """ Close the sockets.
@@ -600,9 +600,9 @@ class SupvisorsZmq(object):
         :param supvisors: the Supvisors global structure
         """
         # create zmq sockets
-        self.publisher = InternalEventPublisher(supvisors.address_mapper.local_node_name,
+        self.publisher = InternalEventPublisher(supvisors.node_mapper.local_node_name,
                                                 supvisors.options.internal_port)
-        self.subscriber = InternalEventSubscriber(supvisors.address_mapper.node_names,
+        self.subscriber = InternalEventSubscriber(supvisors.node_mapper.node_names,
                                                   supvisors.options.internal_port)
         self.puller = RequestPuller()
         # create poller

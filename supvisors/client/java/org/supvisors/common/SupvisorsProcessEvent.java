@@ -43,8 +43,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The UNIX process id of the process. */
     private Integer pid;
 
-    /** The address of the event. */
-    private String address;
+    /** The node of the event. */
+    private String node;
 
     /** The extra arguments passed to the command line. */
     private String extra_args;
@@ -64,8 +64,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         this.expected = (Boolean) processInfo.get("expected");
         this.now = (Integer) processInfo.get("now");
         this.pid = (Integer) processInfo.get("pid");
-        // address is not set in this message
-        this.address = null;
+        // node is not set in this message
+        this.node = null;
         this.extra_args = (String) processInfo.get("extra_args");
    }
 
@@ -134,16 +134,16 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getAddress method returns the address of the event.
+     * The getNode method returns the node of the event.
      *
-     * @return String: The address of the event.
+     * @return String: The node of the event.
      */
-    public String getAddress() {
-        return this.address;
+    public String getNode() {
+        return this.node;
     }
 
     /**
-     * The getExtraArgs method returns the exta arguments passed to the
+     * The getExtraArgs method returns the extra arguments passed to the
      * command line.
      *
      * @return String: The arguments.
@@ -166,7 +166,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
             + " expected=" + this.expected
             + " now=" + this.now
             + " pid=" + this.pid
-            + " address=" + this.address
+            + " node=" + this.node
             + " extraArgs=\"" + this.extra_args + "\")";
     }
 

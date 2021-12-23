@@ -32,7 +32,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         This process is the first to be started. """
         # store a proxy to perform XML-RPC requests
         self.proxy = getRPCInterface(os.environ)
-        # wait for address_queue to trigger
+        # wait for node_queue to trigger
         self.get_nodes()
         # define the context to know which process is running
         self.create_context()
@@ -61,7 +61,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
             # required is set later. wait_exit is not used here
             program = Program(info['process_name'])
             program.state = info['statecode']
-            program.node_names = set(info['addresses'])
+            program.node_names = set(info['nodes'])
             application = self.context.get_application(info['application_name'])
             if not application:
                 # create application if not found

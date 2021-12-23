@@ -104,8 +104,8 @@ class SupvisorsEventInterface(threading.Thread):
                 else:
                     if message[0] == EventHeaders.SUPVISORS:
                         self.on_supvisors_status(message[1])
-                    elif message[0] == EventHeaders.ADDRESS:
-                        self.on_address_status(message[1])
+                    elif message[0] == EventHeaders.NODE:
+                        self.on_node_status(message[1])
                     elif message[0] == EventHeaders.APPLICATION:
                         self.on_application_status(message[1])
                     elif message[0] == EventHeaders.PROCESS_EVENT:
@@ -124,9 +124,9 @@ class SupvisorsEventInterface(threading.Thread):
         """ Just logs the contents of the |Supvisors| Status message. """
         self.logger.info('got Supvisors Status message: {}'.format(data))
 
-    def on_address_status(self, data):
-        """ Just logs the contents of the Address Status message. """
-        self.logger.info('got AddressStatus message: {}'.format(data))
+    def on_node_status(self, data):
+        """ Just logs the contents of the Node Status message. """
+        self.logger.info('got NodeStatus message: {}'.format(data))
 
     def on_application_status(self, data):
         """ Just logs the contents of the Application Status message. """

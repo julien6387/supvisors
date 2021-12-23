@@ -69,13 +69,13 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     /**
      * The constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap rulesInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsProcessRules(HashMap rulesInfo)  {
         this.processName = (String) rulesInfo.get("process_name");
         this.applicationName = (String) rulesInfo.get("application_name");
         this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
-        Object[] nodes = (Object[]) rulesInfo.get("addresses");
+        Object[] nodes = (Object[]) rulesInfo.get("nodes");
         this.nodes = Arrays.asList(nodes);
         this.startSequence = (Integer) rulesInfo.get("start_sequence");
         this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
@@ -113,7 +113,7 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNodes method returns the addresses where the process can be started.
+     * The getNodes method returns the nodes where the process can be started.
      *
      * @return List: The list of nodes.
      */

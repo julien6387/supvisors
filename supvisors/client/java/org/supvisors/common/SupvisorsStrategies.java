@@ -27,7 +27,7 @@ import java.util.List;
  */
 public class SupvisorsStrategies {
 
-    /** The application status of auto-fencing when an address becomes inactive. */
+    /** The application status of auto-fencing when a node becomes inactive. */
     private Boolean autoFencing;
 
     /** The strategy applied when Supvisors is in DEPLOYMENT state. */
@@ -39,7 +39,7 @@ public class SupvisorsStrategies {
     /**
      * The constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap info: The untyped structure got from the XML-RPC.
      */
     public SupvisorsStrategies(HashMap info)  {
         this.autoFencing = (Boolean) info.get("auto-fencing");

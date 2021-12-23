@@ -21,9 +21,9 @@ from supervisor.http import NOT_DONE_YET
 from supervisor.xmlrpc import RPCError
 from typing import Dict
 
-from .address import AddressStatus
+from .node import NodeStatus
 from .strategy import conciliate_conflicts
-from .ttypes import AddressStates, ConciliationStrategies, SupvisorsStates
+from .ttypes import NodeStates, ConciliationStrategies, SupvisorsStates
 from .utils import simple_gmtime, simple_localtime
 from .viewcontext import *
 from .viewhandler import ViewHandler
@@ -84,7 +84,7 @@ class SupvisorsView(ViewHandler):
             self.write_node_boxes(root)
 
     # Standard part
-    def _write_node_box_title(self, node_div_elt, status: AddressStatus) -> None:
+    def _write_node_box_title(self, node_div_elt, status: NodeStatus) -> None:
         """ Rendering of the node box title.
 
         :param node_div_elt: the node box element
@@ -93,7 +93,7 @@ class SupvisorsView(ViewHandler):
         """
         # set node name
         elt = node_div_elt.findmeld('node_th_mid')
-        if status.state == AddressStates.RUNNING:
+        if status.state == NodeStates.RUNNING:
             # go to web page located on node
             url = self.view_ctx.format_url(status.node_name, PROC_NODE_PAGE)
             elt.attributes(href=url)
@@ -107,7 +107,7 @@ class SupvisorsView(ViewHandler):
         elt.content(status.state.name)
         # set node current time
         elt = node_div_elt.findmeld('time_th_mid')
-        if status.state == AddressStates.RUNNING:
+        if status.state == NodeStates.RUNNING:
             remote_time = status.get_remote_time(self.current_time)
             elt.content(simple_localtime(remote_time))
         # set node current load
@@ -143,7 +143,7 @@ class SupvisorsView(ViewHandler):
     def write_node_boxes(self, root):
         """ Rendering of the node boxes. """
         node_div_mid = root.findmeld('node_div_mid')
-        node_names = self.supvisors.address_mapper.node_names
+        node_names = self.supvisors.node_mapper.node_names
         for node_div_elt, node_name in node_div_mid.repeat(node_names):
             # get node status from Supvisors context
             status = self.sup_ctx.nodes[node_name]

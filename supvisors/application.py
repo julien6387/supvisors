@@ -106,7 +106,7 @@ class ApplicationRules(object):
                                   .format(application_name, appnumber))
                 if '*' in self.hash_node_names:
                     # all nodes defined in the supvisors section of the supervisor configuration file are applicable
-                    ref_node_names = self.supvisors.address_mapper.node_names
+                    ref_node_names = self.supvisors.node_mapper.node_names
                 else:
                     # the subset of applicable nodes is the hash_node_names
                     ref_node_names = self.hash_node_names
@@ -156,7 +156,8 @@ class ApplicationRules(object):
                        'starting_failure_strategy': self.starting_failure_strategy.name,
                        'running_failure_strategy': self.running_failure_strategy.name}
             if not self.distributed:
-                payload['addresses'] = self.node_names
+                payload['nodes'] = self.node_names
+                payload['addresses'] = self.node_names  # TODO: DEPRECATED
             return payload
         return {'managed': False}
 
@@ -245,17 +246,15 @@ class ApplicationStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
+            self.logger.info(f'Application.state: {self.application_name} is {self.state.name}')
 
     def has_running_processes(self) -> bool:
         """ Check if one of the application processes is running.
         The application state may be STOPPED in this case if the running process is out of the starting sequence.
 
-        :return: True if one of the application processes is running
+        :return: True if any of the application processes is running
         """
-        for process in self.processes.values():
-            if process.running():
-                return True
+        return any(process.running() for process in self.processes.values())
 
     def get_operational_status(self) -> str:
         """ Get a description of the operational status of the application.
@@ -323,7 +322,7 @@ class ApplicationStatus(object):
         """
         node_names = self.rules.node_names
         if '*' in self.rules.node_names:
-            node_names = self.supvisors.address_mapper.node_names
+            node_names = self.supvisors.node_mapper.node_names
         # get the nodes common to all application processes
         actual_nodes = [set(process.info_map.keys()) for process in self.processes.values()]
         if actual_nodes:

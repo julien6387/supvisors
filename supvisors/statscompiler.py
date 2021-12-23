@@ -89,7 +89,7 @@ def statistics(last, ref):
 
 # Class for statistics storage
 class StatisticsInstance(object):
-    """ This class handles resources statistics for a given address and period. """
+    """ This class handles resources statistics for a given node and period. """
 
     def __init__(self, period, depth, logger):
         """ Initialization of the attributes.
@@ -209,32 +209,32 @@ class StatisticsInstance(object):
             lst.pop(0)
 
 
-# Class used to compile statistics coming from all addresses
+# Class used to compile statistics coming from all nodes
 class StatisticsCompiler(object):
-    """ This class handles stores statistics for all addresses and periods.
+    """ This class handles stores statistics for all nodes and periods.
 
     Attributes are:
 
-        - data: a dictionary containing a StatisticsInstance entry for each pair of address and period,
-        - nbcores: a dictionary giving the number of processor cores per address.
+        - data: a dictionary containing a StatisticsInstance entry for each pair of node and period,
+        - nbcores: a dictionary giving the number of processor cores per node.
         """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
         self.data = {node_name: {period: StatisticsInstance(period, supvisors.options.stats_histo, supvisors.logger)
                                  for period in supvisors.options.stats_periods}
-                     for node_name in supvisors.address_mapper.node_names}
-        self.nbcores = {node_name: 1 for node_name in supvisors.address_mapper.node_names}
+                     for node_name in supvisors.node_mapper.node_names}
+        self.nbcores = {node_name: 1 for node_name in supvisors.node_mapper.node_names}
 
-    def clear(self, address):
-        """ For a given address, clear the StatisticsInstance for all periods. """
-        for period in self.data[address].values():
+    def clear(self, node_name):
+        """ For a given node, clear the StatisticsInstance for all periods. """
+        for period in self.data[node_name].values():
             period.clear()
 
-    def push_statistics(self, address, stats):
-        """ Insert a new statistics measure for address. """
-        for period in self.data[address].values():
+    def push_statistics(self, node_name, stats):
+        """ Insert a new statistics measure for node_name. """
+        for period in self.data[node_name].values():
             period.push_statistics(stats)
         # set the number of processor cores
         nb = len(stats[1])
-        self.nbcores[address] = nb if nb == 1 else nb - 1
+        self.nbcores[node_name] = nb if nb == 1 else nb - 1

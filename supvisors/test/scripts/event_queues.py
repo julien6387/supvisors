@@ -47,9 +47,9 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         self.logger.info('got Supvisors Status message: {}'.format(data))
         self.supvisors_queue.put(data)
 
-    def on_address_status(self, data):
-        """ Pushes the Address Status message into a queue. """
-        self.logger.info('got Address Status message: {}'.format(data))
+    def on_node_status(self, data):
+        """ Pushes the Node Status message into a queue. """
+        self.logger.info('got Node Status message: {}'.format(data))
         self.node_queue.put(data)
 
     def on_application_status(self, data):

@@ -48,6 +48,8 @@ Status
 
         .. automethod:: get_master_address()
 
+        .. automethod:: get_master_node()
+
         .. automethod:: get_strategies()
 
             ================== ========= ===========
@@ -61,10 +63,13 @@ Status
 
         .. automethod:: get_address_info(node_name)
 
+        .. automethod:: get_node_info(node_name)
+
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   The |Supvisors| instance node.
+            'address_name'     ``str``   *DEPRECATED* The |Supvisors| instance node.
+            'node_name'        ``str``   The |Supvisors| instance node.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
@@ -78,6 +83,8 @@ Status
             ================== ========= ===========
 
         .. automethod:: get_all_addresses_info()
+
+        .. automethod:: get_all_nodes_info()
 
         .. automethod:: get_application_info(application_name)
 
@@ -107,7 +114,8 @@ Status
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
             'last_event_time'  ``int``         The timestamp of the last event received for this process.
-            'addresses'        ``list(str)``   The list of all nodes where the process is running.
+            'addresses'        ``list(str)``   *DEPRECATED* The list of all nodes where the process is running.
+            'nodes'            ``list(str)``   The list of all nodes where the process is running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
@@ -135,6 +143,9 @@ Status
             'start'            ``int``         The Process start date.
             'now'              ``int``         The Process current date.
             'pid'              ``int``         The UNIX process identifier.
+            'startsecs'        ``int``         The duration between process STARTING and RUNNING.
+            'stopwaitsecs'     ``int``         The duration between process STOPPING and STOPPED.
+            'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
@@ -149,7 +160,10 @@ Status
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
             'distributed'               ``bool``        The Application distribution status in |Supvisors|.
-            'addresses'                 ``list(str)``   The list of all nodes where the non-distributed application
+            'addresses'                 ``list(str)``   *DEPRECATED* The list of all nodes where the non-distributed
+                                                        application processes can be started, provided only if
+                                                        ``distributed`` is ``False``.
+            'nodes'                     ``list(str)``   The list of all nodes where the non-distributed application
                                                         processes can be started, provided only if ``distributed``
                                                         is ``False``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
@@ -173,7 +187,9 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'addresses'                ``list(str)``   The list of all nodes where the process can be started.
+            'addresses'                ``list(str)``   *DEPRECATED* The list of all nodes where the process can be
+                                                       started.
+            'nodes'                    ``list(str)``   The list of all nodes where the process can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,
                                                        in [0;127].
             'stop_sequence'            ``int``         The Process stopping rank when stopping the related application,

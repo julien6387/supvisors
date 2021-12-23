@@ -23,7 +23,7 @@ from supervisor import loggers, supervisord
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
-from .addressmapper import AddressMapper
+from .nodemapper import NodeMapper
 from .commander import Starter, Stopper
 from .context import Context
 from .infosource import SupervisordSource
@@ -57,10 +57,10 @@ class Supvisors(object):
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
         self.info_source = SupervisordSource(supervisor, self.logger)
-        # set addresses and check local node
-        self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.node_names = self.options.node_list
-        if not self.address_mapper.local_node_name:
+        # get configured nodes and check local node
+        self.node_mapper = NodeMapper(self.logger)
+        self.node_mapper.node_names = self.options.node_list
+        if not self.node_mapper.local_node_name:
             message = f'local node is expected in node list: {self.options.node_list}'
             self.logger.critical(f'Supvisors: {message}')
             raise RPCError(Faults.SUPVISORS_CONF_ERROR, message)

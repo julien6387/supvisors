@@ -205,20 +205,20 @@ class SequenceChecker(SupvisorsEventQueues):
         self.nb_node_notifications = 0
 
     def configure(self):
-        """ Subscribe to address status only. """
-        self.subscriber.subscribe_address_status()
+        """ Subscribe to node status only. """
+        self.subscriber.subscribe_node_status()
 
-    def on_address_status(self, data):
-        """ Pushes the Address Status message into a queue. """
-        self.logger.info('got Address Status message: {}'.format(data))
+    def on_node_status(self, data):
+        """ Pushes the Node Status message into a queue. """
+        self.logger.info('got Node Status message: {}'.format(data))
         if data['statename'] == 'RUNNING':
-            self.nodes.add(data['address_name'])
+            self.nodes.add(data['node_name'])
         # check the number of notifications
         self.nb_node_notifications += 1
         if self.nb_node_notifications == 5:
             self.logger.info('nodes: {}'.format(self.nodes))
-            # got all notification, unsubscribe from AddressStatus
-            self.subscriber.unsubscribe_address_status()
+            # got all notification, unsubscribe from NodeStatus
+            self.subscriber.unsubscribe_node_status()
             # subscribe to application and process status
             self.subscriber.subscribe_application_status()
             self.subscriber.subscribe_process_status()
@@ -233,11 +233,11 @@ class CheckSequenceTest(unittest.TestCase):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the nodes
         proxy = getRPCInterface(os.environ).supvisors
-        nodes_info = proxy.get_all_addresses_info()
-        self.HOST_01 = nodes_info[0]['address_name']
-        self.HOST_02 = nodes_info[1]['address_name'] if len(nodes_info) > 1 else None
-        self.HOST_03 = nodes_info[2]['address_name'] if len(nodes_info) > 2 else None
-        self.HOST_04 = nodes_info[3]['address_name'] if len(nodes_info) > 3 else None
+        nodes_info = proxy.get_all_nodes_info()
+        self.HOST_01 = nodes_info[0]['node_name']
+        self.HOST_02 = nodes_info[1]['node_name'] if len(nodes_info) > 1 else None
+        self.HOST_03 = nodes_info[2]['node_name'] if len(nodes_info) > 2 else None
+        self.HOST_04 = nodes_info[3]['node_name'] if len(nodes_info) > 3 else None
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -304,7 +304,7 @@ class CheckSequenceTest(unittest.TestCase):
         # check the running nodes
         if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
             if state_event.node_names:
-                self.assertEqual(sorted(state_event.node_names), sorted(event['addresses']))
+                self.assertEqual(sorted(state_event.node_names), sorted(event['nodes']))
             program.node_names.update(state_event.node_names)
         # update program state
         program.state = state_event.statecode

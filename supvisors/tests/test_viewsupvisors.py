@@ -112,7 +112,7 @@ def test_write_node_box_title(mocker, view):
     """ Test the _write_node_box_title method. """
     # patch context
     mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
-    mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.RUNNING,
+    mocked_status = Mock(node_name='10.0.0.1', state=NodeStates.RUNNING,
                          **{'get_loading.return_value': 17, 'get_remote_time.return_value': 1234})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
@@ -164,7 +164,7 @@ def test_write_node_box_title(mocker, view):
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
-    mocked_status = Mock(node_name='10.0.0.1', state=AddressStates.SILENT, **{'get_loading.return_value': 0})
+    mocked_status = Mock(node_name='10.0.0.1', state=NodeStates.SILENT, **{'get_loading.return_value': 0})
     view._write_node_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_node_mid.attrib['class'] == ''

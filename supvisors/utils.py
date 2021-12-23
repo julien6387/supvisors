@@ -46,7 +46,7 @@ class RemoteCommEvents:
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
     SUPVISORS = u'supvisors'
-    ADDRESS = u'address'
+    NODE = u'node'
     APPLICATION = u'application'
     PROCESS_EVENT = u'event'
     PROCESS_STATUS = u'process'
@@ -67,12 +67,12 @@ def simple_gmtime(now=None):
 
 
 # Keys of information kept from Supervisor
-__Payload_Keys = ('name', 'group', 'state', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
+__Payload_Keys = ('name', 'group', 'state', 'statename', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
 
 
 def extract_process_info(info):
     """ Returns a subset of Supervisor process information. """
-    payload = {key: info[key] for key in __Payload_Keys}
+    payload = {key: info[key] for key in __Payload_Keys if key in info}
     # expand information with 'expected' (deduced from spawnerr)
     payload['expected'] = not info['spawnerr']
     return payload

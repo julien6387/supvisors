@@ -27,40 +27,40 @@ from socket import gethostname
 from supervisor import childutils
 
 from supvisors import rpcrequests
-from supvisors.ttypes import AddressStates
+from supvisors.ttypes import NodeStates
 from supvisors.client.subscriber import create_logger
 
 from .event_queues import SupvisorsEventQueues
 
 
-class RunningAddressesTest(unittest.TestCase):
+class RunningNodesTest(unittest.TestCase):
     """ Intermediate layer for the check of initial conditions:
-        - 3 running addresses.
+        - 3 running nodes.
 
     Proxies to XML-RPC servers are opened.
     The thread of Event queues is started.
     """
 
     def setUp(self):
-        """ Check that 3 running addresses are available. """
+        """ Check that 3 running nodes are available. """
         # get a reference to the local RPC proxy
         self.local_proxy = childutils.getRPCInterface(os.environ)
         self.local_supervisor = self.local_proxy.supervisor
         self.local_supvisors = self.local_proxy.supvisors
-        # check the number of running addresses
-        addresses_info = self.local_supvisors.get_all_addresses_info()
-        self.running_nodes = [info['address_name']
-                              for info in addresses_info
-                              if info['statecode'] == AddressStates.RUNNING.value]
+        # check the number of running nodes
+        nodes_info = self.local_supvisors.get_all_nodes_info()
+        self.running_nodes = [info['node_name']
+                              for info in nodes_info
+                              if info['statecode'] == NodeStates.RUNNING.value]
         self.assertEqual(3, len(self.running_nodes))
-        # assumption is made that this test is run on Supvisors Master address
-        self.assertEqual(gethostname(), self.local_supvisors.get_master_address())
+        # assumption is made that this test is run on Supvisors Master node
+        self.assertEqual(gethostname(), self.local_supvisors.get_master_node())
         # keep a reference to all RPC proxies
         self.proxies = {node_name: rpcrequests.getRPCInterface(node_name, os.environ)
                         for node_name in self.running_nodes}
         # create the thread of event subscriber
         self.zcontext = zmq.Context.instance()
-        self.logger = create_logger(logfile=r'./log/running_addresses.log')
+        self.logger = create_logger(logfile=r'./log/running_nodes.log')
         self.evloop = SupvisorsEventQueues(self.zcontext, self.logger)
         # start the thread
         self.evloop.start()

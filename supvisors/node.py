@@ -23,15 +23,15 @@ from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
 from .process import ProcessStatus
-from .ttypes import AddressStates, InvalidTransition
+from .ttypes import NodeStates, InvalidTransition
 
 
-class AddressStatus(object):
+class NodeStatus(object):
     """ Class defining the status of a Supvisors instance.
 
     Attributes:
     - node_name: the node where the Supervisor instance is expected to be running ;
-    - state: the state of the Supervisor instance in AddressStates ;
+    - state: the state of the Supervisor instance in NodeStates ;
     - sequence_counter: the TICK counter ;
     - local_sequence_counter: the last TICK counter received from the local node ;
     - remote_time: the last date received from the Supvisors instance ;
@@ -48,7 +48,7 @@ class AddressStatus(object):
         self.logger: Logger = logger
         # attributes
         self.node_name: str = node_name
-        self._state: AddressStates = AddressStates.UNKNOWN
+        self._state: NodeStates = NodeStates.UNKNOWN
         self.sequence_counter: int = 0
         self.local_sequence_counter: int = 0
         self.remote_time: float = 0.0
@@ -61,9 +61,9 @@ class AddressStatus(object):
 
         :return: None
         """
-        if self.state in [AddressStates.CHECKING, AddressStates.RUNNING]:
+        if self.state in [NodeStates.CHECKING, NodeStates.RUNNING]:
             # do NOT use state setter as transition may be rejected
-            self._state = AddressStates.UNKNOWN
+            self._state = NodeStates.UNKNOWN
         self.local_sequence_counter = 0
         self.remote_time = 0.0
         self.local_time = 0.0
@@ -79,15 +79,16 @@ class AddressStatus(object):
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info('AddressStatus.state: {} is {}'.format(self.node_name, self.state.name))
+                self.logger.info(f'NodeStatus.state: {self.node_name} is {self.state.name}')
             else:
-                raise InvalidTransition('AddressStatus.state: {} transition rejected from {} to {}'
-                                        .format(self.node_name, self.state.name, new_state.name))
+                raise InvalidTransition(f'NodeStatus.state: {self.node_name} transition rejected'
+                                        f' from {self.state.name} to {new_state.name}')
 
     # serialization
     def serial(self):
-        """ Return a serializable form of the AddressStatus. """
-        return {'address_name': self.node_name,
+        """ Return a serializable form of the NodeStatus. """
+        return {'node_name': self.node_name,
+                'address_name': self.node_name,  # TODO: DEPRECATED
                 'statecode': self.state.value,
                 'statename': self.state.name,
                 'sequence_counter': self.sequence_counter,
@@ -102,15 +103,15 @@ class AddressStatus(object):
         :param local_sequence_counter: the current local sequence counter
         :return: the inactivity status
         """
-        return (self.state in [AddressStates.CHECKING, AddressStates.RUNNING]
+        return (self.state in [NodeStates.CHECKING, NodeStates.RUNNING]
                 and (local_sequence_counter - self.local_sequence_counter) > self.INACTIVITY_TICKS)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
-        return self.state in [AddressStates.ISOLATING, AddressStates.ISOLATED]
+        return self.state in [NodeStates.ISOLATING, NodeStates.ISOLATED]
 
     def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
-        """ Update the time attributes of the AddressStatus and of all the processes running on it. """
+        """ Update the time attributes of the NodeStatus and of all the processes running on it. """
         self.sequence_counter = sequence_counter
         self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time
@@ -136,13 +137,13 @@ class AddressStatus(object):
         self.processes[process.namespec] = process
 
     def running_processes(self):
-        """ Return the process running on the address.
+        """ Return the process running on the node.
         Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
         return [process for process in self.processes.values()
                 if process.running_on(self.node_name)]
 
     def pid_processes(self):
-        """ Return the process running on the address and having a pid.
+        """ Return the process running on the no and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
         return [(process.namespec, process.info_map[self.node_name]['pid'])
                 for process in self.processes.values()
@@ -154,14 +155,14 @@ class AddressStatus(object):
         :return: the total loading
         """
         node_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.trace('AddressStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
+        self.logger.trace('NodeStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
         return node_load
 
     # dictionary for transitions
-    _Transitions = {AddressStates.UNKNOWN: (AddressStates.CHECKING, AddressStates.ISOLATING, AddressStates.SILENT),
-                    AddressStates.CHECKING: (AddressStates.RUNNING, AddressStates.ISOLATING, AddressStates.SILENT),
-                    AddressStates.RUNNING: (AddressStates.SILENT, AddressStates.ISOLATING, AddressStates.CHECKING),
-                    AddressStates.SILENT: (AddressStates.CHECKING, AddressStates.ISOLATING),
-                    AddressStates.ISOLATING: (AddressStates.ISOLATED,),
-                    AddressStates.ISOLATED: ()
+    _Transitions = {NodeStates.UNKNOWN: (NodeStates.CHECKING, NodeStates.ISOLATING, NodeStates.SILENT),
+                    NodeStates.CHECKING: (NodeStates.RUNNING, NodeStates.ISOLATING, NodeStates.SILENT),
+                    NodeStates.RUNNING: (NodeStates.SILENT, NodeStates.ISOLATING, NodeStates.CHECKING),
+                    NodeStates.SILENT: (NodeStates.CHECKING, NodeStates.ISOLATING),
+                    NodeStates.ISOLATING: (NodeStates.ISOLATED,),
+                    NodeStates.ISOLATED: ()
                     }

@@ -30,7 +30,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         """ Test the whole sequencing of the starting of the test application.
         At this point, Supvisors is in DEPLOYMENT phase.
         This process is the first to be started. """
-        # wait for address_queue to trigger
+        # wait for node_queue to trigger
         self.get_nodes()
         # test the last events received for this process
         self.check_self_starting()

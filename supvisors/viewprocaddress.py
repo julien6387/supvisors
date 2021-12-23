@@ -48,7 +48,7 @@ class ProcAddressView(SupvisorsAddressView):
         if namespec:
             status = self.view_ctx.get_process_status(namespec)
             if not status or self.view_ctx.local_node_name not in status.running_nodes:
-                self.logger.warn('unselect Process Statistics for {}'.format(namespec))
+                self.logger.warn(f'ProcAddressView.write_contents: unselect Process Statistics for {namespec}')
                 # form parameter is not consistent. remove it
                 self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
@@ -68,8 +68,8 @@ class ProcAddressView(SupvisorsAddressView):
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
-            self.logger.warn('ProcAddressView.get_process_data: failed to get all process info from {}: {}'
-                             .format(self.local_node_name, e.text))
+            self.logger.warn(f'ProcAddressView.get_process_data: failed to get all process info'
+                             f' from {self.local_node_name}: {e.text}')
             return [], []
         # extract what is useful to display
         data = []
@@ -189,24 +189,25 @@ class ProcAddressView(SupvisorsAddressView):
 
     def write_application_status(self, tr_elt, info, shaded_tr):
         """ Write the application section into a table. """
+        application_name = info['application_name']
         # print common status
         self.write_common_status(tr_elt, info)
         # print application shex
         elt = tr_elt.findmeld('shex_td_mid')
-        application_shex, inverted_shex = self.view_ctx.get_application_shex(info['application_name'])
+        application_shex, inverted_shex = self.view_ctx.get_application_shex(application_name)
         if application_shex:
             elt.attrib['rowspan'] = str(info['nb_processes'] + 1)
             apply_shade(elt, shaded_tr)
         elt = elt.findmeld('shex_a_mid')
-        self.logger.debug('SHRINK_EXPAND application_name={} application_shex={} inverted_shex={}'
-                          .format(info['application_name'], application_shex, inverted_shex))
+        self.logger.trace(f'ProcAddressView.write_application_status: application_name={application_name}'
+                          f' application_shex={application_shex} inverted_shex={inverted_shex}')
         elt.content('{}'.format('[\u2013]' if application_shex else '[+]'))
         url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
         # print application name
         elt = tr_elt.findmeld('name_a_mid')
-        elt.content(info['application_name'])
-        url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: info['application_name']})
+        elt.content(application_name)
+        url = self.view_ctx.format_url('', APPLICATION_PAGE, **{APPLI: application_name})
         elt.attributes(href=url)
         # remove all actions
         for mid in ['start_td_mid', 'clear_td_mid']:

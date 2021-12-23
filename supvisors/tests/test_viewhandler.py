@@ -59,7 +59,7 @@ def test_init(http_context, handler):
     assert current_time - 1 < handler.current_time < current_time
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
-    assert handler.local_node_name == handler.supvisors.address_mapper.local_node_name
+    assert handler.local_node_name == handler.supvisors.node_mapper.local_node_name
     assert handler.view_ctx is None
 
 
@@ -219,23 +219,23 @@ def test_write_nav_nodes_address_error(handler):
     # test call with no address status in context
     handler.write_nav_nodes(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
     assert address_elt.findmeld.call_args_list == []
 
 
 def test_write_nav_nodes_silent_address(handler):
     """ Test the write_nav_nodes method using a SILENT address. """
-    from supvisors.ttypes import AddressStates
+    from supvisors.ttypes import NodeStates
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with address status set in context, SILENT and different from parameter
-    handler.sup_ctx.nodes['10.0.0.1']._state = AddressStates.SILENT
+    handler.sup_ctx.nodes['10.0.0.1']._state = NodeStates.SILENT
     handler.write_nav_nodes(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
     assert address_elt.attrib['class'] == 'SILENT'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -247,7 +247,7 @@ def test_write_nav_nodes_silent_address(handler):
     # test call with address status set in context, SILENT and identical to parameter
     handler.write_nav_nodes(mocked_root, '10.0.0.1')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
     assert address_elt.attrib['class'] == 'SILENT active'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -256,7 +256,7 @@ def test_write_nav_nodes_silent_address(handler):
 
 def test_write_nav_nodes_running_address(handler):
     """ Test the write_nav_nodes method using a RUNNING address. """
-    from supvisors.ttypes import AddressStates
+    from supvisors.ttypes import NodeStates
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -264,11 +264,11 @@ def test_write_nav_nodes_running_address(handler):
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with address status set in context, RUNNING, different from parameter and not MASTER
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=AddressStates.RUNNING,
+    handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=NodeStates.RUNNING,
                                              **{'state_string.return_value': 'running'})
     handler.write_nav_nodes(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
     assert address_elt.attrib['class'] == 'RUNNING'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'procaddress.html')]
@@ -285,7 +285,7 @@ def test_write_nav_nodes_running_address(handler):
     handler.sup_ctx.master_node_name = '10.0.0.1'
     handler.write_nav_nodes(mocked_root, '10.0.0.1')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.address_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
     assert address_elt.attrib['class'] == 'RUNNING active'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'procaddress.html')]

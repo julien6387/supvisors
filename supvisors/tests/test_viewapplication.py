@@ -416,32 +416,32 @@ def check_start_action(view, rpc_name, action_name, *args):
         action = getattr(view, action_name)
         # test call with error on main RPC call
         rpc_call.side_effect = RPCError('failed RPC')
-        assert action('strategy', *args) == 'Delay err'
+        assert action(StartingStrategies.CONFIG, *args) == 'Delay err'
         # test call with direct result (application started)
         rpc_call.side_effect = None
         rpc_call.return_value = True
-        assert action('strategy', *args) == 'Delay info'
+        assert action(StartingStrategies.CONFIG, *args) == 'Delay info'
         # test call with direct result (application NOT started)
         rpc_call.return_value = False
-        assert action('strategy', *args) == 'Delay warn'
+        assert action(StartingStrategies.CONFIG, *args) == 'Delay warn'
         # test call with indirect result leading to internal RPC error
         rpc_call.return_value = lambda: (_ for _ in ()).throw(RPCError(''))
-        result = action('strategy', *args)
+        result = action(StartingStrategies.CONFIG, *args)
         assert callable(result)
         assert result() == 'Msg err'
         # test call with indirect result leading to unfinished job
         rpc_call.return_value = lambda: NOT_DONE_YET
-        result = action('strategy', *args)
+        result = action(StartingStrategies.CONFIG, *args)
         assert callable(result)
         assert result() is NOT_DONE_YET
         # test call with indirect result leading to failure
         rpc_call.return_value = lambda: False
-        result = action('strategy', *args)
+        result = action(StartingStrategies.CONFIG, *args)
         assert callable(result)
         assert result() == 'Msg warn'
         # test call with indirect result leading to success
         rpc_call.return_value = lambda: True
-        result = action('strategy', *args)
+        result = action(StartingStrategies.CONFIG, *args)
         assert callable(result)
         assert result() == 'Msg info'
 

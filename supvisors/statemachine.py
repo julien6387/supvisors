@@ -24,7 +24,7 @@ from supervisor.loggers import Logger
 
 from .context import Context
 from .strategy import conciliate_conflicts
-from .ttypes import AddressStates, RunningFailureStrategies, SupvisorsStates, NameList, Payload, PayloadList
+from .ttypes import NodeStates, RunningFailureStrategies, SupvisorsStates, Payload, PayloadList
 
 
 class Forced:
@@ -35,7 +35,9 @@ class AbstractState(object):
     """ Base class for a state with simple entry / next / exit actions.
 
     Attributes are:
-        - supvisors: the reference to the global Supvisors structure,
+        - supvisors: the reference to the global Supvisors structure ;
+        - context: the reference to the context of the global Supvisors structure ;
+        - logger: the reference to the logger of the global Supvisors structure ;
         - local_node_name: the name of the local node.
      """
 
@@ -47,7 +49,7 @@ class AbstractState(object):
         self.supvisors = supvisors
         self.context = supvisors.context
         self.logger = supvisors.logger
-        self.local_node_name = supvisors.address_mapper.local_node_name
+        self.local_node_name = supvisors.node_mapper.local_node_name
 
     def enter(self) -> None:
         """ Actions performed when entering the state.
@@ -76,10 +78,10 @@ class AbstractState(object):
 
         :return: the suggested state if local or Master node is not active anymore
         """
-        if self.context.nodes[self.local_node_name].state != AddressStates.RUNNING:
+        if self.context.nodes[self.local_node_name].state != NodeStates.RUNNING:
             self.logger.critical('AbstractState.check_nodes: local node not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
-        if self.context.nodes[self.context.master_node_name].state != AddressStates.RUNNING:
+        if self.context.nodes[self.context.master_node_name].state != NodeStates.RUNNING:
             self.logger.warn('AbstractState.check_nodes: Master node not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
 
@@ -94,11 +96,7 @@ class AbstractState(object):
 
 
 class InitializationState(AbstractState):
-    """ In the INITIALIZATION state, Supvisors synchronizes to all known instances.
-
-    Attributes are:
-        - start_date: the date when entering this state.
-    """
+    """ In the INITIALIZATION state, Supvisors synchronizes to all known instances. """
 
     def enter(self) -> None:
         """ When entering in the INITIALIZATION state, reset the context.
@@ -135,25 +133,25 @@ class InitializationState(AbstractState):
                 if self.context.running_core_nodes():
                     # if ok, master must be running if already known
                     if self.context.master_node_name and self.context.master_node_name not in running_nodes:
-                        self.logger.info('InitializationState.next: all core nodes are RUNNING but not Master={}'
-                                         .format(self.context.master_node_name))
+                        self.logger.info('InitializationState.next: all core nodes are RUNNING but not'
+                                         f' Master={self.context.master_node_name}')
                         return SupvisorsStates.INITIALIZATION
                     self.logger.info('InitializationState.next: all core nodes are RUNNING')
                     return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
-            self.logger.debug('InitializationState.next: local node {} still not RUNNING'.format(self.local_node_name))
+            self.logger.debug(f'InitializationState.next: local node {self.local_node_name} still not RUNNING')
         return SupvisorsStates.INITIALIZATION
 
     def exit(self) -> None:
         """ When leaving the INITIALIZATION state, the working nodes are defined.
-        One of them is elected as the MASTER.
+        One of them is elected as the *Master*.
 
         :return: None
         """
         # force state of missing Supvisors instances
         node_names = self.context.running_nodes()
-        self.logger.info('InitializationState.exit: working with nodes {}'.format(node_names))
+        self.logger.info(f'InitializationState.exit: working with nodes {node_names}')
         # elect master node among working nodes only if not fixed before
         # of course master node must be running
         if not self.context.master_node_name or self.context.master_node_name not in node_names:
@@ -184,10 +182,9 @@ class MasterDeploymentState(AbstractState):
         if next_state:
             return next_state
         # Master goes to OPERATION when starting is completed
-        if self.supvisors.starter.is_starting_completed():
-            return SupvisorsStates.OPERATION
-        # stay in current state
-        return SupvisorsStates.DEPLOYMENT
+        if self.supvisors.starter.in_progress():
+            return SupvisorsStates.DEPLOYMENT
+        return SupvisorsStates.OPERATION
 
 
 class MasterOperationState(AbstractState):
@@ -203,16 +200,16 @@ class MasterOperationState(AbstractState):
         next_state = self.check_nodes()
         if next_state:
             return next_state
-        # normal behavior. check if jobs in progress
-        if self.supvisors.starter.is_starting_completed() and self.supvisors.stopper.is_stopping_completed():
-            # check duplicated processes
-            if self.context.conflicting():
-                return SupvisorsStates.CONCILIATION
-            # a redeploy mark has set due to a new node in Supvisors
-            # back to DEPLOYMENT state to repair what may have failed before
-            if self.supvisors.fsm.redeploy_mark:
-                return SupvisorsStates.DEPLOYMENT
-        return SupvisorsStates.OPERATION
+        # check if jobs are in progress
+        if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
+            return SupvisorsStates.OPERATION
+        # check duplicated processes
+        if self.context.conflicting():
+            return SupvisorsStates.CONCILIATION
+        # a redeploy mark has set due to a new node in Supvisors
+        # back to DEPLOYMENT state to repair what may have failed before
+        if self.supvisors.fsm.redeploy_mark:
+            return SupvisorsStates.DEPLOYMENT
 
 
 class MasterConciliationState(AbstractState):
@@ -225,7 +222,7 @@ class MasterConciliationState(AbstractState):
                              self.context.conflicts())
 
     def next(self) -> SupvisorsStates:
-        """ Check that all addresses are still active.
+        """ Check that all nodes are still active.
         Wait for all conflicts to be conciliated.
 
         :return: the new Supvisors state
@@ -234,15 +231,15 @@ class MasterConciliationState(AbstractState):
         next_state = self.check_nodes()
         if next_state:
             return next_state
-        # check eventual jobs in progress
-        if self.supvisors.starter.is_starting_completed() and self.supvisors.stopper.is_stopping_completed():
-            # back to OPERATION when there is no conflict anymore
-            if not self.context.conflicting():
-                return SupvisorsStates.OPERATION
-            # new conflicts may happen while conciliation is in progress
-            # call enter again to trigger a new conciliation
-            self.enter()
-        return SupvisorsStates.CONCILIATION
+        # check if jobs are in progress
+        if self.supvisors.starter.in_progress() or self.supvisors.stopper.in_progress():
+            return SupvisorsStates.CONCILIATION
+        # back to OPERATION when there is no conflict anymore
+        if not self.context.conflicting():
+            return SupvisorsStates.OPERATION
+        # new conflicts may happen while conciliation is in progress
+        # call enter again to trigger a new conciliation
+        self.enter()
 
 
 class MasterRestartingState(AbstractState):
@@ -266,9 +263,10 @@ class MasterRestartingState(AbstractState):
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
-        if self.supvisors.stopper.is_stopping_completed():
-            return SupvisorsStates.SHUTDOWN
-        return SupvisorsStates.RESTARTING
+        # check if stopping jobs are in progress
+        if self.supvisors.stopper.in_progress():
+            return SupvisorsStates.RESTARTING
+        return SupvisorsStates.SHUTDOWN
 
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the full restart. """
@@ -295,9 +293,10 @@ class MasterShuttingDownState(AbstractState):
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
-        if self.supvisors.stopper.is_stopping_completed():
-            return SupvisorsStates.SHUTDOWN
-        return SupvisorsStates.SHUTTING_DOWN
+        # check if stopping jobs are in progress
+        if self.supvisors.stopper.in_progress():
+            return SupvisorsStates.SHUTTING_DOWN
+        return SupvisorsStates.SHUTDOWN
 
     def exit(self):
         """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
@@ -313,7 +312,8 @@ class ShutdownState(AbstractState):
 class SlaveMainState(AbstractState):
 
     def next(self) -> SupvisorsStates:
-        """ the non-master instances are just checking if local and Master instances are still running.
+        """ The non-master instances are checking if local and Master instances are still running.
+        Local start / stop requests are evaluated too.
 
         :return: the new Supvisors state
         """
@@ -382,6 +382,10 @@ class FiniteStateMachine:
 
         :return: None
         """
+        # periodic check of start / stop jobs
+        self.supvisors.starter.check()
+        self.supvisors.stopper.check()
+        # check state machine
         self.set_state(self.instance.next())
 
     def set_state(self, next_state: SupvisorsStates, force_transition: bool = None) -> None:
@@ -395,14 +399,14 @@ class FiniteStateMachine:
         while next_state is not None and next_state != self.state:
             # check that the transition is allowed
             if not force_transition and next_state not in self._Transitions[self.state]:
-                self.logger.critical('FiniteStateMachine.set_state: unexpected transition from {} to {}'
-                                     .format(self.state, next_state))
+                self.logger.critical(f'FiniteStateMachine.set_state: unexpected transition from {self.state}'
+                                     ' to {next_state}')
                 break
             # exit the current state
             self.instance.exit()
             # assign the new state and publish SupvisorsStatus event internally and externally
             self.state = next_state
-            self.logger.info('FiniteStateMachine.set_state: Supvisors in {}'.format(self.state.name))
+            self.logger.info(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
             if self.supvisors.zmq:
                 # the zmq does not exist yet for the first occurrence here
                 self.supvisors.zmq.pusher.send_state_event(self.serial())
@@ -420,11 +424,12 @@ class FiniteStateMachine:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
         invalidated_nodes, process_failures = self.context.on_timer_event(event)
-        self.logger.debug('FiniteStateMachine.periodic_check: invalidated_nodes={} process_failures={}'
-                          .format(invalidated_nodes, [process.namespec for process in process_failures]))
+        self.logger.debug(f'FiniteStateMachine.periodic_check: invalidated_nodes={invalidated_nodes}'
+                          f' process_failures={[process.namespec for process in process_failures]}')
         # inform Starter and Stopper. process_failures may be removed
-        self.supvisors.starter.on_nodes_invalidation(invalidated_nodes, process_failures)
-        self.supvisors.stopper.on_nodes_invalidation(invalidated_nodes, process_failures)
+        if invalidated_nodes:
+            self.supvisors.starter.on_nodes_invalidation(invalidated_nodes, process_failures)
+            self.supvisors.stopper.on_nodes_invalidation(invalidated_nodes, process_failures)
         # get invalidated nodes / use next / update processes on invalidated nodes ?
         self.next()
         # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
@@ -458,7 +463,7 @@ class FiniteStateMachine:
         if process:
             # inform starter and stopper
             self.supvisors.starter.on_event(process, node_name, event)
-            self.supvisors.stopper.on_event(process, node_name)
+            self.supvisors.stopper.on_event(process, node_name, event)
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)

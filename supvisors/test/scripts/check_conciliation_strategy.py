@@ -28,17 +28,17 @@ from supervisor.xmlrpc import Faults
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
 from .event_queues import SupvisorsEventQueues
-from .running_addresses import RunningAddressesTest
+from .running_nodes import RunningNodesTest
 
 
-class ConciliationStrategyTest(RunningAddressesTest):
+class ConciliationStrategyTest(RunningNodesTest):
     """ Test case to check the conciliation of Supvisors.
     The aim is to test user and auto conciliation, depending on the configuration.
     """
 
     def setUp(self):
-        """ Get initial status (one movie_server running on each address). """
-        RunningAddressesTest.setUp(self)
+        """ Get initial status (one movie_server running on each node). """
+        RunningNodesTest.setUp(self)
         # store initial process status
         self.running_processes = self._get_movie_servers()
         # expected to be {'movie_server_01': ['cliche01'],
@@ -53,13 +53,13 @@ class ConciliationStrategyTest(RunningAddressesTest):
             running_nodes.add(nodes[0])
 
     def tearDown(self):
-        """ Back to initial status (one movie_server running on each address). """
+        """ Back to initial status (one movie_server running on each node). """
         print('### [INFO] clean-up')
         try:
             self.local_supvisors.restart_application(StartingStrategies.CONFIG.value, 'database')
         except:
             print('### [ERROR] failed to restart database application')
-        RunningAddressesTest.tearDown(self)
+        RunningNodesTest.tearDown(self)
 
     def test_conciliation(self):
         """ Check depending on the configuration. """
@@ -132,11 +132,11 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # expected to be {'movie_server_01': ['cliche83'],
         #                 'movie_server_02': ['cliche82'],
         #                 'movie_server_03': ['cliche83']}
-        # check that running addresses at the end is not the same as at the
+        # check that running nodes at the end is not the same as at the
         # beginning for all processes
         for process, nodes in ending_status.items():
-            start_address = self.running_processes[process][0]
-            self.assertNotEqual(nodes[0], start_address)
+            start_node = self.running_processes[process][0]
+            self.assertNotEqual(nodes[0], start_node)
 
     def _check_conciliation_user_stop(self):
         """ Test the STOP conciliation on USER request. """
@@ -162,7 +162,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # this test is a bit long and produces lots of events
         # so hang on for specific events for test
         # 1. all movie_server programs (9) shall be stopped
-        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'address': node_name}
+        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'node': node_name}
                            for node_name in self.running_nodes
                            for idx in range(3)]
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
@@ -208,7 +208,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
         self.local_supvisors.conciliate(ConciliationStrategies.RUNNING_FAILURE.value)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager', 'state': 0, 'address': node_name}
+        expected_events = [{'name': 'manager', 'state': 0, 'node': node_name}
                            for node_name in self.running_nodes]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
@@ -239,7 +239,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
     def _create_database_conflicts(self):
         """ Create conflicts on database application. """
-        # start all movie_server programs on all addresses
+        # start all movie_server programs on all nodes
         for node_name, proxy in self.proxies.items():
             for idx in range(3):
                 try:
@@ -250,9 +250,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
                 else:
                     # confirm starting through events
                     event = self._get_next_process_event()
-                    assert {'name': program, 'state': 10, 'address': node_name}.items() < event.items()
+                    assert {'name': program, 'state': 10, 'node': node_name}.items() < event.items()
                     event = self._get_next_process_event()
-                    assert {'name': program, 'state': 20, 'address': node_name}.items() < event.items()
+                    assert {'name': program, 'state': 20, 'node': node_name}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
@@ -273,7 +273,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
     def _create_manager_conflicts(self):
         """ Create conflicts on the my_movies:manager process. """
-        # start the manager program on all addresses
+        # start the manager program on all nodes
         for node_name, proxy in self.proxies.items():
             try:
                 proxy.supervisor.startProcess('my_movies:manager')
@@ -282,9 +282,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
             else:
                 # confirm starting through events
                 event = self._get_next_process_event()
-                assert {'name': 'manager', 'state': 10, 'address': node_name}.items() < event.items()
+                assert {'name': 'manager', 'state': 10, 'node': node_name}.items() < event.items()
                 event = self._get_next_process_event()
-                assert {'name': 'manager', 'state': 20, 'address': node_name}.items() < event.items()
+                assert {'name': 'manager', 'state': 20, 'node': node_name}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
@@ -306,7 +306,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
     def _get_movie_servers(self):
         """ Get the running status of the movie_server_0x processes. """
         process_info = self.local_supvisors.get_process_info('database:*')
-        running_processes = {info['process_name']: info['addresses']
+        running_processes = {info['process_name']: info['nodes']
                              for info in process_info
                              if info['statecode'] == ProcessStates.RUNNING}
         return running_processes

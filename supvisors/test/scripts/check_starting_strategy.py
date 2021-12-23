@@ -24,19 +24,19 @@ from supervisor.compat import xmlrpclib
 from supervisor.states import STOPPED_STATES
 from supervisor.xmlrpc import Faults
 
-from supvisors.ttypes import AddressStates, StartingStrategies
+from supvisors.ttypes import NodeStates, StartingStrategies
 
 from .event_queues import SupvisorsEventQueues
-from .running_addresses import RunningAddressesTest
+from .running_nodes import RunningNodesTest
 
 
-class StartingStrategyTest(RunningAddressesTest):
+class StartingStrategyTest(RunningNodesTest):
     """ Test case to check the loading strategies of Supvisors. """
 
     def setUp(self):
         """ Get initial status. """
-        RunningAddressesTest.setUp(self)
-        # check the loading on running addresses
+        RunningNodesTest.setUp(self)
+        # check the loading on running nodes
         # initial state is cliche81=14% cliche82=15% cliche83=5%
         self._refresh_loading()
         assert list(self.loading.values()) == [10, 15, 9]
@@ -61,14 +61,14 @@ class StartingStrategyTest(RunningAddressesTest):
             except Exception:
                 pass
         # call parent
-        RunningAddressesTest.tearDown(self)
+        RunningNodesTest.tearDown(self)
 
     def _refresh_loading(self):
         """ Get the current loading status. """
-        addresses_info = self.local_supvisors.get_all_addresses_info()
-        self.loading = {info['address_name']: info['loading']
-                        for info in addresses_info
-                        if info['statecode'] == AddressStates.RUNNING.value}
+        nodes_info = self.local_supvisors.get_all_nodes_info()
+        self.loading = {info['node_name']: info['loading']
+                        for info in nodes_info
+                        if info['statecode'] == NodeStates.RUNNING.value}
 
     def _start_converter(self, idx):
         """ Get the current loading status. """
@@ -79,7 +79,7 @@ class StartingStrategyTest(RunningAddressesTest):
         # wait for event RUNNING
         event = self._get_next_process_event()
         assert {'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 20}.items() < event.items()
-        # refresh the address loadings
+        # refresh the node loadings
         self._refresh_loading()
 
     def _start_converter_failed(self, idx):
@@ -91,16 +91,16 @@ class StartingStrategyTest(RunningAddressesTest):
         # wait for event FATAL
         event = self._get_next_process_event()
         assert {'group': 'my_movies', 'name': 'converter_0%d' % idx, 'state': 200}.items() < event.items()
-        # refresh the address loadings
+        # refresh the node loadings
         self._refresh_loading()
 
     def test_config(self):
         """ Test the CONFIG starting strategy.
-        Start converters and check they have been started on the first address
+        Start converters and check they have been started on the first node
         available defined in the program section of the rules file. """
         print('### Testing CONFIG starting strategy')
         self.strategy = StartingStrategies.CONFIG
-        # no address config for almost all converters (excepted 04 and 07)
+        # no node config for almost all converters (excepted 04 and 07)
         # so applicable order is the one defined in the supvisors section,
         # i.e. cliche81, cliche82, cliche83, cliche84 (not running)
         self._start_converter(0)
@@ -119,7 +119,7 @@ class StartingStrategyTest(RunningAddressesTest):
         self.assertEqual([85, 40, 34], list(self.loading.values()))
         # there is still place on cliche82
         # try with converter_07 to check the alt config
-        # cliche81 is full, so second address in config will be used (cliche83)
+        # cliche81 is full, so second node in config will be used (cliche83)
         self._start_converter(7)
         self.assertEqual([85, 40, 59], list(self.loading.values()))
         # there is still place on cliche82
@@ -137,7 +137,7 @@ class StartingStrategyTest(RunningAddressesTest):
 
     def test_less_loaded(self):
         """ Test the LESS_LOADED starting strategy.
-        Start converters and check they have been started on the address having the lowest loading. """
+        Start converters and check they have been started on the node having the lowest loading. """
         print('### Testing LESS_LOADED starting strategy')
         self.strategy = StartingStrategies.LESS_LOADED
         self._start_converter(0)
@@ -164,7 +164,7 @@ class StartingStrategyTest(RunningAddressesTest):
 
     def test_most_loaded(self):
         """ Test the MOST_LOADED starting strategy.
-        Start converters and check they have been started on the address having the highest loading. """
+        Start converters and check they have been started on the node having the highest loading. """
         print('### Testing MOST_LOADED starting strategy')
         self.strategy = StartingStrategies.MOST_LOADED
         self._start_converter(0)
@@ -191,7 +191,7 @@ class StartingStrategyTest(RunningAddressesTest):
 
     def test_local(self):
         """ Test the LOCAL starting strategy.
-        Start converters and check they have been started on the address having the highest loading. """
+        Start converters and check they have been started on the node having the highest loading. """
         print('### Testing LOCAL starting strategy')
         self.strategy = StartingStrategies.LOCAL
         # this test should be started only from cliche81 so processes should be started only on cliche81

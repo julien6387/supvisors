@@ -19,7 +19,7 @@
 
 import os
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from supervisor.events import notify
 from supervisor.http import supervisor_auth_handler
@@ -128,12 +128,22 @@ class SupervisordSource(object):
         return self._get_process(namespec).config
 
     def autorestart(self, namespec: str) -> bool:
-        """ This method checks if autorestart is configured on the process. """
+        """ This method checks if autorestart is configured on the program. """
         return self._get_process_config(namespec).autorestart is not False
 
     def disable_autorestart(self, namespec: str) -> None:
         """ This method forces the autorestart to False in Supervisor internal data. """
         self._get_process_config(namespec).autorestart = False
+
+    def get_process_config_options(self, namespec: str, option_names: List[str]) -> Dict[str, Any]:
+        """ Get the configured option values of the program.
+
+        :param namespec: the program namespec
+        :param option_names: the options to get
+        :return: a dictionary of option values
+        """
+        process_config = self._get_process_config(namespec)
+        return {option_name: getattr(process_config, option_name) for option_name in option_names}
 
     def update_extra_args(self, namespec: str, extra_args: str) -> None:
         """ This method is used to add extra arguments to the command line. """
@@ -145,10 +155,6 @@ class SupervisordSource(object):
         if extra_args:
             config.command += ' ' + extra_args
         self.logger.trace('SupervisordSource.update_extra_args: {} extra_args={}'.format(namespec, extra_args))
-
-    def get_extra_args(self, namespec: str) -> str:
-        """ Return the extra arguments passed to the command line of the process named namespec. """
-        return self._get_process_config(namespec).extra_args
 
     def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
         """ This method is used to dynamically update the program numprocs.

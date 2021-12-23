@@ -42,7 +42,7 @@ def test_creation(mocker):
     assert mocked_srv_options.realize.called
     assert isinstance(supv.logger, Logger)
     assert isinstance(supv.info_source, SupervisordSource)
-    assert isinstance(supv.address_mapper, AddressMapper)
+    assert isinstance(supv.node_mapper, NodeMapper)
     assert isinstance(supv.context, Context)
     assert isinstance(supv.starter, Starter)
     assert isinstance(supv.stopper, Stopper)
@@ -72,7 +72,7 @@ def test_create_logger(mocker):
 def test_node_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
-    mocker.patch('supvisors.initializer.AddressMapper.node_names')
+    mocker.patch('supvisors.initializer.NodeMapper.node_names')
     # create Supvisors instance
     supervisord_instance = DummySupervisor()
     # patches Faults codes

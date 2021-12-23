@@ -154,7 +154,7 @@ def test_extra_args(source):
     # add extra arguments
     source.update_extra_args(namespec, '-la')
     # test access
-    assert source.get_extra_args(namespec) == '-la'
+    assert source.get_process_config_options(namespec, ['extra_args']) == {'extra_args': '-la'}
     # test internal data
     assert config.command == 'ls -la'
     assert config.command_ref == 'ls'
@@ -162,7 +162,7 @@ def test_extra_args(source):
     # remove them
     source.update_extra_args(namespec, '')
     # test access
-    assert source.get_extra_args(namespec) == ''
+    assert source.get_process_config_options(namespec, ['extra_args']) == {'extra_args': ''}
     # test internal data
     assert config.command == 'ls'
     assert config.command_ref == 'ls'

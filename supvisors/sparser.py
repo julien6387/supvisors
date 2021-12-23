@@ -286,7 +286,7 @@ class Parser(object):
             node_names = ['*']
         else:
             # filter the unknown nodes (or remaining aliases)
-            node_names = self.supvisors.address_mapper.filter(node_names)
+            node_names = self.supvisors.node_mapper.filter(node_names)
         # re-inject the hashtag if needed. position does not matter
         if ref_hashtag:
             node_names.append('#')
@@ -303,7 +303,7 @@ class Parser(object):
         if value:
             rules.node_names = self.check_node_list(value)
             if '#' in rules.node_names:
-                # if '#' is alone or associated to '*', the logic is applicable to all addresses
+                # if '#' is alone or associated to '*', the logic is applicable to all nodes
                 if len(rules.node_names) == 1 or '*' in rules.node_names:
                     rules.hash_node_names = ['*']
                 else:

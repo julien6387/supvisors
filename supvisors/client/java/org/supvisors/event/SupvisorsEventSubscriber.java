@@ -41,8 +41,8 @@ public class SupvisorsEventSubscriber implements Runnable {
     /** The constant header in SupvisorsStatus messages. */
     private static final String SUPVISORS_STATUS_HEADER = "supvisors";
 
-    /** The constant header in AddressStatus messages. */
-    private static final String ADDRESS_STATUS_HEADER = "address";
+    /** The constant header in NodeStatus messages. */
+    private static final String NODE_STATUS_HEADER = "node";
 
     /** The constant header in ApplicationStatus messages. */
     private static final String APPLICATION_STATUS_HEADER = "application";
@@ -111,10 +111,10 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Subscription to Address status events.
+     * Subscription to Node status events.
      */
-    public void subscribeToAddressStatus() {
-        subscribeTo(ADDRESS_STATUS_HEADER);
+    public void subscribeToNodeStatus() {
+        subscribeTo(NODE_STATUS_HEADER);
     }
 
     /**
@@ -162,10 +162,10 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Unubscription from Address status events.
+     * Unubscription from Node status events.
      */
-    public void unsubscribeFromAddressStatus() {
-        unsubscribeFrom(ADDRESS_STATUS_HEADER);
+    public void unsubscribeFromNodeStatus() {
+        unsubscribeFrom(NODE_STATUS_HEADER);
     }
 
     /**
@@ -230,9 +230,9 @@ public class SupvisorsEventSubscriber implements Runnable {
                     if (SUPVISORS_STATUS_HEADER.equals(header)) {
                         SupvisorsStatus status = gson.fromJson(body, SupvisorsStatus.class);
                         listener.onSupvisorsStatus(status);
-                    } else if (ADDRESS_STATUS_HEADER.equals(header)) {
-                        SupvisorsAddressInfo info = gson.fromJson(body, SupvisorsAddressInfo.class);
-                        listener.onAddressStatus(info);
+                    } else if (NODE_STATUS_HEADER.equals(header)) {
+                        SupvisorsNodeInfo info = gson.fromJson(body, SupvisorsNodeInfo.class);
+                        listener.onNodeStatus(info);
                     } else if (APPLICATION_STATUS_HEADER.equals(header)) {
                         SupvisorsApplicationInfo info = gson.fromJson(body, SupvisorsApplicationInfo.class);
                         listener.onApplicationStatus(info);
@@ -272,7 +272,7 @@ public class SupvisorsEventSubscriber implements Runnable {
                 }
 
                 @Override
-                public void onAddressStatus(final SupvisorsAddressInfo status) {
+                public void onNodeStatus(final SupvisorsNodeInfo status) {
                     System.out.println(status);
                 }
 

@@ -24,7 +24,7 @@ import sys
 from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
-from supervisor.loggers import LevelsByDescription, getLevelNumByDescription
+from supervisor.loggers import getLevelNumByDescription
 from supervisor.options import ClientOptions, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
@@ -48,14 +48,14 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 version = self.supvisors().get_api_version()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 self.ctl.output(version)
 
     def help_sversion(self):
-        """ Print the help of the sversion command."""
-        self.ctl.output("sversion\t\t\t\tGet the API version of Supvisors.")
+        """ Print the help of the sversion command. """
+        self.ctl.output('sversion\t\t\t\tGet the API version of Supvisors.')
 
     def do_sstate(self, _):
         """ Command to get the Supvisors state. """
@@ -63,7 +63,7 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 state = self.supvisors().get_supvisors_state()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 template = '%(code)-3s%(state)-12s'
@@ -71,23 +71,23 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(line)
 
     def help_sstate(self):
-        """ Print the help of the sstate command."""
-        self.ctl.output("sstate\t\t\t\t\tGet the Supvisors state.")
+        """ Print the help of the sstate command. """
+        self.ctl.output('sstate\t\t\t\t\tGet the Supvisors state.')
 
     def do_master(self, _):
-        """ Command to get the Supvisors master address. """
+        """ Command to get the Supvisors master node. """
         if self._upcheck():
             try:
-                address = self.supvisors().get_master_address()
+                node_name = self.supvisors().get_master_node()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output(address)
+                self.ctl.output(node_name)
 
     def help_master(self):
-        """ Print the help of the master command."""
-        self.ctl.output("master\t\t\t\t\tGet the Supvisors master address.")
+        """ Print the help of the master command. """
+        self.ctl.output('master\t\t\t\t\tGet the Supvisors master node.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -95,57 +95,66 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategies = self.supvisors().get_strategies()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                line = 'Auto-fencing: {}'.format(strategies['auto-fencing'])
-                self.ctl.output(line)
-                line = 'Conciliation: {}'.format(strategies['conciliation'])
-                self.ctl.output(line)
-                line = 'Starting:     {}'.format(strategies['starting'])
-                self.ctl.output(line)
+                self.ctl.output(f"Auto-fencing: {strategies['auto-fencing']}")
+                self.ctl.output(f"Conciliation: {strategies['conciliation']}")
+                self.ctl.output(f"Starting:     {strategies['starting']}")
 
     def help_strategies(self):
         """ Print the help of the strategies command."""
-        self.ctl.output("strategies\t\t\t\t\tGet the Supvisors strategies.")
+        self.ctl.output('strategies\t\t\t\t\tGet the Supvisors strategies.')
 
-    def do_address_status(self, arg):
-        """ Command to get the status of addresses known to Supvisors. """
+    def do_node_status(self, arg):
+        """ Command to get the status of nodes known to Supvisors. """
         if self._upcheck():
             try:
                 # get everything at once instead of doing multiple requests
-                info_list = self.supvisors().get_all_addresses_info()
+                info_list = self.supvisors().get_all_nodes_info()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 # create template. node name has variable length
-                max_nodes = ControllerPlugin.max_template(info_list, 'address_name', 'Node')
-                template = '%(addr)-{}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'.format(max_nodes)
+                max_nodes = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
+                template = f'%(node)-{max_nodes}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
                 # print title
-                payload = {'addr': 'Node', 'state': 'State', 'load': 'Load',
+                payload = {'node': 'Node', 'state': 'State', 'load': 'Load',
                            'ltime': 'Time', 'counter': 'Counter'}
                 self._output_info(template, payload)
                 # check request args
                 node_requests = arg.split()
-                output_all = not node_requests or "all" in node_requests
+                output_all = not node_requests or 'all' in node_requests
                 # print filtered payloads
                 for info in info_list:
-                    if output_all or info['address_name'] in node_requests:
-                        payload = {'addr': info['address_name'], 'state': info['statename'],
+                    if output_all or info['node_name'] in node_requests:
+                        payload = {'node': info['node_name'], 'state': info['statename'],
                                    'load': '{}%'.format(info['loading']),
                                    'counter': info['sequence_counter'],
                                    'ltime': simple_localtime(info['local_time'])}
                         self._output_info(template, payload)
 
+    def help_node_status(self):
+        """ Print the help of the node_status command."""
+        self.ctl.output('node_status <node>\t\t\t'
+                        'Get the status of remote supervisord managed in Supvisors and running on node.')
+        self.ctl.output('node_status <node> <node>\t\t'
+                        'Get the status for multiple nodes')
+        self.ctl.output('node_status\t\t\t\t'
+                        'Get the status of all remote supervisord managed in Supvisors.')
+
+    def do_address_status(self, arg):
+        """ *DEPRECATED* Command to get the status of nodes known to Supvisors. """
+        # TODO: DEPRECATED
+        self.ctl.output('*** DEPRECATED *** use node_status')
+        self.do_node_status(arg)
+
     def help_address_status(self):
-        """ Print the help of the address_status command."""
-        self.ctl.output("address_status <addr>\t\t\t"
-                        "Get the status of remote supervisord managed in Supvisors and running on addr.")
-        self.ctl.output("address_status <addr> <addr>\t\t"
-                        "Get the status for multiple addresses")
-        self.ctl.output("address_status\t\t\t\t"
-                        "Get the status of all remote supervisord managed in Supvisors.")
+        """ *DEPRECATED* Print the help of the address_status command."""
+        # TODO: DEPRECATED
+        self.ctl.output('*** DEPRECATED *** use node_status')
+        self.help_node_status()
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
@@ -166,7 +175,7 @@ class ControllerPlugin(ControllerPluginBase):
                 # get everything at once instead of doing multiple requests
                 info_list = self.supvisors().get_all_applications_info()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 # create template. node name has variable length
@@ -198,12 +207,12 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get the application rules handled by Supvisors. """
         if self._upcheck():
             applications = arg.split()
-            if not applications or "all" in applications:
+            if not applications or 'all' in applications:
                 try:
                     applications = [application_info['application_name']
                                     for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     applications = []
             rules_list = []
@@ -211,7 +220,7 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     rules = self.supvisors().get_application_rules(application)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application, e.faultString))
+                    self.ctl.output(f'{application}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     rules_list.append(rules)
@@ -221,7 +230,7 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = max(len(rules['application_name']) for rules in rules_list)
                 max_appli = max(max_appli, len('Application')) + 2
                 # get longer from distribution nodes and title
-                max_nodes = max(len('{}'.format(rules.get('addresses', ''))) for rules in rules_list)
+                max_nodes = max(len('{}'.format(rules.get('nodes', ''))) for rules in rules_list)
                 max_nodes = max(max_nodes, len('Nodes')) + 2
                 # print title
                 template_managed = '%(appli)-{}s%(managed)-9s%(distributed)-13s%(nodes)-{}s' \
@@ -237,14 +246,14 @@ class ControllerPlugin(ControllerPluginBase):
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
-                                   'distributed': rules['distributed'], 'nodes': rules.get('addresses', ''),
+                                   'distributed': rules['distributed'], 'nodes': rules.get('nodes', ''),
                                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
                                    'starting_strategy': rules['starting_strategy'],
                                    'starting_failure_strategy': rules['starting_failure_strategy'],
                                    'running_failure_strategy': rules['running_failure_strategy']}
                         line = template_managed % payload
                     else:
-                        template_unmanaged = '%(appli)-{}sFalse'.format(max_appli)
+                        template_unmanaged = f'%(appli)-{max_appli}sFalse'
                         line = template_unmanaged % {'appli': rules['application_name']}
                     self.ctl.output(line)
 
@@ -261,11 +270,11 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get information about processes known to Supvisors. """
         if self._upcheck():
             processes = arg.split()
-            if not processes or "all" in processes:
+            if not processes or 'all' in processes:
                 try:
                     info_list = self.supvisors().get_all_process_info()
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     info_list = []
             else:
@@ -274,7 +283,7 @@ class ControllerPlugin(ControllerPluginBase):
                     try:
                         info = self.supvisors().get_process_info(process)
                     except xmlrpclib.Fault as e:
-                        self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                        self.ctl.output(f'{process}: ERROR ({e.faultString})')
                         self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     else:
                         info_list.extend(info)
@@ -285,9 +294,9 @@ class ControllerPlugin(ControllerPluginBase):
                 max_proc = max(len(info['process_name']) for info in info_list) + 4
                 max_proc = max(max_proc, len('Process')) + 2
                 # print title
-                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(expected)-10s%(addresses)s'.format(max_appli, max_proc)
+                template = f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(expected)-10s%(nodes)s'
                 title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
-                         'expected': 'Expected', 'addresses': 'Nodes'}
+                         'expected': 'Expected', 'nodes': 'Nodes'}
                 self.ctl.output(template % title)
                 # print process status
                 for info in info_list:
@@ -296,30 +305,26 @@ class ControllerPlugin(ControllerPluginBase):
                                        'proc': info['process_name'],
                                        'state': info['statename'],
                                        'expected': expected,
-                                       'addresses': info['addresses']}
+                                       'nodes': info['nodes']}
                     self.ctl.output(line)
 
     def help_sstatus(self):
         """ Print the help of the sstatus command."""
-        self.ctl.output("sstatus <proc>\t\t\t\t"
-                        "Get the status of the process named proc.")
-        self.ctl.output("sstatus <appli>:*\t\t\t"
-                        "Get the process status of application named appli.")
-        self.ctl.output("sstatus <proc> <proc>\t\t\t"
-                        "Get the status for multiple named processes")
-        self.ctl.output("sstatus\t\t\t\t\t"
-                        "Get the status of all processes.")
+        self.ctl.output('sstatus <proc>\t\t\t\tGet the status of the process named proc.')
+        self.ctl.output('sstatus <appli>:*\t\t\tGet the process status of application named appli.')
+        self.ctl.output('sstatus <proc> <proc>\t\t\tGet the status for multiple named processes')
+        self.ctl.output('sstatus\t\t\t\t\tGet the status of all processes.')
 
     def do_local_status(self, arg):
-        """ Command to get a subset of information about processes,
-        using Supervisor's getProcessInfo, complemented by extra arguments.
+        """ Command to get a subset of information about processes, using Supervisor's getProcessInfo,
+        complemented by extra arguments.
         This is the minimal information required by Supvisors. """
         if self._upcheck():
             # get all information
             try:
                 info_list = self.supvisors().get_all_local_process_info()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 info_list = []
             # filter information iaw arguments
@@ -340,22 +345,15 @@ class ControllerPlugin(ControllerPluginBase):
             if match_list:
                 max_appli = max(len(info['group']) for info in match_list) + 4
                 max_proc = max(len(info['name']) for info in match_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(start)-12s' \
-                           '%(now)-12s%(pid)-8sargs="%(args)s"'. \
-                    format(max_appli, max_proc)
+                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(start)-12s'
+                            '%(now)-12s%(pid)-8sargs="%(args)s"')
                 for info in match_list:
-                    start_time = simple_localtime(info['start']) \
-                        if info['start'] else 0
-                    now_time = simple_localtime(info['now']) \
-                        if info['now'] else 0
-                    line = template % {
-                        'appli': info['group'],
-                        'proc': info['name'],
-                        'state': getProcessStateDescription(info['state']),
-                        'start': start_time,
-                        'now': now_time,
-                        'pid': info['pid'],
-                        'args': info['extra_args']}
+                    start_time = simple_localtime(info['start']) if info['start'] else 0
+                    now_time = simple_localtime(info['now']) if info['now'] else 0
+                    line = template % {'appli': info['group'], 'proc': info['name'],
+                                       'state': getProcessStateDescription(info['state']),
+                                       'start': start_time, 'now': now_time, 'pid': info['pid'],
+                                       'args': info['extra_args']}
                     self.ctl.output(line)
 
     def help_local_status(self):
@@ -373,12 +371,12 @@ class ControllerPlugin(ControllerPluginBase):
         """ Command to get the process rules handled by Supvisors. """
         if self._upcheck():
             processes = arg.split()
-            if not processes or "all" in processes:
+            if not processes or 'all' in processes:
                 try:
-                    processes = ['{}:*'.format(application_info['application_name'])
+                    processes = [f"{application_info['application_name']}:*"
                                  for application_info in self.supvisors().get_all_applications_info()]
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
             rules_list = []
@@ -397,13 +395,13 @@ class ControllerPlugin(ControllerPluginBase):
                 max_proc = max(len(rules['process_name'])
                                for rules in rules_list) + 4
                 template = '%(appli)-{}s%(proc)-{}s%(start_seq)-5s%(stop_seq)-5s' \
-                           '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(addr)s'.format(max_appli, max_proc)
+                           '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(node)s'.format(max_appli, max_proc)
                 for rules in rules_list:
                     required = rules['required']
                     wait_exit = rules['wait_exit']
                     line = template % {'appli': rules['application_name'],
                                        'proc': rules['process_name'],
-                                       'addr': rules['addresses'],
+                                       'node': rules['nodes'],
                                        'start_seq': rules['start_sequence'],
                                        'stop_seq': rules['stop_sequence'],
                                        'req': 'required' if required else 'optional',
@@ -437,12 +435,12 @@ class ControllerPlugin(ControllerPluginBase):
                                     for conflict in conflicts) + 4
                     max_proc = max(len(conflict['process_name'])
                                    for conflict in conflicts) + 4
-                    template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(addresses)s'.format(max_appli, max_proc)
+                    template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(nodes)s'.format(max_appli, max_proc)
                     for conflict in conflicts:
                         line = template % {'appli': conflict['application_name'],
                                            'proc': conflict['process_name'],
                                            'state': conflict['statename'],
-                                           'addresses': conflict['addresses']}
+                                           'nodes': conflict['nodes']}
                         self.ctl.output(line)
 
     def help_conflicts(self):
@@ -838,7 +836,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('restart_sequence\t\t\t\t\tTrigger the whole start sequence')
 
     def do_sreload(self, _):
-        """ Command to restart Supvisors on all addresses. """
+        """ Command to restart Supvisors on all nodes. """
         if self._upcheck():
             try:
                 result = self.supvisors().restart()
@@ -853,7 +851,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all nodes')
 
     def do_sshutdown(self, _):
-        """ Command to shutdown Supvisors on all addresses. """
+        """ Command to shutdown Supvisors on all nodes. """
         if self._upcheck():
             try:
                 result = self.supvisors().shutdown()

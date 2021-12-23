@@ -223,28 +223,28 @@ class ApplicationView(ViewHandler):
         rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
         wait = not self.view_ctx.parameters[AUTO]
         try:
-            cb = getattr(rpc_intf, rpc_name)(strategy, arg_name, wait=wait)
+            cb = getattr(rpc_intf, rpc_name)(strategy.value, arg_name, wait=wait)
         except RPCError as e:
-            return delayed_error('{}: {}'.format(rpc_name, e.text))
+            return delayed_error(f'{rpc_name}: {e.text}')
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
                 except RPCError as exc:
-                    return error_message('{}: {}'.format(rpc_name, exc.text))
+                    return error_message(f'{rpc_name}: {exc.text}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
                 if result:
                     action = '(re)started' if wait else 'requested to (re)start'
-                    return info_message('{} {} {}'.format(arg_type, arg_name, action))
-                return warn_message('{} {} NOT (re)started'.format(arg_type, arg_name))
+                    return info_message(f'{arg_type} {arg_name} {action}')
+                return warn_message(f'{arg_type} {arg_name} NOT (re)started')
 
             onwait.delay = 0.1
             return onwait
         if cb:
             action = '(re)started' if wait else 'requested to (re)start'
-            return delayed_info('{} {} {}'.format(arg_type, arg_name, action))
-        return delayed_warn('{} {} NOT (re)started'.format(arg_type, arg_name))
+            return delayed_info(f'{arg_type} {arg_name} {action}')
+        return delayed_warn(f'{arg_type} {arg_name} NOT (re)started')
 
     def stop_action(self, rpc_name: str, arg_name: str, arg_type) -> Callable:
         """ Stop an application or a process. """
@@ -253,26 +253,26 @@ class ApplicationView(ViewHandler):
         try:
             cb = getattr(rpc_intf, rpc_name)(arg_name, wait=wait)
         except RPCError as e:
-            return delayed_error('{}: {}'.format(rpc_name, e.text))
+            return delayed_error(f'{rpc_name}: {e.text}')
         if callable(cb):
             def onwait():
                 try:
                     result = cb()
                 except RPCError as exc:
-                    return error_message('{}: {}'.format(rpc_name, exc.text))
+                    return error_message(f'{rpc_name}: {exc.text}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('{} {} stopped'.format(arg_type, arg_name))
+                return info_message(f'{arg_type} {arg_name} stopped')
 
             onwait.delay = 0.1
             return onwait
         if cb:
             action = 'stopped' if wait else 'requested to stop'
-            return delayed_info('{} {} {}'.format(arg_type, arg_name, action))
-        return delayed_warn('{} {} NOT stopped'.format(arg_type, arg_name))
+            return delayed_info(f'{arg_type} {arg_name} {action}')
+        return delayed_warn(f'{arg_type} {arg_name} NOT stopped')
 
     # Application actions
-    def start_application_action(self, strategy) -> Callable:
+    def start_application_action(self, strategy: StartingStrategies) -> Callable:
         """ Start the application iaw the strategy.
 
         :param strategy: the strategy to apply for starting the application
@@ -280,7 +280,7 @@ class ApplicationView(ViewHandler):
         """
         return self.start_action(strategy, 'start_application', self.application_name, 'Application')
 
-    def restart_application_action(self, strategy) -> Callable:
+    def restart_application_action(self, strategy: StartingStrategies) -> Callable:
         """ Restart the application iaw the strategy.
 
         :param strategy: the strategy to apply for restarting the application
@@ -333,5 +333,5 @@ class ApplicationView(ViewHandler):
             rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
             rpc_intf.clearProcessLogs(namespec)
         except RPCError as e:
-            return delayed_error('unexpected rpc fault [%d] %s' % (e.code, e.text))
-        return delayed_info('Log for %s cleared' % namespec)
+            return delayed_error(f'unexpected rpc fault [{e.code}] {e.text}')
+        return delayed_info(f'Log for {namespec} cleared')

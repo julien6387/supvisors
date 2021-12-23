@@ -109,7 +109,7 @@ public class SupervisorXmlRpc {
     /**
      * The readLog method read bytes from the main log starting at an offset.
      *
-     * @param Integer offset: The offeset to start reading from.
+     * @param Integer offset: The offset to start reading from.
      * @param Integer length: The number of bytes to read from the log.
      * @return String: Bytes of log.
      */

@@ -24,7 +24,7 @@ from supervisor.events import Event
 
 
 # all enumerations
-class AddressStates(Enum):
+class NodeStates(Enum):
     """ Enumeration class for the state of remote Supvisors instance """
     UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
 

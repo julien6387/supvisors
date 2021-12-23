@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.11 (2021-11-xx)
+## 0.11 (2022-01-xx)
 
 * Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
   Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
@@ -15,10 +15,22 @@
 
 * Fix issue in statistics compiler when network interfaces are dynamically created / removed.
 
-* When a node is invalidated, check the impact on the jobs in progress in `Starter` / `Stopper`.
+* Refactoring of `Starter` and `Stopper`.
+
+* The XML-RPCs that would return attributes `address_name` and `addresses` are returning `node_names` and `nodes`.
+  This impacts the following XML-RPCs: `get_application_info`, `get_all_application_info`, `get_application_rules`,
+  `get_address_info`, `get_all_addresses_info`, `get_all_process_info`, `get_process_info`, `get_process_rules`,
+  `get_conflicts`.
+  `get_master_node`, `get_node_info` and `get_all_nodes_info` have been added to replace `get_master_address`,
+  `get_address_info` and `get_all_addresses_info`.
+  The attributes `address_name` and `addresses` and the XML-RPC `get_address_info`, `get_all_addresses_info` are
+  deprecated and will be removed in the next version.
+
+* The `startsecs` and `stopwaitsecs` program options have been added to the results of `get_all_local_process_info` and
+  `get_local_process_info`.
 
 * The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
-  The option `rules_file` is thus obsolete and will be removed in next version.
+  The option `rules_file` is thus deprecated and will be removed in the next version.
 
 * Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
 
@@ -33,8 +45,6 @@
 * When aborting jobs when re-entering the `INITIALIZATION` state, clear the structure holding the jobs in progress.
   It has been found to stick **Supvisors** in the `DEPLOYMENT` state in the event where the *Master* node is temporarily
  `SILENT`.
-
-* Change the `remote_time` and `local_time` of the `supvisors.get_address_info` XML-RPC to float.
 
 * Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
   applications only.
@@ -51,6 +61,8 @@
   at the bottom right of all pages.
 
 * Add class "action" to Web UI buttons that trigger an XML-RPC.
+
+* Apply python f-strings.
 
 * Update documentation.
 
