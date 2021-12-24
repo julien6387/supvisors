@@ -25,7 +25,7 @@ from supervisor import supervisorctl
 from supervisor import xmlrpc
 from supervisor.compat import as_string, xmlrpclib
 from supervisor.loggers import getLevelNumByDescription
-from supervisor.options import ClientOptions, split_namespec
+from supervisor.options import ClientOptions, make_namespec, split_namespec
 from supervisor.states import ProcessStates, getProcessStateDescription
 from supervisor.supervisorctl import Controller, ControllerPluginBase, LSBInitExitStatuses
 
@@ -165,8 +165,10 @@ class ControllerPlugin(ControllerPluginBase):
         :param title: the title of the column
         :return: the length of the column
         """
-        max_appli = max(len(info[item]) for info in payloads)
-        return max(max_appli, len(title)) + 2
+        max_item = len(title)
+        # WARN: item value is not always a string
+        values = [len(str(info[item])) for info in payloads if item in info]
+        return max(max_item, max(values) if values else 0) + 2
 
     def do_application_info(self, arg):
         """ Command to get information about applications known to Supvisors. """
@@ -226,45 +228,40 @@ class ControllerPlugin(ControllerPluginBase):
                     rules_list.append(rules)
             # print results
             if rules_list:
-                # get longer from application names and title
-                max_appli = max(len(rules['application_name']) for rules in rules_list)
-                max_appli = max(max_appli, len('Application')) + 2
-                # get longer from distribution nodes and title
-                max_nodes = max(len('{}'.format(rules.get('nodes', ''))) for rules in rules_list)
-                max_nodes = max(max_nodes, len('Nodes')) + 2
+                max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
+                max_nodes = ControllerPlugin.max_template(rules_list, 'nodes', 'Nodes')
                 # print title
-                template_managed = '%(appli)-{}s%(managed)-9s%(distributed)-13s%(nodes)-{}s' \
-                                   '%(start_seq)-7s%(stop_seq)-7s' \
-                                   '%(starting_strategy)-13s%(starting_failure_strategy)-18s' \
-                                   '%(running_failure_strategy)s' \
-                    .format(max_appli, max_nodes)
+                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distributed)-13s%(nodes)-{max_nodes}s'
+                            '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-13s%(starting_failure_strategy)-18s'
+                            '%(running_failure_strategy)s')
                 title = {'appli': 'Application', 'managed': 'Managed', 'distributed': 'Distributed',
                          'nodes': 'Nodes', 'start_seq': 'Start', 'stop_seq': 'Stop', 'starting_strategy': 'Starting',
                          'starting_failure_strategy': 'Starting_Failure', 'running_failure_strategy': 'Running_Failure'}
-                self.ctl.output(template_managed % title)
+                self.ctl.output(template % title)
                 # print rules
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
-                                   'distributed': rules['distributed'], 'nodes': rules.get('nodes', ''),
+                                   'distributed': rules['distributed'], 'nodes': rules.get('nodes', 'n/a'),
                                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
                                    'starting_strategy': rules['starting_strategy'],
                                    'starting_failure_strategy': rules['starting_failure_strategy'],
                                    'running_failure_strategy': rules['running_failure_strategy']}
-                        line = template_managed % payload
                     else:
-                        template_unmanaged = f'%(appli)-{max_appli}sFalse'
-                        line = template_unmanaged % {'appli': rules['application_name']}
+                        payload = {'appli': rules['application_name'], 'managed': False,
+                                   'distributed': 'n/a', 'nodes': 'n/a',
+                                   'start_seq': 'n/a', 'stop_seq': 'n/a',
+                                   'starting_strategy': 'n/a',
+                                   'starting_failure_strategy': 'n/a',
+                                   'running_failure_strategy': 'n/a'}
+                    line = template % payload
                     self.ctl.output(line)
 
     def help_application_rules(self):
         """ Print the help of the application_rules command."""
-        self.ctl.output("application_rules <appli>\t\t\t\t"
-                        "Get the rules of the application named appli.")
-        self.ctl.output("application_rules <appli> <appli>\t\t\t"
-                        "Get the rules for multiple named applications")
-        self.ctl.output("application_rules\t\t\t\t\t"
-                        "Get the rules of all applications.")
+        self.ctl.output('application_rules <appli>\t\t\tGet the rules of the application named appli.')
+        self.ctl.output('application_rules <appli> <appli>\t\tGet the rules for multiple named applications')
+        self.ctl.output('application_rules\t\t\t\tGet the rules of all applications.')
 
     def do_sstatus(self, arg):
         """ Command to get information about processes known to Supvisors. """
@@ -343,10 +340,15 @@ class ControllerPlugin(ControllerPluginBase):
                             match_list.append(info)
             # print results
             if match_list:
-                max_appli = max(len(info['group']) for info in match_list) + 4
-                max_proc = max(len(info['name']) for info in match_list) + 4
+                max_appli = ControllerPlugin.max_template(match_list, 'group', 'Application')
+                max_proc = ControllerPlugin.max_template(match_list, 'name', 'Process')
                 template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(start)-12s'
-                            '%(now)-12s%(pid)-8sargs="%(args)s"')
+                            '%(now)-12s%(pid)-8s%(args)s')
+                # print title
+                payload = {'appli': 'Application', 'proc': 'Process', 'state': 'State', 'start': 'Start',
+                           'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
+                self._output_info(template, payload)
+                # print filtered payloads
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0
@@ -358,68 +360,63 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_local_status(self):
         """ Print the help of the local_status command."""
-        self.ctl.output("local_status <proc>\t\t\t\t"
-                        "Get the local status of the process named proc.")
-        self.ctl.output("local_status <appli>:*\t\t\t"
-                        "Get the local status of all processes in the application named appli.")
-        self.ctl.output("local_status <proc> <proc>\t\t\t"
-                        "Get the local status for multiple named processes")
-        self.ctl.output("local_status\t\t\t\t\t"
-                        "Get the local status of all processes.")
+        self.ctl.output('local_status <proc>\t\t\tGet the local status of the process named proc.')
+        self.ctl.output('local_status <appli>:*\t\t\t'
+                        'Get the local status of all processes in the application named appli.')
+        self.ctl.output('local_status <proc> <proc>\t\tGet the local status for multiple named processes')
+        self.ctl.output('local_status\t\t\t\tGet the local status of all processes.')
 
     def do_process_rules(self, arg):
         """ Command to get the process rules handled by Supvisors. """
         if self._upcheck():
-            processes = arg.split()
-            if not processes or 'all' in processes:
+            namespecs = arg.split()
+            if not namespecs or 'all' in namespecs:
                 try:
-                    processes = [f"{application_info['application_name']}:*"
-                                 for application_info in self.supvisors().get_all_applications_info()]
+                    namespecs = [make_namespec(info['application_name'], info['process_name'])
+                                 for info in self.supvisors().get_all_process_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
-                    processes = []
+                    namespecs = []
             rules_list = []
-            for process in processes:
+            for namespec in sorted(namespecs):
                 try:
-                    rules = self.supvisors().get_process_rules(process)
+                    rules = self.supvisors().get_process_rules(namespec)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
                     rules_list.extend(rules)
             # print results
             if rules_list:
-                max_appli = max(len(rules['application_name'])
-                                for rules in rules_list) + 4
-                max_proc = max(len(rules['process_name'])
-                               for rules in rules_list) + 4
-                template = '%(appli)-{}s%(proc)-{}s%(start_seq)-5s%(stop_seq)-5s' \
-                           '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(node)s'.format(max_appli, max_proc)
+                max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
+                max_proc = ControllerPlugin.max_template(rules_list, 'process_name', 'Process')
+                template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(start_seq)-7s%(stop_seq)-7s'
+                            '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(node)s')
+                # print title
+                payload = {'appli': 'Application', 'proc': 'Process', 'start_seq': 'Start', 'stop_seq': 'Stop',
+                           'req': 'Required', 'exit': 'WaitExit', 'load': 'Loading', 'strategy': 'Strategy',
+                           'node': 'Nodes'}
+                self._output_info(template, payload)
+                # print filtered payloads
                 for rules in rules_list:
-                    required = rules['required']
-                    wait_exit = rules['wait_exit']
                     line = template % {'appli': rules['application_name'],
                                        'proc': rules['process_name'],
                                        'node': rules['nodes'],
                                        'start_seq': rules['start_sequence'],
                                        'stop_seq': rules['stop_sequence'],
-                                       'req': 'required' if required else 'optional',
-                                       'exit': 'exit' if wait_exit else '',
-                                       'load': '{}%'.format(rules['expected_loading']),
+                                       'req': rules['required'],
+                                       'exit': rules['wait_exit'],
+                                       'load': f"{rules['expected_loading']}%",
                                        'strategy': rules['running_failure_strategy']}
                     self.ctl.output(line)
 
     def help_process_rules(self):
         """ Print the help of the process rules command."""
-        self.ctl.output('process_rules <proc>\t\t\t\t'
-                        'Get the rules of the process named proc.')
-        self.ctl.output('process_rules <appli>:*\t\t\t\t'
-                        'Get the rules of all processes in the application named appli.')
-        self.ctl.output('process_rules <proc> <proc>\t\t\t'
-                        'Get the rules for multiple named processes')
-        self.ctl.output('process_rules\t\t\t\t\t'
-                        'Get the rules of all processes.')
+        self.ctl.output('process_rules <proc>\t\t\tGet the rules of the process named proc.')
+        self.ctl.output('process_rules <appli>:*\t\t\tGet the rules of all processes in the application named appli.')
+        self.ctl.output('process_rules <proc> <proc>\t\tGet the rules for multiple named processes')
+        self.ctl.output('process_rules\t\t\t\tGet the rules of all processes.')
 
     def do_conflicts(self, _):
         """ Command to get the conflicts detected by Supvisors. """
@@ -427,14 +424,12 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 conflicts = self.supvisors().get_conflicts()
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 if conflicts:
-                    max_appli = max(len(conflict['application_name'])
-                                    for conflict in conflicts) + 4
-                    max_proc = max(len(conflict['process_name'])
-                                   for conflict in conflicts) + 4
+                    max_appli = max(len(conflict['application_name']) for conflict in conflicts) + 4
+                    max_proc = max(len(conflict['process_name']) for conflict in conflicts) + 4
                     template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(nodes)s'.format(max_appli, max_proc)
                     for conflict in conflicts:
                         line = template % {'appli': conflict['application_name'],
@@ -459,9 +454,9 @@ class ControllerPlugin(ControllerPluginBase):
                     if all_info[application_name]:
                         matching_info.append(application_name)
                     else:
-                        self.ctl.output('{0}: IGNORED (unmanaged. use {1} {0}:*)'.format(application_name, alt_rpc))
+                        self.ctl.output(f'{application_name}: IGNORED (unmanaged. use {alt_rpc} {application_name}:*)')
                 else:
-                    self.ctl.output('%s: ERROR (no such application)' % application_name)
+                    self.ctl.output(f'{application_name}: ERROR (no such application)')
                     self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
         return matching_info
 
@@ -479,8 +474,8 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for start_application. use one of {}'
-                                .format(StartingStrategies._member_names_))
+                self.ctl.output('ERROR: unknown strategy for start_application.'
+                                f' use one of {enum_names(StartingStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_application()
                 return
@@ -489,7 +484,7 @@ class ControllerPlugin(ControllerPluginBase):
                 all_info = {application_info['application_name']: application_info['managed']
                             for application_info in self.supvisors().get_all_applications_info()}
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 return
             # match with parameters
@@ -499,10 +494,10 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     result = self.supvisors().start_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                    self.ctl.output(f'{application_name}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
-                    self.ctl.output('{} started: {}'.format(application_name, result))
+                    self.ctl.output(f'{application_name} started: {result}')
 
     def help_start_application(self):
         """ Print the help of the start_application command."""
@@ -527,8 +522,8 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for restart_application. use one of {}'
-                                .format(StartingStrategies._member_names_))
+                self.ctl.output('ERROR: unknown strategy for restart_application.'
+                                f' use one of {enum_names(StartingStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_restart_application()
                 return
@@ -537,7 +532,7 @@ class ControllerPlugin(ControllerPluginBase):
                 all_info = {application_info['application_name']: application_info['managed']
                             for application_info in self.supvisors().get_all_applications_info()}
             except xmlrpclib.Fault as e:
-                self.ctl.output('ERROR ({})'.format(e.faultString))
+                self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 return
             # match with parameters
@@ -547,10 +542,10 @@ class ControllerPlugin(ControllerPluginBase):
                 try:
                     result = self.supvisors().restart_application(strategy.value, application_name)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(application_name, e.faultString))
+                    self.ctl.output(f'{application_name}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
-                    self.ctl.output('{} restarted: {}'.format(application_name, result))
+                    self.ctl.output(f'{application_name} restarted: {result}')
 
     def help_restart_application(self):
         """ Print the help of the restart_application command."""
@@ -596,7 +591,7 @@ class ControllerPlugin(ControllerPluginBase):
         if self._upcheck():
             args = arg.split()
             if len(args) < 2:
-                self.ctl.output('ERROR: start_args requires a program name and extra arguments')
+                self.ctl.output('ERROR: start_args requires a process name and extra arguments')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_args()
                 return
@@ -626,42 +621,38 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for start_process. use one of {}'
-                                .format(StartingStrategies._member_names_))
+                self.ctl.output('ERROR: unknown strategy for start_process.'
+                                f' use one of {enum_names(StartingStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process()
                 return
-            processes = args[1:]
-            if not processes or "all" in processes:
+            namespecs = args[1:]
+            if not namespecs or 'all' in namespecs:
                 try:
-                    processes = ['{}:*'.format(application_info['application_name'])
-                                 for application_info in self.supvisors().get_all_applications_info()]
+                    namespecs = [make_namespec(info['application_name'], info['process_name'])
+                                 for info in self.supvisors().get_all_process_info()]
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
-                    processes = []
-            for process in processes:
+                    namespecs = []
+            for namespec in sorted(namespecs):
                 try:
-                    result = self.supvisors().start_process(strategy.value, process)
+                    result = self.supvisors().start_process(strategy.value, namespec)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
-                    self.ctl.output('{} started: {}'.format(process, result))
+                    self.ctl.output(f'{namespec} started: {result}')
 
     def help_start_process(self):
         """ Print the help of the start_process command."""
-        self.ctl.output("start_process <strategy> <proc>\t\t\t"
-                        "Start the process named proc with strategy.")
-        self.ctl.output("start_process <strategy> <proc> <proc>\t\t"
-                        "Start multiple named processes with strategy.")
-        self.ctl.output("start_process <strategy>\t\t\t"
-                        "Start all processes with strategy.")
+        self.ctl.output('start_process <strategy> <proc>\t\t\tStart the process named proc with strategy.')
+        self.ctl.output('start_process <strategy> <proc> <proc>\t\tStart multiple named processes with strategy.')
+        self.ctl.output('start_process <strategy>\t\t\tStart all processes with strategy.')
 
     # start a process using strategy and rules
     def do_start_process_args(self, arg):
-        """ Command to start a process with a strategy, rules
-        and additional arguments. """
+        """ Command to start a process with a strategy, rules and additional arguments. """
         if self._upcheck():
             args = arg.split()
             if len(args) < 3:
@@ -673,8 +664,8 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 strategy = StartingStrategies[args[0]]
             except KeyError:
-                self.ctl.output('ERROR: unknown strategy for start_process_args. use one of {}'
-                                .format(StartingStrategies._member_names_))
+                self.ctl.output('ERROR: unknown strategy for start_process_args.'
+                                f' use one of {enum_names(StartingStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_start_process_args()
                 return
@@ -682,42 +673,42 @@ class ControllerPlugin(ControllerPluginBase):
             try:
                 result = self.supvisors().start_process(strategy.value, namespec, ' '.join(args[2:]))
             except xmlrpclib.Fault as e:
-                self.ctl.output('{}: ERROR ({})'.format(namespec, e.faultString))
+                self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output('{} started: {}'.format(namespec, result))
+                self.ctl.output(f'{namespec} started: {result}')
 
     def help_start_process_args(self):
         """ Print the help of the start_process_args command."""
-        self.ctl.output("start_process <strategy> <proc> <arg_list>\t"
-                        "Start the process named proc with additional arguments arg_list.")
+        self.ctl.output('start_process <strategy> <proc> <arg_list>\t'
+                        'Start the process named proc with additional arguments arg_list.')
 
     def do_stop_process(self, arg):
         """ Command to stop processes with rules. """
         if self._upcheck():
-            processes = arg.split()
-            if not processes or "all" in processes:
+            namespecs = arg.split()
+            if not namespecs or 'all' in namespecs:
                 try:
-                    processes = ['{}:*'.format(application_info['application_name'])
-                                 for application_info in self.supvisors().get_all_applications_info()]
+                    namespecs = [make_namespec(info['application_name'], info['process_name'])
+                                 for info in self.supvisors().get_all_process_info()]
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('ERROR ({})'.format(e.faultString))
+                    self.ctl.output(f'ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
-                    processes = []
-            for process in processes:
+                    namespecs = []
+            for namespec in sorted(namespecs):
                 try:
-                    self.supvisors().stop_process(process)
+                    self.supvisors().stop_process(namespec)
                 except xmlrpclib.Fault as e:
-                    self.ctl.output('{}: ERROR ({})'.format(process, e.faultString))
+                    self.ctl.output(f'{namespec}: ERROR ({e.faultString})')
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                 else:
-                    self.ctl.output('{} stopped'.format(process))
+                    self.ctl.output(f'{namespec} stopped')
 
     def help_stop_process(self):
         """ Print the help of the stop_process command."""
-        self.ctl.output("stop_process <proc>\t\tStop the process named proc.")
-        self.ctl.output("stop_process <proc> <proc>\tStop multiple named processes.")
-        self.ctl.output("stop_process\t\t\tStop all named processes.")
+        self.ctl.output('stop_process <proc>\t\tStop the process named proc.')
+        self.ctl.output('stop_process <proc> <proc>\tStop multiple named processes.')
+        self.ctl.output('stop_process\t\t\tStop all named processes.')
 
     def do_restart_process(self, arg):
         """ Command to restart processes with a strategy and rules. """
@@ -736,15 +727,15 @@ class ControllerPlugin(ControllerPluginBase):
                 self.help_restart_process()
                 return
             processes = args[1:]
-            if not processes or "all" in processes:
+            if not processes or 'all' in processes:
                 try:
-                    processes = ['{}:*'.format(application_info['application_name'])
-                                 for application_info in self.supvisors().get_all_applications_info()]
+                    processes = [make_namespec(info['application_name'], info['process_name'])
+                                 for info in self.supvisors().get_all_process_info()]
                 except xmlrpclib.Fault as e:
                     self.ctl.output('ERROR ({})'.format(e.faultString))
                     self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
                     processes = []
-            for process in processes:
+            for process in sorted(processes):
                 try:
                     result = self.supvisors().restart_process(strategy.value, process)
                 except xmlrpclib.Fault as e:
@@ -804,7 +795,7 @@ class ControllerPlugin(ControllerPluginBase):
                 strategy = ConciliationStrategies[args[0]]
             except KeyError:
                 self.ctl.output(f'ERROR: unknown strategy for conciliate.'
-                                ' use one of {enum_names(ConciliationStrategies)}')
+                                f' use one of {enum_names(ConciliationStrategies)}')
                 self.ctl.exitstatus = LSBInitExitStatuses.INVALID_ARGS
                 self.help_conciliate()
                 return
@@ -915,11 +906,11 @@ class ControllerPlugin(ControllerPluginBase):
             raise
         except socket.error as why:
             if why.args[0] == errno.ECONNREFUSED:
-                self.ctl.output('ERROR: %s refused connection' % self.ctl.options.serverurl)
+                self.ctl.output(f'ERROR: {self.ctl.options.serverurl} refused connection')
                 self.ctl.exitstatus = LSBInitExitStatuses.INSUFFICIENT_PRIVILEGES
                 return False
             elif why.args[0] == errno.ENOENT:
-                self.ctl.output('ERROR: %s no such file' % self.ctl.options.serverurl)
+                self.ctl.output(f'ERROR: {self.ctl.options.serverurl} no such file')
                 self.ctl.exitstatus = LSBInitExitStatuses.NOT_RUNNING
                 return False
             self.exitstatus = LSBInitExitStatuses.GENERIC

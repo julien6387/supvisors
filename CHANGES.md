@@ -43,6 +43,9 @@
 
 * Add the new option `stats_enabled` to enable/disable the statistics function.
 
+* Update `start_process`, `stop_process`, `restart_process`, `process_rules` in `supervisorctl` so that calls are made
+  on each individually process rather than process group when `all` is used as parameter.
+
 * Add exit codes to erroneous **Supvisors** calls in `supervisorctl`.
 
 * When aborting jobs when re-entering the `INITIALIZATION` state, clear the structure holding the jobs in progress.
