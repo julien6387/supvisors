@@ -24,10 +24,10 @@ import zmq
 
 from queue import Empty
 from socket import gethostname
-from supervisor import childutils
+from supervisor.childutils import getRPCInterface
 
-from supvisors import rpcrequests
 from supvisors.ttypes import NodeStates
+from supvisors.utils import SupervisorServerUrl
 from supvisors.client.subscriber import create_logger
 
 from .event_queues import SupvisorsEventQueues
@@ -44,7 +44,7 @@ class RunningNodesTest(unittest.TestCase):
     def setUp(self):
         """ Check that 3 running nodes are available. """
         # get a reference to the local RPC proxy
-        self.local_proxy = childutils.getRPCInterface(os.environ)
+        self.local_proxy = getRPCInterface(os.environ)
         self.local_supervisor = self.local_proxy.supervisor
         self.local_supvisors = self.local_proxy.supvisors
         # check the number of running nodes
@@ -56,8 +56,11 @@ class RunningNodesTest(unittest.TestCase):
         # assumption is made that this test is run on Supvisors Master node
         self.assertEqual(gethostname(), self.local_supvisors.get_master_node())
         # keep a reference to all RPC proxies
-        self.proxies = {node_name: rpcrequests.getRPCInterface(node_name, os.environ)
-                        for node_name in self.running_nodes}
+        supervisor_url = SupervisorServerUrl(os.environ)
+        self.proxies = {}
+        for node_name in self.running_nodes:
+            supervisor_url.update_parsed_url(node_name)
+            self.proxies[node_name] = getRPCInterface(supervisor_url.env)
         # create the thread of event subscriber
         self.zcontext = zmq.Context.instance()
         self.logger = create_logger(logfile=r'./log/running_nodes.log')

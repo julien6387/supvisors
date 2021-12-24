@@ -270,17 +270,18 @@ This section explains how to use the XML-RPC API from a Python or JAVA client.
 Python Client
 ~~~~~~~~~~~~~
 
-There are two possibilities to perform an XML-RPC from a python client. Both methods don't require any additional third
-party. However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be
-set for a process spawned by |Supervisor|.
-More particularly, it is expected that the following variables are set:
+To perform an XML-RPC from a python client, |Supervisor| provides the ``getRPCInterface`` function of the
+:program:`supervisor.childutils` module.
+
+The parameter requires a dictionary with the following variables set:
 
     * ``SUPERVISOR_SERVER_URL``: the url of the |Supervisor| HTTP server (ex: ``http://localhost:60000``),
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be void),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
-The first is to use the ``getRPCInterface`` of the :program:`supervisor.childutils` module.
-This is available in |Supervisor| but it works only for the local node.
+If the Python client has been spawned by Supervisor, the environment already contains these parameters but they are
+configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with a distant
+|Supervisor| instance, the parameters must be set accordingly.
 
 .. code-block:: python
 
@@ -288,19 +289,6 @@ This is available in |Supervisor| but it works only for the local node.
     from supervisor.childutils import getRPCInterface
 
     proxy = getRPCInterface(os.environ)
-    proxy.supervisor.getState()
-    proxy.supvisors.get_supvisors_state()
-
-The second possibility is to use the ``getRPCInterface`` of the :program:`supvisors.rpcrequests` module.
-This is available in |Supvisors| and works for all nodes with a |Supervisor| daemon running with the same HTTP
-configuration as the local one.
-
-.. code-block:: python
-
-    import os
-    from supvisors.rpcrequests import getRPCInterface
-
-    proxy = getRPCInterface(node_name, os.environ)
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 

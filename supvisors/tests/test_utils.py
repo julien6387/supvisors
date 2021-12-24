@@ -61,6 +61,38 @@ def test_extract_process_info():
                                                 'description': 'process dead'}
 
 
+def test_server_url():
+    """ Test the SupervisorServerUrl class. """
+    # test without authentication
+    env = {'SUPERVISOR_SERVER_URL': 'http://localhost:60000'}
+    srv_url = SupervisorServerUrl(env)
+    assert srv_url.env is env
+    assert srv_url.parsed_url.geturl() == 'http://localhost:60000'
+    assert srv_url.authentication == ''
+    # without port
+    srv_url.update_url('cliche81')
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://cliche81:60000'
+    assert srv_url.parsed_url.geturl() == 'http://cliche81:60000'
+    # with port
+    srv_url.update_url('cliche82', 61000)
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://cliche82:61000'
+    assert srv_url.parsed_url.geturl() == 'http://cliche82:61000'
+    # test with authentication
+    env = {'SUPERVISOR_SERVER_URL': 'http://user:password@localhost:60000'}
+    srv_url = SupervisorServerUrl(env)
+    assert srv_url.env is env
+    assert srv_url.parsed_url.geturl() == 'http://user:password@localhost:60000'
+    assert srv_url.authentication == 'user:password@'
+    # without port
+    srv_url.update_url('cliche81')
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://user:password@cliche81:60000'
+    assert srv_url.parsed_url.geturl() == 'http://user:password@cliche81:60000'
+    # with port
+    srv_url.update_url('cliche82', 61000)
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://user:password@cliche82:61000'
+    assert srv_url.parsed_url.geturl() == 'http://user:password@cliche82:61000'
+
+
 def test_statistics_functions():
     """ Test the simple statistics. """
     # test mean lambda

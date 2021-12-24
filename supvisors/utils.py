@@ -20,6 +20,7 @@
 from enum import Enum
 from math import sqrt
 from time import gmtime, localtime, strftime, time
+from urllib.parse import urlparse
 
 
 # for internal publish / subscribe
@@ -76,6 +77,29 @@ def extract_process_info(info):
     # expand information with 'expected' (deduced from spawnerr)
     payload['expected'] = not info['spawnerr']
     return payload
+
+
+# parse
+class SupervisorServerUrl:
+    """ Store and update the environment for RPC interfaces. """
+
+    def __init__(self, env):
+        """ Parse the Supervisor server URL for later modification. """
+        self.env = env
+        self.parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
+        # consider the authentication part (just in case)
+        self.authentication = ''
+        if self.parsed_url.username:
+            self.authentication = f'{self.parsed_url.username}'
+            if self.parsed_url.password:
+                self.authentication += f':{self.parsed_url.password}'
+            self.authentication += '@'
+
+    def update_url(self, hostname: str, port: int = None):
+        """ Update the URL by changing the hostname and optionally the port. """
+        netloc = f'{self.authentication}{hostname}:{port if port else self.parsed_url.port}'
+        self.parsed_url = self.parsed_url._replace(netloc=netloc)
+        self.env['SUPERVISOR_SERVER_URL'] = self.parsed_url.geturl()
 
 
 # simple functions

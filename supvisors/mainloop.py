@@ -26,12 +26,12 @@ from typing import Any
 from sys import stderr
 
 from supervisor.compat import xmlrpclib
+from supervisor.childutils import getRPCInterface
 from supervisor.xmlrpc import RPCError
 
-from .rpcrequests import getRPCInterface
 from .supvisorszmq import SupvisorsZmq
 from .ttypes import NodeStates
-from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents
+from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl
 
 
 class SupvisorsMainLoop(Thread):
@@ -66,9 +66,9 @@ class SupvisorsMainLoop(Thread):
         self.stop_event = Event()
         # keep a reference to the Supvisors instance and to the environment
         self.supvisors = supvisors
-        self.env = supvisors.info_source.get_env()
+        self.srvurl = SupervisorServerUrl(supvisors.info_source.get_env())
         # create a XML-RPC client to the local Supervisor instance
-        self.proxy = getRPCInterface('localhost', self.env)
+        self.proxy = getRPCInterface(self.srvurl.env)
         # heartbeat variables
         self.supervisor_time = 0
         self.reference_time = 0.0
@@ -163,6 +163,9 @@ class SupvisorsMainLoop(Thread):
 
     def send_request(self, header: DeferredRequestHeaders, body) -> None:
         """ Perform the XML-RPC according to the header. """
+        # first element of body is always the destination node
+        self.srvurl.update_url(body[0])
+        # send message
         if header == DeferredRequestHeaders.CHECK_NODE:
             self.check_node(*body)
         elif header == DeferredRequestHeaders.START_PROCESS:
@@ -183,10 +186,10 @@ class SupvisorsMainLoop(Thread):
     def check_node(self, node_name: str) -> None:
         """ Check isolation and get all process info asynchronously. """
         try:
-            supvisors_rpc = getRPCInterface(node_name, self.env).supvisors
+            supvisors_rpc = getRPCInterface(self.srvurl.env).supvisors
             # get remote perception of master node and state
             master_node_name = supvisors_rpc.get_master_node()
-            supvisors_state = supvisors_rpc.get_supvisors_state()["statename"]
+            supvisors_state = supvisors_rpc.get_supvisors_state()['statename']
             # check authorization
             status = supvisors_rpc.get_node_info(self.supvisors.node_mapper.local_node_name)
             authorized = NodeStates(status['statecode']) not in [NodeStates.ISOLATING, NodeStates.ISOLATED]
@@ -207,7 +210,7 @@ class SupvisorsMainLoop(Thread):
     def start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to start process {namespec} on {node_name} with extra_args="{extra_args}"',
@@ -216,7 +219,7 @@ class SupvisorsMainLoop(Thread):
     def stop_process(self, node_name: str, namespec: str) -> None:
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supervisor.stopProcess(namespec, False)
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to stop process {namespec} on {node_name}', file=stderr)
@@ -224,7 +227,7 @@ class SupvisorsMainLoop(Thread):
     def restart(self, node_name: str) -> None:
         """ Restart a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supervisor.restart()
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to restart node {node_name}', file=stderr)
@@ -232,7 +235,7 @@ class SupvisorsMainLoop(Thread):
     def shutdown(self, node_name: str) -> None:
         """ Shutdown a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supervisor.shutdown()
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to shutdown node {node_name}', file=stderr)
@@ -240,7 +243,7 @@ class SupvisorsMainLoop(Thread):
     def restart_sequence(self, node_name: str) -> None:
         """ Ask the Supvisors Master to trigger the DEPLOYMENT phase. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supvisors.restart_sequence()
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to send Supvisors restart_sequence to Master {node_name}', file=stderr)
@@ -248,7 +251,7 @@ class SupvisorsMainLoop(Thread):
     def restart_all(self, node_name: str) -> None:
         """ Ask the Supvisors Master to restart Supvisors. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supvisors.restart()
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to send Supvisors restart to Master {node_name}', file=stderr)
@@ -256,7 +259,7 @@ class SupvisorsMainLoop(Thread):
     def shutdown_all(self, node_name: str) -> None:
         """ Ask the Supvisors Master to shutdown Supvisors. """
         try:
-            proxy = getRPCInterface(node_name, self.env)
+            proxy = getRPCInterface(self.srvurl.env)
             proxy.supvisors.shutdown()
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to send Supvisors shutdown to Master {node_name}', file=stderr)

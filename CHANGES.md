@@ -17,6 +17,9 @@
 
 * Refactoring of `Starter` and `Stopper`.
 
+* The module `rpcrequests` has been removed because useless.
+  The function `getRPCInterface` of th module `supervisor.childutils` does the job.
+
 * The XML-RPCs that would return attributes `address_name` and `addresses` are returning `node_names` and `nodes`.
   This impacts the following XML-RPCs: `get_application_info`, `get_all_application_info`, `get_application_rules`,
   `get_address_info`, `get_all_addresses_info`, `get_all_process_info`, `get_process_info`, `get_process_rules`,

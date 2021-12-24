@@ -738,17 +738,10 @@ methods are available:
 
 
 >>> from supervisor.childutils import getRPCInterface
->>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://localhost:61000'})
+>>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://cliche83:61000'})
 >>> proxy.supvisors.start_application('LOCAL', 'scen2_hci_02')
 True
 
-If the XML-RPC has to be performed from a remote node, the |Supvisors| ``getRPCInterface`` can be used as the
-|Supervisor| function does not provide a parameter to address a remote node.
-
->>> from supvisors.rpcrequests import getRPCInterface
->>> proxy = getRPCInterface('cliche83', {'SUPERVISOR_SERVER_URL': 'http://localhost:61000'})
->>> proxy.supvisors.start_application('LOCAL', 'scen2_hci_02')
-True
 
 .. code-block:: bash
 
