@@ -21,10 +21,11 @@ import zmq
 from zmq.error import ZMQError
 
 from sys import stderr
-from typing import Any, Mapping, Optional, Tuple, Union
+from typing import Any, List, Mapping, Optional, Tuple, Union
 
 from supervisor.loggers import Logger
 
+from .supvisorsmapper import SupvisorsInstanceId, SupvisorsMapper
 from .ttypes import NameList, Payload
 from .utils import *
 
@@ -39,7 +40,7 @@ ZmqContext = zmq.Context.instance()
 class EventPublisher(object):
     """ Class for PyZmq publication of Supvisors events. """
 
-    def __init__(self, port: int, logger: Logger):
+    def __init__(self, instance: SupvisorsInstanceId, logger: Logger):
         """ Initialization of the attributes.
 
         :param port: the port number of the TCP socket
@@ -47,9 +48,9 @@ class EventPublisher(object):
         """
         self.logger = logger
         self.socket = ZmqContext.socket(zmq.PUB)
-        # WARN: this is a local binding, only visible to processes located on the same node
-        url = 'tcp://127.0.0.1:%d' % port
-        self.logger.debug('EventPublisher: binding %s' % url)
+        # WARN: this is a local binding, only visible to processes located on the same host
+        url = f'tcp://127.0.0.1:{instance.event_port}'
+        self.logger.debug(f'EventPublisher: binding {url}')
         self.socket.bind(url)
 
     def close(self) -> None:
@@ -65,18 +66,18 @@ class EventPublisher(object):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace('EventPublisher.send_supvisors_status: {}'.format(status))
+        self.logger.trace(f'EventPublisher.send_supvisors_status: {status}')
         self.socket.send_string(EventHeaders.SUPVISORS, zmq.SNDMORE)
         self.socket.send_json(status)
 
-    def send_node_status(self, status: Payload) -> None:
-        """ Send a JSON-serialized node status through the socket.
+    def send_instance_status(self, status: Payload) -> None:
+        """ Send a JSON-serialized Supvisors instance status through the socket.
 
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace('EventPublisher.send_node_status: {}'.format(status))
-        self.socket.send_string(EventHeaders.NODE, zmq.SNDMORE)
+        self.logger.trace(f'EventPublisher.send_instance_status: {status}')
+        self.socket.send_string(EventHeaders.INSTANCE, zmq.SNDMORE)
         self.socket.send_json(status)
 
     def send_application_status(self, status: Payload) -> None:
@@ -85,21 +86,21 @@ class EventPublisher(object):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace('EventPublisher.send_application_status: {}'.format(status))
+        self.logger.trace(f'EventPublisher.send_application_status: {status}')
         self.socket.send_string(EventHeaders.APPLICATION, zmq.SNDMORE)
         self.socket.send_json(status)
 
-    def send_process_event(self, node_name: str, event: Payload) -> None:
+    def send_process_event(self, identifier: str, event: Payload) -> None:
         """ Send a JSON-serialized process event through the socket.
 
-        :param node_name: the node name used to identify the origin of the event
+        :param identifier: the identifier used to identify the origin of the event
         :param event: the event to publish
         :return: None
         """
         # build the event before it is sent
         evt = event.copy()
-        evt['node'] = node_name
-        self.logger.trace('EventPublisher.send_process_event: {}'.format(evt))
+        evt['identifier'] = identifier
+        self.logger.trace(f'EventPublisher.send_process_event: {evt}')
         self.socket.send_string(EventHeaders.PROCESS_EVENT, zmq.SNDMORE)
         self.socket.send_json(evt)
 
@@ -109,7 +110,7 @@ class EventPublisher(object):
         :param status: the status to publish
         :return: None
         """
-        self.logger.trace('EventPublisher.send_process_status: {}'.format(status))
+        self.logger.trace(f'EventPublisher.send_process_status: {status}')
         self.socket.send_string(EventHeaders.PROCESS_STATUS, zmq.SNDMORE)
         self.socket.send_json(status)
 
@@ -139,7 +140,7 @@ class EventSubscriber(object):
         self.logger = logger
         # create ZeroMQ socket
         self.socket = zmq_context.socket(zmq.SUB)
-        # WARN: this is a local binding, only visible to processes located on the same node
+        # WARN: this is a local binding, only visible to processes located on the same host
         url = f'tcp://127.0.0.1:{port}'
         self.logger.info(f'EventSubscriber: connecting {url}')
         self.socket.connect(url)
@@ -166,12 +167,12 @@ class EventSubscriber(object):
         """
         self.subscribe(EventHeaders.SUPVISORS)
 
-    def subscribe_node_status(self) -> None:
-        """ Subscribe to Node Status messages.
+    def subscribe_instance_status(self) -> None:
+        """ Subscribe to Supvisors Instance Status messages.
 
         :return: None
         """
-        self.subscribe(EventHeaders.NODE)
+        self.subscribe(EventHeaders.INSTANCE)
 
     def subscribe_application_status(self) -> None:
         """ Subscribe to Application Status messages.
@@ -217,12 +218,12 @@ class EventSubscriber(object):
         """
         self.unsubscribe(EventHeaders.SUPVISORS)
 
-    def unsubscribe_node_status(self) -> None:
-        """ Unsubscribe from Node Status messages
+    def unsubscribe_instance_status(self) -> None:
+        """ Unsubscribe from Supvisors Instance Status messages
 
         :return: None
         """
-        self.unsubscribe(EventHeaders.NODE)
+        self.unsubscribe(EventHeaders.INSTANCE)
 
     def unsubscribe_application_status(self) -> None:
         """ Unsubscribe from Application Status messages
@@ -268,22 +269,21 @@ class InternalEventPublisher(object):
     """ This class is the wrapper of the PyZmq socket that publishes the events to the Supvisors instances.
 
     Attributes are:
-        - node_name: the node name where this process is running,
+        - identifier: the identifier of the Supvisors instance where this process is running,
         - socket: the ZeroMQ socket with a PUBLISH pattern, bound on the internal_port defined
           in the ['supvisors'] section of the Supervisor configuration file.
     """
 
-    def __init__(self, node_name: str, port: int) -> None:
+    def __init__(self, instance: SupvisorsInstanceId) -> None:
         """ Initialization of the attributes.
 
-        :param node_name: the name of the local node, used to identify the origin of the messages sent
-        :param port: the port number of the TCP socket
+        :param instance: the local Supvisors attributes
         """
-        # keep local node name
-        self.node_name = node_name
+        # keep local identifier
+        self.identifier = instance.identifier
         # create ZMQ socket
         self.socket = ZmqContext.socket(zmq.PUB)
-        self.socket.bind('tcp://*:{}'.format(port))
+        self.socket.bind(f'tcp://*:{instance.internal_port}')
 
     def close(self) -> None:
         """ This method closes the PyZmq socket.
@@ -298,7 +298,7 @@ class InternalEventPublisher(object):
         :param payload: the payload to publish
         :return: None
         """
-        self.socket.send_pyobj((InternalEventHeaders.TICK.value, (self.node_name, payload)))
+        self.socket.send_pyobj((InternalEventHeaders.TICK.value, (self.identifier, payload)))
 
     def forward_event(self, event: Tuple[int, Tuple[str, Payload]]) -> None:
         """ Forward the event with PyZmq.
@@ -317,17 +317,17 @@ class InternalEventSubscriber(object):
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, node_names: NameList, port: int):
+    def __init__(self, instances: List[SupvisorsInstanceId]):
         """ Initialization of the attributes.
 
-        :param node_names: the names of the publishing nodes
-        :param port: the port number of the TCP socket
+        :param instances: the Supvisors attributes of the publishing Supvisors instances
         """
-        self.port = port
+        # keep the references in case of disconnection is requested
+        self.instances = instances
         self.socket = ZmqContext.socket(zmq.SUB)
-        # connect all nodes
-        for node_name in node_names:
-            self.socket.connect('tcp://{}:{}'.format(node_name, self.port))
+        # connect all Supvisors instances
+        for instance in instances:
+            self.socket.connect(f'tcp://{instance.host_name}:{instance.internal_port}')
         self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
     def close(self) -> None:
@@ -344,14 +344,15 @@ class InternalEventSubscriber(object):
         """
         return self.socket.recv_pyobj(zmq.NOBLOCK)
 
-    def disconnect(self, node_names: NameList) -> None:
-        """ This method disconnects from the PyZmq socket all nodes passed in parameter.
+    def disconnect(self, identifiers: NameList) -> None:
+        """ This method disconnects from the PyZmq socket all Supvisors instances declared in parameter.
 
-        :param node_names: the names of the nodes to disconnect from the subscriber socket
+        :param identifiers: the identifiers of the Supvisors instances to disconnect from the subscriber socket
         :return: None
         """
-        for node_name in node_names:
-            self.socket.disconnect('tcp://{}:{}'.format(node_name, self.port))
+        for identifier in identifiers:
+            instance = self.instances[identifier]
+            self.socket.disconnect(f'tcp://{instance.host_name}:{instance.internal_port}')
 
 
 class RequestPuller(object):
@@ -390,7 +391,7 @@ class RequestPusher(object):
 
     Attributes:
         - logger: a reference to the Supvisors logger ;
-        - node_name: the local node name ;
+        - identifier: the identifier of the local Supvisors instance ;
         - socket: the PyZMQ pusher.
 
     As it uses an inproc transport, this implies the following conditions:
@@ -400,18 +401,18 @@ class RequestPusher(object):
 
     MessageType = Union[DeferredRequestHeaders, InternalEventHeaders]
 
-    def __init__(self, node_name: str, logger: Logger) -> None:
+    def __init__(self, identifier: str, logger: Logger) -> None:
         """ Initialization of the attributes.
 
-        :param node_name: the local node name
+        :param identifier: the identifier of the local Supvisors instance
         :param logger: the Supvisors logger
         """
         self.logger = logger
-        self.node_name = node_name
+        self.identifier = identifier
         # create PyZmq PUSH socket
         self.socket = ZmqContext.socket(zmq.PUSH)
-        url = 'inproc://' + INPROC_NAME
-        self.logger.debug('RequestPusher: binding %s' % url)
+        url = f'inproc://{INPROC_NAME}'
+        self.logger.debug(f'RequestPusher: binding {url}')
         self.socket.bind(url)
 
     def close(self):
@@ -422,17 +423,17 @@ class RequestPusher(object):
         self.socket.close(ZMQ_LINGER)
 
     def send_message(self, header: MessageType, body: Tuple) -> None:
-        """ Send request to check authorization to deal with the node.
+        """ Send request to check authorization to deal with the Supvisors instance.
 
         :param header: the message type
         :param body: the payload to send
         :return: None
         """
-        self.logger.trace('RequestPusher.send_message: header={}'.format(header.name))
+        self.logger.trace(f'RequestPusher.send_message: header={header.name}')
         try:
             self.socket.send_pyobj((header.value, body), zmq.NOBLOCK)
         except zmq.error.Again:
-            self.logger.error('RequestPusher.send_message: failed to send message {}'.format(header.name))
+            self.logger.error(f'RequestPusher.send_message: failed to send message {header.name}')
 
     # deferred publications
     def send_tick_event(self, payload: Payload) -> None:
@@ -441,7 +442,7 @@ class RequestPusher(object):
         :param payload: the tick to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.TICK, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.TICK, (self.identifier, payload))
 
     def send_process_state_event(self, payload: Payload) -> None:
         """ Publish the process state event with PyZmq.
@@ -449,7 +450,7 @@ class RequestPusher(object):
         :param payload: the process state to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.PROCESS, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.PROCESS, (self.identifier, payload))
 
     def send_process_added_event(self, payload: Payload) -> None:
         """ Publish the process added event with PyZmq.
@@ -457,7 +458,7 @@ class RequestPusher(object):
         :param payload: the process added to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.PROCESS_ADDED, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.PROCESS_ADDED, (self.identifier, payload))
 
     def send_process_removed_event(self, payload: Payload) -> None:
         """ Publish the process removed event with PyZmq.
@@ -465,7 +466,7 @@ class RequestPusher(object):
         :param payload: the process removed to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.PROCESS_REMOVED, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.PROCESS_REMOVED, (self.identifier, payload))
 
     def send_statistics(self, payload: Payload) -> None:
         """ Publish the statistics with PyZmq.
@@ -473,7 +474,7 @@ class RequestPusher(object):
         :param payload: the statistics to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.STATISTICS, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.STATISTICS, (self.identifier, payload))
 
     def send_state_event(self, payload: Payload) -> None:
         """ Publish the Master state event with PyZmq.
@@ -481,97 +482,96 @@ class RequestPusher(object):
         :param payload: the Supvisors state to publish
         :return: None
         """
-        self.send_message(InternalEventHeaders.STATE, (self.node_name, payload))
+        self.send_message(InternalEventHeaders.STATE, (self.identifier, payload))
 
     # deferred requests
-    def send_check_node(self, node_name: str) -> None:
-        """ Send request to check authorization to deal with the node.
+    def send_check_instance(self, identifier: str) -> None:
+        """ Send request to check authorization to deal with the Supvisors instance.
 
-        :param node_name: the node name to check
+        :param identifier: the identifier of the Supvisors instance to check
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.CHECK_NODE, (node_name,))
+        self.send_message(DeferredRequestHeaders.CHECK_INSTANCE, (identifier,))
 
-    def send_isolate_nodes(self, node_names: NameList) -> None:
-        """ Send request to isolate nodes.
+    def send_isolate_instances(self, identifiers: NameList) -> None:
+        """ Send request to isolate instances.
 
-        :param node_names: the nodes to isolate
-        :return: Node
+        :param identifiers: the identifiers of the Supvisors instances to isolate
+        :return: None
         """
-        self.send_message(DeferredRequestHeaders.ISOLATE_NODES, tuple(node_names))
+        self.send_message(DeferredRequestHeaders.ISOLATE_INSTANCES, tuple(identifiers))
 
-    def send_start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
+    def send_start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Send request to start process.
 
-        :param node_name: the node name where the process has to be started
+        :param identifier: the identifier of the Supvisors instance where the process has to be started
         :param namespec: the process namespec
         :param extra_args: the additional arguments to be passed to the command line
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.START_PROCESS, (node_name, namespec, extra_args))
+        self.send_message(DeferredRequestHeaders.START_PROCESS, (identifier, namespec, extra_args))
 
-    def send_stop_process(self, node_name: str, namespec: str) -> None:
+    def send_stop_process(self, identifier: str, namespec: str) -> None:
         """ Send request to stop process.
 
-        :param node_name: the node name where the process has to be stopped
+        :param identifier: the identifier of the Supvisors instance where the process has to be stopped
         :param namespec: the process namespec
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.STOP_PROCESS, (node_name, namespec))
+        self.send_message(DeferredRequestHeaders.STOP_PROCESS, (identifier, namespec))
 
-    def send_restart(self, node_name: str):
+    def send_restart(self, identifier: str):
         """ Send request to restart a Supervisor.
 
-        :param node_name: the node name where Supvisors has to be restarted
+        :param identifier: the identifier of the Supvisors instance where Supvisors has to be restarted
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.RESTART, (node_name,))
+        self.send_message(DeferredRequestHeaders.RESTART, (identifier,))
 
-    def send_shutdown(self, node_name: str):
+    def send_shutdown(self, identifier: str):
         """ Send request to shutdown a Supervisor.
 
-        :param node_name: the node name where Supvisors has to be shut down
+        :param identifier: the identifier of the Supvisors instance where Supvisors has to be shut down
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.SHUTDOWN, (node_name,))
+        self.send_message(DeferredRequestHeaders.SHUTDOWN, (identifier,))
 
-    def send_restart_sequence(self, node_name: str):
+    def send_restart_sequence(self, identifier: str):
         """ Send request to trigger the DEPLOYMENT phase.
 
-        :param node_name: the Supvisors Master
+        :param identifier: the Master Supvisors instance
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.RESTART_SEQUENCE, (node_name,))
+        self.send_message(DeferredRequestHeaders.RESTART_SEQUENCE, (identifier,))
 
-    def send_restart_all(self, node_name: str):
+    def send_restart_all(self, identifier: str):
         """ Send request to restart Supvisors.
 
-        :param node_name: the Supvisors Master
+        :param identifier: the Master Supvisors instance
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.RESTART_ALL, (node_name,))
+        self.send_message(DeferredRequestHeaders.RESTART_ALL, (identifier,))
 
-    def send_shutdown_all(self, node_name: str):
+    def send_shutdown_all(self, identifier: str):
         """ Send request to shutdown Supvisors.
 
-        :param node_name: the Supvisors Master
+        :param identifier: the Master Supvisors instance
         :return: None
         """
-        self.send_message(DeferredRequestHeaders.SHUTDOWN_ALL, (node_name,))
+        self.send_message(DeferredRequestHeaders.SHUTDOWN_ALL, (identifier,))
 
 
 class SupervisorZmq(object):
     """ Class for PyZmq context and sockets used from the Supervisor thread.
-    This instance owns the PyZmq context that is shared between the Supervisor thread and the Supvisors thread.
-    """
+    This instance owns the PyZmq context that is shared between the Supervisor thread and the Supvisors thread. """
 
-    def __init__(self, supvisors: any) -> None:
+    def __init__(self, supvisors: Any) -> None:
         """ Create the sockets.
 
         :param supvisors: the Supvisors global structure
         """
-        self.publisher = EventPublisher(supvisors.options.event_port, supvisors.logger)
-        self.pusher = RequestPusher(supvisors.node_mapper.local_node_name, supvisors.logger)
+        self.publisher = EventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+        self.pusher = RequestPusher(supvisors.supvisors_mapper.local_identifier, supvisors.logger)
 
     def close(self) -> None:
         """ Close the sockets.
@@ -583,8 +583,7 @@ class SupervisorZmq(object):
 
 
 class SupvisorsZmq(object):
-    """ Class for PyZmq context and sockets used from the Supvisors thread.
-    """
+    """ Class for PyZmq context and sockets used from the Supvisors thread. """
 
     # timeout for polling in milliseconds
     POLL_TIMEOUT = 500
@@ -593,17 +592,15 @@ class SupvisorsZmq(object):
     PollResult = Mapping[Any, int]
     SupvisorsSockets = Union[InternalEventSubscriber, RequestPuller]
 
-    def __init__(self, supvisors) -> None:
+    def __init__(self, supvisors_mapper: SupvisorsMapper) -> None:
         """ Create the sockets and the poller.
         The Supervisor logger cannot be used here (not thread-safe).
 
         :param supvisors: the Supvisors global structure
         """
         # create zmq sockets
-        self.publisher = InternalEventPublisher(supvisors.node_mapper.local_node_name,
-                                                supvisors.options.internal_port)
-        self.subscriber = InternalEventSubscriber(supvisors.node_mapper.node_names,
-                                                  supvisors.options.internal_port)
+        self.publisher = InternalEventPublisher(supvisors_mapper.local_instance)
+        self.subscriber = InternalEventSubscriber(supvisors_mapper.instances.values())
         self.puller = RequestPuller()
         # create poller
         self.poller = zmq.Poller()
@@ -661,10 +658,10 @@ class SupvisorsZmq(object):
             except ZMQError:
                 print('[ERROR] failed to get data from socket', file=stderr)
 
-    def disconnect_subscriber(self, node_names: NameList) -> None:
-        """ Disconnect the node from subscription socket.
+    def disconnect_subscriber(self, identifiers: NameList) -> None:
+        """ Disconnect the Supvisors instances from the subscription socket.
 
-        :param node_names: the name of the node to disconnect
+        :param identifiers: the identifiers of the Supvisors instances to disconnect
         :return: None
         """
-        self.subscriber.disconnect(node_names)
+        self.subscriber.disconnect(identifiers)

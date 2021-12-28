@@ -71,7 +71,7 @@ public class SupvisorsXmlRpc {
      * @return String: A node name.
      */
     public String getMasterNode() throws XmlRpcException {
-        return client.rpcCall(Namespace + "get_master_node", null, String.class);
+        return client.rpcCall(Namespace + "get_master_identifier", null, String.class);
     }
 
     /**
@@ -90,7 +90,7 @@ public class SupvisorsXmlRpc {
      * @return HashMap<String, SupvisorsNodeInfo>: Information for all nodes, sorted by name.
      */
     public HashMap<String, SupvisorsNodeInfo> getAllNodesInfo() throws XmlRpcException {
-        Object[] objectsArray = client.rpcCall(Namespace + "get_all_nodes_info", null, Object[].class);
+        Object[] objectsArray = client.rpcCall(Namespace + "get_all_instances_info", null, Object[].class);
         return DataConversion.arrayToMap(objectsArray, SupvisorsNodeInfo.class);
     }
 
@@ -103,7 +103,7 @@ public class SupvisorsXmlRpc {
      */
     public SupvisorsNodeInfo getNodeInfo(final String nodeName) throws XmlRpcException {
         Object[] params = new Object[]{nodeName};
-        HashMap result = client.rpcCall(Namespace + "get_node_info", params, HashMap.class);
+        HashMap result = client.rpcCall(Namespace + "get_instance_info", params, HashMap.class);
         return new SupvisorsNodeInfo(result);
     }
 

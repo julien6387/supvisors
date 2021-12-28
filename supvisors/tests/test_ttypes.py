@@ -27,8 +27,8 @@ from supvisors.ttypes import *
 def test_AddressStates():
     """ Test the AddressStates enumeration. """
     expected = ['UNKNOWN', 'CHECKING', 'RUNNING', 'SILENT', 'ISOLATING', 'ISOLATED']
-    assert enum_names(NodeStates) == expected
-    assert enum_values(NodeStates) == list(range(6))
+    assert enum_names(SupvisorsInstanceStates) == expected
+    assert enum_values(SupvisorsInstanceStates) == list(range(6))
 
 
 def test_ApplicationStates():

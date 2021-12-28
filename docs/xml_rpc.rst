@@ -48,7 +48,7 @@ Status
 
         .. automethod:: get_master_address()
 
-        .. automethod:: get_master_node()
+        .. automethod:: get_master_identifier()
 
         .. automethod:: get_strategies()
 
@@ -63,7 +63,7 @@ Status
 
         .. automethod:: get_address_info(node_name)
 
-        .. automethod:: get_node_info(node_name)
+        .. automethod:: get_instance_info(node_name)
 
             ================== ========= ===========
             Key                Type      Description
@@ -84,7 +84,7 @@ Status
 
         .. automethod:: get_all_addresses_info()
 
-        .. automethod:: get_all_nodes_info()
+        .. automethod:: get_all_instances_info()
 
         .. automethod:: get_application_info(application_name)
 

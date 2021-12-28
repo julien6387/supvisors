@@ -23,7 +23,7 @@ import random
 from unittest.mock import call, Mock
 
 from supvisors.context import *
-from supvisors.ttypes import NodeStates, ApplicationStates, InvalidTransition
+from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, InvalidTransition
 
 from .base import database_copy, any_process_info
 from .conftest import create_application
@@ -42,13 +42,13 @@ def load_application_rules(_, rules):
 
 @pytest.fixture
 def filled_context(context):
-    """ Push ProcessInfoDatabase process info in NodeStatus. """
+    """ Push ProcessInfoDatabase process info in SupvisorsInstanceStatus. """
     context.supvisors.parser.load_application_rules = load_application_rules
     for info in database_copy():
         process = context.setdefault_process(info)
-        node_name = random.choice(list(context.nodes.keys()))
+        node_name = random.choice(list(context.instances_map.keys()))
         process.add_info(node_name, info)
-        context.nodes[node_name].add_process(process)
+        context.instances_map[node_name].add_process(process)
     return context
 
 
@@ -56,12 +56,12 @@ def test_create(supvisors, context):
     """ Test the values set at construction of Context. """
     assert supvisors is context.supvisors
     assert supvisors.logger is context.logger
-    assert set(supvisors.node_mapper.node_names), set(context.nodes.keys())
-    for node_name, node_status in context.nodes.items():
+    assert set(supvisors.supvisors_mapper.instances_map), set(context.instances_map.keys())
+    for node_name, node_status in context.instances_map.items():
         assert node_status.node_name == node_name
-        assert isinstance(node_status, NodeStatus)
+        assert isinstance(node_status, SupvisorsInstanceStatus)
     assert context.applications == {}
-    assert context._master_node_name == ''
+    assert context._master_identifier == ''
     assert not context._is_master
     assert context.start_date == 0
 
@@ -70,136 +70,136 @@ def test_reset(mocker, context):
     """ Test the reset of Context values. """
     mocker.patch('supvisors.context.time', return_value=3600)
     # change master definition
-    context.master_node_name = '127.0.0.1'
+    context.master_identifier = '127.0.0.1'
     assert context.is_master
     # change node states
-    context.nodes['127.0.0.1']._state = NodeStates.RUNNING
-    context.nodes['10.0.0.1']._state = NodeStates.SILENT
-    context.nodes['10.0.0.2']._state = NodeStates.ISOLATING
-    context.nodes['10.0.0.3']._state = NodeStates.ISOLATED
-    context.nodes['10.0.0.4']._state = NodeStates.RUNNING
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # add an application
     application = create_application('dummy_appli', context.supvisors)
     context.applications['dummy_appli'] = application
     # call reset and check result
     context.reset()
-    assert set(context.supvisors.node_mapper.node_names), set(context.nodes.keys())
-    context.nodes['127.0.0.1']._state = NodeStates.UNKNOWN
-    context.nodes['10.0.0.1']._state = NodeStates.SILENT
-    context.nodes['10.0.0.2']._state = NodeStates.ISOLATING
-    context.nodes['10.0.0.3']._state = NodeStates.ISOLATED
-    context.nodes['10.0.0.4']._state = NodeStates.UNKNOWN
+    assert set(context.supvisors.supvisors_mapper.instances_map), set(context.instances_map.keys())
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.UNKNOWN
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.UNKNOWN
     assert context.applications == {'dummy_appli': application}
-    assert context._master_node_name == ''
+    assert context._master_identifier == ''
     assert not context._is_master
     assert context.start_date == 3600
 
 
 def test_master_node_name(context):
     """ Test the access to master node. """
-    assert context.supvisors.node_mapper.local_node_name == '127.0.0.1'
-    assert context.master_node_name == ''
+    assert context.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
+    assert context.master_identifier == ''
     assert not context.is_master
     assert not context._is_master
-    context.master_node_name = '10.0.0.1'
-    assert context.master_node_name == '10.0.0.1'
-    assert context._master_node_name == '10.0.0.1'
+    context.master_identifier = '10.0.0.1'
+    assert context.master_identifier == '10.0.0.1'
+    assert context._master_identifier == '10.0.0.1'
     assert not context.is_master
     assert not context._is_master
-    context.master_node_name = '127.0.0.1'
-    assert context.master_node_name == '127.0.0.1'
-    assert context._master_node_name == '127.0.0.1'
+    context.master_identifier = '127.0.0.1'
+    assert context.master_identifier == '127.0.0.1'
+    assert context._master_identifier == '127.0.0.1'
     assert context.is_master
     assert context._is_master
 
 
 def test_nodes_by_states(context):
-    """ Test the access to nodes in unknown state. """
+    """ Test the access to instances_map in unknown state. """
     # test initial states
-    assert context.unknown_nodes() == context.supvisors.node_mapper.node_names
-    assert context.running_core_nodes() is None
-    assert context.running_nodes() == []
-    assert context.isolating_nodes() == []
-    assert context.isolation_nodes() == []
-    assert context.nodes_by_states([NodeStates.RUNNING, NodeStates.ISOLATED]) == []
-    assert context.nodes_by_states([NodeStates.SILENT]) == []
-    assert context.nodes_by_states([NodeStates.UNKNOWN]) == context.supvisors.node_mapper.node_names
+    assert context.unknown_identifiers() == context.supvisors.supvisors_mapper.instances_map
+    assert context.running_core_identifiers() is None
+    assert context.running_identifiers() == []
+    assert context.isolating_instances() == []
+    assert context.isolation_instances() == []
+    assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == []
+    assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == []
+    assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == context.supvisors.supvisors_mapper.instances_map
     # change states
-    context.nodes['127.0.0.1']._state = NodeStates.RUNNING
-    context.nodes['10.0.0.1']._state = NodeStates.SILENT
-    context.nodes['10.0.0.2']._state = NodeStates.ISOLATING
-    context.nodes['10.0.0.3']._state = NodeStates.ISOLATED
-    context.nodes['10.0.0.4']._state = NodeStates.RUNNING
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
-    assert context.running_core_nodes() is None
-    assert context.running_nodes() == ['127.0.0.1', '10.0.0.4']
-    assert context.isolating_nodes() == ['10.0.0.2']
-    assert context.isolation_nodes() == ['10.0.0.2', '10.0.0.3']
-    assert context.nodes_by_states([NodeStates.RUNNING, NodeStates.ISOLATED]) == \
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert context.running_core_identifiers() is None
+    assert context.running_identifiers() == ['127.0.0.1', '10.0.0.4']
+    assert context.isolating_instances() == ['10.0.0.2']
+    assert context.isolation_instances() == ['10.0.0.2', '10.0.0.3']
+    assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
            ['127.0.0.1', '10.0.0.3', '10.0.0.4']
-    assert context.nodes_by_states([NodeStates.SILENT]) == ['10.0.0.1']
-    assert context.nodes_by_states([NodeStates.UNKNOWN]) == ['10.0.0.5']
+    assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1']
+    assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5']
 
 
 def test_running_core_nodes(supvisors):
-    """ Test if the core nodes are in a RUNNING state. """
+    """ Test if the core instances_map are in a RUNNING state. """
     supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
-    assert context.unknown_nodes() == context.supvisors.node_mapper.node_names
-    assert not context.running_core_nodes()
+    assert context.unknown_identifiers() == context.supvisors.supvisors_mapper.instances_map
+    assert not context.running_core_identifiers()
     # change states
-    context.nodes['127.0.0.1']._state = NodeStates.RUNNING
-    context.nodes['10.0.0.2']._state = NodeStates.ISOLATING
-    context.nodes['10.0.0.3']._state = NodeStates.ISOLATED
-    context.nodes['10.0.0.4']._state = NodeStates.RUNNING
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_nodes() == ['10.0.0.1', '10.0.0.2', '10.0.0.5']
-    assert not context.running_core_nodes()
+    assert context.unknown_identifiers() == ['10.0.0.1', '10.0.0.2', '10.0.0.5']
+    assert not context.running_core_identifiers()
     # change states
-    context.nodes['10.0.0.1']._state = NodeStates.SILENT
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     # test new states
-    assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
-    assert not context.running_core_nodes()
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert not context.running_core_identifiers()
     # change states
-    context.nodes['10.0.0.1']._state = NodeStates.RUNNING
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_nodes() == ['10.0.0.2', '10.0.0.5']
-    assert context.running_core_nodes()
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert context.running_core_identifiers()
 
 
 def check_invalid_node_status(context, node_name, new_state, fence=None):
     # get node status
-    node = context.nodes[node_name]
+    node = context.instances_map[node_name]
     # check initial state
-    assert node.state == NodeStates.UNKNOWN
+    assert node.state == SupvisorsInstanceStates.UNKNOWN
     # invalidate node
     context.invalid(node, fence)
     # check new state
     assert node.state == new_state
     # restore node state
-    node._state = NodeStates.UNKNOWN
+    node._state = SupvisorsInstanceStates.UNKNOWN
 
 
 def test_invalid(mocker, context):
     """ Test the invalidation of a node. """
     # test node state with auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', True)
-    # test node state with auto_fence and local_node_name
-    check_invalid_node_status(context, '127.0.0.1', NodeStates.SILENT)
-    check_invalid_node_status(context, '127.0.0.1', NodeStates.SILENT, True)
-    # test node state with auto_fence and other than local_node_name
-    check_invalid_node_status(context, '10.0.0.1', NodeStates.ISOLATING)
-    check_invalid_node_status(context, '10.0.0.1', NodeStates.ISOLATING, True)
+    # test node state with auto_fence and local_identifier
+    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT, True)
+    # test node state with auto_fence and other than local_identifier
+    check_invalid_node_status(context, '10.0.0.1', SupvisorsInstanceStates.ISOLATING)
+    check_invalid_node_status(context, '10.0.0.1', SupvisorsInstanceStates.ISOLATING, True)
     # test node state without auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
-    # test node state without auto_fence and local_node_name
-    check_invalid_node_status(context, '127.0.0.1', NodeStates.SILENT)
-    check_invalid_node_status(context, '127.0.0.1', NodeStates.SILENT, True)
-    # test node state without auto_fence and other than local_node_name
-    check_invalid_node_status(context, '10.0.0.2', NodeStates.SILENT)
-    check_invalid_node_status(context, '10.0.0.2', NodeStates.ISOLATING, True)
+    # test node state without auto_fence and local_identifier
+    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT)
+    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT, True)
+    # test node state without auto_fence and other than local_identifier
+    check_invalid_node_status(context, '10.0.0.2', SupvisorsInstanceStates.SILENT)
+    check_invalid_node_status(context, '10.0.0.2', SupvisorsInstanceStates.ISOLATING, True)
 
 
 def test_get_managed_applications(filled_context):
@@ -215,7 +215,7 @@ def test_get_managed_applications(filled_context):
 
 
 def test_get_all_namespecs(filled_context):
-    """ Test getting all known namespecs across all supvisors instances. """
+    """ Test getting all known namespecs across all supvisors instances_map. """
     assert sorted(filled_context.get_all_namespecs()) == ['crash:late_segv', 'crash:segv', 'firefox',
                                                           'sample_test_1:xclock', 'sample_test_1:xfontsel',
                                                           'sample_test_1:xlogo', 'sample_test_2:sleep',
@@ -244,29 +244,29 @@ def test_conflicts(filled_context):
     # test no conflict
     assert not filled_context.conflicting()
     assert filled_context.conflicts() == []
-    # add nodes to one process
+    # add instances_map to one process
     process1 = next(process for application in filled_context.applications.values()
                     for process in application.processes.values()
                     if process.running())
-    process1.running_nodes.update(filled_context.nodes.keys())
+    process1.running_identifiers.update(filled_context.instances_map.keys())
     # test conflict is detected
     assert filled_context.conflicting()
     assert filled_context.conflicts() == [process1]
-    # add nodes to one other process
+    # add instances_map to one other process
     process2 = next(process for application in filled_context.applications.values()
                     for process in application.processes.values()
                     if process.stopped())
-    process2.running_nodes.update(filled_context.nodes.keys())
+    process2.running_identifiers.update(filled_context.instances_map.keys())
     # test conflict is detected
     assert filled_context.conflicting()
     assert filled_context.conflicts() == [process1, process2]
-    # empty nodes of first process list
-    process1.running_nodes.clear()
+    # empty instances_map of first process list
+    process1.running_identifiers.clear()
     # test conflict is still detected
     assert filled_context.conflicting()
     assert filled_context.conflicts() == [process2]
-    # empty nodes of second process list
-    process2.running_nodes.clear()
+    # empty instances_map of second process list
+    process2.running_identifiers.clear()
     # test no conflict
     assert not filled_context.conflicting()
     assert filled_context.conflicts() == []
@@ -334,13 +334,13 @@ def test_load_processes(mocker, context):
     mocker.patch('supvisors.application.ApplicationStatus.update_status')
     # check application list
     assert context.applications == {}
-    for node in context.nodes.values():
+    for node in context.instances_map.values():
         assert node.processes == {}
     # load ProcessInfoDatabase in unknown node
     with pytest.raises(KeyError):
         context.load_processes('10.0.0.0', database_copy())
     assert context.applications == {}
-    for node in context.nodes.values():
+    for node in context.instances_map.values():
         assert node.processes == {}
     # load ProcessInfoDatabase with known node
     context.load_processes('10.0.0.1', database_copy())
@@ -350,11 +350,11 @@ def test_load_processes(mocker, context):
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
     assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
     assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
-    assert sorted(context.nodes['10.0.0.1'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
+    assert sorted(context.instances_map['10.0.0.1'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
                                                                   'sample_test_1:xclock', 'sample_test_1:xfontsel',
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
-    assert context.nodes['10.0.0.2'].processes == {}
+    assert context.instances_map['10.0.0.2'].processes == {}
     # check application calls
     assert all(application.update_sequences.called and application.update_status.called
                for application in context.applications.values())
@@ -367,11 +367,11 @@ def test_load_processes(mocker, context):
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
     assert sorted(context.applications['sample_test_1'].processes.keys()) == ['xclock', 'xfontsel', 'xlogo']
     assert sorted(context.applications['sample_test_2'].processes.keys()) == ['sleep', 'yeux_00', 'yeux_01']
-    assert sorted(context.nodes['10.0.0.2'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
+    assert sorted(context.instances_map['10.0.0.2'].processes.keys()) == ['crash:late_segv', 'crash:segv', 'firefox',
                                                                   'sample_test_1:xclock', 'sample_test_1:xfontsel',
                                                                   'sample_test_1:xlogo', 'sample_test_2:sleep',
                                                                   'sample_test_2:yeux_00', 'sample_test_2:yeux_01']
-    assert context.nodes['10.0.0.1'].processes == context.nodes['10.0.0.2'].processes
+    assert context.instances_map['10.0.0.1'].processes == context.instances_map['10.0.0.2'].processes
     # check application calls
     assert all(application.update_sequences.called and application.update_status.called
                for application in context.applications.values())
@@ -384,7 +384,7 @@ def test_load_processes(mocker, context):
     # check context contents
     assert sorted(context.applications.keys()) == ['crash', 'dummy_application', 'firefox',
                                                    'sample_test_1', 'sample_test_2']
-    assert list(context.nodes['10.0.0.4'].processes.keys()) == ['dummy_application:dummy_process']
+    assert list(context.instances_map['10.0.0.4'].processes.keys()) == ['dummy_application:dummy_process']
     assert sorted(context.applications['crash'].processes.keys()) == ['late_segv', 'segv']
     assert sorted(context.applications['dummy_application'].processes.keys()) == ['dummy_process']
     assert sorted(context.applications['firefox'].processes.keys()) == ['firefox']
@@ -403,85 +403,85 @@ def test_authorization(mocker, context):
     for fencing in [True, False]:
         context.supvisors.options.auto_fence = fencing
         for authorization in [True, False]:
-            for state in NodeStates:
-                if state != NodeStates.CHECKING:
-                    context.nodes['10.0.0.1']._state = state
+            for state in SupvisorsInstanceStates:
+                if state != SupvisorsInstanceStates.CHECKING:
+                    context.instances_map['10.0.0.1']._state = state
                     context.on_authorization('10.0.0.1', authorization)
-                    assert context.nodes['10.0.0.1'].state == state
+                    assert context.instances_map['10.0.0.1'].state == state
     # check state becomes RUNNING if authorized and current state is CHECKING
     for fencing in [True, False]:
         context.supvisors.options.auto_fence = fencing
-        context.nodes['10.0.0.2']._state = NodeStates.CHECKING
+        context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
         context.on_authorization('10.0.0.2', True)
-        assert context.nodes['10.0.0.2'].state == NodeStates.RUNNING
+        assert context.instances_map['10.0.0.2'].state == SupvisorsInstanceStates.RUNNING
     # check state becomes ISOLATING if not authorized and auto fencing activated
     context.supvisors.options.auto_fence = True
-    context.nodes['10.0.0.4']._state = NodeStates.CHECKING
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
     context.on_authorization('10.0.0.4', False)
-    assert context.nodes['10.0.0.4'].state == NodeStates.ISOLATING
+    assert context.instances_map['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
     # check state becomes reciprocally ISOLATING if not authorized and auto fencing deactivated
     context.supvisors.options.auto_fence = False
-    context.nodes['10.0.0.4']._state = NodeStates.CHECKING
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
     context.on_authorization('10.0.0.4', False)
-    assert context.nodes['10.0.0.4'].state == NodeStates.ISOLATING
+    assert context.instances_map['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
 
 
 def test_on_tick_event(mocker, context):
     """ Test the handling of a timer event. """
     mocker.patch('supvisors.context.time', return_value=3600)
-    mocked_check = context.supvisors.zmq.pusher.send_check_node
-    mocked_send = context.supvisors.zmq.publisher.send_node_status
+    mocked_check = context.supvisors.zmq.pusher.send_check_instance
+    mocked_send = context.supvisors.zmq.publisher.send_instance_status
     # check no exception with unknown node
     context.on_tick_event('10.0.0.0', {})
     assert not mocked_check.called
     assert not mocked_send.called
     # check no processing as long as local node is not RUNNING
-    assert context.supvisors.node_mapper.local_node_name == '127.0.0.1'
-    assert context.nodes['127.0.0.1'].state == NodeStates.UNKNOWN
+    assert context.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
+    assert context.instances_map['127.0.0.1'].state == SupvisorsInstanceStates.UNKNOWN
     context.on_tick_event('10.0.0.1', {})
     assert not mocked_check.called
     assert not mocked_send.called
     # set local node state to RUNNING
-    context.nodes['127.0.0.1']._state = NodeStates.RUNNING
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     # get node status used for tests
-    status = context.nodes['10.0.0.1']
+    status = context.instances_map['10.0.0.1']
     assert status.sequence_counter == 0
     # check no change with known node in isolation
-    for state in [NodeStates.ISOLATING, NodeStates.ISOLATED]:
+    for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         status._state = state
         context.on_tick_event('10.0.0.1', {})
         assert status.state == state
         assert not mocked_check.called
         assert not mocked_send.called
-    # check that node is CHECKING and send_check_node is called before node time is updated and node status is sent
-    for state in [NodeStates.UNKNOWN, NodeStates.SILENT]:
+    # check that node is CHECKING and send_check_instance is called before node time is updated and node status is sent
+    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.SILENT]:
         status._state = state
         context.on_tick_event('10.0.0.1', {'sequence_counter': 31, 'when': 1234})
-        assert status.state == NodeStates.CHECKING
+        assert status.state == SupvisorsInstanceStates.CHECKING
         assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
-        assert mocked_send.call_args_list == [call({'node_name': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
                                                     'sequence_counter': 31, 'statecode': 1, 'statename': 'CHECKING',
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
     # check that node time is updated and node status is sent
-    for state in [NodeStates.CHECKING, NodeStates.RUNNING]:
+    for state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
         status._state = state
         context.on_tick_event('10.0.0.1', {'sequence_counter': 57, 'when': 5678})
         assert status.state == state
         assert status.remote_time == 5678
         assert not mocked_check.called
-        assert mocked_send.call_args_list == [call({'node_name': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
                                                     'sequence_counter': 57,
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
     # check that the node local_sequence_counter is forced to 0 when its sequence_counter is lower than expected
     status.sequence_counter = 102
-    status._state = NodeStates.RUNNING
+    status._state = SupvisorsInstanceStates.RUNNING
     context.on_tick_event('10.0.0.1', {'sequence_counter': 2, 'when': 6789})
-    assert status.state == NodeStates.RUNNING
+    assert status.state == SupvisorsInstanceStates.RUNNING
     assert status.local_sequence_counter == 0
     assert not mocked_check.called
     assert not mocked_send.called
@@ -500,9 +500,9 @@ def test_process_removed_event_isolated_node(context):
     """ Test the handling of a process removed event coming from an isolated node. """
     mocked_publisher = context.supvisors.zmq.publisher
     # get node status used for tests
-    node_status = context.nodes['10.0.0.1']
+    node_status = context.instances_map['10.0.0.1']
     # check no change with known node in isolation
-    for state in [NodeStates.ISOLATING, NodeStates.ISOLATED]:
+    for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         node_status._state = state
         context.on_process_removed_event('10.0.0.1', {})
         assert not mocked_publisher.send_process_state_event.called
@@ -515,8 +515,8 @@ def test_process_removed_event(mocker, context):
     mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
     # get node status used for tests
-    node1 = context.nodes['10.0.0.1']
-    node2 = context.nodes['10.0.0.2']
+    node1 = context.instances_map['10.0.0.1']
+    node2 = context.instances_map['10.0.0.2']
     # patch load_application_rules
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
@@ -533,8 +533,8 @@ def test_process_removed_event(mocker, context):
     # payload for parameter
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process'}
     # check behaviour when not in RUNNING state
-    for state in NodeStates:
-        if state != NodeStates.RUNNING:
+    for state in SupvisorsInstanceStates:
+        if state != SupvisorsInstanceStates.RUNNING:
             node1._state = state
             context.on_process_removed_event('10.0.0.1', dummy_event)
             assert sorted(process.info_map.keys()) == ['10.0.0.1', '10.0.0.2']
@@ -544,8 +544,8 @@ def test_process_removed_event(mocker, context):
             assert not mocked_publisher.send_application_status.called
     # check normal behaviour in RUNNING state
     # as process will still include a definition on '10.0.0.2', no impact expected on process and application
-    node1._state = NodeStates.RUNNING
-    node2._state = NodeStates.RUNNING
+    node1._state = SupvisorsInstanceStates.RUNNING
+    node2._state = SupvisorsInstanceStates.RUNNING
     context.on_process_removed_event('10.0.0.1', dummy_event)
     assert process.state == ProcessStates.STOPPED
     assert sorted(process.info_map.keys()) == ['10.0.0.2']
@@ -565,7 +565,7 @@ def test_process_removed_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                  'last_event_time': 1234, 'nodes': [], 'addresses': [],  # TODO: DEPRECATED
+                  'last_event_time': 1234, 'instances_map': [], 'addresses': [],  # TODO: DEPRECATED
                   'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
@@ -576,7 +576,7 @@ def test_process_event_unknown_node(mocker, context):
     """ Test the handling of a process event coming from an unknown node. """
     mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
-    mocked_update_args = context.supvisors.info_source.update_extra_args
+    mocked_update_args = context.supvisors.supervisor_data.update_extra_args
     result = context.on_process_state_event('10.0.0.0', {})
     assert result is None
     assert not mocked_update_args.called
@@ -589,11 +589,11 @@ def test_process_event_isolated_node(mocker, context):
     """ Test the handling of a process state event coming from an isolated node. """
     mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
-    mocked_update_args = context.supvisors.info_source.update_extra_args
+    mocked_update_args = context.supvisors.supervisor_data.update_extra_args
     # get node status used for tests
-    node_status = context.nodes['10.0.0.1']
+    node_status = context.instances_map['10.0.0.1']
     # check no change with known node in isolation
-    for state in [NodeStates.ISOLATING, NodeStates.ISOLATED]:
+    for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         node_status._state = state
         result = context.on_process_state_event('10.0.0.1', {})
         assert result is None
@@ -607,9 +607,9 @@ def test_on_process_state_event(mocker, context):
     """ Test the handling of a process event. """
     mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
-    mocked_update_args = context.supvisors.info_source.update_extra_args
+    mocked_update_args = context.supvisors.supervisor_data.update_extra_args
     # get node status used for tests
-    node = context.nodes['10.0.0.1']
+    node = context.instances_map['10.0.0.1']
     # patch load_application_rules
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
@@ -626,8 +626,8 @@ def test_on_process_state_event(mocker, context):
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 10, 'extra_args': '',
                    'now': 2345, 'stop': 0}
     # check behaviour when not in RUNNING state
-    for state in NodeStates:
-        if state != NodeStates.RUNNING:
+    for state in SupvisorsInstanceStates:
+        if state != SupvisorsInstanceStates.RUNNING:
             node._state = state
             assert context.on_process_state_event('10.0.0.1', dummy_event) is None
             assert not mocked_update_args.called
@@ -635,7 +635,7 @@ def test_on_process_state_event(mocker, context):
             assert not mocked_publisher.send_process_status.called
             assert not mocked_publisher.send_application_status.called
     # check normal behaviour in RUNNING state
-    node._state = NodeStates.RUNNING
+    node._state = SupvisorsInstanceStates.RUNNING
     result = context.on_process_state_event('10.0.0.1', dummy_event)
     assert result is process
     assert process.state == 10
@@ -647,7 +647,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                  'last_event_time': 1234, 'nodes': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
+                  'last_event_time': 1234, 'instances_map': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
                   'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
@@ -671,7 +671,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                  'last_event_time': 1234, 'nodes': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
+                  'last_event_time': 1234, 'instances_map': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
                   'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
@@ -695,7 +695,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 200, 'statename': 'FATAL', 'expected_exit': True,
-                  'last_event_time': 1234, 'nodes': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
+                  'last_event_time': 1234, 'instances_map': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
                   'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
@@ -704,22 +704,22 @@ def test_on_process_state_event(mocker, context):
 
 def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
-    mocked_send = context.supvisors.zmq.publisher.send_node_status
-    # update context nodes
-    context.nodes['127.0.0.1'].__dict__.update({'_state': NodeStates.RUNNING, 'local_sequence_counter': 31})
-    context.nodes['10.0.0.1'].__dict__.update({'_state': NodeStates.RUNNING, 'local_sequence_counter': 30})
-    context.nodes['10.0.0.2'].__dict__.update({'_state': NodeStates.RUNNING, 'local_sequence_counter': 29})
-    context.nodes['10.0.0.3'].__dict__.update({'_state': NodeStates.SILENT, 'local_sequence_counter': 10})
-    context.nodes['10.0.0.4'].__dict__.update({'_state': NodeStates.ISOLATING, 'local_sequence_counter': 0})
-    context.nodes['10.0.0.5'].__dict__.update({'_state': NodeStates.UNKNOWN, 'local_sequence_counter': 0})
+    mocked_send = context.supvisors.zmq.publisher.send_instance_status
+    # update context instances_map
+    context.instances_map['127.0.0.1'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING, 'local_sequence_counter': 31})
+    context.instances_map['10.0.0.1'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING, 'local_sequence_counter': 30})
+    context.instances_map['10.0.0.2'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING, 'local_sequence_counter': 29})
+    context.instances_map['10.0.0.3'].__dict__.update({'_state': SupvisorsInstanceStates.SILENT, 'local_sequence_counter': 10})
+    context.instances_map['10.0.0.4'].__dict__.update({'_state': SupvisorsInstanceStates.ISOLATING, 'local_sequence_counter': 0})
+    context.instances_map['10.0.0.5'].__dict__.update({'_state': SupvisorsInstanceStates.UNKNOWN, 'local_sequence_counter': 0})
     # update context applications
     application_1 = Mock()
     context.applications['dummy_application'] = application_1
     # patch the expected future invalidated node
-    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_node.return_value': False})
+    proc_1 = Mock(rules=Mock(expected_load=3), **{'invalidate_identifier.return_value': False})
     proc_2 = Mock(application_name='dummy_application', rules=Mock(expected_load=12),
-                  **{'invalidate_node.return_value': True})
-    mocker.patch.object(context.nodes['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
+                  **{'invalidate_identifier.return_value': True})
+    mocker.patch.object(context.instances_map['10.0.0.2'], 'running_processes', return_value=[proc_1, proc_2])
     # test when start_date is recent
     context.start_date = 3590
     assert context.on_timer_event({'sequence_counter': 31, 'when': 3600}) == ([], set())
@@ -727,53 +727,53 @@ def test_on_timer_event(mocker, context):
     assert not mocked_send.called
     assert not proc_1.invalidate_node.called
     assert not proc_2.invalidate_node.called
-    assert context.nodes['10.0.0.5'].state == NodeStates.UNKNOWN
+    assert context.instances_map['10.0.0.5'].state == SupvisorsInstanceStates.UNKNOWN
     # test when synchro_timeout has passed
     context.start_date = 3589
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.local_sequence_counter == 32
-    assert context.nodes['10.0.0.5'].state == NodeStates.ISOLATING
-    assert mocked_send.call_args_list == [call({'node_name': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
+    assert context.instances_map['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
                                                 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 15,
                                                 'sequence_counter': 0}),
-                                          call({'node_name': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
+                                          call({'identifier': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
                                                 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]
     assert proc_2.invalidate_node.call_args_list == [call('10.0.0.2')]
     assert application_1.update_status.call_args_list == [call()]
-    # only '10.0.0.2' and '10.0.0.5' nodes changed state
-    for node_name, state in [('127.0.0.1', NodeStates.RUNNING), ('10.0.0.1', NodeStates.RUNNING),
-                             ('10.0.0.2', NodeStates.ISOLATING), ('10.0.0.3', NodeStates.SILENT),
-                             ('10.0.0.4', NodeStates.ISOLATING), ('10.0.0.5', NodeStates.ISOLATING)]:
-        assert context.nodes[node_name].state == state
+    # only '10.0.0.2' and '10.0.0.5' instances_map changed state
+    for node_name, state in [('127.0.0.1', SupvisorsInstanceStates.RUNNING), ('10.0.0.1', SupvisorsInstanceStates.RUNNING),
+                             ('10.0.0.2', SupvisorsInstanceStates.ISOLATING), ('10.0.0.3', SupvisorsInstanceStates.SILENT),
+                             ('10.0.0.4', SupvisorsInstanceStates.ISOLATING), ('10.0.0.5', SupvisorsInstanceStates.ISOLATING)]:
+        assert context.instances_map[node_name].state == state
 
 
 def test_handle_isolation(mocker, context):
-    """ Test the isolation of nodes. """
-    mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_node_status')
+    """ Test the isolation of instances_map. """
+    mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_instance_status')
     # update node states
-    context.nodes['127.0.0.1']._state = NodeStates.CHECKING
-    context.nodes['10.0.0.1']._state = NodeStates.RUNNING
-    context.nodes['10.0.0.2']._state = NodeStates.SILENT
-    context.nodes['10.0.0.3']._state = NodeStates.ISOLATED
-    context.nodes['10.0.0.4']._state = NodeStates.ISOLATING
-    context.nodes['10.0.0.5']._state = NodeStates.ISOLATING
+    context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.CHECKING
+    context.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances_map['10.0.0.2']._state = SupvisorsInstanceStates.SILENT
+    context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
+    context.instances_map['10.0.0.4']._state = SupvisorsInstanceStates.ISOLATING
+    context.instances_map['10.0.0.5']._state = SupvisorsInstanceStates.ISOLATING
     # call method and check result
     assert context.handle_isolation() == ['10.0.0.4', '10.0.0.5']
-    assert context.nodes['127.0.0.1'].state == NodeStates.CHECKING
-    assert context.nodes['10.0.0.1'].state == NodeStates.RUNNING
-    assert context.nodes['10.0.0.2'].state == NodeStates.SILENT
-    assert context.nodes['10.0.0.3'].state == NodeStates.ISOLATED
-    assert context.nodes['10.0.0.4'].state == NodeStates.ISOLATED
-    assert context.nodes['10.0.0.5'].state == NodeStates.ISOLATED
-    # check calls to publisher.send_node_status
-    assert mocked_send.call_args_list == [call({'node_name': '10.0.0.4', 'address_name': '10.0.0.4',  # TODO: DEPRECATED
+    assert context.instances_map['127.0.0.1'].state == SupvisorsInstanceStates.CHECKING
+    assert context.instances_map['10.0.0.1'].state == SupvisorsInstanceStates.RUNNING
+    assert context.instances_map['10.0.0.2'].state == SupvisorsInstanceStates.SILENT
+    assert context.instances_map['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED
+    assert context.instances_map['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATED
+    assert context.instances_map['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
+    # check calls to publisher.send_instance_status
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.4', 'address_name': '10.0.0.4',  # TODO: DEPRECATED
                                                 'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0}),
-                                          call({'node_name': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
+                                          call({'identifier': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
                                                 'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]

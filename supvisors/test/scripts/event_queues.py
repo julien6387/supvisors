@@ -36,7 +36,7 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
         SupvisorsEventInterface.__init__(self, zcontext, self.PORT, logger)
         # create queues to store messages
         self.supvisors_queue = Queue()
-        self.node_queue = Queue()
+        self.instance_queue = Queue()
         self.application_queue = Queue()
         self.process_queue = Queue()
         self.event_queue = Queue()
@@ -44,34 +44,34 @@ class SupvisorsEventQueues(SupvisorsEventInterface):
     # callbacks
     def on_supvisors_status(self, data):
         """ Just logs the contents of the Supvisors Status message. """
-        self.logger.info('got Supvisors Status message: {}'.format(data))
+        self.logger.info(f'got Supvisors Status message: {data}')
         self.supvisors_queue.put(data)
 
-    def on_node_status(self, data):
-        """ Pushes the Node Status message into a queue. """
-        self.logger.info('got Node Status message: {}'.format(data))
-        self.node_queue.put(data)
+    def on_instance_status(self, data):
+        """ Pushes the Supvisors Instance Status message into a queue. """
+        self.logger.info(f'got Supvisors Instance Status message: {data}')
+        self.instance_queue.put(data)
 
     def on_application_status(self, data):
         """ Pushes the Application Status message into a queue. """
-        self.logger.info('got Application Status message: {}'.format(data))
+        self.logger.info(f'got Application Status message: {data}')
         self.application_queue.put(data)
 
     def on_process_status(self, data):
         """ Pushes the Process Status message into a queue. """
-        self.logger.info('got Process Status message: {}'.format(data))
+        self.logger.info(f'got Process Status message: {data}')
         self.process_queue.put(data)
 
     def on_process_event(self, data):
         """ Pushes the Process Event message into a queue. """
-        self.logger.info('got Process Event message: {}'.format(data))
+        self.logger.info(f'got Process Event message: {data}')
         self.event_queue.put(data)
 
     # utilities
     def flush(self):
         """ Empties all queues. """
         self.flush_queue(self.supvisors_queue)
-        self.flush_queue(self.node_queue)
+        self.flush_queue(self.instance_queue)
         self.flush_queue(self.application_queue)
         self.flush_queue(self.process_queue)
         self.flush_queue(self.event_queue)

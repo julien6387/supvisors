@@ -24,19 +24,19 @@ from supervisor.compat import xmlrpclib
 from supervisor.states import STOPPED_STATES
 from supervisor.xmlrpc import Faults
 
-from supvisors.ttypes import NodeStates, StartingStrategies
+from supvisors.ttypes import SupvisorsInstanceStates, StartingStrategies
 
 from .event_queues import SupvisorsEventQueues
-from .running_nodes import RunningNodesTest
+from .running_identifiers import RunningIdentifiersTest
 
 
-class StartingStrategyTest(RunningNodesTest):
+class StartingStrategyTest(RunningIdentifiersTest):
     """ Test case to check the loading strategies of Supvisors. """
 
     def setUp(self):
         """ Get initial status. """
-        RunningNodesTest.setUp(self)
-        # check the loading on running nodes
+        RunningIdentifiersTest.setUp(self)
+        # check the loading on running instances
         # initial state is cliche81=14% cliche82=15% cliche83=5%
         self._refresh_loading()
         assert list(self.loading.values()) == [10, 15, 9]
@@ -61,14 +61,14 @@ class StartingStrategyTest(RunningNodesTest):
             except Exception:
                 pass
         # call parent
-        RunningNodesTest.tearDown(self)
+        RunningIdentifiersTest.tearDown(self)
 
     def _refresh_loading(self):
         """ Get the current loading status. """
-        nodes_info = self.local_supvisors.get_all_nodes_info()
-        self.loading = {info['node_name']: info['loading']
+        nodes_info = self.local_supvisors.get_all_instances_info()
+        self.loading = {info['identifier']: info['loading']
                         for info in nodes_info
-                        if info['statecode'] == NodeStates.RUNNING.value}
+                        if info['statecode'] == SupvisorsInstanceStates.RUNNING.value}
 
     def _start_converter(self, idx):
         """ Get the current loading status. """

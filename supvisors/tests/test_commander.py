@@ -36,7 +36,7 @@ def test_command_create(supvisors):
     # test default strategy
     command = ProcessCommand(process)
     assert process is command.process
-    assert command.node_names == []
+    assert command.identifiers == []
     assert command.request_time == 0
 
 
@@ -45,7 +45,7 @@ def test_command_str():
     process = Mock(namespec='proc_1', state='RUNNING')
     command = ProcessCommand(process)
     command.request_time = 4321
-    assert str(command) == 'process=proc_1 state=RUNNING node_names=[] request_time=4321'
+    assert str(command) == 'process=proc_1 state=RUNNING identifiers=[] request_time=4321'
 
 
 def test_command_timed_out():
@@ -62,7 +62,7 @@ def test_start_command_create(supvisors):
     # test strategy in parameter
     command = ProcessStartCommand(process, StartingStrategies.MOST_LOADED)
     assert process is command.process
-    assert command.node_names == []
+    assert command.identifiers == []
     assert command.request_time == 0
     assert command.strategy == StartingStrategies.MOST_LOADED
     assert not command.ignore_wait_exit
@@ -76,7 +76,7 @@ def test_start_command_str():
     command.request_time = 4321
     command.ignore_wait_exit = True
     command.extra_args = '-s test args'
-    assert str(command) == ('process=proc_1 state=RUNNING node_names=[] request_time=4321'
+    assert str(command) == ('process=proc_1 state=RUNNING identifiers=[] request_time=4321'
                             ' strategy=CONFIG ignore_wait_exit=True extra_args="-s test args"')
 
 
@@ -88,7 +88,7 @@ def test_start_command_timed_out():
     # check call when no nodes_names
     assert not command.timed_out(1000)
     # check call with nodes_names set and process state BACKOFF or STARTING on the node
-    command.node_names = ['10.0.0.1']
+    command.identifiers = ['10.0.0.1']
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process.info_map['10.0.0.1']['state'] = state
         assert not command.timed_out(107)
@@ -110,7 +110,7 @@ def test_stop_command_create(supvisors):
     # test default strategy
     command = ProcessStopCommand(process)
     assert process is command.process
-    assert command.node_names == []
+    assert command.identifiers == []
     assert command.request_time == 0
 
 
@@ -119,7 +119,7 @@ def test_stop_command_str():
     process = Mock(namespec='proc_1', state='RUNNING')
     command = ProcessCommand(process)
     command.request_time = 4321
-    assert str(command) == 'process=proc_1 state=RUNNING node_names=[] request_time=4321'
+    assert str(command) == 'process=proc_1 state=RUNNING identifiers=[] request_time=4321'
 
 
 def test_stop_command_timed_out():
@@ -131,7 +131,7 @@ def test_stop_command_timed_out():
     # check call when no nodes_names
     assert not command.timed_out(1000)
     # check call with nodes_names set and process state STOPPING on the node
-    command.node_names = ['10.0.0.1', '10.0.0.2']
+    command.identifiers = ['10.0.0.1', '10.0.0.2']
     process.info_map['10.0.0.1']['state'] = ProcessStates.STOPPING
     process.info_map['10.0.0.2']['state'] = ProcessStates.STOPPING
     assert not command.timed_out(115)
@@ -216,24 +216,24 @@ def test_application_job_print(application_job_1):
 
 def test_application_job_get_command(sample_test_1):
     """ Test the ApplicationJobs.get_command method. """
-    # initial ProcessCommands have no node_names set
+    # initial ProcessCommands have no identifiers set
     # test with non existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
     assert ApplicationJobs.get_command(sample_test_1, 'xlogo') is sample_test_1[1]
     assert not ApplicationJobs.get_command(sample_test_1, 'xlogo', '10.0.0.1')
-    # set node_names
+    # set identifiers
     for command in sample_test_1:
-        command.node_names.append('10.0.0.1')
+        command.identifiers.append('10.0.0.1')
     # test with non existing process
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes')
     assert not ApplicationJobs.get_command(sample_test_1, 'xeyes', '10.0.0.1')
     # test with existing process
     assert ApplicationJobs.get_command(sample_test_1, 'xlogo') is sample_test_1[1]
-    # test with existing process and wrong node_name
+    # test with existing process and wrong identifier
     assert not ApplicationJobs.get_command(sample_test_1, 'xlogo', '10.0.0.2')
-    # test with existing process and correct node_name
+    # test with existing process and correct identifier
     assert ApplicationJobs.get_command(sample_test_1, 'xlogo', '10.0.0.1') is sample_test_1[1]
 
 
@@ -242,13 +242,13 @@ def test_application_job_get_current_command(application_job_1, sample_test_1):
     # initial current_jobs is empty
     assert not application_job_1.get_current_command('xlogo')
     assert not application_job_1.get_current_command('xlogo', '10.0.0.1')
-    # fill current_jobs and retry. node_names still not set
+    # fill current_jobs and retry. identifiers still not set
     application_job_1.current_jobs = application_job_1.planned_jobs.pop(0)
     assert application_job_1.get_current_command('xlogo') is sample_test_1[1]
     assert not application_job_1.get_current_command('xlogo', '10.0.0.1')
-    # set node_names
+    # set identifiers
     for command in sample_test_1:
-        command.node_names.append('10.0.0.1')
+        command.identifiers.append('10.0.0.1')
     # retry
     assert application_job_1.get_current_command('xlogo') is sample_test_1[1]
     assert not application_job_1.get_current_command('xlogo', '10.0.0.2')
@@ -257,12 +257,12 @@ def test_application_job_get_current_command(application_job_1, sample_test_1):
 
 def test_application_job_get_planned_command(application_job_1, sample_test_1):
     """ Test the ApplicationJobs.get_planned_command method. """
-    # node_names are initially not set
+    # identifiers are initially not set
     assert application_job_1.get_planned_command('xlogo') is sample_test_1[1]
     assert not application_job_1.get_planned_command('xlogo', '10.0.0.1')
-    # set node_names
+    # set identifiers
     for command in sample_test_1:
-        command.node_names.append('10.0.0.1')
+        command.identifiers.append('10.0.0.1')
     # retry
     assert application_job_1.get_planned_command('xlogo') is sample_test_1[1]
     assert not application_job_1.get_planned_command('xlogo', '10.0.0.2')
@@ -383,65 +383,65 @@ def test_application_job_on_event(mocker, application_job_1, sample_test_1):
     process = Mock(process_name='dummy')
     application_job_1.on_event(process, '10.0.0.1', {'any': 'event'})
     assert not mocked_event.called
-    # test with process in planned_jobs (node_names not set)
+    # test with process in planned_jobs (identifiers not set)
     application_job_1.on_event(sample_test_1[0].process, '10.0.0.1', {'any': 'event'})
     assert not mocked_event.called
-    # test with process in planned_jobs (node_names set)
-    sample_test_1[0].node_names = ['10.0.0.1']
+    # test with process in planned_jobs (identifiers set)
+    sample_test_1[0].identifiers = ['10.0.0.1']
     application_job_1.on_event(sample_test_1[0].process, '10.0.0.1', {'any': 'event'})
     assert not mocked_event.called
-    # test with process in current_jobs (node_names set)
+    # test with process in current_jobs (identifiers set)
     application_job_1.current_jobs = application_job_1.planned_jobs.pop(0)
     application_job_1.on_event(sample_test_1[0].process, '10.0.0.1', {'any': 'event'})
     assert mocked_event.call_args_list == [call(sample_test_1[0], '10.0.0.1', {'any': 'event'})]
     mocked_event.reset_mock()
-    # test with process in current_jobs (node_names not set)
-    sample_test_1[0].node_names = []
+    # test with process in current_jobs (identifiers not set)
+    sample_test_1[0].identifiers = []
     application_job_1.on_event(sample_test_1[0].process, '10.0.0.1', {'any': 'event'})
     assert not mocked_event.called
 
 
 def test_application_job_on_nodes_invalidation(mocker, application_job_1, sample_test_1):
-    """ Test the ApplicationJobs.on_nodes_invalidation method. """
+    """ Test the ApplicationJobs.on_instances_invalidation method. """
     mocked_failure = mocker.patch.object(application_job_1, 'process_failure')
     mocked_next = mocker.patch.object(application_job_1, 'next')
     # initially, current_jobs is empty and xlogo command is in planned_jobs
     xlogo = sample_test_1[1]
     failed_processes = {xlogo.process}
-    application_job_1.on_nodes_invalidation(['10.0.0.1'], failed_processes)
+    application_job_1.on_instances_invalidation(['10.0.0.1'], failed_processes)
     assert not mocked_failure.called
     assert not mocked_next.called
     assert failed_processes == set()
     assert application_job_1.planned_jobs == {0: sample_test_1[0:2], 1: sample_test_1[2:]}
     assert application_job_1.current_jobs == []
-    # fill current_jobs and retry. node_names is set with other node
+    # fill current_jobs and retry. identifiers is set with other node
     application_job_1.current_jobs = application_job_1.planned_jobs.pop(0)
-    sample_test_1[0].node_names = ['10.0.0.3']
-    xlogo.node_names = ['10.0.0.3']
+    sample_test_1[0].identifiers = ['10.0.0.3']
+    xlogo.identifiers = ['10.0.0.3']
     failed_processes = {xlogo.process}
-    application_job_1.on_nodes_invalidation(['10.0.0.1'], failed_processes)
+    application_job_1.on_instances_invalidation(['10.0.0.1'], failed_processes)
     assert not mocked_failure.called
     assert not mocked_next.called
     assert failed_processes == {xlogo.process}
     assert application_job_1.planned_jobs == {1: sample_test_1[2:]}
     assert application_job_1.current_jobs == sample_test_1[0:2]
-    # set xlogo node_names with 2 nodes
-    xlogo.node_names = ['10.0.0.1', '10.0.0.2']
-    application_job_1.on_nodes_invalidation(['10.0.0.1'], failed_processes)
+    # set xlogo identifiers with 2 instances_map
+    xlogo.identifiers = ['10.0.0.1', '10.0.0.2']
+    application_job_1.on_instances_invalidation(['10.0.0.1'], failed_processes)
     assert not mocked_failure.called
     assert not mocked_next.called
     assert failed_processes == {sample_test_1[1].process}
     assert application_job_1.planned_jobs == {1: sample_test_1[2:]}
     assert application_job_1.current_jobs == sample_test_1[0:2]
-    assert sample_test_1[1].node_names == ['10.0.0.2']
+    assert sample_test_1[1].identifiers == ['10.0.0.2']
     # invalidate the other node
-    application_job_1.on_nodes_invalidation(['10.0.0.2'], failed_processes)
+    application_job_1.on_instances_invalidation(['10.0.0.2'], failed_processes)
     assert mocked_failure.call_args_list == [call(sample_test_1[1].process)]
     assert not mocked_next.called
     assert failed_processes == set()
     assert application_job_1.planned_jobs == {1: sample_test_1[2:]}
     assert application_job_1.current_jobs == sample_test_1[0:1]
-    assert xlogo.node_names == []
+    assert xlogo.identifiers == []
 
 
 # ApplicationStartJobs part
@@ -483,47 +483,47 @@ def test_application_start_job_creation(supvisors, application_start_job_1, star
     assert application_start_job_1.failure_state == ProcessStates.FATAL
     assert application_start_job_1.starting_strategy == StartingStrategies.LESS_LOADED
     assert application_start_job_1.distributed
-    assert application_start_job_1.node_name is None
+    assert application_start_job_1.identifier is None
     assert not application_start_job_1.stop_request
 
 
 def test_application_start_job_add_command(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.add_command method. """
-    mocked_node = mocker.patch('supvisors.commander.get_node')
+    mocked_node = mocker.patch('supvisors.commander.get_supvisors_instance')
     xclock = start_sample_test_1[0]
     xclock.process.rules.expected_load = 7
     job = {8: start_sample_test_1[0:1]}
-    # test with application distributed, application node_name unset and command node_names unset
+    # test with application distributed, application identifier unset and command identifiers unset
     application_start_job_1.add_command(job)
-    assert xclock.node_names == []
+    assert xclock.identifiers == []
     assert not mocked_node.called
     # set application non-distributed and retry
     application_start_job_1.distributed = False
     # this case corresponds to a non-distributed application for which no node has been found
     application_start_job_1.add_command(job)
-    assert xclock.node_names == []
+    assert xclock.identifiers == []
     assert not mocked_node.called
-    # set application node_name and retry
-    application_start_job_1.node_name = '10.0.0.1'
+    # set application identifier and retry
+    application_start_job_1.identifier = '10.0.0.1'
     # this case corresponds to a non-distributed application for which a node has been found and the job has been added
-    # in superclass (otherwise command node_names would be set)
+    # in superclass (otherwise command identifiers would be set)
     # first, consider that there's no resource available anymore
     mocked_node.return_value = None
     application_start_job_1.add_command(job)
-    assert xclock.node_names == []
+    assert xclock.identifiers == []
     assert mocked_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
     mocked_node.reset_mock()
     # then, consider that the node can accept the additional loading
     mocked_node.return_value = '10.0.0.1'
     application_start_job_1.add_command(job)
-    assert xclock.node_names == ['10.0.0.1']
+    assert xclock.identifiers == ['10.0.0.1']
     assert mocked_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
     mocked_node.reset_mock()
     # retry
     # this case corresponds to a non-distributed application for which a node has been found and the job has NOT been
-    # added in superclass (because command node_names is already set)
+    # added in superclass (because command identifiers is already set)
     application_start_job_1.add_command(job)
-    assert xclock.node_names == ['10.0.0.1']
+    assert xclock.identifiers == ['10.0.0.1']
     assert not mocked_node.called
 
 
@@ -534,42 +534,42 @@ def test_application_start_job_get_load_requests(application_start_job_1, start_
     # set context
     application_start_job_1.current_jobs = application_start_job_1.planned_jobs.pop(0)
     for idx, command in enumerate(start_sample_test_1):
-        command.node_names = [f'10.0.0.{idx % 2 + 1}']
+        command.instances_map = [f'10.0.0.{idx % 2 + 1}']
         command.process.rules.expected_load = 10
     # initially: xclock STOPPING, xlogo STOPPED, xfontsel RUNNING
     assert application_start_job_1.get_load_requests() == {'10.0.0.2': 10}
-    # set all processes to STOPPED and unset xfontsel node_names
+    # set all processes to STOPPED and unset xfontsel identifiers
     for command in start_sample_test_1:
         command.process._state = ProcessStates.STOPPED
-    start_sample_test_1[2].node_names = []
+    start_sample_test_1[2].identifiers = []
     assert application_start_job_1.get_load_requests() == {'10.0.0.1': 10, '10.0.0.2': 10}
 
 
 def test_application_start_job_before(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.before method. """
-    mocked_node_getter = mocker.patch('supvisors.commander.get_node', return_value='10.0.0.1')
+    mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance', return_value='10.0.0.1')
     mocked_app_nodes = mocker.patch.object(application_start_job_1.application,
-                                           'possible_nodes', return_value=['10.0.0.1', '10.0.0.2'])
+                                           'possible_identifiers', return_value=['10.0.0.1', '10.0.0.2'])
     mocked_app_load = mocker.patch.object(application_start_job_1.application,
                                           'get_start_sequence_expected_load', return_value=27)
     # test with application distributed
     application_start_job_1.before()
-    assert not application_start_job_1.node_name
+    assert not application_start_job_1.identifier
     assert not mocked_node_getter.called
     assert not mocked_app_nodes.called
     assert not mocked_app_load.called
     # commands unchanged
-    assert all(not command.node_names
+    assert all(not command.instances_map
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
     # test application provided / application not distributed
     application_start_job_1.distributed = False
     application_start_job_1.before()
-    assert application_start_job_1.node_name == '10.0.0.1'
+    assert application_start_job_1.identifier == '10.0.0.1'
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
                                                       ['10.0.0.1', '10.0.0.2'], 27)]
     # check commands
-    assert all(command.node_names == ['10.0.0.1']
+    assert all(command.instances_map == ['10.0.0.1']
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
 
@@ -577,7 +577,7 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
 def test_application_start_job_process_job(mocker, supvisors, application_start_job_1, start_sample_test_1):
     """ Test the ApplicationStartJobs.process_job method. """
     # get patches
-    mocked_node_getter = mocker.patch('supvisors.commander.get_node')
+    mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance')
     mocked_force = supvisors.listener.force_process_state
     mocked_pusher = supvisors.zmq.pusher.send_start_process
     mocked_failure = mocker.patch.object(application_start_job_1, 'process_failure')
@@ -595,7 +595,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.strategy = StartingStrategies.MOST_LOADED
     application_start_job_1.distributed = False
     # 2.a no node has been found earlier
-    command.node_names = []
+    command.identifiers = []
     assert not application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
@@ -604,7 +604,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocked_force.reset_mock()
     mocked_failure.reset_mock()
     # 2.b node has been found earlier
-    command.node_names = ['10.0.0.1']
+    command.identifiers = ['10.0.0.1']
     assert application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
@@ -613,22 +613,22 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     mocked_pusher.reset_mock()
     # 3. xlogo is stopped / application is distributed
     application_start_job_1.distributed = True
-    command.node_names = []
-    # 3.a test with node found by get_node
+    command.identifiers = []
+    # 3.a test with node found by get_supvisors_instance
     assert application_start_job_1.process_job(command)
-    assert command.node_names == ['10.0.0.1']
+    assert command.identifiers == ['10.0.0.1']
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     assert not mocked_force.called
     assert not mocked_failure.called
     mocked_node_getter.reset_mock()
     mocked_pusher.reset_mock()
-    # 3.b test with no node found by get_node
+    # 3.b test with no node found by get_supvisors_instance
     mocked_node_getter.return_value = None
-    command.node_names = []
+    command.identifiers = []
     # call the process_jobs
     assert not application_start_job_1.process_job(command)
-    assert command.node_names == []
+    assert command.identifiers == []
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
     assert not mocked_pusher.called
     assert mocked_force.call_args_list == [call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')]
@@ -903,15 +903,15 @@ def test_application_stop_job_process_job(mocker, application_stop_job_1, stop_s
     xlogo = stop_sample_test_1[1]
     assert not application_stop_job_1.process_job(xlogo)
     assert not mocked_pusher.called
-    assert xlogo.node_names == []
+    assert xlogo.identifiers == []
     assert xlogo.request_time == 0
     # test with running process
     xfontsel = stop_sample_test_1[2]
-    xfontsel.process.running_nodes = ['10.0.0.1', '10.0.0.2']
+    xfontsel.process.running_identifiers = ['10.0.0.1', '10.0.0.2']
     assert application_stop_job_1.process_job(xfontsel)
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xfontsel'),
                                             call('10.0.0.2', 'sample_test_1:xfontsel')]
-    assert xfontsel.node_names == ['10.0.0.1', '10.0.0.2']
+    assert xfontsel.identifiers == ['10.0.0.1', '10.0.0.2']
     assert xfontsel.request_time == 1000
 
 
@@ -921,24 +921,24 @@ def test_application_stop_job_on_event_in_sequence(mocker, application_stop_job_
     # add context
     application_stop_job_1.current_jobs = application_stop_job_1.planned_jobs.pop(1)
     xfontsel = stop_sample_test_1[2]
-    xfontsel.node_names = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
+    xfontsel.identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
     # send unexpected running or stopping event
     for state in list(RUNNING_STATES) + [ProcessStates.STOPPING]:
         event = {'state': state}
         # from unexpected node
         application_stop_job_1.on_event_in_sequence(xfontsel, '10.0.0.5', event)
-        assert xfontsel.node_names == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
+        assert xfontsel.identifiers == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
         assert not mocked_next.called
         # from expected node
         for node_name in ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']:
             application_stop_job_1.on_event_in_sequence(xfontsel, node_name, event)
-            assert xfontsel.node_names == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
+            assert xfontsel.identifiers == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
             assert not mocked_next.called
-    # send expected stopped state from expected nodes
-    for state, node_name in list(zip(STOPPED_STATES, xfontsel.node_names)):
+    # send expected stopped state from expected instances_map
+    for state, node_name in list(zip(STOPPED_STATES, xfontsel.identifiers)):
         event = {'state': state}
         application_stop_job_1.on_event_in_sequence(xfontsel, node_name, event)
-    assert xfontsel.node_names == []
+    assert xfontsel.identifiers == []
     assert mocked_next.call_count == 1
 
 
@@ -1112,28 +1112,28 @@ def test_commander_on_event(mocker, commander, application_job_1, sample_test_1)
 
 
 def test_commander_on_nodes_invalidation(mocker, commander, application_job_1, application_job_2):
-    """ Test the Commander.on_nodes_invalidation method. """
+    """ Test the Commander.on_instances_invalidation method. """
     mocked_next = mocker.patch.object(commander, 'next')
-    mocked_job1_node = mocker.patch.object(application_job_1, 'on_nodes_invalidation')
-    mocked_job2_node = mocker.patch.object(application_job_2, 'on_nodes_invalidation')
+    mocked_job1_node = mocker.patch.object(application_job_1, 'on_instances_invalidation')
+    mocked_job2_node = mocker.patch.object(application_job_2, 'on_instances_invalidation')
     # test with empty structure
     invalidated_nodes = Mock()
     failed_processes = Mock()
-    commander.on_nodes_invalidation(invalidated_nodes, failed_processes)
+    commander.on_instances_invalidation(invalidated_nodes, failed_processes)
     assert not mocked_job1_node.called
     assert not mocked_job2_node.called
     assert mocked_next.called
     mocker.resetall()
     # test with filled structure
     commander.planned_jobs = {0: {'appli_1': application_job_1}, 1: {'appli_2': application_job_2}}
-    commander.on_nodes_invalidation(invalidated_nodes, failed_processes)
+    commander.on_instances_invalidation(invalidated_nodes, failed_processes)
     assert mocked_job1_node.call_args_list == [call(invalidated_nodes, failed_processes)]
     assert mocked_job2_node.call_args_list == [call(invalidated_nodes, failed_processes)]
     assert mocked_next.called
     mocker.resetall()
     # test with moved structures
     commander.current_jobs = commander.planned_jobs.pop(0)
-    commander.on_nodes_invalidation(invalidated_nodes, failed_processes)
+    commander.on_instances_invalidation(invalidated_nodes, failed_processes)
     assert mocked_job1_node.call_args_list == [call(invalidated_nodes, failed_processes)]
     assert mocked_job2_node.call_args_list == [call(invalidated_nodes, failed_processes)]
     assert mocked_next.called

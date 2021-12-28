@@ -23,10 +23,10 @@ from supervisor import loggers, supervisord
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
-from .nodemapper import NodeMapper
+from .supvisorsmapper import SupvisorsMapper
 from .commander import Starter, Stopper
 from .context import Context
-from .infosource import SupervisordSource
+from .supervisordata import SupervisorData
 from .listener import SupervisorListener
 from .options import *
 from .sparser import Parser
@@ -56,14 +56,14 @@ class Supvisors(object):
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
-        self.info_source = SupervisordSource(supervisor, self.logger)
-        # get configured nodes and check local node
-        self.node_mapper = NodeMapper(self.logger)
-        self.node_mapper.node_names = self.options.node_list
-        if not self.node_mapper.local_node_name:
-            message = f'local node is expected in node list: {self.options.node_list}'
-            self.logger.critical(f'Supvisors: {message}')
-            raise RPCError(Faults.SUPVISORS_CONF_ERROR, message)
+        self.supervisor_data = SupervisorData(supervisor, self.logger)
+        # get declared Supvisors instances and check local identifier
+        self.supvisors_mapper = SupvisorsMapper(self)
+        try:
+            self.supvisors_mapper.instances = self.options.supvisors_list
+        except ValueError as exc:
+            self.logger.critical(f'Supvisors: {exc}')
+            raise RPCError(Faults.SUPVISORS_CONF_ERROR, str(exc))
         # create context data
         self.context = Context(self)
         # create application starter and stopper

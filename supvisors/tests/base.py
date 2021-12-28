@@ -29,9 +29,9 @@ from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import STOPPED_STATES
 
-from supvisors.nodemapper import NodeMapper
+from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
-from supvisors.infosource import SupervisordSource
+from supvisors.supervisordata import SupervisorData
 from supvisors.initializer import Supvisors
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
@@ -68,11 +68,20 @@ class MockedSupvisors:
 
     def __init__(self):
         """ Use mocks when not possible to use real structures. """
-        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
-        self.node_mapper = NodeMapper(self.logger)
-        self.node_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
-        self.node_mapper.local_node_name = '127.0.0.1'
         self.options = DummyOptions()
+        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        # mock the supervisord source
+        self.supervisor_data = Mock(spec=SupervisorData)
+        self.supervisor_data.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+                                                     'SUPERVISOR_USERNAME': '',
+                                                     'SUPERVISOR_PASSWORD': ''}
+        self.supvisors_mapper = SupvisorsMapper(self)
+        host_name = gethostname()
+        identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
+        self.supvisors_mapper.instances = identifiers
+        self.supvisors_mapper.local_identifier = '127.0.0.1'
+        # remove gethostname for the tests
+        del self.supvisors_mapper.instances[host_name]
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
         self.context = Context(self)
@@ -82,11 +91,6 @@ class MockedSupvisors:
         self.requester = Mock()
         self.statistician = Mock(data={}, nbcores={})
         self.failure_handler = Mock()
-        # mock the supervisord source
-        self.info_source = Mock(spec=SupervisordSource)
-        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
-                                                 'SUPERVISOR_USERNAME': '',
-                                                 'SUPERVISOR_PASSWORD': ''}
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)

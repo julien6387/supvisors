@@ -22,21 +22,21 @@ import java.util.HashMap;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * The Class SupvisorsNodeInfo.
+ * The Class SupvisorsInstanceInfo.
  *
- * It gives a structured form to the node information received from a XML-RPC.
+ * It gives a structured form to the Supvisors Instance information received from a XML-RPC.
  */
-public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
+public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
 
     /**
      * The State enumeration for a node.
      *
-     * UNKNOWN:   used at initialization, before any heartbeat message is received from this node.
-     * CHECKING:  used when the local Supvisors checks the isolation status of this node.
-     * RUNNING:   used when the local Supvisors receives heartbeat messages from this node.
-     * SILENT:    used when the local Supvisors does not receive any heartbeat message from this node.
-     * ISOLATING: used when the local Supvisors is about to disconnect this node.
-     * ISOLATED:  used when the local Supvisors has disconnected this node.
+     * UNKNOWN:   used at initialization, before any heartbeat message is received from this Supvisors instance.
+     * CHECKING:  used when the local Supvisors checks the isolation status of this Supvisors instance.
+     * RUNNING:   used when the local Supvisors receives heartbeat messages from this Supvisors instance.
+     * SILENT:    used when the local Supvisors does not receive any heartbeat message from this Supvisors instance.
+     * ISOLATING: used when the local Supvisors is about to disconnect this Supvisors instance.
+     * ISOLATED:  used when the local Supvisors has actually disconnected this Supvisors instance.
      */
     public enum State {
         UNKNOWN(0),
@@ -56,8 +56,8 @@ public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
         }
     }
 
-    /** The node name. */
-    private String node_name;
+    /** The identifier of the Supvisors instance. */
+    private String identifier;
 
     /** The node state. */
     private State statename;
@@ -80,10 +80,10 @@ public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
     /**
      * This constructor gets all information from an HashMap.
      *
-     * @param HashMap nodeInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap instanceInfo: The untyped structure got from the XML-RPC.
      */
-    public SupvisorsNodeInfo(HashMap nodeInfo)  {
-        this.node_name = (String) nodeInfo.get("node_name");
+    public SupvisorsInstanceInfo(HashMap instanceInfo)  {
+        this.identifier = (String) nodeInfo.get("identifier");
         this.statename = State.valueOf((String) nodeInfo.get("statename"));
         this.remote_time = (Integer) nodeInfo.get("remote_time");
         this.local_time = (Integer) nodeInfo.get("local_time");
@@ -92,12 +92,21 @@ public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getName method returns the name of the node.
+     * The getName method uses the getIdentifier method.
      *
-     * @return String: The name of the node.
+     * @return String: The identifier of the Supvisors instance.
      */
     public String getName() {
-        return this.node_name;
+        return this.getIdentifier();
+    }
+
+    /**
+     * The getIdentifier method returns the identifier of the Supvisors instance.
+     *
+     * @return String: The identifier of the Supvisors instance.
+     */
+    public String getIdentifier() {
+        return this.identifier;
     }
 
     /**
@@ -156,7 +165,7 @@ public class SupvisorsNodeInfo implements SupvisorsAnyInfo {
      */
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        return "SupvisorsNodeInfo(name=" + this.node_name
+        return "SupvisorsInstanceInfo(identifier=" + this.identifier
             + " state=" + this.statename + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading + " sequenceCounter=" + this.sequence_counter + ")";

@@ -232,7 +232,7 @@ def test_sversion(controller, plugin, mocked_check):
 
 def test_master(controller, plugin, mocked_check):
     """ Test the master request. """
-    mocked_rpc = plugin.supvisors().get_master_node
+    mocked_rpc = plugin.supvisors().get_master_identifier
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_master, plugin.do_master, '', [call()])
 
 
@@ -252,10 +252,10 @@ def test_sstate(controller, plugin, mocked_check):
 
 def test_node_status(controller, plugin, mocked_check):
     """ Test the address_status request. """
-    mocked_rpc = plugin.supvisors().get_all_nodes_info
-    mocked_rpc.return_value = [{'node_name': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+    mocked_rpc = plugin.supvisors().get_all_instances_info
+    mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
                                 'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12},
-                               {'node_name': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
+                               {'identifier': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
                                 'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_node_status, plugin.do_node_status, '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_node_status, plugin.do_node_status, 'all', [call()])
@@ -287,20 +287,20 @@ def test_sstatus(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_all_process_info
     mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1',
                                 'statecode': 20, 'statename': 'running', 'expected_exit': True,
-                                'nodes': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']},  # TODO: DEPRECATED
+                                'instances_map': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']},  # TODO: DEPRECATED
                                {'application_name': 'appli_2', 'process_name': 'proc_3',
                                 'statecode': 100, 'statename': 'exited', 'expected_exit': False,
-                                'nodes': [], 'addresses': []}]  # TODO: DEPRECATED
+                                'instances_map': [], 'addresses': []}]  # TODO: DEPRECATED
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, 'all', [call()])
     # test help and request for process info from a selection of namespecs
     mocked_rpc = plugin.supvisors().get_process_info
     mocked_rpc.side_effect = [[{'application_name': 'appli_1', 'process_name': 'proc_1',
                                 'statecode': 20, 'statename': 'running', 'expected_exit': True,
-                                'nodes': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']}],  # TODO: DEPRECATED
+                                'instances_map': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']}],  # TODO: DEPRECATED
                               [{'application_name': 'appli_2', 'process_name': 'proc_3',
                                 'statecode': 100, 'statename': 'exited', 'expected_exit': False,
-                                'nodes': [], 'addresses': []}]]  # TODO: DEPRECATED
+                                'instances_map': [], 'addresses': []}]]  # TODO: DEPRECATED
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus,
                 'appli_2:proc_3 appli_1:proc_1', [call('appli_2:proc_3'), call('appli_1:proc_1')])
 
@@ -370,11 +370,11 @@ def test_process_rules(controller, plugin, mocked_check):
                                 {'application_name': 'appli_2', 'process_name': 'proc_3'}]
     mocked_rpc = plugin.supvisors().get_process_rules
     returned_rules = [[{'application_name': 'appli_1', 'process_name': 'proc_1',
-                        'nodes': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2'],  # TODO: DEPRECATED
+                        'instances_map': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2'],  # TODO: DEPRECATED
                         'start_sequence': 2, 'stop_sequence': 3, 'required': True, 'wait_exit': False,
                         'expected_loading': 50, 'running_failure_strategy': 1}],
                       [{'application_name': 'appli_2', 'process_name': 'proc_3',
-                        'nodes': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
+                        'instances_map': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
                         'start_sequence': 1, 'stop_sequence': 0, 'required': False, 'wait_exit': True,
                         'expected_loading': 15, 'running_failure_strategy': 2}]]
     # first case: no argument
@@ -407,9 +407,9 @@ def test_conflicts(controller, plugin, mocked_check):
     """ Test the conflicts request. """
     mocked_rpc = plugin.supvisors().get_conflicts
     mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1', 'statename': 'running',
-                                'nodes': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2']},  # TODO: DEPRECATED
+                                'instances_map': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2']},  # TODO: DEPRECATED
                                {'application_name': 'appli_2', 'process_name': 'proc_3', 'statename': 'stopped',
-                                'nodes': ['10.0.0.2', '10.0.0.3'], 'addresses': ['10.0.0.2', '10.0.0.3']}]  # TODO: DEPRECATED
+                                'instances_map': ['10.0.0.2', '10.0.0.3'], 'addresses': ['10.0.0.2', '10.0.0.3']}]  # TODO: DEPRECATED
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_conflicts, plugin.do_conflicts, '', [call()])
 
 

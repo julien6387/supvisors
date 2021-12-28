@@ -31,7 +31,7 @@ from .configurations import *
 
 @pytest.fixture
 def opt(supervisor):
-    """ Create a Supvisors-like structure filled with some nodes. """
+    """ Create a Supvisors-like structure filled with some instances_map. """
     return SupvisorsOptions(supervisor)
 
 
@@ -53,14 +53,14 @@ def filled_opt(mocker, supervisor):
 
 @pytest.fixture
 def server_opt(supvisors):
-    """ Create a Supvisors-like structure filled with some nodes. """
+    """ Create a Supvisors-like structure filled with some instances_map. """
     return SupvisorsServerOptions(supvisors.logger)
 
 
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     # all attributes are None
-    assert opt.node_list == [gethostname()]
+    assert opt.supvisors_list == [gethostname()]
     assert opt.rules_files is None
     assert opt.internal_port == 65001
     assert opt.event_port == 65002
@@ -81,7 +81,7 @@ def test_options_creation(opt):
 
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
-    assert filled_opt.node_list == ['cliche01', 'cliche03', 'cliche02']
+    assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
     assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_port == 60002
@@ -102,7 +102,7 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == "node_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
+    assert str(opt) == "supvisors_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
                        " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER starting_strategy=CONFIG"\
                        " stats_enabled=True stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
                        " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\

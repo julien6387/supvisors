@@ -2,6 +2,31 @@
 
 ## 0.11 (2022-01-xx)
 
+* Fixed [Issue #99](https://github.com/julien6387/supvisors/issues/99).
+  Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
+  This update had a major impact on the source code. More particularly:
+  - The XML-RPCs `get_master_identifier`, `get_instance_info` and `get_all_instances_info` have been added to replace
+    `get_master_address`, `get_address_info` and `get_all_addresses_info`.
+  - The `supervisorctl` command `instance_status` has been added to replace `address_status`.
+  - The XML-RPCs that would return attributes `address_name` and `addresses` are now returning `identifier` and
+    `identifiers` respectively. This impacts the following XML-RPCs (and related `supervisorctl` commands):
+    - `get_application_info`
+    - `get_all_application_info`
+    - `get_application_rules`
+    - `get_address_info`
+    - `get_all_addresses_info`
+    - `get_all_process_info`
+    - `get_process_info`
+    - `get_process_rules`
+    - `get_conflicts`.
+  - The `supvisors_list` option has been added to replace `address_list` in the **Supvisors** section of the Supervisor
+    configuration file. This option accepts a more complex definition: `<identifier>host_name:http_port:internal_port`.
+    Note that the simple `host_name` is still supported in the event where **Supvisors** doesn't have to deal
+    with multiple Supervisor instances on the same node.
+  - The `identifiers` option has been added to replace the `addresses` option in the **Supvisors** rules file.
+    This option targets the `identifier` elements of the `supvisors_list` option (or the `host_name`, as previously).
+  - The `address`-like attributes, XML-RPCs and options are deprecated and will be removed in the next version.
+
 * Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
   Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
   On the heartbeat reception part, consider that the node is `SILENT` based on a number of ticks instead of time.
@@ -19,15 +44,6 @@
 
 * The module `rpcrequests` has been removed because useless.
   The function `getRPCInterface` of th module `supervisor.childutils` does the job.
-
-* The XML-RPCs that would return attributes `address_name` and `addresses` are returning `node_names` and `nodes`.
-  This impacts the following XML-RPCs: `get_application_info`, `get_all_application_info`, `get_application_rules`,
-  `get_address_info`, `get_all_addresses_info`, `get_all_process_info`, `get_process_info`, `get_process_rules`,
-  `get_conflicts`.
-  `get_master_node`, `get_node_info` and `get_all_nodes_info` have been added to replace `get_master_address`,
-  `get_address_info` and `get_all_addresses_info`.
-  The attributes `address_name` and `addresses` and the XML-RPC `get_address_info`, `get_all_addresses_info` are
-  deprecated and will be removed in the next version.
 
 * The `startsecs` and `stopwaitsecs` program options have been added to the results of `get_all_local_process_info` and
   `get_local_process_info`.
@@ -233,7 +249,7 @@
 
 * Improve **Supvisors** stability when dealing with remote programs undefined locally.
 
-* Add expand / shrink actions to applications to the `ProcAddressView` of the Web UI.
+* Add expand / shrink actions to applications to the `ProcInstanceView` of the Web UI.
 
 * Upon authorization of a new node in **Supvisors**, back to `DEPLOYMENT` state to repair applications.
 

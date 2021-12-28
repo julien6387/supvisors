@@ -19,13 +19,14 @@
 
 from supervisor.web import StatusView
 
+from .instancestatus import SupvisorsInstanceStatus
 from .viewcontext import *
 from .viewhandler import ViewHandler
 from .webutils import *
 
 
-class SupvisorsAddressView(StatusView):
-    """ Common methods for the view renderer of the Supvisors Address page.
+class SupvisorsInstanceView(StatusView):
+    """ Common methods for the view renderer of the Supvisors Instance page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that the inheritance of StatusView has been patched dynamically
     in supvisors.plugin.make_supvisors_rpcinterface so that StatusView
@@ -43,37 +44,44 @@ class SupvisorsAddressView(StatusView):
 
     # LEFT SIDE / NAVIGATION part
     def write_navigation(self, root):
-        """ Rendering of the navigation menu with selection of the current address. """
-        self.write_nav(root, node_name=self.local_node_name)
+        """ Rendering of the navigation menu with selection of the current Supvisors instance. """
+        self.write_nav(root, identifier=self.local_identifier)
 
     # RIGHT SIDE / HEADER part
     def write_header(self, root):
-        """ Rendering of the header part of the Supvisors Address page. """
-        # set address name
-        elt = root.findmeld('address_mid')
+        """ Rendering of the header part of the Supvisors Instance page. """
+        # set Supvisors instance identifier
+        elt = root.findmeld('instance_mid')
         if self.sup_ctx.is_master:
             elt.attrib['class'] = 'master'
-        elt.content(self.local_node_name)
-        # set address state
-        status = self.sup_ctx.nodes[self.local_node_name]
+        elt.content(self.local_identifier)
+        # set Supvisors instance state
+        status = self.sup_ctx.instances_map[self.local_identifier]
         elt = root.findmeld('state_mid')
         elt.content(status.state.name)
-        # set node load
+        # set Supvisors instance load
         elt = root.findmeld('percent_mid')
-        elt.content('{}%'.format(status.get_loading()))
+        elt.content(f'{status.get_loading()}%')
         # write statistics parameters
         self.write_periods(root)
-        # write actions related to address
-        self.write_node_actions(root)
+        # write actions related to the Supvisors instance
+        self.write_instance_actions(root, status)
 
-    def write_node_actions(self, root):
+    def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
         """ Write actions related to the node. """
-        # configure host address button / switch page
+        # configure switch page
         if self.supvisors.options.stats_enabled:
-            elt = root.findmeld('view_a_mid')
-            target = PROC_NODE_PAGE if self.page_name == HOST_NODE_PAGE else HOST_NODE_PAGE
-            url = self.view_ctx.format_url('', target)
-            elt.attributes(href=url)
+            # update process button
+            if self.page_name == HOST_INSTANCE_PAGE:
+                elt = root.findmeld('process_view_a_mid')
+                url = self.view_ctx.format_url('', PROC_INSTANCE_PAGE)
+                elt.attributes(href=url)
+            # update host button
+            elt = root.findmeld('host_view_a_mid')
+            elt.content(f'{status.supvisors_id.host_name}')
+            if self.page_name == PROC_INSTANCE_PAGE:
+                url = self.view_ctx.format_url('', HOST_INSTANCE_PAGE)
+                elt.attributes(href=url)
         else:
             # remove whole box if statistics disabled. Host node page is useless in this case
             root.findmeld('view_div_mid').replace('')

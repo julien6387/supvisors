@@ -20,8 +20,8 @@ sendRequest sversion
 sendRequest sstate
 sendRequest master
 sendRequest strategies
-sendRequest node_status
-sendRequest node_status $HOSTNAME
+sendRequest instance_status
+sendRequest instance_status $HOSTNAME
 sendRequest application_info
 sendRequest application_info database
 sendRequest sstatus

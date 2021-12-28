@@ -28,9 +28,9 @@ from unittest.mock import call, Mock
 def test_internal_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
     # create publisher and subscriber
-    publisher = InternalEventPublisher(supvisors.node_mapper.local_node_name,
+    publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_identifier,
                                        supvisors.options.internal_port)
-    subscriber = InternalEventSubscriber(supvisors.node_mapper.node_names,
+    subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances_map,
                                          supvisors.options.internal_port)
     # check that the ZMQ sockets are ready
     assert not publisher.socket.closed
@@ -64,7 +64,7 @@ def test_external_publish_subscribe(supvisors):
 def test_internal_pusher_puller(supvisors):
     """ Test the ZeroMQ push-pull sockets used internally in Supvisors. """
     # create publisher and subscriber
-    pusher = RequestPusher(supvisors.node_mapper.local_node_name, supvisors.logger)
+    pusher = RequestPusher(supvisors.supvisors_mapper.local_identifier, supvisors.logger)
     puller = RequestPuller()
     # check that the ZMQ sockets are ready
     assert not pusher.socket.closed
@@ -79,7 +79,7 @@ def test_internal_pusher_puller(supvisors):
 
 @pytest.fixture
 def internal_publisher(supvisors):
-    test_publisher = InternalEventPublisher(supvisors.node_mapper.local_node_name,
+    test_publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_identifier,
                                             supvisors.options.internal_port)
     yield test_publisher
     test_publisher.close()
@@ -88,7 +88,7 @@ def internal_publisher(supvisors):
 
 @pytest.fixture
 def internal_subscriber(supvisors):
-    test_subscriber = InternalEventSubscriber(supvisors.node_mapper.node_names,
+    test_subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances_map,
                                               supvisors.options.internal_port)
     test_subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
     # publisher does not wait for subscriber clients to work, so give some time for connections
@@ -107,9 +107,9 @@ def internal_subscriber_receive(internal_subscriber):
 def test_disconnection(supvisors, internal_publisher, internal_subscriber):
     """ Test the disconnection of subscribers. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # test remote disconnection
-    node_name = next(node_name for node_name in supvisors.node_mapper.node_names
+    node_name = next(node_name for node_name in supvisors.supvisors_mapper.instances_map
                      if node_name != local_node_name)
     internal_subscriber.disconnect([node_name])
     # send a tick event from the local publisher
@@ -130,7 +130,7 @@ def test_disconnection(supvisors, internal_publisher, internal_subscriber):
 def test_publish_tick_event(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the messages. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a tick event
     payload = {'date': 1000}
     internal_publisher.send_tick_event(payload)
@@ -142,7 +142,7 @@ def test_publish_tick_event(supvisors, internal_publisher, internal_subscriber):
 def test_process_state_event(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the process state events. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a process event
     message = (InternalEventHeaders.PROCESS.value,
                (local_node_name, {'name': 'dummy_program', 'state': 'running'}))
@@ -155,7 +155,7 @@ def test_process_state_event(supvisors, internal_publisher, internal_subscriber)
 def test_process_added_event(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the process added events. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a process event
     message = (InternalEventHeaders.PROCESS_ADDED.value,
                (local_node_name, {'name': 'dummy_program', 'state': 'running'}))
@@ -168,7 +168,7 @@ def test_process_added_event(supvisors, internal_publisher, internal_subscriber)
 def test_process_removed_event(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the process removed events. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a process event
     message = (InternalEventHeaders.PROCESS_ADDED.value,
                (local_node_name, {'name': 'dummy_program', 'state': 'running'}))
@@ -181,7 +181,7 @@ def test_process_removed_event(supvisors, internal_publisher, internal_subscribe
 def test_statistics(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the statistics messages. """
     # get the local address
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a statistics event
     message = (InternalEventHeaders.STATISTICS.value,
                (local_node_name, {'cpu': 15, 'mem': 5, 'io': (1234, 4321)}))
@@ -194,7 +194,7 @@ def test_statistics(supvisors, internal_publisher, internal_subscriber):
 def test_state_event(supvisors, internal_publisher, internal_subscriber):
     """ Test the publication and subscription of the operational event. """
     # get the local node
-    local_node_name = supvisors.node_mapper.local_node_name
+    local_node_name = supvisors.supvisors_mapper.local_identifier
     # send a process event
     message = (InternalEventHeaders.STATE.value,
                (local_node_name, {'statecode': 10, 'statename': 'running'}))
@@ -206,7 +206,7 @@ def test_state_event(supvisors, internal_publisher, internal_subscriber):
 
 @pytest.fixture
 def pusher(supvisors):
-    test_pusher = RequestPusher(supvisors.node_mapper.local_node_name, supvisors.logger)
+    test_pusher = RequestPusher(supvisors.supvisors_mapper.local_identifier, supvisors.logger)
     yield test_pusher
     test_pusher.close()
     sleep(0.5)
@@ -270,28 +270,28 @@ def test_push_state_event(mocker, pusher, puller):
 
 def test_check_node(mocker, pusher, puller):
     """ The method tests that the 'Check Address' request is sent and received correctly. """
-    pusher.send_check_node('10.0.0.1')
+    pusher.send_check_instance('10.0.0.1')
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.CHECK_NODE.value, ('10.0.0.1',))
+    assert request == (DeferredRequestHeaders.CHECK_INSTANCE.value, ('10.0.0.1',))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
-    pusher.send_check_node('10.0.0.1')
+    pusher.send_check_instance('10.0.0.1')
     # test that absence of puller does not block the pusher or raise any exception
     puller.close()
-    pusher.send_check_node('10.0.0.1')
+    pusher.send_check_instance('10.0.0.1')
 
 
 def test_isolate_nodes(mocker, pusher, puller):
     """ The method tests that the 'Isolate Nodes' request is sent and received correctly. """
-    pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
+    pusher.send_isolate_instances(['10.0.0.1', '10.0.0.2'])
     request = puller.receive()
-    assert request == (DeferredRequestHeaders.ISOLATE_NODES.value, ('10.0.0.1', '10.0.0.2'))
+    assert request == (DeferredRequestHeaders.ISOLATE_INSTANCES.value, ('10.0.0.1', '10.0.0.2'))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
-    pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
+    pusher.send_isolate_instances(['10.0.0.1', '10.0.0.2'])
     # test that absence of puller does not block the pusher or raise any exception
     puller.close()
-    pusher.send_isolate_nodes(['10.0.0.1', '10.0.0.2'])
+    pusher.send_isolate_instances(['10.0.0.1', '10.0.0.2'])
 
 
 def test_start_process(mocker, pusher, puller):
@@ -433,9 +433,9 @@ def check_supvisors_status(subscriber, publisher, subscribed):
 def check_node_status(subscriber, publisher, subscribed):
     """ The method tests the emission and reception of an node status, depending on the subscription status. """
     node_payload = {'state': 'silent', 'name': 'cliche01', 'date': 1234}
-    publisher.send_node_status(node_payload)
+    publisher.send_instance_status(node_payload)
     if subscribed:
-        check_reception(subscriber, EventHeaders.NODE, node_payload)
+        check_reception(subscriber, EventHeaders.INSTANCE, node_payload)
     else:
         check_reception(subscriber)
 
@@ -501,10 +501,10 @@ def test_subscription_supvisors_status(publisher, subscriber):
 def test_subscription_node_status(publisher, subscriber):
     """ Test the reception of Address status messages when related subscription is set. """
     # subscribe to Address status only
-    subscriber.subscribe_node_status()
+    subscriber.subscribe_instance_status()
     check_subscription(subscriber, publisher, False, True, False, False, False)
     # unsubscribe from Address status
-    subscriber.unsubscribe_node_status()
+    subscriber.unsubscribe_instance_status()
     check_subscription(subscriber, publisher, False, False, False, False, False)
 
 
@@ -558,14 +558,14 @@ def test_subscription_multiple_status(publisher, subscriber):
     subscriber.unsubscribe_application_status()
     subscriber.unsubscribe_process_event()
     subscriber.subscribe_process_status()
-    subscriber.subscribe_node_status()
+    subscriber.subscribe_instance_status()
     check_subscription(subscriber, publisher, False, True, False, False, True)
     # add subscription to Supvisors Status
     subscriber.subscribe_supvisors_status()
     check_subscription(subscriber, publisher, True, True, False, False, True)
     # unsubscribe all
     subscriber.unsubscribe_supvisors_status()
-    subscriber.unsubscribe_node_status()
+    subscriber.unsubscribe_instance_status()
     subscriber.unsubscribe_process_status()
     check_subscription(subscriber, publisher, False, False, False, False, False)
 

@@ -24,14 +24,14 @@ from supervisor.web import MeldView
 from unittest.mock import call, patch, Mock
 
 from supvisors.viewsupvisors import *
-from supvisors.webutils import PROC_NODE_PAGE, SUPVISORS_PAGE
+from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
 
 from .base import DummyHttpContext
 
 
 @pytest.fixture
 def http_context():
-    return DummyHttpContext('ui/hostaddress.html')
+    return DummyHttpContext('ui/host_instance.html')
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def test_write_header(view):
 
 def test_write_contents(mocker, view):
     """ Test the write_contents method. """
-    mocked_boxes = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_node_boxes')
+    mocked_boxes = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_instance_boxes')
     mocked_conflicts = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_table')
     mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView.write_conciliation_strategies')
     # patch context
@@ -109,10 +109,10 @@ def test_write_contents(mocker, view):
 
 
 def test_write_node_box_title(mocker, view):
-    """ Test the _write_node_box_title method. """
+    """ Test the _write_instance_box_title method. """
     # patch context
     mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
-    mocked_status = Mock(node_name='10.0.0.1', state=NodeStates.RUNNING,
+    mocked_status = Mock(node_name='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
                          **{'get_loading.return_value': 17, 'get_remote_time.return_value': 1234})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
@@ -123,7 +123,7 @@ def test_write_node_box_title(mocker, view):
     mocked_root = Mock(**{'findmeld.side_effect': [mocked_node_mid, mocked_state_mid, mocked_time_mid,
                                                    mocked_percent_mid] * 3})
     # test call in RUNNING state but not master
-    view._write_node_box_title(mocked_root, mocked_status)
+    view._write_instance_box_title(mocked_root, mocked_status)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -143,8 +143,8 @@ def test_write_node_box_title(mocker, view):
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in RUNNING state and master
-    view.sup_ctx.master_node_name = '10.0.0.1'
-    view._write_node_box_title(mocked_root, mocked_status)
+    view.sup_ctx.master_identifier = '10.0.0.1'
+    view._write_instance_box_title(mocked_root, mocked_status)
     # test address element
     assert mocked_node_mid.attrib['class'] == 'on master'
     assert mocked_node_mid.attributes.call_args_list == [call(href='an url')]
@@ -164,8 +164,8 @@ def test_write_node_box_title(mocker, view):
     mocked_node_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
-    mocked_status = Mock(node_name='10.0.0.1', state=NodeStates.SILENT, **{'get_loading.return_value': 0})
-    view._write_node_box_title(mocked_root, mocked_status)
+    mocked_status = Mock(node_name='10.0.0.1', state=SupvisorsInstanceStates.SILENT, **{'get_loading.return_value': 0})
+    view._write_instance_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_node_mid.attrib['class'] == ''
     assert not mocked_node_mid.attributes.called
@@ -180,7 +180,7 @@ def test_write_node_box_title(mocker, view):
 
 
 def test_write_node_box_processes(view):
-    """ Test the _write_node_box_processes method. """
+    """ Test the _write_instance_box_processes method. """
     # 1. patch context for no running process on node
     mocked_status = Mock(**{'running_processes.return_value': {}})
     # build root structure with one single element
@@ -189,7 +189,7 @@ def test_write_node_box_processes(view):
                                   'repeat.return_value': None})
     mocked_root = Mock(**{'findmeld.return_value': mocked_appli_tr_mid})
     # test call with no running process
-    view._write_node_box_processes(mocked_root, mocked_status)
+    view._write_instance_box_processes(mocked_root, mocked_status)
     # test elements
     assert not mocked_appli_tr_mid.repeat.called
     assert mocked_process_li_mid.replace.call_args_list == [call('')]
@@ -212,7 +212,7 @@ def test_write_node_box_processes(view):
                                                             (mocked_appli_tr_mids[1], 'other_appli')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_appli_template})
     # test call with 2 running processes
-    view._write_node_box_processes(mocked_root, mocked_status)
+    view._write_instance_box_processes(mocked_root, mocked_status)
     # test elements
     assert not mocked_appli_template.findmeld.called
     # test shade in mocked_appli_tr_mids
@@ -227,13 +227,13 @@ def test_write_node_box_processes(view):
 
 
 def test_write_node_boxes(mocker, view):
-    """ Test the write_node_boxes method. """
-    mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_processes')
-    mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_node_box_title')
+    """ Test the write_instance_boxes method. """
+    mocked_box_processes = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_processes')
+    mocked_box_title = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_instance_box_title')
     # patch context
     mocked_node_1 = Mock(address_name='10.0.0.1')
     mocked_node_2 = Mock(address_name='10.0.0.2')
-    view.sup_ctx.nodes = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
+    view.sup_ctx.instances_map = {'10.0.0.1': mocked_node_1, '10.0.0.2': mocked_node_2}
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_box_mid_1 = Mock()
@@ -242,7 +242,7 @@ def test_write_node_boxes(mocker, view):
                                                               (mocked_box_mid_2, '10.0.0.2')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_address_template})
     # test call
-    view.write_node_boxes(mocked_root)
+    view.write_instance_boxes(mocked_root)
     assert mocked_box_title.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
                                                call(mocked_box_mid_2, mocked_node_2)]
     assert mocked_box_processes.call_args_list == [call(mocked_box_mid_1, mocked_node_1),
@@ -269,7 +269,7 @@ def test_write_conciliation_strategies(view):
 def test_write_conciliation_table(mocker, view):
     """ Test the write_conciliation_table method. """
     mocked_name = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_name')
-    mocked_node = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_node')
+    mocked_node = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_identifier')
     mocked_time = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_uptime')
     mocked_actions = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_process_actions')
     mocked_strategies = mocker.patch('supvisors.viewsupvisors.SupvisorsView._write_conflict_strategies')
@@ -354,18 +354,18 @@ def test_write_conflict_name(view):
 
 
 def test_write_conflict_node(view):
-    """ Test the _write_conflict_node method. """
+    """ Test the _write_conflict_identifier method. """
     # patch context
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_addr_mid = Mock()
     mocked_root = Mock(**{'findmeld.return_value': mocked_addr_mid})
     # test call
-    view._write_conflict_node(mocked_root, {'node_name': '10.0.0.1'})
+    view._write_conflict_identifier(mocked_root, {'identifier': '10.0.0.1'})
     assert mocked_root.findmeld.call_args_list == [call('caddress_a_mid')]
     assert mocked_addr_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_addr_mid.content.call_args_list == [call('10.0.0.1')]
-    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', PROC_NODE_PAGE)]
+    assert view.view_ctx.format_url.call_args_list == [call('10.0.0.1', PROC_INSTANCE_PAGE)]
 
 
 def test_write_conflict_uptime(view):
@@ -390,7 +390,7 @@ def test_write_conflict_process_actions(view):
     mocked_keep_mid = Mock()
     mocked_root = Mock(**{'findmeld.side_effect': [mocked_stop_mid, mocked_keep_mid]})
     # test call
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     view._write_conflict_process_actions(mocked_root, info)
     assert mocked_root.findmeld.call_args_list == [call('pstop_a_mid'), call('pkeep_a_mid')]
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
@@ -404,7 +404,7 @@ def test_write_conflict_process_actions(view):
 def test_write_conflict_strategies(view):
     """ Test the _write_conflict_strategies method. """
     # patch context
-    view.sup_ctx.master_node_name = '10.0.0.1'
+    view.sup_ctx.master_identifier = '10.0.0.1'
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_a_mid = Mock()
@@ -472,10 +472,10 @@ def test_get_conciliation_data(mocker, view):
                      info_map={'10.0.0.3': {'uptime': 10}, '10.0.0.2': {'uptime': 11}})
     mocker.patch.object(view.sup_ctx, 'conflicts', return_value=[process_1, process_2])
     # test call
-    expected = [{'namespec': 'proc_1', 'rowspan': 2, 'node_name': '10.0.0.1', 'uptime': 12},
-                {'namespec': 'proc_1', 'rowspan': 0, 'node_name': '10.0.0.2', 'uptime': 11},
-                {'namespec': 'proc_2', 'rowspan': 2, 'node_name': '10.0.0.2', 'uptime': 11},
-                {'namespec': 'proc_2', 'rowspan': 0, 'node_name': '10.0.0.3', 'uptime': 10}]
+    expected = [{'namespec': 'proc_1', 'rowspan': 2, 'identifier': '10.0.0.1', 'uptime': 12},
+                {'namespec': 'proc_1', 'rowspan': 0, 'identifier': '10.0.0.2', 'uptime': 11},
+                {'namespec': 'proc_2', 'rowspan': 2, 'identifier': '10.0.0.2', 'uptime': 11},
+                {'namespec': 'proc_2', 'rowspan': 0, 'identifier': '10.0.0.3', 'uptime': 10}]
     actual = view.get_conciliation_data()
     # no direct method in pytest to compare 2 lists of dicts
     for actual_single in actual:
@@ -503,7 +503,7 @@ def test_sup_shutdown_action(mocker, view):
 def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mocked_error, mocked_info):
     """ Test the sup_restart_action & sup_shutdown_action methods. """
     # test RPC error
-    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
                         side_effect=RPCError('failed RPC'))
     assert method_cb() == 'delayed error'
     assert mocked_derror.called
@@ -513,7 +513,7 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     # reset mocks
     mocked_derror.reset_mock()
     # test direct result
-    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name,
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
                         return_value='not callable object')
     assert method_cb() == 'delayed info'
     assert not mocked_derror.called
@@ -524,7 +524,7 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     mocked_dinfo.reset_mock()
     # test delayed result with RPC error
     mocked_onwait = Mock(side_effect=RPCError('failed RPC'))
-    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
     cb = method_cb()
     assert callable(cb)
     assert cb() == 'error'
@@ -536,7 +536,7 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     mocked_error.reset_mock()
     # test delayed / uncompleted result
     mocked_onwait = Mock(return_value=NOT_DONE_YET)
-    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
     cb = method_cb()
     assert callable(cb)
     assert cb() is NOT_DONE_YET
@@ -546,7 +546,7 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     assert not mocked_info.called
     # test delayed / completed result
     mocked_onwait = Mock(return_value='done')
-    mocker.patch.object(view.supvisors.info_source.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
+    mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
     cb = method_cb()
     assert callable(cb)
     assert cb() == 'info'
@@ -567,7 +567,7 @@ def test_stop_action(mocker, view):
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.2', 'dummy_proc')]
     assert mocked_get.call_args_list == [call('dummy_proc')]
-    # at this stage, there should be still 3 elements in node_names
+    # at this stage, there should be still 3 elements in identifiers
     assert cb() is NOT_DONE_YET
     assert not mocked_info.called
     # remove one address from list
@@ -587,7 +587,7 @@ def test_keep_action(mocker, view):
     assert callable(cb)
     assert mocked_rpc.call_args_list == [call('10.0.0.1', 'dummy_proc'), call('10.0.0.3', 'dummy_proc')]
     assert mocked_get.call_args_list == [call('dummy_proc')]
-    # at this stage, there should be still 3 elements in node_names
+    # at this stage, there should be still 3 elements in identifiers
     assert cb() is NOT_DONE_YET
     assert not mocked_info.called
     # remove one address from list
@@ -630,7 +630,7 @@ def test_make_callback(mocker, view):
     for action_name in list(view.process_methods.keys()):
         view.process_methods[action_name] = Mock(return_value='%s called' % action_name)
     # patch context
-    view.view_ctx = Mock(**{'get_node_name.return_value': '10.0.0.2'})
+    view.view_ctx = Mock(**{'get_identifier.return_value': '10.0.0.2'})
     # test strategies but USER
     for strategy in view.strategies:
         assert view.make_callback('dummy_namespec', strategy) == 'conciliation called'

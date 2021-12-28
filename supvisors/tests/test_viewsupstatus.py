@@ -23,7 +23,7 @@ from supervisor.web import MeldView
 from unittest.mock import call, Mock
 
 from supvisors.viewsupstatus import *
-from supvisors.webutils import HOST_NODE_PAGE, PROC_NODE_PAGE
+from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
 
 from .base import DummyHttpContext
 
@@ -34,7 +34,7 @@ def view(supvisors):
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    return SupvisorsAddressView(DummyHttpContext('ui/hostaddress.html'), HOST_NODE_PAGE)
+    return SupvisorsInstanceView(DummyHttpContext('ui/host_instance.html'), HOST_INSTANCE_PAGE)
 
 
 def test_init(view):
@@ -43,7 +43,7 @@ def test_init(view):
     for klass in [StatusView, ViewHandler, MeldView]:
         assert isinstance(view, klass)
     # test parameter page name
-    assert view.page_name == HOST_NODE_PAGE
+    assert view.page_name == HOST_INSTANCE_PAGE
 
 
 def test_render(mocker, view):
@@ -63,16 +63,16 @@ def test_write_navigation(mocker, view):
 
 def test_write_header(mocker, view):
     """ Test the write_header method. """
-    mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_node_actions')
-    mocked_periods = mocker.patch('supvisors.viewsupstatus.SupvisorsAddressView.write_periods')
-    from supvisors.ttypes import NodeStates
+    mocked_actions = mocker.patch('supvisors.viewsupstatus.SupvisorsInstanceView.write_instance_actions')
+    mocked_periods = mocker.patch('supvisors.viewsupstatus.SupvisorsInstanceView.write_periods')
+    from supvisors.ttypes import SupvisorsInstanceStates
     # build root structure
     mocked_mids = [Mock(attrib={}) for _ in range(3)]
     mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
     # first call tests with not master
-    mocked_status = Mock(remote_time=3600, state=NodeStates.RUNNING, **{'get_loading.return_value': 12})
+    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING, **{'get_loading.return_value': 12})
     view.sup_ctx._is_master = False
-    view.sup_ctx.nodes['127.0.0.1'] = mocked_status
+    view.sup_ctx.instances_map['127.0.0.1'] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('address_mid'), call('state_mid'), call('percent_mid')]
     assert mocked_mids[0].attrib == {}
@@ -100,7 +100,7 @@ def test_write_header(mocker, view):
 
 
 def test_write_node_actions(view):
-    """ Test the write_node_actions method. """
+    """ Test the write_instance_actions method. """
     # set context (meant to be set through render)
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure
@@ -109,10 +109,10 @@ def test_write_node_actions(view):
     mocked_root = Mock(**{'findmeld.side_effect': [mocked_view_mid, mocked_stop_mid] * 3})
     # test call
     assert view.supvisors.options.stats_enabled
-    view.write_node_actions(mocked_root)
+    view.write_instance_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE),
-                                                       call('', HOST_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE),
+                                                       call('', HOST_INSTANCE_PAGE, **{ACTION: 'stopall'})]
     assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
     assert not mocked_view_mid.replace.called
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
@@ -122,11 +122,11 @@ def test_write_node_actions(view):
     mocked_view_mid.attributes.reset_mock()
     mocked_stop_mid.attributes.reset_mock()
     # test call with PROC_ADDRESS_PAGE as self.page_name
-    view.page_name = PROC_NODE_PAGE
-    view.write_node_actions(mocked_root)
+    view.page_name = PROC_INSTANCE_PAGE
+    view.write_instance_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_a_mid'), call('stopall_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', HOST_NODE_PAGE),
-                                                       call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert view.view_ctx.format_url.call_args_list == [call('', HOST_INSTANCE_PAGE),
+                                                       call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'})]
     assert mocked_view_mid.attributes.call_args_list == [call(href='an url')]
     assert not mocked_view_mid.replace.called
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
@@ -137,9 +137,9 @@ def test_write_node_actions(view):
     mocked_stop_mid.attributes.reset_mock()
     # test call with statistics disabled
     view.supvisors.options.stats_enabled = False
-    view.write_node_actions(mocked_root)
+    view.write_instance_actions(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('view_div_mid'), call('stopall_a_mid')]
-    assert view.view_ctx.format_url.call_args_list == [call('', PROC_NODE_PAGE, **{ACTION: 'stopall'})]
+    assert view.view_ctx.format_url.call_args_list == [call('', PROC_INSTANCE_PAGE, **{ACTION: 'stopall'})]
     assert not mocked_view_mid.attributes.called
     assert mocked_view_mid.replace.call_args_list == [call('')]
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]

@@ -25,16 +25,16 @@ from unittest.mock import call, Mock
 
 from supvisors.viewcontext import CPU, INTF, ViewContext
 from supvisors.viewhandler import ViewHandler
-from supvisors.viewhostaddress import HostAddressView
+from supvisors.viewhostinstance import HostInstanceView
 from supvisors.viewimage import address_cpu_img, address_io_img, address_mem_img
-from supvisors.webutils import HOST_NODE_PAGE
+from supvisors.webutils import HOST_INSTANCE_PAGE
 
 from .base import DummyHttpContext
 
 
 @pytest.fixture
 def http_context():
-    return DummyHttpContext('ui/hostaddress.html')
+    return DummyHttpContext('ui/host_instance.html')
 
 
 @pytest.fixture
@@ -43,25 +43,25 @@ def view(http_context):
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    return HostAddressView(http_context)
+    return HostInstanceView(http_context)
 
 
 def test_init(view):
     """ Test the values set at construction. """
-    assert view.page_name == HOST_NODE_PAGE
+    assert view.page_name == HOST_INSTANCE_PAGE
 
 
 def test_write_contents_no_plot(mocker, view):
     """ Test the write_contents method. """
-    mocked_network = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_network_statistics')
-    mocked_memory = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_memory_statistics')
-    mocked_processor = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_processor_statistics')
+    mocked_network = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_network_statistics')
+    mocked_memory = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_memory_statistics')
+    mocked_processor = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_processor_statistics')
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     # force import error on SupvisorsPlot
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # set context (meant to be set through render)
     dummy_stats = Mock(cpu='cpu', mem='mem', io='io')
-    view.view_ctx = Mock(**{'get_node_stats.return_value': dummy_stats})
+    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats})
     # replace root structure
     mocked_root = Mock()
     # test call
@@ -76,15 +76,15 @@ def test_write_contents(mocker, view):
     """ Test the write_contents method. """
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
-    mocked_network = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_network_statistics')
-    mocked_memory = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_memory_statistics')
-    mocked_processor = mocker.patch('supvisors.viewhostaddress.HostAddressView.write_processor_statistics')
-    mocked_io = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_io_image')
-    mocked_mem = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_mem_image')
-    mocked_cpu = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_cpu_image')
+    mocked_network = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_network_statistics')
+    mocked_memory = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_memory_statistics')
+    mocked_processor = mocker.patch('supvisors.viewhostaddress.HostInstanceView.write_processor_statistics')
+    mocked_io = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_io_image')
+    mocked_mem = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_mem_image')
+    mocked_cpu = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_cpu_image')
     # set context (meant to be set through render)
     dummy_stats = Mock(cpu='cpu', mem='mem', io='io')
-    view.view_ctx = Mock(**{'get_node_stats.return_value': dummy_stats})
+    view.view_ctx = Mock(**{'get_instance_stats.return_value': dummy_stats})
     # replace root structure
     mocked_root = Mock()
     # test call
@@ -122,7 +122,7 @@ def test_write_processor_single_title(view):
 
 def test_write_processor_single_statistics(mocker, view):
     """ Test the _write_processor_single_statistics method. """
-    mocked_common = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_common_statistics')
+    mocked_common = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_common_statistics')
     # replace root element
     mocked_root = Mock()
     # test method call
@@ -133,8 +133,8 @@ def test_write_processor_single_statistics(mocker, view):
 
 def test_write_processor_statistics(mocker, view):
     """ Test the write_processor_statistics method. """
-    mocked_stats = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_processor_single_statistics')
-    mocked_title = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_processor_single_title')
+    mocked_stats = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_processor_single_statistics')
+    mocked_title = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_processor_single_title')
     # set context (meant to be set through render)
     view.view_ctx = Mock(parameters={CPU: 1})
     # build root structure
@@ -151,7 +151,7 @@ def test_write_processor_statistics(mocker, view):
 
 def test_write_memory_statistics(mocker, view):
     """ Test the write_memory_statistics method. """
-    mocked_common = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_common_statistics')
+    mocked_common = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_common_statistics')
     # replace root element
     mocked_root = Mock()
     # test method call
@@ -202,7 +202,7 @@ def test_write_network_single_title(view):
 
 def test_write_network_single_statistics(mocker, view):
     """ Test the _write_network_single_statistics method. """
-    mocked_common = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_common_statistics')
+    mocked_common = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_common_statistics')
     # replace root structure
     mocked_title_mid = Mock()
     mocked_tr = Mock(**{'findmeld.return_value': mocked_title_mid})
@@ -225,8 +225,8 @@ def test_write_network_single_statistics(mocker, view):
 
 def test_write_network_statistics(mocker, view):
     """ Test the write_network_statistics method. """
-    mocked_stats = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_network_single_statistics')
-    mocked_title = mocker.patch('supvisors.viewhostaddress.HostAddressView._write_network_single_title')
+    mocked_stats = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_network_single_statistics')
+    mocked_title = mocker.patch('supvisors.viewhostaddress.HostInstanceView._write_network_single_title')
     # set context (meant to be set through render)
     view.view_ctx = Mock(parameters={INTF: 'eth0'})
     # build root structure
@@ -259,7 +259,7 @@ def test_write_network_statistics(mocker, view):
 
 def test_write_common_statistics(mocker, view):
     """ Test the _write_common_statistics method. """
-    mocked_class = mocker.patch('supvisors.viewhostaddress.HostAddressView.set_slope_class')
+    mocked_class = mocker.patch('supvisors.viewhostaddress.HostInstanceView.set_slope_class')
     mocked_stats = mocker.patch('supvisors.viewhostaddress.get_stats',
                                 side_effect=[(10.231, None, (None, 2), None), (8.999, 2, (-1.1, 4), 5.72)])
     # replace root structure

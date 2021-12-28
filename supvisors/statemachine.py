@@ -24,7 +24,7 @@ from supervisor.loggers import Logger
 
 from .context import Context
 from .strategy import conciliate_conflicts
-from .ttypes import NodeStates, RunningFailureStrategies, SupvisorsStates, Payload, PayloadList
+from .ttypes import SupvisorsInstanceStates, RunningFailureStrategies, SupvisorsStates, Payload, PayloadList
 
 
 class Forced:
@@ -38,7 +38,7 @@ class AbstractState(object):
         - supvisors: the reference to the global Supvisors structure ;
         - context: the reference to the context of the global Supvisors structure ;
         - logger: the reference to the logger of the global Supvisors structure ;
-        - local_node_name: the name of the local node.
+        - local_identifier: the identifier of the local Supvisors insatnce.
      """
 
     def __init__(self, supvisors: Any) -> None:
@@ -49,7 +49,7 @@ class AbstractState(object):
         self.supvisors = supvisors
         self.context = supvisors.context
         self.logger = supvisors.logger
-        self.local_node_name = supvisors.node_mapper.local_node_name
+        self.local_identifier = supvisors.supvisors_mapper.local_identifier
 
     def enter(self) -> None:
         """ Actions performed when entering the state.
@@ -72,17 +72,18 @@ class AbstractState(object):
         :return: None
         """
 
-    def check_nodes(self) -> SupvisorsStates:
-        """ Check that local and Master nodes are still RUNNING.
+    def check_instances(self) -> SupvisorsStates:
+        """ Check that local and Master Supvisors instances are still RUNNING.
         If their ticks are not received anymore, back to INITIALIZATION state to force a synchronization phase.
 
-        :return: the suggested state if local or Master node is not active anymore
+        :return: the suggested state if local or Master Supvisors instance is not active anymore
         """
-        if self.context.nodes[self.local_node_name].state != NodeStates.RUNNING:
-            self.logger.critical('AbstractState.check_nodes: local node not RUNNING anymore')
+        # FIXME: for local, this cannot happen anymore
+        if self.context.instances_map[self.local_identifier].state != SupvisorsInstanceStates.RUNNING:
+            self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
-        if self.context.nodes[self.context.master_node_name].state != NodeStates.RUNNING:
-            self.logger.warn('AbstractState.check_nodes: Master node not RUNNING anymore')
+        if self.context.instances_map[self.context.master_identifier].state != SupvisorsInstanceStates.RUNNING:
+            self.logger.warn('AbstractState.check_instances: Master Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
 
     def abort_jobs(self) -> None:
@@ -96,7 +97,7 @@ class AbstractState(object):
 
 
 class InitializationState(AbstractState):
-    """ In the INITIALIZATION state, Supvisors synchronizes to all known instances. """
+    """ In the INITIALIZATION state, Supvisors synchronizes to all known Supvisors instances. """
 
     def enter(self) -> None:
         """ When entering in the INITIALIZATION state, reset the context.
@@ -109,9 +110,9 @@ class InitializationState(AbstractState):
         self.context.reset()
 
     def next(self) -> SupvisorsStates:
-        """ Wait for nodes to publish until:
+        """ Wait for Supvisors instances to publish until:
             - all are active,
-            - or all core nodes defined in the optional *force_synchro_if* option are active,
+            - or all core instances defined in the optional *force_synchro_if* option are active,
             - or timeout is reached.
 
         :return: the new Supvisors state
@@ -119,49 +120,50 @@ class InitializationState(AbstractState):
         uptime = time() - self.context.start_date
         if uptime > self.supvisors.options.synchro_timeout:
             self.logger.warn('InitializationState.next: synchro timed out')
-        # cannot get out of this state without local node RUNNING
-        running_nodes = self.context.running_nodes()
-        if self.local_node_name in running_nodes:
-            # synchro done if the state of all nodes is known
-            if len(self.context.unknown_nodes()) == 0:
-                self.logger.info('InitializationState.next: all nodes are in a known state')
+        # cannot get out of this state without local Supvisors instance RUNNING
+        running_identifiers = self.context.running_identifiers()
+        if self.local_identifier in running_identifiers:
+            # synchro done if the state of all Supvisors instances is known
+            if len(self.context.unknown_identifiers()) == 0:
+                self.logger.info('InitializationState.next: all Supvisors instances are in a known state')
                 return SupvisorsStates.DEPLOYMENT
             # for a partial end of sync, cannot get out of this state SYNCHRO_TIMEOUT_MIN
-            # in case of a Supervisor restart, this gives a chance to all nodes to send their tick
+            # in case of a Supervisor restart, this gives a chance to all Supvisors instances to send their tick
             if uptime > self.supvisors.options.SYNCHRO_TIMEOUT_MIN:
-                # check synchro on core nodes
-                if self.context.running_core_nodes():
+                # check synchro on core instances
+                if self.context.running_core_identifiers():
                     # if ok, master must be running if already known
-                    if self.context.master_node_name and self.context.master_node_name not in running_nodes:
-                        self.logger.info('InitializationState.next: all core nodes are RUNNING but not'
-                                         f' Master={self.context.master_node_name}')
+                    if self.context.master_identifier and self.context.master_identifier not in running_identifiers:
+                        self.logger.info('InitializationState.next: all core Supvisors instances are RUNNING but not'
+                                         f' Master={self.context.master_identifier}')
                         return SupvisorsStates.INITIALIZATION
-                    self.logger.info('InitializationState.next: all core nodes are RUNNING')
+                    self.logger.info('InitializationState.next: all core Supvisors instances are RUNNING')
                     return SupvisorsStates.DEPLOYMENT
             self.logger.debug('InitializationState.next: still waiting for remote Supvisors instances to publish')
         else:
-            self.logger.debug(f'InitializationState.next: local node {self.local_node_name} still not RUNNING')
+            self.logger.debug(f'InitializationState.next: local Supvisors={self.local_identifier} still not RUNNING')
         return SupvisorsStates.INITIALIZATION
 
     def exit(self) -> None:
-        """ When leaving the INITIALIZATION state, the working nodes are defined.
+        """ When leaving the INITIALIZATION state, the working Supvisors instances are defined.
         One of them is elected as the *Master*.
 
         :return: None
         """
         # force state of missing Supvisors instances
-        node_names = self.context.running_nodes()
-        self.logger.info(f'InitializationState.exit: working with nodes {node_names}')
-        # elect master node among working nodes only if not fixed before
-        # of course master node must be running
-        if not self.context.master_node_name or self.context.master_node_name not in node_names:
-            # choose Master among the core nodes because these nodes are expected to be more present
-            if self.supvisors.options.force_synchro_if:
-                running_core_node_names = set(node_names).intersection(self.supvisors.options.force_synchro_if)
-                if running_core_node_names:
-                    node_names = running_core_node_names
-            # arbitrarily choice : master node has the 'lowest' node_name among running nodes
-            self.context.master_node_name = min(node_names)
+        running_identifiers = self.context.running_identifiers()
+        self.logger.info(f'InitializationState.exit: working with Supvisors instances {running_identifiers}')
+        # elect master insatnce among working instances only if not fixed before
+        # of course master instance must be running
+        if not self.context.master_identifier or self.context.master_identifier not in running_identifiers:
+            # choose Master among the core instances because these instances are expected to be more stable
+            core_identifiers = self.supvisors.options.force_synchro_if
+            if core_identifiers:
+                running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
+                if running_core_identifiers:
+                    running_identifiers = running_core_identifiers
+            # arbitrarily choice : master instance has the 'lowest' identifier among running instances
+            self.context.master_identifier = min(running_identifiers)
 
 
 class MasterDeploymentState(AbstractState):
@@ -177,8 +179,8 @@ class MasterDeploymentState(AbstractState):
 
         :return: the new Supvisors state
         """
-        # common check on local and Master nodes
-        next_state = self.check_nodes()
+        # common check on local and Master Supvisors instances
+        next_state = self.check_instances()
         if next_state:
             return next_state
         # Master goes to OPERATION when starting is completed
@@ -191,13 +193,13 @@ class MasterOperationState(AbstractState):
     """ In the OPERATION state, Supvisors is waiting for requests. """
 
     def next(self) -> SupvisorsStates:
-        """ Check that all nodes are still active.
-        Look after possible conflicts due to multiple running instances of the same program.
+        """ Check that all Supvisors instances are still active.
+        Look after possible conflicts due to multiple running instances of the same process.
 
         :return: the new Supvisors state
         """
-        # common check on local and Master nodes
-        next_state = self.check_nodes()
+        # common check on local and Master Supvisors instances
+        next_state = self.check_instances()
         if next_state:
             return next_state
         # check if jobs are in progress
@@ -206,7 +208,7 @@ class MasterOperationState(AbstractState):
         # check duplicated processes
         if self.context.conflicting():
             return SupvisorsStates.CONCILIATION
-        # a redeploy mark has set due to a new node in Supvisors
+        # a redeploy mark has been set due to a new alive Supvisors instance
         # back to DEPLOYMENT state to repair what may have failed before
         if self.supvisors.fsm.redeploy_mark:
             return SupvisorsStates.DEPLOYMENT
@@ -222,13 +224,13 @@ class MasterConciliationState(AbstractState):
                              self.context.conflicts())
 
     def next(self) -> SupvisorsStates:
-        """ Check that all nodes are still active.
+        """ Check that all Supvisors instances are still active.
         Wait for all conflicts to be conciliated.
 
         :return: the new Supvisors state
         """
-        # common check on local and Master nodes
-        next_state = self.check_nodes()
+        # common check on local and Master Supvisors instances
+        next_state = self.check_instances()
         if next_state:
             return next_state
         # check if jobs are in progress
@@ -247,7 +249,6 @@ class MasterRestartingState(AbstractState):
 
     def enter(self) -> None:
         """ When entering in the RESTARTING state, stop all applications.
-        The current design is that the current node drives the job and not necessarily the Master.
 
         :return: None
         """
@@ -259,7 +260,7 @@ class MasterRestartingState(AbstractState):
 
         :return: the new Supvisors state
         """
-        next_state = self.check_nodes()
+        next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
@@ -270,8 +271,8 @@ class MasterRestartingState(AbstractState):
 
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the full restart. """
-        self.supvisors.zmq.pusher.send_restart(self.local_node_name)
-        # other nodes will shutdown on reception of SHUTDOWN state
+        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
+        # other instances will shutdown on reception of SHUTDOWN state
         # due to Supvisors design, the state publication will be fired before the send_shutdown
 
 
@@ -289,7 +290,7 @@ class MasterShuttingDownState(AbstractState):
         :return: the new Supvisors state
         """
         # check eventual jobs in progress
-        next_state = self.check_nodes()
+        next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
@@ -300,8 +301,8 @@ class MasterShuttingDownState(AbstractState):
 
     def exit(self):
         """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_node_name)
-        # other nodes will shutdown on reception of SHUTDOWN state
+        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
+        # other instances will shutdown on reception of SHUTDOWN state
         # due to Supvisors design, the state publication will be fired before the send_shutdown
 
 
@@ -312,13 +313,13 @@ class ShutdownState(AbstractState):
 class SlaveMainState(AbstractState):
 
     def next(self) -> SupvisorsStates:
-        """ The non-master instances are checking if local and Master instances are still running.
+        """ The non-master instances are checking if local and Master Supvisors instances are still running.
         Local start / stop requests are evaluated too.
 
         :return: the new Supvisors state
         """
-        # common check on local and Master nodes
-        next_state = self.check_nodes()
+        # common check on local and Master Supvisors instances
+        next_state = self.check_instances()
         if next_state:
             return next_state
 
@@ -338,14 +339,14 @@ class SlaveRestartingState(AbstractState):
 
         :return: the new Supvisors state
         """
-        next_state = self.check_nodes()
+        next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
 
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the Supervisor restart. """
-        self.supvisors.zmq.pusher.send_restart(self.local_node_name)
+        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
 
 
 class SlaveShuttingDownState(SlaveRestartingState):
@@ -355,7 +356,7 @@ class SlaveShuttingDownState(SlaveRestartingState):
 
     def exit(self) -> None:
         """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_node_name)
+        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
 
 
 class FiniteStateMachine:
@@ -423,47 +424,52 @@ class FiniteStateMachine:
     def periodic_check(self, event: Payload) -> None:
         """ Periodic task used to check if remote Supvisors instances are still active.
         This is also the main event on this state machine. """
-        invalidated_nodes, process_failures = self.context.on_timer_event(event)
-        self.logger.debug(f'FiniteStateMachine.periodic_check: invalidated_nodes={invalidated_nodes}'
+        invalidated_identifiers, process_failures = self.context.on_timer_event(event)
+        self.logger.debug(f'FiniteStateMachine.periodic_check: invalidated_identifiers={invalidated_identifiers}'
                           f' process_failures={[process.namespec for process in process_failures]}')
         # inform Starter and Stopper. process_failures may be removed
-        if invalidated_nodes:
-            self.supvisors.starter.on_nodes_invalidation(invalidated_nodes, process_failures)
-            self.supvisors.stopper.on_nodes_invalidation(invalidated_nodes, process_failures)
-        # get invalidated nodes / use next / update processes on invalidated nodes ?
+        if invalidated_identifiers:
+            self.supvisors.starter.on_instances_invalidation(invalidated_identifiers, process_failures)
+            self.supvisors.stopper.on_instances_invalidation(invalidated_identifiers, process_failures)
+        # get invalidated instances / use next / update processes on invalidated instances ?
         self.next()
-        # fix failures if any (can happen after a node invalidation, a process crash or a conciliation request)
+        # fix failures if any (can happen after an identifier invalidation, a process crash or a conciliation request)
         if self.context.is_master:
             for process in process_failures:
                 self.supvisors.failure_handler.add_default_job(process)
             self.supvisors.failure_handler.trigger_jobs()
         # check if new isolating remotes and isolate them at main loop level
-        node_names = self.context.handle_isolation()
-        if node_names:
-            self.supvisors.zmq.pusher.send_isolate_nodes(node_names)
+        identifiers = self.context.handle_isolation()
+        if identifiers:
+            self.supvisors.zmq.pusher.send_isolate_instances(identifiers)
 
-    def on_tick_event(self, node_name: str, event: Payload):
-        """ This event is used to refresh the data related to the node.
-        If local node update, perform a global check on node status. """
-        self.context.on_tick_event(node_name, event)
-        if node_name == self.instance.local_node_name:
+    def on_tick_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to refresh the data related to the Supvisors instance.
+        If the local instance is updated, perform a global check on all Supvisors instances.
+
+        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param event: the tick event
+        :return:
+        """
+        self.context.on_tick_event(identifier, event)
+        if identifier == self.instance.local_identifier:
             # trigger periodic check
             self.periodic_check(event)
 
-    def on_process_state_event(self, node_name: str, event: Payload) -> None:
-        """ This event is used to refresh the process data related to the event sent from the node.
+    def on_process_state_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to refresh the process data related to the event sent from the Supvisors instance.
         This event also triggers the application starter and/or stopper.
 
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the process event
         :return: None
         """
-        process = self.context.on_process_state_event(node_name, event)
-        # returned process may be None if the event is linked to an unknown or an isolated node
+        process = self.context.on_process_state_event(identifier, event)
+        # returned process may be None if the event is linked to an unknown or an isolated instance
         if process:
             # inform starter and stopper
-            self.supvisors.starter.on_event(process, node_name, event)
-            self.supvisors.stopper.on_event(process, node_name, event)
+            self.supvisors.starter.on_event(process, identifier, event)
+            self.supvisors.stopper.on_event(process, identifier, event)
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
@@ -473,67 +479,67 @@ class FiniteStateMachine:
                 stop_strategy = strategy == RunningFailureStrategies.STOP_APPLICATION
                 restart_strategy = strategy == RunningFailureStrategies.RESTART_APPLICATION
                 # to avoid infinite application restart, exclude the case where process state is forced
-                # indeed the process state forced to FATAL can only happen during a starting sequence (no node found)
-                # retry is useless
+                # indeed the process state forced to FATAL can only happen during a starting sequence
+                # (no instance found) so retry is useless
                 if stop_strategy or restart_strategy and process.forced_state is None:
                     self.supvisors.failure_handler.add_default_job(process)
 
-    def on_process_added_event(self, node_name: str, event: Payload) -> None:
-        """ This event is used to fill the internal structures when a process has been added on a node.
+    def on_process_added_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.
 
-        :param node_name: the node that sent the information
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the process information
         :return: None
         """
-        self.context.load_processes(node_name, [event])
+        self.context.load_processes(identifier, [event])
 
-    def on_process_removed_event(self, node_name: str, event: Payload) -> None:
-        """ This event is used to fill the internal structures when a process has been added on a node.
+    def on_process_removed_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.
 
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the process identification
         :return: None
         """
-        self.context.on_process_removed_event(node_name, event)
+        self.context.on_process_removed_event(identifier, event)
 
-    def on_state_event(self, node_name, event: Payload) -> None:
-        """ This event is used to get the FSM state of the master node.
+    def on_state_event(self, identifier: str, event: Payload) -> None:
+        """ This event is used to get the FSM state of the master Supvisors instance.
 
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the state event
         :return: None
         """
-        if not self.context.is_master and node_name == self.context.master_node_name:
+        if not self.context.is_master and identifier == self.context.master_identifier:
             master_state = SupvisorsStates(event['statecode'])
-            self.logger.info('FiniteStateMachine.on_state_event: Master node_name={} transitioned to state={}'
-                             .format(node_name, master_state))
+            self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} transitioned'
+                             f' to state={master_state}')
             self.set_state(master_state)
 
-    def on_process_info(self, node_name: str, info: PayloadList) -> None:
-        """ This event is used to fill the internal structures with processes available on node.
+    def on_process_info(self, identifier: str, info: PayloadList) -> None:
+        """ This event is used to fill the internal structures with processes available on the Supvisors instance.
 
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param info: the process information
         :return: None
         """
-        self.context.load_processes(node_name, info)
+        self.context.load_processes(identifier, info)
 
-    def on_authorization(self, node_name: str, authorized: bool, master_node_name: str,
+    def on_authorization(self, identifier: str, authorized: bool, master_identifier: str,
                          supvisors_state: SupvisorsStates) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
-        When a new node comes in the group, back to DEPLOYMENT for a possible deployment.
+        When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
 
-        :param node_name: the node name from which the event comes
-        :param authorized: the authorization status as seen by the remote node
-        :param master_node_name: the master node perceived by the remote node
-        :param supvisors_state: the Supvisors state perceived by the remote node
+        :param identifier: the identifier of the Supvisors instance that sent the event
+        :param authorized: the authorization status as seen by the remote Supvisors instance
+        :param master_identifier: the identifier of the Master instance perceived by the remote Supvisors instance
+        :param supvisors_state: the Supvisors state perceived by the remote Supvisors instance
         :return: None
         """
-        self.logger.info('FiniteStateMachine.on_authorization: node_name={} authorized={} master_node_name={}'
-                         ' supvisors_state={}'.format(node_name, authorized, master_node_name, supvisors_state))
-        if self.context.on_authorization(node_name, authorized):
-            # a new node comes in group
-            # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing node
+        self.logger.info(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
+                         f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
+        if self.context.on_authorization(identifier, authorized):
+            # a new Supvisors instance comes in group
+            # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
             # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
             if self.context.is_master:
                 if self.state in [SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION, SupvisorsStates.CONCILIATION]:
@@ -541,29 +547,29 @@ class FiniteStateMachine:
                     # the DEPLOYMENT and CONCILIATION states are temporary and pending on actions to be completed
                     # so mark the context to remember that a re-DEPLOYMENT can be considered at OPERATION level
                     self.redeploy_mark = True
-                    self.logger.info('FiniteStateMachine.on_authorization: new node={}. defer re-DEPLOYMENT'
-                                     .format(node_name))
-            if master_node_name:
-                if not self.context.master_node_name:
+                    self.logger.info(f'FiniteStateMachine.on_authorization: new Supvisors={identifier}.'
+                                     ' defer re-DEPLOYMENT')
+            if master_identifier:
+                if not self.context.master_identifier:
                     # local Supvisors doesn't know about a master yet but remote Supvisors does
                     # typically happens when the local Supervisor has just been started whereas a Supvisors group
                     # was already operating, so accept remote perception
-                    self.logger.warn('FiniteStateMachine.on_authorization: accept master_node={} declared by node={}'
-                                     .format(master_node_name, node_name))
-                    self.context.master_node_name = master_node_name
-                if master_node_name != self.context.master_node_name:
+                    self.logger.warn(f'FiniteStateMachine.on_authorization: accept Master={master_identifier}'
+                                     f' declared by Supvisors={identifier}')
+                    self.context.master_identifier = master_identifier
+                if master_identifier != self.context.master_identifier:
                     # 2 different perceptions of the master, likely due to a split-brain situation
                     # so going back to INITIALIZATION to fix
-                    self.logger.warn('FiniteStateMachine.on_authorization: master node conflict. '
-                                     ' local declares {} - remote ({}) declares {}'
-                                     .format(self.context.master_node_name, node_name, master_node_name))
+                    self.logger.warn('FiniteStateMachine.on_authorization: Master instance conflict. '
+                                     f' Local declares {self.context.master_identifier}'
+                                     f' - Supvisors={identifier} declares Master={master_identifier}')
                     # no need to restrict to [DEPLOYMENT, OPERATION, CONCILIATION] as other transitions are forbidden
                     self.set_state(SupvisorsStates.INITIALIZATION)
-                elif master_node_name == node_name:
+                elif master_identifier == identifier:
                     # accept the remote Master state
                     # FIXME: not possible as long as local node itself is not authorized !
-                    self.logger.info('FiniteStateMachine.on_authorization: Master node_name={} is in state={}'
-                                     .format(node_name, supvisors_state))
+                    self.logger.info(f'FiniteStateMachine.on_authorization: Master={identifier} is in'
+                                     f' state={supvisors_state}')
                     self.set_state(supvisors_state, True)
 
     def on_restart_sequence(self) -> None:
@@ -575,7 +581,7 @@ class FiniteStateMachine:
             self.redeploy_mark = Forced
         else:
             # re-route command to Master
-            self.supvisors.zmq.pusher.send_restart_sequence(self.context.master_node_name)
+            self.supvisors.zmq.pusher.send_restart_sequence(self.context.master_identifier)
 
     def on_restart(self) -> None:
         """ This event is used to transition the state machine to the RESTARTING state.
@@ -586,7 +592,7 @@ class FiniteStateMachine:
             self.set_state(SupvisorsStates.RESTARTING)
         else:
             # re-route command to Master
-            self.supvisors.zmq.pusher.send_restart_all(self.context.master_node_name)
+            self.supvisors.zmq.pusher.send_restart_all(self.context.master_identifier)
 
     def on_shutdown(self) -> None:
         """ This event is used to transition the state machine to the SHUTTING_DOWN state.
@@ -597,7 +603,7 @@ class FiniteStateMachine:
             self.set_state(SupvisorsStates.SHUTTING_DOWN)
         else:
             # re-route command to Master
-            self.supvisors.zmq.pusher.send_shutdown_all(self.context.master_node_name)
+            self.supvisors.zmq.pusher.send_shutdown_all(self.context.master_identifier)
 
     # serialization
     def serial(self) -> Payload:

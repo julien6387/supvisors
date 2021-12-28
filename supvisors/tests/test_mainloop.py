@@ -20,7 +20,7 @@
 import pytest
 
 from supvisors.mainloop import *
-from supvisors.ttypes import NodeStates
+from supvisors.ttypes import SupvisorsInstanceStates
 from supvisors.utils import DeferredRequestHeaders
 
 from threading import Thread
@@ -149,7 +149,7 @@ def test_check_requests(mocker, main_loop):
     # reset mocks
     mocked_sockets.check_puller.reset_mock()
     # test with node isolation message
-    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_NODES.value, 'a message'
+    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
     main_loop.check_requests(mocked_sockets, 'poll result')
     assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == ref_time
@@ -161,7 +161,7 @@ def test_check_requests(mocker, main_loop):
     mocked_sockets.disconnect_subscriber.reset_mock()
     # test with other deferred message
     for event in DeferredRequestHeaders:
-        if event != DeferredRequestHeaders.ISOLATE_NODES:
+        if event != DeferredRequestHeaders.ISOLATE_INSTANCES:
             mocked_sockets.check_puller.return_value = event.value, 'a message'
             main_loop.check_requests(mocked_sockets, 'poll result')
             assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
@@ -205,7 +205,7 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = ValueError
     main_loop.check_node('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_evt.call_count == 0
     # test with a mocked rpc interface
     dummy_info = [{'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5,
@@ -213,29 +213,29 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     rpc_intf = DummyRpcInterface()
     mocked_all = rpc_intf.supervisor.getAllProcessInfo = Mock()
     mocked_local = rpc_intf.supvisors.get_all_local_process_info = Mock(return_value=dummy_info)
-    mocked_addr = rpc_intf.supvisors.get_node_info = Mock()
-    rpc_intf.supvisors.get_master_node = Mock(return_value='10.0.0.5')
+    mocked_addr = rpc_intf.supvisors.get_instance_info = Mock()
+    rpc_intf.supvisors.get_master_identifier = Mock(return_value='10.0.0.5')
     rpc_intf.supvisors.get_supvisors_state = Mock(return_value={'statename': 'RUNNING'})
     mocked_rpc.return_value = rpc_intf
     mocked_rpc.side_effect = None
     mocked_rpc.reset_mock()
     # test with node in isolation
-    for state in [NodeStates.ISOLATING, NodeStates.ISOLATED]:
+    for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_addr.return_value = {'statecode': state}
         main_loop.check_node('10.0.0.1')
-        assert mocked_rpc.call_args_list == [call(main_loop.srvurl.env)]
-        expected = 'node_name:10.0.0.1 authorized:False master_node_name:10.0.0.5 supvisors_state:RUNNING'
+        assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+        expected = 'identifier:10.0.0.1 authorized:False master_identifier:10.0.0.5 supvisors_state:RUNNING'
         assert mocked_evt.call_args_list == [call('auth', expected)]
         assert not mocked_all.called
         # reset counters
         mocked_evt.reset_mock()
         mocked_rpc.reset_mock()
     # test with node not in isolation
-    for state in [NodeStates.UNKNOWN, NodeStates.CHECKING, NodeStates.RUNNING, NodeStates.SILENT]:
+    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT]:
         mocked_addr.return_value = {'statecode': state}
         main_loop.check_node('10.0.0.1')
         assert mocked_rpc.call_count == 1
-        assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+        assert mocked_rpc.call_args == call(main_loop.srv_url.env)
         assert mocked_evt.call_count == 2
         assert mocked_local.call_count == 1
         # reset counters
@@ -251,7 +251,7 @@ def test_start_process(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = KeyError
     main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -259,7 +259,7 @@ def test_start_process(mocker, mocked_rpc, main_loop):
     mocked_supvisors = mocker.patch.object(rpc_intf.supvisors, 'start_args')
     main_loop.start_process('10.0.0.1', 'dummy_process', 'extra args')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_supvisors.call_count == 1
     assert mocked_supvisors.call_args == call('dummy_process', 'extra args', False)
 
@@ -271,7 +271,7 @@ def test_stop_process(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = ConnectionResetError
     main_loop.stop_process('10.0.0.1', 'dummy_process')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -279,7 +279,7 @@ def test_stop_process(mocker, mocked_rpc, main_loop):
     mocked_supervisor = mocker.patch.object(rpc_intf.supervisor, 'stopProcess')
     main_loop.stop_process('10.0.0.1', 'dummy_process')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_supervisor.call_count == 1
     assert mocked_supervisor.call_args == call('dummy_process', False)
 
@@ -291,7 +291,7 @@ def test_restart(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = OSError
     main_loop.restart('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -299,7 +299,7 @@ def test_restart(mocker, mocked_rpc, main_loop):
     mocked_supervisor = mocker.patch.object(rpc_intf.supervisor, 'restart')
     main_loop.restart('10.0.0.1')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_supervisor.call_count == 1
     assert mocked_supervisor.call_args == call()
 
@@ -311,7 +311,7 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = RPCError(12)
     main_loop.shutdown('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -319,7 +319,7 @@ def test_shutdown(mocker, mocked_rpc, main_loop):
     mocked_shutdown = mocker.patch.object(rpc_intf.supervisor, 'shutdown')
     main_loop.shutdown('10.0.0.1')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_shutdown.call_count == 1
     assert mocked_shutdown.call_args == call()
 
@@ -331,7 +331,7 @@ def test_restart_sequence(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = OSError
     main_loop.restart_sequence('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -339,7 +339,7 @@ def test_restart_sequence(mocker, mocked_rpc, main_loop):
     mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart_sequence')
     main_loop.restart_sequence('10.0.0.1')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_supervisor.call_count == 1
     assert mocked_supervisor.call_args == call()
 
@@ -351,7 +351,7 @@ def test_restart_all(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = OSError
     main_loop.restart_all('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -359,7 +359,7 @@ def test_restart_all(mocker, mocked_rpc, main_loop):
     mocked_supervisor = mocker.patch.object(rpc_intf.supvisors, 'restart')
     main_loop.restart_all('10.0.0.1')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_supervisor.call_count == 1
     assert mocked_supervisor.call_args == call()
 
@@ -371,7 +371,7 @@ def test_shutdown_all(mocker, mocked_rpc, main_loop):
     mocked_rpc.side_effect = RPCError(12)
     main_loop.shutdown_all('10.0.0.1')
     assert mocked_rpc.call_count == 2
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     # test with a mocked rpc interface
     rpc_intf = DummyRpcInterface()
     mocked_rpc.side_effect = None
@@ -379,7 +379,7 @@ def test_shutdown_all(mocker, mocked_rpc, main_loop):
     mocked_shutdown = mocker.patch.object(rpc_intf.supvisors, 'shutdown')
     main_loop.shutdown_all('10.0.0.1')
     assert mocked_rpc.call_count == 3
-    assert mocked_rpc.call_args == call(main_loop.srvurl.env)
+    assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_shutdown.call_count == 1
     assert mocked_shutdown.call_args == call()
 
@@ -401,7 +401,7 @@ def check_call(main_loop, mocked_loop, method_name, request, args):
     # send request
     main_loop.send_request(request, args)
     # test mocked main loop
-    assert main_loop.srvurl.parsed_url.geturl() == 'http://10.0.0.2:65000'
+    assert main_loop.srv_url.parsed_url.geturl() == 'http://10.0.0.2:65000'
     for key, mocked in mocked_loop.items():
         if key == method_name:
             assert mocked.call_count == 1
@@ -419,8 +419,8 @@ def test_send_request(mocker, main_loop):
                                         restart=DEFAULT, shutdown=DEFAULT, restart_sequence=DEFAULT,
                                         restart_all=DEFAULT, shutdown_all=DEFAULT)
     # test check node
-    check_call(main_loop, mocked_loop, 'check_node',
-               DeferredRequestHeaders.CHECK_NODE, ('10.0.0.2',))
+    check_call(main_loop, mocked_loop, 'check_instance',
+               DeferredRequestHeaders.CHECK_INSTANCE, ('10.0.0.2',))
     # test start process
     check_call(main_loop, mocked_loop, 'start_process',
                DeferredRequestHeaders.START_PROCESS, ('10.0.0.2', 'dummy_process', 'extra args'))

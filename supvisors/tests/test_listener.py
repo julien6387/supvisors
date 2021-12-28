@@ -40,7 +40,7 @@ def test_creation_no_collector(mocker, supvisors):
     # check attributes
     assert listener.supvisors == supvisors
     assert listener.collector is None
-    assert listener.local_node_name == '127.0.0.1'
+    assert listener.local_identifier == '127.0.0.1'
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -59,7 +59,7 @@ def test_creation(mocker, supvisors, listener):
     # check attributes
     assert listener.supvisors is supvisors
     assert listener.collector is mocked_collector
-    assert listener.local_node_name == '127.0.0.1'
+    assert listener.local_identifier == '127.0.0.1'
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -76,7 +76,7 @@ def test_on_running(mocker, listener):
     """ Test the reception of a Supervisor RUNNING event. """
     ref_pusher = listener.pusher
     ref_main_loop = listener.main_loop
-    mocked_infosource = mocker.patch.object(listener.supvisors.info_source, 'replace_default_handler')
+    mocked_infosource = mocker.patch.object(listener.supvisors.supervisor_data, 'replace_default_handler')
     mocked_zmq = mocker.patch('supvisors.listener.SupervisorZmq')
     mocked_loop = mocker.patch('supvisors.listener.SupvisorsMainLoop')
     listener.on_running('')
@@ -93,7 +93,7 @@ def test_on_stopping(mocker, listener):
     """ Test the reception of a Supervisor STOPPING event. """
     # create a main_loop patch
     listener.main_loop = Mock(**{'stop.return_value': None})
-    mocked_infosource = mocker.patch.object(listener.supvisors.info_source, 'close_httpservers')
+    mocked_infosource = mocker.patch.object(listener.supvisors.supervisor_data, 'close_httpservers')
     # 1. test with unmarked logger, i.e. meant to be the supervisor logger
     listener.on_stopping('')
     assert callbacks == []
@@ -143,7 +143,7 @@ def test_on_process_added(listener):
     process_info = {'name': 'dummy_process', 'group': 'dummy_group', 'state': 200,
                     'extra_args': '-s test', 'now': 77, 'pid': 1234,
                     'expected': True, 'spawnerr': 'resource not available'}
-    rpc = listener.supvisors.info_source.supvisors_rpc_interface.get_local_process_info
+    rpc = listener.supvisors.supervisor_data.supvisors_rpc_interface.get_local_process_info
     rpc.return_value = process_info
     # test process event
     process = Mock(**{'config.name': 'dummy_process', 'group.config.name': 'dummy_group'})
@@ -175,7 +175,7 @@ def test_on_tick(mocker, listener):
     # create patches
     listener.pusher = Mock(**{'send_tick_event.return_value': None,
                               'send_statistics.return_value': None})
-    listener.supvisors.context.nodes['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
+    listener.supvisors.context.instances_map['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
     # test non-process event
     with pytest.raises(AttributeError):
         listener.on_tick(ProcessStateFatalEvent(None, ''))
@@ -321,7 +321,7 @@ def test_on_remote_event(mocker, listener):
 def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('supvisors.listener.time.time', return_value=56)
-    mocker.patch.object(listener.supvisors.info_source, 'get_process_config_options', return_value={'extra_args': '-h'})
+    mocker.patch.object(listener.supvisors.supervisor_data, 'get_process_config_options', return_value={'extra_args': '-h'})
     # patch publisher
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
@@ -331,7 +331,7 @@ def test_force_process_state(mocker, listener):
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()
     # test the call with unknown process in Supervisor
-    listener.supvisors.info_source.get_process_config_options.side_effect = KeyError
+    listener.supvisors.supervisor_data.get_process_config_options.side_effect = KeyError
     listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
     expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
                       'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]

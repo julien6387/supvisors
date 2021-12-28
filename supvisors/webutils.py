@@ -22,8 +22,8 @@ from typing import Any, Callable, Tuple
 
 # HTML page names
 SUPVISORS_PAGE = 'index.html'
-HOST_NODE_PAGE = 'hostaddress.html'
-PROC_NODE_PAGE = 'procaddress.html'
+HOST_INSTANCE_PAGE = 'host_instance.html'
+PROC_INSTANCE_PAGE = 'proc_instance.html'
 APPLICATION_PAGE = 'application.html'
 TAIL_PAGE = 'tail.html'
 STDOUT_PAGE = 'logtail/%s'
@@ -68,48 +68,48 @@ def print_message(root: Any, gravity: str, message: str, current_time: float):
         elt.content(message)
 
 
-def format_message(msg, node_name=None) -> Tuple[str, str]:
+def format_message(msg, identifier=None) -> str:
     """ Define a global message structure. """
-    return msg + ' at {}'.format(ctime()) + (' on {}'.format(node_name) if node_name else '')
+    return f'{msg} at {ctime()}' + (f' on {identifier}' if identifier else '')
 
 
-def info_message(msg, node_name=None) -> Tuple[str, str]:
+def info_message(msg, identifier=None) -> Tuple[str, str]:
     """ Define an information message. """
-    return Info, format_message(msg, node_name)
+    return Info, format_message(msg, identifier)
 
 
-def warn_message(msg, node_name=None) -> Tuple[str, str]:
+def warn_message(msg, identifier=None) -> Tuple[str, str]:
     """ Define a warning message. """
-    return Warn, format_message(msg, node_name)
+    return Warn, format_message(msg, identifier)
 
 
-def error_message(msg, node_name=None) -> Tuple[str, str]:
+def error_message(msg, identifier=None) -> Tuple[str, str]:
     """ Define an error message. """
-    return Error, format_message(msg, node_name)
+    return Error, format_message(msg, identifier)
 
 
-def delayed_message(fct: Callable, msg: str, node_name=None) -> Callable:
+def delayed_message(fct: Callable, msg: str, identifier=None) -> Callable:
     """ Define a delayed message. """
     def on_wait():
-        return fct(msg, node_name)
+        return fct(msg, identifier)
 
     on_wait.delay = 0.05
     return on_wait
 
 
-def delayed_info(msg: str, node_name=None) -> Callable:
+def delayed_info(msg: str, identifier=None) -> Callable:
     """ Define a delayed information message. """
-    return delayed_message(info_message, msg, node_name)
+    return delayed_message(info_message, msg, identifier)
 
 
-def delayed_warn(msg, node_name=None) -> Callable:
+def delayed_warn(msg, identifier=None) -> Callable:
     """ Define a delayed warning message. """
-    return delayed_message(warn_message, msg, node_name)
+    return delayed_message(warn_message, msg, identifier)
 
 
-def delayed_error(msg, node_name=None) -> Callable:
+def delayed_error(msg, identifier=None) -> Callable:
     """ Define a delayed error message. """
-    return delayed_message(error_message, msg, node_name)
+    return delayed_message(error_message, msg, identifier)
 
 
 def update_attrib(elt, attribute: str, value: str) -> None:

@@ -41,7 +41,7 @@ public class SupvisorsEventSubscriber implements Runnable {
     /** The constant header in SupvisorsStatus messages. */
     private static final String SUPVISORS_STATUS_HEADER = "supvisors";
 
-    /** The constant header in NodeStatus messages. */
+    /** The constant header in SupvisorsInstanceStatus messages. */
     private static final String NODE_STATUS_HEADER = "node";
 
     /** The constant header in ApplicationStatus messages. */

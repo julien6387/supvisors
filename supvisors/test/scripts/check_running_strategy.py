@@ -25,21 +25,21 @@ from supervisor.states import ProcessStates
 from supvisors.ttypes import StartingStrategies
 
 from .event_queues import SupvisorsEventQueues
-from .running_nodes import RunningNodesTest
+from .running_identifiers import RunningIdentifiersTest
 
 
-class RunningFailureStrategyTest(RunningNodesTest):
+class RunningFailureStrategyTest(RunningIdentifiersTest):
     """ Test case to check the running failure strategies of Supvisors. """
 
     def setUp(self):
         """ Used to swallow process events related to this process. """
         # call parent
-        RunningNodesTest.setUp(self)
-        # determine web_browser node_name
+        RunningIdentifiersTest.setUp(self)
+        # determine web_browser identifier
         info = self.local_supvisors.get_process_info('web_movies:web_browser')[0]
         if info['statecode'] != ProcessStates.RUNNING:
             print('[ERROR] web_movies:web_browser not RUNNING')
-        self.web_browser_node_name = info['nodes'][0]
+        self.web_browser_node_name = info['identifiers'][0]
         # as this process has just been started, STARTING / RUNNING events might be received
         # other events may be triggered from tearDown too
         has_events = True
@@ -74,7 +74,7 @@ class RunningFailureStrategyTest(RunningNodesTest):
             self.evloop.wait_until_events(self.evloop.supvisors_queue, [{'statename': 'OPERATION'}], 60)
         self.evloop.flush()
         # call parent
-        RunningNodesTest.tearDown(self)
+        RunningIdentifiersTest.tearDown(self)
 
     def test_continue(self):
         """ Test the CONTINUE running failure strategy. """
@@ -129,8 +129,8 @@ class RunningFailureStrategyTest(RunningNodesTest):
         infos = self.local_supvisors.get_process_info('my_movies:hmi')
         hmi_info = infos[0]
         self.assertEqual('RUNNING', hmi_info['statename'])
-        self.assertEqual(1, len(hmi_info['nodes']))
-        hmi_node = hmi_info['nodes'][0]
+        self.assertEqual(1, len(hmi_info['identifiers']))
+        hmi_node = hmi_info['identifiers'][0]
         # force the hmi to exit with a fake segmentation fault
         hmi_proxy = self.proxies[hmi_node].supervisor
         hmi_proxy.signalProcess('my_movies:hmi', 'SEGV')
@@ -171,8 +171,8 @@ class RunningFailureStrategyTest(RunningNodesTest):
         infos = self.local_supvisors.get_process_info('my_movies:manager')
         manager_info = infos[0]
         self.assertEqual('RUNNING', manager_info['statename'])
-        self.assertEqual(1, len(manager_info['nodes']))
-        manager_node = manager_info['nodes'][0]
+        self.assertEqual(1, len(manager_info['identifiers']))
+        manager_node = manager_info['identifiers'][0]
         # force the manager to exit with a fake segmentation fault
         manager_proxy = self.proxies[manager_node].supervisor
         manager_proxy.signalProcess('my_movies:manager', 'SEGV')

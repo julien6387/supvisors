@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <root>
     <!-- aliases -->
-    <alias name="servers">cliche81,cliche82,cliche85</alias>
-    <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+    <alias name="servers">server_1,server_2,server_3</alias>
+    <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
     <!-- models -->
     <model name="model_services">
-        <addresses>servers</addresses>
+        <identifiers>servers</identifiers>
         <start_sequence>2</start_sequence>
         <required>true</required>
         <expected_loading>2</expected_loading>
     </model>
 	<model name="check_data_bus">
-        <addresses>servers</addresses>
+        <identifiers>servers</identifiers>
         <start_sequence>1</start_sequence>
         <required>true</required>
         <wait_exit>true</wait_exit>
@@ -45,7 +45,7 @@
     <!-- HCI -->
     <application pattern="scen3_hci_">
         <distributed>false</distributed>
-        <addresses>#,consoles</addresses>
+        <identifiers>#,consoles</identifiers>
         <start_sequence>3</start_sequence>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 

@@ -25,7 +25,7 @@ from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from .rpcinterface import API_VERSION
-from .ttypes import NodeStates, SupvisorsStates, Payload
+from .ttypes import SupvisorsInstanceStates, SupvisorsStates, Payload
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -46,7 +46,7 @@ class ViewHandler(MeldView):
         # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
-        self.local_node_name = self.supvisors.node_mapper.local_node_name
+        self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -63,7 +63,7 @@ class ViewHandler(MeldView):
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
         # clone the template and set navigation menu
-        if self.supvisors.info_source.supervisor_state == SupervisorStates.RUNNING:
+        if self.supvisors.supervisor_data.supervisor_state == SupervisorStates.RUNNING:
             # manage parameters
             self.handle_parameters()
             # manage action
@@ -101,8 +101,8 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'blink')
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
-        # set hosting node name
-        root.findmeld('node_mid').content(self.local_node_name)
+        # set current Supvisors instance identifier
+        root.findmeld('identifier_mid').content(self.local_identifier)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
         url = self.view_ctx.format_url('', self.page_name)
@@ -121,33 +121,33 @@ class ViewHandler(MeldView):
         Subclasses will define the write_nav parameters to be used. """
         raise NotImplementedError
 
-    def write_nav(self, root, node_name=None, appli=None):
+    def write_nav(self, root, identifier=None, appli=None):
         """ Write the navigation menu. """
-        self.write_nav_nodes(root, node_name)
+        self.write_nav_instances(root, identifier)
         self.write_nav_applications(root, appli)
 
-    def write_nav_nodes(self, root, node_name):
+    def write_nav_instances(self, root, identifier):
         """ Write the node part of the navigation menu. """
-        mid_elt = root.findmeld('address_li_mid')
-        node_names = self.supvisors.node_mapper.node_names
-        for li_elt, item in mid_elt.repeat(node_names):
+        mid_elt = root.findmeld('instance_li_mid')
+        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        for li_elt, item in mid_elt.repeat(identifiers):
             try:
-                status = self.sup_ctx.nodes[item]
+                status = self.sup_ctx.instances_map[item]
             except KeyError:
-                self.logger.debug('failed to get AddressStatus from {}'.format(item))
+                self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
                 # set element class
                 update_attrib(li_elt, 'class', status.state.name)
-                if item == node_name:
+                if item == identifier:
                     update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
-                elt = li_elt.findmeld('address_a_mid')
-                if status.state == NodeStates.RUNNING:
-                    # go to web page located on node, so as to reuse Supervisor StatusView
-                    url = self.view_ctx.format_url(item, PROC_NODE_PAGE)
+                elt = li_elt.findmeld('instance_a_mid')
+                if status.state == SupvisorsInstanceStates.RUNNING:
+                    # go to web page located on the Supvisors instance, so as to reuse Supervisor StatusView
+                    url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
                     update_attrib(elt, 'class', 'on')
-                    if item == self.sup_ctx.master_node_name:
+                    if item == self.sup_ctx.master_identifier:
                         update_attrib(elt, 'class', 'master')
                 else:
                     update_attrib(elt, 'class', 'off')
@@ -225,7 +225,7 @@ class ViewHandler(MeldView):
                     cpuvalue /= info['nb_cores']
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
                     if self.view_ctx.parameters[PROCESS] == info['namespec']:
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
@@ -253,7 +253,7 @@ class ViewHandler(MeldView):
                 memvalue = proc_stats[1][-1]
                 if info['namespec']:  # empty for an application info
                     update_attrib(elt, 'class', 'button on')
-                    parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
+                    parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
                     if self.view_ctx.parameters[PROCESS] == info['namespec']:
                         update_attrib(elt, 'class', 'active')
                         parameters[PROCESS] = None
@@ -291,14 +291,14 @@ class ViewHandler(MeldView):
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
-        self._write_process_button(tr_elt, 'clear_a_mid', info['node_name'], self.page_name,
+        self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
                                    'clearlog', info['namespec'], '', '')
 
     def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailout_a_mid', info['node_name'],
+        self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
                                    STDOUT_PAGE % quote(info['namespec'] or ''),
                                    '', info['namespec'], '', '')
 
@@ -306,7 +306,7 @@ class ViewHandler(MeldView):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailerr_a_mid', info['node_name'],
+        self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
                                    STDERR_PAGE % quote(info['namespec'] or ''),
                                    '', info['namespec'], '', '')
 
@@ -353,7 +353,7 @@ class ViewHandler(MeldView):
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content('\u21B3 {}'.format(info['process_name']))
-        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: info['namespec']})
         elt.attributes(href=url, target="_blank")
         # manage actions iaw state
         self.write_process_start_button(tr_elt, info)
@@ -444,9 +444,9 @@ class ViewHandler(MeldView):
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(namespec)
-                elt = stats_elt.findmeld('address_fig_mid')
+                elt = stats_elt.findmeld('instance_fig_mid')
                 if elt is not None:
-                    elt.content(info['node_name'])
+                    elt.content(info['identifier'])
                 # write CPU / Memory plots
                 self.write_process_plots(proc_stats)
         else:

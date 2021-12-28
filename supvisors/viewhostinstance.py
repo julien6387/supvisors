@@ -19,13 +19,13 @@
 
 from .utils import get_stats
 from .viewcontext import *
-from .viewimage import address_cpu_img, address_mem_img, address_io_img
-from .viewsupstatus import SupvisorsAddressView
+from .viewimage import host_cpu_img, host_mem_img, host_io_img
+from .viewsupstatus import SupvisorsInstanceView
 from .webutils import *
 
 
-class HostAddressView(SupvisorsAddressView):
-    """ View renderer of the Host section of the Supvisors Address page.
+class HostInstanceView(SupvisorsInstanceView):
+    """ View renderer of the Host section of the Supvisors Instance page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that the inheritance of StatusView has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
     so that StatusView inherits from ViewHandler instead of MeldView.
@@ -33,12 +33,12 @@ class HostAddressView(SupvisorsAddressView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsAddressView.__init__(self, context, HOST_NODE_PAGE)
+        SupvisorsInstanceView.__init__(self, context, HOST_INSTANCE_PAGE)
 
     def write_contents(self, root):
         """ Rendering of tables and figures for address statistics. """
         # get data from statistics module iaw period selection
-        stats_instance = self.view_ctx.get_node_stats()
+        stats_instance = self.view_ctx.get_instance_stats()
         if stats_instance:
             self.write_processor_statistics(root, stats_instance.cpu)
             self.write_memory_statistics(root, stats_instance.mem)
@@ -167,7 +167,7 @@ class HostAddressView(SupvisorsAddressView):
         # build image from data
         plt = StatisticsPlot()
         plt.add_plot('CPU #{}'.format(cpu_id_string), '%', cpu_data)
-        plt.export_image(address_cpu_img)
+        plt.export_image(host_cpu_img)
 
     @staticmethod
     def _write_mem_image(mem_stats):
@@ -176,7 +176,7 @@ class HostAddressView(SupvisorsAddressView):
         from supvisors.plot import StatisticsPlot
         plt = StatisticsPlot()
         plt.add_plot('MEM', '%', mem_stats)
-        plt.export_image(address_mem_img)
+        plt.export_image(host_mem_img)
 
     def _write_io_image(self, io_stats):
         """ Write MEM data into the dedicated buffer. """
@@ -188,6 +188,6 @@ class HostAddressView(SupvisorsAddressView):
             sent_data = io_stats[intf_name][1]
             # build image from data
             plt = StatisticsPlot()
-            plt.add_plot('{} recv'.format(intf_name), 'kbits/s', recv_data)
-            plt.add_plot('{} sent'.format(intf_name), 'kbits/s', sent_data)
-            plt.export_image(address_io_img)
+            plt.add_plot(f'{intf_name} recv', 'kbits/s', recv_data)
+            plt.add_plot(f'{intf_name} sent', 'kbits/s', sent_data)
+            plt.export_image(host_io_img)

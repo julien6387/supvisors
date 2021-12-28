@@ -71,26 +71,26 @@ class RPCInterface(object):
         """
         return self.supvisors.fsm.serial()
 
-    def get_master_node(self):
-        """ Get the node of the **Supvisors** Master.
+    def get_master_identifier(self):
+        """ Get the identificqtion of the Supvisors instance elected as **Supvisors** Master.
 
         *@return* ``str``: the IPv4 address or host name.
         """
-        return self.supvisors.context.master_node_name
+        return self.supvisors.context.master_identifier
 
     def get_master_address(self):
-        """ Get the node of the **Supvisors** Master.
-        *DEPRECATED* use ``get_master_node``.
+        """ Get the identificqtion of the Supvisors instance elected as **Supvisors** Master.
+        *DEPRECATED* use ``get_master_identifier``.
 
         *@return* ``str``: the IPv4 address or host name.
         """
-        self.logger.warn('RPCInterface.get_master_address: DEPRECATED. use get_master_node')
-        return self.get_master_node()
+        self.logger.warn('RPCInterface.get_master_address: DEPRECATED. use get_master_identifier')
+        return self.get_master_identifier()
 
     def get_strategies(self):
         """ Get the default strategies applied by **Supvisors**:
 
-            * auto-fencing: node isolation if it becomes inactive,
+            * auto-fencing: Supvisors instance isolation if it becomes inactive,
             * starting: used in the ``DEPLOYMENT`` state to start applications,
             * conciliation: used in the ``CONCILIATION`` state to conciliate conflicts.
 
@@ -101,50 +101,52 @@ class RPCInterface(object):
                 'starting': options.starting_strategy.name,
                 'conciliation': options.conciliation_strategy.name}
 
-    def get_all_nodes_info(self):
+    def get_all_instances_info(self):
         """ Get information about all **Supvisors** instances.
 
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
-        return [self.get_node_info(node_name)
-                for node_name in sorted(self.supvisors.context.nodes.keys())]
+        return [self.get_instance_info(identifier)
+                for identifier in sorted(self.supvisors.context.instances_map)]
 
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
-        *DEPRECATED* use ``get_all_nodes_info``.
+        *DEPRECATED* use ``get_all_instances_info``.
 
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
-        self.logger.warn('RPCInterface.get_all_addresses_info: DEPRECATED. use get_all_nodes_info')
-        return self.get_all_nodes_info()
+        self.logger.warn('RPCInterface.get_all_addresses_info: DEPRECATED. use get_all_instances_info')
+        return self.get_all_instances_info()
 
-    def get_node_info(self, node_name):
-        """ Get information about the **Supvisors** instance running on the host named node.
+    def get_instance_info(self, identifier: str):
+        """ Get information about the **Supvisors** instance identified by identifier.
 
-        *@param* ``str node_name``: the node where the Supervisor daemon is running.
+        *@param* ``str identifier``: the identifier of the Supvisors instance where the Supervisor daemon is running.
 
-        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if node is unknown to **Supvisors**.
+        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if the identifier is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
-            status = self.supvisors.context.nodes[node_name]
+            status = self.supvisors.context.instances_map[identifier]
         except KeyError:
-            raise RPCError(Faults.INCORRECT_PARAMETERS, 'node {} unknown to Supvisors'.format(node_name))
+            message = f'{identifier} unknown to Supvisors'
+            self.logger.error(f'RPCInterface.get_instance_info: {message}')
+            raise RPCError(Faults.INCORRECT_PARAMETERS, message)
         return status.serial()
 
     def get_address_info(self, node_name):
         """ Get information about the **Supvisors** instance running on the host named node.
-        *DEPRECATED* use ``get_node_info``.
+        *DEPRECATED* use ``get_instance_info``.
 
-        *@param* ``str node_name``: the node where the Supervisor daemon is running.
+        *@param* ``str identifier``: the node where the Supervisor daemon is running.
 
         *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if node is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
-        self.logger.warn('RPCInterface.get_address_info: DEPRECATED. use get_node_info')
-        return self.get_node_info(node_name)
+        self.logger.warn('RPCInterface.get_address_info: DEPRECATED. use get_instance_info')
+        return self.get_instance_info(node_name)
 
     def get_all_applications_info(self):
         """ Get information about all applications managed in **Supvisors**.
@@ -205,8 +207,7 @@ class RPCInterface(object):
 
     def get_process_info(self, namespec):
         """ Get synthetic information about a process named namespec.
-        It gives a synthetic status, based on the process information coming from all the nodes where **Supvisors**
-        is running.
+        It gives a synthetic status, based on the process information coming from all running **Supvisors** instances.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -224,13 +225,13 @@ class RPCInterface(object):
         return [proc.serial() for proc in application.processes.values()]
 
     def get_all_local_process_info(self):
-        """ Get information about all processes located on this node.
+        """ Get information about all processes located on this Supvisors instance.
         It is a subset of ``supervisor.getProcessInfo``, used by **Supvisors** in INITIALIZATION state,
         and giving the extra arguments of the process.
 
         *@return* ``list(dict)``: a list of structures containing data about the processes.
         """
-        supervisor_intf = self.supvisors.info_source.supervisor_rpc_interface
+        supervisor_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         all_info = supervisor_intf.getAllProcessInfo()
         return [self._get_local_info(info) for info in all_info]
 
@@ -245,7 +246,7 @@ class RPCInterface(object):
 
         *@return* ``dict``: a structure containing data about the process.
         """
-        supervisor_intf = self.supvisors.info_source.supervisor_rpc_interface
+        supervisor_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         info = supervisor_intf.getProcessInfo(namespec)
         return self._get_local_info(info)
 
@@ -283,7 +284,8 @@ class RPCInterface(object):
         """ Start the *Managed* application named application_name iaw the strategy and the rules file.
         To start *Unmanaged* applications, use ``supervisor.start('group:*')``.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
+        as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -383,7 +385,8 @@ class RPCInterface(object):
         """ Restart the application named application_name iaw the strategy and the rules file.
         To restart *Unmanaged* applications, use ``supervisor.stop('group:*')``, then ``supervisor.start('group:*')``.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
+        as a string or as a value.
 
         *@param* ``str application_name``: the name of the application.
 
@@ -436,7 +439,7 @@ class RPCInterface(object):
         return True
 
     def start_args(self, namespec, extra_args='', wait=True):
-        """ Start a process on the local node.
+        """ Start a process on the local Supvisors instance.
         The behaviour is different from ``supervisor.startProcess`` as it sets the process state to ``FATAL``
         instead of throwing an exception to the RPC client.
         This RPC makes it also possible to pass extra arguments to the program command line.
@@ -459,7 +462,7 @@ class RPCInterface(object):
         _, process = self._get_application_process(namespec)
         # update command line in process config with extra_args
         try:
-            self.supvisors.info_source.update_extra_args(process.namespec, extra_args)
+            self.supvisors.supervisor_data.update_extra_args(process.namespec, extra_args)
         except KeyError:
             # process is unknown to the local Supervisor
             # this is unexpected as Supvisors checks the configuration before it sends this request
@@ -467,14 +470,14 @@ class RPCInterface(object):
             raise RPCError(Faults.BAD_NAME, f'namespec {namespec} unknown to this Supervisor instance')
         # start process with Supervisor internal RPC
         try:
-            rpc_interface = self.supvisors.info_source.supervisor_rpc_interface
+            rpc_interface = self.supvisors.supervisor_data.supervisor_rpc_interface
             cb = rpc_interface.startProcess(namespec, wait)
         except RPCError as why:
             self.logger.error(f'start_process {namespec} failed: {why}')
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
                 self.logger.warn(f'RPCInterface.start_args: force Supervisor internal state of {namespec} to FATAL')
                 # at this stage, process is known to the local Supervisor. no need to test again
-                self.supvisors.info_source.force_process_fatal(namespec, why.text)
+                self.supvisors.supervisor_data.force_process_fatal(namespec, why.text)
             # else process is already started
             # this is unexpected as Supvisors checks the process state before it sends this request
             # anyway raise exception again
@@ -485,7 +488,8 @@ class RPCInterface(object):
         """ Start a process named namespec iaw the strategy and some of the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instance,
+        as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``,``group:name``, or ``group:*``).
 
@@ -590,7 +594,8 @@ class RPCInterface(object):
         """ Restart the process named namespec iaw the strategy and some of the rules defined in the rules file.
         WARN: the 'wait_exit' rule is not considered here.
 
-        *@param* ``StartingStrategies strategy``: the strategy used to choose nodes, as a string or as a value.
+        *@param* ``StartingStrategies strategy``: the strategy used to choose a Supvisors instances,
+        as a string or as a value.
 
         *@param* ``str namespec``: the process namespec (``name``, ``group:name``, or ``group:*``).
 
@@ -682,7 +687,7 @@ class RPCInterface(object):
             raise RPCError(Faults.INCORRECT_PARAMETERS,
                            f'incorrect value for numprocs: {numprocs} (integer > 0 expected)')
         try:
-            del_namespecs = self.supvisors.info_source.update_numprocs(program_name, value)
+            del_namespecs = self.supvisors.supervisor_data.update_numprocs(program_name, value)
         except ValueError as exc:
             self.logger.error(f'RPCInterface.update_numprocs: numprocs invalid to program={program_name}')
             raise RPCError(SupvisorsFaults.SUPVISORS_CONF_ERROR.value, f'numprocs not applicable: {exc}')
@@ -699,7 +704,7 @@ class RPCInterface(object):
             self.supvisors.stopper.stop_process(process)
         in_progress = self.supvisors.stopper.in_progress()
         if not in_progress:
-            self.supvisors.info_source.delete_processes(del_namespecs)
+            self.supvisors.supervisor_data.delete_processes(del_namespecs)
             return True
 
         # wait until processes are in STOPPED_STATES
@@ -715,7 +720,7 @@ class RPCInterface(object):
                     # WARN: do not delete a process that is running
                     del_namespecs.remove(proc.namespec)
             # complete removal in Supervisor
-            self.supvisors.info_source.delete_processes(del_namespecs)
+            self.supvisors.supervisor_data.delete_processes(del_namespecs)
             if proc_errors:
                 raise RPCError(Faults.ABNORMAL_TERMINATION, ' '.join(proc_errors))
             return True
@@ -756,7 +761,7 @@ class RPCInterface(object):
         *@return* ``bool``: always ``True`` unless error.
         """
         self._check_operating()
-        # call for restart sequence. will be re-directed to master if local node is not
+        # call for restart sequence. will be re-directed to master if local Supvisors instance is not
         self.supvisors.fsm.on_restart_sequence()
         if wait:
             def onwait():
@@ -950,7 +955,7 @@ class RPCInterface(object):
         namespec = make_namespec(info['group'], info['name'])
         # add startsecs, stopwaitsecs and extra_args values
         option_names = 'startsecs', 'stopwaitsecs', 'extra_args'
-        options = self.supvisors.info_source.get_process_config_options(namespec, option_names)
+        options = self.supvisors.supervisor_data.get_process_config_options(namespec, option_names)
         sub_info.update(options)
         # TODO: update doc on the XML-RPC (startsecs and stopwaitsecs added)
         return sub_info

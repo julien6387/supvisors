@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
+
 
 # CPU statistics
 def cpu_statistics(last, ref):
@@ -153,11 +155,11 @@ class StatisticsInstance(object):
                 self.trunc_depth(sent_stats)
         # destroy obsolete elements
         for intf in destroy_list:
-            self.logger.warn('StatisticsInstance.push_io_stats: obsolete interface: {}'.format(intf))
+            self.logger.warn(f'StatisticsInstance.push_io_stats: obsolete interface: {intf}')
             del self.io[intf]
         # add new elements
         for intf, (recv_bytes, sent_bytes) in io_stats.items():
-            self.logger.warn('StatisticsInstance.push_io_stats: new interface: {}'.format(intf))
+            self.logger.warn(f'StatisticsInstance.push_io_stats: new interface: {intf}')
             self.io[intf] = [recv_bytes], [sent_bytes]
 
     def _push_process_stats(self, proc_stats):
@@ -209,9 +211,9 @@ class StatisticsInstance(object):
             lst.pop(0)
 
 
-# Class used to compile statistics coming from all nodes
+# Class used to compile statistics coming from all instances
 class StatisticsCompiler(object):
-    """ This class handles stores statistics for all nodes and periods.
+    """ This class handles stores statistics for all instances and periods.
 
     Attributes are:
 
@@ -221,20 +223,21 @@ class StatisticsCompiler(object):
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        self.data = {node_name: {period: StatisticsInstance(period, supvisors.options.stats_histo, supvisors.logger)
-                                 for period in supvisors.options.stats_periods}
-                     for node_name in supvisors.node_mapper.node_names}
-        self.nbcores = {node_name: 1 for node_name in supvisors.node_mapper.node_names}
+        self.data = {identifier: {period: StatisticsInstance(period, supvisors.options.stats_histo, supvisors.logger)
+                                  for period in supvisors.options.stats_periods}
+                     for identifier in supvisors.supvisors_mapper.instances}
+        supvisors.logger.warn(self.data)
+        self.nbcores: Dict[str, int] = {identifier: 1 for identifier in supvisors.supvisors_mapper.instances}
 
-    def clear(self, node_name):
+    def clear(self, identifier: str):
         """ For a given node, clear the StatisticsInstance for all periods. """
-        for period in self.data[node_name].values():
+        for period in self.data[identifier].values():
             period.clear()
 
-    def push_statistics(self, node_name, stats):
-        """ Insert a new statistics measure for node_name. """
-        for period in self.data[node_name].values():
-            period.push_statistics(stats)
+    def push_statistics(self, identifier: str, stats):
+        """ Insert a new statistics measure for identifier. """
+        for stats_instance in self.data[identifier].values():
+            stats_instance.push_statistics(stats)
         # set the number of processor cores
         nb = len(stats[1])
-        self.nbcores[node_name] = nb if nb == 1 else nb - 1
+        self.nbcores[identifier] = nb if nb == 1 else nb - 1

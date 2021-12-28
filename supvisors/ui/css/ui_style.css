@@ -125,7 +125,7 @@ nav div {
     justify-content: space-between;
 }
 
-/* Address page: Process section */
+/* Supervisor page: Process section */
 #process_contents {
     display: flex;
     flex: 1;
@@ -149,8 +149,8 @@ nav div {
 }
 
 
-/* Address page: Host section */
-#address_contents {
+/* Supervisor page: Host section */
+#instance_contents {
     display: flex;
     flex: 1;
     overflow: auto;
@@ -445,7 +445,7 @@ ul.vertical li {
 
 
 /*
- * Master address style
+ * Master Instance style
  */
 .master::after {
     content: " \272A";

@@ -44,12 +44,12 @@ def test_update_views():
     view = VIEWS['application.html']
     assert re.search(r'supvisors/ui/application\.html$', view['template'])
     assert ApplicationView == view['view']
-    view = VIEWS['hostaddress.html']
+    view = VIEWS['host_instance.html']
     assert re.search(r'supvisors/ui/hostaddress\.html$', view['template'])
-    assert HostAddressView == view['view']
-    view = VIEWS['procaddress.html']
+    assert HostInstanceView == view['view']
+    view = VIEWS['proc_instance.html']
     assert re.search(r'supvisors/ui/procaddress\.html$', view['template'])
-    assert ProcAddressView == view['view']
+    assert ProcInstanceView == view['view']
     view = VIEWS['address_mem.png']
     assert view['template'] is None
     assert AddressMemoryImageView == view['view']

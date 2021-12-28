@@ -43,8 +43,8 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     /** The date of the last event received for this process. */
     private Integer last_event_time;
 
-    /** The nodes where the process is running. */
-    private List<String> nodes;
+    /** The identifiers of the Supvisors instances where the process is running. */
+    private List<String> identifiers;
     
     /** The extra arguments passed to the command line. */
     private String extra_args;
@@ -60,7 +60,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
         this.statecode = ProcessState.valueOf((String) processInfo.get("statename"));
         this.expected_exit = (Boolean) processInfo.get("expected_exit");
         this.last_event_time = (Integer) processInfo.get("last_event_time");
-        this.nodes = DataConversion.arrayToStringList((Object[]) processInfo.get("nodes"));
+        this.identifiers = DataConversion.arrayToStringList((Object[]) processInfo.get("identifiers"));
         this.extra_args = (String) processInfo.get("extra_args");
    }
 
@@ -120,17 +120,17 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNodes method returns the list of nodes where the process is running.
+     * The getIdentifiers method returns the list of identifiers of the Supvisors instances
+     * where the process is running.
      *
-     * @return List: The list of nodes.
+     * @return List: The list of identifiers of the Supvisors instances where the process is running.
      */
-    public List getNodes() {
-        return this.nodes;
+    public List getIdentifiers() {
+        return this.identifiers;
     }
 
     /**
-     * The getExtraArgs method returns the exta arguments passed to the
-     * command line.
+     * The getExtraArgs method returns the extra arguments passed to the command line.
      *
      * @return String: The arguments.
      */
@@ -150,7 +150,7 @@ public class SupvisorsProcessInfo implements SupvisorsAnyInfo {
             + " state=" + this.statecode
             + " expectedExitStatus=" + this.expected_exit
             + " lastEventTime=" + this.last_event_time
-            + " nodes=" + this.nodes
+            + " identifiers=" + this.identifiers
             + " extraArgs=" + this.extra_args + ")";
     }
 

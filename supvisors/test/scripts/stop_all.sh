@@ -8,7 +8,7 @@ TEST_DIR=`readlink -e $SCRIPT_DIR/..`
 pushd .
 cd $TEST_DIR
 
-# stop all instances
+# stop all instances_map
 for host in cliche81 cliche82 cliche83
 do
 	echo "stop Supervisor on host" $host

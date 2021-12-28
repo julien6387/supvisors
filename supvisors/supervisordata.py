@@ -32,28 +32,34 @@ from .options import SupvisorsServerOptions
 from .ttypes import ProcessAddedEvent, ProcessRemovedEvent, NameList
 
 
-class SupervisordSource(object):
-    """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord instance. """
+class SupervisorData(object):
+    """ Supvisors is started in Supervisor so Supervisor internal data is available from the supervisord structure. """
 
     def __init__(self, supervisord, logger: Logger):
-        """ Initialization of the attributes. """
+        """ Initialization of the attributes.
+
+        :param supervisord: the Supervisor global structure
+        :param logger: the Supvisors logger
+        """
         self.supervisord = supervisord
         self.logger: Logger = logger
         self.server_config = supervisord.options.server_configs[0]
         # server MUST be http, not unix
         server_section = self.server_config['section']
         if server_section != 'inet_http_server':
-            raise ValueError('inet_http_server expected in config file: {}'
-                             .format(supervisord.configfile))
+            raise ValueError(f'Supervisor MUST be configured using inet_http_server: {supervisord.configfile}')
         # shortcuts (not available yet)
         self._supervisor_rpc_interface = None
         self._supvisors_rpc_interface = None
 
     @property
     def supervisor_rpc_interface(self):
-        # need to get internal Supervisor RPC handler to call behavior from Supvisors
-        # XML-RPC call in an other XML-RPC call on the same server is blocking
-        # so, not very proud of the following lines but could not access it any other way
+        """ Get the internal Supervisor RPC handler.
+        XML-RPC call in an other XML-RPC call on the same server is blocking.
+
+        :return: the Supervisor RPC handler
+        """
+        # not very proud of the following lines but could not access it any other way
         if not self._supervisor_rpc_interface:
             handler = self.httpserver.handlers[0]
             # if authentication used, handler is wrapped
@@ -64,6 +70,11 @@ class SupervisordSource(object):
 
     @property
     def supvisors_rpc_interface(self):
+        """ Get the internal Supvisors RPC handler.
+        XML-RPC call in an other XML-RPC call on the same server is blocking.
+
+        :return: the Supvisors RPC handler
+        """
         if not self._supvisors_rpc_interface:
             handler = self.httpserver.handlers[0]
             # if authentication is used, handler is wrapped
@@ -73,7 +84,19 @@ class SupervisordSource(object):
         return self._supvisors_rpc_interface
 
     @property
+    def identifier(self) -> str:
+        """ Get the internal Supervisor identifier.
+
+        :return: the Supervisor identifier
+        """
+        return self.supervisord.options.identifier
+
+    @property
     def httpserver(self):
+        """ Get the internal Supervisor HTTP server structure.
+
+        :return: the HTTP server structure
+        """
         # ugly but works...
         return self.supervisord.options.httpservers[0][1]
 
@@ -154,7 +177,7 @@ class SupervisordSource(object):
         # apply args to command line
         if extra_args:
             config.command += ' ' + extra_args
-        self.logger.trace('SupervisordSource.update_extra_args: {} extra_args={}'.format(namespec, extra_args))
+        self.logger.trace('SupervisorData.update_extra_args: {} extra_args={}'.format(namespec, extra_args))
 
     def update_numprocs(self, program_name: str, numprocs: int) -> Optional[NameList]:
         """ This method is used to dynamically update the program numprocs.
@@ -163,12 +186,12 @@ class SupervisordSource(object):
         :param numprocs: the new numprocs value
         :return: the list of processes to eventually stop before removal
         """
-        self.logger.trace('SupervisordSource.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
+        self.logger.trace('SupervisorData.update_numprocs: {} - numprocs={}'.format(program_name, numprocs))
         # re-evaluate for all groups including the program
         server_options = self.supervisord.supvisors.server_options
         program_configs = server_options.process_groups[program_name]
         current_numprocs = len(next(iter(program_configs.values())))
-        self.logger.debug('SupervisordSource.update_numprocs: {} - current_numprocs={}'
+        self.logger.debug('SupervisorData.update_numprocs: {} - current_numprocs={}'
                           .format(program_name, current_numprocs))
         if current_numprocs > numprocs:
             # return the processes to stop if numprocs decreases
@@ -208,7 +231,7 @@ class SupervisordSource(object):
         group.config.process_configs.extend(new_configs)
         # create processes from new process configs
         for process_config in new_configs:
-            self.logger.info('SupervisordSource._add_supervisor_processes: add process={}'.format(process_config.name))
+            self.logger.info('SupervisorData._add_supervisor_processes: add process={}'.format(process_config.name))
             # WARN: replace process_config Supvisors server_options by Supervisor options
             # this is causing "reaped unknown pid" at exit due to inadequate pidhistory
             process_config.options = self.supervisord.options
@@ -283,7 +306,7 @@ class SupervisordSource(object):
             users = {self.username: self.password}
             defaulthandler = supervisor_auth_handler(users, defaulthandler)
         else:
-            self.logger.warn('SupervisordSource.replace_default_handler: Server running without any HTTP'
+            self.logger.warn('SupervisorData.replace_default_handler: Server running without any HTTP'
                              ' authentication checking')
         # replace Supervisor default handler at the end of the list
         self.httpserver.handlers.pop()

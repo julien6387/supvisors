@@ -22,39 +22,39 @@ import random
 import re
 import socket
 
-from supvisors.nodemapper import NodeMapper
+from supvisors.supvisorsmapper import SupvisorsMapper
 
 
 @pytest.fixture
 def mapper(supvisors):
     """ Return the instance to test. """
-    return NodeMapper(supvisors.logger)
+    return SupvisorsMapper(supvisors)
 
 
 def test_create(supvisors, mapper):
     """ Test the values set at construction. """
     assert mapper.logger == supvisors.logger
-    assert mapper.node_names == []
-    assert mapper.local_node_name is None
+    assert mapper.instances == {}
+    assert mapper.local_identifier is None
     # check that hostname is part of the local addresses
     assert socket.gethostname() in mapper.local_node_references
 
 
-def test_addresses(mapper):
+def test_instances(mapper):
     """ Test the storage of the expected addresses. """
     # set addresses with hostname inside (IP addresses are not valid on purpose)
     hostname = socket.gethostname()
     address_lst = [hostname, '292.168.0.1', '292.168.0.2']
-    mapper.node_names = address_lst
-    assert mapper.node_names == address_lst
+    mapper.instances = address_lst
+    assert mapper.instances == address_lst
     # check that hostname is the local address
-    assert mapper.local_node_name == hostname
+    assert mapper.local_identifier == hostname
     # set addresses with invalid IP addresses only
     address_lst = ['292.168.0.1', '292.168.0.2']
-    mapper.node_names = address_lst
-    assert mapper.node_names == address_lst
+    mapper.instances = address_lst
+    assert mapper.instances == address_lst
     # check that the local address is not set
-    assert mapper.local_node_name is None
+    assert mapper.local_identifier is None
 
 
 def test_valid(mapper):
@@ -66,7 +66,7 @@ def test_valid(mapper):
     assert not mapper.valid('192.168.0.3')
     # set addresses
     address_lst = [hostname, '192.168.0.1', '192.168.0.2']
-    mapper.node_names = address_lst
+    mapper.instances = address_lst
     # test the validity of addresses
     assert mapper.valid(hostname)
     assert mapper.valid('192.168.0.1')
@@ -78,7 +78,7 @@ def test_filter(mapper):
     # set addresses with hostname inside (IP addresses are not valid on purpose)
     hostname = socket.gethostname()
     node_lst = [hostname, '292.168.0.1', '292.168.0.2']
-    mapper.node_names = node_lst
+    mapper.instances = node_lst
     # test that the same list with a different sequence is not filtered
     shuffle_lst1 = node_lst[:]
     random.shuffle(shuffle_lst1)
@@ -97,7 +97,7 @@ def test_expected(mapper):
     # set addresses with hostname inside (IP addresses are not valid on purpose)
     hostname = socket.gethostname()
     node_lst = ['292.168.0.1', '292.168.0.2', hostname]
-    mapper.node_names = node_lst
+    mapper.instances = node_lst
     # find expected address from list of aliases of the same address
     alias_lst = ['292.168.0.1', '10.0.200.1', '66.51.20.300']
     assert mapper.expected(alias_lst) == '292.168.0.1'
@@ -116,7 +116,7 @@ def test_ipv4():
     # test that psutil is installed
     pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
     # test function
-    ip_list = NodeMapper.ipv4()
+    ip_list = SupvisorsMapper.ipv4()
     assert ip_list
     for ip in ip_list:
         assert re.match(r'^\d{1,3}(.\d{1,3}){3}$', ip)
@@ -125,4 +125,4 @@ def test_ipv4():
 def test_ipv4_importerror(mocker):
     """ Test the ipv4 method with a mocking of import (psutil not installed). """
     mocker.patch.dict('sys.modules', {'psutil': None})
-    assert NodeMapper.ipv4() == []
+    assert SupvisorsMapper.ipv4() == []

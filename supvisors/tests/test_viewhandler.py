@@ -59,7 +59,7 @@ def test_init(http_context, handler):
     assert current_time - 1 < handler.current_time < current_time
     assert handler.supvisors is http_context.supervisord.supvisors
     assert handler.sup_ctx is http_context.supervisord.supvisors.context
-    assert handler.local_node_name == handler.supvisors.node_mapper.local_node_name
+    assert handler.local_identifier == handler.supvisors.supvisors_mapper.local_identifier
     assert handler.view_ctx is None
 
 
@@ -86,7 +86,7 @@ def test_render_action_in_progress(mocker, handler):
     # patch context
     handler.supvisors.context.get_all_namespecs = Mock(return_value=[])
     # 1. test render call when Supervisor is not RUNNING
-    handler.supvisors.info_source.supervisor_state = SupervisorStates.RESTARTING
+    handler.supvisors.supervisor_data.supervisor_state = SupervisorStates.RESTARTING
     assert not handler.render()
     assert handler.view_ctx is None
     assert not mocked_action.call_count
@@ -95,7 +95,7 @@ def test_render_action_in_progress(mocker, handler):
     assert not handler.write_header.call_count
     assert not handler.write_contents.call_count
     # 2. test render call when Supervisor is RUNNING and an action is in progress
-    handler.supvisors.info_source.supervisor_state = SupervisorStates.RUNNING
+    handler.supvisors.supervisor_data.supervisor_state = SupervisorStates.RUNNING
     mocked_action.return_value = NOT_DONE_YET
     assert handler.render() is NOT_DONE_YET
     assert handler.view_ctx is not None
@@ -153,7 +153,7 @@ def test_write_common(mocker, handler):
     assert mocked_supv.attributes.call_args_list == [call(href='an url')]
     assert 'class' not in mocked_supv.attrib
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
-    assert mocked_node.content.call_args_list == [call(handler.local_node_name)]
+    assert mocked_node.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button active'
@@ -184,7 +184,7 @@ def test_write_common(mocker, handler):
     assert mocked_supv.attributes.call_args_list == [call(href='an url')]
     assert mocked_supv.attrib == {'class': 'blink'}
     assert mocked_version.content.call_args_list == [call(API_VERSION)]
-    assert mocked_node.content.call_args_list == [call(handler.local_node_name)]
+    assert mocked_node.content.call_args_list == [call(handler.local_identifier)]
     assert mocked_refresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attributes.call_args_list == [call(href='an url')]
     assert mocked_autorefresh.attrib['class'] == 'button'
@@ -219,23 +219,23 @@ def test_write_nav_nodes_address_error(handler):
     # test call with no address status in context
     handler.write_nav_nodes(mocked_root, '10.0.0.0')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.supvisors_mapper.instances_map)]
     assert address_elt.findmeld.call_args_list == []
 
 
 def test_write_nav_nodes_silent_address(handler):
     """ Test the write_nav_nodes method using a SILENT address. """
-    from supvisors.ttypes import NodeStates
+    from supvisors.ttypes import SupvisorsInstanceStates
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
     mocked_mid = Mock(**{'repeat.return_value': [(address_elt, '10.0.0.1')]})
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with address status set in context, SILENT and different from parameter
-    handler.sup_ctx.nodes['10.0.0.1']._state = NodeStates.SILENT
+    handler.sup_ctx.instances_map['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     handler.write_nav_nodes(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.supvisors_mapper.instances_map)]
     assert address_elt.attrib['class'] == 'SILENT'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -247,7 +247,7 @@ def test_write_nav_nodes_silent_address(handler):
     # test call with address status set in context, SILENT and identical to parameter
     handler.write_nav_nodes(mocked_root, '10.0.0.1')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.supvisors_mapper.instances_map)]
     assert address_elt.attrib['class'] == 'SILENT active'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
     assert href_elt.attrib['class'] == 'off'
@@ -256,7 +256,7 @@ def test_write_nav_nodes_silent_address(handler):
 
 def test_write_nav_nodes_running_address(handler):
     """ Test the write_nav_nodes method using a RUNNING address. """
-    from supvisors.ttypes import NodeStates
+    from supvisors.ttypes import SupvisorsInstanceStates
     # patch the meld elements
     href_elt = Mock(attrib={})
     address_elt = Mock(attrib={}, **{'findmeld.return_value': href_elt})
@@ -264,14 +264,14 @@ def test_write_nav_nodes_running_address(handler):
     mocked_root = Mock(**{'findmeld.return_value': mocked_mid})
     # test call with address status set in context, RUNNING, different from parameter and not MASTER
     handler.view_ctx = Mock(**{'format_url.return_value': 'an url'})
-    handler.sup_ctx.nodes['10.0.0.1'] = Mock(state=NodeStates.RUNNING,
-                                             **{'state_string.return_value': 'running'})
+    handler.sup_ctx.instances_map['10.0.0.1'] = Mock(state=SupvisorsInstanceStates.RUNNING,
+                                                     **{'state_string.return_value': 'running'})
     handler.write_nav_nodes(mocked_root, '10.0.0.2')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.supvisors_mapper.instances_map)]
     assert address_elt.attrib['class'] == 'RUNNING'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
-    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'procaddress.html')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'proc_instance.html')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.attrib['class'] == 'on'
     assert href_elt.content.call_args_list == [call('10.0.0.1')]
@@ -282,13 +282,13 @@ def test_write_nav_nodes_running_address(handler):
     href_elt.attributes.reset_mock()
     href_elt.content.reset_mock()
     # test call with address status set in context, RUNNING, identical to parameter and MASTER
-    handler.sup_ctx.master_node_name = '10.0.0.1'
+    handler.sup_ctx.master_identifier = '10.0.0.1'
     handler.write_nav_nodes(mocked_root, '10.0.0.1')
     assert mocked_root.findmeld.call_args_list == [call('address_li_mid')]
-    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.node_mapper.node_names)]
+    assert mocked_mid.repeat.call_args_list == [call(handler.supvisors.supvisors_mapper.instances_map)]
     assert address_elt.attrib['class'] == 'RUNNING active'
     assert address_elt.findmeld.call_args_list == [call('address_a_mid')]
-    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'procaddress.html')]
+    assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'proc_instance.html')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
     assert href_elt.attrib['class'] == 'on master'
     assert href_elt.content.call_args_list == [call('10.0.0.1')]
@@ -464,7 +464,7 @@ def test_write_common_process_cpu(handler):
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process, irix mode
     handler.supvisors.options.stats_irix_mode = True
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20]], 'nb_cores': 2}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': [[10, 20]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
@@ -480,7 +480,7 @@ def test_write_common_process_cpu(handler):
     del cell_elt.attrib['class']
     # test with filled stats on not selected process, solaris mode
     handler.supvisors.options.stats_irix_mode = False
-    info = {'namespec': 'dummy', 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
+    info = {'namespec': 'dummy', 'identifier': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
@@ -497,7 +497,7 @@ def test_write_common_process_cpu(handler):
     del cell_elt.attrib['class']
     # test with filled stats on application (so non process), solaris mode
     handler.supvisors.options.stats_irix_mode = False
-    info = {'namespec': None, 'node_name': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
+    info = {'namespec': None, 'identifier': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
@@ -550,7 +550,7 @@ def test_write_common_process_mem(handler):
     tr_elt.findmeld.reset_mock()
     cell_elt.replace.reset_mock()
     # test with filled stats on selected process
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20])}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.2', 'proc_stats': ([], [10, 20])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
@@ -565,7 +565,7 @@ def test_write_common_process_mem(handler):
     cell_elt.attributes.reset_mock()
     del cell_elt.attrib['class']
     # test with filled stats on not selected process
-    info = {'namespec': 'dummy', 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
+    info = {'namespec': 'dummy', 'identifier': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
@@ -582,7 +582,7 @@ def test_write_common_process_mem(handler):
     del cell_elt.attrib['class']
     # test with filled stats on application (so non process), solaris mode
     handler.supvisors.options.stats_irix_mode = False
-    info = {'namespec': None, 'node_name': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
+    info = {'namespec': None, 'identifier': '10.0.0.2', 'proc_stats': ([], [10, 20, 30])}
     handler.write_common_process_mem(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pmem_a_mid')]
     assert not cell_elt.deparent.called
@@ -643,7 +643,7 @@ def test_write_process_clear_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_clear_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'clear_a_mid', '10.0.0.1', 'My Page',
                                                  'clearlog', 'dummy_proc', '', '')]
@@ -654,7 +654,7 @@ def test_write_process_stdout_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_stdout_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailout_a_mid', '10.0.0.1', 'logtail/dummy_proc',
                                                  '', 'dummy_proc', '', '')]
@@ -665,7 +665,7 @@ def test_write_process_stderr_button(mocker, handler):
     mocked_button = mocker.patch('supvisors.viewhandler.ViewHandler._write_process_button')
     handler.page_name = 'My Page'
     # test call indirection
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1'}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1'}
     handler.write_process_stderr_button('elt', info)
     assert mocked_button.call_args_list == [call('elt', 'tailerr_a_mid', '10.0.0.1', 'logtail/dummy_proc/stderr',
                                                  '', 'dummy_proc', '', '')]
@@ -771,7 +771,7 @@ def test_write_common_process_status(mocker, handler):
     name_elt = Mock(attrib={'class': ''})
     tr_elt = Mock(attrib={}, **{'findmeld.return_value': name_elt})
     # test call on selected process
-    param = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'process_name': 'proc'}
+    param = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'process_name': 'proc'}
     handler.write_common_process_status(tr_elt, param)
     assert mocked_common.call_args_list == [call(tr_elt, param)]
     assert tr_elt.findmeld.call_args_list == [call('name_a_mid')]
@@ -891,7 +891,7 @@ def test_write_process_statistics(mocker, handler):
     root_elt.findmeld.reset_mock()
     stats_elt.replace.reset_mock()
     # test call with namespec selection and no stats found
-    info = {'namespec': 'dummy_proc', 'node_name': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
+    info = {'namespec': 'dummy_proc', 'identifier': '10.0.0.1', 'proc_stats': 'dummy_stats', 'nb_cores': 8}
     handler.write_process_statistics(root_elt, info)
     assert root_elt.findmeld.call_args_list == [call('pstats_div_mid')]
     assert stats_elt.replace.call_args_list == []

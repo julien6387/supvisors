@@ -318,7 +318,7 @@ def compiler(supvisors):
 def test_compiler_create(supvisors, compiler):
     """ Test the initialization for statistics of all addresses. """
     # check compiler contents at initialisation
-    assert list(compiler.data.keys()) == supvisors.node_mapper.node_names
+    assert list(compiler.data.keys()) == supvisors.supvisors_mapper.instances_map
     for period_instance in compiler.data.values():
         assert tuple(period_instance.keys()) == supvisors.options.stats_periods
         for period, instance in period_instance.items():

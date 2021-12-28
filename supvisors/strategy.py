@@ -21,7 +21,7 @@ from typing import Any, Mapping, Optional, Sequence, Set, Tuple
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .ttypes import NodeStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
+from .ttypes import SupvisorsInstanceStates, NameList, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
 # types for annotations
 LoadRequestMap = Mapping[str, int]
@@ -46,149 +46,163 @@ class AbstractStartingStrategy(AbstractStrategy):
     # Annotation types
     LoadingValidity = Tuple[bool, int]
     LoadingValidityMap = Mapping[str, LoadingValidity]
-    NodeLoadMap = Sequence[Tuple[str, int]]
+    IdentifierLoadMap = Sequence[Tuple[str, int]]
 
-    def is_loading_valid(self, node_name: str, expected_load: int, load_request_map: LoadRequestMap) -> LoadingValidity:
-        """ Return True and current load if remote Supvisors instance is active
-        and can support the additional load.
+    def is_loading_valid(self, identifier: str, expected_load: int,
+                         load_request_map: LoadRequestMap) -> LoadingValidity:
+        """ Return True and the resulting load if the Supvisors instance is active and can support the additional load.
 
-        :param node_name: the node name tested
-        :param expected_load: the load to add to the node
+        :param identifier: the identifier of the Supvisors instance
+        :param expected_load: the load to add to the Supvisors instance
         :param load_request_map: the unconsidered loads
-        :return: a tuple with a boolean telling if the additional load is possible on node and the current load
+        :return: a tuple with a boolean telling if the additional load is possible on the Supvisors instance
+        and the resulting load
         """
-        self.logger.trace('AbstractStartingStrategy.is_loading_valid: node_name={} expected_load={} load_request_map={}'
-                          .format(node_name, expected_load, load_request_map))
-        if node_name in self.supvisors.context.nodes.keys():
-            status = self.supvisors.context.nodes[node_name]
-            self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} state={}'
-                              .format(node_name, status.state.name))
-            if status.state == NodeStates.RUNNING:
-                loading = status.get_loading() + load_request_map.get(node_name, 0)
-                self.logger.debug('AbstractStartingStrategy.is_loading_valid: node_name={} loading={} expected_load={}'
-                                  .format(node_name, loading, expected_load))
+        self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: identifier={identifier}'
+                          f' expected_load={expected_load} load_request_map={load_request_map}')
+        if identifier in self.supvisors.context.instances_map.keys():
+            status = self.supvisors.context.instances_map[identifier]
+            self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
+                              f' state={status.state.name}')
+            if status.state == SupvisorsInstanceStates.RUNNING:
+                loading = status.get_loading() + load_request_map.get(identifier, 0)
+                self.logger.debug(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
+                                  f' loading={loading} expected_load={expected_load}')
                 return loading + expected_load <= 100, loading
-            self.logger.trace('AbstractStartingStrategy.is_loading_valid: node {} not RUNNING'.format(node_name))
+            self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier} not RUNNING')
         return False, 0
 
-    def get_loading_and_validity(self, node_names: NameList, expected_load: int,
+    def get_loading_and_validity(self, identifiers: NameList, expected_load: int,
                                  load_request_map: LoadRequestMap) -> LoadingValidityMap:
-        """ Return the report of loading capability of all nodes iaw the additional load required.
+        """ Return the report of loading capability of all iSupvisors instances iaw the additional load required.
 
-        :param node_names: the nodes considered
+        :param identifiers: the identifiers of the Supvisors instances considered
         :param expected_load: the additional load to consider for the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        loading_validity_map = {node_name: self.is_loading_valid(node_name, expected_load, load_request_map)
-                                for node_name in node_names}
-        self.logger.trace('AbstractStartingStrategy.get_loading_and_validity: loading_validity_map={}'
-                          .format(loading_validity_map))
+        loading_validity_map = {identifier: self.is_loading_valid(identifier, expected_load, load_request_map)
+                                for identifier in identifiers}
+        self.logger.trace(f'AbstractStartingStrategy.get_loading_and_validity:'
+                          f' loading_validity_map={loading_validity_map}')
         return loading_validity_map
 
-    def sort_valid_by_loading(self, loading_validity_map: LoadingValidityMap) -> NodeLoadMap:
+    def sort_valid_by_loading(self, loading_validity_map: LoadingValidityMap) -> IdentifierLoadMap:
         """ Sort the loading report by loading value. """
-        # returns nodes with validity and loading
-        sorted_nodes = sorted([(x, y[1])
-                               for x, y in loading_validity_map.items()
-                               if y[0]], key=lambda t: t[1])
-        self.logger.trace('AbstractStartingStrategy.sort_valid_by_loading: sorted_nodes={}'.format(sorted_nodes))
-        return sorted_nodes
+        # returns identifiers with validity and loading
+        sorted_identifiers = sorted([(x, y[1])
+                                     for x, y in loading_validity_map.items()
+                                     if y[0]], key=lambda t: t[1])
+        self.logger.trace(f'AbstractStartingStrategy.sort_valid_by_loading: sorted_identifiers={sorted_identifiers}')
+        return sorted_identifiers
 
-    def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the node that can support the additional load requested.
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_request_map: LoadRequestMap) -> Optional[str]:
+        """ Choose the Supvisors instance that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in NodeStatus.
+        are not considered yet in SupvisorsInstanceStatus.
 
-        :param node_names: the candidate nodes
+        :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
         raise NotImplementedError
 
 
 class ConfigStrategy(AbstractStartingStrategy):
-    """ Strategy designed to choose the node using the order defined in the configuration file. """
+    """ Strategy designed to choose the Supvisors instance using the order defined in the configuration file. """
 
-    def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the first node in the list that can support the additional load requested.
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_request_map: LoadRequestMap) -> Optional[str]:
+        """ Choose the first Supvisors instance in the list that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in NodeStatus.
+        are not considered yet in SupvisorsInstanceStatus.
 
-        :param node_names: the candidate nodes
+        :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        self.logger.debug('ConfigStrategy.get_node: node_names={} expected_load={} request_map={}'
-                          .format(node_names, expected_load, load_request_map))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
-        return next((node_name for node_name, (validity, _) in loading_validity_map.items() if validity), None)
+        self.logger.debug(f'ConfigStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_request_map={load_request_map}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
+        return next((identifier for identifier, (validity, _) in loading_validity_map.items() if validity), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
-    """ Strategy designed to share the loading among all the nodes. """
+    """ Strategy designed to share the loading among all the Supvisors instances. """
 
-    def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the node having the lowest loading that can support the additional load requested.
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_request_map: LoadRequestMap) -> Optional[str]:
+        """ Choose the Supvisors instance having the lowest loading that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in NodeStatus.
+        are not considered yet in SupvisorsInstanceStatus.
 
-        :param node_names: the candidate nodes
+        :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        self.logger.trace('LessLoadedStrategy.get_node: node_names={} expected_load={} request_map={}'
-                          .format(node_names, expected_load, load_request_map))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
-        sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
-        return sorted_nodes[0][0] if sorted_nodes else None
+        self.logger.trace(f'LessLoadedStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_request_map={load_request_map}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
+        sorted_identifiers = self.sort_valid_by_loading(loading_validity_map)
+        return sorted_identifiers[0][0] if sorted_identifiers else None
 
 
 class MostLoadedStrategy(AbstractStartingStrategy):
-    """ Strategy designed to maximize the loading of a node. """
+    """ Strategy designed to maximize the loading of a Supvisors instance. """
 
-    def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the node having the highest loading that can support the additional load requested.
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_request_map: LoadRequestMap) -> Optional[str]:
+        """ Choose the Supvisors instance having the highest loading that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in NodeStatus.
+        are not considered yet in SupvisorsInstanceStatus.
 
-        :param node_names: the candidate nodes
+        :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        self.logger.trace('MostLoadedStrategy: node_names={} expected_load={} load_request_map={}'
-                          .format(node_names, expected_load, load_request_map))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
-        sorted_nodes = self.sort_valid_by_loading(loading_validity_map)
-        return sorted_nodes[-1][0] if sorted_nodes else None
+        self.logger.trace(f'MostLoadedStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_request_map={load_request_map}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
+        sorted_identifiers = self.sort_valid_by_loading(loading_validity_map)
+        return sorted_identifiers[-1][0] if sorted_identifiers else None
 
 
 class LocalStrategy(AbstractStartingStrategy):
-    """ Strategy designed to start the process on the local node. """
+    """ Strategy designed to start the process on the local Supvisors instance. """
 
-    def get_node(self, node_names: NameList, expected_load: int, load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the local node provided that it can support the additional load requested.
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_request_map: LoadRequestMap) -> Optional[str]:
+        """ Choose the local Supvisors instance provided that it can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in NodeStatus.
+        are not considered yet in SupvisorsInstanceStatus.
 
-        :param node_names: the candidate nodes
+        :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
         :param load_request_map: the unconsidered loads
-        :return: the list of nodes that can hold the additional load
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        self.logger.trace('LocalStrategy: node_names={} expected_load={} load_request_map={}'
-                          .format(node_names, expected_load, load_request_map))
-        loading_validity_map = self.get_loading_and_validity(node_names, expected_load, load_request_map)
-        local_node_name = self.supvisors.node_mapper.local_node_name
-        return local_node_name if loading_validity_map.get(local_node_name, (False,))[0] else None
+        self.logger.trace(f'LocalStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_request_map={load_request_map}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
+        local_identifier = self.supvisors.supvisors_mapper.local_identifier
+        return local_identifier if loading_validity_map.get(local_identifier, (False,))[0] else None
 
 
-def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList, expected_load: int) -> Optional[str]:
-    """ Creates a strategy and let it find a node to start a process having a defined load. """
+def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
+                           expected_load: int) -> Optional[str]:
+    """ Creates a strategy and let it find a Supvisors instance to start a process having a defined load.
+
+    :param supvisors: the global Supvisors structure
+    :param strategy: the strategy used to choose a Supvisors instance
+    :param identifiers: the identifiers of the candidate Supvisors instances
+    :param expected_load: the load of the program to be started
+    :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+    """
     instance = None
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
@@ -198,10 +212,11 @@ def get_node(supvisors: Any, strategy: StartingStrategies, node_rules: NameList,
         instance = MostLoadedStrategy(supvisors)
     if strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
-    # consider all pending requests into global load
-    load_request_map = supvisors.starter.get_load_requests()
-    # apply strategy
-    return instance.get_node(node_rules, expected_load, load_request_map) if instance else None
+    if instance:
+        # consider all pending requests into global load
+        load_request_map = supvisors.starter.get_load_requests()
+        # apply strategy
+        return instance.get_supvisors_instance(identifiers, expected_load, load_request_map)
 
 
 # Strategy management for Conciliation
@@ -211,18 +226,18 @@ class SenicideStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by finding the process that started the most recently and stopping the others """
         for process in conflicts:
-            # determine running node with lower uptime (the youngest)
-            # uptime is used as there is guarantee that nodes are time synchronized
+            # determine the process with lower uptime (the youngest)
+            # uptime is used as there is guarantee that the Supvisors instances are time synchronized
             # so comparing start dates may be irrelevant
-            saved_node = min(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
-            self.logger.warn('SenicideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
+            saved_identifier = min(process.running_identifiers, key=lambda x: process.info_map[x]['uptime'])
+            self.logger.warn(f'SenicideStrategy.conciliate: keep {process.namespec} at {saved_identifier}')
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
-            running_nodes = process.running_nodes.copy()
-            running_nodes.remove(saved_node)
-            for node_name in running_nodes:
-                self.logger.debug('SenicideStrategy.conciliate: {} running on {}'.format(process.namespec, node_name))
-                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
+            running_identifiers = process.running_identifiers.copy()
+            running_identifiers.remove(saved_identifier)
+            for identifier in running_identifiers:
+                self.logger.debug(f'SenicideStrategy.conciliate: stop {process.namespec} on {identifier}')
+                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
 
 
 class InfanticideStrategy(AbstractStrategy):
@@ -231,17 +246,16 @@ class InfanticideStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by finding the process that started the least recently and stopping the others """
         for process in conflicts:
-            # determine running node with lower uptime (the youngest)
-            saved_node = max(process.running_nodes, key=lambda x: process.info_map[x]['uptime'])
-            self.logger.warn('InfanticideStrategy.conciliate: keep {} at {}'.format(process.namespec, saved_node))
+            # determine the process with higher uptime (the oldest)
+            saved_identifier = max(process.running_identifiers, key=lambda x: process.info_map[x]['uptime'])
+            self.logger.warn(f'InfanticideStrategy.conciliate: keep {process.namespec} at {saved_identifier}')
             # stop other processes. work on copy as it may change during iteration
             # Stopper can't be used here as it would stop all processes
-            running_nodes = process.running_nodes.copy()
-            running_nodes.remove(saved_node)
-            for node_name in running_nodes:
-                self.logger.debug('InfanticideStrategy.conciliate: {} running on {}'
-                                  .format(process.namespec, node_name))
-                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
+            running_identifiers = process.running_identifiers.copy()
+            running_identifiers.remove(saved_identifier)
+            for identifier in running_identifiers:
+                self.logger.debug(f'InfanticideStrategy.conciliate: stop {process.namespec} on {identifier}')
+                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
 
 
 class UserStrategy(AbstractStrategy):
@@ -258,7 +272,7 @@ class StopStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes. """
         for process in conflicts:
-            self.logger.warn('StopStrategy.conciliate: {}'.format(process.namespec))
+            self.logger.warn(f'StopStrategy.conciliate: {process.namespec}')
             self.supvisors.stopper.stop_process(process)
 
 
@@ -270,7 +284,7 @@ class RestartStrategy(AbstractStrategy):
         # add all processes to be restarted to the failure handler,
         # as it is in its design to restart a process
         for process in conflicts:
-            self.logger.warn('RestartStrategy.conciliate: {}'.format(process.namespec))
+            self.logger.warn(f'RestartStrategy.conciliate: {process.namespec}')
             self.supvisors.failure_handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -286,7 +300,7 @@ class FailureStrategy(AbstractStrategy):
         # stop all processes and add them to the failure handler
         for process in conflicts:
             self.supvisors.stopper.stop_process(process)
-            self.logger.warn('FailureStrategy.conciliate: {}'.format(process.namespec))
+            self.logger.warn(f'FailureStrategy.conciliate: {process.namespec}')
             self.supvisors.failure_handler.add_default_job(process)
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
@@ -482,7 +496,7 @@ class RunningFailureHandler(AbstractStrategy):
         self.add_job(process.rules.running_failure_strategy, process)
         # check strategy promotion
         if process.rules.running_failure_strategy == RunningFailureStrategies.RESTART_PROCESS:
-            # this is the case where the node has been invalidated
+            # this is the case where the Supvisors instance has been invalidated
             # if the application is stopped due to such failure, it is likely that the full application needs a restart
             # rather than uncorrelated process restarts
             application = self.supvisors.context.applications[process.application_name]

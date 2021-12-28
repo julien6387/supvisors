@@ -29,9 +29,9 @@ from .rpcinterface import RPCInterface
 from .ttypes import SupvisorsFaults
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
-from .viewhostaddress import HostAddressView
+from .viewhostinstance import HostInstanceView
 from .viewimage import *
-from .viewprocaddress import ProcAddressView
+from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
 
 
@@ -54,17 +54,17 @@ def update_views() -> None:
     # set main page
     VIEWS['index.html'] = {'template': os.path.join(here, 'ui/index.html'), 'view': SupvisorsView}
     # set address /processpage
-    VIEWS['procaddress.html'] = {'template': os.path.join(here, 'ui/procaddress.html'), 'view': ProcAddressView}
+    VIEWS['proc_instance.html'] = {'template': os.path.join(here, 'ui/proc_instance.html'), 'view': ProcInstanceView}
     # set address/host page
-    VIEWS['hostaddress.html'] = {'template': os.path.join(here, 'ui/hostaddress.html'), 'view': HostAddressView}
+    VIEWS['host_instance.html'] = {'template': os.path.join(here, 'ui/host_instance.html'), 'view': HostInstanceView}
     # set application page
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set fake page to export images
     VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
     VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}
-    VIEWS['address_cpu.png'] = {'template': None, 'view': AddressCpuImageView}
-    VIEWS['address_mem.png'] = {'template': None, 'view': AddressMemoryImageView}
-    VIEWS['address_io.png'] = {'template': None, 'view': AddressNetworkImageView}
+    VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
+    VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
+    VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
 
 
 def cleanup_fds(self) -> None:

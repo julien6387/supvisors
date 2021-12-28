@@ -23,12 +23,12 @@ from supervisor.xmlrpc import RPCError
 
 from .ttypes import Payload, PayloadList
 from .viewcontext import *
-from .viewsupstatus import SupvisorsAddressView
+from .viewsupstatus import SupvisorsInstanceView
 from .webutils import *
 
 
-class ProcAddressView(SupvisorsAddressView):
-    """ View renderer of the Process section of the Supvisors Address page.
+class ProcInstanceView(SupvisorsInstanceView):
+    """ View renderer of the Process section of the Supvisors Instance page.
     Inheritance is made from supervisor.web.StatusView to benefit from the action methods.
     Note that StatusView inheritance has been patched dynamically in supvisors.plugin.make_supvisors_rpcinterface
     so that StatusView inherits from ViewHandler instead of MeldView.
@@ -36,7 +36,7 @@ class ProcAddressView(SupvisorsAddressView):
 
     def __init__(self, context):
         """ Call of the superclass constructors. """
-        SupvisorsAddressView.__init__(self, context, PROC_NODE_PAGE)
+        SupvisorsInstanceView.__init__(self, context, PROC_INSTANCE_PAGE)
 
     # RIGHT SIDE / BODY part
     def write_contents(self, root):
@@ -47,8 +47,8 @@ class ProcAddressView(SupvisorsAddressView):
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec:
             status = self.view_ctx.get_process_status(namespec)
-            if not status or self.view_ctx.local_node_name not in status.running_nodes:
-                self.logger.warn(f'ProcAddressView.write_contents: unselect Process Statistics for {namespec}')
+            if not status or self.view_ctx.local_identifier not in status.running_identifiers:
+                self.logger.warn(f'ProcInstanceView.write_contents: unselect Process Statistics for {namespec}')
                 # form parameter is not consistent. remove it
                 self.view_ctx.parameters[PROCESS] = ''
         # write selected Process Statistics
@@ -64,11 +64,11 @@ class ProcAddressView(SupvisorsAddressView):
         :return: the sorted data and the excluded data.
         """
         # use Supervisor to get local information on all processes
-        rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
+        rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
         try:
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
-            self.logger.warn(f'ProcAddressView.get_process_data: failed to get all process info'
+            self.logger.warn(f'ProcInstanceView.get_process_data: failed to get all process info'
                              f' from {self.local_node_name}: {e.text}')
             return [], []
         # extract what is useful to display
@@ -80,7 +80,7 @@ class ProcAddressView(SupvisorsAddressView):
             expected_load = process.rules.expected_load
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec)
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
-                       'single': info['group'] == info['name'], 'node_name': self.view_ctx.local_node_name,
+                       'single': info['group'] == info['name'], 'identifier': self.view_ctx.local_identifier,
                        'statename': info['statename'], 'statecode': info['state'],
                        'gravity': 'FATAL' if unexpected_exit else info['statename'],
                        'description': info['description'], 'expected_load': expected_load,
@@ -144,7 +144,7 @@ class ProcAddressView(SupvisorsAddressView):
         if reset:
             appli_stats = None
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
-                   'node_name': self.view_ctx.local_node_name,
+                   'identifier': self.view_ctx.local_identifier,
                    'statename': application.state.name, 'statecode': application.state.value,
                    'description': application.get_operational_status(),
                    'nb_processes': len(application_processes), 'expected_load': expected_load}
@@ -199,7 +199,7 @@ class ProcAddressView(SupvisorsAddressView):
             elt.attrib['rowspan'] = str(info['nb_processes'] + 1)
             apply_shade(elt, shaded_tr)
         elt = elt.findmeld('shex_a_mid')
-        self.logger.trace(f'ProcAddressView.write_application_status: application_name={application_name}'
+        self.logger.trace(f'ProcInstanceView.write_application_status: application_name={application_name}'
                           f' application_shex={application_shex} inverted_shex={inverted_shex}')
         elt.content('{}'.format('[\u2013]' if application_shex else '[+]'))
         url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})

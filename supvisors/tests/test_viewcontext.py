@@ -53,7 +53,7 @@ def test_init(http_context, ctx):
     """ Test the values set at ViewContext construction. """
     assert ctx.http_context is http_context
     assert ctx.supvisors is http_context.supervisord.supvisors
-    assert ctx.local_node_name == ctx.supvisors.node_mapper.local_node_name
+    assert ctx.local_identifier == ctx.supvisors.supvisors_mapper.local_identifier
     assert ctx.parameters == {'node': '10.0.0.4', 'namespec': None, 'period': 5,
                               'appliname': None, 'processname': None, 'cpuid': 0,
                               'intfname': None, 'auto': False, 'strategy': 'CONFIG', 'shex': ''}
@@ -68,7 +68,7 @@ def test_init_no_stats(http_context, ctx_no_stats):
     """ Test the values set at ViewContext construction. """
     assert ctx_no_stats.http_context is http_context
     assert ctx_no_stats.supvisors is http_context.supervisord.supvisors
-    assert ctx_no_stats.local_node_name == ctx_no_stats.supvisors.node_mapper.local_node_name
+    assert ctx_no_stats.local_identifier == ctx_no_stats.supvisors.supvisors_mapper.local_identifier
     assert ctx_no_stats.parameters == {'node': '10.0.0.4', 'namespec': None, 'appliname': None, 'processname': None,
                               'auto': False, 'strategy': 'CONFIG', 'shex': ''}
     # errors must be set due to dummy values
@@ -89,8 +89,8 @@ def test_get_action(ctx):
 
 
 def test_get_node_name(ctx):
-    """ Test the ViewContext.get_node_name method. """
-    assert ctx.get_node_name() == '10.0.0.4'
+    """ Test the ViewContext.get_identifier method. """
+    assert ctx.get_identifier() == '10.0.0.4'
 
 
 def test_get_message(ctx):
@@ -275,18 +275,18 @@ def test_update_period(mocker, ctx):
 
 
 def test_update_node_name(ctx):
-    """ Test the ViewContext.update_node_name method. """
+    """ Test the ViewContext.update_identifier method. """
     # reset parameter because called in constructor
-    del ctx.parameters[NODE]
+    del ctx.parameters[IDENTIFIER]
     # test call with valid value
-    ctx.update_node_name()
-    assert ctx.parameters[NODE] == '10.0.0.4'
+    ctx.update_identifier()
+    assert ctx.parameters[IDENTIFIER] == '10.0.0.4'
     # reset parameter
-    del ctx.parameters[NODE]
+    del ctx.parameters[IDENTIFIER]
     # test call with invalid value
-    ctx.http_context.form[NODE] = '192.168.1.1'
-    ctx.update_node_name()
-    assert ctx.parameters[NODE] == '127.0.0.1'
+    ctx.http_context.form[IDENTIFIER] = '192.168.1.1'
+    ctx.update_identifier()
+    assert ctx.parameters[IDENTIFIER] == '127.0.0.1'
 
 
 def test_update_auto_refresh(ctx):
@@ -329,8 +329,8 @@ def test_update_application_name(ctx):
 
 def test_update_process_name(mocker, ctx):
     """ Test the ViewContext.update_process_name method. """
-    ctx.parameters[NODE] = '127.0.0.1'
-    node = ctx.supvisors.context.nodes['127.0.0.1']
+    ctx.parameters[IDENTIFIER] = '127.0.0.1'
+    node = ctx.supvisors.context.instances_map['127.0.0.1']
     mocker.patch.object(node, 'running_processes', return_value=[])
     # reset parameter because called in constructor
     del ctx.parameters[PROCESS]
@@ -378,7 +378,7 @@ def test_update_cpu_id(mocker, ctx):
 
 def test_update_interface_name(mocker, ctx):
     """ Test the ViewContext.update_interface_name method. """
-    mocked_stats = mocker.patch('supvisors.viewcontext.ViewContext.get_node_stats', return_value=None)
+    mocked_stats = mocker.patch('supvisors.viewcontext.ViewContext.get_instance_stats', return_value=None)
     ctx = ViewContext(ctx.http_context)
     # reset parameter because called in constructor
     del ctx.parameters[INTF]
@@ -432,7 +432,7 @@ def test_get_nbcores(ctx):
     assert ctx.get_nbcores() == 0
     # mock the structure
     stats = ctx.http_context.supervisord.supvisors.statistician
-    stats.nbcores[ctx.local_node_name] = 4
+    stats.nbcores[ctx.local_identifier] = 4
     # test new call
     assert ctx.get_nbcores() == 4
     # test with unknown address
@@ -443,9 +443,9 @@ def test_get_nbcores(ctx):
 
 
 def test_get_node_stats(ctx):
-    """ Test the ViewContext.get_node_stats method. """
+    """ Test the ViewContext.get_instance_stats method. """
     # test default
-    assert ctx.get_node_stats() is None
+    assert ctx.get_instance_stats() is None
     # add statistics data
     stats_data = ctx.http_context.supervisord.supvisors.statistician.data
     stats_data['127.0.0.1'] = {5: 'data for period 5 at 127.0.0.1',
@@ -453,17 +453,17 @@ def test_get_node_stats(ctx):
     stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
                               10: 'data for period 10 at 10.0.0.1'}
     # test with default address
-    assert ctx.get_node_stats() == 'data for period 5 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 5 at 127.0.0.1'
     # test with unknown address parameter
-    assert ctx.get_node_stats('10.0.0.2') is None
+    assert ctx.get_instance_stats('10.0.0.2') is None
     # test with known address parameter and existing period
-    assert ctx.get_node_stats('10.0.0.1') == 'data for period 5 at 10.0.0.1'
+    assert ctx.get_instance_stats('10.0.0.1') == 'data for period 5 at 10.0.0.1'
     # update period
     ctx.parameters[PERIOD] = 8
     # test with default address and existing period
-    assert ctx.get_node_stats() == 'data for period 8 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 8 at 127.0.0.1'
     # test with known address parameter but missing period
-    assert ctx.get_node_stats('10.0.0.1') is None
+    assert ctx.get_instance_stats('10.0.0.1') is None
 
 
 def test_get_process_stats(mocker, ctx):
@@ -472,13 +472,13 @@ def test_get_process_stats(mocker, ctx):
     # reset mocks that have been called in constructor
     mocked_core.reset_mock()
     # patch get_address_stats so that it returns no result
-    with patch.object(ctx, 'get_node_stats', return_value=None) as mocked_stats:
+    with patch.object(ctx, 'get_instance_stats', return_value=None) as mocked_stats:
         assert ctx.get_process_stats('dummy_proc') == (4, None)
         assert mocked_stats.call_args_list == [call('127.0.0.1')]
     mocked_core.reset_mock()
     # patch get_address_stats
     mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})
-    with patch.object(ctx, 'get_node_stats', return_value=mocked_find) as mocked_stats:
+    with patch.object(ctx, 'get_instance_stats', return_value=mocked_find) as mocked_stats:
         assert ctx.get_process_stats('dummy_proc', '10.0.0.1') == (4, 'mock stats')
         assert mocked_stats.call_args_list == [call('10.0.0.1')]
         assert mocked_core.call_args_list == [call('10.0.0.1')]

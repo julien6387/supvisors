@@ -30,7 +30,7 @@ from supervisor.datatypes import (Automatic, logfile_name, boolean, integer, byt
 from supervisor.loggers import Logger
 from supervisor.options import expand, ServerOptions, ProcessConfig, FastCGIProcessConfig, EventListenerConfig
 
-from .ttypes import ConciliationStrategies, StartingStrategies
+from .ttypes import ConciliationStrategies, StartingStrategies, enum_names
 
 
 # Options of main section
@@ -38,19 +38,18 @@ class SupvisorsOptions(object):
     """ Holder of the Supvisors options.
 
     Attributes are:
-
-        - node_list: list of node names or IP addresses where supvisors will be running,
+        - supvisors_list: list of Supvisors instance identifiers where Supvisors will be running,
         - rules_files: list of absolute or relative paths to the XML rules files,
         - internal_port: port number used to publish local events to remote Supvisors instances,
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
-        - force_synchro_if: subset of address_list that will force the end of synchro when all RUNNING,
+        - force_synchro_if: subset of supvisors_list that will force the end of synchro when all RUNNING,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program,
-        - starting_strategy: strategy used to start processes on nodes,
+        - starting_strategy: strategy used to start processes on Supvisors instances,
         - stats_enable: when False, no statistics will be collected and displayed from this node,
-        - stats_periods: list of periods for which the statistics will be provided in the Supvisors web page,
+        - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI,
         - stats_histo: depth of statistics history,
         - logfile: absolute or relative path of the Supvisors log file,
         - logfile_maxbytes: maximum size of the Supvisors log file,
@@ -69,18 +68,22 @@ class SupvisorsOptions(object):
         """
         self.supervisord_options = supervisord.options
         # get values from config
-        self.node_list = filter(None, list_of_strings(config.get('address_list', gethostname())))
-        self.node_list = list(OrderedDict.fromkeys(self.node_list))
+        if 'address_list' in config:
+            print('SupvisorsOptions: address_list is DEPRECATED. please use supvisors_list')
+        supvisors_list = config.get('supvisors_list', config.get('address_list', gethostname()))
+        supvisors_list = filter(None, list_of_strings(supvisors_list))
+        self.supvisors_list = list(OrderedDict.fromkeys(supvisors_list))
         # keep rules_file for next version but state obsolescence
         self.rules_files = config.get('rules_files', config.get('rules_file', None))
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
-        self.internal_port = self.to_port_num(config.get('internal_port', '65001'))
-        self.event_port = self.to_port_num(config.get('event_port', '65002'))
+        # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
+        self.internal_port = self.to_port_num(config.get('internal_port', '0'))
+        self.event_port = self.to_port_num(config.get('event_port', '0'))
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
         self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
         self.force_synchro_if = filter(None, list_of_strings(config.get('force_synchro_if', None)))
-        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.node_list}
+        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.supvisors_list}
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
         self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
         # configure statistics
@@ -96,15 +99,15 @@ class SupvisorsOptions(object):
 
     def __str__(self):
         """ Contents as string. """
-        return "node_list={} rules_files={} internal_port={} event_port={} auto_fence={}"\
-               " synchro_timeout={} force_synchro_if={} conciliation_strategy={} starting_strategy={}"\
-               " stats_enabled={} stats_periods={} stats_histo={} stats_irix_mode={}"\
-               " logfile={} logfile_maxbytes={} logfile_backups={} loglevel={}"\
-               .format(self.node_list, self.rules_files, self.internal_port, self.event_port, self.auto_fence,
-                       self.synchro_timeout, self.force_synchro_if,
-                       self.conciliation_strategy.name, self.starting_strategy.name,
-                       self.stats_enabled, self.stats_periods, self.stats_histo, self.stats_irix_mode,
-                       self.logfile, self.logfile_maxbytes, self.logfile_backups, self.loglevel)
+        return (f'supvisors_list={self.supvisors_list} rules_files={self.rules_files}'
+                f' internal_port={self.internal_port} event_port={self.event_port} auto_fence={self.auto_fence}'
+                f' synchro_timeout={self.synchro_timeout} force_synchro_if={self.force_synchro_if}'
+                f' conciliation_strategy={self.conciliation_strategy.name}'
+                f' starting_strategy={self.starting_strategy.name}'
+                f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
+                f' stats_irix_mode={self.stats_irix_mode}'
+                f' logfile={self.logfile} logfile_maxbytes={self.logfile_maxbytes}'
+                f' logfile_backups={self.logfile_backups} loglevel={self.loglevel}')
 
     # conversion utils (completion of supervisor.datatypes)
     def to_filepaths(self, value: str) -> List[str]:
@@ -128,15 +131,15 @@ class SupvisorsOptions(object):
 
     @staticmethod
     def to_port_num(value: str) -> int:
-        """ Convert a string into a port number, in [1;65535].
+        """ Convert a string into a port number, in [0;65535].
 
         :param value: the port number as a string
         :return: the port number as an integer
         """
         value = integer(value)
-        if 0 < value <= 65535:
+        if 0 <= value <= 65535:
             return value
-        raise ValueError('invalid value for port: %d. expected in [1;65535]' % value)
+        raise ValueError(f'invalid value for port: {value}. expected in [0;65535]')
 
     @staticmethod
     def to_timeout(value: str) -> int:
@@ -148,8 +151,9 @@ class SupvisorsOptions(object):
         value = integer(value)
         if SupvisorsOptions.SYNCHRO_TIMEOUT_MIN <= value <= SupvisorsOptions.SYNCHRO_TIMEOUT_MAX:
             return value
-        raise ValueError('invalid value for synchro_timeout: {}. expected in [{};{}] (seconds)'
-                         .format(value, SupvisorsOptions.SYNCHRO_TIMEOUT_MIN, SupvisorsOptions.SYNCHRO_TIMEOUT_MAX))
+        raise ValueError(f'invalid value for synchro_timeout: {value}.'
+                         f' expected in [{SupvisorsOptions.SYNCHRO_TIMEOUT_MIN};'
+                         f'{SupvisorsOptions.SYNCHRO_TIMEOUT_MAX}] (seconds)')
 
     @staticmethod
     def to_conciliation_strategy(value):
@@ -157,8 +161,8 @@ class SupvisorsOptions(object):
         try:
             strategy = ConciliationStrategies[value]
         except KeyError:
-            raise ValueError('invalid value for conciliation_strategy: {}. expected in {}'
-                             .format(value, ConciliationStrategies._member_names_))
+            raise ValueError(f'invalid value for conciliation_strategy: {value}.'
+                             f' expected in {enum_names(ConciliationStrategies)}')
         return strategy
 
     @staticmethod
@@ -167,29 +171,28 @@ class SupvisorsOptions(object):
         try:
             strategy = StartingStrategies[value]
         except KeyError:
-            raise ValueError('invalid value for starting_strategy: {}. expected in {}'
-                             .format(value, StartingStrategies._member_names_))
+            raise ValueError(f'invalid value for starting_strategy: {value}.'
+                             f' expected in {enum_names(StartingStrategies)}')
         return strategy
 
     @staticmethod
     def to_periods(value):
         """ Convert a string into a list of period values. """
         if len(value) == 0:
-            raise ValueError('unexpected number of stats_periods: {}. minimum is 1'.format(len(value)))
+            raise ValueError(f'unexpected number of stats_periods: {len(value)}. minimum is 1')
         if len(value) > 3:
-            raise ValueError('unexpected number of stats_periods: {}. maximum is 3'.format(len(value)))
+            raise ValueError(f'unexpected number of stats_periods: {len(value)}. maximum is 3')
         periods = []
         for val in value:
             try:
                 period = integer(val)
             except ValueError:
-                raise ValueError('invalid value for stats_periods: {}. expected integer'.format(val))
+                raise ValueError(f'invalid value for stats_periods: {val}. expected integer')
             else:
                 if 5 > period or period > 3600:
-                    raise ValueError('invalid value for stats_periods: {}. expected in [5;3600] (seconds)'
-                                     .format(val))
+                    raise ValueError(f'invalid value for stats_periods: {val}. expected in [5;3600] (seconds)')
                 if period % 5 != 0:
-                    raise ValueError('invalid value for stats_periods: %d. expected multiple of 5' % period)
+                    raise ValueError(f'invalid value for stats_periods: {period}. expected multiple of 5')
                 periods.append(period)
         return sorted(periods)
 
@@ -203,7 +206,7 @@ class SupvisorsOptions(object):
         histo = integer(value)
         if 10 <= histo <= 1500:
             return histo
-        raise ValueError('invalid value for stats_histo: {}. expected in [10;1500] (seconds)'.format(value))
+        raise ValueError(f'invalid value for stats_histo: {value}. expected in [10;1500] (seconds)')
 
 
 class SupvisorsServerOptions(ServerOptions):
@@ -257,10 +260,10 @@ class SupvisorsServerOptions(ServerOptions):
     def get_section(self, program_name: str):
         klass = self.program_class[program_name]
         if klass is FastCGIProcessConfig:
-            return 'fcgi-program:%s' % program_name
+            return f'fcgi-program:{program_name}'
         if klass is EventListenerConfig:
-            return 'eventlistener:%s' % program_name
-        return 'program:%s' % program_name
+            return f'eventlistener:{program_name}'
+        return f'program:{program_name}'
 
     def update_numprocs(self, program_name: str, numprocs: int) -> str:
         """ This method updates the numprocs value directly in the configuration parser.
@@ -269,8 +272,8 @@ class SupvisorsServerOptions(ServerOptions):
         :return: The section updated
         """
         section = self.get_section(program_name)
-        self.logger.debug('SupvisorsServerOptions.update_numprocs: update parser section: {}'.format(section))
-        self.parser[section]['numprocs'] = '%d' % numprocs
+        self.logger.debug(f'SupvisorsServerOptions.update_numprocs: update parser section={section}')
+        self.parser[section]['numprocs'] = str(numprocs)
         return section
 
     def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:

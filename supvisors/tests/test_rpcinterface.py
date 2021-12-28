@@ -56,9 +56,9 @@ def test_supvisors_state(rpc):
 def test_master_node(rpc):
     """ Test the get_master_address RPC. """
     # prepare context
-    rpc.supvisors.context.master_node_name = '10.0.0.1'
+    rpc.supvisors.context.master_identifier = '10.0.0.1'
     # test call
-    assert rpc.get_master_node() == '10.0.0.1'
+    assert rpc.get_master_identifier() == '10.0.0.1'
     # TODO: DEPRECATED
     assert rpc.get_master_address() == '10.0.0.1'
 
@@ -76,24 +76,24 @@ def test_strategies(rpc):
 def test_node_info(rpc):
     """ Test the get_address_info RPC. """
     # prepare context
-    rpc.supvisors.context.nodes = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info'})}
+    rpc.supvisors.context.instances_map = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info'})}
     # test with known address
-    assert rpc.get_node_info('10.0.0.1') == 'address_info'
+    assert rpc.get_instance_info('10.0.0.1') == 'address_info'
     # TODO: DEPRECATED
     assert rpc.get_address_info('10.0.0.1') == 'address_info'
     # test with unknown address
     with pytest.raises(RPCError) as exc:
-        rpc.get_node_info('10.0.0.0')
+        rpc.get_instance_info('10.0.0.0')
     assert exc.value.args == (Faults.INCORRECT_PARAMETERS, 'node 10.0.0.0 unknown to Supvisors')
 
 
 def test_all_nodes_info(rpc):
     """ Test the get_all_addresses_info RPC. """
     # prepare context
-    rpc.supvisors.context.nodes = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info_1'}),
+    rpc.supvisors.context.instances_map = {'10.0.0.1': Mock(**{'serial.return_value': 'address_info_1'}),
                                    '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
-    assert rpc.get_all_nodes_info() == ['address_info_1', 'address_info_2']
+    assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
     # TODO: DEPRECATED
     assert rpc.get_all_addresses_info() == ['address_info_1', 'address_info_2']
 
@@ -163,7 +163,7 @@ def test_local_process_info(mocker, rpc):
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_local_info',
                               return_value={'group': 'group', 'name': 'name'})
     # prepare context
-    info_source = rpc.supvisors.info_source
+    info_source = rpc.supvisors.supervisor_data
     mocked_rpc = info_source.supervisor_rpc_interface.getProcessInfo
     mocked_rpc.return_value = {'group': 'dummy_group', 'name': 'dummy_name'}
     # test RPC call with process namespec
@@ -177,7 +177,7 @@ def test_all_local_process_info(mocker, rpc):
     mocked_get = mocker.patch('supvisors.rpcinterface.RPCInterface._get_local_info',
                               return_value={'group': 'group', 'name': 'name'})
     # prepare context
-    info_source = rpc.supvisors.info_source
+    info_source = rpc.supvisors.supervisor_data
     mocked_rpc = info_source.supervisor_rpc_interface.getAllProcessInfo
     mocked_rpc.return_value = [{'group': 'dummy_group', 'name': 'dummy_name'}]
     # test RPC call with process namespec
@@ -208,7 +208,7 @@ def test_application_rules(mocker, rpc):
     mocker.resetall()
     # test RPC call with application name and managed/non-distributed application
     application.rules.distributed = False
-    expected = {'application_name': 'appli', 'managed': True, 'distributed': False, 'nodes': ['*'],
+    expected = {'application_name': 'appli', 'managed': True, 'distributed': False, 'instances_map': ['*'],
                 'addresses': ['*'],  # TODO: DEPRECATED
                 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
@@ -491,7 +491,7 @@ def test_start_args(mocker, rpc):
     mocker.patch('supvisors.rpcinterface.RPCInterface._get_application_process',
                  return_value=(None, Mock(namespec='appli:proc')))
     # prepare context
-    info_source = rpc.supvisors.info_source
+    info_source = rpc.supvisors.supervisor_data
     info_source.update_extra_args.side_effect = KeyError
     mocked_startProcess = info_source.supervisor_rpc_interface.startProcess
     mocked_startProcess.side_effect = [RPCError(Faults.NO_FILE, 'no file'),
@@ -858,8 +858,8 @@ def test_update_numprocs(mocker, rpc):
     mocked_check = mocker.patch.object(rpc, '_check_operating')
     mocked_get = mocker.patch.object(rpc, '_get_application_process')
     # get patches
-    mocked_numprocs = rpc.supvisors.info_source.update_numprocs
-    mocked_delete = rpc.supvisors.info_source.delete_processes
+    mocked_numprocs = rpc.supvisors.supervisor_data.update_numprocs
+    mocked_delete = rpc.supvisors.supervisor_data.delete_processes
     mocked_stop = rpc.supvisors.stopper.stop_process
     mocked_progress = rpc.supvisors.stopper.in_progress
     # test RPC call with unknown program
@@ -1234,7 +1234,7 @@ def test_get_local_info(rpc):
             'now': 4321, 'pid': 4567,
             'description': 'process dead',
             'spawnerr': ''}
-    info_source = rpc.supvisors.info_source
+    info_source = rpc.supvisors.supervisor_data
     info_source.get_process_config_options.return_value = {'extra_args': '-x dummy_args', 'startsecs': 2,
                                                            'stopwaitsecs': 10}
     # test call

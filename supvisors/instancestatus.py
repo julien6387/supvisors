@@ -22,33 +22,34 @@ from typing import Dict
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
+from .supvisorsmapper import SupvisorsInstanceId
 from .process import ProcessStatus
-from .ttypes import NodeStates, InvalidTransition
+from .ttypes import SupvisorsInstanceStates, InvalidTransition
 
 
-class NodeStatus(object):
+class SupvisorsInstanceStatus(object):
     """ Class defining the status of a Supvisors instance.
 
     Attributes:
-    - node_name: the node where the Supervisor instance is expected to be running ;
-    - state: the state of the Supervisor instance in NodeStates ;
+    - supvisors_id: the parameters identifying where the Supvisors instance is expected to be running ;
+    - state: the state of the Supvisors instance in SupvisorsInstanceStates ;
     - sequence_counter: the TICK counter ;
-    - local_sequence_counter: the last TICK counter received from the local node ;
+    - local_sequence_counter: the last TICK counter received from the local Supvisors instance ;
     - remote_time: the last date received from the Supvisors instance ;
     - local_time: the last date received from the Supvisors instance, in the local reference time ;
-    - processes: the list of processes that are available on this node. """
+    - processes: the list of processes that are configured in the Supervisor of the Supvisors instance. """
 
-    # Number of local TICKs from which Supvisors considers that a node is inactive
+    # Number of local TICKs from which Supvisors considers that a Supvisors instance is inactive
     # TODO: could be an option in configuration file
     INACTIVITY_TICKS = 2
 
-    def __init__(self, node_name: str, logger: Logger):
+    def __init__(self, supvisors_id: SupvisorsInstanceId, logger: Logger):
         """ Initialization of the attributes. """
         # keep a reference to the common logger
         self.logger: Logger = logger
         # attributes
-        self.node_name: str = node_name
-        self._state: NodeStates = NodeStates.UNKNOWN
+        self.supvisors_id: SupvisorsInstanceId = supvisors_id
+        self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
         self.sequence_counter: int = 0
         self.local_sequence_counter: int = 0
         self.remote_time: float = 0.0
@@ -56,19 +57,24 @@ class NodeStatus(object):
         self.processes: Dict[str, ProcessStatus] = {}
 
     def reset(self):
-        """ Reset the contextual part of the node.
-        Silent and isolated node are not reset.
+        """ Reset the contextual part of the Supvisors instance.
+        Silent and isolated Supvisors instances are not reset.
 
         :return: None
         """
-        if self.state in [NodeStates.CHECKING, NodeStates.RUNNING]:
+        if self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]:
             # do NOT use state setter as transition may be rejected
-            self._state = NodeStates.UNKNOWN
+            self._state = SupvisorsInstanceStates.UNKNOWN
         self.local_sequence_counter = 0
         self.remote_time = 0.0
         self.local_time = 0.0
 
     # accessors / mutators
+    @property
+    def identifier(self):
+        """ Property for the 'identifier' attribute. """
+        return self.supvisors_id.identifier
+
     @property
     def state(self):
         """ Property for the 'state' attribute. """
@@ -79,16 +85,16 @@ class NodeStatus(object):
         if self._state != new_state:
             if self.check_transition(new_state):
                 self._state = new_state
-                self.logger.info(f'NodeStatus.state: {self.node_name} is {self.state.name}')
+                self.logger.info(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} is {self.state.name}')
             else:
-                raise InvalidTransition(f'NodeStatus.state: {self.node_name} transition rejected'
-                                        f' from {self.state.name} to {new_state.name}')
+                raise InvalidTransition(f'SupvisorsInstanceStatus.state: Supvisors={self.identifier} transition'
+                                        f' rejected from {self.state.name} to {new_state.name}')
 
     # serialization
     def serial(self):
-        """ Return a serializable form of the NodeStatus. """
-        return {'node_name': self.node_name,
-                'address_name': self.node_name,  # TODO: DEPRECATED
+        """ Return a serializable form of the SupvisorsInstanceStatus. """
+        return {'identifier': self.identifier,
+                'address_name': self.identifier,  # TODO: DEPRECATED
                 'statecode': self.state.value,
                 'statename': self.state.name,
                 'sequence_counter': self.sequence_counter,
@@ -103,21 +109,21 @@ class NodeStatus(object):
         :param local_sequence_counter: the current local sequence counter
         :return: the inactivity status
         """
-        return (self.state in [NodeStates.CHECKING, NodeStates.RUNNING]
+        return (self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
                 and (local_sequence_counter - self.local_sequence_counter) > self.INACTIVITY_TICKS)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """
-        return self.state in [NodeStates.ISOLATING, NodeStates.ISOLATED]
+        return self.state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
 
     def update_times(self, sequence_counter: int, remote_time: float, local_sequence_counter: int, local_time: float):
-        """ Update the time attributes of the NodeStatus and of all the processes running on it. """
+        """ Update the time attributes of the current object, including the time attributes of all its processes. """
         self.sequence_counter = sequence_counter
         self.local_sequence_counter = local_sequence_counter
         self.remote_time = remote_time
         self.local_time = local_time
         for process in self.processes.values():
-            process.update_times(self.node_name, remote_time)
+            process.update_times(self.identifier, remote_time)
 
     def get_remote_time(self, local_time: float) -> float:
         """ Return the remote time corresponding to a local time.
@@ -137,32 +143,40 @@ class NodeStatus(object):
         self.processes[process.namespec] = process
 
     def running_processes(self):
-        """ Return the process running on the node.
+        """ Return the process running on the Supvisors instance.
         Here, 'running' means that the process state is in Supervisor RUNNING_STATES. """
         return [process for process in self.processes.values()
-                if process.running_on(self.node_name)]
+                if process.running_on(self.identifier)]
 
     def pid_processes(self):
-        """ Return the process running on the no and having a pid.
+        """ Return the process running on the Supvisors instance and having a pid.
        Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
-        return [(process.namespec, process.info_map[self.node_name]['pid'])
+        return [(process.namespec, process.info_map[self.identifier]['pid'])
                 for process in self.processes.values()
-                if process.pid_running_on(self.node_name)]
+                if process.pid_running_on(self.identifier)]
 
     def get_loading(self) -> int:
-        """ Return the loading of the node, by summing the declared load of the processes running on that node.
+        """ Return the loading of the Supvisors instance, by summing the declared load of the processes running
+        on the Supvisors instance.
 
         :return: the total loading
         """
-        node_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.trace('NodeStatus.get_loading: node_name={} node_load={}'.format(self.node_name, node_load))
-        return node_load
+        instance_load = sum(process.rules.expected_load for process in self.running_processes())
+        self.logger.trace(f'SupvisorsInstanceStatus.get_loading: Supvisors={self.identifier} load={instance_load}')
+        return instance_load
 
     # dictionary for transitions
-    _Transitions = {NodeStates.UNKNOWN: (NodeStates.CHECKING, NodeStates.ISOLATING, NodeStates.SILENT),
-                    NodeStates.CHECKING: (NodeStates.RUNNING, NodeStates.ISOLATING, NodeStates.SILENT),
-                    NodeStates.RUNNING: (NodeStates.SILENT, NodeStates.ISOLATING, NodeStates.CHECKING),
-                    NodeStates.SILENT: (NodeStates.CHECKING, NodeStates.ISOLATING),
-                    NodeStates.ISOLATING: (NodeStates.ISOLATED,),
-                    NodeStates.ISOLATED: ()
+    _Transitions = {SupvisorsInstanceStates.UNKNOWN: (SupvisorsInstanceStates.CHECKING,
+                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.SILENT),
+                    SupvisorsInstanceStates.CHECKING: (SupvisorsInstanceStates.RUNNING,
+                                                       SupvisorsInstanceStates.ISOLATING,
+                                                       SupvisorsInstanceStates.SILENT),
+                    SupvisorsInstanceStates.RUNNING: (SupvisorsInstanceStates.SILENT,
+                                                      SupvisorsInstanceStates.ISOLATING,
+                                                      SupvisorsInstanceStates.CHECKING),
+                    SupvisorsInstanceStates.SILENT: (SupvisorsInstanceStates.CHECKING,
+                                                     SupvisorsInstanceStates.ISOLATING),
+                    SupvisorsInstanceStates.ISOLATING: (SupvisorsInstanceStates.ISOLATED,),
+                    SupvisorsInstanceStates.ISOLATED: ()
                     }

@@ -18,14 +18,14 @@
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
                 <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="node_mid"></span></p>
+                <p>view from <span meld:id="identifier_mid"></span></p>
             </header>
 
-            <nav id="address-list">
-                <h2>Nodes</h2>
+            <nav id="instance-list">
+                <h2>Supervisors</h2>
                 <div>
                     <ul>
-                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+                        <li meld:id="instance_li_mid"><a href="#" meld:id="instance_a_mid">Supervisor</a></li>
                     </ul>
                 </div>
             </nav>
@@ -48,7 +48,7 @@
         <div id="right_side">
             <header>
                 <div>
-                    <h2><span meld:id="address_mid">address</span> - <span meld:id="percent_mid">50%</span></h2>
+                    <h2><span meld:id="instance_mid">Supervisor</span> - <span meld:id="percent_mid">50%</span></h2>
                     <h3><code meld:id="state_mid" class="classState">RemoteStates</code></h3>
                 </div>
 
@@ -56,8 +56,8 @@
                     <table class="optionBox">
                         <tr><th>Statistics View</th></tr>
                         <tr><td><ul class="linear">
-                            <li><a href="#" meld:id="view_a_mid" class="button on ">Processes</a></li>
-                            <li><a href="#" class="button off active">Host</a></li>
+                            <li><a href="#" meld:id="process_view_a_mid" class="button on ">Processes</a></li>
+                            <li><a href="#" meld:id="host_view_a_mid" class="button off active">Host</a></li>
                         </ul></td></tr>
                     </table>
                 </div>
@@ -78,10 +78,10 @@
                         <li><a href="#" meld:id="stopall_a_mid">
                             <img src="img/stop_40.png" alt="Stop all" title="Stop all processes"/></a>
                         </li>
-                        <li><a href="hostaddress.html?action=restartsup">
+                        <li><a href="host_instance.html?action=restartsup">
                             <img src="img/restart_40.png" alt="Restart" title="Restart Supervisor"/></a>
                         </li>
-                        <li><a href="hostaddress.html?action=shutdownsup">
+                        <li><a href="host_instance.html?action=shutdownsup">
                             <img src="img/shutdown_40.png" alt="Shutdown" title="Shutdown Supervisor"/></a>
                         </li>
                     </ul>
@@ -96,10 +96,10 @@
                 </div>
             </header>
 
-            <div id="address_contents" meld:id="stats_div_mid">
+            <div id="instance_contents" meld:id="stats_div_mid">
                     <div id="rsc_grid">
                         <figure id="mem_fig">
-                            <img src="address_mem.png" alt="Address Memory Graph"/>
+                            <img src="host_mem.png" alt="Host Memory Graph"/>
                         </figure>
                         <div id="mem_stats">
                             <h6>Memory Statistics</h6>
@@ -122,7 +122,7 @@
                             </table></div>
                         </div>
                         <figure id="cpu_fig">
-                            <img src="address_cpu.png" alt="Address CPU Graph"/>
+                            <img src="host_cpu.png" alt="Host CPU Graph"/>
                         </figure>
                         <div id="cpu_stats">
                             <h6>Processor Statistics</h6>
@@ -148,7 +148,7 @@
                             </div>
                         </div>
                         <figure id="io_fig">
-                            <img src="address_io.png" alt="Address Network Graph"/>
+                            <img src="host_io.png" alt="Host Network Graph"/>
                         </figure>
                         <div id="io_stats">
                             <h6>Network Statistics</h6>

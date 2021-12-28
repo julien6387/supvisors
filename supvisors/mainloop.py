@@ -30,7 +30,7 @@ from supervisor.childutils import getRPCInterface
 from supervisor.xmlrpc import RPCError
 
 from .supvisorszmq import SupvisorsZmq
-from .ttypes import NodeStates
+from .ttypes import SupvisorsInstanceStates
 from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl
 
 
@@ -66,9 +66,9 @@ class SupvisorsMainLoop(Thread):
         self.stop_event = Event()
         # keep a reference to the Supvisors instance and to the environment
         self.supvisors = supvisors
-        self.srvurl = SupervisorServerUrl(supvisors.info_source.get_env())
+        self.srv_url = SupervisorServerUrl(supvisors.supervisor_data.get_env())
         # create a XML-RPC client to the local Supervisor instance
-        self.proxy = getRPCInterface(self.srvurl.env)
+        self.proxy = getRPCInterface(self.srv_url.env)
         # heartbeat variables
         self.supervisor_time = 0
         self.reference_time = 0.0
@@ -98,7 +98,7 @@ class SupvisorsMainLoop(Thread):
         self.reference_time = self.supervisor_time = time()
         self.reference_counter = 0
         # Create zmq sockets
-        sockets = SupvisorsZmq(self.supvisors)
+        sockets = SupvisorsZmq(self.supvisors.supvisors_mapper)
         # poll events forever
         while not self.stopping():
             poll_result = sockets.poll()
@@ -115,22 +115,22 @@ class SupvisorsMainLoop(Thread):
 
     def manage_heartbeat(self, publisher) -> None:
         """ Send a periodic TICK to other Supvisors instances.
-        Supervisor TICK is not reliable for a heartbeat as it may be blocked by HTTP requests. """
+        Supervisor TICK is not reliable for a heartbeat as it may be blocked or delayed by HTTP requests.
+        Anyway, a minimum TICK of 5 seconds may be questioned at some point so now it could be lower if necessary. """
         current_time = time()
         current_counter = int((current_time - self.reference_time) / SupvisorsMainLoop.TICK_PERIOD)
         if current_counter > self.reference_counter:
-            # send the Supvisors TICK to other nodes
+            # send the Supvisors TICK to other Supvisors instances
             self.reference_counter = current_counter
             payload = {'sequence_counter': current_counter, 'when': current_time}
             publisher.send_tick_event(payload)
-            # print('[DEBUG] TICK sent at {}'.format(current_time), file=stderr)
             # check that Supervisor thread is alive
             supervisor_silence = current_time - self.supervisor_time
             if supervisor_silence > SupvisorsMainLoop.SUPERVISOR_ALERT_TIMEOUT:
                 print(f'[ERROR] no TICK received from Supervisor for {supervisor_silence} seconds', file=stderr)
 
     def check_events(self, sockets, poll_result) -> None:
-        """ Forward external Supervisor events to main thread. """
+        """ Forward external Supvisors events to main thread. """
         message = sockets.check_subscriber(poll_result)
         if message:
             # The events received are not processed directly in this thread because it would conflict
@@ -154,7 +154,7 @@ class SupvisorsMainLoop(Thread):
                     # forward the publication
                     sockets.publisher.forward_event(message)
             else:
-                if deferred_request == DeferredRequestHeaders.ISOLATE_NODES:
+                if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
                     # isolation request: disconnect the node from subscriber
                     sockets.disconnect_subscriber(body)
                 else:
@@ -163,10 +163,11 @@ class SupvisorsMainLoop(Thread):
 
     def send_request(self, header: DeferredRequestHeaders, body) -> None:
         """ Perform the XML-RPC according to the header. """
-        # first element of body is always the destination node
-        self.srvurl.update_url(body[0])
+        # first element of body is always the identifier of the destination Supvisors instance
+        instance = self.supvisors.supvisors_mapper.instances[body[0]]
+        self.srv_url.update_url(instance.host_name, instance.http_port)
         # send message
-        if header == DeferredRequestHeaders.CHECK_NODE:
+        if header == DeferredRequestHeaders.CHECK_INSTANCE:
             self.check_node(*body)
         elif header == DeferredRequestHeaders.START_PROCESS:
             self.start_process(*body)
@@ -183,86 +184,86 @@ class SupvisorsMainLoop(Thread):
         elif header == DeferredRequestHeaders.SHUTDOWN_ALL:
             self.shutdown_all(*body)
 
-    def check_node(self, node_name: str) -> None:
+    def check_node(self, identifier: str) -> None:
         """ Check isolation and get all process info asynchronously. """
         try:
-            supvisors_rpc = getRPCInterface(self.srvurl.env).supvisors
+            supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
             # get remote perception of master node and state
-            master_node_name = supvisors_rpc.get_master_node()
+            master_identifier = supvisors_rpc.get_master_identifier()
             supvisors_state = supvisors_rpc.get_supvisors_state()['statename']
             # check authorization
-            status = supvisors_rpc.get_node_info(self.supvisors.node_mapper.local_node_name)
-            authorized = NodeStates(status['statecode']) not in [NodeStates.ISOLATING, NodeStates.ISOLATED]
+            status = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            authorized = SupvisorsInstanceStates(status['statecode']) not in [SupvisorsInstanceStates.ISOLATING,
+                                                                              SupvisorsInstanceStates.ISOLATED]
             # inform local Supvisors that authorization is available
-
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        f'node_name:{node_name} authorized:{authorized}'
-                                        f' master_node_name:{master_node_name} supvisors_state:{supvisors_state}')
+                                        f'identifier:{identifier} authorized:{authorized}'
+                                        f' master_identifier:{master_identifier} supvisors_state:{supvisors_state}')
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor
                 all_info = supvisors_rpc.get_all_local_process_info()
                 # post to local Supvisors
-                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((node_name, all_info)))
+                self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_INFO, json.dumps((identifier, all_info)))
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to check node {node_name}', file=stderr)
+            print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
 
-    def start_process(self, node_name: str, namespec: str, extra_args: str) -> None:
+    def start_process(self, identifier: str, namespec: str, extra_args: str) -> None:
         """ Start process asynchronously. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supvisors.start_args(namespec, extra_args, False)
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to start process {namespec} on {node_name} with extra_args="{extra_args}"',
+            print(f'[ERROR] failed to start process {namespec} on {identifier} with extra_args="{extra_args}"',
                   file=stderr)
 
-    def stop_process(self, node_name: str, namespec: str) -> None:
+    def stop_process(self, identifier: str, namespec: str) -> None:
         """ Stop process asynchronously. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supervisor.stopProcess(namespec, False)
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to stop process {namespec} on {node_name}', file=stderr)
+            print(f'[ERROR] failed to stop process {namespec} on {identifier}', file=stderr)
 
-    def restart(self, node_name: str) -> None:
+    def restart(self, identifier: str) -> None:
         """ Restart a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supervisor.restart()
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to restart node {node_name}', file=stderr)
+            print(f'[ERROR] failed to restart node {identifier}', file=stderr)
 
-    def shutdown(self, node_name: str) -> None:
+    def shutdown(self, identifier: str) -> None:
         """ Shutdown a Supervisor instance asynchronously. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supervisor.shutdown()
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to shutdown node {node_name}', file=stderr)
+            print(f'[ERROR] failed to shutdown node {identifier}', file=stderr)
 
-    def restart_sequence(self, node_name: str) -> None:
+    def restart_sequence(self, identifier: str) -> None:
         """ Ask the Supvisors Master to trigger the DEPLOYMENT phase. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supvisors.restart_sequence()
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to send Supvisors restart_sequence to Master {node_name}', file=stderr)
+            print(f'[ERROR] failed to send Supvisors restart_sequence to Master {identifier}', file=stderr)
 
-    def restart_all(self, node_name: str) -> None:
+    def restart_all(self, identifier: str) -> None:
         """ Ask the Supvisors Master to restart Supvisors. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supvisors.restart()
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to send Supvisors restart to Master {node_name}', file=stderr)
+            print(f'[ERROR] failed to send Supvisors restart to Master {identifier}', file=stderr)
 
-    def shutdown_all(self, node_name: str) -> None:
+    def shutdown_all(self, identifier: str) -> None:
         """ Ask the Supvisors Master to shutdown Supvisors. """
         try:
-            proxy = getRPCInterface(self.srvurl.env)
+            proxy = getRPCInterface(self.srv_url.env)
             proxy.supvisors.shutdown()
         except SupvisorsMainLoop.RpcExceptions:
-            print(f'[ERROR] failed to send Supvisors shutdown to Master {node_name}', file=stderr)
+            print(f'[ERROR] failed to send Supvisors shutdown to Master {identifier}', file=stderr)
 
     def send_remote_comm_event(self, event_type: str, event_data) -> None:
         """ Shortcut for the use of sendRemoteCommEvent. """

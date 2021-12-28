@@ -24,7 +24,7 @@ from typing import Optional, Tuple
 from urllib.parse import quote
 
 from .process import ProcessStatus
-from .ttypes import StartingStrategies, NameList
+from .ttypes import StartingStrategies, NameList, enum_names
 from .webutils import SUPVISORS_PAGE, error_message
 
 
@@ -33,7 +33,7 @@ SERVER_URL = 'SERVER_URL'
 SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
-NODE = 'node'  # nav
+IDENTIFIER = 'identifier'  # nav
 APPLI = 'appliname'  # nav
 
 ACTION = 'action'
@@ -67,8 +67,8 @@ class ViewContext:
         # keep references to Supvisors instance
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
-        # keep reference to the local node
-        self.local_node_name = self.supvisors.node_mapper.local_node_name
+        # keep reference to the local identifier
+        self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
         # initialize parameters
         self.parameters = {}
         self.store_message = None
@@ -76,7 +76,7 @@ class ViewContext:
         # extract parameters from context
         self.update_strategy()
         self.update_auto_refresh()
-        self.update_node_name()
+        self.update_identifier()
         self.update_application_name()
         self.update_process_name()
         self.update_namespec()
@@ -89,15 +89,16 @@ class ViewContext:
 
     def get_server_port(self):
         """ Get the port number of the web server. """
+        # TODO: TBC not used
         return self.http_context.form.get(SERVER_PORT)
 
     def get_action(self):
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)
 
-    def get_node_name(self):
-        """ Extract node name from context form. """
-        return self.http_context.form.get(NODE)
+    def get_identifier(self):
+        """ Extract identifier from context form. """
+        return self.http_context.form.get(IDENTIFIER)
 
     def get_message(self):
         """ Extract message from context form. """
@@ -114,17 +115,17 @@ class ViewContext:
 
     def update_strategy(self):
         """ Extract starting strategy from context. """
-        self._update_string(STRATEGY, StartingStrategies._member_names_, self.supvisors.options.starting_strategy.name)
+        self._update_string(STRATEGY, enum_names(StartingStrategies), self.supvisors.options.starting_strategy.name)
 
     def update_auto_refresh(self):
         """ Extract auto refresh from context. """
         # assign value found or default
         self._update_boolean(AUTO, False)
 
-    def update_node_name(self):
-        """ Extract node name from context. """
+    def update_identifier(self):
+        """ Extract identifier from context. """
         # assign value found or default
-        self._update_string(NODE, self.supvisors.node_mapper.node_names, self.local_node_name)
+        self._update_string(IDENTIFIER, self.supvisors.supvisors_mapper.instances, self.local_identifier)
 
     def update_application_name(self):
         """ Extract application name from context. """
@@ -132,9 +133,9 @@ class ViewContext:
 
     def update_process_name(self):
         """ Extract process name from context.
-        ApplicationView may select a process unknown to this node. """
-        node = self.supvisors.context.nodes[self.parameters[NODE]]
-        self._update_string(PROCESS, [x.namespec for x in node.running_processes()])
+        ApplicationView may select a process unknown to this Supvisors instance. """
+        status = self.supvisors.context.instances_map[self.parameters[IDENTIFIER]]
+        self._update_string(PROCESS, [x.namespec for x in status.running_processes()])
 
     def update_namespec(self):
         """ Extract namespec from context. """
@@ -146,9 +147,9 @@ class ViewContext:
 
     def update_interface_name(self):
         """ Extract interface name from context.
-        Only the HostAddressView displays interface data, so it's local. """
-        stats_node = self.get_node_stats()
-        interfaces = stats_node.io.keys() if stats_node else []
+        Only the HostInstanceView displays interface data, so it's local. """
+        stats_instance = self.get_instance_stats()
+        interfaces = stats_instance.io.keys() if stats_instance else []
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
@@ -175,11 +176,17 @@ class ViewContext:
         return '&'.join(['{}={}'.format(key, quote(str(value)))
                          for key, value in sorted(parameters.items()) if value])
 
-    def format_url(self, node_name, page, **kwargs):
+    def format_url(self, net_identifier, page, **kwargs):
         """ Format URL from parameters. """
-        local_node_name = not node_name or node_name == self.local_node_name
-        url = 'http://{}:{}/'.format(quote(node_name), self.get_server_port()) if node_name else ''
-        return '{}{}?{}'.format(url, page, self.url_parameters(not local_node_name, **kwargs))
+        netloc = ''
+        # build network location if identifier is provided
+        if net_identifier:
+            instance = self.supvisors.supvisors_mapper.instances[net_identifier]
+            netloc = f'http://{quote(instance.host_name)}:{instance.http_port}/'
+        # shex must be reset if the Supvisors instance changes
+        local_identifier = not net_identifier or net_identifier == self.local_identifier
+        # build URL from netloc, page and attributes
+        return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
 
     def fire_message(self) -> None:
         """ Set message in context response to be displayed at next refresh. """
@@ -191,29 +198,30 @@ class ViewContext:
             location = '{}{}?{}'.format(form[SERVER_URL], path_translated, self.url_parameters(False, **args))
             self.http_context.response[HEADERS][LOCATION] = location
 
-    def get_nbcores(self, node_name=None):
-        """ Get the number of processors of the local node. """
-        stats_node_name = node_name or self.local_node_name
-        return self.supvisors.statistician.nbcores.get(stats_node_name, 0)
+    def get_nbcores(self, identifier=None):
+        """ Get the number of processors of the host where the Supvisors instance is running. """
+        stats_identifier = identifier or self.local_identifier
+        return self.supvisors.statistician.nbcores.get(stats_identifier, 0)
 
-    def get_node_stats(self, node_name: str = None):
-        """ Get the statistics structure related to the node and the period selected.
-        If no node name is specified, local node name is used. """
-        stats_node_name = node_name or self.local_node_name
-        stats_node = self.supvisors.statistician.data.get(stats_node_name, {})
-        return stats_node.get(self.parameters.get(PERIOD))
+    def get_instance_stats(self, identifier: str = None):
+        """ Get the statistics structure related to the identifier and the period selected.
+        If no identifier is specified, local identifier is used. """
+        stats_identifier = identifier or self.local_identifier
+        stats_instance = self.supvisors.statistician.data.get(stats_identifier, {})
+        return stats_instance.get(self.parameters.get(PERIOD))
 
-    def get_process_stats(self, namespec: str, node_name: str = None):
+    def get_process_stats(self, namespec: str, identifier: str = None):
         """ Get the statistics structure related to the process and the period selected.
-        Get also the number of cores available on this node (useful for process CPU IRIX mode). """
-        # use local node name if not provided
-        if not node_name:
-            node_name = self.local_node_name
+        Get also the number of cores available where this Supvisors instance runs (useful for process CPU IRIX mode).
+        """
+        # use local identifier if not provided
+        if not identifier:
+            identifier = self.local_identifier
         # return the process statistics for this process
-        node_stats = self.get_node_stats(node_name)
-        nb_cores = self.get_nbcores(node_name)
-        if node_stats:
-            return nb_cores, node_stats.find_process_stats(namespec)
+        instance_stats = self.get_instance_stats(identifier)
+        nb_cores = self.get_nbcores(identifier)
+        if instance_stats:
+            return nb_cores, instance_stats.find_process_stats(namespec)
         return nb_cores, None
 
     def get_process_status(self, namespec: str = None) -> Optional[ProcessStatus]:
@@ -224,8 +232,7 @@ class ViewContext:
             try:
                 return self.supvisors.context.get_process(namespec)
             except KeyError:
-                self.logger.debug('ViewContext.get_process_status: failed to get ProcessStatus from {}'
-                                  .format(namespec))
+                self.logger.debug(f'ViewContext.get_process_status: failed to get ProcessStatus from {namespec}')
 
     def get_application_shex(self, application_name: str) -> Tuple[bool, str]:
         """ Get the expand / shrink value of the application and the shex string to invert it.

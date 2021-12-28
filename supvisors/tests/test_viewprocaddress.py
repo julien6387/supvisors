@@ -27,9 +27,9 @@ from unittest.mock import call, Mock
 
 from supvisors.ttypes import ApplicationStates
 from supvisors.viewhandler import ViewHandler
-from supvisors.viewprocaddress import *
-from supvisors.viewsupstatus import SupvisorsAddressView
-from supvisors.webutils import PROC_NODE_PAGE
+from supvisors.viewprocinstance import *
+from supvisors.viewsupstatus import SupvisorsInstanceView
+from supvisors.webutils import PROC_INSTANCE_PAGE
 
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 
@@ -40,23 +40,23 @@ def view(supvisors):
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    return ProcAddressView(DummyHttpContext('ui/procaddress.html'))
+    return ProcInstanceView(DummyHttpContext('ui/proc_instance.html'))
 
 
 def test_init(view):
-    """ Test the values set at construction of ProcAddressView. """
+    """ Test the values set at construction of ProcInstanceView. """
     # test instance inheritance
-    for klass in [SupvisorsAddressView, StatusView, ViewHandler, MeldView]:
+    for klass in [SupvisorsInstanceView, StatusView, ViewHandler, MeldView]:
         assert isinstance(view, klass)
     # test default page name
-    assert view.page_name == PROC_NODE_PAGE
+    assert view.page_name == PROC_INSTANCE_PAGE
 
 
 def test_write_contents(mocker, view):
-    """ Test the ProcAddressView.write_contents method. """
+    """ Test the ProcInstanceView.write_contents method. """
     mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
-    mocked_table = mocker.patch('supvisors.viewprocaddress.ProcAddressView.write_process_table')
-    mocked_data = mocker.patch('supvisors.viewprocaddress.ProcAddressView.get_process_data',
+    mocked_table = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.write_process_table')
+    mocked_data = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.get_process_data',
                                side_effect=(([{'namespec': 'dummy'}], []),
                                             ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                             ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
@@ -108,7 +108,7 @@ def test_write_contents(mocker, view):
 
 
 def test_get_process_data(mocker, view):
-    """ Test the ProcAddressView.get_process_data method. """
+    """ Test the ProcInstanceView.get_process_data method. """
     # patch context
     process_status_1 = Mock(rules=Mock(expected_load=8))
     process_status_2 = Mock(rules=Mock(expected_load=17))
@@ -117,7 +117,7 @@ def test_get_process_data(mocker, view):
     view.view_ctx = Mock(local_node_name='10.0.0.1',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
     # test RPC Error
-    mocked_process_info = mocker.patch.object(view.supvisors.info_source.supervisor_rpc_interface, 'getAllProcessInfo')
+    mocked_process_info = mocker.patch.object(view.supvisors.supervisor_data.supervisor_rpc_interface, 'getAllProcessInfo')
     mocked_process_info.side_effect = RPCError('failed RPC')
     assert view.get_process_data() == ([], [])
     # test normal behavior
@@ -128,17 +128,17 @@ def test_get_process_data(mocker, view):
     assert view.get_process_data() == ['process_2', 'process_1', 'process_3']
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
-             'single': False, 'node_name': '10.0.0.1',
+             'single': False, 'identifier': '10.0.0.1',
              'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING',
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
-             'single': False, 'node_name': '10.0.0.1',
+             'single': False, 'identifier': '10.0.0.1',
              'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF',
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
-             'single': True, 'node_name': '10.0.0.1',
+             'single': True, 'identifier': '10.0.0.1',
              'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED',
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
@@ -152,8 +152,8 @@ def test_get_process_data(mocker, view):
 
 
 def test_sort_data(mocker, view):
-    """ Test the ProcAddressView.sort_data method. """
-    mocker.patch('supvisors.viewprocaddress.ProcAddressView.get_application_summary',
+    """ Test the ProcInstanceView.sort_data method. """
+    mocker.patch('supvisors.viewprocaddress.ProcInstanceView.get_application_summary',
                  side_effect=[{'application_name': 'crash', 'process_name': None},
                               {'application_name': 'sample_test_1', 'process_name': None},
                               {'application_name': 'sample_test_2', 'process_name': None}] * 2)
@@ -200,7 +200,7 @@ def test_sort_data(mocker, view):
 
 
 def test_get_application_summary(view):
-    """ Test the ProcAddressView.get_application_summary method. """
+    """ Test the ProcInstanceView.get_application_summary method. """
     # patch the context
     view.view_ctx = Mock(local_node_name='10.0.0.1')
     view.sup_ctx.applications['dummy_appli'] = Mock(state=ApplicationStates.RUNNING,
@@ -212,7 +212,7 @@ def test_get_application_summary(view):
     proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8, 'proc_stats': None}
     # test with empty list of processes
     expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
-                'node_name': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2,
+                'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2,
                 'description': 'good', 'nb_processes': 0,
                 'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
     assert view.get_application_summary('dummy_appli', []) == expected
@@ -225,8 +225,8 @@ def test_get_application_summary(view):
 
 
 def test_write_process_table(mocker, view):
-    """ Test the ProcAddressView.write_process_table method. """
-    mocked_appli = mocker.patch('supvisors.viewprocaddress.ProcAddressView.write_application_status')
+    """ Test the ProcInstanceView.write_process_table method. """
+    mocked_appli = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.write_application_status')
     mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_status')
     # patch the meld elements
     table_mid = Mock()
@@ -285,7 +285,7 @@ def test_write_process_table(mocker, view):
 
 
 def test_write_application_status(mocker, view):
-    """ Test the ProcAddressView.write_application_status method. """
+    """ Test the ProcInstanceView.write_application_status method. """
     mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_status')
     # patch the context
     view.view_ctx = Mock(**{'get_application_shex.side_effect': [(False, '010'), (True, '101')],
@@ -312,7 +312,7 @@ def test_write_application_status(mocker, view):
     assert 'class' not in shex_td_mid.attrib
     assert shex_a_mid.content.call_args_list == [call('[+]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'procaddress.html', shex='010'),
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='010'),
                                                        call('', 'application.html', appliname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]
@@ -338,7 +338,7 @@ def test_write_application_status(mocker, view):
     assert shex_td_mid.attrib['class'] == 'brightened'
     assert shex_a_mid.content.call_args_list == [call('[\u2013]')]
     assert shex_a_mid.attributes.call_args_list == [call(href='an url')]
-    assert view.view_ctx.format_url.call_args_list == [call('', 'procaddress.html', shex='101'),
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='101'),
                                                        call('', 'application.html', appliname='dummy_appli')]
     assert name_a_mid.content.call_args_list == [call('dummy_appli')]
     assert name_a_mid.attributes.call_args_list == [call(href='an url')]

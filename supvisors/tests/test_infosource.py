@@ -21,20 +21,20 @@ import pytest
 
 from unittest.mock import call, patch, Mock
 
-from supvisors.infosource import *
+from supvisors.supervisordata import *
 
 
 @pytest.fixture
 def source(supervisor):
     """ Return the instance to test. """
-    return SupervisordSource(supervisor, supervisor.supvisors.logger)
+    return SupervisorData(supervisor, supervisor.supvisors.logger)
 
 
 def test_unix_server(mocker, supervisor):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
     mocker.patch.dict(supervisor.options.server_configs[0], {'section': 'unix_http_server'})
     with pytest.raises(ValueError):
-        SupervisordSource(supervisor, supervisor.supvisors.logger)
+        SupervisorData(supervisor, supervisor.supvisors.logger)
 
 
 def test_creation(supervisor, source):

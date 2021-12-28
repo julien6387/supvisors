@@ -40,8 +40,8 @@ def rules(supvisors):
 def test_rules_create(supvisors, rules):
     """ Test the values set at construction. """
     assert rules.supvisors is supvisors
-    assert rules.node_names == ['*']
-    assert rules.hash_node_names == []
+    assert rules.identifiers == ['*']
+    assert rules.hash_identifiers == []
     assert rules.start_sequence == 0
     assert rules.stop_sequence == -1
     assert not rules.required
@@ -52,13 +52,13 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "node_names=['*'] hash_node_names=[] start_sequence=0 stop_sequence=-1 required=False"\
+    assert str(rules) == "identifiers=['*'] hash_identifiers=[] start_sequence=0 stop_sequence=-1 required=False"\
         " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'nodes': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
+    assert rules.serial() == {'instances_map': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -119,8 +119,8 @@ def test_rules_check_autorestart(rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
     # test based on programs unknown to Supervisor
-    mocked_disable = rules.supvisors.info_source.disable_autorestart
-    mocked_autorestart = rules.supvisors.info_source.autorestart
+    mocked_disable = rules.supvisors.supervisor_data.disable_autorestart
+    mocked_autorestart = rules.supvisors.supervisor_data.autorestart
     mocked_autorestart.side_effect = KeyError
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
@@ -157,41 +157,41 @@ def test_rules_check_autorestart(rules):
 
 
 def test_rules_check_hash_nodes(rules):
-    """ Test the resolution of nodes when hash_node_names is set. """
+    """ Test the resolution of instances_map when hash_identifiers is set. """
     # set initial attributes
-    rules.hash_node_names = ['*']
-    rules.node_names = []
+    rules.hash_identifiers = ['*']
+    rules.identifiers = []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
     rules.check_hash_nodes('sample_test_1:xfontsel')
-    # node_names is unchanged
-    assert rules.hash_node_names == ['*']
-    assert rules.node_names == []
-    # 2. update rules to test '#' with all nodes available
+    # identifiers is unchanged
+    assert rules.hash_identifiers == ['*']
+    assert rules.identifiers == []
+    # 2. update rules to test '#' with all instances_map available
     # address '10.0.0.2' has an index of 2 in address_mapper
     rules.check_hash_nodes('sample_test_1:xclock')
-    assert rules.node_names == ['10.0.0.2']
-    # 3. update rules to test '#' with a subset of nodes available
-    rules.hash_node_names = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
-    rules.node_names = []
+    assert rules.identifiers == ['10.0.0.2']
+    # 3. update rules to test '#' with a subset of instances_map available
+    rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
+    rules.identifiers = []
     # here, at index 2 of this list, '10.0.0.5' can be found
     rules.check_hash_nodes('sample_test_1:xclock')
-    assert rules.node_names == ['10.0.0.5']
-    # 4. test the case where procnumber is greater than the subset list of nodes available
-    rules.hash_node_names = ['10.0.0.1']
-    rules.node_names = []
+    assert rules.identifiers == ['10.0.0.5']
+    # 4. test the case where procnumber is greater than the subset list of instances_map available
+    rules.hash_identifiers = ['10.0.0.1']
+    rules.identifiers = []
     rules.check_hash_nodes('sample_test_1:xclock')
-    assert rules.node_names == []
+    assert rules.identifiers == []
 
 
 def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
-    mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
+    mocked_hash = mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     mocked_auto = mocker.patch('supvisors.process.ProcessRules.check_autorestart')
     mocked_start = mocker.patch('supvisors.process.ProcessRules.check_start_sequence')
     mocked_stop = mocker.patch('supvisors.process.ProcessRules.check_stop_sequence')
     # test with no hash
-    rules.hash_node_names = []
+    rules.hash_identifiers = []
     # check dependencies
     rules.check_dependencies('dummy')
     # test calls
@@ -202,7 +202,7 @@ def test_rules_check_dependencies(mocker, rules):
     # reset mocks
     mocker.resetall()
     # test with hash
-    rules.hash_node_names = ['*']
+    rules.hash_identifiers = ['*']
     # check dependencies
     rules.check_dependencies('dummy')
     # test calls
@@ -228,36 +228,36 @@ def test_process_create(supvisors):
     assert process.expected_exit
     assert process.last_event_time == 0
     assert process.extra_args == ''
-    assert process.running_nodes == set()
+    assert process.running_identifiers == set()
     assert process.info_map == {}
     # rules part identical to construction
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
 def test_process_possible_nodes(supvisors):
-    """ Test the ProcessStatus.possible_nodes method. """
+    """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
     process.add_info('10.0.0.2', info)
     process.add_info('10.0.0.4', info)
-    # default node_names is '*' in process rules
-    assert process.possible_nodes() == ['10.0.0.2', '10.0.0.4']
-    # set a subset of node_names in process rules so that there's no intersection with received status
-    process.rules.node_names = ['10.0.0.1', '10.0.0.3']
-    assert process.possible_nodes() == []
+    # default identifiers is '*' in process rules
+    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
+    # set a subset of identifiers in process rules so that there's no intersection with received status
+    process.rules.instances_map = ['10.0.0.1', '10.0.0.3']
+    assert process.possible_identifiers() == []
     # increase received status
     process.add_info('10.0.0.3', info)
-    assert process.possible_nodes() == ['10.0.0.3']
+    assert process.possible_identifiers() == ['10.0.0.3']
     # reset rules
-    process.rules.node_names = ['*']
-    assert process.possible_nodes() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
-    # test with full status and all nodes in rules
-    for node_name in supvisors.node_mapper.node_names:
+    process.rules.instances_map = ['*']
+    assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
+    # test with full status and all instances_map in rules
+    for node_name in supvisors.supvisors_mapper.instances_map:
         process.add_info(node_name, info)
-    assert process.possible_nodes() == supvisors.node_mapper.node_names
-    # restrict again nodes in rules
-    process.rules.node_names = ['10.0.0.5']
-    assert process.possible_nodes() == ['10.0.0.5']
+    assert process.possible_identifiers() == supvisors.supvisors_mapper.instances_map
+    # restrict again instances_map in rules
+    process.rules.instances_map = ['10.0.0.5']
+    assert process.possible_identifiers() == ['10.0.0.5']
 
 
 def test_status_stopped_process(supvisors):
@@ -383,13 +383,13 @@ def test_process_conflicting(supvisors):
     process.add_info('10.0.0.1', info)
     assert not process.conflicting()
     # the addition of a running address, still no conflict
-    process.running_nodes.add('10.0.0.2')
+    process.running_identifiers.add('10.0.0.2')
     assert not process.conflicting()
     # the addition of a new running address raises a conflict
-    process.running_nodes.add('10.0.0.4')
+    process.running_identifiers.add('10.0.0.4')
     assert process.conflicting()
     # remove the first running address to solve the conflict
-    process.running_nodes.remove('10.0.0.2')
+    process.running_identifiers.remove('10.0.0.2')
     assert not process.conflicting()
 
 
@@ -404,7 +404,7 @@ def test_extra_args(supvisors):
     assert process._extra_args == 'new args'
     assert process.extra_args == 'new args'
     # test internal exception when process unknown to the local Supervisor
-    supvisors.info_source.update_extra_args.side_effect = KeyError
+    supvisors.supervisor_data.update_extra_args.side_effect = KeyError
     process.extra_args = 'another args'
     assert process._extra_args == 'another args'
     assert process.extra_args == 'another args'
@@ -419,7 +419,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'nodes': [], 'addresses': [],  # TODO: DEPRECATED
+                          'last_event_time': process.last_event_time, 'instances_map': [], 'addresses': [],  # TODO: DEPRECATED
                           'extra_args': ''}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
@@ -431,7 +431,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'nodes': [], 'addresses': [],  # TODO: DEPRECATED
+                          'last_event_time': process.last_event_time, 'instances_map': [], 'addresses': [],  # TODO: DEPRECATED
                           'extra_args': ''}
 
 
@@ -446,15 +446,15 @@ def test_get_last_description(supvisors):
     # test method return on non-running process
     assert process.get_last_description() == ('10.0.0.1', 'desc1 on 10.0.0.1')
     # test method return on running process
-    process.running_nodes.add('10.0.0.3')
+    process.running_identifiers.add('10.0.0.3')
     assert process.get_last_description() == ('10.0.0.3', 'desc3 on 10.0.0.3')
     # test method return on multiple running processes
-    process.running_nodes.add('10.0.0.2')
+    process.running_identifiers.add('10.0.0.2')
     assert process.get_last_description() == ('10.0.0.2', 'Not started')
     # test again with forced state
     process.force_state(ProcessStates.FATAL, 'global crash')
     assert process.get_last_description() == (None, 'global crash')
-    process.running_nodes = set()
+    process.running_identifiers = set()
     assert process.get_last_description() == (None, 'global crash')
 
 
@@ -476,7 +476,7 @@ def test_add_info(supvisors):
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
     assert info['uptime'] == info['now'] - info['start']
-    assert not process.running_nodes
+    assert not process.running_identifiers
     assert process.state == ProcessStates.STOPPING
     assert process.expected_exit
     # extra_args are reset when using add_info
@@ -500,7 +500,7 @@ def test_add_info(supvisors):
     assert len(process.info_map) == 1
     assert process.info_map['10.0.0.1'] is info
     assert info['uptime'] == 0
-    assert not process.running_nodes
+    assert not process.running_identifiers
     assert process.state == ProcessStates.EXITED
     assert process.expected_exit
     # check forced_state
@@ -518,7 +518,7 @@ def test_add_info(supvisors):
     assert len(process.info_map) == 2
     assert process.info_map['10.0.0.2'] is info
     assert info['uptime'] == info['now'] - info['start']
-    assert process.running_nodes == {'10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
 
@@ -537,7 +537,7 @@ def test_update_info(supvisors):
     assert process.info_map['10.0.0.1']['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
     assert process.extra_args == ''
-    assert not process.running_nodes
+    assert not process.running_identifiers
     # 2. update with a STARTING event on an unknown address
     process.update_info('10.0.0.2', {'state': ProcessStates.STARTING, 'now': 10})
     # test last event info stored
@@ -549,7 +549,7 @@ def test_update_info(supvisors):
     assert info['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
     assert process.extra_args == ''
-    assert not process.running_nodes
+    assert not process.running_identifiers
     # 3. update with a STARTING event
     process.update_info('10.0.0.1', {'state': ProcessStates.STARTING, 'now': 10, 'extra_args': '-x dummy'})
     # test last event info stored
@@ -561,7 +561,7 @@ def test_update_info(supvisors):
     assert info['state'] == ProcessStates.STARTING
     assert process.state == ProcessStates.STARTING
     assert process.extra_args == '-x dummy'
-    assert process.running_nodes == {'10.0.0.1'}
+    assert process.running_identifiers == {'10.0.0.1'}
     assert info['now'] == 10
     assert info['start'] == 10
     assert info['uptime'] == 0
@@ -575,7 +575,7 @@ def test_update_info(supvisors):
     # check changes
     assert info['state'] == ProcessStates.RUNNING
     assert process.state == ProcessStates.RUNNING
-    assert process.running_nodes == {'10.0.0.1'}
+    assert process.running_identifiers == {'10.0.0.1'}
     assert process.extra_args == '-z another'
     assert info['pid'] == 1234
     assert info['now'] == 15
@@ -607,7 +607,7 @@ def test_update_info(supvisors):
     # check state and addresses
     assert process.state == ProcessStates.RUNNING
     assert process.extra_args == ''
-    assert process.running_nodes == {'10.0.0.1', '10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.1', '10.0.0.2'}
     # 6. update with an EXITED event
     process.update_info('10.0.0.1', {'state': ProcessStates.EXITED, 'now': 30, 'expected': False, 'extra_args': ''})
     # test last event info stored
@@ -618,7 +618,7 @@ def test_update_info(supvisors):
     assert info['state'] == ProcessStates.EXITED
     assert process.state == ProcessStates.RUNNING
     assert process.extra_args == ''
-    assert process.running_nodes == {'10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.2'}
     assert info['pid'] == 1234
     assert info['now'] == 30
     assert info['start'] == 10
@@ -635,7 +635,7 @@ def test_update_info(supvisors):
     assert info['state'] == ProcessStates.STOPPING
     assert process.state == ProcessStates.STOPPING
     assert process.extra_args == ''
-    assert process.running_nodes == {'10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.2'}
     assert info['pid'] == 4321
     assert info['now'] == 35
     assert info['start'] == 20
@@ -651,7 +651,7 @@ def test_update_info(supvisors):
     assert info['state'] == ProcessStates.STOPPED
     assert process.state == ProcessStates.STOPPED
     assert process.extra_args == ''
-    assert not process.running_nodes
+    assert not process.running_identifiers
     assert info['pid'] == 4321
     assert info['now'] == 40
     assert info['start'] == 20
@@ -702,7 +702,7 @@ def test_update_uptime():
 
 
 def test_invalidate_nodes(supvisors):
-    """ Test the invalidation of nodes. """
+    """ Test the invalidation of instances_map. """
     # create conflict directly with 3 process info
     info = any_process_info_by_state(ProcessStates.BACKOFF)
     process = create_process(info, supvisors)
@@ -713,21 +713,21 @@ def test_invalidate_nodes(supvisors):
     assert process.conflicting()
     assert process.state == ProcessStates.RUNNING
     # invalidate RUNNING one
-    assert not process.invalidate_node('10.0.0.2')
+    assert not process.invalidate_identifier('10.0.0.2')
     # check state became FATAL on invalidated address
     assert process.info_map['10.0.0.2']['state'] == ProcessStates.FATAL
     # check the conflict
     assert process.conflicting()
     assert process.state == ProcessStates.BACKOFF
     # invalidate BACKOFF one
-    assert not process.invalidate_node('10.0.0.1')
+    assert not process.invalidate_identifier('10.0.0.1')
     # check state became FATAL on invalidated address
     assert process.info_map['10.0.0.1']['state'] == ProcessStates.FATAL
     # check 1 address: no conflict
     assert not process.conflicting()
     assert process.state == ProcessStates.STARTING
     # invalidate STARTING one
-    process.invalidate_node('10.0.0.3')
+    process.invalidate_identifier('10.0.0.3')
     # check state became FATAL on invalidated address
     assert process.info_map['10.0.0.3']['state'] == ProcessStates.FATAL
     # check 0 address: no conflict
@@ -737,7 +737,7 @@ def test_invalidate_nodes(supvisors):
 
 
 def test_remove_node(supvisors):
-    """ Test the removal of nodes. """
+    """ Test the removal of instances_map. """
     # create conflict directly with 2 process info
     info = any_process_info()
     process = create_process(info, supvisors)
@@ -745,9 +745,9 @@ def test_remove_node(supvisors):
     process.add_info('10.0.0.2', any_process_info())
     # check process info_map
     assert sorted(process.info_map.keys()) == ['10.0.0.1', '10.0.0.2']
-    assert not process.remove_node('10.0.0.2')
+    assert not process.remove_identifier('10.0.0.2')
     assert sorted(process.info_map.keys()) == ['10.0.0.1']
-    assert process.remove_node('10.0.0.1')
+    assert process.remove_identifier('10.0.0.1')
     assert sorted(process.info_map.keys()) == []
 
 
@@ -757,50 +757,50 @@ def test_update_status(supvisors):
     info = any_process_info_by_state(ProcessStates.FATAL)
     process = create_process(info, supvisors)
     process.add_info('10.0.0.3', info)
-    assert process.running_nodes == set()
+    assert process.running_identifiers == set()
     assert process.state == ProcessStates.FATAL
     assert not process.expected_exit
     # add a STOPPED process info
     process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.STOPPED)
     process.update_status('10.0.0.1', ProcessStates.STOPPED)
-    assert process.running_nodes == set()
+    assert process.running_identifiers == set()
     assert process.state == ProcessStates.STOPPED
     assert process.expected_exit
     # replace with an EXITED process info
     process.info_map['10.0.0.1'] = any_process_info_by_state(ProcessStates.EXITED)
     process.update_status('10.0.0.1', ProcessStates.EXITED)
-    assert process.running_nodes == set()
+    assert process.running_identifiers == set()
     assert process.state == ProcessStates.EXITED
     assert process.expected_exit
     # add a STARTING process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STARTING)
     process.update_status('10.0.0.2', ProcessStates.STARTING)
-    assert process.running_nodes == {'10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.STARTING
     assert process.expected_exit
     # add a BACKOFF process info
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.BACKOFF)
     process.update_status('10.0.0.3', ProcessStates.STARTING)
-    assert process.running_nodes == {'10.0.0.3', '10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.BACKOFF
     assert process.expected_exit
     # replace STARTING process info with RUNNING
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.RUNNING)
     process.update_status('10.0.0.2', ProcessStates.RUNNING)
-    assert process.running_nodes == {'10.0.0.3', '10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.3', '10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace BACKOFF process info with FATAL
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.FATAL)
     process.update_status('10.0.0.3', ProcessStates.FATAL)
-    assert process.running_nodes == {'10.0.0.2'}
+    assert process.running_identifiers == {'10.0.0.2'}
     assert process.state == ProcessStates.RUNNING
     assert process.expected_exit
     # replace RUNNING process info with STOPPED
     # in ProcessInfoDatabase, EXITED processes have a stop date later than STOPPED processes
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.STOPPED)
     process.update_status('10.0.0.2', ProcessStates.STOPPED)
-    assert not process.running_nodes
+    assert not process.running_identifiers
     assert process.state == ProcessStates.EXITED
     assert process.expected_exit
 
@@ -817,11 +817,11 @@ def test_process_evaluate_conflict(supvisors):
     assert process.state == ProcessStates.UNKNOWN
     # the addition of one RUNNING process info does not raise any conflict
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.RUNNING)
-    process.running_nodes = {'10.0.0.2'}
+    process.running_identifiers = {'10.0.0.2'}
     process._evaluate_conflict()
     # the addition of one STARTING process raises a conflict
     process.info_map['10.0.0.3'] = any_process_info_by_state(ProcessStates.STARTING)
-    process.running_nodes.add('10.0.0.3')
+    process.running_identifiers.add('10.0.0.3')
     process._evaluate_conflict()
     assert process.state == ProcessStates.RUNNING
     # replace the RUNNING process info with a BACKOFF process info
@@ -834,7 +834,7 @@ def test_process_evaluate_conflict(supvisors):
     assert process.state == ProcessStates.STARTING
     # replace the STARTING process info with an EXITED process info
     process.info_map['10.0.0.2'] = any_process_info_by_state(ProcessStates.EXITED)
-    process.running_nodes.remove('10.0.0.2')
+    process.running_identifiers.remove('10.0.0.2')
     process._evaluate_conflict()
     assert process.state == ProcessStates.STARTING
 

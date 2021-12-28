@@ -33,8 +33,8 @@ class InternalEventHeaders(Enum):
 class DeferredRequestHeaders(Enum):
     """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop.
     Range is shifted as InternalEventHeaders are used within the same context. """
-    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, \
-        RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL = range(10, 19)
+    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(10, 19)
 
 
 class RemoteCommEvents:
@@ -47,7 +47,7 @@ class RemoteCommEvents:
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
     SUPVISORS = u'supvisors'
-    NODE = u'node'
+    INSTANCE = u'instance'
     APPLICATION = u'application'
     PROCESS_EVENT = u'event'
     PROCESS_STATUS = u'process'
@@ -79,7 +79,7 @@ def extract_process_info(info):
     return payload
 
 
-# parse
+# parse the Server URL of Supervisor
 class SupervisorServerUrl:
     """ Store and update the environment for RPC interfaces. """
 

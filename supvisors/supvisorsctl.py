@@ -75,19 +75,19 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('sstate\t\t\t\t\tGet the Supvisors state.')
 
     def do_master(self, _):
-        """ Command to get the Supvisors master node. """
+        """ Command to get the Master Supvisors instance. """
         if self._upcheck():
             try:
-                node_name = self.supvisors().get_master_node()
+                identifier = self.supvisors().get_master_identifier()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                self.ctl.output(node_name)
+                self.ctl.output(identifier)
 
     def help_master(self):
         """ Print the help of the master command. """
-        self.ctl.output('master\t\t\t\t\tGet the Supvisors master node.')
+        self.ctl.output('master\t\t\t\t\tGet the Master Supvisors instance.')
 
     def do_strategies(self, _):
         """ Command to get the Supvisors strategies. """
@@ -106,55 +106,52 @@ class ControllerPlugin(ControllerPluginBase):
         """ Print the help of the strategies command."""
         self.ctl.output('strategies\t\t\t\t\tGet the Supvisors strategies.')
 
-    def do_node_status(self, arg):
-        """ Command to get the status of nodes known to Supvisors. """
+    def do_instance_status(self, arg):
+        """ Command to get the status of instances known to Supvisors. """
         if self._upcheck():
             try:
                 # get everything at once instead of doing multiple requests
-                info_list = self.supvisors().get_all_nodes_info()
+                info_list = self.supvisors().get_all_instances_info()
             except xmlrpclib.Fault as e:
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                # create template. node name has variable length
-                max_nodes = ControllerPlugin.max_template(info_list, 'node_name', 'Node')
-                template = f'%(node)-{max_nodes}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
+                # create template. identifier has variable length
+                max_identifiers = ControllerPlugin.max_template(info_list, 'identifier', 'Supervisor')
+                template = f'%(identifier)-{max_identifiers}s%(state)-11s%(load)-6s%(ltime)-10s%(counter)-9s'
                 # print title
-                payload = {'node': 'Node', 'state': 'State', 'load': 'Load',
+                payload = {'identifier': 'Supervisor', 'state': 'State', 'load': 'Load',
                            'ltime': 'Time', 'counter': 'Counter'}
                 self._output_info(template, payload)
                 # check request args
-                node_requests = arg.split()
-                output_all = not node_requests or 'all' in node_requests
+                identifiers = arg.split()
+                output_all = not identifiers or 'all' in identifiers
                 # print filtered payloads
                 for info in info_list:
-                    if output_all or info['node_name'] in node_requests:
-                        payload = {'node': info['node_name'], 'state': info['statename'],
+                    if output_all or info['identifier'] in identifiers:
+                        payload = {'identifier': info['identifier'], 'state': info['statename'],
                                    'load': '{}%'.format(info['loading']),
                                    'counter': info['sequence_counter'],
                                    'ltime': simple_localtime(info['local_time'])}
                         self._output_info(template, payload)
 
-    def help_node_status(self):
-        """ Print the help of the node_status command."""
-        self.ctl.output('node_status <node>\t\t\t'
-                        'Get the status of remote supervisord managed in Supvisors and running on node.')
-        self.ctl.output('node_status <node> <node>\t\t'
-                        'Get the status for multiple nodes')
-        self.ctl.output('node_status\t\t\t\t'
-                        'Get the status of all remote supervisord managed in Supvisors.')
+    def help_instance_status(self):
+        """ Print the help of the instance_status command."""
+        self.ctl.output('instance_status <identifier>\t\t\tGet the status of the Supvisors instance.')
+        self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
+        self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
 
     def do_address_status(self, arg):
-        """ *DEPRECATED* Command to get the status of nodes known to Supvisors. """
+        """ *DEPRECATED* Command to get the status of instances known to Supvisors. """
         # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use node_status')
-        self.do_node_status(arg)
+        self.ctl.output('*** DEPRECATED *** use instance_status')
+        self.do_instance_status(arg)
 
     def help_address_status(self):
         """ *DEPRECATED* Print the help of the address_status command."""
         # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use node_status')
-        self.help_node_status()
+        self.ctl.output('*** DEPRECATED *** use instance_status')
+        self.help_instance_status()
 
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
@@ -180,7 +177,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(f'ERROR ({e.faultString})')
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
-                # create template. node name has variable length
+                # create template. identifier has variable length
                 max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
                 template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
                 # print title
@@ -229,27 +226,28 @@ class ControllerPlugin(ControllerPluginBase):
             # print results
             if rules_list:
                 max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
-                max_nodes = ControllerPlugin.max_template(rules_list, 'nodes', 'Nodes')
+                max_identifiers = ControllerPlugin.max_template(rules_list, 'identifiers', 'Supervisor')
                 # print title
-                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distributed)-13s%(nodes)-{max_nodes}s'
+                template = (f'%(appli)-{max_appli}s%(managed)-9s%(distributed)-13s%(identifiers)-{max_identifiers}s'
                             '%(start_seq)-7s%(stop_seq)-7s%(starting_strategy)-13s%(starting_failure_strategy)-18s'
                             '%(running_failure_strategy)s')
                 title = {'appli': 'Application', 'managed': 'Managed', 'distributed': 'Distributed',
-                         'nodes': 'Nodes', 'start_seq': 'Start', 'stop_seq': 'Stop', 'starting_strategy': 'Starting',
-                         'starting_failure_strategy': 'Starting_Failure', 'running_failure_strategy': 'Running_Failure'}
+                         'identifiers': 'Supervisor', 'start_seq': 'Start', 'stop_seq': 'Stop',
+                         'starting_strategy': 'Starting', 'starting_failure_strategy': 'Starting_Failure',
+                         'running_failure_strategy': 'Running_Failure'}
                 self.ctl.output(template % title)
                 # print rules
                 for rules in rules_list:
                     if rules['managed']:
                         payload = {'appli': rules['application_name'], 'managed': True,
-                                   'distributed': rules['distributed'], 'nodes': rules.get('nodes', 'n/a'),
+                                   'distributed': rules['distributed'], 'identifiers': rules.get('identifiers', 'n/a'),
                                    'start_seq': rules['start_sequence'], 'stop_seq': rules['stop_sequence'],
                                    'starting_strategy': rules['starting_strategy'],
                                    'starting_failure_strategy': rules['starting_failure_strategy'],
                                    'running_failure_strategy': rules['running_failure_strategy']}
                     else:
                         payload = {'appli': rules['application_name'], 'managed': False,
-                                   'distributed': 'n/a', 'nodes': 'n/a',
+                                   'distributed': 'n/a', 'identifiers': 'n/a',
                                    'start_seq': 'n/a', 'stop_seq': 'n/a',
                                    'starting_strategy': 'n/a',
                                    'starting_failure_strategy': 'n/a',
@@ -286,14 +284,12 @@ class ControllerPlugin(ControllerPluginBase):
                         info_list.extend(info)
             # print results
             if info_list:
-                max_appli = max(len(info['application_name']) for info in info_list) + 4
-                max_appli = max(max_appli, len('Application')) + 2
-                max_proc = max(len(info['process_name']) for info in info_list) + 4
-                max_proc = max(max_proc, len('Process')) + 2
+                max_appli = ControllerPlugin.max_template(info_list, 'application_name', 'Application')
+                max_proc = ControllerPlugin.max_template(info_list, 'process_name', 'Process')
                 # print title
-                template = f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(expected)-10s%(nodes)s'
+                template = f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(expected)-10s%(identifiers)s'
                 title = {'appli': 'Application', 'proc': 'Process', 'state': 'State',
-                         'expected': 'Expected', 'nodes': 'Nodes'}
+                         'expected': 'Expected', 'identifiers': 'Supervisor'}
                 self.ctl.output(template % title)
                 # print process status
                 for info in info_list:
@@ -302,7 +298,7 @@ class ControllerPlugin(ControllerPluginBase):
                                        'proc': info['process_name'],
                                        'state': info['statename'],
                                        'expected': expected,
-                                       'nodes': info['nodes']}
+                                       'identifiers': info['identifiers']}
                     self.ctl.output(line)
 
     def help_sstatus(self):
@@ -392,17 +388,17 @@ class ControllerPlugin(ControllerPluginBase):
                 max_appli = ControllerPlugin.max_template(rules_list, 'application_name', 'Application')
                 max_proc = ControllerPlugin.max_template(rules_list, 'process_name', 'Process')
                 template = (f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(start_seq)-7s%(stop_seq)-7s'
-                            '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(node)s')
+                            '%(req)-12s%(exit)-12s%(load)-12s%(strategy)-22s%(identifiers)s')
                 # print title
                 payload = {'appli': 'Application', 'proc': 'Process', 'start_seq': 'Start', 'stop_seq': 'Stop',
                            'req': 'Required', 'exit': 'WaitExit', 'load': 'Loading', 'strategy': 'Strategy',
-                           'node': 'Nodes'}
+                           'identifiers': 'Supervisor'}
                 self._output_info(template, payload)
                 # print filtered payloads
                 for rules in rules_list:
                     line = template % {'appli': rules['application_name'],
                                        'proc': rules['process_name'],
-                                       'node': rules['nodes'],
+                                       'identifiers': rules['identifiers'],
                                        'start_seq': rules['start_sequence'],
                                        'stop_seq': rules['stop_sequence'],
                                        'req': rules['required'],
@@ -428,14 +424,15 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 if conflicts:
+                    # TODO: titles
                     max_appli = max(len(conflict['application_name']) for conflict in conflicts) + 4
                     max_proc = max(len(conflict['process_name']) for conflict in conflicts) + 4
-                    template = '%(appli)-{}s%(proc)-{}s%(state)-12s%(nodes)s'.format(max_appli, max_proc)
+                    template = f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(identifiers)s'
                     for conflict in conflicts:
                         line = template % {'appli': conflict['application_name'],
                                            'proc': conflict['process_name'],
                                            'state': conflict['statename'],
-                                           'nodes': conflict['nodes']}
+                                           'identifiers': conflict['identifiers']}
                         self.ctl.output(line)
 
     def help_conflicts(self):
@@ -827,7 +824,7 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('restart_sequence\t\t\t\t\tTrigger the whole start sequence')
 
     def do_sreload(self, _):
-        """ Command to restart Supvisors on all nodes. """
+        """ Command to restart Supvisors on all instances. """
         if self._upcheck():
             try:
                 result = self.supvisors().restart()
@@ -839,10 +836,10 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sreload(self):
         """ Print the help of the sreload command."""
-        self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all nodes')
+        self.ctl.output('sreload\t\t\t\t\tRestart Supvisors on all instances')
 
     def do_sshutdown(self, _):
-        """ Command to shutdown Supvisors on all nodes. """
+        """ Command to shutdown Supvisors on all instances. """
         if self._upcheck():
             try:
                 result = self.supvisors().shutdown()
@@ -854,7 +851,7 @@ class ControllerPlugin(ControllerPluginBase):
 
     def help_sshutdown(self):
         """ Print the help of the sshutdown command."""
-        self.ctl.output('sshutdown\t\t\t\tShutdown Supvisors on all nodes')
+        self.ctl.output('sshutdown\t\t\t\tShutdown Supvisors on all instances')
 
     def do_loglevel(self, arg):
         """ Command to change the level of the local Supvisors. """

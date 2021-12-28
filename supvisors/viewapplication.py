@@ -135,7 +135,7 @@ class ApplicationView(ViewHandler):
             self.write_process_statistics(root, info)
 
     def get_process_last_desc(self, namespec: str) -> Tuple[Optional[str], str]:
-        """ Get the latest description received from the process across all nodes.
+        """ Get the latest description received from the process across all instances.
         A priority is given to the info coming from a node where the process is running. """
         status = self.view_ctx.get_process_status(namespec)
         return status.get_last_description()
@@ -149,10 +149,10 @@ class ApplicationView(ViewHandler):
             unexpected_exit = process.state == ProcessStates.EXITED and not process.expected_exit
             nb_cores, proc_stats = self.view_ctx.get_process_stats(namespec, node_name)
             data.append({'application_name': process.application_name, 'process_name': process.process_name,
-                         'namespec': namespec, 'node_name': node_name,
+                         'namespec': namespec, 'identifier': node_name,
                          'statename': process.state_string(), 'statecode': process.state,
                          'gravity': 'FATAL' if unexpected_exit else process.state_string(),
-                         'running_nodes': list(process.running_nodes),
+                         'running_identifiers': list(process.running_identifiers),
                          'description': description,
                          'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})
         # re-arrange data using alphabetical order
@@ -168,7 +168,7 @@ class ApplicationView(ViewHandler):
             for tr_elt, info in iterator:
                 # write common status (shared between this application view and node view)
                 self.write_common_process_status(tr_elt, info)
-                # print process name and running nodes
+                # print process name and running instances
                 self.write_process(tr_elt, info)
                 # set line background and invert
                 apply_shade(tr_elt, shaded_tr)
@@ -178,16 +178,16 @@ class ApplicationView(ViewHandler):
             table.replace('No programs to manage')
 
     def write_process(self, tr_elt, info):
-        """ Rendering of the cell corresponding to the process running nodes. """
-        running_nodes = info['running_nodes']
+        """ Rendering of the cell corresponding to the process running instances. """
+        running_nodes = info['running_identifiers']
         if running_nodes:
             running_li_mid = tr_elt.findmeld('running_li_mid')
             for li_elt, node_name in running_li_mid.repeat(running_nodes):
                 elt = li_elt.findmeld('running_a_mid')
                 elt.content(node_name)
-                url = self.view_ctx.format_url(node_name, PROC_NODE_PAGE)
+                url = self.view_ctx.format_url(node_name, PROC_INSTANCE_PAGE)
                 elt.attributes(href=url)
-                if node_name == info['node_name']:
+                if node_name == info['identifier']:
                     update_attrib(elt, 'class', 'active')
         else:
             elt = tr_elt.findmeld('running_ul_mid')
@@ -220,7 +220,7 @@ class ApplicationView(ViewHandler):
     # Common processing for starting and stopping actions
     def start_action(self, strategy: StartingStrategies, rpc_name: str, arg_name: str, arg_type: str) -> Callable:
         """ Start/Restart an application or a process iaw the strategy. """
-        rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
+        rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
         wait = not self.view_ctx.parameters[AUTO]
         try:
             cb = getattr(rpc_intf, rpc_name)(strategy.value, arg_name, wait=wait)
@@ -248,7 +248,7 @@ class ApplicationView(ViewHandler):
 
     def stop_action(self, rpc_name: str, arg_name: str, arg_type) -> Callable:
         """ Stop an application or a process. """
-        rpc_intf = self.supvisors.info_source.supvisors_rpc_interface
+        rpc_intf = self.supvisors.supervisor_data.supvisors_rpc_interface
         wait = not self.view_ctx.parameters[AUTO]
         try:
             cb = getattr(rpc_intf, rpc_name)(arg_name, wait=wait)
@@ -330,7 +330,7 @@ class ApplicationView(ViewHandler):
         :return: None
         """
         try:
-            rpc_intf = self.supvisors.info_source.supervisor_rpc_interface
+            rpc_intf = self.supvisors.supervisor_data.supervisor_rpc_interface
             rpc_intf.clearProcessLogs(namespec)
         except RPCError as e:
             return delayed_error(f'unexpected rpc fault [{e.code}] {e.text}')

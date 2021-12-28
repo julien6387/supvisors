@@ -39,7 +39,7 @@ try:
     README = open(os.path.join(here, 'README.md')).read()
     CHANGES = open(os.path.join(here, 'CHANGES.md')).read()
 except:
-    README = """Supvisors is a control system for distributed applications over multiple Supervisor instances. """
+    README = """Supvisors is a control system for distributed applications over multiple Supervisor instances_map. """
     CHANGES = ''
 
 CLASSIFIERS = [

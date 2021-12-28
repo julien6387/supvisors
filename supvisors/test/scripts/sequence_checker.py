@@ -34,12 +34,12 @@ from .event_queues import SupvisorsEventQueues
 
 
 class ProcessStateEvent(object):
-    """ Definition of an expected event coming from a defined node. """
+    """ Definition of an expected event coming from a defined Supvisors instance. """
 
-    def __init__(self, statecode, node_names=[]):
+    def __init__(self, statecode, identifiers=[]):
         """ Initialization of the attributes. """
         self.statecode = statecode
-        self.node_names = list(node_names) if not type(node_names) is str else [node_names]
+        self.identifiers = list(identifiers) if not type(identifiers) is str else [identifiers]
 
     @property
     def statename(self):
@@ -63,7 +63,7 @@ class Program(object):
         """ Initialization of the attributes. """
         self.program_name = program_name
         self.state = ProcessStates.UNKNOWN
-        self.node_names = set()
+        self.identifiers = set()
         self.expected_exit = True
         self.required = required
         self.wait_exit = wait_exit
@@ -194,36 +194,36 @@ class SequenceChecker(SupvisorsEventQueues):
 
     def __init__(self, zcontext, logger):
         """ Initialization of the attributes.
-        Test relies on 3 nodes so theoretically, only 3 notifications are needed to know the running nodes.
+        Test relies on 3 instances so theoretically, only 3 notifications are needed to know the running instances.
         The asynchronism forces to work on 5 notifications.
         The startsecs of the ini file of this program is then set to 30 seconds.
         """
         SupvisorsEventQueues.__init__(self, zcontext, logger)
-        # create a set of nodes
-        self.nodes = set()
+        # create a set of instances
+        self.identifiers = set()
         # create queues to store messages
-        self.nb_node_notifications = 0
+        self.nb_identifiers_notifications = 0
 
     def configure(self):
-        """ Subscribe to node status only. """
-        self.subscriber.subscribe_node_status()
+        """ Subscribe to Supvisors instances status only. """
+        self.subscriber.subscribe_instance_status()
 
-    def on_node_status(self, data):
-        """ Pushes the Node Status message into a queue. """
-        self.logger.info('got Node Status message: {}'.format(data))
+    def on_instance_status(self, data):
+        """ Pushes the Supvisors Instance Status message into a queue. """
+        self.logger.info(f'got Supvisors Instance Status message: {data}')
         if data['statename'] == 'RUNNING':
-            self.nodes.add(data['node_name'])
+            self.identifiers.add(data['identifier'])
         # check the number of notifications
-        self.nb_node_notifications += 1
-        if self.nb_node_notifications == 5:
-            self.logger.info('nodes: {}'.format(self.nodes))
-            # got all notification, unsubscribe from NodeStatus
-            self.subscriber.unsubscribe_node_status()
+        self.nb_identifiers_notifications += 1
+        if self.nb_identifiers_notifications == 5:
+            self.logger.info(f'instances: {self.identifiers}')
+            # got all notification, unsubscribe from SupvisorsInstanceStatus
+            self.subscriber.unsubscribe_instance_status()
             # subscribe to application and process status
             self.subscriber.subscribe_application_status()
             self.subscriber.subscribe_process_status()
             # notify CheckSequence with an event in start_queue
-            self.node_queue.put(self.nodes)
+            self.instance_queue.put(self.identifiers)
 
 
 class CheckSequenceTest(unittest.TestCase):
@@ -231,13 +231,13 @@ class CheckSequenceTest(unittest.TestCase):
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # get the nodes
+        # get the instances_map
         proxy = getRPCInterface(os.environ).supvisors
-        nodes_info = proxy.get_all_nodes_info()
-        self.HOST_01 = nodes_info[0]['node_name']
-        self.HOST_02 = nodes_info[1]['node_name'] if len(nodes_info) > 1 else None
-        self.HOST_03 = nodes_info[2]['node_name'] if len(nodes_info) > 2 else None
-        self.HOST_04 = nodes_info[3]['node_name'] if len(nodes_info) > 3 else None
+        instances_info = proxy.get_all_instances_info()
+        self.HOST_01 = instances_info[0]['identifier']
+        self.HOST_02 = instances_info[1]['identifier'] if len(instances_info) > 1 else None
+        self.HOST_03 = instances_info[2]['identifier'] if len(instances_info) > 2 else None
+        self.HOST_04 = instances_info[3]['identifier'] if len(instances_info) > 3 else None
         # create a context
         self.context = Context()
         # create the thread of event subscriber
@@ -254,13 +254,13 @@ class CheckSequenceTest(unittest.TestCase):
         self.logger.close()
         self.zcontext.term()
 
-    def get_nodes(self):
-        """ Wait for node_queue to put the list of active nodes. """
+    def get_instances(self):
+        """ Wait for instance_queue to put the list of active instances. """
         try:
-            self.nodes = self.evloop.node_queue.get(True, 30)
-            self.assertGreater(len(self.nodes), 0)
+            self.identifiers = self.evloop.instance_queue.get(True, 30)
+            self.assertGreater(len(self.identifiers), 0)
         except Empty:
-            self.fail('failed to get the nodes event in the last 20 seconds')
+            self.fail('failed to get the instances event in the last 20 seconds')
 
     def check_events(self, application_name=None):
         """ Receive and check events for processes and applications. """
@@ -294,18 +294,17 @@ class CheckSequenceTest(unittest.TestCase):
         state_event = program.pop_event()
         self.assertIsNotNone(state_event)
         # check the process' state
-        print('{} {} {}'.format(process_name, event, str(state_event)))
         if type(state_event.statecode) == list:
             assert event['statename'] in state_event.statename
             assert event['statecode'] in state_event.statecode
         else:
             self.assertEqual(state_event.statename, event['statename'])
             self.assertEqual(state_event.statecode, event['statecode'])
-        # check the running nodes
+        # check the running instances
         if state_event.statecode in [ProcessStates.STOPPING] + list(RUNNING_STATES):
-            if state_event.node_names:
-                self.assertEqual(sorted(state_event.node_names), sorted(event['nodes']))
-            program.node_names.update(state_event.node_names)
+            if state_event.identifiers:
+                self.assertEqual(sorted(state_event.identifiers), sorted(event['identifiers']))
+            program.identifiers.update(state_event.identifiers)
         # update program state
         program.state = state_event.statecode
         program.expected_exit = event['expected_exit']

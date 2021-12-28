@@ -24,9 +24,14 @@ from supervisor.events import Event
 
 
 # all enumerations
-class NodeStates(Enum):
-    """ Enumeration class for the state of remote Supvisors instance """
+class SupvisorsInstanceStates(Enum):
+    """ Enumeration class for the state of remote Supvisors instance. """
     UNKNOWN, CHECKING, RUNNING, SILENT, ISOLATING, ISOLATED = range(6)
+
+
+class SupvisorsStates(Enum):
+    """ Synthesis state of Supvisors. """
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 class ApplicationStates(Enum):
@@ -53,11 +58,6 @@ class StartingFailureStrategies(Enum):
 class RunningFailureStrategies(Enum):
     """ Applicable strategies that can be applied on a failure of a running application. """
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
-
-
-class SupvisorsStates(Enum):
-    """ Internal state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
 
 
 def enum_values(enum_klass) -> List[int]:

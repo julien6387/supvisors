@@ -40,8 +40,8 @@ def test_rules_create(rules):
     # check application default rules
     assert not rules.managed
     assert rules.distributed
-    assert rules.node_names == ['*']
-    assert rules.hash_node_names == []
+    assert rules.instances_map == ['*']
+    assert rules.hash_identifiers == []
     assert rules.start_sequence == 0
     assert rules.stop_sequence == -1
     assert rules.starting_strategy == StartingStrategies.CONFIG
@@ -66,57 +66,57 @@ def test_rules_check_stop_sequence(rules):
 
 
 def test_rules_check_hash_nodes(rules):
-    """ Test the resolution of nodes when hash_node_names is set. """
+    """ Test the resolution of instances_map when hash_identifiers is set. """
     # set initial attributes
-    rules.hash_node_names = ['*']
-    rules.node_names = []
+    rules.hash_identifiers = ['*']
+    rules.instances_map = []
     rules.start_sequence = 1
     # 1. test with application without ending index
-    rules.check_hash_nodes('crash')
-    # node_names is unchanged and start_sequence is invalidated
-    assert rules.hash_node_names == ['*']
-    assert rules.node_names == []
+    rules.check_hash_identifiers('crash')
+    # identifiers is unchanged and start_sequence is invalidated
+    assert rules.hash_identifiers == ['*']
+    assert rules.instances_map == []
     assert rules.start_sequence == 0
     # 2. test with application with 0-ending index
     rules.start_sequence = 1
-    rules.check_hash_nodes('sample_test_0')
-    # node_names is unchanged and start_sequence is invalidated
-    assert rules.hash_node_names == ['*']
-    assert rules.node_names == []
+    rules.check_hash_identifiers('sample_test_0')
+    # identifiers is unchanged and start_sequence is invalidated
+    assert rules.hash_identifiers == ['*']
+    assert rules.instances_map == []
     assert rules.start_sequence == 0
-    # 3. update rules to test '#' with all nodes available
+    # 3. update rules to test '#' with all instances_map available
     # address '127.0.0.1' has an index of 1-1 in address_mapper
     rules.start_sequence = 1
-    rules.check_hash_nodes('sample_test_1')
-    assert rules.node_names == ['127.0.0.1']
+    rules.check_hash_identifiers('sample_test_1')
+    assert rules.instances_map == ['127.0.0.1']
     assert rules.start_sequence == 1
-    # 4. update rules to test '#' with a subset of nodes available
-    rules.hash_node_names = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
-    rules.node_names = []
+    # 4. update rules to test '#' with a subset of instances_map available
+    rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
+    rules.instances_map = []
     # here, at index 2-1 of this list, '10.0.0.5' can be found
-    rules.check_hash_nodes('sample_test_2')
-    assert rules.node_names == ['10.0.0.3']
+    rules.check_hash_identifiers('sample_test_2')
+    assert rules.instances_map == ['10.0.0.3']
     assert rules.start_sequence == 1
-    # 5. test the case where procnumber is greater than the subset list of nodes available
-    rules.hash_node_names = ['10.0.0.1']
-    rules.node_names = []
-    rules.check_hash_nodes('sample_test_2')
-    assert rules.node_names == []
+    # 5. test the case where procnumber is greater than the subset list of instances_map available
+    rules.hash_identifiers = ['10.0.0.1']
+    rules.instances_map = []
+    rules.check_hash_identifiers('sample_test_2')
+    assert rules.instances_map == []
     assert rules.start_sequence == 0
 
 
 def test_rules_check_dependencies(mocker, rules):
     """ Test the dependencies in process rules. """
     mocked_stop = mocker.patch('supvisors.application.ApplicationRules.check_stop_sequence')
-    mocked_hash = mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
+    mocked_hash = mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
     # test with no hash
-    rules.hash_node_names = []
+    rules.hash_identifiers = []
     rules.check_dependencies('dummy')
     assert mocked_stop.call_args_list == [call('dummy')]
     assert not mocked_hash.called
     mocker.resetall()
     # test with hash
-    rules.hash_node_names = ['*']
+    rules.hash_identifiers = ['*']
     rules.check_dependencies('dummy')
     assert mocked_stop.call_args_list == [call('dummy')]
     assert mocked_hash.call_args_list == [call('dummy')]
@@ -124,7 +124,7 @@ def test_rules_check_dependencies(mocker, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "managed=False distributed=True node_names=['*'] start_sequence=0 stop_sequence=-1"\
+    assert str(rules) == "managed=False distributed=True identifiers=['*'] start_sequence=0 stop_sequence=-1"\
                          " starting_strategy=CONFIG starting_failure_strategy=ABORT running_failure_strategy=CONTINUE"
 
 
@@ -140,7 +140,7 @@ def test_rules_serial(rules):
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
-    assert rules.serial() == {'managed': True, 'distributed': False, 'nodes': ['*'], 'addresses': ['*'],  # TOODO: DEPRECATED
+    assert rules.serial() == {'managed': True, 'distributed': False, 'instances_map': ['*'], 'addresses': ['*'],  # TOODO: DEPRECATED
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
@@ -295,7 +295,7 @@ def test_application_add_remove_process(mocker, supvisors):
 
 
 def test_application_possible_nodes(supvisors):
-    """ Test the ApplicationStatus.possible_nodes method. """
+    """ Test the ApplicationStatus.possible_identifiers method. """
     application = create_application('ApplicationTest', supvisors)
     # add a process to the application
     info = any_process_info_by_state(ProcessStates.STARTING)
@@ -309,25 +309,25 @@ def test_application_possible_nodes(supvisors):
     for node_name in ['10.0.0.1', '10.0.0.4']:
         process2.add_info(node_name, info)
     application.add_process(process2)
-    # default node_names is '*' in process rules
-    assert application.possible_nodes() == ['10.0.0.4']
-    # set a subset of node_names in process rules so that there's no intersection with received status
-    application.rules.node_names = ['10.0.0.1', '10.0.0.2']
-    assert application.possible_nodes() == []
+    # default identifiers is '*' in process rules
+    assert application.possible_identifiers() == ['10.0.0.4']
+    # set a subset of identifiers in process rules so that there's no intersection with received status
+    application.rules.instances_map = ['10.0.0.1', '10.0.0.2']
+    assert application.possible_identifiers() == []
     # increase received status
     process1.add_info('10.0.0.1', info)
-    assert application.possible_nodes() == ['10.0.0.1']
+    assert application.possible_identifiers() == ['10.0.0.1']
     # reset rules
-    application.rules.node_names = ['*']
-    assert application.possible_nodes() == ['10.0.0.1', '10.0.0.4']
-    # test with full status and all nodes in rules
-    for node_name in supvisors.node_mapper.node_names:
+    application.rules.instances_map = ['*']
+    assert application.possible_identifiers() == ['10.0.0.1', '10.0.0.4']
+    # test with full status and all instances_map in rules
+    for node_name in supvisors.supvisors_mapper.instances_map:
         process1.add_info(node_name, info)
         process2.add_info(node_name, info)
-    assert application.possible_nodes() == supvisors.node_mapper.node_names
-    # restrict again nodes in rules
-    application.rules.node_names = ['10.0.0.5']
-    assert application.possible_nodes() == ['10.0.0.5']
+    assert application.possible_identifiers() == supvisors.supvisors_mapper.instances_map
+    # restrict again instances_map in rules
+    application.rules.instances_map = ['10.0.0.5']
+    assert application.possible_identifiers() == ['10.0.0.5']
 
 
 @pytest.fixture

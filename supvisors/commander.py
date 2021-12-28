@@ -27,7 +27,7 @@ from supervisor.states import ProcessStates, getProcessStateDescription, STOPPED
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .strategy import get_node, LoadRequestMap
+from .strategy import get_supvisors_instance, LoadRequestMap
 from .ttypes import NameList, Payload, StartingStrategies, StartingFailureStrategies
 
 
@@ -36,7 +36,7 @@ class ProcessCommand(object):
 
     Attributes are:
         - process: the process wrapped ;
-        - node_names: the nodes where the commands are requested ;
+        - identifiers: the identifiers of the Supvisors instances where the commands are requested ;
         - request_time: the date when the command is requested.
     """
     TIMEOUT = 5
@@ -47,7 +47,7 @@ class ProcessCommand(object):
         :param process: the process status to wrap
         """
         self.process: ProcessStatus = process
-        self.node_names: NameList = []
+        self.identifiers: NameList = []
         self.request_time: int = 0
 
     def __str__(self) -> str:
@@ -56,7 +56,7 @@ class ProcessCommand(object):
         :return: the printable process command
         """
         return (f'process={self.process.namespec} state={self.process.state}'
-                f' node_names={self.node_names} request_time={self.request_time}')
+                f' identifiers={self.identifiers} request_time={self.request_time}')
 
     def __repr__(self) -> str:
         """ Get the process command as string.
@@ -110,10 +110,10 @@ class ProcessStartCommand(ProcessCommand):
         :param now: the current time
         :return: the timeout status
         """
-        # actually, only one node_name in self.node_names
-        for node_name in self.node_names:
-            # check the process state on the targeted node
-            local_info = self.process.info_map[node_name]
+        # actually, only one identifier in self.identifiers
+        for identifier in self.identifiers:
+            # check the process state on the targeted Supvisors instance
+            local_info = self.process.info_map[identifier]
             local_state = local_info['state']
             if local_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
                 # the RUNNING state is expected after startsecs seconds
@@ -148,10 +148,10 @@ class ProcessStopCommand(ProcessCommand):
         :param now: the current time
         :return: the timeout status
         """
-        # multiple node_names are possible
-        for node_name in self.node_names:
-            # check the process state on the targeted node
-            local_info = self.process.info_map[node_name]
+        # multiple identifiers are possible
+        for identifier in self.identifiers:
+            # check the process state on the targeted Supvisors instance
+            local_info = self.process.info_map[identifier]
             local_state = local_info['state']
             if local_state == ProcessStates.STOPPING:
                 # the STOPPED state is expected after stopwaitsecs seconds
@@ -206,37 +206,37 @@ class ApplicationJobs(object):
         return f'(planned_jobs={self.planned_jobs} current_jobs={self.current_jobs})'
 
     @staticmethod
-    def get_command(jobs: CommandList, process_name: str, node_name: str = None) -> ProcessCommand:
+    def get_command(jobs: CommandList, process_name: str, identifier: str = None) -> ProcessCommand:
         """ Get the process wrapper from the current_jobs.
 
         :param jobs: the command list to search in
         :param process_name: the name of the process search
-        :param node_name: the process status to search
+        :param identifier: the identifier to search
         :return: the process command found
         """
         return next((command for command in jobs
-                     if ((not node_name or node_name in command.node_names)
+                     if ((not identifier or identifier in command.identifiers)
                          and command.process.process_name == process_name)),
                     None)
 
-    def get_current_command(self, process_name: str, node_name: str = None) -> ProcessCommand:
+    def get_current_command(self, process_name: str, identifier: str = None) -> ProcessCommand:
         """ Get the process wrapper from the current_jobs.
 
         :param process_name: the name of the process search
-        :param node_name: the process status to search
+        :param identifier: the identifier to search
         :return: the process command found
         """
-        return self.get_command(self.current_jobs, process_name, node_name)
+        return self.get_command(self.current_jobs, process_name, identifier)
 
-    def get_planned_command(self, process_name: str, node_name: str = None) -> ProcessCommand:
+    def get_planned_command(self, process_name: str, identifier: str = None) -> ProcessCommand:
         """ Get the process wrapper from the planned_jobs.
 
         :param process_name: the name of the process search
-        :param node_name: the process status to search
+        :param identifier: the identifier to search
         :return: the process command found
         """
         planned_commands = sum(self.planned_jobs.values(), [])
-        return self.get_command(planned_commands, process_name, node_name)
+        return self.get_command(planned_commands, process_name, identifier)
 
     def add_command(self, jobs: PlannedJobs) -> None:
         """ Add a process wrapper to the application jobs, if possible.
@@ -332,21 +332,22 @@ class ApplicationJobs(object):
         self.next()
 
     # event methods
-    def on_event(self, process: ProcessStatus, node_name: str, event: Payload) -> None:
+    def on_event(self, process: ProcessStatus, identifier: str, event: Payload) -> None:
         """ Check the impact of the process event on the jobs in progress.
 
         :param process: the Supvisors process corresponding to the event
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the event payload
         :return: None
         """
-        self.logger.info(f'ApplicationJobs.on_event: process={process.namespec} event={event} from node={node_name}')
+        self.logger.debug(f'ApplicationJobs.on_event: process={process.namespec} event={event}'
+                          f' from Supvisors={identifier}')
         # first check if event is in the sequence logic, i.e. it corresponds to a process in current jobs
-        command = self.get_current_command(process.process_name, node_name)
+        command = self.get_current_command(process.process_name, identifier)
         if command:
-            self.on_event_in_sequence(command, node_name, event)
+            self.on_event_in_sequence(command, identifier, event)
         else:
-            self.logger.debug(f'ApplicationJobs.on_event: event {event} from node={node_name} does not match'
+            self.logger.debug(f'ApplicationJobs.on_event: event {event} from Supvisors={identifier} does not match'
                               ' with the current sequence')
             # Various cases may lead to that situation:
             #   * the process has crashed / exited after its RUNNING state but before the application is fully started
@@ -354,32 +355,34 @@ class ApplicationJobs(object):
             #   * the process is not in the automatic application sequence (so the event is related to a manual request)
             #     => just ignore
 
-    def on_event_in_sequence(self, command: ProcessCommand, node_name: str, event: Payload) -> None:
+    def on_event_in_sequence(self, command: ProcessCommand, identifier: str, event: Payload) -> None:
         """ Check the impact of the process event on the jobs in progress.
 
         :param command: the process wrapper used in the jobs
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the process event received
         :return: None
         """
         raise NotImplementedError
 
-    def on_nodes_invalidation(self, invalidated_nodes: NameList, failed_processes: Set[ProcessStatus]) -> None:
-        """ Clear the jobs in progress if requests are pending on the nodes recently declared SILENT.
+    def on_instances_invalidation(self, invalidated_identifiers: NameList,
+                                  failed_processes: Set[ProcessStatus]) -> None:
+        """ Clear the jobs in progress if requests are pending on the Supvisors instances recently declared SILENT.
         In addition to that, clear the processes from failed_processes if a corresponding request is pending or planned.
 
-        :param invalidated_nodes: the nodes that have just been declared SILENT
-        :param failed_processes: the processes that were running on these nodes and declared in failure
+        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT
+        :param failed_processes: the processes that were running on the invalidated Supvisors instances and thus
+        declared in failure
         :return: None
         """
-        # clear the invalidated nodes from the pending requests
+        # clear the invalidated instances from the pending requests
         for command in list(self.current_jobs):
-            # rebuild node_names
-            command.node_names = [node_name for node_name in command.node_names
-                                  if node_name not in invalidated_nodes]
+            # rebuild identifiers
+            command.identifiers = [identifier for identifier in command.identifiers
+                                   if identifier not in invalidated_identifiers]
             # if no more pending request, declare a starting failure on the process
             # and remove the process from failed_processes as this is a starting failure, not a running failure
-            if not command.node_names:
+            if not command.identifiers:
                 self.current_jobs.remove(command)
                 self.process_failure(command.process)
                 failed_processes.remove(command.process)
@@ -391,10 +394,10 @@ class ApplicationJobs(object):
         # this method is already triggered by the upper periodic check that will call self.next() anyway
 
     def get_load_requests(self) -> LoadRequestMap:
-        """ Extract by node the processes that are planned to start but still stopped and sum their expected load.
-        Only for ApplicationStartJobs.
+        """ Extract by identifier of Supvisors instance the processes that are planned to start but still stopped
+        and sum their expected load. Only applicable to ApplicationStartJobs.
 
-        :return: the additional loading per node
+        :return: the additional loading per Supvisors instance
         """
 
 
@@ -418,7 +421,7 @@ class ApplicationStartJobs(ApplicationJobs):
         # store application default rules
         self.starting_strategy: StartingStrategies = starting_strategy
         self.distributed: bool = self.application.rules.distributed
-        self.node_name: Optional[str] = None  # only set for a non-distributed application
+        self.identifier: Optional[str] = None  # only set for a non-distributed application
         # flags for use at Starter level
         self.stop_request: bool = False
 
@@ -426,68 +429,70 @@ class ApplicationStartJobs(ApplicationJobs):
     def add_command(self, jobs: ApplicationJobs.PlannedJobs) -> None:
         """ Add a process wrapper to the application jobs, if possible.
         If the wrapper has been planned in the superclass and in the case of a non-distributed application, check that
-        the process added can be started on the same node than the others.
+        the process added can be started on the same Supvisors instance than the others.
 
         :param jobs: the sequenced process wrapper
         :return: None
         """
         super().add_command(jobs)
-        # whatever the job has been really added to planned_jobs or not, it must apply the same node
+        # whatever the job has been really added to planned_jobs or not, it must apply the same Supvisors instance
         # as the other commands of a non-distributed application
         command = next(iter(jobs.values()))[0]
-        if not self.distributed and self.node_name and not command.node_names:
-            # self.node_name may be None (no node found)
-            # node_names may be already set (command was already there)
+        if not self.distributed and self.identifier and not command.identifiers:
+            # self.identifier may be None (no Supvisors instance found)
+            # identifiers may be already set (command was already there)
             load = command.process.rules.expected_load
-            # check that the chosen node can support the new process
+            # check that the chosen Supvisors instance can support the new process
             # in a non-distributed application, the application starting_strategy applies
-            node_name = get_node(self.supvisors, self.starting_strategy, [self.node_name], load)
-            if node_name:
-                command.node_names.append(node_name)
+            identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, [self.identifier], load)
+            if identifier:
+                command.identifiers.append(identifier)
             else:
                 self.logger.info(f'ApplicationStartJobs.add_command: {command.process.namespec} cannot be started'
-                                 f' on the chosen node={self.node_name}')
+                                 f' on the chosen Supvisors={self.identifier}')
 
     def get_load_requests(self) -> LoadRequestMap:
-        """ Extract by node the processes that are planned to start but still stopped and sum their expected load.
+        """ Extract by Supvisors instance the processes that are planned to start but still stopped
+        and sum their expected load.
 
-        :return: the additional loading per node
+        :return: the additional loading per Supvisors instance
         """
         load_request_map = {}
-        # sum the loading of all jobs having a targeted node defined and whose process is not fully started yet
+        # sum the loading of all jobs having a targeted Supvisors instance and whose process is not fully started yet
         for command in self.current_jobs + sum(self.planned_jobs.values(), []):
-            # if process is not stopped, its loading is already considered through NodeStatus
-            if command.process.stopped() and command.node_names:
-                node_name = command.node_names[0]
-                load_request_map.setdefault(node_name, []).append(command.process.rules.expected_load)
-        return {node_name: sum(load_list) for node_name, load_list in load_request_map.items()}
+            # if process is not stopped, its loading is already considered through SupvisorsInstanceStatus
+            if command.process.stopped() and command.identifiers:
+                identifier = command.identifiers[0]
+                load_request_map.setdefault(identifier, []).append(command.process.rules.expected_load)
+        return {identifier: sum(load_list) for identifier, load_list in load_request_map.items()}
 
     # lifecycle methods
     def before(self) -> None:
-        """ Prepare the ProcessStartCommand instances linked to the planned jobs.
-        More particularly, in the case of a non-distributed application, the node must be found at this stage,
-        considering the load of the whole application at once.
+        """ Prepare the ProcessStartCommand linked to the planned jobs.
+        More particularly, in the case of a non-distributed application, the Supvisors instance must be found
+        at this stage, considering the load of the whole application at once.
 
         :return: None
         """
         # FIXME: what if any process of a non-distributed application is already running ?
         #  is it a new case of CONCILIATION ?
         if not self.distributed:
-            # get all ProcessStartCommand instances of the application
+            # get all ProcessStartCommand of the application
             commands = [process for sequence in self.planned_jobs.values()
                         for process in sequence]
-            # find node iaw strategy
+            # find the Supvisors instance iaw strategy
             load = self.application.get_start_sequence_expected_load()
-            self.node_name = get_node(self.supvisors, self.starting_strategy, self.application.possible_nodes(), load)
-            self.logger.info(f'ApplicationStartJobs.before: node_name={self.node_name} assigned to non-distributed'
+            self.identifier = get_supvisors_instance(self.supvisors, self.starting_strategy,
+                                                     self.application.possible_identifiers(), load)
+            self.logger.info(f'ApplicationStartJobs.before: identifier={self.identifier} assigned to non-distributed'
                              f' application_name={self.application_name} using strategy={self.starting_strategy.name}')
-            # apply the node to all commands
-            if self.node_name:
+            # apply the identifier to all commands
+            if self.identifier:
                 for command in commands:
-                    command.node_names.append(self.node_name)
+                    command.identifiers.append(self.identifier)
 
     def process_job(self, command: ProcessStartCommand) -> bool:
-        """ Start the process on the relevant node.
+        """ Start the process on the relevant Supvisors instance.
 
         :param command: the wrapper of the process to start
         :return: True if a job has been queued.
@@ -496,23 +501,23 @@ class ApplicationStartJobs(ApplicationJobs):
         process = command.process
         self.logger.debug(f'ApplicationStartJobs.process_job: process={process.namespec} stopped={process.stopped()}')
         if process.stopped():
-            # node_name has already been decided for a non-distributed application
+            # identifier has already been decided for a non-distributed application
             if self.distributed:
-                # find node iaw strategy
-                node_name = get_node(self.supvisors, command.strategy, process.possible_nodes(),
-                                     process.rules.expected_load)
-                self.logger.debug(f'ApplicationStartJobs.process_job: found node={node_name} to start'
+                # find Supvisors instance iaw strategy
+                identifier = get_supvisors_instance(self.supvisors, command.strategy, process.possible_identifiers(),
+                                                    process.rules.expected_load)
+                self.logger.debug(f'ApplicationStartJobs.process_job: found Supvisors={identifier} to start'
                                   f' process={process.namespec} with strategy={command.strategy.name}')
-                if node_name:
-                    command.node_names.append(node_name)
-            if command.node_names:
-                # in Starter, only one node in node_names
-                node_name = command.node_names[0]
+                if identifier:
+                    command.identifiers.append(identifier)
+            if command.identifiers:
+                # in Starter, only one identifier in identifiers
+                identifier = command.identifiers[0]
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(node_name, process.namespec, command.extra_args)
+                self.supvisors.zmq.pusher.send_start_process(identifier, process.namespec, command.extra_args)
                 command.request_time = time.time()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
-                                 f' on {node_name} at {get_asctime(command.request_time)}')
+                                 f' on {identifier} at {get_asctime(command.request_time)}')
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
@@ -551,11 +556,11 @@ class ApplicationStartJobs(ApplicationJobs):
             self.logger.info(f'ApplicationStartJobs.process_failure: continue starting {process.application_name}')
 
     # event methods
-    def on_event_in_sequence(self, command: ProcessStartCommand, node_name: str, event: Payload) -> None:
+    def on_event_in_sequence(self, command: ProcessStartCommand, identifier: str, event: Payload) -> None:
         """ Manages the impact of an event that is part of the starting sequence.
 
         :param command: the process wrapper used in the jobs
-        :param node_name: the node that sent the event (not used)
+        :param identifier: the identifier of the Supvisors instance that sent the event (not used)
         :param event: the process event received
         :return: None
         """
@@ -623,10 +628,10 @@ class ApplicationStopJobs(ApplicationJobs):
         process = command.process
         if process.running():
             # use asynchronous xml rpc to stop program
-            for node_name in process.running_nodes:
-                self.logger.info(f'ApplicationStopJobs.process_job: stopping {process.namespec} on {node_name}')
-                self.supvisors.zmq.pusher.send_stop_process(node_name, process.namespec)
-                command.node_names.append(node_name)
+            for identifier in process.running_identifiers:
+                self.logger.info(f'ApplicationStopJobs.process_job: stopping {process.namespec} on {identifier}')
+                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
+                command.identifiers.append(identifier)
             # push to jobs and timestamp process
             command.request_time = time.time()
             self.logger.debug(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
@@ -634,11 +639,11 @@ class ApplicationStopJobs(ApplicationJobs):
             return True
 
     # event methods
-    def on_event_in_sequence(self, command: ProcessCommand, node_name: str, event: Payload) -> None:
+    def on_event_in_sequence(self, command: ProcessCommand, identifier: str, event: Payload) -> None:
         """ Manages the impact of an event that is part of the stopping sequence.
 
         :param command: the process wrapper used in the jobs
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the process event received (not used)
         :return: None
         """
@@ -646,8 +651,8 @@ class ApplicationStopJobs(ApplicationJobs):
         # check if process event has an impact on stopping in progress
         if process_state in STOPPED_STATES:
             # goal reached, whatever the state
-            command.node_names.remove(node_name)
-            if not command.node_names:
+            command.identifiers.remove(identifier)
+            if not command.identifiers:
                 self.current_jobs.remove(command)
                 # trigger jobs
                 self.next()
@@ -769,49 +774,51 @@ class Commander(object):
         self.next()
 
     # event processing
-    def on_event(self, process: ProcessStatus, node_name: str, event: Payload) -> None:
+    def on_event(self, process: ProcessStatus, identifier: str, event: Payload) -> None:
         """ Check the impact of the process event on the jobs in progress.
 
         :param process: the Supvisors process corresponding to the event
-        :param node_name: the node that sent the event
+        :param identifier: the identifier of the Supvisors instance that sent the event
         :param event: the event payload
         :return: None
         """
         # check impact of event in current_jobs
         application_job = self.current_jobs.get(process.application_name)
         if application_job:
-            application_job.on_event(process, node_name, event)
+            application_job.on_event(process, identifier, event)
             # trigger jobs
             self.next()
 
-    def on_nodes_invalidation(self, invalidated_nodes: NameList, failed_processes: Set[ProcessStatus]) -> None:
-        """ Clear the jobs in progress if requests are pending on the nodes recently declared SILENT.
+    def on_instances_invalidation(self, invalidated_identifiers: NameList,
+                                  failed_processes: Set[ProcessStatus]) -> None:
+        """ Clear the jobs in progress if requests are pending on the Supvisors instances recently declared SILENT.
         Pending requests must be removed from the failed_processes as it has to be considered as a starting failure,
         not a running failure.
-        Typically, this may happen only if the processes were STARTING, BACKOFF or STOPPING on the lost nodes.
-        Other states would have removed them from the current_jobs list.
+        Typically, this may happen only if the processes were STARTING, BACKOFF or STOPPING on the lost Supvisors
+        instances. Other states would have removed them from the current_jobs list.
 
         In the same idea, clear the processes from failed_processes if their starting or stopping is planned.
         An additional automatic behaviour on the same entity may not be suitable or even consistent.
         This case may seem a bit far-fetched but it has already happened actually in a degraded environment:
-            - let N1 and N2 be 2 running nodes ;
+            - let N1 and N2 be 2 running Supvisors instances ;
             - let P be a process running on N2 ;
             - N2 is lost (let's assume a network congestion, NOT a node crash) so P becomes FATAL ;
             - P is requested to restart on N1 (automatic strategy, user action, etc) ;
             - while P is still in planned jobs, N2 comes back and thus P becomes RUNNING again ;
             - N2 gets lost again. P becomes FATAL again whereas its starting on N1 is still in the pipe.
 
-        :param invalidated_nodes: the nodes that have just been declared SILENT
-        :param failed_processes: the processes that were running on these nodes and declared in failure
+        :param invalidated_identifiers: the identifiers of the Supvisors instances that have just been declared SILENT
+        :param failed_processes: the processes that were running on the invalidated Supvisors instances and thus
+        declared in failure
         :return: None
         """
-        # clear the invalidated nodes from the pending requests
+        # clear the invalidated Supvisors instances from the pending requests
         for application_jobs in self.current_jobs.values():
-            application_jobs.on_nodes_invalidation(invalidated_nodes, failed_processes)
+            application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # perform some cleaning based on the planned jobs too
         for application_jobs_map in self.planned_jobs.values():
             for application_jobs in application_jobs_map.values():
-                application_jobs.on_nodes_invalidation(invalidated_nodes, failed_processes)
+                application_jobs.on_instances_invalidation(invalidated_identifiers, failed_processes)
         # trigger jobs
         self.next()
 
@@ -891,7 +898,7 @@ class Starter(Commander):
         When the strategy is not provided, the application default starting strategy is used.
 
         :param application: the application to start
-        :param strategy: the strategy to be used to choose nodes where programs shall be started
+        :param strategy: the strategy to be used to choose the Supvisors instances where processes may be started
         :return: True if application start sequence added to planned_jobs
         """
         # use application default starting strategy (application rules) if not provided as parameter
@@ -968,15 +975,16 @@ class Starter(Commander):
 
     def get_load_requests(self) -> LoadRequestMap:
         """ Get the requested load from all current ApplicationJobs.
+        TODO: check if should be grouped by host name rather than by Supvisors identifier
 
-        :return: the additional loading per node
+        :return: the additional loading per Supvisors instance
         """
         load_requests = [application_job.get_load_requests() for application_job in self.current_jobs.values()]
-        # get all node_names found
-        node_names = {node_name for load_request in load_requests for node_name in load_request}
-        # sum the loadings per node_name
-        return {node_name: sum(load_request.get(node_name, 0) for load_request in load_requests)
-                for node_name in node_names}
+        # get all identifiers found
+        identifiers = {identifier for load_request in load_requests for identifier in load_request}
+        # sum the loadings per identifier
+        return {identifier: sum(load_request.get(identifier, 0) for load_request in load_requests)
+                for identifier in identifiers}
 
 
 class Stopper(Commander):
@@ -1033,7 +1041,7 @@ class Stopper(Commander):
         """ Plan and trigger the necessary jobs to restart the application in parameter.
         The application start is deferred until the application has been stopped.
 
-        :param strategy: the strategy used to choose a node
+        :param strategy: the strategy used to choose a Supvisors instance
         :param application: the application to restart
         :return: None
         """
@@ -1070,9 +1078,10 @@ class Stopper(Commander):
     def restart_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str) -> None:
         """ Plan and trigger the necessary jobs to restart the process in parameter.
         The process start is deferred until the process has been stopped.
-        The method should return False, unless the process is already stopped and no node was found to start it.
+        The method should return False, unless the process is already stopped and no Supvisors instance was found
+        to start it.
 
-        :param strategy: the strategy used to choose a node
+        :param strategy: the strategy used to choose a Supvisors instance
         :param process: the process to restart
         :param extra_args: extra arguments to be passed to the command line
         :return: None
