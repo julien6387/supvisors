@@ -21,7 +21,7 @@ jobs:
       run: python -V
 
     - name: Set TOXENV based on Python version
-      run: python -c "import sys; print(f'TOXENV=py{sys.version_info.major}{sys.version_info.minor}')' | tee -a $GITHUB_ENV
+      run: python -c "import sys; print(f'TOXENV=py{sys.version_info.major}{sys.version_info.minor}')" | tee -a $GITHUB_ENV
 
     - name: Install dependencies
       run: pip install virtualenv tox
