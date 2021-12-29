@@ -50,8 +50,8 @@ jobs:
       # uses does not work yet as pytest-cov does not provide Lcov files
       # uses: coverallsapp/github-action@master
       run: pip install coveralls && coveralls --service=github
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docs:
     runs-on: ubuntu-latest
