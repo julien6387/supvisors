@@ -47,10 +47,11 @@ jobs:
       run: TOXENV=cover tox
 
     - name: Coveralls
-      uses: coverallsapp/github-action@master
+      # uses does not work yet as pytest-cov does not provide Lcov files
+      # uses: coverallsapp/github-action@master
+      run: pip install coveralls && coveralls --service=github
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        path-to-lcov: coverage.xml
 
   docs:
     runs-on: ubuntu-latest
