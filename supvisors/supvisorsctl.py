@@ -122,7 +122,7 @@ class ControllerPlugin(ControllerPluginBase):
                 # print title
                 payload = {'identifier': 'Supervisor', 'state': 'State', 'load': 'Load',
                            'ltime': 'Time', 'counter': 'Counter'}
-                self._output_info(template, payload)
+                self.ctl.output(template % payload)
                 # check request args
                 identifiers = arg.split()
                 output_all = not identifiers or 'all' in identifiers
@@ -133,7 +133,7 @@ class ControllerPlugin(ControllerPluginBase):
                                    'load': '{}%'.format(info['loading']),
                                    'counter': info['sequence_counter'],
                                    'ltime': simple_localtime(info['local_time'])}
-                        self._output_info(template, payload)
+                        self.ctl.output(template % payload)
 
     def help_instance_status(self):
         """ Print the help of the instance_status command."""
@@ -182,7 +182,7 @@ class ControllerPlugin(ControllerPluginBase):
                 template = '%(name)-{}s%(state)-10s%(major_failure)-7s%(minor_failure)-7s'.format(max_appli)
                 # print title
                 payload = {'name': 'Application', 'state': 'State', 'major_failure': 'Major', 'minor_failure': 'Minor'}
-                self._output_info(template, payload)
+                self.ctl.output(template % payload)
                 # check request args
                 applications = arg.split()
                 output_all = not applications or "all" in applications
@@ -191,7 +191,7 @@ class ControllerPlugin(ControllerPluginBase):
                     if output_all or info['application_name'] in applications:
                         payload = {'name': info['application_name'], 'state': info['statename'],
                                    'major_failure': info['major_failure'], 'minor_failure': info['minor_failure']}
-                        self._output_info(template, payload)
+                        self.ctl.output(template % payload)
 
     def help_application_info(self):
         """ Print the help of the application_info command."""
@@ -252,8 +252,7 @@ class ControllerPlugin(ControllerPluginBase):
                                    'starting_strategy': 'n/a',
                                    'starting_failure_strategy': 'n/a',
                                    'running_failure_strategy': 'n/a'}
-                    line = template % payload
-                    self.ctl.output(line)
+                    self.ctl.output(template % payload)
 
     def help_application_rules(self):
         """ Print the help of the application_rules command."""
@@ -294,12 +293,12 @@ class ControllerPlugin(ControllerPluginBase):
                 # print process status
                 for info in info_list:
                     expected = info['expected_exit'] if info['statecode'] == ProcessStates.EXITED else ''
-                    line = template % {'appli': info['application_name'],
-                                       'proc': info['process_name'],
-                                       'state': info['statename'],
-                                       'expected': expected,
-                                       'identifiers': info['identifiers']}
-                    self.ctl.output(line)
+                    payload = {'appli': info['application_name'],
+                               'proc': info['process_name'],
+                               'state': info['statename'],
+                               'expected': expected,
+                               'identifiers': info['identifiers']}
+                    self.ctl.output(template % payload)
 
     def help_sstatus(self):
         """ Print the help of the sstatus command."""
@@ -343,16 +342,16 @@ class ControllerPlugin(ControllerPluginBase):
                 # print title
                 payload = {'appli': 'Application', 'proc': 'Process', 'state': 'State', 'start': 'Start',
                            'now': 'Now', 'pid': 'PID', 'args': 'Extra args'}
-                self._output_info(template, payload)
+                self.ctl.output(template % payload)
                 # print filtered payloads
                 for info in match_list:
                     start_time = simple_localtime(info['start']) if info['start'] else 0
                     now_time = simple_localtime(info['now']) if info['now'] else 0
-                    line = template % {'appli': info['group'], 'proc': info['name'],
-                                       'state': getProcessStateDescription(info['state']),
-                                       'start': start_time, 'now': now_time, 'pid': info['pid'],
-                                       'args': info['extra_args']}
-                    self.ctl.output(line)
+                    payload = {'appli': info['group'], 'proc': info['name'],
+                               'state': getProcessStateDescription(info['state']),
+                               'start': start_time, 'now': now_time, 'pid': info['pid'],
+                               'args': info['extra_args']}
+                    self.ctl.output(template % payload)
 
     def help_local_status(self):
         """ Print the help of the local_status command."""
@@ -393,19 +392,19 @@ class ControllerPlugin(ControllerPluginBase):
                 payload = {'appli': 'Application', 'proc': 'Process', 'start_seq': 'Start', 'stop_seq': 'Stop',
                            'req': 'Required', 'exit': 'WaitExit', 'load': 'Loading', 'strategy': 'Strategy',
                            'identifiers': 'Supervisor'}
-                self._output_info(template, payload)
+                self.ctl.output(template % payload)
                 # print filtered payloads
                 for rules in rules_list:
-                    line = template % {'appli': rules['application_name'],
-                                       'proc': rules['process_name'],
-                                       'identifiers': rules['identifiers'],
-                                       'start_seq': rules['start_sequence'],
-                                       'stop_seq': rules['stop_sequence'],
-                                       'req': rules['required'],
-                                       'exit': rules['wait_exit'],
-                                       'load': f"{rules['expected_loading']}%",
-                                       'strategy': rules['running_failure_strategy']}
-                    self.ctl.output(line)
+                    payload = {'appli': rules['application_name'],
+                               'proc': rules['process_name'],
+                               'identifiers': rules['identifiers'],
+                               'start_seq': rules['start_sequence'],
+                               'stop_seq': rules['stop_sequence'],
+                               'req': rules['required'],
+                               'exit': rules['wait_exit'],
+                               'load': f"{rules['expected_loading']}%",
+                               'strategy': rules['running_failure_strategy']}
+                    self.ctl.output(template % payload)
 
     def help_process_rules(self):
         """ Print the help of the process rules command."""
@@ -424,16 +423,19 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.exitstatus = LSBInitExitStatuses.GENERIC
             else:
                 if conflicts:
-                    # TODO: titles
-                    max_appli = max(len(conflict['application_name']) for conflict in conflicts) + 4
-                    max_proc = max(len(conflict['process_name']) for conflict in conflicts) + 4
+                    max_appli = ControllerPlugin.max_template(conflicts, 'application_name', 'Application')
+                    max_proc = ControllerPlugin.max_template(conflicts, 'process_name', 'Process')
                     template = f'%(appli)-{max_appli}s%(proc)-{max_proc}s%(state)-12s%(identifiers)s'
+                    # print title
+                    payload = {'appli': 'Application', 'proc': 'Process', 'state': 'State', 'identifiers': 'Supervisor'}
+                    self.ctl.output(template % payload)
+                    # print filtered payloads
                     for conflict in conflicts:
-                        line = template % {'appli': conflict['application_name'],
-                                           'proc': conflict['process_name'],
-                                           'state': conflict['statename'],
-                                           'identifiers': conflict['identifiers']}
-                        self.ctl.output(line)
+                        payload = {'appli': conflict['application_name'],
+                                   'proc': conflict['process_name'],
+                                   'state': conflict['statename'],
+                                   'identifiers': conflict['identifiers']}
+                        self.ctl.output(template % payload)
 
     def help_conflicts(self):
         """ Print the help of the conflicts command."""
@@ -913,10 +915,6 @@ class ControllerPlugin(ControllerPluginBase):
             self.exitstatus = LSBInitExitStatuses.GENERIC
             raise
         return True
-
-    def _output_info(self, template, payload):
-        """ Write the information template. """
-        self.ctl.output(template % payload)
 
 
 def make_supvisors_controller_plugin(controller):
