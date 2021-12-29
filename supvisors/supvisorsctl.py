@@ -292,7 +292,7 @@ class ControllerPlugin(ControllerPluginBase):
                 self.ctl.output(template % title)
                 # print process status
                 for info in info_list:
-                    expected = info['expected_exit'] if info['statecode'] == ProcessStates.EXITED else ''
+                    expected = info['expected_exit'] if info['statecode'] == ProcessStates.EXITED else 'n/a'
                     payload = {'appli': info['application_name'],
                                'proc': info['process_name'],
                                'state': info['statename'],
