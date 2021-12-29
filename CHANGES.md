@@ -86,6 +86,8 @@
 
 * Apply python f-strings.
 
+* Switch from Travis-CI to GitHub Actions for continuous integration.
+
 * Update documentation.
 
 
