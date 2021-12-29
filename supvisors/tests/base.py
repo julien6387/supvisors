@@ -27,7 +27,7 @@ from unittest.mock import Mock
 from supervisor.datatypes import Automatic
 from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import STOPPED_STATES
+from supervisor.states import STOPPED_STATES, SupervisorStates
 
 from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
@@ -44,7 +44,7 @@ class DummyOptions:
 
     def __init__(self):
         """ Configuration options. """
-        self.address_list = [gethostname()]
+        self.supvisors_list = [gethostname()]
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
@@ -71,17 +71,14 @@ class MockedSupvisors:
         self.options = DummyOptions()
         self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
         # mock the supervisord source
-        self.supervisor_data = Mock(spec=SupervisorData)
-        self.supervisor_data.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
-                                                     'SUPERVISOR_USERNAME': '',
-                                                     'SUPERVISOR_PASSWORD': ''}
+        self.supervisor_data = SupervisorData(DummySupervisor(), self.logger)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
         identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
-        self.supvisors_mapper.instances = identifiers
+        self.supvisors_mapper.configure(identifiers)
         self.supvisors_mapper.local_identifier = '127.0.0.1'
         # remove gethostname for the tests
-        del self.supvisors_mapper.instances[host_name]
+        self.supvisors_mapper.instances.pop(host_name, None)
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
         self.context = Context(self)
@@ -108,8 +105,8 @@ class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
-        self.handler = Mock(rpcinterface=Mock(supervisor='supervisor_RPC',
-                                              supvisors='supvisors_RPC'))
+        self.handler = Mock(rpcinterface=Mock(supervisor=Mock(rpc_name='supervisor_RPC'),
+                                              supvisors=Mock(rpc_name='supvisors_RPC')))
 
 
 class DummyRpcInterface:
@@ -138,17 +135,20 @@ class DummyServerOptions:
     def __init__(self):
         # build a fake server config
         self.server_configs = [{'section': 'inet_http_server',
-                                'port': 1234,
+                                'port': 65000,
                                 'username': 'user',
                                 'password': 'p@$$w0rd'}]
         self.here = '.'
         self.environ_expansions = {}
-        self.serverurl = 'url'
-        self.mood = 'mood'
+        self.identifier = 'supervisor'
+        self.serverurl = 'http://127.0.0.1:65000'
+        self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False
+        # add silent logger to test create_logger
         self.logger = getLogger()
         handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
+        self.logger.log = Mock()
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]
@@ -183,7 +183,6 @@ class DummySupervisor:
     """ Simple supervisor with simple attributes. """
 
     def __init__(self):
-        self.supvisors = MockedSupvisors()
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
         self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
@@ -203,7 +202,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'node': '10.0.0.4',
+                     'identifier': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',

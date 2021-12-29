@@ -34,12 +34,12 @@ def assert_default_application_rules(rules):
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
 
 
-def assert_application_rules(rules, managed, distributed, node_names, start, stop, starting_strategy,
+def assert_application_rules(rules, managed, distributed, identifiers, start, stop, starting_strategy,
                              starting_failure_strategy, running_failure_strategy):
     """ Check the application rules. """
     assert rules.managed == managed
     assert rules.distributed == distributed
-    assert rules.instances_map == node_names
+    assert rules.identifiers == identifiers
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop
     assert rules.starting_strategy == starting_strategy
@@ -52,10 +52,10 @@ def assert_default_process_rules(rules):
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 0, RunningFailureStrategies.CONTINUE)
 
 
-def assert_process_rules(rules, nodes, hash_nodes, start, stop, required,
+def assert_process_rules(rules, identifiers, hash_nodes, start, stop, required,
                          wait, expected_load, running_strategy):
     """ Check the process rules. """
-    assert rules.instances_map == nodes
+    assert rules.identifiers == identifiers
     assert rules.hash_identifiers == hash_nodes
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop

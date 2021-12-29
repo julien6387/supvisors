@@ -19,7 +19,8 @@
 
 import sys
 
-from supervisor import loggers, supervisord
+from supervisor import supervisord
+from supervisor.loggers import getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
@@ -60,7 +61,7 @@ class Supvisors(object):
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
-            self.supvisors_mapper.instances = self.options.supvisors_list
+            self.supvisors_mapper.configure(self.options.supvisors_list)
         except ValueError as exc:
             self.logger.critical(f'Supvisors: {exc}')
             raise RPCError(Faults.SUPVISORS_CONF_ERROR, str(exc))
@@ -98,15 +99,15 @@ class Supvisors(object):
         # else create own Logger using Supervisor functions
         nodaemon = supervisor.options.nodaemon
         silent = supervisor.options.silent
-        logger = loggers.getLogger(self.options.loglevel)
+        logger = getLogger(self.options.loglevel)
         # tag the logger so that it is properly closed when exiting
         logger.SUPVISORS = True
         if nodaemon and not silent:
-            loggers.handle_stdout(logger, Supvisors.LOGGER_FORMAT)
-        loggers.handle_file(logger,
-                            self.options.logfile,
-                            Supvisors.LOGGER_FORMAT,
-                            rotating=not not self.options.logfile_maxbytes,
-                            maxbytes=self.options.logfile_maxbytes,
-                            backups=self.options.logfile_backups)
+            handle_stdout(logger, Supvisors.LOGGER_FORMAT)
+        handle_file(logger,
+                    self.options.logfile,
+                    Supvisors.LOGGER_FORMAT,
+                    rotating=not not self.options.logfile_maxbytes,
+                    maxbytes=self.options.logfile_maxbytes,
+                    backups=self.options.logfile_backups)
         return logger

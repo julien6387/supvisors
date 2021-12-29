@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ======================================================================
+
 import os.path
 
 import pytest
@@ -31,7 +32,7 @@ from .configurations import *
 
 @pytest.fixture
 def opt(supervisor):
-    """ Create a Supvisors-like structure filled with some instances_map. """
+    """ Create a Supvisors-like structure filled with some instances. """
     return SupvisorsOptions(supervisor)
 
 
@@ -53,7 +54,7 @@ def filled_opt(mocker, supervisor):
 
 @pytest.fixture
 def server_opt(supvisors):
-    """ Create a Supvisors-like structure filled with some instances_map. """
+    """ Create a Supvisors-like structure filled with some instances. """
     return SupvisorsServerOptions(supvisors.logger)
 
 
@@ -62,8 +63,8 @@ def test_options_creation(opt):
     # all attributes are None
     assert opt.supvisors_list == [gethostname()]
     assert opt.rules_files is None
-    assert opt.internal_port == 65001
-    assert opt.event_port == 65002
+    assert opt.internal_port == 0
+    assert opt.event_port == 0
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
     assert opt.force_synchro_if == set()
@@ -102,11 +103,11 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == "supvisors_list=['{}'] rules_files=None internal_port=65001 event_port=65002 auto_fence=False"\
-                       " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER starting_strategy=CONFIG"\
-                       " stats_enabled=True stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
-                       " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\
-                       .format(gethostname(), Automatic, 50 * 1024 * 1024, {})
+    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
+                        ' auto_fence=False synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER'
+                        ' starting_strategy=CONFIG stats_enabled=True stats_periods=[10] stats_histo=200'
+                        f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
+                        ' logfile_backups=10 loglevel=20')
 
 
 def test_to_filepaths(opt):
@@ -129,10 +130,9 @@ def test_port_num():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('-1')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_port_num('0')
-    with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('65536')
     # test valid values
+    assert SupvisorsOptions.to_port_num('0') == 0
     assert SupvisorsOptions.to_port_num('1') == 1
     assert SupvisorsOptions.to_port_num('65535') == 65535
 

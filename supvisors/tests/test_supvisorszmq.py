@@ -28,10 +28,8 @@ from unittest.mock import call, Mock
 def test_internal_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
     # create publisher and subscriber
-    publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_identifier,
-                                       supvisors.options.internal_port)
-    subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances_map,
-                                         supvisors.options.internal_port)
+    publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance)
+    subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances)
     # check that the ZMQ sockets are ready
     assert not publisher.socket.closed
     assert not subscriber.socket.closed
@@ -48,7 +46,7 @@ def test_external_publish_subscribe(supvisors):
     # get event port
     port = supvisors.options.event_port
     # create publisher and subscriber
-    publisher = EventPublisher(port, supvisors.logger)
+    publisher = EventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     subscriber = EventSubscriber(zmq.Context.instance(), port, supvisors.logger)
     # check that the ZMQ sockets are ready
     assert not publisher.socket.closed
@@ -79,8 +77,7 @@ def test_internal_pusher_puller(supvisors):
 
 @pytest.fixture
 def internal_publisher(supvisors):
-    test_publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_identifier,
-                                            supvisors.options.internal_port)
+    test_publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance)
     yield test_publisher
     test_publisher.close()
     sleep(0.5)
@@ -88,8 +85,7 @@ def internal_publisher(supvisors):
 
 @pytest.fixture
 def internal_subscriber(supvisors):
-    test_subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances_map,
-                                              supvisors.options.internal_port)
+    test_subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances)
     test_subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
     # publisher does not wait for subscriber clients to work, so give some time for connections
     sleep(0.5)
@@ -106,20 +102,20 @@ def internal_subscriber_receive(internal_subscriber):
 
 def test_disconnection(supvisors, internal_publisher, internal_subscriber):
     """ Test the disconnection of subscribers. """
-    # get the local address
-    local_node_name = supvisors.supvisors_mapper.local_identifier
+    # get the local identifier
+    local_identifier = supvisors.supvisors_mapper.local_identifier
     # test remote disconnection
-    node_name = next(node_name for node_name in supvisors.supvisors_mapper.instances_map
-                     if node_name != local_node_name)
-    internal_subscriber.disconnect([node_name])
+    identifier = next(identifier for identifier in supvisors.supvisors_mapper.instances
+                      if identifier != local_identifier)
+    internal_subscriber.disconnect([identifier])
     # send a tick event from the local publisher
     payload = {'date': 1000}
     internal_publisher.send_tick_event(payload)
     # check the reception of the tick event
     msg = internal_subscriber_receive(internal_subscriber)
-    assert msg == (InternalEventHeaders.TICK.value, (local_node_name, payload))
+    assert msg == (InternalEventHeaders.TICK.value, (local_identifier, payload))
     # test local disconnection
-    internal_subscriber.disconnect([local_node_name])
+    internal_subscriber.disconnect([local_identifier])
     # send a tick event from the local publisher
     internal_publisher.send_tick_event(payload)
     # check the non-reception of the tick event
@@ -388,7 +384,7 @@ def test_shutdown_all(mocker, pusher, puller):
 
 @pytest.fixture
 def publisher(supvisors):
-    test_publisher = EventPublisher(supvisors.options.event_port, supvisors.logger)
+    test_publisher = EventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
     sleep(0.5)
@@ -430,9 +426,9 @@ def check_supvisors_status(subscriber, publisher, subscribed):
         check_reception(subscriber)
 
 
-def check_node_status(subscriber, publisher, subscribed):
+def check_instance_status(subscriber, publisher, subscribed):
     """ The method tests the emission and reception of an node status, depending on the subscription status. """
-    node_payload = {'state': 'silent', 'name': 'cliche01', 'date': 1234}
+    node_payload = {'state': 'silent', 'identifier': 'cliche01', 'date': 1234}
     publisher.send_instance_status(node_payload)
     if subscribed:
         check_reception(subscriber, EventHeaders.INSTANCE, node_payload)
@@ -453,9 +449,9 @@ def check_application_status(subscriber, publisher, subscribed):
 def check_process_event(subscriber, publisher, subscribed):
     """ The method tests the emission and reception of a Process status,  depending on the subscription status. """
     event_payload = {'state': 20, 'name': 'plugin', 'group': 'supvisors', 'now': 1230}
-    publisher.send_process_event('local_node', event_payload)
+    publisher.send_process_event('local_identifier', event_payload)
     if subscribed:
-        event_payload['node'] = 'local_node'
+        event_payload['identifier'] = 'local_identifier'
         check_reception(subscriber, EventHeaders.PROCESS_EVENT, event_payload)
     else:
         check_reception(subscriber)
@@ -476,7 +472,7 @@ def check_subscription(subscriber, publisher, supvisors_subscribed, address_subs
     """ The method tests the emission and reception of all status, depending on their subscription status. """
     sleep(1)
     check_supvisors_status(subscriber, publisher, supvisors_subscribed)
-    check_node_status(subscriber, publisher, address_subscribed)
+    check_instance_status(subscriber, publisher, address_subscribed)
     check_application_status(subscriber, publisher, application_subscribed)
     check_process_event(subscriber, publisher, event_subscribed)
     check_process_status(subscriber, publisher, process_subscribed)
@@ -586,7 +582,7 @@ def test_supervisor_creation_closure(supvisors):
 
 def test_supvisors_creation_closure(supvisors):
     """ Test the attributes created in SupvisorsZmq constructor. """
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     # test all attribute types
     assert isinstance(sockets.publisher, InternalEventPublisher)
     assert not sockets.publisher.socket.closed
@@ -606,14 +602,14 @@ def test_supvisors_creation_closure(supvisors):
 
 def test_poll(supvisors):
     """ Test the poll method of the SupvisorsZmq class. """
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     assert sockets.poll() == {}
 
 
 def test_check_puller(mocker, supvisors):
     """ Test the check_puller method of the SupvisorsZmq class. """
     mocked_check = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     param = Mock()
     assert sockets.check_puller(param) == 'checked'
     assert mocked_check.call_args_list == [call(sockets.puller, param)]
@@ -622,7 +618,7 @@ def test_check_puller(mocker, supvisors):
 def test_check_subscriber(mocker, supvisors):
     """ Test the check_subscriber method of the SupvisorsZmq class. """
     mocked_check = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     param = Mock()
     assert sockets.check_subscriber(param) == 'checked'
     assert mocked_check.call_args_list == [call(sockets.subscriber, param)]
@@ -631,7 +627,7 @@ def test_check_subscriber(mocker, supvisors):
 def test_check_socket(mocker, supvisors):
     """ Test the types of the attributes created. """
     mocker.patch('builtins.print')
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     # prepare context
     mocked_sockets = Mock(socket='socket', **{'receive.side_effect': ZMQError})
     # test with empty poll result
@@ -660,7 +656,7 @@ def test_check_socket(mocker, supvisors):
 def test_disconnect_subscriber(mocker, supvisors):
     """ Test the types of the attributes created. """
     mocked_disconnect = mocker.patch('supvisors.supvisorszmq.InternalEventSubscriber.disconnect')
-    sockets = SupvisorsZmq(supvisors)
+    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
     # test disconnect on unknown address
     sockets.disconnect_subscriber(['10.0.0.1'])
     assert mocked_disconnect.call_args_list == [call(['10.0.0.1'])]

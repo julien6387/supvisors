@@ -168,7 +168,7 @@ class SupvisorsMainLoop(Thread):
         self.srv_url.update_url(instance.host_name, instance.http_port)
         # send message
         if header == DeferredRequestHeaders.CHECK_INSTANCE:
-            self.check_node(*body)
+            self.check_instance(*body)
         elif header == DeferredRequestHeaders.START_PROCESS:
             self.start_process(*body)
         elif header == DeferredRequestHeaders.STOP_PROCESS:
@@ -184,7 +184,7 @@ class SupvisorsMainLoop(Thread):
         elif header == DeferredRequestHeaders.SHUTDOWN_ALL:
             self.shutdown_all(*body)
 
-    def check_node(self, identifier: str) -> None:
+    def check_instance(self, identifier: str) -> None:
         """ Check isolation and get all process info asynchronously. """
         try:
             supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors

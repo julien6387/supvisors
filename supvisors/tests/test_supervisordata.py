@@ -19,22 +19,24 @@
 
 import pytest
 
+from supervisor.states import SupervisorStates
 from unittest.mock import call, patch, Mock
 
 from supvisors.supervisordata import *
 
 
 @pytest.fixture
-def source(supervisor):
+def source(supervisor, supvisors):
     """ Return the instance to test. """
-    return SupervisorData(supervisor, supervisor.supvisors.logger)
+    supervisor.supvisors = supvisors
+    return SupervisorData(supervisor, supvisors.logger)
 
 
-def test_unix_server(mocker, supervisor):
+def test_unix_server(mocker, supervisor, supvisors):
     """ Test that using UNIX HTTP server is not compliant with the use of Supvisors. """
     mocker.patch.dict(supervisor.options.server_configs[0], {'section': 'unix_http_server'})
     with pytest.raises(ValueError):
-        SupervisorData(supervisor, supervisor.supvisors.logger)
+        SupervisorData(supervisor, supvisors.logger)
 
 
 def test_creation(supervisor, source):
@@ -49,18 +51,18 @@ def test_accessors(source):
     """ Test the accessors. """
     # test consistence with DummySupervisor configuration
     assert source.httpserver is source.supervisord.options.httpserver
-    assert source.supervisor_rpc_interface == 'supervisor_RPC'
-    assert source.supvisors_rpc_interface == 'supvisors_RPC'
-    assert source.serverurl == 'url'
-    assert source.serverport == 1234
+    assert source.supervisor_rpc_interface.rpc_name == 'supervisor_RPC'
+    assert source.supvisors_rpc_interface.rpc_name == 'supvisors_RPC'
+    assert source.serverurl == 'http://127.0.0.1:65000'
+    assert source.serverport == 65000
     assert source.username == 'user'
     assert source.password == 'p@$$w0rd'
-    assert source.supervisor_state == 'mood'
+    assert source.supervisor_state == SupervisorStates.RUNNING
 
 
 def test_env(source):
     """ Test the environment build. """
-    assert source.get_env() == {'SUPERVISOR_SERVER_URL': 'url',
+    assert source.get_env() == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
                                 'SUPERVISOR_USERNAME': 'user', 'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
 
 
@@ -213,7 +215,7 @@ def test_add_processes(mocker, source):
 def test_add_supervisor_processes(mocker, source):
     """ Test the possibility to increase numprocs. """
     # get the patches
-    mocked_notify = mocker.patch('supvisors.infosource.notify')
+    mocked_notify = mocker.patch('supvisors.supervisordata.notify')
     # set context
     process_1, process_2 = Mock(), Mock()
     program_2 = Mock(command='bin/program_2', **{'make_process.return_value': process_2})
@@ -252,7 +254,7 @@ def test_get_obsolete_processes(source):
 def test_delete_processes(mocker, source):
     """ Test the possibility to decrease numprocs. """
     # get the patches
-    mocked_notify = mocker.patch('supvisors.infosource.notify')
+    mocked_notify = mocker.patch('supvisors.supervisordata.notify')
     # set context
     process_1, process_2, process_3 = Mock(), Mock(), Mock()
     source.supervisord.process_groups = {'dummy_group': Mock(processes={'dummy_program_01': process_1,

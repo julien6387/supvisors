@@ -102,10 +102,10 @@ class SupvisorsInstanceId(object):
             self.host_name = pattern_match.group('host')
             # check http port
             port = pattern_match.group('http_port')
-            self.http_port = int(port) if port and port.isdigit() else 0
+            self.http_port = int(port) if port else 0
             # check internal port
             port = pattern_match.group('internal_port')
-            self.internal_port = int(port) if port and port.isdigit() else 0
+            self.internal_port = int(port) if port else 0
 
     def __repr__(self) -> str:
         """ Initialization of the attributes.
@@ -136,8 +136,8 @@ class SupvisorsMapper(object):
         # keep reference of common logger
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
-        # init
-        self._instances: Dict[str, SupvisorsInstanceId] = {}
+        # init attributes
+        self._instances: Dict[str, SupvisorsInstanceId] = OrderedDict()
         self.local_node_references = [gethostname(), *self.ipv4()]
         self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
         self.local_identifier = None
@@ -158,8 +158,7 @@ class SupvisorsMapper(object):
         """
         return self._instances
 
-    @instances.setter
-    def instances(self, supvisors_list: NameList) -> None:
+    def configure(self, supvisors_list: NameList) -> None:
         """ Store the identification of the Supvisors instances declared in the configuration file and determine
         the local Supvisors instance in this list.
 

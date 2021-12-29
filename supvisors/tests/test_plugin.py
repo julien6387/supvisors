@@ -45,26 +45,26 @@ def test_update_views():
     assert re.search(r'supvisors/ui/application\.html$', view['template'])
     assert ApplicationView == view['view']
     view = VIEWS['host_instance.html']
-    assert re.search(r'supvisors/ui/hostaddress\.html$', view['template'])
+    assert re.search(r'supvisors/ui/host_instance\.html$', view['template'])
     assert HostInstanceView == view['view']
     view = VIEWS['proc_instance.html']
-    assert re.search(r'supvisors/ui/procaddress\.html$', view['template'])
+    assert re.search(r'supvisors/ui/proc_instance\.html$', view['template'])
     assert ProcInstanceView == view['view']
-    view = VIEWS['address_mem.png']
+    view = VIEWS['host_mem.png']
     assert view['template'] is None
-    assert AddressMemoryImageView == view['view']
+    assert HostMemoryImageView == view['view']
     view = VIEWS['process_mem.png']
     assert view['template'] is None
     assert ProcessMemoryImageView == view['view']
-    view = VIEWS['address_cpu.png']
+    view = VIEWS['host_cpu.png']
     assert view['template'] is None
-    assert AddressCpuImageView == view['view']
+    assert HostCpuImageView == view['view']
     view = VIEWS['process_cpu.png']
     assert view['template'] is None
     assert ProcessCpuImageView == view['view']
-    view = VIEWS['address_io.png']
+    view = VIEWS['host_io.png']
     assert view['template'] is None
-    assert AddressNetworkImageView == view['view']
+    assert HostNetworkImageView == view['view']
 
 
 def test_make_rpc(mocker):

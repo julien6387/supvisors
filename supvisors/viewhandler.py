@@ -132,7 +132,7 @@ class ViewHandler(MeldView):
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         for li_elt, item in mid_elt.repeat(identifiers):
             try:
-                status = self.sup_ctx.instances_map[item]
+                status = self.sup_ctx.instances[item]
             except KeyError:
                 self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:

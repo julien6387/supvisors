@@ -105,7 +105,7 @@ class ApplicationRules(object):
                                   f' application_number={application_number}')
                 if '*' in self.hash_identifiers:
                     # all identifiers defined in the supvisors section of the supervisor configuration are applicable
-                    ref_identifiers = self.supvisors.supvisors_mapper.instances_map
+                    ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
                 else:
                     # the subset of applicable identifiers is the hash_identifiers
                     ref_identifiers = self.hash_identifiers
@@ -316,7 +316,7 @@ class ApplicationStatus(object):
         """
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
-            identifiers = self.supvisors.supvisors_mapper.instances_map
+            identifiers = self.supvisors.supvisors_mapper.instances
         # get the identifiers common to all application processes
         actual_identifiers = [set(process.info_map.keys()) for process in self.processes.values()]
         if actual_identifiers:

@@ -60,8 +60,8 @@ class AbstractStartingStrategy(AbstractStrategy):
         """
         self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: identifier={identifier}'
                           f' expected_load={expected_load} load_request_map={load_request_map}')
-        if identifier in self.supvisors.context.instances_map.keys():
-            status = self.supvisors.context.instances_map[identifier]
+        if identifier in self.supvisors.context.instances.keys():
+            status = self.supvisors.context.instances[identifier]
             self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
                               f' state={status.state.name}')
             if status.state == SupvisorsInstanceStates.RUNNING:

@@ -48,10 +48,10 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    assert main_loop.srvurl.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
-                                    'SUPERVISOR_USERNAME': '',
-                                    'SUPERVISOR_PASSWORD': ''}
-    assert mocked_rpc.call_args_list == [call(main_loop.srvurl.env)]
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+                                     'SUPERVISOR_USERNAME': 'user',
+                                     'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+    assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
     assert main_loop.supervisor_time == 0
     assert main_loop.reference_time == 0.0
     assert main_loop.reference_counter == 0
@@ -203,7 +203,7 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
     # test rpc error: no event is sent to local Supervisor
     mocked_rpc.side_effect = ValueError
-    main_loop.check_node('10.0.0.1')
+    main_loop.check_instance('10.0.0.1')
     assert mocked_rpc.call_count == 2
     assert mocked_rpc.call_args == call(main_loop.srv_url.env)
     assert mocked_evt.call_count == 0
@@ -222,7 +222,7 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     # test with node in isolation
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_addr.return_value = {'statecode': state}
-        main_loop.check_node('10.0.0.1')
+        main_loop.check_instance('10.0.0.1')
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
         expected = 'identifier:10.0.0.1 authorized:False master_identifier:10.0.0.5 supvisors_state:RUNNING'
         assert mocked_evt.call_args_list == [call('auth', expected)]
@@ -233,7 +233,7 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     # test with node not in isolation
     for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT]:
         mocked_addr.return_value = {'statecode': state}
-        main_loop.check_node('10.0.0.1')
+        main_loop.check_instance('10.0.0.1')
         assert mocked_rpc.call_count == 1
         assert mocked_rpc.call_args == call(main_loop.srv_url.env)
         assert mocked_evt.call_count == 2
@@ -414,11 +414,11 @@ def check_call(main_loop, mocked_loop, method_name, request, args):
 def test_send_request(mocker, main_loop):
     """ Test the execution of a deferred Supervisor request. """
     # patch main loop subscriber
-    mocked_loop = mocker.patch.multiple(main_loop, check_node=DEFAULT,
+    mocked_loop = mocker.patch.multiple(main_loop, check_instance=DEFAULT,
                                         start_process=DEFAULT, stop_process=DEFAULT,
                                         restart=DEFAULT, shutdown=DEFAULT, restart_sequence=DEFAULT,
                                         restart_all=DEFAULT, shutdown_all=DEFAULT)
-    # test check node
+    # test check instance
     check_call(main_loop, mocked_loop, 'check_instance',
                DeferredRequestHeaders.CHECK_INSTANCE, ('10.0.0.2',))
     # test start process

@@ -187,7 +187,7 @@ class SupervisorListener(object):
         # get and publish statistics at tick time (optional)
         # TODO: send only PID in pusher. main loop can collect
         if self.collector and self.supvisors.options.stats_enabled:
-            status = self.supvisors.context.instances_map[self.local_identifier]
+            status = self.supvisors.context.instances[self.local_identifier]
             stats = self.collector(status.pid_processes())
             self.pusher.send_statistics(stats)
 

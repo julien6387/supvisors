@@ -19,7 +19,6 @@
 
 import pytest
 
-from supervisor.loggers import Logger
 from unittest.mock import Mock
 
 from supvisors.initializer import *
@@ -37,7 +36,7 @@ def test_creation(mocker):
     # test calls
     assert mocked_options.called
     assert mocked_parser.called
-    # test instances_map
+    # test instances
     assert isinstance(supv.options, SupvisorsOptions)
     assert mocked_srv_options.realize.called
     assert isinstance(supv.logger, Logger)
@@ -52,31 +51,29 @@ def test_creation(mocker):
     assert isinstance(supv.listener, SupervisorListener)
 
 
-
 def test_create_logger(mocker):
     """ Test the create_logger method. """
-    # create mocked supvisors options
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
     # create Supvisors instance
-    supervisord = DummySupervisor()
-    supvisors = Supvisors(supervisord)
+    supervisor = DummySupervisor()
+    supvisors = Supvisors(supervisor)
     # test AUTO logfile
     supvisors.options.logfile = Automatic
-    assert supvisors.create_logger(supervisord) is supervisord.options.logger
+    assert supvisors.create_logger(supervisor) is supervisor.options.logger
     # test defined logfile
     supvisors.options.logfile = '/tmp/dummy.log'
-    logger = supvisors.create_logger(supervisord)
-    assert logger is not supervisord.options.logger
+    logger = supvisors.create_logger(supervisor)
+    assert logger is not supervisor.options.logger
 
 
-def test_node_exception(mocker):
+def test_identifier_exception(mocker):
     """ Test the values set at construction. """
     mocker.patch('supvisors.initializer.SupvisorsServerOptions')
-    mocker.patch('supvisors.initializer.SupvisorsMapper.identifiers')
-    # create Supvisors instance
-    supervisord_instance = DummySupervisor()
+    mocker.patch('supvisors.initializer.SupvisorsMapper.configure', side_effect=ValueError)
     # patches Faults codes
     setattr(Faults, 'SUPVISORS_CONF_ERROR', 777)
+    # create Supvisors instance
+    supervisord_instance = DummySupervisor()
     # test that local node exception raises a failure to Supervisor
     with pytest.raises(RPCError):
         Supvisors(supervisord_instance)

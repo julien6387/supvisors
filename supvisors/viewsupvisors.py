@@ -146,7 +146,7 @@ class SupvisorsView(ViewHandler):
         identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
         for instance_div_elt, identifier in instance_div_mid.repeat(identifiers):
             # get Supvisors instance status from Supvisors context
-            status = self.sup_ctx.instances_map[identifier]
+            status = self.sup_ctx.instances[identifier]
             # write box_title
             self._write_instance_box_title(instance_div_elt, status)
             # fill with running processes
@@ -328,9 +328,11 @@ class SupvisorsView(ViewHandler):
     def keep_action(self, namespec: str, kept_identifier: str) -> Callable:
         """ Stop the conflicting processes excepted the one running on kept_identifier. """
         # get running instances of process
-        running_identifiers = self.sup_ctx.get_process(namespec).running_identifiers.copy()
-        running_identifiers.remove(kept_identifier)
-        for identifier in running_identifiers:
+        running_identifiers = self.sup_ctx.get_process(namespec).running_identifiers
+        # send stop requests based on copy but check on source
+        identifiers = running_identifiers.copy()
+        identifiers.remove(kept_identifier)
+        for identifier in identifiers:
             self.supvisors.zmq.pusher.send_stop_process(identifier, namespec)
 
         def on_wait():

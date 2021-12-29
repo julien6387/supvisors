@@ -40,14 +40,14 @@ def test_stats_image():
     assert not image.contents.closed
 
 
-def test_address_instances():
+def test_host_instances():
     """ Test the values set at construction. """
-    assert address_cpu_img is not None
-    assert address_cpu_img.contents is None
-    assert address_mem_img is not None
-    assert address_mem_img.contents is None
-    assert address_io_img is not None
-    assert address_io_img.contents is None
+    assert host_cpu_img is not None
+    assert host_cpu_img.contents is None
+    assert host_mem_img is not None
+    assert host_mem_img.contents is None
+    assert host_io_img is not None
+    assert host_io_img.contents is None
 
 
 def test_process_instances():
@@ -84,22 +84,22 @@ def test_image_view():
     assert response['body'] == b'Dummy contents'
 
 
-def test_address_cpu_image_view():
+def test_host_cpu_image_view():
     """ Test the values set at construction. """
-    view = AddressCpuImageView(DummyHttpContext())
-    assert view.buffer is address_cpu_img
+    view = HostCpuImageView(DummyHttpContext())
+    assert view.buffer is host_cpu_img
 
 
-def test_address_memory_image_view():
+def test_host_memory_image_view():
     """ Test the values set at construction. """
-    view = AddressMemoryImageView(DummyHttpContext())
-    assert view.buffer is address_mem_img
+    view = HostMemoryImageView(DummyHttpContext())
+    assert view.buffer is host_mem_img
 
 
-def test_address_network_image_view():
+def test_host_network_image_view():
     """ Test the values set at construction. """
-    view = AddressNetworkImageView(DummyHttpContext())
-    assert view.buffer is address_io_img
+    view = HostNetworkImageView(DummyHttpContext())
+    assert view.buffer is host_io_img
 
 
 def test_process_cpu_image_view():

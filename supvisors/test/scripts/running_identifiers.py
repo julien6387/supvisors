@@ -42,12 +42,12 @@ class RunningIdentifiersTest(unittest.TestCase):
     """
 
     def setUp(self):
-        """ Check that 3 running instances_map are available. """
+        """ Check that 3 running instances are available. """
         # get a reference to the local RPC proxy
         self.local_proxy = getRPCInterface(os.environ)
         self.local_supervisor = self.local_proxy.supervisor
         self.local_supvisors = self.local_proxy.supvisors
-        # check the number of running instances_map
+        # check the number of running instances
         instances_info = self.local_supvisors.get_all_instances_info()
         self.running_identifiers = [info['identifier']
                                     for info in instances_info

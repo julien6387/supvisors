@@ -231,7 +231,7 @@ class CheckSequenceTest(unittest.TestCase):
 
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
-        # get the instances_map
+        # get the instances
         proxy = getRPCInterface(os.environ).supvisors
         instances_info = proxy.get_all_instances_info()
         self.HOST_01 = instances_info[0]['identifier']

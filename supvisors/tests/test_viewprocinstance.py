@@ -35,12 +35,21 @@ from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
 
 
 @pytest.fixture
-def view(supvisors):
+def http_context(supvisors):
+    """ Fixture for a consistent mocked HTTP context provided by Supervisor. """
+    http_context = DummyHttpContext('ui/proc_instance.html')
+    http_context.supervisord.supvisors = supvisors
+    supvisors.supervisor_data.supervisord = http_context.supervisord
+    return http_context
+
+
+@pytest.fixture
+def view(http_context):
     """ Return the instance to test. """
     # apply the forced inheritance done in supvisors.plugin
     StatusView.__bases__ = (ViewHandler,)
     # create the instance to be tested
-    return ProcInstanceView(DummyHttpContext('ui/proc_instance.html'))
+    return ProcInstanceView(http_context)
 
 
 def test_init(view):
@@ -54,15 +63,15 @@ def test_init(view):
 
 def test_write_contents(mocker, view):
     """ Test the ProcInstanceView.write_contents method. """
-    mocked_stats = mocker.patch('supvisors.viewhandler.ViewHandler.write_process_statistics')
-    mocked_table = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.write_process_table')
-    mocked_data = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.get_process_data',
+    mocked_stats = mocker.patch.object(view, 'write_process_statistics')
+    mocked_table = mocker.patch.object(view, 'write_process_table')
+    mocked_data = mocker.patch.object(view, 'get_process_data',
                                side_effect=(([{'namespec': 'dummy'}], []),
                                             ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                             ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
                                             ([{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])))
     # patch context
-    view.view_ctx = Mock(parameters={PROCESS: None}, local_node_name='10.0.0.1',
+    view.view_ctx = Mock(parameters={PROCESS: None}, local_identifier='10.0.0.1',
                          **{'get_process_status.return_value': None})
     # patch the meld elements
     mocked_root = Mock()
@@ -88,7 +97,7 @@ def test_write_contents(mocker, view):
     # test call with process selected but not running on considered node
     # process set in excluded_list
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
-    view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.2'})
+    view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.2'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}])]
@@ -99,7 +108,7 @@ def test_write_contents(mocker, view):
     mocked_stats.reset_mock()
     # test call with process selected and running
     view.view_ctx.parameters[PROCESS] = 'dummy'
-    view.view_ctx.get_process_status.return_value = Mock(running_nodes={'10.0.0.1'})
+    view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.1'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
     assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}])]
@@ -114,10 +123,11 @@ def test_get_process_data(mocker, view):
     process_status_2 = Mock(rules=Mock(expected_load=17))
     process_status_3 = Mock(rules=Mock(expected_load=26))
     mocker.patch.object(view.sup_ctx, 'get_process', side_effect=[process_status_1, process_status_2, process_status_3])
-    view.view_ctx = Mock(local_node_name='10.0.0.1',
+    view.view_ctx = Mock(local_identifier='10.0.0.1',
                          **{'get_process_stats.side_effect': [(2, 'stats #1'), (1, None), (4, 'stats #3')]})
     # test RPC Error
-    mocked_process_info = mocker.patch.object(view.supvisors.supervisor_data.supervisor_rpc_interface, 'getAllProcessInfo')
+    mocked_process_info = mocker.patch.object(view.supvisors.supervisor_data.supervisor_rpc_interface,
+                                              'getAllProcessInfo')
     mocked_process_info.side_effect = RPCError('failed RPC')
     assert view.get_process_data() == ([], [])
     # test normal behavior
@@ -153,10 +163,10 @@ def test_get_process_data(mocker, view):
 
 def test_sort_data(mocker, view):
     """ Test the ProcInstanceView.sort_data method. """
-    mocker.patch('supvisors.viewprocaddress.ProcInstanceView.get_application_summary',
-                 side_effect=[{'application_name': 'crash', 'process_name': None},
-                              {'application_name': 'sample_test_1', 'process_name': None},
-                              {'application_name': 'sample_test_2', 'process_name': None}] * 2)
+    mocker.patch.object(view, 'get_application_summary',
+                        side_effect=[{'application_name': 'crash', 'process_name': None},
+                                     {'application_name': 'sample_test_1', 'process_name': None},
+                                     {'application_name': 'sample_test_2', 'process_name': None}] * 2)
     # test empty parameter
     assert view.sort_data([]) == ([], [])
     # build process list
@@ -202,7 +212,7 @@ def test_sort_data(mocker, view):
 def test_get_application_summary(view):
     """ Test the ProcInstanceView.get_application_summary method. """
     # patch the context
-    view.view_ctx = Mock(local_node_name='10.0.0.1')
+    view.view_ctx = Mock(local_identifier='10.0.0.1')
     view.sup_ctx.applications['dummy_appli'] = Mock(state=ApplicationStates.RUNNING,
                                                     **{'get_operational_status.return_value': 'good'})
     # prepare parameters
@@ -226,8 +236,8 @@ def test_get_application_summary(view):
 
 def test_write_process_table(mocker, view):
     """ Test the ProcInstanceView.write_process_table method. """
-    mocked_appli = mocker.patch('supvisors.viewprocaddress.ProcInstanceView.write_application_status')
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_status')
+    mocked_appli = mocker.patch.object(view, 'write_application_status')
+    mocked_common = mocker.patch.object(view, 'write_common_process_status')
     # patch the meld elements
     table_mid = Mock()
     tr_elt_0 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
@@ -286,7 +296,7 @@ def test_write_process_table(mocker, view):
 
 def test_write_application_status(mocker, view):
     """ Test the ProcInstanceView.write_application_status method. """
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_status')
+    mocked_common = mocker.patch.object(view, 'write_common_status')
     # patch the context
     view.view_ctx = Mock(**{'get_application_shex.side_effect': [(False, '010'), (True, '101')],
                             'format_url.return_value': 'an url'})

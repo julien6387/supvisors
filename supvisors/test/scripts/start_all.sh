@@ -4,7 +4,7 @@
 SCRIPTS_DIR=`dirname $(readlink -e $0)`
 TEST_DIR=`readlink -e $SCRIPTS_DIR/..`
 
-# start all instances_map
+# start all instances
 for host in cliche81 cliche82 cliche83
 do
     echo "start Supervisor on host" $host

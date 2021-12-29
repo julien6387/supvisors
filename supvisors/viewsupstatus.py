@@ -56,7 +56,7 @@ class SupvisorsInstanceView(StatusView):
             elt.attrib['class'] = 'master'
         elt.content(self.local_identifier)
         # set Supvisors instance state
-        status = self.sup_ctx.instances_map[self.local_identifier]
+        status = self.sup_ctx.instances[self.local_identifier]
         elt = root.findmeld('state_mid')
         elt.content(status.state.name)
         # set Supvisors instance load
@@ -101,10 +101,10 @@ class SupvisorsInstanceView(StatusView):
 
     def restart_sup_action(self):
         """ Restart the local supervisor. """
-        self.supvisors.zmq.pusher.send_restart(self.local_node_name)
+        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
         return delayed_warn('Supervisor restart requested')
 
     def shutdown_sup_action(self):
         """ Shut down the local supervisor. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_node_name)
+        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
         return delayed_warn('Supervisor shutdown requested')

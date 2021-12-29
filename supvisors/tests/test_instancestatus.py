@@ -32,22 +32,32 @@ from .conftest import create_any_process, create_process
 
 
 @pytest.fixture
-def filled_node(supvisors):
-    """ Create an AddressStatus and add all processes of the database. """
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
+def supvisors_id(supvisors):
+    """ Create a SupvisorsInstanceId. """
+    return SupvisorsInstanceId('<supvisors>10.0.0.1:65000:65001', supvisors)
+
+
+@pytest.fixture
+def status(supvisors, supvisors_id):
+    """ Create an empty SupvisorsInstanceStatus. """
+    return SupvisorsInstanceStatus(supvisors_id, supvisors.logger)
+
+
+@pytest.fixture
+def filled_status(supvisors, status):
+    """ Create a SupvisorsInstanceStatus and add all processes of the database. """
     for info in database_copy():
         process = create_process(info, supvisors)
-        process.add_info('10.0.0.1', info)
+        process.add_info('supvisors', info)
         status.add_process(process)
     return status
 
 
-def test_create(supvisors):
-    """ Test the values set at construction. """
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
-    # test all AddressStatus values
+def test_create(supvisors, supvisors_id, status):
+    """ Test the values set at SupvisorsInstanceStatus construction. """
     assert status.logger == supvisors.logger
-    assert status.node_name == '10.0.0.1'
+    assert status.supvisors_id is supvisors_id
+    assert status.identifier == 'supvisors'
     assert status.state == SupvisorsInstanceStates.UNKNOWN
     assert status.sequence_counter == 0
     assert status.local_sequence_counter == 0
@@ -56,19 +66,18 @@ def test_create(supvisors):
     assert status.processes == {}
 
 
-def test_isolation(supvisors):
-    """ Test the in_isolation method. """
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
+def test_isolation(status):
+    """ Test the SupvisorsInstanceStatus.in_isolation method. """
     for state in SupvisorsInstanceStates:
         status._state = state
-        assert (status.in_isolation() and state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
-                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED])
+        assert (status.in_isolation() and
+                state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED] or
+                not status.in_isolation() and state not in [SupvisorsInstanceStates.ISOLATING,
+                                                            SupvisorsInstanceStates.ISOLATED])
 
 
-def test_serialization(supvisors):
-    """ Test the serial method used to get a serializable form of AddressStatus. """
-    # create address status instance
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
+def test_serialization(status):
+    """ Test the serial method used to get a serializable form of SupvisorsInstanceStatus. """
     status._state = SupvisorsInstanceStates.RUNNING
     status.checked = True
     status.sequence_counter = 28
@@ -76,7 +85,7 @@ def test_serialization(supvisors):
     status.local_time = 60
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+    assert serialized == {'identifier': 'supvisors', 'address_name': 'supvisors',  # TODO: DEPRECATED
                           'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
                           'remote_time': 50, 'local_time': 60, 'sequence_counter': 28}
     # test that returned structure is serializable using pickle
@@ -85,9 +94,8 @@ def test_serialization(supvisors):
     assert serialized == loaded
 
 
-def test_transitions(supvisors):
-    """ Test the state transitions of AddressStatus. """
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
+def test_transitions(status):
+    """ Test the state transitions of SupvisorsInstanceStatus. """
     for state1 in SupvisorsInstanceStates:
         for state2 in SupvisorsInstanceStates:
             # check all possible transitions from each state
@@ -103,9 +111,8 @@ def test_transitions(supvisors):
                     status.state = state2
 
 
-def test_add_process(supvisors):
-    """ Test the add_process method. """
-    status = SupvisorsInstanceStatus('10.0.0.1', supvisors.logger)
+def test_add_process(supvisors, status):
+    """ Test the SupvisorsInstanceStatus.add_process method. """
     process = create_any_process(supvisors)
     status.add_process(process)
     # check that process is stored
@@ -113,23 +120,23 @@ def test_add_process(supvisors):
     assert process is status.processes[process.namespec]
 
 
-def test_update_times(filled_node):
-    """ Test the update_times method. """
+def test_update_times(filled_status):
+    """ Test the SupvisorsInstanceStatus.update_times method. """
     # get current process times
     ref_data = {process.namespec: (process.state, info['now'], info['uptime'])
-                for process in filled_node.processes.values()
-                for info in [process.info_map['10.0.0.1']]}
+                for process in filled_status.processes.values()
+                for info in [process.info_map['supvisors']]}
     # update times and check
     now = time.time()
-    filled_node.update_times(28, now + 10, 27, now)
-    assert filled_node.sequence_counter == 28
-    assert filled_node.local_sequence_counter == 27
-    assert filled_node.remote_time == now + 10
-    assert filled_node.local_time == now
+    filled_status.update_times(28, now + 10, 27, now)
+    assert filled_status.sequence_counter == 28
+    assert filled_status.local_sequence_counter == 27
+    assert filled_status.remote_time == now + 10
+    assert filled_status.local_time == now
     # test process times: only RUNNING and STOPPING have a positive uptime
     new_data = {process.namespec: (process.state, info['now'], info['uptime'])
-                for process in filled_node.processes.values()
-                for info in [process.info_map['10.0.0.1']]}
+                for process in filled_status.processes.values()
+                for info in [process.info_map['supvisors']]}
     for namespec, new_info in new_data.items():
         ref_info = ref_data[namespec]
         assert new_info[0] == ref_info[0]
@@ -140,36 +147,36 @@ def test_update_times(filled_node):
             assert new_info[2] == ref_info[2]
 
 
-def test_get_remote_time(filled_node):
-    """ Test the get_remote_time method. """
+def test_get_remote_time(filled_status):
+    """ Test the SupvisorsInstanceStatus.get_remote_time method. """
     # update times and check
-    filled_node.remote_time = 10
-    filled_node.local_time = 5
-    assert filled_node.get_remote_time(15) == 20
+    filled_status.remote_time = 10
+    filled_status.local_time = 5
+    assert filled_status.get_remote_time(15) == 20
 
 
-def test_running_process(filled_node):
-    """ Test the running_process method. """
+def test_running_process(filled_status):
+    """ Test the SupvisorsInstanceStatus.running_process method. """
     # check the name of the running processes
-    assert {'late_segv', 'segv', 'xfontsel', 'yeux_01'} == {proc.process_name
-                                                            for proc in filled_node.running_processes()}
+    expected = {'late_segv', 'segv', 'xfontsel', 'yeux_01'}
+    assert {proc.process_name for proc in filled_status.running_processes()} == expected
 
 
-def test_pid_process(filled_node):
-    """ Test the pid_process method. """
+def test_pid_process(filled_status):
+    """ Test the SupvisorsInstanceStatus.pid_process method. """
     # check the namespec and pid of the running processes
-    assert {('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)} == set(filled_node.pid_processes())
+    assert {('sample_test_1:xfontsel', 80879), ('sample_test_2:yeux_01', 80882)} == set(filled_status.pid_processes())
 
 
-def test_get_loading(filled_node):
-    """ Test the get_loading method. """
+def test_get_loading(filled_status):
+    """ Test the SupvisorsInstanceStatus.get_loading method. """
     # check the loading of the address: gives 0 by default because no rule has been loaded
-    assert filled_node.get_loading() == 0
+    assert filled_status.get_loading() == 0
     # change expected_loading of any stopped process
-    process = random.choice([proc for proc in filled_node.processes.values() if proc.stopped()])
+    process = random.choice([proc for proc in filled_status.processes.values() if proc.stopped()])
     process.rules.expected_load = 50
-    assert filled_node.get_loading() == 0
+    assert filled_status.get_loading() == 0
     # change expected_loading of any running process
-    process = random.choice([proc for proc in filled_node.processes.values() if proc.running()])
+    process = random.choice([proc for proc in filled_status.processes.values() if proc.running()])
     process.rules.expected_load = 50
-    assert filled_node.get_loading() == 50
+    assert filled_status.get_loading() == 50

@@ -425,7 +425,7 @@ def test_application_job_on_nodes_invalidation(mocker, application_job_1, sample
     assert failed_processes == {xlogo.process}
     assert application_job_1.planned_jobs == {1: sample_test_1[2:]}
     assert application_job_1.current_jobs == sample_test_1[0:2]
-    # set xlogo identifiers with 2 instances_map
+    # set xlogo identifiers with 2 instances
     xlogo.identifiers = ['10.0.0.1', '10.0.0.2']
     application_job_1.on_instances_invalidation(['10.0.0.1'], failed_processes)
     assert not mocked_failure.called
@@ -534,7 +534,7 @@ def test_application_start_job_get_load_requests(application_start_job_1, start_
     # set context
     application_start_job_1.current_jobs = application_start_job_1.planned_jobs.pop(0)
     for idx, command in enumerate(start_sample_test_1):
-        command.instances_map = [f'10.0.0.{idx % 2 + 1}']
+        command.identifiers = [f'10.0.0.{idx % 2 + 1}']
         command.process.rules.expected_load = 10
     # initially: xclock STOPPING, xlogo STOPPED, xfontsel RUNNING
     assert application_start_job_1.get_load_requests() == {'10.0.0.2': 10}
@@ -559,7 +559,7 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
     assert not mocked_app_nodes.called
     assert not mocked_app_load.called
     # commands unchanged
-    assert all(not command.instances_map
+    assert all(not command.identifiers
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
     # test application provided / application not distributed
@@ -569,7 +569,7 @@ def test_application_start_job_before(mocker, supvisors, application_start_job_1
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
                                                       ['10.0.0.1', '10.0.0.2'], 27)]
     # check commands
-    assert all(command.instances_map == ['10.0.0.1']
+    assert all(command.identifiers == ['10.0.0.1']
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
 
@@ -934,7 +934,7 @@ def test_application_stop_job_on_event_in_sequence(mocker, application_stop_job_
             application_stop_job_1.on_event_in_sequence(xfontsel, node_name, event)
             assert xfontsel.identifiers == ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4']
             assert not mocked_next.called
-    # send expected stopped state from expected instances_map
+    # send expected stopped state from expected instances
     for state, node_name in list(zip(STOPPED_STATES, xfontsel.identifiers)):
         event = {'state': state}
         application_stop_job_1.on_event_in_sequence(xfontsel, node_name, event)

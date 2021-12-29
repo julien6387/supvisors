@@ -107,7 +107,7 @@ class RPCInterface(object):
         *@return* ``list(dict)``: a list of structures containing data about all **Supvisors** instances.
         """
         return [self.get_instance_info(identifier)
-                for identifier in sorted(self.supvisors.context.instances_map)]
+                for identifier in sorted(self.supvisors.context.instances)]
 
     def get_all_addresses_info(self):
         """ Get information about all **Supvisors** instances.
@@ -128,7 +128,7 @@ class RPCInterface(object):
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
         try:
-            status = self.supvisors.context.instances_map[identifier]
+            status = self.supvisors.context.instances[identifier]
         except KeyError:
             message = f'{identifier} unknown to Supvisors'
             self.logger.error(f'RPCInterface.get_instance_info: {message}')
@@ -473,7 +473,7 @@ class RPCInterface(object):
             rpc_interface = self.supvisors.supervisor_data.supervisor_rpc_interface
             cb = rpc_interface.startProcess(namespec, wait)
         except RPCError as why:
-            self.logger.error(f'start_process {namespec} failed: {why}')
+            self.logger.error(f'RPCInterface.start_args: start_process {namespec} failed - {why}')
             if why.code in [Faults.NO_FILE, Faults.NOT_EXECUTABLE]:
                 self.logger.warn(f'RPCInterface.start_args: force Supervisor internal state of {namespec} to FATAL')
                 # at this stage, process is known to the local Supervisor. no need to test again

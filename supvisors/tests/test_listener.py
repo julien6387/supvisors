@@ -175,7 +175,7 @@ def test_on_tick(mocker, listener):
     # create patches
     listener.pusher = Mock(**{'send_tick_event.return_value': None,
                               'send_statistics.return_value': None})
-    listener.supvisors.context.instances_map['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
+    listener.supvisors.context.instances['127.0.0.1'] = Mock(**{'pid_processes.return_value': []})
     # test non-process event
     with pytest.raises(AttributeError):
         listener.on_tick(ProcessStateFatalEvent(None, ''))

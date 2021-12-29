@@ -35,9 +35,11 @@ from .base import DummyHttpContext
 
 
 @pytest.fixture
-def view():
+def view(supvisors):
     """ Fixture for the instance to test. """
-    return ApplicationView(DummyHttpContext('ui/application.html'))
+    http_context = DummyHttpContext('ui/application.html')
+    http_context.supervisord.supvisors = supvisors
+    return ApplicationView(http_context)
 
 
 def test_init(view):
@@ -268,10 +270,10 @@ def test_get_process_data(mocker, view):
     """ Test the ViewApplication.get_process_data method. """
     # patch the selected application
     process_1 = Mock(application_name='appli_1', process_name='process_1', namespec='namespec_1',
-                     running_nodes=set(), state='stopped', rules=Mock(expected_load=20),
+                     running_identifiers=set(), state='stopped', rules=Mock(expected_load=20),
                      **{'state_string.return_value': 'stopped'})
     process_2 = Mock(application_name='appli_2', process_name='process_2', namespec='namespec_2',
-                     running_nodes=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
+                     running_identifiers=['10.0.0.1', '10.0.0.3'],  # should be a set but hard to test afterwards
                      state='running', rules=Mock(expected_load=1),
                      **{'state_string.return_value': 'running'})
     view.application = Mock(processes={process_1.process_name: process_1, process_2.process_name: process_2})

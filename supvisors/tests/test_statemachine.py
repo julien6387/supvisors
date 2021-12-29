@@ -29,8 +29,8 @@ from supvisors.ttypes import SupvisorsInstanceStates, SupvisorsStates
 
 @pytest.fixture
 def supvisors_ctx(supvisors):
-    """ Create a Supvisors-like structure filled with some instances_map. """
-    nodes = supvisors.context.instances_map
+    """ Create a Supvisors-like structure filled with some instances. """
+    nodes = supvisors.context.instances
     nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
@@ -53,16 +53,16 @@ def test_abstract_state(supvisors_ctx):
     # test check_instances method
     # declare local and master address running
     supvisors_ctx.context._master_identifier = '10.0.0.3'
-    supvisors_ctx.context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
-    supvisors_ctx.context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
     assert state.check_instances() is None
     # transition to INITIALIZATION state if the local address or master address is not RUNNING
-    supvisors_ctx.context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
-    supvisors_ctx.context.instances_map['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances_map['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
     # test abort_jobs method
     state.abort_jobs()
@@ -76,10 +76,10 @@ def test_initialization_state(supvisors_ctx):
     state = InitializationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
     # 1. test enter method: master and start_date are reset
-    # test that all active instances_map have been reset to UNKNOWN
+    # test that all active instances have been reset to UNKNOWN
     state.enter()
     assert state.context.master_identifier == ''
-    nodes = supvisors_ctx.context.instances_map
+    nodes = supvisors_ctx.context.instances
     assert nodes['127.0.0.1'].state == SupvisorsInstanceStates.UNKNOWN
     assert nodes['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
     assert nodes['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
@@ -89,7 +89,7 @@ def test_initialization_state(supvisors_ctx):
     # 2. test next method
     # trigger log for synchro time out
     state.context.start_date = 0
-    # test that Supvisors wait for all instances_map to be running or a given timeout is reached
+    # test that Supvisors wait for all instances to be running or a given timeout is reached
     # test case no node is running, especially local node
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
@@ -99,12 +99,12 @@ def test_initialization_state(supvisors_ctx):
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.SILENT
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
-    # test case where no more instances_map are still unknown
+    # test case where no more instances are still unknown
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
-    # test case where end of synchro is forced based on core instances_map running
+    # test case where end of synchro is forced based on core instances running
     supvisors_ctx.options.force_synchro_if = {'10.0.0.2', '10.0.0.4'}
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
@@ -116,11 +116,11 @@ def test_initialization_state(supvisors_ctx):
     state.context.start_date = 0
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
-    # master known, not in core instances_map and not running
+    # master known, not in core instances and not running
     supvisors_ctx.context.master_identifier = '10.0.0.3'
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
-    # master known, not in core instances_map and running
+    # master known, not in core instances and running
     supvisors_ctx.context.master_identifier = '127.0.0.1'
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
@@ -128,15 +128,15 @@ def test_initialization_state(supvisors_ctx):
     # test when master_identifier is already set: no change
     state.exit()
     assert supvisors_ctx.context.master_identifier == '127.0.0.1'
-    # test when master_identifier is not set and no core instances_map
+    # test when master_identifier is not set and no core instances
     # check master is the lowest string among running node names
     supvisors_ctx.context.master_identifier = None
     supvisors_ctx.options.force_synchro_if = {}
     state.exit()
     assert supvisors_ctx.context.running_identifiers() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_identifier == '10.0.0.2'
-    # test when master_identifier is not set and forced instances_map are used
-    # check master is the lowest string among the intersection between running node names and forced instances_map
+    # test when master_identifier is not set and forced instances are used
+    # check master is the lowest string among the intersection between running node names and forced instances
     supvisors_ctx.context.master_identifier = None
     supvisors_ctx.options.force_synchro_if = {'10.0.0.3', '10.0.0.4'}
     state.exit()
@@ -207,9 +207,9 @@ def test_master_operation_state(mocker, supvisors_ctx):
     assert result == SupvisorsStates.OPERATION
     mocked_stop.return_value = False
     # create address context
-    for node_name in supvisors_ctx.supvisors_mapper.instances_map:
+    for node_name in supvisors_ctx.supvisors_mapper.instances:
         status = SupvisorsInstanceStatus(node_name, supvisors_ctx.logger)
-        supvisors_ctx.context.instances_map[node_name] = status
+        supvisors_ctx.context.instances[node_name] = status
     # no starting or stopping is in progress
     # stay in OPERATION if no conflict
     mocked_conflict = mocker.patch.object(supvisors_ctx.context, 'conflicting', return_value=False)
@@ -329,7 +329,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     mocked_stopping.return_value = True
     result = state.next()
     assert result == SupvisorsStates.SHUTTING_DOWN
-    # test exit method: call to pusher send_restart for all instances_map
+    # test exit method: call to pusher send_restart for all instances
     assert not state.supvisors.zmq.pusher.send_shutdown.called
     state.exit()
     assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call('127.0.0.1')]
@@ -595,7 +595,7 @@ def test_timer_event(mocker, fsm):
     mocked_isolation = mocker.patch.object(fsm.supvisors.context, 'handle_isolation',
                                            return_value=['10.0.0.2', '10.0.0.3'])
     mocked_isolate = fsm.supvisors.zmq.pusher.send_isolate_instances
-    # test when not master and instances_map to isolate
+    # test when not master and instances to isolate
     assert not fsm.context.is_master
     event = {'counter': 1234}
     fsm.periodic_check(event)
@@ -790,7 +790,7 @@ def test_on_authorization(mocker, fsm):
     mocked_auth = mocker.patch.object(fsm.context, 'on_authorization', return_value=False)
     # set initial condition
     assert fsm.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
-    nodes = fsm.context.instances_map
+    nodes = fsm.context.instances
     nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
     # test rejected authorization

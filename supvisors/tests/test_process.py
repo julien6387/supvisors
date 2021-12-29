@@ -52,13 +52,14 @@ def test_rules_create(supvisors, rules):
 
 def test_rules_str(rules):
     """ Test the string output. """
-    assert str(rules) == "identifiers=['*'] hash_identifiers=[] start_sequence=0 stop_sequence=-1 required=False"\
-        " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE"
+    assert str(rules) == ("identifiers=['*'] hash_identifiers=[] start_sequence=0 stop_sequence=-1 required=False"
+                          " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE")
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'instances_map': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
+    assert rules.serial() == {'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
+                              'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -115,12 +116,12 @@ def test_rules_check_stop_sequence(rules):
     assert rules.stop_sequence == 50
 
 
-def test_rules_check_autorestart(rules):
+def test_rules_check_autorestart(mocker, rules):
     """ Test the dependency related to running failure strategy in process rules.
     Done in a separate test as it impacts the supervisor internal model. """
     # test based on programs unknown to Supervisor
-    mocked_disable = rules.supvisors.supervisor_data.disable_autorestart
-    mocked_autorestart = rules.supvisors.supervisor_data.autorestart
+    mocked_disable = mocker.patch.object(rules.supvisors.supervisor_data, 'disable_autorestart')
+    mocked_autorestart = mocker.patch.object(rules.supvisors.supervisor_data, 'autorestart')
     mocked_autorestart.side_effect = KeyError
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
@@ -156,31 +157,31 @@ def test_rules_check_autorestart(rules):
             mocked_disable.reset_mock()
 
 
-def test_rules_check_hash_nodes(rules):
-    """ Test the resolution of instances_map when hash_identifiers is set. """
+def test_rules_check_hash_identifiers(rules):
+    """ Test the resolution of instances when hash_identifiers is set. """
     # set initial attributes
     rules.hash_identifiers = ['*']
     rules.identifiers = []
     # in mocked supvisors, xclock has a procnumber of 2
     # 1. test with unknown namespec
-    rules.check_hash_nodes('sample_test_1:xfontsel')
+    rules.check_hash_identifiers('sample_test_1:xfontsel')
     # identifiers is unchanged
     assert rules.hash_identifiers == ['*']
     assert rules.identifiers == []
-    # 2. update rules to test '#' with all instances_map available
+    # 2. update rules to test '#' with all instances available
     # address '10.0.0.2' has an index of 2 in address_mapper
-    rules.check_hash_nodes('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock')
     assert rules.identifiers == ['10.0.0.2']
-    # 3. update rules to test '#' with a subset of instances_map available
+    # 3. update rules to test '#' with a subset of instances available
     rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
     rules.identifiers = []
     # here, at index 2 of this list, '10.0.0.5' can be found
-    rules.check_hash_nodes('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock')
     assert rules.identifiers == ['10.0.0.5']
-    # 4. test the case where procnumber is greater than the subset list of instances_map available
+    # 4. test the case where procnumber is greater than the subset list of instances available
     rules.hash_identifiers = ['10.0.0.1']
     rules.identifiers = []
-    rules.check_hash_nodes('sample_test_1:xclock')
+    rules.check_hash_identifiers('sample_test_1:xclock')
     assert rules.identifiers == []
 
 
@@ -234,7 +235,7 @@ def test_process_create(supvisors):
     assert process.rules.__dict__ == ProcessRules(supvisors).__dict__
 
 
-def test_process_possible_nodes(supvisors):
+def test_process_possible_identifiers(supvisors):
     """ Test the ProcessStatus.possible_identifiers method. """
     info = any_process_info()
     process = create_process(info, supvisors)
@@ -243,20 +244,20 @@ def test_process_possible_nodes(supvisors):
     # default identifiers is '*' in process rules
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.4']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    process.rules.instances_map = ['10.0.0.1', '10.0.0.3']
+    process.rules.identifiers = ['10.0.0.1', '10.0.0.3']
     assert process.possible_identifiers() == []
     # increase received status
     process.add_info('10.0.0.3', info)
     assert process.possible_identifiers() == ['10.0.0.3']
     # reset rules
-    process.rules.instances_map = ['*']
+    process.rules.identifiers = ['*']
     assert process.possible_identifiers() == ['10.0.0.2', '10.0.0.3', '10.0.0.4']
-    # test with full status and all instances_map in rules
-    for node_name in supvisors.supvisors_mapper.instances_map:
+    # test with full status and all instances in rules
+    for node_name in supvisors.supvisors_mapper.instances:
         process.add_info(node_name, info)
-    assert process.possible_identifiers() == supvisors.supvisors_mapper.instances_map
-    # restrict again instances_map in rules
-    process.rules.instances_map = ['10.0.0.5']
+    assert process.possible_identifiers() == list(supvisors.supvisors_mapper.instances.keys())
+    # restrict again instances in rules
+    process.rules.identifiers = ['10.0.0.5']
     assert process.possible_identifiers() == ['10.0.0.5']
 
 
@@ -393,7 +394,7 @@ def test_process_conflicting(supvisors):
     assert not process.conflicting()
 
 
-def test_extra_args(supvisors):
+def test_extra_args(mocker, supvisors):
     """ Test the accessors of the ProcessStatus extra_args. """
     info = any_process_info()
     process = create_process(info, supvisors)
@@ -404,7 +405,7 @@ def test_extra_args(supvisors):
     assert process._extra_args == 'new args'
     assert process.extra_args == 'new args'
     # test internal exception when process unknown to the local Supervisor
-    supvisors.supervisor_data.update_extra_args.side_effect = KeyError
+    mocker.patch.object(supvisors.supervisor_data, 'update_extra_args', side_effect=KeyError)
     process.extra_args = 'another args'
     assert process._extra_args == 'another args'
     assert process.extra_args == 'another args'
@@ -419,7 +420,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'instances_map': [], 'addresses': [],  # TODO: DEPRECATED
+                          'last_event_time': process.last_event_time, 'identifiers': [], 'addresses': [],  # TODO: DEPRECATED
                           'extra_args': ''}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
@@ -431,7 +432,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'instances_map': [], 'addresses': [],  # TODO: DEPRECATED
+                          'last_event_time': process.last_event_time, 'identifiers': [], 'addresses': [],  # TODO: DEPRECATED
                           'extra_args': ''}
 
 
@@ -702,7 +703,7 @@ def test_update_uptime():
 
 
 def test_invalidate_nodes(supvisors):
-    """ Test the invalidation of instances_map. """
+    """ Test the invalidation of instances. """
     # create conflict directly with 3 process info
     info = any_process_info_by_state(ProcessStates.BACKOFF)
     process = create_process(info, supvisors)
@@ -737,7 +738,7 @@ def test_invalidate_nodes(supvisors):
 
 
 def test_remove_node(supvisors):
-    """ Test the removal of instances_map. """
+    """ Test the removal of instances. """
     # create conflict directly with 2 process info
     info = any_process_info()
     process = create_process(info, supvisors)

@@ -79,10 +79,10 @@ class AbstractState(object):
         :return: the suggested state if local or Master Supvisors instance is not active anymore
         """
         # FIXME: for local, this cannot happen anymore
-        if self.context.instances_map[self.local_identifier].state != SupvisorsInstanceStates.RUNNING:
+        if self.context.instances[self.local_identifier].state != SupvisorsInstanceStates.RUNNING:
             self.logger.critical('AbstractState.check_instances: local Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
-        if self.context.instances_map[self.context.master_identifier].state != SupvisorsInstanceStates.RUNNING:
+        if self.context.instances[self.context.master_identifier].state != SupvisorsInstanceStates.RUNNING:
             self.logger.warn('AbstractState.check_instances: Master Supvisors instance not RUNNING anymore')
             return SupvisorsStates.INITIALIZATION
 

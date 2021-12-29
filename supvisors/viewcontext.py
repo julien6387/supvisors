@@ -134,7 +134,7 @@ class ViewContext:
     def update_process_name(self):
         """ Extract process name from context.
         ApplicationView may select a process unknown to this Supvisors instance. """
-        status = self.supvisors.context.instances_map[self.parameters[IDENTIFIER]]
+        status = self.supvisors.context.instances[self.parameters[IDENTIFIER]]
         self._update_string(PROCESS, [x.namespec for x in status.running_processes()])
 
     def update_namespec(self):

@@ -21,7 +21,7 @@ import zmq
 from zmq.error import ZMQError
 
 from sys import stderr
-from typing import Any, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 from supervisor.loggers import Logger
 
@@ -317,7 +317,7 @@ class InternalEventSubscriber(object):
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, instances: List[SupvisorsInstanceId]):
+    def __init__(self, instances: Dict[str, SupvisorsInstanceId]):
         """ Initialization of the attributes.
 
         :param instances: the Supvisors attributes of the publishing Supvisors instances
@@ -326,7 +326,7 @@ class InternalEventSubscriber(object):
         self.instances = instances
         self.socket = ZmqContext.socket(zmq.SUB)
         # connect all Supvisors instances
-        for instance in instances:
+        for instance in instances.values():
             self.socket.connect(f'tcp://{instance.host_name}:{instance.internal_port}')
         self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
@@ -596,11 +596,11 @@ class SupvisorsZmq(object):
         """ Create the sockets and the poller.
         The Supervisor logger cannot be used here (not thread-safe).
 
-        :param supvisors: the Supvisors global structure
+        :param supvisors_mapper: the Supvisors Instances mapper
         """
         # create zmq sockets
         self.publisher = InternalEventPublisher(supvisors_mapper.local_instance)
-        self.subscriber = InternalEventSubscriber(supvisors_mapper.instances.values())
+        self.subscriber = InternalEventSubscriber(supvisors_mapper.instances)
         self.puller = RequestPuller()
         # create poller
         self.poller = zmq.Poller()

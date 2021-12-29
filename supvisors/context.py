@@ -28,7 +28,7 @@ from .ttypes import SupvisorsInstanceStates, NameList, PayloadList
 class Context(object):
     """ The Context class holds the main data of Supvisors:
 
-    - instances_map: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier),
+    - instances: the dictionary of all SupvisorsInstanceStatus (key is Supvisors identifier),
     - applications: the dictionary of all ApplicationStatus (key is application name),
     - master_identifier: the name of the Supvisors master,
     - is_master: a boolean telling if the local Supvisors instance is the master instance.
@@ -42,7 +42,7 @@ class Context(object):
         self.supvisors = supvisors
         self.logger = supvisors.logger
         # attributes
-        self.instances_map: Dict[str, SupvisorsInstanceStatus] = {
+        self.instances: Dict[str, SupvisorsInstanceStatus] = {
             identifier: SupvisorsInstanceStatus(supvisors_id, self.logger)
             for identifier, supvisors_id in self.supvisors.supvisors_mapper.instances.items()}
         self.applications: Dict[str, ApplicationStatus] = {}
@@ -61,7 +61,7 @@ class Context(object):
         """
         self.master_identifier = ''
         self.start_date = time()
-        for status in self.instances_map.values():
+        for status in self.instances.values():
             status.reset()
 
     @property
@@ -78,7 +78,7 @@ class Context(object):
         self._master_identifier = identifier
         self._is_master = identifier == self.supvisors.supvisors_mapper.local_identifier
 
-    # methods on instances_map
+    # methods on instances
     def unknown_identifiers(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in UNKNOWN state. """
         return self.instances_by_states([SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING,
@@ -107,7 +107,7 @@ class Context(object):
 
     def instances_by_states(self, states: List[SupvisorsInstanceStates]) -> NameList:
         """ Return the Supervisor identifiers sorted by Supervisor state. """
-        return [identifier for identifier, status in self.instances_map.items() if status.state in states]
+        return [identifier for identifier, status in self.instances.items() if status.state in states]
 
     def invalid(self, status: SupvisorsInstanceStatus, fence=None) -> None:
         """ Declare SILENT or ISOLATING the SupvisorsInstanceStatus in parameter, according to the auto_fence option.
@@ -235,7 +235,7 @@ class Context(object):
         """
         self.logger.trace(f'Context.load_processes: identifier={identifier} all_info={all_info}')
         # get SupvisorsInstanceStatus corresponding to identifier
-        status = self.instances_map[identifier]
+        status = self.instances[identifier]
         # store processes into their application entry
         for info in all_info:
             # get or create process
@@ -260,7 +260,7 @@ class Context(object):
         :return: True if authorized both ways
         """
         if self.supvisors.supvisors_mapper.valid(identifier):
-            status = self.instances_map[identifier]
+            status = self.instances[identifier]
             if status.state == SupvisorsInstanceStates.CHECKING:
                 if authorized:
                     self.logger.info(f'Context.on_authorization: local Supvisors instance is authorized to work'
@@ -291,12 +291,12 @@ class Context(object):
             return
         # check if local tick has been received yet
         if identifier != self.supvisors.supvisors_mapper.local_identifier:
-            status = self.instances_map[self.supvisors.supvisors_mapper.local_identifier]
+            status = self.instances[self.supvisors.supvisors_mapper.local_identifier]
             if status.state != SupvisorsInstanceStates.RUNNING:
                 self.logger.debug('Context.on_tick_event: waiting for local tick')
                 return
         # process node event
-        status = self.instances_map[identifier]
+        status = self.instances[identifier]
         # ISOLATED instances are not updated anymore
         if not status.in_isolation():
             self.logger.debug(f'Context.on_tick_event: got tick {event} from Supvisors={identifier}')
@@ -332,7 +332,7 @@ class Context(object):
             # get publisher
             publisher = self.supvisors.zmq.publisher
             # check all Supvisors instances
-            for status in self.instances_map.values():
+            for status in self.instances.values():
                 if status.state == SupvisorsInstanceStates.UNKNOWN:
                     # invalid unknown Supvisors instances
                     # nothing to do on processes as none received yet
@@ -371,7 +371,7 @@ class Context(object):
         :return: None
         """
         if self.supvisors.supvisors_mapper.valid(identifier):
-            status = self.instances_map[identifier]
+            status = self.instances[identifier]
             # accept events only in RUNNING state
             if status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_remove_process_event: got event {event} from Supvisors={identifier}')
@@ -409,7 +409,7 @@ class Context(object):
         :return: None
         """
         if self.supvisors.supvisors_mapper.valid(identifier):
-            node_status = self.instances_map[identifier]
+            node_status = self.instances[identifier]
             # accept events only in RUNNING state
             if node_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
@@ -455,7 +455,7 @@ class Context(object):
         """ Move ISOLATING Supvisors instances to ISOLATED and publish related events. """
         identifiers = self.isolating_instances()
         for identifier in identifiers:
-            status = self.instances_map[identifier]
+            status = self.instances[identifier]
             status.state = SupvisorsInstanceStates.ISOLATED
             # publish SupvisorsInstanceStatus event
             self.supvisors.zmq.publisher.send_instance_status(status.serial())

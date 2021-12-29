@@ -40,7 +40,7 @@ def test_rules_create(rules):
     # check application default rules
     assert not rules.managed
     assert rules.distributed
-    assert rules.instances_map == ['*']
+    assert rules.identifiers == ['*']
     assert rules.hash_identifiers == []
     assert rules.start_sequence == 0
     assert rules.stop_sequence == -1
@@ -65,43 +65,43 @@ def test_rules_check_stop_sequence(rules):
     assert rules.stop_sequence == 50
 
 
-def test_rules_check_hash_nodes(rules):
-    """ Test the resolution of instances_map when hash_identifiers is set. """
+def test_rules_check_hash_identifiers(rules):
+    """ Test the resolution of identifiers when hash_identifiers is set. """
     # set initial attributes
     rules.hash_identifiers = ['*']
-    rules.instances_map = []
+    rules.identifiers = []
     rules.start_sequence = 1
     # 1. test with application without ending index
     rules.check_hash_identifiers('crash')
     # identifiers is unchanged and start_sequence is invalidated
     assert rules.hash_identifiers == ['*']
-    assert rules.instances_map == []
+    assert rules.identifiers == []
     assert rules.start_sequence == 0
     # 2. test with application with 0-ending index
     rules.start_sequence = 1
     rules.check_hash_identifiers('sample_test_0')
     # identifiers is unchanged and start_sequence is invalidated
     assert rules.hash_identifiers == ['*']
-    assert rules.instances_map == []
+    assert rules.identifiers == []
     assert rules.start_sequence == 0
-    # 3. update rules to test '#' with all instances_map available
+    # 3. update rules to test '#' with all instances available
     # address '127.0.0.1' has an index of 1-1 in address_mapper
     rules.start_sequence = 1
     rules.check_hash_identifiers('sample_test_1')
-    assert rules.instances_map == ['127.0.0.1']
+    assert rules.identifiers == ['127.0.0.1']
     assert rules.start_sequence == 1
-    # 4. update rules to test '#' with a subset of instances_map available
+    # 4. update rules to test '#' with a subset of instances available
     rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
-    rules.instances_map = []
+    rules.identifiers = []
     # here, at index 2-1 of this list, '10.0.0.5' can be found
     rules.check_hash_identifiers('sample_test_2')
-    assert rules.instances_map == ['10.0.0.3']
+    assert rules.identifiers == ['10.0.0.3']
     assert rules.start_sequence == 1
-    # 5. test the case where procnumber is greater than the subset list of instances_map available
+    # 5. test the case where procnumber is greater than the subset list of instances available
     rules.hash_identifiers = ['10.0.0.1']
-    rules.instances_map = []
+    rules.identifiers = []
     rules.check_hash_identifiers('sample_test_2')
-    assert rules.instances_map == []
+    assert rules.identifiers == []
     assert rules.start_sequence == 0
 
 
@@ -140,7 +140,7 @@ def test_rules_serial(rules):
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
-    assert rules.serial() == {'managed': True, 'distributed': False, 'instances_map': ['*'], 'addresses': ['*'],  # TOODO: DEPRECATED
+    assert rules.serial() == {'managed': True, 'distributed': False, 'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}
@@ -294,7 +294,7 @@ def test_application_add_remove_process(mocker, supvisors):
     assert mocked_status.called
 
 
-def test_application_possible_nodes(supvisors):
+def test_application_possible_identifiers(supvisors):
     """ Test the ApplicationStatus.possible_identifiers method. """
     application = create_application('ApplicationTest', supvisors)
     # add a process to the application
@@ -312,21 +312,21 @@ def test_application_possible_nodes(supvisors):
     # default identifiers is '*' in process rules
     assert application.possible_identifiers() == ['10.0.0.4']
     # set a subset of identifiers in process rules so that there's no intersection with received status
-    application.rules.instances_map = ['10.0.0.1', '10.0.0.2']
+    application.rules.identifiers = ['10.0.0.1', '10.0.0.2']
     assert application.possible_identifiers() == []
     # increase received status
     process1.add_info('10.0.0.1', info)
     assert application.possible_identifiers() == ['10.0.0.1']
     # reset rules
-    application.rules.instances_map = ['*']
+    application.rules.identifiers = ['*']
     assert application.possible_identifiers() == ['10.0.0.1', '10.0.0.4']
-    # test with full status and all instances_map in rules
-    for node_name in supvisors.supvisors_mapper.instances_map:
+    # test with full status and all instances in rules
+    for node_name in supvisors.supvisors_mapper.instances:
         process1.add_info(node_name, info)
         process2.add_info(node_name, info)
-    assert application.possible_identifiers() == supvisors.supvisors_mapper.instances_map
-    # restrict again instances_map in rules
-    application.rules.instances_map = ['10.0.0.5']
+    assert sorted(application.possible_identifiers()) == sorted(supvisors.supvisors_mapper.instances.keys())
+    # restrict again instances in rules
+    application.rules.identifiers = ['10.0.0.5']
     assert application.possible_identifiers() == ['10.0.0.5']
 
 

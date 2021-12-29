@@ -69,7 +69,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             all_info = rpc_intf.getAllProcessInfo()
         except RPCError as e:
             self.logger.warn(f'ProcInstanceView.get_process_data: failed to get all process info'
-                             f' from {self.local_node_name}: {e.text}')
+                             f' from {self.local_identifier}: {e.text}')
             return [], []
         # extract what is useful to display
         data = []
