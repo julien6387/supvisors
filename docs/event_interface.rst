@@ -154,7 +154,7 @@ No additional third party is required.
   .. autoclass:: SupvisorsEventInterface
 
        .. automethod:: on_supvisors_status(data)
-       .. automethod:: on_node_status(data)
+       .. automethod:: on_instance_status(data)
        .. automethod:: on_application_status(data)
        .. automethod:: on_process_status(data)
        .. automethod:: on_process_event(data)
