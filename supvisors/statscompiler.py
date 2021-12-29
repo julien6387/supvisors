@@ -226,7 +226,6 @@ class StatisticsCompiler(object):
         self.data = {identifier: {period: StatisticsInstance(period, supvisors.options.stats_histo, supvisors.logger)
                                   for period in supvisors.options.stats_periods}
                      for identifier in supvisors.supvisors_mapper.instances}
-        supvisors.logger.warn(self.data)
         self.nbcores: Dict[str, int] = {identifier: 1 for identifier in supvisors.supvisors_mapper.instances}
 
     def clear(self, identifier: str):
