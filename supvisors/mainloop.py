@@ -164,7 +164,8 @@ class SupvisorsMainLoop(Thread):
     def send_request(self, header: DeferredRequestHeaders, body) -> None:
         """ Perform the XML-RPC according to the header. """
         # first element of body is always the identifier of the destination Supvisors instance
-        instance = self.supvisors.supvisors_mapper.instances[body[0]]
+        identifier = body[0]
+        instance = self.supvisors.supvisors_mapper.instances[identifier]
         self.srv_url.update_url(instance.host_name, instance.http_port)
         # send message
         if header == DeferredRequestHeaders.CHECK_INSTANCE:
@@ -197,8 +198,8 @@ class SupvisorsMainLoop(Thread):
                                                                               SupvisorsInstanceStates.ISOLATED]
             # inform local Supvisors that authorization is available
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
-                                        f'identifier:{identifier} authorized:{authorized}'
-                                        f' master_identifier:{master_identifier} supvisors_state:{supvisors_state}')
+                                        f'identifier={identifier} authorized={authorized}'
+                                        f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
             # get process info if authorized
             if authorized:
                 # get information about all processes handled by Supervisor

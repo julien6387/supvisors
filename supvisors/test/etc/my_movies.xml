@@ -2,7 +2,7 @@
 <root>
 
     <!-- aliases -->
-    <alias name="distribute_sublist">#,cliche82,cliche83,cliche84</alias>
+    <alias name="distribute_sublist">#,cliche82,cliche83:60000,cliche84</alias>
     <alias name="consoles">cliche82,cliche81</alias>
 
     <!-- models -->
@@ -18,7 +18,7 @@
 
     <model name="disk_03">
         <reference>disk_01</reference>
-        <identifiers>cliche83</identifiers>
+        <identifiers>cliche83:60000</identifiers>
     </model>
 
     <model name="converter">
@@ -32,7 +32,7 @@
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
         <program pattern="mount_disk_">
-            <identifiers>#,cliche82,cliche83,cliche84</identifiers>
+            <identifiers>#,cliche82,cliche83:60000,cliche84</identifiers>
             <start_sequence>1</start_sequence>
             <required>true</required>
             <expected_loading>0</expected_loading>
@@ -60,7 +60,7 @@
         </program>
 
         <program pattern="register_movies_">
-            <identifiers>#,cliche81,cliche83</identifiers>
+            <identifiers>#,cliche81,cliche83:60000</identifiers>
             <start_sequence>2</start_sequence>
             <wait_exit>true</wait_exit>
             <expected_loading>25</expected_loading>
@@ -117,12 +117,12 @@
 
         <program name="converter_04">
             <reference>converter</reference>
-            <identifiers>cliche83,cliche81,cliche82</identifiers>
+            <identifiers>cliche83:60000,cliche81,cliche82</identifiers>
         </program>
 
         <program name="converter_07">
             <reference>converter</reference>
-            <identifiers>cliche81,cliche83,cliche82</identifiers>
+            <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
         </program>
 
         <program pattern="converter_">
@@ -134,7 +134,7 @@
     <!-- player application -->
     <application name="player">
         <distributed>false</distributed>
-        <identifiers>cliche81,cliche83</identifiers>
+        <identifiers>cliche81,cliche83:60000</identifiers>
         <start_sequence>5</start_sequence>
         <starting_strategy>MOST_LOADED</starting_strategy>
         <starting_failure_strategy>ABORT</starting_failure_strategy>

@@ -197,10 +197,10 @@ def test_check_requests(mocker, main_loop):
             mocked_sockets.publisher.forward_event.reset_mock()
 
 
-def test_check_node(mocker, mocked_rpc, main_loop):
+def test_check_instance(mocker, mocked_rpc, main_loop):
     """ Test the protocol to get the processes handled by a remote Supervisor. """
     mocker.patch('supvisors.mainloop.stderr')
-    mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_remote_comm_event')
+    mocked_evt = mocker.patch.object(main_loop, 'send_remote_comm_event')
     # test rpc error: no event is sent to local Supervisor
     mocked_rpc.side_effect = ValueError
     main_loop.check_instance('10.0.0.1')
@@ -222,16 +222,17 @@ def test_check_node(mocker, mocked_rpc, main_loop):
     # test with node in isolation
     for state in [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]:
         mocked_addr.return_value = {'statecode': state}
-        main_loop.check_instance('10.0.0.1')
+        main_loop.check_instance('10.0.0.1:60000')
         assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
-        expected = 'identifier:10.0.0.1 authorized:False master_identifier:10.0.0.5 supvisors_state:RUNNING'
+        expected = 'identifier=10.0.0.1:60000 authorized=False master_identifier=10.0.0.5 supvisors_state=RUNNING'
         assert mocked_evt.call_args_list == [call('auth', expected)]
         assert not mocked_all.called
         # reset counters
         mocked_evt.reset_mock()
         mocked_rpc.reset_mock()
     # test with node not in isolation
-    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.SILENT]:
+    for state in [SupvisorsInstanceStates.UNKNOWN, SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING,
+                  SupvisorsInstanceStates.SILENT]:
         mocked_addr.return_value = {'statecode': state}
         main_loop.check_instance('10.0.0.1')
         assert mocked_rpc.call_count == 1

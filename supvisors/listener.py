@@ -242,7 +242,7 @@ class SupervisorListener(object):
         """ Extract authorization and identifier from data and process event. """
         self.logger.trace(f'SupervisorListener.authorization: got authorization event: {data}')
         # split the line received
-        identifier, authorized, master_identifier, supvisors_state = tuple(x.split(':')[1] for x in data.split())
+        identifier, authorized, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
         self.supvisors.fsm.on_authorization(identifier, boolean(authorized), master_identifier,
                                             SupvisorsStates[supvisors_state])
 
