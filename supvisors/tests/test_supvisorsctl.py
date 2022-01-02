@@ -253,9 +253,9 @@ def test_sstate(controller, plugin, mocked_check):
 def test_instance_status(controller, plugin, mocked_check):
     """ Test the instance_status request. """
     mocked_rpc = plugin.supvisors().get_all_instances_info
-    mocked_rpc.return_value = [{'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
+    mocked_rpc.return_value = [{'identifier': '10.0.0.1',
                                 'statename': 'running', 'loading': 10, 'local_time': 1500, 'sequence_counter': 12},
-                               {'identifier': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
+                               {'identifier': '10.0.0.2',
                                 'statename': 'stopped', 'loading': 0, 'local_time': 100, 'sequence_counter': 15}]
     _check_call(controller, mocked_check, mocked_rpc,  plugin.help_instance_status, plugin.do_instance_status,
                 '', [call()])
@@ -264,9 +264,6 @@ def test_instance_status(controller, plugin, mocked_check):
     # test help and request for node status from a selection of address names
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_instance_status, plugin.do_instance_status,
                 '10.0.0.2 10.0.0.1', [call()])
-    # TODO: DEPRECATED
-    _check_call(controller, mocked_check, mocked_rpc,
-                plugin.help_address_status, plugin.do_address_status, '', [call()])
 
 
 def test_application_info(controller, plugin, mocked_check):
@@ -289,20 +286,20 @@ def test_sstatus(controller, plugin, mocked_check):
     mocked_rpc = plugin.supvisors().get_all_process_info
     mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1',
                                 'statecode': 20, 'statename': 'running', 'expected_exit': True,
-                                'identifiers': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']},  # TODO: DEPRECATED
+                                'identifiers': ['10.0.1', '10.0.2']},
                                {'application_name': 'appli_2', 'process_name': 'proc_3',
                                 'statecode': 100, 'statename': 'exited', 'expected_exit': False,
-                                'identifiers': [], 'addresses': []}]  # TODO: DEPRECATED
+                                'identifiers': []}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, '', [call()])
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus, 'all', [call()])
     # test help and request for process info from a selection of namespecs
     mocked_rpc = plugin.supvisors().get_process_info
     mocked_rpc.side_effect = [[{'application_name': 'appli_1', 'process_name': 'proc_1',
                                 'statecode': 20, 'statename': 'running', 'expected_exit': True,
-                                'identifiers': ['10.0.1', '10.0.2'], 'addresses': ['10.0.1', '10.0.2']}],  # TODO: DEPRECATED
+                                'identifiers': ['10.0.1', '10.0.2']}],
                               [{'application_name': 'appli_2', 'process_name': 'proc_3',
                                 'statecode': 100, 'statename': 'exited', 'expected_exit': False,
-                                'identifiers': [], 'addresses': []}]]  # TODO: DEPRECATED
+                                'identifiers': []}]]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_sstatus, plugin.do_sstatus,
                 'appli_2:proc_3 appli_1:proc_1', [call('appli_2:proc_3'), call('appli_1:proc_1')])
 
@@ -372,11 +369,10 @@ def test_process_rules(controller, plugin, mocked_check):
                                 {'application_name': 'appli_2', 'process_name': 'proc_3'}]
     mocked_rpc = plugin.supvisors().get_process_rules
     returned_rules = [[{'application_name': 'appli_1', 'process_name': 'proc_1',
-                        'identifiers': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2'],  # TODO: DEPRECATED
+                        'identifiers': ['10.0.0.1', '10.0.0.2'],
                         'start_sequence': 2, 'stop_sequence': 3, 'required': True, 'wait_exit': False,
                         'expected_loading': 50, 'running_failure_strategy': 1}],
-                      [{'application_name': 'appli_2', 'process_name': 'proc_3',
-                        'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
+                      [{'application_name': 'appli_2', 'process_name': 'proc_3', 'identifiers': ['*'],
                         'start_sequence': 1, 'stop_sequence': 0, 'required': False, 'wait_exit': True,
                         'expected_loading': 15, 'running_failure_strategy': 2}]]
     # first case: no argument
@@ -409,9 +405,9 @@ def test_conflicts(controller, plugin, mocked_check):
     """ Test the conflicts request. """
     mocked_rpc = plugin.supvisors().get_conflicts
     mocked_rpc.return_value = [{'application_name': 'appli_1', 'process_name': 'proc_1', 'statename': 'running',
-                                'identifiers': ['10.0.0.1', '10.0.0.2'], 'addresses': ['10.0.0.1', '10.0.0.2']},  # TODO: DEPRECATED
+                                'identifiers': ['10.0.0.1', '10.0.0.2']},
                                {'application_name': 'appli_2', 'process_name': 'proc_3', 'statename': 'stopped',
-                                'identifiers': ['10.0.0.2', '10.0.0.3'], 'addresses': ['10.0.0.2', '10.0.0.3']}]  # TODO: DEPRECATED
+                                'identifiers': ['10.0.0.2', '10.0.0.3']}]
     _check_call(controller, mocked_check, mocked_rpc, plugin.help_conflicts, plugin.do_conflicts, '', [call()])
 
 

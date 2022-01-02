@@ -141,18 +141,6 @@ class ControllerPlugin(ControllerPluginBase):
         self.ctl.output('instance_status <identifier> <identifier>\t\tGet the status for multiple Supvisors instances')
         self.ctl.output('instance_status\t\t\t\tGet the status of all remote Supvisors instances.')
 
-    def do_address_status(self, arg):
-        """ *DEPRECATED* Command to get the status of instances known to Supvisors. """
-        # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use instance_status')
-        self.do_instance_status(arg)
-
-    def help_address_status(self):
-        """ *DEPRECATED* Print the help of the address_status command."""
-        # TODO: DEPRECATED
-        self.ctl.output('*** DEPRECATED *** use instance_status')
-        self.help_instance_status()
-
     @staticmethod
     def max_template(payloads: PayloadList, item: str, title: str):
         """ Return the length of the item column taking into account the title and all its elements.

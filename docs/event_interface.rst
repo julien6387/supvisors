@@ -64,8 +64,6 @@ Key	               Value
 ================== ==================
 Key	               Value
 ================== ==================
-'address_name'     *DEPRECATED* The deduced name of the |Supvisors| instance.
-                   This entry will be removed in the next version.
 'identifier'       The deduced name of the |Supvisors| instance.
 'statecode'        The |Supvisors| instance state, in [0;5].
 'statename'        The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``
@@ -107,8 +105,6 @@ Key	               Value
 'expected_exit'    True if the exit status is expected (only when state is ``'EXITED'``).
 'last_event_time'  The date of the last process event received for this process, regardless of the originating
                    |Supvisors| instance.
-'addresses'        *DEPRECATED* The deduced names of the |Supvisors| instances where the process is running.
-                   This entry will be removed in the next version.
 'identifiers'      The deduced names of the |Supvisors| instances where the process is running.
 'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
@@ -133,8 +129,6 @@ Key                Value
 'expected'         True if the exit status is expected (only when state is 100 - ``EXITED``).
 'now'              The date of the event in the reference time of the node.
 'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
-'address'          *DEPRECATED* The deduced name of the |Supvisors| instance that sent the initial event.
-                   This entry will be removed in the next version.
 'identifier'       The deduced name of the |Supvisors| instance that sent the initial event.
 'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================

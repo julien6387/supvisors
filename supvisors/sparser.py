@@ -292,10 +292,6 @@ class Parser(object):
         :return: None
         """
         value = elt.findtext('identifiers')
-        if not value:
-            value = elt.findtext('addresses')
-            if value:
-                self.logger.warn('Parser.load_identifiers: addresses is DEPRECATED. please use identifiers')
         if value:
             rules.identifiers = self.check_identifier_list(value)
             if '#' in rules.identifiers:

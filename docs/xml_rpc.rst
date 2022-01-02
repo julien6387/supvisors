@@ -60,15 +60,11 @@ Status
             'starting'         ``str``   The starting strategy applied when |Supvisors| is in the ``DEPLOYMENT`` state.
             ================== ========= ===========
 
-        .. automethod:: get_address_info(node_name)
-
-        .. automethod:: get_instance_info(node_name)
+        .. automethod:: get_instance_info(instance)
 
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   *DEPRECATED* The deduced name of the |Supvisors| instance.
-                                         This entry will be removed in the next version.
             'identifier'       ``str``   The deduced name of the |Supvisors| instance.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
@@ -77,12 +73,10 @@ Status
                                          in the remote reference time.
             'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the local reference time.
-            'loading'          ``int``   The sum of the expected loading of the processes running on the node,
-                                         in [0;100]%.
+            'loading'          ``int``   The sum of the expected loading of the processes running on the |Supvisors|
+                                         instance, in [0;100]%.
             'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
             ================== ========= ===========
-
-        .. automethod:: get_all_addresses_info()
 
         .. automethod:: get_all_instances_info()
 
@@ -114,9 +108,6 @@ Status
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
             'last_event_time'  ``int``         The timestamp of the last event received for this process.
-            'addresses'        ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances where the
-                                               process is running.
-                                               This entry will be removed in the next version.
             'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
                                                running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
@@ -163,10 +154,6 @@ Status
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
             'distributed'               ``bool``        The Application distribution status in |Supvisors|.
-            'addresses'                 ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
-                                                        where the non-distributed application processes can be started,
-                                                        provided only if ``distributed`` is ``False``.
-                                                        This entry will be removed in the next version.
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
                                                         non-distributed application processes can be started, provided
                                                         only if ``distributed`` is ``False``.
@@ -191,9 +178,6 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'addresses'                ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
-                                                       where the process can be started.
-                                                       This entry will be removed in the next version.
             'identifiers'              ``list(str)``   The deduced names of all |Supvisors| instances where the process
                                                        can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,

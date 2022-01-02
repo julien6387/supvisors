@@ -80,11 +80,6 @@ def test_init_no_stats(http_context, ctx_no_stats):
     assert not ctx_no_stats.redirect
 
 
-def test_get_server_port(ctx):
-    """ Test the ViewContext.get_server_port method. """
-    assert ctx.get_server_port() == 7777
-
-
 def test_get_action(ctx):
     """ Test the ViewContext.get_action method. """
     assert ctx.get_action() == 'test'

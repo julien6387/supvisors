@@ -461,8 +461,8 @@ def test_on_tick_event(mocker, context):
         assert status.state == SupvisorsInstanceStates.CHECKING
         assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
-        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
-                                                    'sequence_counter': 31, 'statecode': 1, 'statename': 'CHECKING',
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'sequence_counter': 31,
+                                                    'statecode': 1, 'statename': 'CHECKING',
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
@@ -473,8 +473,7 @@ def test_on_tick_event(mocker, context):
         assert status.state == state
         assert status.remote_time == 5678
         assert not mocked_check.called
-        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
-                                                    'sequence_counter': 57,
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'sequence_counter': 57,
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
@@ -566,8 +565,7 @@ def test_process_removed_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': -1, 'statename': 'DELETED', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': [], 'addresses': [],  # TODO: DEPRECATED
-                  'extra_args': ''})]
+                  'last_event_time': 1234, 'identifiers': [], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
                   'major_failure': False, 'minor_failure': False})]
@@ -648,8 +646,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
-                  'extra_args': ''})]
+                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
                   'major_failure': False, 'minor_failure': False})]
@@ -672,8 +669,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 10, 'statename': 'STARTING', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
-                  'extra_args': ''})]
+                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 1, 'statename': 'STARTING',
                   'major_failure': False, 'minor_failure': False})]
@@ -696,8 +692,7 @@ def test_on_process_state_event(mocker, context):
     assert mocked_publisher.send_process_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'process_name': 'dummy_process',
                   'statecode': 200, 'statename': 'FATAL', 'expected_exit': True,
-                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'addresses': ['10.0.0.1'],  # TODO: DEPRECATED
-                  'extra_args': ''})]
+                  'last_event_time': 1234, 'identifiers': ['10.0.0.1'], 'extra_args': ''})]
     assert mocked_publisher.send_application_status.call_args_list == \
            [call({'application_name': 'dummy_application', 'managed': True, 'statecode': 0, 'statename': 'STOPPED',
                   'major_failure': False, 'minor_failure': True})]
@@ -740,12 +735,10 @@ def test_on_timer_event(mocker, context):
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.local_sequence_counter == 32
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
-    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.2', 'address_name': '10.0.0.2',  # TODO: DEPRECATED
-                                                'statecode': 4, 'statename': 'ISOLATING',
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 15,
                                                 'sequence_counter': 0}),
-                                          call({'identifier': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
-                                                'statecode': 4, 'statename': 'ISOLATING',
+                                          call({'identifier': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]
     assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2')]
@@ -779,11 +772,9 @@ def test_handle_isolation(mocker, context):
     assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # check calls to publisher.send_instance_status
-    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.4', 'address_name': '10.0.0.4',  # TODO: DEPRECATED
-                                                'statecode': 5, 'statename': 'ISOLATED',
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0}),
-                                          call({'identifier': '10.0.0.5', 'address_name': '10.0.0.5',  # TODO: DEPRECATED
-                                                'statecode': 5, 'statename': 'ISOLATED',
+                                          call({'identifier': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]

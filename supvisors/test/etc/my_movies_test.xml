@@ -7,11 +7,11 @@
         <stop_sequence>0</stop_sequence>
 
         <program pattern="">
-            <addresses>cliche81</addresses>
+            <identifiers>cliche81</identifiers>
         </program>
 
         <program name="check_start_sequence">
-            <addresses>cliche81</addresses>
+            <identifiers>cliche81</identifiers>
             <start_sequence>1</start_sequence>
             <expected_loading>1</expected_loading>
         </program>

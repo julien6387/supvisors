@@ -155,7 +155,6 @@ class ApplicationRules(object):
                        'running_failure_strategy': self.running_failure_strategy.name}
             if not self.distributed:
                 payload['identifiers'] = self.identifiers
-                payload['addresses'] = self.identifiers  # TODO: DEPRECATED
             return payload
         return {'managed': False}
 

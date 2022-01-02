@@ -110,10 +110,6 @@ behavior may happen. The present section details where it is applicable.
         Like the host names, the IP addresses are expected to be known to every nodes in the list.
         If it's not the case, check the network configuration.
 
-``address_list``
-
-    *DEPRECATED* Please use ``supvisors_list``. This parameter will be removed in the next |Supvisors| version.
-
 ``rules_files``
 
     A space-separated sequence of file globs, in the same vein as
@@ -127,10 +123,6 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  Yes.
-
-``rules_file``
-
-    *DEPRECATED* Please use ``rules_files``. This parameter will be removed in the next |Supvisors| version.
 
 ``auto_fence``
 
@@ -192,10 +184,6 @@ behavior may happen. The present section details where it is applicable.
     *Required*:  No.
 
     *Identical*:  Yes.
-
-``force_synchro_if``
-
-    *DEPRECATED* Please use ``core_identifiers``. This parameter will be removed in the next |Supvisors| version.
 
 ``starting_strategy``
 
@@ -483,10 +471,6 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     When the application is not to be distributed (``distributed`` set to ``false``), the rule ``identifiers`` of the
     application programs is not considered.
 
-``addresses``
-
-    *DEPRECATED* Please use ``identifiers``. This parameter will be removed in the next |Supvisors| version.
-
 ``start_sequence``
 
     This element gives the starting rank of the application in the ``DEPLOYMENT`` state,
@@ -605,10 +589,6 @@ The ``program`` element defines the rules applicable to at least one program. Th
     *Default*:  ``*``.
 
     *Required*:  No.
-
-``addresses``
-
-    *DEPRECATED* Please use ``identifiers``. This parameter will be removed in the next |Supvisors| version.
 
 ``required``
 

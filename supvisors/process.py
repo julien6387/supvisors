@@ -166,7 +166,7 @@ class ProcessRules(object):
 
         :return: the process rules in a dictionary
         """
-        return {'identifiers': self.identifiers, 'addresses': self.identifiers,  # TODO: deprecated
+        return {'identifiers': self.identifiers,
                 'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                 'required': self.required,  'wait_exit': self.wait_exit, 'expected_loading': self.expected_load,
                 'running_failure_strategy': self.running_failure_strategy.name}
@@ -281,7 +281,6 @@ class ProcessStatus(object):
                 'expected_exit': self.expected_exit,
                 'last_event_time': self.last_event_time,
                 'identifiers': list(self.running_identifiers),
-                'addresses': list(self.running_identifiers),  # TODO: DEPRECATED
                 'extra_args': self.extra_args}
 
     # access

@@ -68,13 +68,11 @@ class SupvisorsOptions(object):
         """
         self.supervisord_options = supervisord.options
         # get values from config
-        if 'address_list' in config:
-            print('SupvisorsOptions: address_list is DEPRECATED. please use supvisors_list')
-        supvisors_list = config.get('supvisors_list', config.get('address_list', gethostname()))
+        supvisors_list = config.get('supvisors_list', gethostname())
         supvisors_list = filter(None, list_of_strings(supvisors_list))
         self.supvisors_list = list(OrderedDict.fromkeys(supvisors_list))
         # keep rules_file for next version but state obsolescence
-        self.rules_files = config.get('rules_files', config.get('rules_file', None))
+        self.rules_files = config.get('rules_files', None)
         if self.rules_files:
             self.rules_files = self.to_filepaths(self.rules_files)
         # if internal_port and event_port are not defined, they will be set later based on Supervisor HTTP port
@@ -83,9 +81,7 @@ class SupvisorsOptions(object):
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
         self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
         # get the minimum list of identifiers to end the synchronization phase
-        if 'force_synchro_if' in config:
-            print('SupvisorsOptions: force_synchro_if is DEPRECATED. please use core_identifiers')
-        core_identifiers = config.get('core_identifiers', config.get('force_synchro_if', None))
+        core_identifiers = config.get('core_identifiers', None)
         self.core_identifiers = set(filter(None, list_of_strings(core_identifiers)))
         # get strategies
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))

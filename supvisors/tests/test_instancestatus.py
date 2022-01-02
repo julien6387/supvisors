@@ -85,8 +85,7 @@ def test_serialization(status):
     status.local_time = 60
     # test to_json method
     serialized = status.serial()
-    assert serialized == {'identifier': 'supvisors', 'address_name': 'supvisors',  # TODO: DEPRECATED
-                          'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
+    assert serialized == {'identifier': 'supvisors', 'loading': 0, 'statecode': 2, 'statename': 'RUNNING',
                           'remote_time': 50, 'local_time': 60, 'sequence_counter': 28}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)

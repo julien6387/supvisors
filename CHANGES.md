@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.12 (2022-xx-xx)
+
+* Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
+  `address_name`, `addresses`, `get_master_address`, `get_address_info` and `get_all_addresses_info`).
+
+
 ## 0.11 (2022-01-02)
 
 * Fixed [Issue #99](https://github.com/julien6387/supvisors/issues/99).

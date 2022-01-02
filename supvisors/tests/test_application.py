@@ -140,7 +140,7 @@ def test_rules_serial(rules):
                               'running_failure_strategy': 'CONTINUE'}
     # finally check managed and not distributed
     rules.distributed = False
-    assert rules.serial() == {'managed': True, 'distributed': False, 'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
+    assert rules.serial() == {'managed': True, 'distributed': False, 'identifiers': ['*'],
                               'start_sequence': 0, 'stop_sequence': -1,
                               'starting_strategy': 'CONFIG', 'starting_failure_strategy': 'ABORT',
                               'running_failure_strategy': 'CONTINUE'}

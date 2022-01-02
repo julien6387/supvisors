@@ -87,11 +87,6 @@ class ViewContext:
             self.update_cpu_id()
             self.update_interface_name()
 
-    def get_server_port(self):
-        """ Get the port number of the web server. """
-        # TODO: TBC not used
-        return self.http_context.form.get(SERVER_PORT)
-
     def get_action(self):
         """ Extract action requested in context form. """
         return self.http_context.form.get(ACTION)

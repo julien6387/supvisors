@@ -58,8 +58,7 @@ def test_rules_str(rules):
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
-    assert rules.serial() == {'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
-                              'start_sequence': 0, 'stop_sequence': -1,
+    assert rules.serial() == {'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
                               'running_failure_strategy': 'CONTINUE'}
 
@@ -420,8 +419,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 0, 'statename': 'STOPPED', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'identifiers': [], 'addresses': [],  # TODO: DEPRECATED
-                          'extra_args': ''}
+                          'last_event_time': process.last_event_time, 'identifiers': [], 'extra_args': ''}
     # test that returned structure is serializable using pickle
     dumped = pickle.dumps(serialized)
     loaded = pickle.loads(dumped)
@@ -432,8 +430,7 @@ def test_serialization(supvisors):
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
                           'statecode': 200, 'statename': 'FATAL', 'expected_exit': info['expected'],
-                          'last_event_time': process.last_event_time, 'identifiers': [], 'addresses': [],  # TODO: DEPRECATED
-                          'extra_args': ''}
+                          'last_event_time': process.last_event_time, 'identifiers': [], 'extra_args': ''}
 
 
 def test_get_last_description(supvisors):

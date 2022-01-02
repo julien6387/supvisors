@@ -59,8 +59,6 @@ def test_master_node(rpc):
     rpc.supvisors.context.master_identifier = '10.0.0.1'
     # test call
     assert rpc.get_master_identifier() == '10.0.0.1'
-    # TODO: DEPRECATED
-    assert rpc.get_master_address() == '10.0.0.1'
 
 
 def test_strategies(rpc):
@@ -76,12 +74,9 @@ def test_strategies(rpc):
 def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
     # test with known address
-    expected = {'identifier': '10.0.0.1', 'address_name': '10.0.0.1',  # TODO: DEPRECATED
-                'loading': 0, 'local_time': 0, 'remote_time': 0, 'sequence_counter': 0,
+    expected = {'identifier': '10.0.0.1', 'loading': 0, 'local_time': 0, 'remote_time': 0, 'sequence_counter': 0,
                 'statecode': 0, 'statename': 'UNKNOWN'}
     assert rpc.get_instance_info('10.0.0.1') == expected
-    # TODO: DEPRECATED
-    assert rpc.get_address_info('10.0.0.1') == expected
     # test with unknown address
     with pytest.raises(RPCError) as exc:
         rpc.get_instance_info('10.0.0.0')
@@ -95,8 +90,6 @@ def test_all_nodes_info(rpc):
                                        '10.0.0.2': Mock(**{'serial.return_value': 'address_info_2'})}
     # test call
     assert rpc.get_all_instances_info() == ['address_info_1', 'address_info_2']
-    # TODO: DEPRECATED
-    assert rpc.get_all_addresses_info() == ['address_info_1', 'address_info_2']
 
 
 def test_application_info(mocker, rpc):
@@ -210,8 +203,7 @@ def test_application_rules(mocker, rpc):
     # test RPC call with application name and managed/non-distributed application
     application.rules.distributed = False
     expected = {'application_name': 'appli', 'managed': True, 'distributed': False,
-                'identifiers': ['*'], 'addresses': ['*'],  # TODO: DEPRECATED
-                'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
+                'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1, 'starting_strategy': 'CONFIG',
                 'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
     assert rpc.get_application_rules('appli') == expected
     assert mocked_check.call_args_list == [call()]

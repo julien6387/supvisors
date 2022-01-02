@@ -69,21 +69,6 @@ Status
 
     Get the status for multiple |Supervisor| instances identified by their deduced name.
 
-``address_status``
-
-    *DEPRECATED* Get the status of all |Supvisors| instances.
-    This command will be removed in the next version.
-
-``address_status addr``
-
-    *DEPRECATED* Get the status of the |Supvisors| instance identified by its deduced name.
-    This command will be removed in the next version.
-
-``address_status addr1 addr2``
-
-    *DEPRECATED* Get the status for multiple |Supervisor| instances identified by their deduced name.
-    This command will be removed in the next version.
-
 ``application_info``
 
     Get the status of all applications.
