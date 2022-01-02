@@ -66,11 +66,11 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getMasterNode methods returns the node name of the Supvisors Master.
+     * The getMasterIdentifier methods returns the identifier of the Supvisors Master.
      *
-     * @return String: A node name.
+     * @return String: The Supvisors instance identifier.
      */
-    public String getMasterNode() throws XmlRpcException {
+    public String getMasterIdentifier() throws XmlRpcException {
         return client.rpcCall(Namespace + "get_master_identifier", null, String.class);
     }
 
@@ -85,26 +85,26 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The getAllNodesInfo methods returns information about the nodes known in Supvisors.
+     * The getAllInstancesInfo methods returns information about all Supvisors instances.
      *
-     * @return HashMap<String, SupvisorsNodeInfo>: Information for all nodes, sorted by name.
+     * @return HashMap<String, SupvisorsInstanceInfo>: Information for all Supvisors instances, sorted by name.
      */
-    public HashMap<String, SupvisorsNodeInfo> getAllNodesInfo() throws XmlRpcException {
+    public HashMap<String, SupvisorsInstanceInfo> getAllInstancesInfo() throws XmlRpcException {
         Object[] objectsArray = client.rpcCall(Namespace + "get_all_instances_info", null, Object[].class);
-        return DataConversion.arrayToMap(objectsArray, SupvisorsNodeInfo.class);
+        return DataConversion.arrayToMap(objectsArray, SupvisorsInstanceInfo.class);
     }
 
     /**
-     * The getNodeInfo methods returns information about a node known to Supvisors.
+     * The getInstanceInfo methods returns information about a Supvisors instance.
      *
-     * @param String nodeName: The name of the node.
-     * @return SupvisorsNodeInfo: Information about the node.
-     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if nodeName is unknown to Supvisors.
+     * @param String identifier: The identifier of the Supvisors instance.
+     * @return SupvisorsInstanceInfo: Information about the Supvisors instance.
+     * @throws XmlRpcException: with code INCORRECT_PARAMETERS if identifier is unknown to Supvisors.
      */
-    public SupvisorsNodeInfo getNodeInfo(final String nodeName) throws XmlRpcException {
-        Object[] params = new Object[]{nodeName};
+    public SupvisorsInstanceInfo getInstanceInfo(final String identifier) throws XmlRpcException {
+        Object[] params = new Object[]{identifier};
         HashMap result = client.rpcCall(Namespace + "get_instance_info", params, HashMap.class);
-        return new SupvisorsNodeInfo(result);
+        return new SupvisorsInstanceInfo(result);
     }
 
     /**
@@ -230,7 +230,7 @@ public class SupvisorsXmlRpc {
      * The startApplication methods starts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
-     * @param StartingStrategy strategy: The strategy used for choosing nodes.
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
      * @param String applicationName: The name of the application to start.
      * @param Boolean wait: If true, the RPC returns only when the application is fully started.
      * @return Boolean: Always True unless error or nothing to start.
@@ -267,7 +267,7 @@ public class SupvisorsXmlRpc {
      * The restartApplication methods restarts the processes of the application, in accordance with the rules configured
      * in the deployment file for the application and its processes.
      *
-     * @param StartingStrategy strategy: The strategy used for choosing nodes.
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
      * @param String applicationName: The name of the application to restart.
      * @param Boolean wait: If true, the RPC returns only when the application is fully restarted.
      * @return Boolean: Always True unless error or nothing to start.
@@ -283,7 +283,7 @@ public class SupvisorsXmlRpc {
     }
 
     /**
-     * The startArgs methods starts a process on the local node.
+     * The startArgs methods starts a process in the local Supvisors instance.
      * The behaviour is different from 'supervisor.startProcess' as it sets the process state to FATAL
      * instead of throwing an exception to the RPC client.
      * This method makes it also possible to pass extra arguments to the program command line.
@@ -308,7 +308,7 @@ public class SupvisorsXmlRpc {
      * configured in the deployment file for the application and its processes.
      * This method makes it also possible to pass extra arguments to the program command line.
      *
-     * @param StartingStrategy strategy: The strategy used for choosing nodes.
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
      * @param String namespec: The name of the process to start.
      * @param String extraArgs: The extra arguments to be passed to the command line of the program.
      * @param Boolean wait: If true, the RPC returns only when the process is fully started.
@@ -344,7 +344,7 @@ public class SupvisorsXmlRpc {
      * The restartProcess methods restarts a process, in accordance with the rules ('wait_exit' excepted)
      * configured in the deployment file for the application and its processes.
      *
-     * @param StartingStrategy strategy: The strategy used for choosing nodes.
+     * @param StartingStrategy strategy: The strategy used for choosing a Supvisors instance.
      * @param String namespec: The name of the process to restart.
      * @param String extraArgs: The extra arguments to be passed to the command line of the program.
      * @param Boolean wait: If true, the RPC returns only when the process is fully restarted.
@@ -410,19 +410,19 @@ public class SupvisorsXmlRpc {
         System.out.println(supvisors.getAPIVersion());
         System.out.println("### Testing supvisors.getSupvisorsState(...) ###");
         System.out.println(supvisors.getSupvisorsState());
-        System.out.println("### Testing supvisors.getMasterNode(...) ###");
-        System.out.println(supvisors.getMasterNode());
+        System.out.println("### Testing supvisors.getMasterIdentifier(...) ###");
+        System.out.println(supvisors.getMasterIdentifier());
         System.out.println("### Testing supvisors.getStrategies(...) ###");
         System.out.println(supvisors.getStrategies());
 
-        // test node status rpc
-        System.out.println("### Testing supvisors.getAllNodesInfo(...) ###");
-        HashMap<String, SupvisorsNodeInfo> nodes = supvisors.getAllNodesInfo();
-        System.out.println(nodes);
-        System.out.println("### Testing supvisors.getNodeInfo(...) ###");
-        String nodeName = nodes.entrySet().iterator().next().getValue().getName();
-        SupvisorsNodeInfo nodeInfo = supvisors.getNodeInfo(nodeName);
-        System.out.println(nodeInfo);
+        // test Supvisors instance status rpc
+        System.out.println("### Testing supvisors.getAllInstancesInfo(...) ###");
+        HashMap<String, SupvisorsInstanceInfo> instances = supvisors.getAllInstancesInfo();
+        System.out.println(instances);
+        System.out.println("### Testing supvisors.getInstanceInfo(...) ###");
+        String identifier = instances.entrySet().iterator().next().getValue().getIdentifier();
+        SupvisorsInstanceInfo instanceInfo = supvisors.getInstanceInfo(identifier);
+        System.out.println(instanceInfo);
 
         // test application status rpc
         System.out.println("### Testing supvisors.getAllApplicationInfo(...) ###");

@@ -102,7 +102,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
      * @return String: The name of the application.
      */
     public String getApplicationName() {
-        return this.applicationName;
+        return this.application_name;
     }
 
     /**

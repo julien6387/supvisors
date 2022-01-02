@@ -17,7 +17,7 @@
 package org.supvisors.event;
 
 import org.supvisors.common.SupvisorsApplicationInfo;
-import org.supvisors.common.SupvisorsNodeInfo;
+import org.supvisors.common.SupvisorsInstanceInfo;
 import org.supvisors.common.SupvisorsProcessInfo;
 import org.supvisors.common.SupvisorsProcessEvent;
 import org.supvisors.common.SupvisorsStatus;
@@ -39,11 +39,11 @@ public interface SupvisorsEventListener {
 
     /**
      * The method is called when node subscription is set
-     * and a Node Status message is received.
+     * and an Instance Status message is received.
      *
-     * @param SupvisorsNodeInfo: The last SupvisorsNodeInfo received.
+     * @param SupvisorsInstanceInfo: The last SupvisorsInstanceInfo received.
      */
-    void onNodeStatus(final SupvisorsNodeInfo status);
+    void onInstanceStatus(final SupvisorsInstanceInfo status);
 
     /**
      * The method is called when application subscription is set

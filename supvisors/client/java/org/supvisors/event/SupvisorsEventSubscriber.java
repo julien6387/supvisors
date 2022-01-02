@@ -42,7 +42,7 @@ public class SupvisorsEventSubscriber implements Runnable {
     private static final String SUPVISORS_STATUS_HEADER = "supvisors";
 
     /** The constant header in SupvisorsInstanceStatus messages. */
-    private static final String NODE_STATUS_HEADER = "node";
+    private static final String INSTANCE_STATUS_HEADER = "instance";
 
     /** The constant header in ApplicationStatus messages. */
     private static final String APPLICATION_STATUS_HEADER = "application";
@@ -111,10 +111,10 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Subscription to Node status events.
+     * Subscription to Instance status events.
      */
-    public void subscribeToNodeStatus() {
-        subscribeTo(NODE_STATUS_HEADER);
+    public void subscribeToInstanceStatus() {
+        subscribeTo(INSTANCE_STATUS_HEADER);
     }
 
     /**
@@ -162,10 +162,10 @@ public class SupvisorsEventSubscriber implements Runnable {
     }
 
     /**
-     * Unubscription from Node status events.
+     * Unubscription from Instance status events.
      */
-    public void unsubscribeFromNodeStatus() {
-        unsubscribeFrom(NODE_STATUS_HEADER);
+    public void unsubscribeFromInstanceStatus() {
+        unsubscribeFrom(INSTANCE_STATUS_HEADER);
     }
 
     /**
@@ -230,9 +230,9 @@ public class SupvisorsEventSubscriber implements Runnable {
                     if (SUPVISORS_STATUS_HEADER.equals(header)) {
                         SupvisorsStatus status = gson.fromJson(body, SupvisorsStatus.class);
                         listener.onSupvisorsStatus(status);
-                    } else if (NODE_STATUS_HEADER.equals(header)) {
-                        SupvisorsNodeInfo info = gson.fromJson(body, SupvisorsNodeInfo.class);
-                        listener.onNodeStatus(info);
+                    } else if (INSTANCE_STATUS_HEADER.equals(header)) {
+                        SupvisorsInstanceInfo info = gson.fromJson(body, SupvisorsInstanceInfo.class);
+                        listener.onInstanceStatus(info);
                     } else if (APPLICATION_STATUS_HEADER.equals(header)) {
                         SupvisorsApplicationInfo info = gson.fromJson(body, SupvisorsApplicationInfo.class);
                         listener.onApplicationStatus(info);
@@ -272,7 +272,7 @@ public class SupvisorsEventSubscriber implements Runnable {
                 }
 
                 @Override
-                public void onNodeStatus(final SupvisorsNodeInfo status) {
+                public void onInstanceStatus(final SupvisorsInstanceInfo status) {
                     System.out.println(status);
                 }
 

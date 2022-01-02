@@ -83,12 +83,12 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      * @param HashMap instanceInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsInstanceInfo(HashMap instanceInfo)  {
-        this.identifier = (String) nodeInfo.get("identifier");
-        this.statename = State.valueOf((String) nodeInfo.get("statename"));
-        this.remote_time = (Integer) nodeInfo.get("remote_time");
-        this.local_time = (Integer) nodeInfo.get("local_time");
-        this.sequence_counter = (Integer) nodeInfo.get("sequence_counter");
-        this.loading = (Integer) nodeInfo.get("loading");
+        this.identifier = (String) instanceInfo.get("identifier");
+        this.statename = State.valueOf((String) instanceInfo.get("statename"));
+        this.remote_time = (Integer) instanceInfo.get("remote_time");
+        this.local_time = (Integer) instanceInfo.get("local_time");
+        this.sequence_counter = (Integer) instanceInfo.get("sequence_counter");
+        this.loading = (Integer) instanceInfo.get("loading");
     }
 
     /**

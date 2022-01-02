@@ -48,7 +48,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /** The stopping order in the application stopping. */
     private Integer stopSequence;
 
-    /** The strategy applied to choose nodes at application starting time. */
+    /** The strategy applied to choose a Supvisors instance at application starting time. */
     private StartingStrategy startingStrategy;
 
     /** The strategy applied when a process crashes at application starting time. */
@@ -144,7 +144,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getStartingStrategy method returns the strategy applied to choose nodes
+     * The getStartingStrategy method returns the strategy applied to choose a Supvisors instance
      *  when the application is starting.
      *
      * @return StartingStrategy: The strategy.
@@ -184,7 +184,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         if (this.isManaged) {
             rulesString += " distributed=" + this.isDistributed;
             if (!this.isDistributed) {
-                rulesString += " nodes=" + this.nodes;
+                rulesString += " identifiers=" + this.identifiers;
             }
             rulesString += " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
                 + " startingStrategy=" + this.startingStrategy
