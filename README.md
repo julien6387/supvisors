@@ -95,12 +95,11 @@ Not opened yet.
 [pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
-[ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=master
-[ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=master
+[ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=dev-0.12
 [ci-url]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml
 
-[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=master
-[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=master
+[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=dev-0.12
+[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=dev-0.12
 
-[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
-[docs-url]: https://supvisors.readthedocs.io/en/master
+[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=dev-0.12
+[docs-url]: https://supvisors.readthedocs.io/en/dev-0.12
