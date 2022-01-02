@@ -45,8 +45,6 @@ Status
                                          ``'SHUTDOWN'``].
             ================== ========= ===========
 
-        .. automethod:: get_master_address()
-
         .. automethod:: get_master_identifier()
 
         .. automethod:: get_strategies()
