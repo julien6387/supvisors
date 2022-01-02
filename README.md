@@ -5,7 +5,7 @@
 
 
 **Supvisors** is a Control System for Distributed Applications, based on
-multiple instances of Supervisor.
+multiple instances of Supervisor running over multiple nodes.
 
 The main features are:
    * a new web-based dashboard that replaces the default dashboard of Supervisor,
@@ -26,6 +26,7 @@ The main features are:
    * [#456 - Add the ability to set different "restart policies" on process workers](https://github.com/Supervisor/supervisor/issues/456)
    * [#520 - allow a program to wait for another to stop before being stopped?](https://github.com/Supervisor/supervisor/issues/520)
    * [#723 - Restart waits for all processes to stop before starting any](https://github.com/Supervisor/supervisor/issues/723)
+   * [#763 - unexpected exit not easy to read in status or getProcessInfo](https://github.com/Supervisor/supervisor/issues/763)
    * [#874 - Bring down one process when other process gets killed in a group](https://github.com/Supervisor/supervisor/issues/874)
    * [#1023 - Pass arguments to program when starting a job?](https://github.com/Supervisor/supervisor/issues/1023)
    * [#1150 - Why do event listeners not report the process exit status when stopped/crashed?](https://github.com/Supervisor/supervisor/issues/1150)
@@ -46,13 +47,15 @@ but is not maintained anymore.
 
 **Supvisors** has dependencies on:
 
-Package                                             | Release    | Optional
-----------------------------------------------------|------------|---------
-[Supervisor](http://supervisord.org)                | 4.2.1      |
-[PyZMQ](http://pyzmq.readthedocs.io)                | 20.0.0     |
-[psutil](https://pypi.python.org/pypi/psutil)       | 5.7.3      |     X
-[matplotlib](http://matplotlib.org)                 | 3.3.3      |     X
-[lxml](http://lxml.de)                              | 4.6.2      |     X
+|-----------------------------------------------|---------|----------|
+| Package                                       | Release | Optional |
+|-----------------------------------------------|---------|----------|
+| [Supervisor](http://supervisord.org)          | 4.2.4   |          |
+| [PyZMQ](http://pyzmq.readthedocs.io)          | 20.0.0  |          |
+| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   |     X    |
+| [matplotlib](http://matplotlib.org)           | 3.3.3   |     X    |
+| [lxml](http://lxml.de)                        | 4.6.2   |     X    |
+|-----------------------------------------------|---------|----------|
 
 Please note that some of these dependencies may have their own dependencies.
 
@@ -94,11 +97,11 @@ Not opened yet.
 [pypi-python-versions]: https://img.shields.io/pypi/pyversions/supvisors.svg
 [pypi-url]: https://badge.fury.io/py/supvisors
 
-[ci-image]: https://travis-ci.org/julien6387/supvisors.svg?branch=master
-[ci-url]: https://travis-ci.org/julien6387/supvisors?branch=master
+[ci-image]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml/badge.svg?branch=dev-0.11
+[ci-url]: https://github.com/julien6387/supvisors/actions/workflows/ci.yml
 
-[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=master
-[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=master
+[coveralls-image]: https://coveralls.io/repos/github/julien6387/supvisors/badge.svg?branch=dev-0.11
+[coveralls-url]: https://coveralls.io/github/julien6387/supvisors?branch=dev-0.11
 
-[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=master
-[docs-url]: https://supvisors.readthedocs.io/en/master
+[docs-image]: https://readthedocs.org/projects/supvisors/badge/?version=dev-0.11
+[docs-url]: https://supvisors.readthedocs.io/en/dev-0.11

@@ -32,8 +32,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         This process is the first to be started. """
         # store a proxy to perform XML-RPC requests
         self.proxy = getRPCInterface(os.environ)
-        # wait for address_queue to trigger
-        self.get_nodes()
+        # wait for insatnce_queue to trigger
+        self.get_instances()
         # define the context to know which process is running
         self.create_context()
         # start a converter to sync
@@ -49,8 +49,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # test the stopping of web_movies application
         self.check_web_movies_stopping()
         # test the stopping of service application
-        self.check_service_stopping()
-        # cannot test the last events received for this process
+        self.check_unmanaged_stopping()
+        # cannot test the last event received for this process
 
     def create_context(self):
         """ Store info and rules about the running processes of the application considered. """
@@ -61,7 +61,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
             # required is set later. wait_exit is not used here
             program = Program(info['process_name'])
             program.state = info['statecode']
-            program.node_names = set(info['addresses'])
+            program.identifiers = set(info['identifiers'])
             application = self.context.get_application(info['application_name'])
             if not application:
                 # create application if not found
@@ -77,6 +77,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
         if disk_handler:
             # only on cliche83
             disk_handler.managed = False
+        self.context.get_application('evt_listener').managed = False
 
     def check_converter_running(self):
         """ Check the start sequence of the converter program. """
@@ -88,8 +89,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         self.check_events()
         self.assertFalse(self.context.has_events())
 
-    def check_service_stopping(self):
-        """ Check the stopping sequence of the service application.
+    def check_unmanaged_stopping(self):
+        """ Check the stopping sequence of the unmanaged applications.
         This one is complex to test as there may be multiple instances running for the same program.
         And this is mixed with the stopping of disk_handler group. """
         # configure service application stop sequence
@@ -100,7 +101,7 @@ class CheckStopSequenceTest(CheckSequenceTest):
             # after the second event of the first node:
             #    * RUNNING RUNNING STOPPING STOPPED
             #    * RUNNING STOPPING STOPPING STOPPED
-            if len(program.node_names) > 1:
+            if len(program.identifiers) > 1:
                 program.add_event(ProcessStateEvent(ProcessStates.RUNNING))
                 program.add_event(ProcessStateEvent([ProcessStates.RUNNING, ProcessStates.STOPPING]))
             program.add_event(ProcessStateEvent(ProcessStates.STOPPING))
@@ -109,9 +110,22 @@ class CheckStopSequenceTest(CheckSequenceTest):
         program = self.context.get_program('disk_handler')
         if program:
             if program.state in RUNNING_STATES:
-                for node_name in program.node_names:
-                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure evtlistener stop sequence
+        program = self.context.get_program('evt_listener:evt_listener_00')
+        if program:
+            if program.state in RUNNING_STATES:
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
+        # configure self stop sequence: only the STOPPING event will be received
+        program = self.context.get_program('test:check_stop_sequence')
+        if program:
+            if program.state in RUNNING_STATES:
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
         # test the events received are compliant
         self.check_events()
         self.assertFalse(self.context.has_events())
@@ -120,8 +134,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         """ Check the stopping sequence of the web_movies application. """
         program = self.context.get_program('web_movies:web_browser')
         if program.state in RUNNING_STATES:
-            for node_name in program.node_names:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+            for identifier in program.identifiers:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                 program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -134,8 +148,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # check processes in stop_sequence 3
         program = application.get_program('manager')
         if program.state in RUNNING_STATES:
-            for node_name in program.node_names:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+            for identifier in program.identifiers:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                 program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -143,8 +157,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # check processes in stop_sequence 1
         program = application.get_program('hmi')
         if program.state in RUNNING_STATES:
-            for node_name in program.node_names:
-                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+            for identifier in program.identifiers:
+                program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                 program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -152,8 +166,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         # check processes in stop_sequence 0
         for program in application.programs.values():
             if program.program_name not in ['hmi', 'manager'] and program.state in RUNNING_STATES:
-                for node_name in program.node_names:
-                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -167,8 +181,8 @@ class CheckStopSequenceTest(CheckSequenceTest):
         for program in application.programs.values():
             if program.program_name in ['movie_server_01', 'movie_server_02', 'movie_server_03'] \
                     and program.state in RUNNING_STATES:
-                for node_name in program.node_names:
-                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, node_name))
+                for identifier in program.identifiers:
+                    program.add_event(ProcessStateEvent(ProcessStates.STOPPING, identifier))
                     program.add_event(ProcessStateEvent(ProcessStates.STOPPED))
         # test the events received are compliant
         self.check_events()
@@ -183,7 +197,7 @@ def test_suite():
 
 
 if __name__ == '__main__':
-    # catch supervisor termination signal
+    # catch and ignore supervisor termination signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # get arguments
     import argparse

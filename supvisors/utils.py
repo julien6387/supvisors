@@ -20,11 +20,21 @@
 from enum import Enum
 from math import sqrt
 from time import gmtime, localtime, strftime, time
+from urllib.parse import urlparse
 
 
+# for internal publish / subscribe
 class InternalEventHeaders(Enum):
     """ Enumeration class for the headers in messages between Listener and MainLoop. """
     TICK, PROCESS, PROCESS_ADDED, PROCESS_REMOVED, STATISTICS, STATE = range(6)
+
+
+# for deferred XML-RPC requests
+class DeferredRequestHeaders(Enum):
+    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop.
+    Range is shifted as InternalEventHeaders are used within the same context. """
+    (CHECK_INSTANCE, ISOLATE_INSTANCES, START_PROCESS, STOP_PROCESS,
+     RESTART, SHUTDOWN, RESTART_SEQUENCE, RESTART_ALL, SHUTDOWN_ALL) = range(10, 19)
 
 
 class RemoteCommEvents:
@@ -37,16 +47,10 @@ class RemoteCommEvents:
 class EventHeaders:
     """ Strings used as headers in messages between EventPublisher and Supvisors' Client. """
     SUPVISORS = u'supvisors'
-    ADDRESS = u'address'
+    INSTANCE = u'instance'
     APPLICATION = u'application'
     PROCESS_EVENT = u'event'
     PROCESS_STATUS = u'process'
-
-
-# for deferred XML-RPC requests
-class DeferredRequestHeaders(Enum):
-    """ Enumeration class for the headers of deferred XML-RPC messages sent to MainLoop."""
-    CHECK_NODE, ISOLATE_NODES, START_PROCESS, STOP_PROCESS, RESTART, SHUTDOWN, RESTART_ALL, SHUTDOWN_ALL = range(8)
 
 
 def simple_localtime(now=None):
@@ -64,15 +68,38 @@ def simple_gmtime(now=None):
 
 
 # Keys of information kept from Supervisor
-__Payload_Keys = ('name', 'group', 'state', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
+__Payload_Keys = ('name', 'group', 'state', 'statename', 'start', 'stop', 'now', 'pid', 'description', 'spawnerr')
 
 
 def extract_process_info(info):
     """ Returns a subset of Supervisor process information. """
-    payload = {key: info[key] for key in __Payload_Keys}
+    payload = {key: info[key] for key in __Payload_Keys if key in info}
     # expand information with 'expected' (deduced from spawnerr)
     payload['expected'] = not info['spawnerr']
     return payload
+
+
+# parse the Server URL of Supervisor
+class SupervisorServerUrl:
+    """ Store and update the environment for RPC interfaces. """
+
+    def __init__(self, env):
+        """ Parse the Supervisor server URL for later modification. """
+        self.env = env
+        self.parsed_url = urlparse(env['SUPERVISOR_SERVER_URL'])
+        # consider the authentication part (just in case)
+        self.authentication = ''
+        if self.parsed_url.username:
+            self.authentication = f'{self.parsed_url.username}'
+            if self.parsed_url.password:
+                self.authentication += f':{self.parsed_url.password}'
+            self.authentication += '@'
+
+    def update_url(self, hostname: str, port: int = None):
+        """ Update the URL by changing the hostname and optionally the port. """
+        netloc = f'{self.authentication}{hostname}:{port if port else self.parsed_url.port}'
+        self.parsed_url = self.parsed_url._replace(netloc=netloc)
+        self.env['SUPERVISOR_SERVER_URL'] = self.parsed_url.geturl()
 
 
 # simple functions

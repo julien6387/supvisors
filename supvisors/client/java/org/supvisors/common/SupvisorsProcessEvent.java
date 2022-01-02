@@ -43,8 +43,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     /** The UNIX process id of the process. */
     private Integer pid;
 
-    /** The address of the event. */
-    private String address;
+    /** The identifier of the Supvisors instance that published the event. */
+    private String identifier;
 
     /** The extra arguments passed to the command line. */
     private String extra_args;
@@ -64,8 +64,8 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
         this.expected = (Boolean) processInfo.get("expected");
         this.now = (Integer) processInfo.get("now");
         this.pid = (Integer) processInfo.get("pid");
-        // address is not set in this message
-        this.address = null;
+        // identifier is not set in this message
+        this.identifier = null;
         this.extra_args = (String) processInfo.get("extra_args");
    }
 
@@ -134,16 +134,16 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getAddress method returns the address of the event.
+     * The getIdentifier method returns the identifier of the Supvisors instance that published the event.
      *
-     * @return String: The address of the event.
+     * @return String: The identifier of the Supvisors instance that published the event.
      */
-    public String getAddress() {
-        return this.address;
+    public String getIdentifier() {
+        return this.identifier;
     }
 
     /**
-     * The getExtraArgs method returns the exta arguments passed to the
+     * The getExtraArgs method returns the extra arguments passed to the
      * command line.
      *
      * @return String: The arguments.
@@ -166,7 +166,7 @@ public class SupvisorsProcessEvent implements SupvisorsAnyInfo {
             + " expected=" + this.expected
             + " now=" + this.now
             + " pid=" + this.pid
-            + " address=" + this.address
+            + " identifier=" + this.identifier
             + " extraArgs=\"" + this.extra_args + "\")";
     }
 

@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+from typing import Dict
+
 
 # CPU statistics
 def cpu_statistics(last, ref):
@@ -46,9 +48,8 @@ def io_statistics(last, ref, duration):
         if intf in ref.keys():
             ref_recv, ref_sent = ref[intf]
             # Warning taken from psutil documentation (https://pythonhosted.org/psutil/#network)
-            # on some systems such as Linux, on a very busy or long-lived system these numbers
-            # may wrap (restart from zero),
-            # see issues #802. Applications should be prepared to deal with that.
+            # on some systems such as Linux, on a very busy or long-lived system these numbers may wrap
+            # (restart from zero), see issues #802. Applications should be prepared to deal with that.
             if ref_recv <= last_recv and ref_sent <= last_sent:
                 recv_bytes = last_recv - ref_recv
                 sent_bytes = last_sent - ref_sent
@@ -75,7 +76,7 @@ def statistics(last, ref):
     # process statistics
     work = cpu_total_work(last[1], ref[1])
     proc = {}
-    # when tuples are unserialized through JSON, they become lists
+    # when tuples are deserialized through JSON, they become lists
     for process_name, last_pid_stats in last[4].items():
         # find same process in ref
         ref_pid_stats = ref[4].get(process_name, None)
@@ -90,12 +91,15 @@ def statistics(last, ref):
 
 # Class for statistics storage
 class StatisticsInstance(object):
-    """ This class handles resources statistics for a given address and period. """
+    """ This class handles resources statistics for a given node and period. """
 
-    def __init__(self, period, depth):
-        """ Initalization of the attributes.
+    def __init__(self, period, depth, logger):
+        """ Initialization of the attributes.
         As period is a multiple of 5 and a call to pushStatistics is expected every 5 seconds,
         period is used as a simple counter. """
+        # keep reference to the logger
+        self.logger = logger
+        # parameters
         self.period = period // 5
         self.depth = depth
         self.counter = -1
@@ -121,6 +125,66 @@ class StatisticsInstance(object):
         return next((stats for (process_name, pid), stats in self.proc.items()
                      if process_name == namespec), None)
 
+    def _push_cpu_stats(self, cpu_stats):
+        """ Add new CPU statistics. """
+        for lst in self.cpu:
+            lst.append(cpu_stats.pop(0))
+            self.trunc_depth(lst)
+
+    def _push_mem_stats(self, mem_stats):
+        """ Add new MEM statistics. """
+        self.mem.append(mem_stats)
+        self.trunc_depth(self.mem)
+
+    def _push_io_stats(self, io_stats):
+        """ Add new IO statistics. """
+        # on certain node configurations, interface list may be dynamic
+        # unlike processes, it is interesting to log when it happens
+        destroy_list = []
+        for intf, (recv_stats, sent_stats) in self.io.items():
+            new_bytes = io_stats.pop(intf, None)
+            if new_bytes is None:
+                # element is obsolete
+                destroy_list.append(intf)
+            else:
+                recv_bytes, sent_bytes = new_bytes
+                recv_stats.append(recv_bytes)
+                sent_stats.append(sent_bytes)
+                # remove too old values when max depth is reached
+                self.trunc_depth(recv_stats)
+                self.trunc_depth(sent_stats)
+        # destroy obsolete elements
+        for intf in destroy_list:
+            self.logger.warn(f'StatisticsInstance.push_io_stats: obsolete interface: {intf}')
+            del self.io[intf]
+        # add new elements
+        for intf, (recv_bytes, sent_bytes) in io_stats.items():
+            self.logger.warn(f'StatisticsInstance.push_io_stats: new interface: {intf}')
+            self.io[intf] = [recv_bytes], [sent_bytes]
+
+    def _push_process_stats(self, proc_stats):
+        """ Add new process statistics. """
+        # as process list is dynamic, there are special rules
+        destroy_list = []
+        for named_pid, (cpu_stats, mem_stats) in self.proc.items():
+            new_values = proc_stats.pop(named_pid, None)
+            if new_values is None:
+                # element is obsolete
+                destroy_list.append(named_pid)
+            else:
+                cpu_value, mem_value = new_values
+                cpu_stats.append(cpu_value)
+                mem_stats.append(mem_value)
+                # remove too old values when max depth is reached
+                self.trunc_depth(cpu_stats)
+                self.trunc_depth(mem_stats)
+        # destroy obsolete elements
+        for named_pid in destroy_list:
+            del self.proc[named_pid]
+        # add new elements
+        for named_pid, (cpu_value, mem_value) in proc_stats.items():
+            self.proc[named_pid] = [cpu_value], [mem_value]
+
     def push_statistics(self, stats):
         """ Calculates new statistics given a new series of measures. """
         self.counter += 1
@@ -128,82 +192,51 @@ class StatisticsInstance(object):
             if self.ref_stats:
                 # rearrange data so that there is less processing afterwards
                 integ_stats = statistics(stats, self.ref_stats)
-                # add new CPU values to CPU lists
-                for lst in self.cpu:
-                    lst.append(integ_stats[1].pop(0))
-                    self.trunc_depth(lst)
-                # add new Mem value to MEM list
-                self.mem.append(integ_stats[2])
-                self.trunc_depth(self.mem)
-                # add new IO values to IO list
-                for intf, iobytes in self.io.items():
-                    new_bytes = integ_stats[3].pop(intf)
-                    iobytes[0].append(new_bytes[0])
-                    iobytes[1].append(new_bytes[1])
-                    # remove too old values when max depth is reached
-                    self.trunc_depth(iobytes[0])
-                    self.trunc_depth(iobytes[1])
+                # add new values
+                self._push_cpu_stats(integ_stats[1])
+                self._push_mem_stats(integ_stats[2])
+                self._push_io_stats(integ_stats[3])
                 # add new Process CPU / Mem values to Process list
-                # as process list is dynamic, there are special rules
-                destroy_list = []
-                for named_pid, (cpu_stats, mem_stats) in self.proc.items():
-                    new_values = integ_stats[4].pop(named_pid, None)
-                    if new_values is None:
-                        # element is obsolete
-                        destroy_list.append(named_pid)
-                    else:
-                        new_cpu_value, new_mem_value = new_values
-                        cpu_stats.append(new_cpu_value)
-                        mem_stats.append(new_mem_value)
-                        # remove too old values when max depth is reached
-                        self.trunc_depth(cpu_stats)
-                        self.trunc_depth(mem_stats)
-                # destroy obsolete elements
-                for named_pid in destroy_list:
-                    del self.proc[named_pid]
-                # add new elements
-                for named_pid, (new_cpu_value, new_mem_value) in integ_stats[4].items():
-                    self.proc[named_pid] = [new_cpu_value], [new_mem_value]
+                self._push_process_stats(integ_stats[4])
             else:
-                # init data structures (mem unchanged)
+                # init some data structures
                 self.cpu = [[] for _ in stats[1]]
-                self.io = {intf: ([], []) for intf in stats[3].keys()}
-                self.proc = {(process_name, pid_stats[0]): ([], []) for process_name, pid_stats in stats[4].items()}
+                self.io = {intf: ([], []) for intf in stats[3]}
             self.ref_stats = stats
 
     # remove first data of all lists if size exceeds depth
     def trunc_depth(self, lst):
-        """ Ensure that the list does not exceed the maimum historic size. """
+        """ Ensure that the list does not exceed the maximum historic size. """
         while len(lst) > self.depth:
             lst.pop(0)
 
 
-# Class used to compile statistics coming from all addresses
+# Class used to compile statistics coming from all instances
 class StatisticsCompiler(object):
-    """ This class handles stores statistics for all addresses and periods.
+    """ This class handles stores statistics for all instances and periods.
 
     Attributes are:
 
-        - data: a dictionary containing a StatisticsInstance entry for each pair of address and period,
-        - cores: a dictionary giving the number of processor cores per address.
+        - data: a dictionary containing a StatisticsInstance entry for each pair of node and period,
+        - nbcores: a dictionary giving the number of processor cores per node.
         """
 
     def __init__(self, supvisors):
         """ Initialization of the attributes. """
-        self.data = {node_name: {period: StatisticsInstance(period, supvisors.options.stats_histo)
-                                 for period in supvisors.options.stats_periods}
-                     for node_name in supvisors.address_mapper.node_names}
-        self.nbcores = {node_name: 1 for node_name in supvisors.address_mapper.node_names}
+        self.data = {identifier: {period: StatisticsInstance(period, supvisors.options.stats_histo, supvisors.logger)
+                                  for period in supvisors.options.stats_periods}
+                     for identifier in supvisors.supvisors_mapper.instances}
+        self.nbcores: Dict[str, int] = {identifier: 1 for identifier in supvisors.supvisors_mapper.instances}
 
-    def clear(self, address):
-        """ For a given address, clear the StatisticsInstance for all periods. """
-        for period in self.data[address].values():
+    def clear(self, identifier: str):
+        """ For a given node, clear the StatisticsInstance for all periods. """
+        for period in self.data[identifier].values():
             period.clear()
 
-    def push_statistics(self, address, stats):
-        """ Insert a new statistics measure for address. """
-        for period in self.data[address].values():
-            period.push_statistics(stats)
+    def push_statistics(self, identifier: str, stats):
+        """ Insert a new statistics measure for identifier. """
+        for stats_instance in self.data[identifier].values():
+            stats_instance.push_statistics(stats)
         # set the number of processor cores
         nb = len(stats[1])
-        self.nbcores[address] = nb if nb == 1 else nb - 1
+        self.nbcores[identifier] = nb if nb == 1 else nb - 1

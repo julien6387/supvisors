@@ -37,10 +37,10 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     private Boolean isDistributed;
 
     /**
-     * The applicable nodes when not application cannot be distributed.
-     * If all known nodes are applicable, '*' is used.
+     * The identifiers of the applicable Supvisors instances when the application cannot be distributed.
+     * If all known Supvisors instances are applicable, '*' is used.
      */
-    private List nodes;
+    private List identifiers;
 
     /** The starting order in the application starting. */
     private Integer startSequence;
@@ -60,7 +60,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     /**
      * The constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap rulesInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsApplicationRules(HashMap rulesInfo)  {
         this.applicationName = (String) rulesInfo.get("application_name");
@@ -68,8 +68,8 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
         if (this.isManaged) {
             this.isDistributed = (Boolean) rulesInfo.get("distributed");
             if (!this.isDistributed) {
-                Object[] nodes = (Object[]) rulesInfo.get("addresses");
-                this.nodes = Arrays.asList(nodes);
+                Object[] identifiers = (Object[]) rulesInfo.get("identifiers");
+                this.identifiers = Arrays.asList(identifiers);
             }
             this.startSequence = (Integer) rulesInfo.get("start_sequence");
             this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
@@ -80,20 +80,20 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getApplicationName method returns the name of the process' application'.
-     *
-     * @return String: The namespec of the application.
-     */
-    public String getApplicationName() {
-        return this.applicationName;
-    }
-
-    /**
-     * The getName method returns the name of the application.
+     * The getName method uses the getApplicationName method.
      *
      * @return String: The name of the application.
      */
     public String getName() {
+        return this.getApplicationName();
+    }
+
+    /**
+     * The getApplicationName method returns the name of the process' application.
+     *
+     * @return String: The name of the application.
+     */
+    public String getApplicationName() {
         return this.applicationName;
     }
 
@@ -116,13 +116,13 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNodes method returns the nodes where the application processes can be started,
-     *  when application cannot be distributed.
+     * The getIdentifiers method returns the identifiers of the Supvisors instances
+     * where the application processes can be started when the application cannot be distributed.
      *
-     * @return List: The list of nodes.
+     * @return List: The list of identifiers.
      */
-    public List getNodes() {
-        return this.nodes;
+    public List getIdentifiers() {
+        return this.identifiers;
     }
 
     /**

@@ -33,16 +33,16 @@ class ApplicationRules(object):
     """ Definition of the rules for starting an application, iaw rules file.
 
     Attributes are:
-        - managed: set to True when application rules are found from the rules file;
-        - distributed: set to False if all processes must be running on the same node;
-        - node_names: the nodes where the application can be started (all by default) if not distributed,
-        - hash_node_names: when # rule is used, the application can be started on one of these nodes (to be resolved),
+        - managed: set to True when application rules are found from the rules file ;
+        - distributed: set to False if all processes must be running on the same Supervisor ;
+        - identifiers: the Supervisors where the application can be started if not distributed (default: all) ;
+        - hash_identifiers: when # rule is used, the application can be started on one of the Supervisors identified ;
         - start_sequence: defines the order of this application when starting all the applications
           in the DEPLOYMENT state (0 means: no automatic start);
         - stop_sequence: defines the order of this application when stopping all the applications
           (0 means: immediate stop);
-        - starting_strategy: defines the strategy to apply when choosing the node where the process shall be started
-          during the starting of the application;
+        - starting_strategy: defines the strategy to apply when choosing the identifier where the process
+          shall be started during the starting of the application;
         - starting_failure_strategy: defines the strategy to apply when a required process cannot be started
           during the starting of the application;
         - running_failure_strategy: defines the default strategy to apply when a required process crashes
@@ -57,8 +57,8 @@ class ApplicationRules(object):
         # attributes
         self.managed: bool = False
         self.distributed: bool = True
-        self.node_names: NameList = ['*']
-        self.hash_node_names: NameList = []
+        self.identifiers: NameList = ['*']
+        self.hash_identifiers: NameList = []
         self.start_sequence: int = 0
         self.stop_sequence: int = -1
         self.starting_strategy: StartingStrategies = StartingStrategies.CONFIG
@@ -69,24 +69,24 @@ class ApplicationRules(object):
         """ Check the stop_sequence value.
         If stop_sequence hasn't been set from the rules file, use the same value as start_sequence.
 
-        :param namespec: the namespec of the program considered.
+        :param application_name: the name of the application considered.
         :return: None
         """
         if self.stop_sequence < 0:
-            self.logger.trace('ApplicationRules.check_stop_sequence: {} - set stop_sequence to {} '
-                              .format(application_name, self.start_sequence))
+            self.logger.trace(f'ApplicationRules.check_stop_sequence: {application_name}'
+                              f' - set stop_sequence to {self.start_sequence} ')
             self.stop_sequence = self.start_sequence
 
-    def check_hash_nodes(self, application_name: str) -> None:
+    def check_hash_identifiers(self, application_name: str) -> None:
         """ When a '#' is set in application rules, an association has to be done between the 'index' of the application
-        and the index of the node in the applicable node list.
+        and the index of the Supervisor in the applicable identifier list.
         Unlike programs, there is no unquestionable index that Supvisors could get because Supervisor does not support
         homogeneous applications. It thus has to be a convention.
-        The chosen covenant is that the application_name MUST match r'[-_]\d+$'. The first index name is 1.
+        The chosen convention is that the application_name MUST match r'[-_]\\d+$'. The first index name is 1.
 
-        hash_node_names is expected to contain:
-            - either ['*'] when all nodes are applicable
-            - or any subset of these nodes.
+        hash_identifiers is expected to contain:
+            - either ['*'] when all Supervisors are applicable
+            - or any subset of these Supervisors.
 
         :param application_name: the name of the application considered.
         :return: None
@@ -94,31 +94,29 @@ class ApplicationRules(object):
         error = True
         result = re.match(r'.*[-_](\d+)$', application_name)
         if not result:
-            self.logger.error('ApplicationRules.check_hash_nodes: application_name={} incompatible with the use of #'
-                              .format(application_name))
+            self.logger.error(f'ApplicationRules.check_hash_identifiers: {application_name} incompatible'
+                              ' with the use of #')
         else:
-            appnumber = int(result.group(1)) - 1
-            if appnumber < 0:
-                self.logger.error('ApplicationRules.check_hash_nodes: index of application_name={} must be > 0'
-                                  .format(application_name))
+            application_number = int(result.group(1)) - 1
+            if application_number < 0:
+                self.logger.error(f'ApplicationRules.check_hash_identifiers: index of {application_name} must be > 0')
             else:
-                self.logger.debug('ApplicationRules.check_hash_nodes: application_name={} appnumber={}'
-                                  .format(application_name, appnumber))
-                if '*' in self.hash_node_names:
-                    # all nodes defined in the supvisors section of the supervisor configuration file are applicable
-                    ref_node_names = self.supvisors.address_mapper.node_names
+                self.logger.debug(f'ApplicationRules.check_hash_identifiers: application_name={application_name}'
+                                  f' application_number={application_number}')
+                if '*' in self.hash_identifiers:
+                    # all identifiers defined in the supvisors section of the supervisor configuration are applicable
+                    ref_identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
                 else:
-                    # the subset of applicable nodes is the hash_node_names
-                    ref_node_names = self.hash_node_names
-                if appnumber < len(ref_node_names):
-                    self.node_names = [ref_node_names[appnumber]]
+                    # the subset of applicable identifiers is the hash_identifiers
+                    ref_identifiers = self.hash_identifiers
+                if application_number < len(ref_identifiers):
+                    self.identifiers = [ref_identifiers[application_number]]
                     error = False
                 else:
-                    self.logger.error('ApplicationRules.check_hash_nodes: application={} has no applicable node'
-                                      .format(application_name))
+                    self.logger.error(f'ApplicationRules.check_hash_identifiers: {application_name} has no'
+                                      ' applicable identifier')
         if error:
-            self.logger.warn('ApplicationRules.check_hash_nodes: application={} start_sequence reset'
-                             .format(application_name))
+            self.logger.warn(f'ApplicationRules.check_hash_identifiers: {application_name} start_sequence reset')
             self.start_sequence = 0
 
     def check_dependencies(self, application_name: str) -> None:
@@ -128,19 +126,19 @@ class ApplicationRules(object):
         :return: None
         """
         self.check_stop_sequence(application_name)
-        if self.hash_node_names:
-            self.check_hash_nodes(application_name)
+        if self.hash_identifiers:
+            self.check_hash_identifiers(application_name)
 
     def __str__(self) -> str:
         """ Get the application rules as string.
 
         :return: the printable application rules
         """
-        return 'managed={} distributed={} node_names={} start_sequence={} stop_sequence={} starting_strategy={}'\
-               ' starting_failure_strategy={} running_failure_strategy={}' \
-            .format(self.managed, self.distributed, self.node_names, self.start_sequence, self.stop_sequence,
-                    self.starting_strategy.name, self.starting_failure_strategy.name,
-                    self.running_failure_strategy.name)
+        return (f'managed={self.managed} distributed={self.distributed} identifiers={self.identifiers}'
+                f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence}'
+                f' starting_strategy={self.starting_strategy.name}'
+                f' starting_failure_strategy={self.starting_failure_strategy.name}'
+                f' running_failure_strategy={self.running_failure_strategy.name}')
 
     # serialization
     def serial(self) -> Payload:
@@ -156,7 +154,8 @@ class ApplicationRules(object):
                        'starting_failure_strategy': self.starting_failure_strategy.name,
                        'running_failure_strategy': self.running_failure_strategy.name}
             if not self.distributed:
-                payload['addresses'] = self.node_names
+                payload['identifiers'] = self.identifiers
+                payload['addresses'] = self.identifiers  # TODO: DEPRECATED
             return payload
         return {'managed': False}
 
@@ -170,7 +169,7 @@ class ApplicationStatus(object):
         - major_failure: a status telling if a required process is stopped while the application is running,
         - minor_failure: a status telling if an optional process has crashed while the application is running,
         - processes: the map (key is process name) of the ProcessStatus belonging to the application,
-        - rules: the ApplicationRules instance applicable to the application,
+        - rules: the ApplicationRules applicable to this application,
         - start_sequence: the sequencing to start the processes belonging to the application, as a dictionary.
         - stop_sequence: the sequencing to stop the processes belonging to the application, as a dictionary.
 
@@ -245,17 +244,15 @@ class ApplicationStatus(object):
         """
         if self._state != new_state:
             self._state = new_state
-            self.logger.info('Application.state: {} is {}'.format(self.application_name, self.state.name))
+            self.logger.info(f'Application.state: {self.application_name} is {self.state.name}')
 
     def has_running_processes(self) -> bool:
         """ Check if one of the application processes is running.
         The application state may be STOPPED in this case if the running process is out of the starting sequence.
 
-        :return: True if one of the application processes is running
+        :return: True if any of the application processes is running
         """
-        for process in self.processes.values():
-            if process.running():
-                return True
+        return any(process.running() for process in self.processes.values())
 
     def get_operational_status(self) -> str:
         """ Get a description of the operational status of the application.
@@ -276,19 +273,17 @@ class ApplicationStatus(object):
 
         :return: the application status in a dictionary
         """
-        return {'application_name': self.application_name,
-                'statecode': self.state.value,
-                'statename': self.state.name,
-                'major_failure': self.major_failure,
-                'minor_failure': self.minor_failure}
+        return {'application_name': self.application_name, 'managed': self.rules.managed,
+                'statecode': self.state.value, 'statename': self.state.name,
+                'major_failure': self.major_failure, 'minor_failure': self.minor_failure}
 
     def __str__(self) -> str:
         """ Get the application status as string.
 
         :return: the printable application status
         """
-        return 'application_name={} state={} major_failure={} minor_failure={}' \
-            .format(self.application_name, self.state.name, self.major_failure, self.minor_failure)
+        return (f'application_name={self.application_name} managed={self.rules.managed} state={self.state.name}'
+                f' major_failure={self.major_failure} minor_failure={self.minor_failure}')
 
     # methods
     def add_process(self, process: ProcessStatus) -> None:
@@ -305,30 +300,29 @@ class ApplicationStatus(object):
         :param process_name: the process to be removed from the application
         :return: None
         """
-        self.logger.info('ApplicationStatus.remove_process: {} - removing process={}'
-                         .format(self.application_name, process_name))
+        self.logger.info(f'ApplicationStatus.remove_process: {self.application_name} - removing process={process_name}')
         del self.processes[process_name]
         # re-evaluate sequences and status
         self.update_sequences()
         self.update_status()
 
-    def possible_nodes(self) -> NameList:
-        """ Return the list of nodes where the application could be started.
+    def possible_identifiers(self) -> NameList:
+        """ Return the list of Supervisor identifiers where the application could be started.
         To achieve that, two conditions:
-            - the Supervisor node must know all the application programs;
-            - the node must be declared in the applicable nodes in the rules file.
+            - the Supervisor must know all the application programs ;
+            - the Supervisor identifier must be declared in the rules file.
 
-        :return: the list of nodes where the program could be started
+        :return: the list of identifiers where the program could be started
         """
-        node_names = self.rules.node_names
-        if '*' in self.rules.node_names:
-            node_names = self.supvisors.address_mapper.node_names
-        # get the nodes common to all application processes
-        actual_nodes = [set(process.info_map.keys()) for process in self.processes.values()]
-        if actual_nodes:
-            actual_nodes = actual_nodes[0].intersection(*actual_nodes)
+        identifiers = self.rules.identifiers
+        if '*' in self.rules.identifiers:
+            identifiers = self.supvisors.supvisors_mapper.instances
+        # get the identifiers common to all application processes
+        actual_identifiers = [set(process.info_map.keys()) for process in self.processes.values()]
+        if actual_identifiers:
+            actual_identifiers = actual_identifiers[0].intersection(*actual_identifiers)
         # intersect with rules
-        return [node_name for node_name in node_names if node_name in actual_nodes]
+        return [identifier for identifier in identifiers if identifier in actual_identifiers]
 
     @staticmethod
     def printable_sequence(application_sequence: ApplicationSequence) -> PrintableApplicationSequence:
@@ -353,17 +347,17 @@ class ApplicationStatus(object):
             # fill ordering iaw process rules
             for process in self.processes.values():
                 self.start_sequence.setdefault(process.rules.start_sequence, []).append(process)
-            self.logger.debug('ApplicationStatus.update_sequences: application_name={} start_sequence={}'
-                              .format(self.application_name, self.printable_sequence(self.start_sequence)))
+            self.logger.debug(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
+                              f' start_sequence={self.printable_sequence(self.start_sequence)}')
         else:
-            self.logger.info('ApplicationStatus.update_sequences: application_name={}'
-                             ' is not managed so start sequence is undefined'. format(self.application_name))
+            self.logger.info(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
+                             ' is not managed so start sequence is undefined')
         # stop sequence is applicable to all applications
         for process in self.processes.values():
             # fill ordering iaw process rules
             self.stop_sequence.setdefault(process.rules.stop_sequence, []).append(process)
-        self.logger.debug('ApplicationStatus.update_sequences: application_name={} stop_sequence={}'
-                          .format(self.application_name, self.printable_sequence(self.stop_sequence)))
+        self.logger.debug(f'ApplicationStatus.update_sequences: application_name={self.application_name}'
+                          f' stop_sequence={self.printable_sequence(self.stop_sequence)}')
 
     def get_start_sequenced_processes(self) -> ProcessList:
         """ Return the processes included in the application start sequence.
@@ -377,7 +371,7 @@ class ApplicationStatus(object):
     def get_start_sequence_expected_load(self) -> int:
         """ Return the sum of the expected loading of the processes in the starting sequence.
         This is used only in the event where the application is not distributed and the whole application loading
-        has to be checked on a single node.
+        has to be checked on a single Supervisor.
 
         :return: the expected loading of the application.
         """
@@ -395,17 +389,16 @@ class ApplicationStatus(object):
         sequenced_processes = [process for sub_seq in self.start_sequence.values()
                                for process in sub_seq]
         if not sequenced_processes:
-            self.logger.debug('ApplicationStatus.update_status: application_name={}'
-                              ' is not managed so always STOPPED'. format(self.application_name))
+            self.logger.debug(f'ApplicationStatus.update_status: application_name={self.application_name}'
+                              ' is not managed so always STOPPED')
             self.state = ApplicationStates.STOPPED
             return
         # evaluate application state based on the state of the processes in its start sequence
         starting, running, stopping = (False,) * 3
         for process in sequenced_processes:
-            self.logger.trace('ApplicationStatus.update_status: application_name={} process={} state={}'
-                              ' required={} exit_expected={}'
-                              .format(self.application_name, process.namespec, process.state_string(),
-                                      process.rules.required, process.expected_exit))
+            self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
+                              f' process={process.namespec} state={process.state_string()}'
+                              f' required={process.rules.required} exit_expected={process.expected_exit}')
             if process.state == ProcessStates.RUNNING:
                 running = True
             elif process.state in [ProcessStates.STARTING, ProcessStates.BACKOFF]:
@@ -427,10 +420,10 @@ class ApplicationStatus(object):
                     possible_major_failure = True
             # only remaining case is EXITED + expected
             # TODO: possible_major_failure could be set if it has not been run yet
-        self.logger.trace('ApplicationStatus.update_status: application_name={} - starting={} running={} stopping={}'
-                          ' major_failure={} minor_failure={} possible_major_failure={}'
-                          .format(self.application_name, starting, running, stopping,
-                                  self.major_failure, self.minor_failure, possible_major_failure))
+        self.logger.trace(f'ApplicationStatus.update_status: application_name={self.application_name}'
+                          f' - starting={starting} running={running} stopping={stopping}'
+                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}'
+                          f' possible_major_failure={possible_major_failure}')
         # apply rules for state
         if stopping:
             # if at least one process is STOPPING, let's consider that application is stopping
@@ -448,5 +441,5 @@ class ApplicationStatus(object):
         # consider possible failure
         if self.state != ApplicationStates.STOPPED:
             self.major_failure |= possible_major_failure
-        self.logger.debug('Application {}: state={} major_failure={} minor_failure={}'
-                          .format(self.application_name, self.state, self.major_failure, self.minor_failure))
+        self.logger.debug(f'Application.update_status: application_name={self.application_name} state={self.state}'
+                          f' major_failure={self.major_failure} minor_failure={self.minor_failure}')

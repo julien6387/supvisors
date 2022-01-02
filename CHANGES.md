@@ -1,13 +1,100 @@
 # Change Log
 
+## 0.11 (2022-01-02)
+
+* Fixed [Issue #99](https://github.com/julien6387/supvisors/issues/99).
+  Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
+  This update had a major impact on the source code. More particularly:
+  - The XML-RPCs `get_master_identifier`, `get_instance_info` and `get_all_instances_info` have been added to replace
+    `get_master_address`, `get_address_info` and `get_all_addresses_info`.
+  - The `supervisorctl` command `instance_status` has been added to replace `address_status`.
+  - The XML-RPCs that would return attributes `address_name` and `addresses` are now returning `identifier` and
+    `identifiers` respectively. This impacts the following XML-RPCs (and related `supervisorctl` commands):
+    - `get_application_info`
+    - `get_all_application_info`
+    - `get_application_rules`
+    - `get_address_info`
+    - `get_all_addresses_info`
+    - `get_all_process_info`
+    - `get_process_info`
+    - `get_process_rules`
+    - `get_conflicts`.
+  - The `supvisors_list` option has been added to replace `address_list` in the **Supvisors** section of the Supervisor
+    configuration file. This option accepts a more complex definition: `<identifier>host_name:http_port:internal_port`.
+    Note that the simple `host_name` is still supported in the event where **Supvisors** doesn't have to deal
+    with multiple Supervisor instances on the same node.
+  - The `core_identifiers` option has been added to replace `force_synchro_if` in the **Supvisors** section of the
+    Supervisor configuration file. It targets the names deduced from the `supvisors_list` option.
+  - The `identifiers` option has been added to replace the `addresses` option in the **Supvisors** rules file.
+    This option targets the names deduced from the `supvisors_list` option.
+  - The `address`-like attributes, XML-RPCs and options are deprecated and will be removed in the next version.
+
+* Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
+  Move the heartbeat emission to the Supvisors thread to avoid being impacted by a Supervisor momentary freeze.
+  On the heartbeat reception part, consider that the node is `SILENT` based on a number of ticks instead of time.
+
+* Fix issue with `supvisors.stop_process` XML-RPC that wouldn't stop all processes when any of the targeted processes
+  is already stopped.
+
+* Fix exception when authorization is received from a node that is not in `CHECKING` state. 
+
+* Fix regression (missing disconnect) on node isolation when fencing is activated.
+
+* Fix issue in statistics compiler when network interfaces are dynamically created / removed.
+
+* Refactoring of `Starter` and `Stopper`.
+
+* The module `rpcrequests` has been removed because useless.
+  The function `getRPCInterface` of th module `supervisor.childutils` does the job.
+
+* The `startsecs` and `stopwaitsecs` program options have been added to the results of `get_all_local_process_info` and
+  `get_local_process_info`.
+
+* The option `rules_file` is updated to `rules_files` and supports multiple files for **Supvisors** rules.
+  The option `rules_file` is thus deprecated and will be removed in the next version.
+
+* Add a new `restart_sequence` XML-RPC to trigger a full application start sequence.
+
+* Update the `restart_application` and `restart_process` XML-RPC so that processes can restart themselves using them.
+
+* Add `expected_exit` to the output of `supervisorctl sstatus` when the process is `EXITED`.
+
+* Add the new option `stats_enabled` to enable/disable the statistics function.
+
+* Update `start_process`, `stop_process`, `restart_process`, `process_rules` in `supervisorctl` so that calls are made
+  on each individually process rather than process group when `all` is used as parameter.
+
+* Add exit codes to erroneous **Supvisors** calls in `supervisorctl`.
+
+* When aborting jobs when re-entering the `INITIALIZATION` state, clear the structure holding the jobs in progress.
+  It has been found to stick **Supvisors** in the `DEPLOYMENT` state in the event where the *Master* node is temporarily
+ `SILENT`.
+
+* Restrict the use of the XML-RPCs `start_application`, `stop_application`, `restart_application` to *Managed*
+  applications only.
+
+* Review the logic of the refresh button in the Web UI.
+
+* Add node time to the node boxes in the Main page of the Web UI.
+
+* Sort alphabetically the entries of the application menu of the Web UI.
+
+* Update the mouse pointer look on nodes in the Main and Host pages of the Web UI.
+
+* Remove the useless timecode in the header of the Process and Host pages of the Web UI as it is now provided
+  at the bottom right of all pages.
+
+* Add class "action" to Web UI buttons that trigger an XML-RPC.
+
+* Switch from Travis-CI to GitHub Actions for continuous integration.
+
+
 ## 0.10 (2021-09-05)
 
 * Implement [Supervisor Issue #177](https://github.com/Supervisor/supervisor/issues/177).
-  It is possible to update dynamically the program numprocs using the new ``update_numprocs`` XML-RPC. 
+  It is possible to update dynamically the program numprocs using the new `update_numprocs` XML-RPC. 
 
 * Add targets **Python 3.7** and **Python 3.8** to Travis-CI.
-
-* Update documentation.
 
 
 ## 0.9 (2021-08-31)
@@ -33,15 +120,13 @@
 * When ``stop_sequence`` is not set in the rules files, it is defaulted to the ``start_sequence`` value.
   With the new stop sequence logic, the stop sequence is by default exactly the opposite of the start sequence.
 
-* Fixed Nodes column width for `supervisorctl application_rules`.
+* Fixed Nodes' column width for `supervisorctl application_rules`.
 
 * `CHANGES.rst` replaced with `CHANGES.md`.
 
 * 'Scenario 3' has been added to the **Supvisors** use cases.
 
 * A 'Gathering' configuration has been added to the **Supvisors** use cases. It combines all uses cases.
-
-* Update documentation.
 
 
 ## 0.8 (2021-08-22)
@@ -97,11 +182,9 @@
 
 * 'Scenario 2' has been added to the **Supvisors** use cases.
 
-* A script `breed.py` has been added to the install package.
+* A script `breed.py` has been added to the installation package.
   It can be used to duplicate the applications based on a template configuration and more particularly used to prepare
   the Scenario 2 of the **Supvisors** use cases.
-
-* Update documentation.
 
 
 ## 0.7 (2021-08-15)
@@ -149,8 +232,6 @@
 * Start adding use cases to documentation, inspired by real examples.
   'Scenario 1' has been added.
 
-* Documentation updated.
-
 
 ## 0.6 (2021-08-01)
 
@@ -160,7 +241,7 @@
 
 * Improve **Supvisors** stability when dealing with remote programs undefined locally.
 
-* Add expand / shrink actions to applications to the `ProcAddressView` of the Web UI.
+* Add expand / shrink actions to applications to the `ProcInstanceView` of the Web UI.
 
 * Upon authorization of a new node in **Supvisors**, back to `DEPLOYMENT` state to repair applications.
 
@@ -193,12 +274,10 @@
 
 * Include this Change Log to documentation.
 
-* Documentation updated.
-
 
 ## 0.5 (2021-03-01)
 
-* New option `force_synchro_if` to force the end of the synchronization phase when a subset of nodes are active.
+* New option `force_synchro_if` to force the end of the synchronization phase when a subset of nodes is active.
 
 * New starting strategy `LOCAL` added to command the starting of an application on the local node only.
 
@@ -228,8 +307,6 @@
 
 * Logs (especially `debug` and `trace`) updated to remove printed objects.
 
-* Documentation updated.
-
 
 ## 0.4 (2021-02-14)
 
@@ -240,8 +317,6 @@
 * Fixed exception when exiting using `Ctrl+c` from shell.
 
 * Fixed exception when rules files is not provided.
-
-* Documentation updated.
 
 
 ## 0.3 (2020-12-29)
@@ -257,8 +332,6 @@
 * `design` folder moved to a dedicated *GitHub* repository.
 
 * 100% coverage reached in unit tests.
-
-* Documentation updated.
 
 
 ## 0.2 (2020-12-14)
@@ -289,8 +362,6 @@
 * Coverage improved in tests.
 
 * Docs target added to Travis-CI.
-
-* Documentation formatting issues fixed.
 
 
 ## 0.1 (2017-08-11)

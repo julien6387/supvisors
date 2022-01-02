@@ -12,9 +12,8 @@ cd $TEST_DIR
 for host in cliche81 cliche82 cliche83
 do
 	echo "stop Supervisor on host" $host
-        ping -c 1 $host && ssh $host "cd $TEST_DIR ; supervisorctl shutdown"
+  ping -c 1 $host 2>&1 >/dev/null && ssh $host "cd $TEST_DIR ; supervisorctl shutdown"
 done
 
 # back to ref directory
 popd
-

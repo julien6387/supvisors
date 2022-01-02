@@ -46,17 +46,51 @@ def test_gmtime():
 def test_extract_process_info():
     """ Test the extraction of useful data from process info. """
     # test with no spawn error
-    dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    dummy_info = {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING', 'start': 5, 'stop': 0,
                   'now': 10, 'pid': 1234, 'spawnerr': '', 'useless_key': 'useless_data',
                   'description': 'process dead'}
-    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING',
+                                                'start': 5, 'stop': 0,
                                                 'now': 10, 'pid': 1234, 'expected': True, 'spawnerr': '',
                                                 'description': 'process dead'}
     # test with spawn error
     dummy_info['spawnerr'] = 'something'
-    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'start': 5, 'stop': 0,
+    assert extract_process_info(dummy_info) == {'name': 'proc', 'group': 'appli', 'state': 10, 'statename': 'STARTING',
+                                                'start': 5, 'stop': 0,
                                                 'now': 10, 'pid': 1234, 'expected': False, 'spawnerr': 'something',
                                                 'description': 'process dead'}
+
+
+def test_server_url():
+    """ Test the SupervisorServerUrl class. """
+    # test without authentication
+    env = {'SUPERVISOR_SERVER_URL': 'http://localhost:60000'}
+    srv_url = SupervisorServerUrl(env)
+    assert srv_url.env is env
+    assert srv_url.parsed_url.geturl() == 'http://localhost:60000'
+    assert srv_url.authentication == ''
+    # without port
+    srv_url.update_url('cliche81')
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://cliche81:60000'
+    assert srv_url.parsed_url.geturl() == 'http://cliche81:60000'
+    # with port
+    srv_url.update_url('cliche82', 61000)
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://cliche82:61000'
+    assert srv_url.parsed_url.geturl() == 'http://cliche82:61000'
+    # test with authentication
+    env = {'SUPERVISOR_SERVER_URL': 'http://user:password@localhost:60000'}
+    srv_url = SupervisorServerUrl(env)
+    assert srv_url.env is env
+    assert srv_url.parsed_url.geturl() == 'http://user:password@localhost:60000'
+    assert srv_url.authentication == 'user:password@'
+    # without port
+    srv_url.update_url('cliche81')
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://user:password@cliche81:60000'
+    assert srv_url.parsed_url.geturl() == 'http://user:password@cliche81:60000'
+    # with port
+    srv_url.update_url('cliche82', 61000)
+    assert env['SUPERVISOR_SERVER_URL'] == 'http://user:password@cliche82:61000'
+    assert srv_url.parsed_url.geturl() == 'http://user:password@cliche82:61000'
 
 
 def test_statistics_functions():

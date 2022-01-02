@@ -37,10 +37,10 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     private String processName;
 
     /**
-     * The applicable nodes.
-     * If all known nodes are applicable, '*' is used.
+     * The identifiers of the applicable Supvisors instances.
+     * If all known instances are applicable, '*' is used.
      */
-    private List nodes;
+    private List identifiers;
 
     /** The starting order in the application starting. */
     private Integer startSequence;
@@ -69,14 +69,14 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     /**
      * The constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap rulesInfo: The untyped structure got from the XML-RPC.
      */
     public SupvisorsProcessRules(HashMap rulesInfo)  {
         this.processName = (String) rulesInfo.get("process_name");
         this.applicationName = (String) rulesInfo.get("application_name");
         this.namespec = DataConversion.stringsToNamespec(this.applicationName, this.processName);
-        Object[] nodes = (Object[]) rulesInfo.get("addresses");
-        this.nodes = Arrays.asList(nodes);
+        Object[] identifiers = (Object[]) rulesInfo.get("identifiers");
+        this.identifiers = Arrays.asList(identifiers);
         this.startSequence = (Integer) rulesInfo.get("start_sequence");
         this.stopSequence = (Integer) rulesInfo.get("stop_sequence");
         this.required = (Boolean) rulesInfo.get("required");
@@ -113,12 +113,12 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
     }
 
     /**
-     * The getNodes method returns the addresses where the process can be started.
+     * The getIdentifiers method returns the identifiers of the Supvisors instances where the process can be started.
      *
-     * @return List: The list of nodes.
+     * @return List: The list of identifiers of the Supvisors instances where the process can be started.
      */
-    public List getNodes() {
-        return this.nodes;
+    public List getIdentifiers() {
+        return this.identifiers;
     }
 
     /**
@@ -183,7 +183,7 @@ public class SupvisorsProcessRules implements SupvisorsAnyInfo {
      */
     public String toString() {
         return "SupvisorsProcessrules(namespec=" + this.namespec
-            + " nodes=" + this.nodes + " startSequence=" + this.startSequence
+            + " identifiers=" + this.identifiers + " startSequence=" + this.startSequence
             + " stopSequence=" + this.stopSequence + " required=" + this.required
             + " waitExit=" + this.waitExit + " expectedLoading=" + this.expectedLoading
             + " runningFailureStrategy=" + this.runningFailureStrategy + ")";

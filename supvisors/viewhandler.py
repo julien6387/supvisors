@@ -17,13 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
+import time
+
 from supervisor.compat import as_bytes, as_string
 from supervisor.http import NOT_DONE_YET
 from supervisor.states import SupervisorStates, RUNNING_STATES, STOPPED_STATES
 from supervisor.web import MeldView
 
 from .rpcinterface import API_VERSION
-from .ttypes import AddressStates, SupvisorsStates, Payload
+from .ttypes import SupvisorsInstanceStates, SupvisorsStates, Payload
 from .utils import get_stats
 from .viewcontext import *
 from .viewimage import process_cpu_img, process_mem_img
@@ -37,13 +39,14 @@ class ViewHandler(MeldView):
         """ Initialization of the attributes. """
         MeldView.__init__(self, context)
         self.page_name = None
+        self.current_time = time.time()
         # add Supvisors shortcuts
         self.supvisors = context.supervisord.supvisors
         self.logger = self.supvisors.logger
         # cannot store context as it is named or it would crush the http context
         self.sup_ctx = self.supvisors.context
         # keep reference to the local node name
-        self.local_node_name = self.supvisors.address_mapper.local_node_name
+        self.local_identifier = self.supvisors.supvisors_mapper.local_identifier
         # init view_ctx (only for tests)
         self.view_ctx = None
 
@@ -60,7 +63,7 @@ class ViewHandler(MeldView):
     def render(self):
         """ Handle the rendering of the Supvisors pages. """
         # clone the template and set navigation menu
-        if self.supvisors.info_source.supervisor_state == SupervisorStates.RUNNING:
+        if self.supvisors.supervisor_data.supervisor_state == SupervisorStates.RUNNING:
             # manage parameters
             self.handle_parameters()
             # manage action
@@ -74,7 +77,7 @@ class ViewHandler(MeldView):
             self.write_navigation(root)
             self.write_header(root)
             self.write_contents(root)
-            # send error message only at the end to get all URL parameters
+            # send message only at the end to get all URL parameters
             self.view_ctx.fire_message()
             return as_string(root.write_xhtmlstring())
 
@@ -87,12 +90,8 @@ class ViewHandler(MeldView):
         """ Common rendering of the Supvisors pages. """
         # set auto-refresh status on page
         auto_refresh = self.view_ctx.parameters[AUTO]
-        elt = root.findmeld('meta_mid')
-        if auto_refresh:
-            # consider to bind the statistics period to auto-refresh period
-            pass
-        else:
-            elt.deparent()
+        if not auto_refresh:
+            root.findmeld('meta_mid').deparent()
         # configure Supvisors hyperlink
         elt = root.findmeld('supvisors_mid')
         url = self.view_ctx.format_url('', SUPVISORS_PAGE)
@@ -102,53 +101,53 @@ class ViewHandler(MeldView):
             update_attrib(elt, 'class', 'blink')
         # set Supvisors version
         root.findmeld('version_mid').content(API_VERSION)
-        # set hosting node name
-        root.findmeld('node_mid').content(self.local_node_name)
+        # set current Supvisors instance identifier
+        root.findmeld('identifier_mid').content(self.local_identifier)
         # configure refresh button
         elt = root.findmeld('refresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh'})
+        url = self.view_ctx.format_url('', self.page_name)
         elt.attributes(href=url)
         # configure auto-refresh button
         elt = root.findmeld('autorefresh_a_mid')
-        url = self.view_ctx.format_url('', self.page_name, **{ACTION: 'refresh', AUTO: not auto_refresh})
+        url = self.view_ctx.format_url('', self.page_name, **{AUTO: not auto_refresh})
         elt.attributes(href=url)
         if auto_refresh:
             update_attrib(elt, 'class', 'active')
         # set bottom message
-        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message())
+        print_message(root, self.view_ctx.get_gravity(), self.view_ctx.get_message(), self.current_time)
 
     def write_navigation(self, root):
         """ Write the navigation menu.
         Subclasses will define the write_nav parameters to be used. """
         raise NotImplementedError
 
-    def write_nav(self, root, node_name=None, appli=None):
+    def write_nav(self, root, identifier=None, appli=None):
         """ Write the navigation menu. """
-        self.write_nav_nodes(root, node_name)
+        self.write_nav_instances(root, identifier)
         self.write_nav_applications(root, appli)
 
-    def write_nav_nodes(self, root, node_name):
+    def write_nav_instances(self, root, identifier):
         """ Write the node part of the navigation menu. """
-        mid_elt = root.findmeld('address_li_mid')
-        node_names = self.supvisors.address_mapper.node_names
-        for li_elt, item in mid_elt.repeat(node_names):
+        mid_elt = root.findmeld('instance_li_mid')
+        identifiers = list(self.supvisors.supvisors_mapper.instances.keys())
+        for li_elt, item in mid_elt.repeat(identifiers):
             try:
-                status = self.sup_ctx.nodes[item]
+                status = self.sup_ctx.instances[item]
             except KeyError:
-                self.logger.debug('failed to get AddressStatus from {}'.format(item))
+                self.logger.debug(f'ViewHandler.write_nav_instances: failed to get instance status from {item}')
             else:
                 # set element class
                 update_attrib(li_elt, 'class', status.state.name)
-                if item == node_name:
+                if item == identifier:
                     update_attrib(li_elt, 'class', 'active')
                 # set hyperlink attributes
-                elt = li_elt.findmeld('address_a_mid')
-                if status.state == AddressStates.RUNNING:
-                    # go to web page located on node, so as to reuse Supervisor StatusView
-                    url = self.view_ctx.format_url(item, PROC_NODE_PAGE)
+                elt = li_elt.findmeld('instance_a_mid')
+                if status.state == SupvisorsInstanceStates.RUNNING:
+                    # go to web page located on the Supvisors instance, so as to reuse Supervisor StatusView
+                    url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
                     update_attrib(elt, 'class', 'on')
-                    if item == self.sup_ctx.master_node_name:
+                    if item == self.sup_ctx.master_identifier:
                         update_attrib(elt, 'class', 'master')
                 else:
                     update_attrib(elt, 'class', 'off')
@@ -159,9 +158,9 @@ class ViewHandler(MeldView):
         any_failure = False
         # write applications
         mid_elt = root.findmeld('appli_li_mid')
-        applications = self.sup_ctx.get_managed_applications()
+        applications = self.sup_ctx.get_managed_applications().values()
         # forced to list otherwise not easily testable
-        for li_elt, item in mid_elt.repeat(list(applications)):
+        for li_elt, item in mid_elt.repeat(sorted(applications, key=lambda x: x.application_name)):
             failure = item.major_failure or item.minor_failure
             any_failure |= failure
             # set element class
@@ -192,17 +191,21 @@ class ViewHandler(MeldView):
 
     def write_periods(self, root):
         """ Write configured periods for statistics. """
-        mid_elt = root.findmeld('period_li_mid')
-        periods = self.supvisors.options.stats_periods
-        for li_elt, item in mid_elt.repeat(periods):
-            # print period button
-            elt = li_elt.findmeld('period_a_mid')
-            if item == self.view_ctx.parameters[PERIOD]:
-                update_attrib(elt, 'class', 'button off active')
-            else:
-                url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
-                elt.attributes(href=url)
-            elt.content('{}s'.format(item))
+        if self.supvisors.options.stats_enabled:
+            # write the available periods
+            mid_elt = root.findmeld('period_li_mid')
+            for li_elt, item in mid_elt.repeat(self.supvisors.options.stats_periods):
+                # print period button
+                elt = li_elt.findmeld('period_a_mid')
+                if item == self.view_ctx.parameters[PERIOD]:
+                    update_attrib(elt, 'class', 'button off active')
+                else:
+                    url = self.view_ctx.format_url('', self.page_name, **{PERIOD: item})
+                    elt.attributes(href=url)
+                elt.content('{}s'.format(item))
+        else:
+            # hide the Statistics periods box
+            root.findmeld('period_div_mid').replace('')
 
     def write_contents(self, root):
         """ Write the contents part of the page.
@@ -212,52 +215,60 @@ class ViewHandler(MeldView):
     def write_common_process_cpu(self, tr_elt, info):
         """ Write the CPU part of the common process status.
         Statistics data comes from node. """
-        proc_stats = info['proc_stats']
-        elt = tr_elt.findmeld('pcpu_a_mid')
-        if proc_stats and len(proc_stats[0]) > 0:
-            # print last CPU value of process
-            cpuvalue = proc_stats[0][-1]
-            if not self.supvisors.options.stats_irix_mode:
-                cpuvalue /= info['nb_cores']
-            if info['namespec']:  # empty for an application info
-                update_attrib(elt, 'class', 'button on')
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'active')
-                    parameters[PROCESS] = None
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.content('{:.2f}%'.format(cpuvalue))
+        if self.supvisors.options.stats_enabled:
+            proc_stats = info['proc_stats']
+            elt = tr_elt.findmeld('pcpu_a_mid')
+            if proc_stats and len(proc_stats[0]) > 0:
+                # print last CPU value of process
+                cpuvalue = proc_stats[0][-1]
+                if not self.supvisors.options.stats_irix_mode:
+                    cpuvalue /= info['nb_cores']
+                if info['namespec']:  # empty for an application info
+                    update_attrib(elt, 'class', 'button on')
+                    parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
+                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                        update_attrib(elt, 'class', 'active')
+                        parameters[PROCESS] = None
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.content('{:.2f}%'.format(cpuvalue))
+                else:
+                    # print data with no link
+                    elt.replace('{:.2f}%'.format(cpuvalue))
             else:
-                # print data with no link
-                elt.replace('{:.2f}%'.format(cpuvalue))
+                # when no data, do not write link
+                elt.replace('--')
         else:
-            # when no data, no not write link
-            elt.replace('--')
+            # remove cell
+            tr_elt.findmeld('pcpu_td_mid').deparent()
 
     def write_common_process_mem(self, tr_elt, info):
         """ Write the MEM part of the common process status.
         Statistics data comes from node. """
-        proc_stats = info['proc_stats']
-        elt = tr_elt.findmeld('pmem_a_mid')
-        if proc_stats and len(proc_stats[1]) > 0:
-            # print last MEM value of process
-            memvalue = proc_stats[1][-1]
-            if info['namespec']:  # empty for an application info
-                update_attrib(elt, 'class', 'button on')
-                parameters = {PROCESS: info['namespec'], NODE: info['node_name']}
-                if self.view_ctx.parameters[PROCESS] == info['namespec']:
-                    update_attrib(elt, 'class', 'active')
-                    parameters[PROCESS] = None
-                url = self.view_ctx.format_url('', self.page_name, **parameters)
-                elt.attributes(href=url)
-                elt.content('{:.2f}%'.format(memvalue))
+        if self.supvisors.options.stats_enabled:
+            proc_stats = info['proc_stats']
+            elt = tr_elt.findmeld('pmem_a_mid')
+            if proc_stats and len(proc_stats[1]) > 0:
+                # print last MEM value of process
+                memvalue = proc_stats[1][-1]
+                if info['namespec']:  # empty for an application info
+                    update_attrib(elt, 'class', 'button on')
+                    parameters = {PROCESS: info['namespec'], IDENTIFIER: info['identifier']}
+                    if self.view_ctx.parameters[PROCESS] == info['namespec']:
+                        update_attrib(elt, 'class', 'active')
+                        parameters[PROCESS] = None
+                    url = self.view_ctx.format_url('', self.page_name, **parameters)
+                    elt.attributes(href=url)
+                    elt.content('{:.2f}%'.format(memvalue))
+                else:
+                    # print data with no link
+                    elt.replace('{:.2f}%'.format(memvalue))
             else:
-                # print data with no link
-                elt.replace('{:.2f}%'.format(memvalue))
+                # when no data, no not write link
+                elt.replace('--')
         else:
-            # when no data, no not write link
-            elt.replace('--')
+            # remove cell
+            tr_elt.findmeld('pmem_td_mid').deparent()
 
     def write_process_start_button(self, tr_elt, info):
         """ Write the configuration of the start button of a process.
@@ -280,14 +291,14 @@ class ViewHandler(MeldView):
     def write_process_clear_button(self, tr_elt, info):
         """ Write the configuration of the clear logs button of a process.
         This action must be sent to the relevant node. """
-        self._write_process_button(tr_elt, 'clear_a_mid', info['node_name'], self.page_name,
+        self._write_process_button(tr_elt, 'clear_a_mid', info['identifier'], self.page_name,
                                    'clearlog', info['namespec'], '', '')
 
     def write_process_stdout_button(self, tr_elt, info):
         """ Write the configuration of the tail stdout button of a process.
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailout_a_mid', info['node_name'],
+        self._write_process_button(tr_elt, 'tailout_a_mid', info['identifier'],
                                    STDOUT_PAGE % quote(info['namespec'] or ''),
                                    '', info['namespec'], '', '')
 
@@ -295,7 +306,7 @@ class ViewHandler(MeldView):
         """ Write the configuration of the tail stderr button of a process.
         This action must be sent to the relevant node. """
         # no action requested. page name is enough
-        self._write_process_button(tr_elt, 'tailerr_a_mid', info['node_name'],
+        self._write_process_button(tr_elt, 'tailerr_a_mid', info['identifier'],
                                    STDERR_PAGE % quote(info['namespec'] or ''),
                                    '', info['namespec'], '', '')
 
@@ -312,6 +323,12 @@ class ViewHandler(MeldView):
         else:
             # this corresponds to an application row: no action available
             elt.content('')
+
+    def write_common_process_table(self, root):
+        """ Hide MEM+CPU head+foot cells if statistics disabled"""
+        if not self.supvisors.options.stats_enabled:
+            for mid_name in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid']:
+                root.findmeld(mid_name).deparent()
 
     def write_common_status(self, tr_elt, info: Payload) -> None:
         """ Write the common part of a process or application status into a table. """
@@ -336,7 +353,7 @@ class ViewHandler(MeldView):
         # print process name
         elt = tr_elt.findmeld('name_a_mid')
         elt.content('\u21B3 {}'.format(info['process_name']))
-        url = self.view_ctx.format_url(info['node_name'], TAIL_PAGE, **{PROCESS: info['namespec']})
+        url = self.view_ctx.format_url(info['identifier'], TAIL_PAGE, **{PROCESS: info['namespec']})
         elt.attributes(href=url, target="_blank")
         # manage actions iaw state
         self.write_process_start_button(tr_elt, info)
@@ -427,9 +444,9 @@ class ViewHandler(MeldView):
                 # set titles
                 elt = stats_elt.findmeld('process_h_mid')
                 elt.content(namespec)
-                elt = stats_elt.findmeld('address_fig_mid')
+                elt = stats_elt.findmeld('instance_fig_mid')
                 if elt is not None:
-                    elt.content(info['node_name'])
+                    elt.content(info['identifier'])
                 # write CPU / Memory plots
                 self.write_process_plots(proc_stats)
         else:
@@ -438,14 +455,14 @@ class ViewHandler(MeldView):
 
     def handle_action(self):
         """ Handling of the actions requested from the Supvisors web pages. """
+        # check if any action is requested
         action = self.view_ctx.get_action()
         if action:
             # trigger deferred action and wait
             namespec = self.view_ctx.parameters[NAMESPEC]
             if not self.callback:
                 self.callback = self.make_callback(namespec, action)
-                return NOT_DONE_YET
-            # intermediate check
+            # immediate check
             message = self.callback()
             if message is NOT_DONE_YET:
                 return NOT_DONE_YET

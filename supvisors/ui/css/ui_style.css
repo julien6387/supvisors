@@ -125,7 +125,7 @@ nav div {
     justify-content: space-between;
 }
 
-/* Address page: Process section */
+/* Supervisor page: Process section */
 #process_contents {
     display: flex;
     flex: 1;
@@ -149,8 +149,8 @@ nav div {
 }
 
 
-/* Address page: Host section */
-#address_contents {
+/* Supervisor page: Host section */
+#instance_contents {
     display: flex;
     flex: 1;
     overflow: auto;
@@ -230,14 +230,30 @@ nav div {
 }
 
 
-/* Common part: Message box */
-#messageBox {
+/* Common part: Message / Time boxes */
+#statusBox {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+#messageBox, #timeBox {
     min-height: 25px;
     max-height: 25px;
-    width: 98%;
     font-size: 0.9em;
 }
 
+#messageBox {
+    width: 100%;
+    margin: 5px;
+}
+
+#timeBox {
+    min-width: 220px;
+    max-width: 220px;
+    margin: 5px 5px 5px 0;
+    text-align: right;
+}
 
 /*
  * Resource design
@@ -381,7 +397,7 @@ ul.vertical li {
 /*
  * Style for status message
  */
-.empty, .info, .warn, .erro {
+.empty, .info, .warn, .erro, .invInfo {
     padding: 5px;
     margin: 5px auto;
     border-radius: 10px;
@@ -390,6 +406,11 @@ ul.vertical li {
 .empty {
     background-image: linear-gradient(165deg, silver, #1a1a1a);
     border: 1px grey inset;
+}
+
+.invInfo {
+    background-image: linear-gradient(165deg, #1a1a1a, dodgerblue);
+    border: 1px blue inset;
 }
 
 .info {
@@ -424,7 +445,7 @@ ul.vertical li {
 
 
 /*
- * Master address style
+ * Master Instance style
  */
 .master::after {
     content: " \272A";
@@ -460,7 +481,18 @@ th {
     text-align: center;
     position: sticky;
     top: 0;
+    z-index: 20;
 }
+
+/* TO BE TESTED
+tr:nth-child(even) td[scope=row] {
+    background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
+}
+
+tr:nth-child(odd) td[scope=row] {
+    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
+}
+*/
 
 .brightened {
     background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));

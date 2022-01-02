@@ -18,14 +18,14 @@
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
                 <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="node_mid"></span></p>
+                <p>view from <span meld:id="identifier_mid"></span></p>
             </header>
 
-            <nav id="address-list">
-                <h2>Nodes</h2>
+            <nav id="instance-list">
+                <h2>Supervisors</h2>
                 <div>
                     <ul>
-                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+                        <li meld:id="instance_li_mid"><a href="#" meld:id="instance_a_mid">Supervisor</a></li>
                     </ul>
                 </div>
             </nav>
@@ -41,7 +41,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2021 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2022 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -67,7 +67,7 @@
                     </table>
                 </div>
 
-                <div>
+                <div meld:id="period_div_mid">
                     <table class="optionBox">
                         <tr><th>Statistics Period</th></tr>
                         <tr><td><ul class="linear">
@@ -104,18 +104,28 @@
                     <table id="app_processes" meld:id="table_mid">
                         <thead>
                             <tr>
-                                <th class="name">Name</th><th class="state">State</th>
-                                <th class="addr">Nodes</th><th>Description</th>
-                                <th class="expected">Load</th><th>MEM</th><th>CPU</th>
-                                <th colspan="3">Actions</th><th colspan="3">Log</th>
+                                <th class="name">Name</th>
+                                <th class="state">State</th>
+                                <th class="instance">Supervisor</th>
+                                <th class="desc">Description</th>
+                                <th class="expected">Load</th>
+                                <th meld:id="mem_head_th_mid">MEM</th>
+                                <th meld:id="cpu_head_th_mid">CPU</th>
+                                <th class="action" colspan="3">Actions</th>
+                                <th colspan="3">Log</th>
                             </tr>
                         </thead>
                         <tfoot>
                             <tr>
-                                <th>Name</th><th>State</th>
-                                <th>Nodes</th><th>Description</th>
-                                <th class="expected">Load</th><th>MEM</th><th>CPU</th>
-                                <th colspan="3">Actions</th><th colspan="3">Log</th>
+                                <th class="name">Name</th>
+                                <th class="state">State</th>
+                                <th class="instance">Supervisor</th>
+                                <th class="desc">Description</th>
+                                <th class="expected">Load</th>
+                                <th meld:id="mem_foot_th_mid">MEM</th>
+                                <th meld:id="cpu_foot_th_mid">CPU</th>
+                                <th class="action" colspan="3">Actions</th>
+                                <th colspan="3">Log</th>
                             </tr>
                         </tfoot>
                         <tbody>
@@ -125,17 +135,17 @@
                                 <td meld:id="running_td_mid">
                                     <ul meld:id="running_ul_mid" class="linear">
                                         <li meld:id="running_li_mid">
-                                            <a href="#" meld:id="running_a_mid" class="button on">Address</a>
+                                            <a href="#" meld:id="running_a_mid" class="button on">Supervisor</a>
                                         </li>
                                     </ul>
                                 </td>
                                 <td meld:id="desc_td_mid">Description</td>
                                 <td meld:id="load_td_mid" class="centered expected">5%</td>
-                                <td class="centered"><a href="#" meld:id="pmem_a_mid">--</a></td>
-                                <td class="centered"><a href="#" meld:id="pcpu_a_mid">--</a></td>
-                                <td meld:id="start_td_mid"><a href="#" meld:id="start_a_mid">Start</a></td>
-                                <td meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid">Stop</a></td>
-                                <td meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid">Restart</a></td>
+                                <td class="centered" meld:id="pmem_td_mid"><a href="#" meld:id="pmem_a_mid">--</a></td>
+                                <td class="centered" meld:id="pcpu_td_mid"><a href="#" meld:id="pcpu_a_mid">--</a></td>
+                                <td class="action" meld:id="start_td_mid"><a href="#" meld:id="start_a_mid">Start</a></td>
+                                <td class="action" meld:id="stop_td_mid"><a href="#" meld:id="stop_a_mid">Stop</a></td>
+                                <td class="action" meld:id="restart_td_mid"><a href="#" meld:id="restart_a_mid">Restart</a></td>
                                 <td meld:id="clear_td_mid"><a href="#" meld:id="clear_a_mid">Clear</a></td>
                                 <td meld:id="tailout_td_mid"><a href="#" meld:id="tailout_a_mid" target="_blank">Stdout</a></td>
                                 <td meld:id="tailerr_td_mid"><a href="#" meld:id="tailerr_a_mid" target="_blank">Stderr</a></td>
@@ -145,7 +155,7 @@
                 </div>
 
                 <div id="process_right_side" meld:id="pstats_div_mid" class="vertical_contents">
-                    <h4>Detailed Statistics -- <span meld:id="process_h_mid">*</span> on <span meld:id="address_fig_mid">--</span></h4>
+                    <h4>Detailed Statistics -- <span meld:id="process_h_mid">*</span> on <span meld:id="instance_fig_mid">--</span></h4>
 
                     <div>
                         <table>
@@ -186,7 +196,10 @@
                 </div>
             </div>
 
-            <div id="messageBox" meld:id="message_mid"></div>
+            <div id="statusBox">
+                <div id="messageBox" meld:id="message_mid"></div>
+                <div id="timeBox" class="invInfo" meld:id="time_mid"></div>
+            </div>
 
         </div>
     </div>

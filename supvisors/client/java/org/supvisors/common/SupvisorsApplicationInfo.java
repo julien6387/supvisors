@@ -57,6 +57,12 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
     private State statename;
 
     /**
+     * A status telling if the application is managed in Supvisors,
+     * i.e. it is declared in the rules file.
+     */
+    private Boolean managed;
+
+    /**
      * A status telling if the running application has a major failure,
      * i.e. at least one of its required processes is stopped.
      */
@@ -64,29 +70,39 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
 
     /**
      * A status telling if the running application has a minor failure,
-     * i.e. at least one of its optional processes has stopped unexpectantly.
+     * i.e. at least one of its optional processes has stopped unexpectedly.
      */
     private Boolean minor_failure;
     
     /**
      * This constructor gets all information from an HashMap.
      *
-     * @param HashMap addressInfo: The untyped structure got from the XML-RPC.
+     * @param HashMap applicationInfo: The untyped structure got from the XML-RPC.
      */
-    public SupvisorsApplicationInfo(HashMap addressInfo) {
-        this.application_name = (String) addressInfo.get("application_name");
-        this.statename = State.valueOf((String) addressInfo.get("statename"));
-        this.major_failure = (Boolean) addressInfo.get("major_failure");
-        this.minor_failure = (Boolean) addressInfo.get("minor_failure");
+    public SupvisorsApplicationInfo(HashMap applicationInfo) {
+        this.application_name = (String) applicationInfo.get("application_name");
+        this.statename = State.valueOf((String) applicationInfo.get("statename"));
+        this.managed = (Boolean) applicationInfo.get("managed");
+        this.major_failure = (Boolean) applicationInfo.get("major_failure");
+        this.minor_failure = (Boolean) applicationInfo.get("minor_failure");
     }
 
     /**
-     * The getName method returns the name of the application.
+     * The getName method uses the getApplicationName method.
      *
      * @return String: The name of the application.
      */
     public String getName() {
-        return this.application_name;
+        return this.getApplicationName();
+    }
+
+    /**
+     * The getApplicationName method returns the name of the process' application.
+     *
+     * @return String: The name of the application.
+     */
+    public String getApplicationName() {
+        return this.applicationName;
     }
 
     /**
@@ -99,7 +115,16 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The hasMajorFailure method the status of the major failure for the application.
+     * The isManaged method returns the managed status of the application in Supvisors.
+     *
+     * @return Boolean: True if the application is managed.
+     */
+    public Boolean isManaged() {
+        return this.managed;
+    }
+
+    /**
+     * The hasMajorFailure method returns the status of the major failure for the application.
      *
      * @return Boolean: True if a major failure is raised.
      */
@@ -108,7 +133,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
     }
 
     /**
-     * The hasMinorFailure method the status of the minor failure for the application.
+     * The hasMinorFailure method returns the status of the minor failure for the application.
      *
      * @return Boolean: True if a minor failure is raised.
      */
@@ -125,6 +150,7 @@ public class SupvisorsApplicationInfo implements SupvisorsAnyInfo {
         return "SupvisorsApplicationInfo("
             + "name=" + this.application_name
             + " state=" + this.statename
+            + " managed=" + this.managed
             + " majorFailure=" + this.major_failure
             + " minorFailure=" + this.minor_failure + ")";
     }

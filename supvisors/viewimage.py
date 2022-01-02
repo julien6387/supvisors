@@ -38,9 +38,9 @@ class StatsImage(object):
 
 
 # instance for image buffers
-address_cpu_img = StatsImage()
-address_mem_img = StatsImage()
-address_io_img = StatsImage()
+host_cpu_img = StatsImage()
+host_mem_img = StatsImage()
+host_io_img = StatsImage()
 
 process_cpu_img = StatsImage()
 process_mem_img = StatsImage()
@@ -70,28 +70,28 @@ class ImageView(object):
         return response
 
 
-class AddressCpuImageView(ImageView):
+class HostCpuImageView(ImageView):
     """ Dummy view holding the Address CPU image. """
 
     def __init__(self, context):
         """ Link to the Address CPU buffer. """
-        ImageView.__init__(self, context, address_cpu_img)
+        ImageView.__init__(self, context, host_cpu_img)
 
 
-class AddressMemoryImageView(ImageView):
+class HostMemoryImageView(ImageView):
     """ Dummy view holding the Address Memory image. """
 
     def __init__(self, context):
         """ Link to the Address Memory buffer. """
-        ImageView.__init__(self, context, address_mem_img)
+        ImageView.__init__(self, context, host_mem_img)
 
 
-class AddressNetworkImageView(ImageView):
+class HostNetworkImageView(ImageView):
     """ Dummy view holding the Address Network image. """
 
     def __init__(self, context):
         """ Link to the Address Network buffer. """
-        ImageView.__init__(self, context, address_io_img)
+        ImageView.__init__(self, context, host_io_img)
 
 
 class ProcessCpuImageView(ImageView):

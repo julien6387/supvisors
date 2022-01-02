@@ -19,6 +19,7 @@
 
 import os
 import random
+import supvisors
 
 from socket import gethostname
 from unittest.mock import Mock
@@ -26,11 +27,11 @@ from unittest.mock import Mock
 from supervisor.datatypes import Automatic
 from supervisor.loggers import getLogger, handle_stdout, LevelsByName, Logger
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
-from supervisor.states import STOPPED_STATES
+from supervisor.states import STOPPED_STATES, SupervisorStates
 
-from supvisors.addressmapper import AddressMapper
+from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
-from supvisors.infosource import SupervisordSource
+from supvisors.supervisordata import SupervisorData
 from supvisors.initializer import Supvisors
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
@@ -43,15 +44,16 @@ class DummyOptions:
 
     def __init__(self):
         """ Configuration options. """
-        self.address_list = [gethostname()]
+        self.supvisors_list = [gethostname()]
         self.internal_port = 65100
         self.event_port = 65200
         self.synchro_timeout = 10
         self.force_synchro_if = []
         self.auto_fence = True
-        self.rules_file = ''
+        self.rules_files = 'my_movies.xml'
         self.starting_strategy = StartingStrategies.CONFIG
         self.conciliation_strategy = 0
+        self.stats_enabled = True
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
         # logger options
@@ -65,14 +67,20 @@ class MockedSupvisors:
     """ Simple supvisors with all dummies. """
 
     def __init__(self):
-        """ Use a dummy address mapper and options. """
-        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
-        self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.node_names = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
-        self.address_mapper.local_node_name = '127.0.0.1'
+        """ Use mocks when not possible to use real structures. """
         self.options = DummyOptions()
+        self.logger = Mock(spec=Logger, level=10, handlers=[Mock(level=10)])
+        # mock the supervisord source
+        self.supervisor_data = SupervisorData(DummySupervisor(), self.logger)
+        self.supvisors_mapper = SupvisorsMapper(self)
+        host_name = gethostname()
+        identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
+        self.supvisors_mapper.configure(identifiers, [])
+        self.supvisors_mapper.local_identifier = '127.0.0.1'
+        # remove gethostname for the tests
+        self.supvisors_mapper.instances.pop(host_name, None)
         self.server_options = Mock(procnumbers={'xclock': 2})
-        # build context from address mapper
+        # build context from node mapper
         self.context = Context(self)
         # simple mocks
         self.fsm = Mock()
@@ -80,11 +88,6 @@ class MockedSupvisors:
         self.requester = Mock()
         self.statistician = Mock(data={}, nbcores={})
         self.failure_handler = Mock()
-        # mock the supervisord source
-        self.info_source = Mock(spec=SupervisordSource)
-        self.info_source.get_env.return_value = {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
-                                                 'SUPERVISOR_USERNAME': '',
-                                                 'SUPERVISOR_PASSWORD': ''}
         # mock by spec
         from supvisors.listener import SupervisorListener
         self.listener = Mock(spec=SupervisorListener)
@@ -102,8 +105,8 @@ class DummyRpcHandler:
     """ Simple supervisord RPC handler with dummy attributes. """
 
     def __init__(self):
-        self.handler = Mock(rpcinterface=Mock(supervisor='supervisor_RPC',
-                                              supvisors='supvisors_RPC'))
+        self.handler = Mock(rpcinterface=Mock(supervisor=Mock(rpc_name='supervisor_RPC'),
+                                              supvisors=Mock(rpc_name='supvisors_RPC')))
 
 
 class DummyRpcInterface:
@@ -132,15 +135,20 @@ class DummyServerOptions:
     def __init__(self):
         # build a fake server config
         self.server_configs = [{'section': 'inet_http_server',
-                                'port': 1234,
+                                'port': 65000,
                                 'username': 'user',
                                 'password': 'p@$$w0rd'}]
-        self.serverurl = 'url'
-        self.mood = 'mood'
+        self.here = '.'
+        self.environ_expansions = {}
+        self.identifier = 'supervisor'
+        self.serverurl = 'http://127.0.0.1:65000'
+        self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False
+        # add silent logger to test create_logger
         self.logger = getLogger()
         handle_stdout(self.logger, Supvisors.LOGGER_FORMAT)
+        self.logger.log = Mock()
         # build a fake http config
         self.httpservers = [[None, DummyHttpServer()]]
         self.httpserver = self.httpservers[0][1]
@@ -175,7 +183,6 @@ class DummySupervisor:
     """ Simple supervisor with simple attributes. """
 
     def __init__(self):
-        self.supvisors = MockedSupvisors()
         self.configfile = 'supervisord.conf'
         self.options = DummyServerOptions()
         self.process_groups = {'dummy_application': Mock(config='dummy_application_config',
@@ -187,16 +194,15 @@ class DummyHttpContext:
     """ Simple HTTP context for web ui views. """
 
     def __init__(self, template=None):
-        import supvisors
-        module_path = os.path.dirname(supvisors.__file__)
-        self.template = os.path.join(module_path, template) if template else None
+        supvisors_path = next(iter(supvisors.__path__), '.')
+        self.template = os.path.join(supvisors_path, template) if template else None
         self.supervisord = DummySupervisor()
         # create form and response
         self.form = {'SERVER_URL': 'http://10.0.0.1:7777',
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'node': '10.0.0.4',
+                     'identifier': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',
@@ -273,4 +279,4 @@ def any_process_info_by_state(state):
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    return next((info.copy() for info in ProcessInfoDatabase if info['name'] == name), None)
+    return next((extract_process_info(info) for info in ProcessInfoDatabase if info['name'] == name), None)

@@ -19,19 +19,19 @@
             <header>
                 <h1><a href="index.html" meld:id="supvisors_mid">Supvisors</a></h1>
                 <p><span meld:id="version_mid"></span></p>
-                <p>view from <span meld:id="node_mid"></span></p>
+                <p>view from <span meld:id="identifier_mid"></span></p>
             </header>
 
-            <nav id="address-list">
-                <h2>Nodes</h2>
+            <nav id="instance_list">
+                <h2>Supervisors</h2>
                 <div>
                     <ul>
-                        <li meld:id="address_li_mid"><a href="#" meld:id="address_a_mid">Address</a></li>
+                        <li meld:id="instance_li_mid"><a href="#" meld:id="instance_a_mid">Supervisor</a></li>
                     </ul>
                 </div>
             </nav>
 
-            <nav id="application-list">
+            <nav id="application_list">
                 <h2 meld:id="appli_h_mid">Applications</h2>
                 <div>
                     <ul>
@@ -42,7 +42,7 @@
 
             <footer>
                 <p>Contact: <a href="mailto:julien.6387.dev@gmail.com">Julien Le Cl&amp;eacute;ach</a></p>
-                <p id="copyright">&amp;copy; Copyright 2016-2021 Julien LE CLEACH</p>
+                <p id="copyright">&amp;copy; Copyright 2016-2022 Julien LE CLEACH</p>
             </footer>
         </div>
 
@@ -74,19 +74,26 @@
 
             <div id="index_contents">
                 <div id="box_part" meld:id="boxes_div_mid">
-                    <div meld:id="node_div_mid" class="nodeBox">
+                    <div meld:id="instance_div_mid" class="instanceBox">
                         <table>
                             <thead>
-                                <th><a href="#" meld:id="node_tda_mid" class="off">Node</a></th>
-                                <th meld:id="state_td_mid">State</th>
-                                <th meld:id="percent_td_mid">70%</th>
+                                <tr>
+                                    <th rowspan="2"><a href="#" meld:id="identifier_th_mid">Supervisor</a></th>
+                                    <th rowspan="2" meld:id="state_th_mid">State</th>
+                                    <th meld:id="time_th_mid">--:--:--</th>
+                                </tr>
+                                <tr>
+                                    <th meld:id="percent_th_mid">70%</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 <tr meld:id="appli_tr_mid">
                                     <td meld:id="app_name_td_mid"></td>
                                     <td colspan="2">
                                         <ul class="vertical">
-                                            <li meld:id="process_li_mid"><a href="#" meld:id="process_a_mid" class="button"></a></li>
+                                            <li meld:id="process_li_mid">
+                                                <a href="#" meld:id="process_a_mid" class="button"></a>
+                                            </li>
                                         </ul>
                                     </td>
                                 </tr>
@@ -115,24 +122,33 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th class="name">Name</th><th class="addr">Address</th><th class="date">Uptime</th>
-                                    <th colspan="2">Actions</th><th>Strategy</th>
+                                    <th class="name">Name</th>
+                                    <th class="instance">Supervisor</th>
+                                    <th class="date">Uptime</th>
+                                    <th colspan="2">Actions</th>
+                                    <th>Strategy</th>
                                 </tr>
                             </thead>
                             <tfoot>
                                 <tr>
-                                    <th>Name</th><th>Address</th><th>Uptime</th><th colspan="2">Actions</th><th>Strategy</th>
+                                    <th class="name">Name</th>
+                                    <th class="instance">Supervisor</th>
+                                    <th class="date">Uptime</th>
+                                    <th colspan="2">Actions</th>
+                                    <th>Strategy</th>
                                 </tr>
                             </tfoot>
                             <tbody>
                                 <tr meld:id="tr_mid">
                                     <td meld:id="name_td_mid">Name</td>
-                                    <td><a href="#" meld:id="caddress_a_mid" class="button on">Address</a></td>
+                                    <td><a href="#" meld:id="conflict_instance_a_mid" class="button on">Supervisor</a></td>
                                     <td meld:id="uptime_td_mid">Uptime</td>
                                     <td><a href="#" meld:id="pstop_a_mid" class="button on">Stop</a></td>
                                     <td><a href="#" meld:id="pkeep_a_mid" class="button on">Keep</a></td>
                                     <td meld:id="strategy_td_mid"><ul class="vertical">
-                                        <li meld:id="local_strategy_li_mid"><a href="#" meld:id="local_strategy_a_mid" class="button on">--</a></li>
+                                        <li meld:id="local_strategy_li_mid">
+                                            <a href="#" meld:id="local_strategy_a_mid" class="button on">--</a>
+                                        </li>
                                     </ul></td>
                                 </tr>
                             </tbody>
@@ -141,7 +157,10 @@
                 </div>
             </div>
 
-            <div id="messageBox" meld:id="message_mid"></div>
+            <div id="statusBox">
+                <div id="messageBox" meld:id="message_mid"></div>
+                <div id="timeBox" class="invInfo" meld:id="time_mid"></div>
+            </div>
 
         </div>
     </div>

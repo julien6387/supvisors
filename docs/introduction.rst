@@ -1,3 +1,5 @@
+.. _introduction:
+
 Introduction
 ============
 
@@ -6,20 +8,22 @@ Overview
 
 |Supvisors| is a control system for distributed applications over multiple |Supervisor| instances.
 
-This piece of software was born from a common need in embedded systems where applications are distributed over several
-nodes.
+A few definitions first:
 
-This problematic comes with the following challenges:
+    * The term "Application" here refers to a group of programs designed to carry out a specific task.
+    * The term "Node" here refers to an operating system having a dedicated host name and IP address.
 
-    * have a detailed status of the applications,
-    * have basic statistics about the resources taken by the applications,
-    * have a basic status of the nodes,
-    * start / stop processes dynamically,
-    * distribute the same application over different platforms,
-    * control the applications from nodes outside of the platform,
-    * secure the control / status interfaces,
-    * deal with loading (CPU, memory, etc),
-    * deal with failures:
+The |Supvisors| software is born from a common need in embedded systems where applications are distributed over several
+nodes. The problematic comes with the following challenges:
+
+    * to have a status of the processes,
+    * to have a synthetic status of the applications based on the processes status,
+    * to have basic statistics about the resources taken by the applications,
+    * to have a basic status of the nodes,
+    * to control applications and processes dynamically,
+    * to distribute the same application over different platforms (developer machine, integration platform, etc),
+    * to deal with resources (CPU, memory, network, etc),
+    * to deal with failures:
 
         + missing node when starting,
         + crash of a process,
@@ -30,20 +34,17 @@ As a bonus:
     * it should be free, open source, without export control,
     * it shouldn't require specific administration rights (root).
 
-After some researches on the net - at the time -, it seemed that there was no simple, free and open source solution
-meeting all these requirements. Of course, there are now orchestration solutions like Kubernetes, Docker Swarm, Mesos,
-etc. coming with more or less complexity, some working on containers only.
-
 |Supervisor| can handle a part of the requirements but it only works on a single UNIX-like operating system.
 The |Supervisor| website references some `third parties <http://supervisord.org/plugins.html>`_
-that deal with multiple |Supervisor| instances but they only consist in dashboards and they focus on the nodes rather than
-on the applications and their possible distribution over nodes.
+that deal with multiple |Supervisor| instances but they only consist in dashboards and they focus on the nodes rather
+than on the applications and their possible distribution over nodes.
 Nevertheless, the extensibility of |Supervisor| makes it possible to implement the missing requirements.
 
 |Supvisors| works as a |Supervisor| plugin and is intended for those who are already familiar with |Supervisor| or
-who have neither the time nor the resources to invest in a complex orchestration tool.
+who have neither the time nor the resources to invest in a complex orchestration tool like Kubernetes.
 
-In this documentation, a |Supvisors| *instance* refers to a Supervisor *instance* including a |Supvisors| extension.
+In the present documentation, a |Supvisors| *instance* refers to a |Supervisor| *instance* including a |Supvisors|
+extension.
 
 
 Platform Requirements
@@ -55,9 +56,10 @@ Platform Requirements
 
 |Supvisors| works with Python 3.6 or later but will not work under any version of Python 2.
 
-A previous release of |Supvisors| (version 0.1, available on PyPi) works with Python 2.7 (and previous versions of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
+A previous release of |Supvisors| (version 0.1, available on PyPi) works with Python 2.7 (and previous versions
+of |Supervisor|, i.e. 3.3.0) but is not maintained anymore.
 
-The CSS of the Dashboard has been written for Firefox ESR 60.3.0.
+The CSS of the Dashboard has been written for Firefox ESR 78.5.0.
 The compatibility with other browsers or other versions of Firefox is unknown.
 
 
@@ -69,7 +71,7 @@ Installation
 +---------------+------------+-----------------------------------------------------------------+
 | Package       | Release    | Usage                                                           |
 +===============+============+=================================================================+
-| |Supervisor|  | 4.2.1      | Base software, extended by |Supvisors|                          |
+| |Supervisor|  | 4.2.4      | Base software, extended by |Supvisors|                          |
 +---------------+------------+-----------------------------------------------------------------+
 | PyZMQ_        | 22.0.3     | Python binding of ZeroMQ                                        |
 +---------------+------------+-----------------------------------------------------------------+
@@ -90,17 +92,17 @@ Supvisors can be installed with ``pip install``:
    # minimal install (including Supervisor and PyZMQ)
    [bash] > pip install supvisors
 
-   # extra install for all optional dependencies
+   # install including all optional dependencies
    [bash] > pip install supvisors[all]
 
-   # extra install for dashboard statistics and graphs only
+   # install for dashboard statistics and graphs only
    # (includes psutil and matplotlib)
    [bash] > pip install supvisors[statistics]
 
-   # extra install for XML validation only (includes lxml)
+   # install for XML validation only (includes lxml)
    [bash] > pip install supvisors[xml_valid]
 
-   # extra install for use of IP aliases only (includes psutil)
+   # install for use of IP aliases only (includes psutil)
    [bash] > pip install supvisors[ip_address]
 
 Without an Internet access
@@ -125,12 +127,18 @@ Running |Supvisors|
 |Supvisors| runs as a plugin of |Supervisor| so it follows the same principle as
 `Running Supervisor <http://supervisord.org/running.html>`_ but using multiple UNIX-like operating systems.
 
+Although |Supvisors| was originally designed to handle exactly one Supervisor instance per node, it can handle
+multiple Supervisor instances on each node since the version 0.11.
+
 However, the |Supervisor| configuration file **MUST**:
 
-    * be configured with an internet socket (refer to the `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_ section settings) ;
+    * be configured with an internet socket (refer to the
+      `inet-http-server <http://supervisord.org/configuration.html#inet-http-server-section-settings>`_
+      section settings) ;
     * include the ``[rpcinterface:supvisors]`` and the ``[ctlplugin:supvisors]`` sections
       (refer to the :ref:`Configuration` part) ;
-    * be identical on all considered nodes.
+    * be consistent on all considered nodes, more particularly attention must be paid to the list of declared
+      |Supvisors| instances and the IP ports used.
 
 .. important::
 

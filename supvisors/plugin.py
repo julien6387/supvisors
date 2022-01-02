@@ -22,38 +22,49 @@ import os
 from supervisor.options import ServerOptions
 from supervisor.supervisord import Supervisor
 from supervisor.web import VIEWS, StatusView
+from supervisor.xmlrpc import Faults
 
 from .initializer import Supvisors
 from .rpcinterface import RPCInterface
+from .ttypes import SupvisorsFaults
 from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
-from .viewhostaddress import HostAddressView
+from .viewhostinstance import HostInstanceView
 from .viewimage import *
-from .viewprocaddress import ProcAddressView
+from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
+
+
+def expand_faults():
+    """ Expand supervisord Fault definition.
+
+    :return: None
+    """
+    for x in SupvisorsFaults:
+        setattr(Faults, x.name, x.value)
 
 
 def update_views() -> None:
     """ Trick to replace Supervisor Web UI.
 
-    :return:
+    :return: None
     """
     # replace Supervisor main entry
     here = os.path.abspath(os.path.dirname(__file__))
     # set main page
     VIEWS['index.html'] = {'template': os.path.join(here, 'ui/index.html'), 'view': SupvisorsView}
     # set address /processpage
-    VIEWS['procaddress.html'] = {'template': os.path.join(here, 'ui/procaddress.html'), 'view': ProcAddressView}
+    VIEWS['proc_instance.html'] = {'template': os.path.join(here, 'ui/proc_instance.html'), 'view': ProcInstanceView}
     # set address/host page
-    VIEWS['hostaddress.html'] = {'template': os.path.join(here, 'ui/hostaddress.html'), 'view': HostAddressView}
+    VIEWS['host_instance.html'] = {'template': os.path.join(here, 'ui/host_instance.html'), 'view': HostInstanceView}
     # set application page
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
     # set fake page to export images
     VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
     VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}
-    VIEWS['address_cpu.png'] = {'template': None, 'view': AddressCpuImageView}
-    VIEWS['address_mem.png'] = {'template': None, 'view': AddressMemoryImageView}
-    VIEWS['address_io.png'] = {'template': None, 'view': AddressNetworkImageView}
+    VIEWS['host_cpu.png'] = {'template': None, 'view': HostCpuImageView}
+    VIEWS['host_mem.png'] = {'template': None, 'view': HostMemoryImageView}
+    VIEWS['host_io.png'] = {'template': None, 'view': HostNetworkImageView}
 
 
 def cleanup_fds(self) -> None:
@@ -63,7 +74,7 @@ def cleanup_fds(self) -> None:
     So, given that the issue has never been met with Supvisors and waiting for a better solution in Supervisor
     (a TODO exists in source code), the clean-up is disabled in Supvisors.
 
-    :return:
+    :return: None
     """
 
 
@@ -74,6 +85,8 @@ def make_supvisors_rpcinterface(supervisord: Supervisor, **config) -> RPCInterfa
     :param config: the config attributes read from the Supvisors section
     :return: the Supvisors XML-RPC interface
     """
+    # update Supervisor Fault definition
+    expand_faults()
     # update Supervisor http web pages
     update_views()
     # patch the Supervisor ServerOptions.cleanup_fds

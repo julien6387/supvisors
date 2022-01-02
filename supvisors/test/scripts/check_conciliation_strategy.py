@@ -28,38 +28,35 @@ from supervisor.xmlrpc import Faults
 from supvisors.ttypes import ConciliationStrategies, StartingStrategies
 
 from .event_queues import SupvisorsEventQueues
-from .running_addresses import RunningAddressesTest
+from .running_identifiers import RunningIdentifiersTest
 
 
-class ConciliationStrategyTest(RunningAddressesTest):
+class ConciliationStrategyTest(RunningIdentifiersTest):
     """ Test case to check the conciliation of Supvisors.
     The aim is to test user and auto conciliation, depending on the configuration.
     """
 
     def setUp(self):
-        """ Get initial status (one movie_server running on each address). """
-        RunningAddressesTest.setUp(self)
+        """ Get initial status (one movie_server running on each Supvisors instance). """
+        RunningIdentifiersTest.setUp(self)
         # store initial process status
         self.running_processes = self._get_movie_servers()
-        # expected to be {'movie_server_01': ['cliche01'],
-        #                 'movie_server_02': ['cliche03'],
-        #                 'movie_server_03': ['cliche02']}
         self.assertEqual(sorted(self.running_processes.keys()),
                          ['movie_server_01', 'movie_server_02', 'movie_server_03'])
-        running_nodes = set()
-        for nodes in self.running_processes.values():
-            self.assertEqual(1, len(nodes))
-            self.assertNotIn(nodes[0], running_nodes)
-            running_nodes.add(nodes[0])
+        running_identifiers = set()
+        for identifiers in self.running_processes.values():
+            self.assertEqual(1, len(identifiers))
+            self.assertNotIn(identifiers[0], running_identifiers)
+            running_identifiers.add(identifiers[0])
 
     def tearDown(self):
-        """ Back to initial status (one movie_server running on each address). """
+        """ Back to initial status (one movie_server running on each Supvisors instance). """
         print('### [INFO] clean-up')
         try:
             self.local_supvisors.restart_application(StartingStrategies.CONFIG.value, 'database')
         except:
             print('### [ERROR] failed to restart database application')
-        RunningAddressesTest.tearDown(self)
+        RunningIdentifiersTest.tearDown(self)
 
     def test_conciliation(self):
         """ Check depending on the configuration. """
@@ -77,7 +74,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
             self._check_conciliation_user_restart()
             self._check_conciliation_user_running_failure()
         else:
-            print('### Testing Automatic conciliation with {}'.format(strategies['conciliation']))
+            print(f'### Testing Automatic conciliation with {strategies["conciliation"]}')
             self._check_conciliation_auto()
 
     def _check_conciliation_auto(self):
@@ -99,10 +96,10 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
         def conciliation():
             # come back to initial state with XML-RPC
-            for process, nodes in self.running_processes.items():
-                for node_name in self.running_nodes:
-                    if node_name not in nodes:
-                        self.proxies[node_name].supervisor.stopProcess('database:' + process)
+            for process, identifiers in self.running_processes.items():
+                for identifier in self.running_identifiers:
+                    if identifier not in identifiers:
+                        self.proxies[identifier].supervisor.stopProcess('database:' + process)
 
         self._check_conciliation_user_database(conciliation)
 
@@ -129,14 +126,10 @@ class ConciliationStrategyTest(RunningAddressesTest):
         self._check_conciliation_user_database(conciliation)
         # check final status
         ending_status = self._get_movie_servers()
-        # expected to be {'movie_server_01': ['cliche83'],
-        #                 'movie_server_02': ['cliche82'],
-        #                 'movie_server_03': ['cliche83']}
-        # check that running addresses at the end is not the same as at the
-        # beginning for all processes
-        for process, nodes in ending_status.items():
-            start_address = self.running_processes[process][0]
-            self.assertNotEqual(nodes[0], start_address)
+        # check that running instances at the end is not the same as at the beginning for all processes
+        for process, identifiers in ending_status.items():
+            start_identifier = self.running_processes[process][0]
+            self.assertNotEqual(identifiers[0], start_identifier)
 
     def _check_conciliation_user_stop(self):
         """ Test the STOP conciliation on USER request. """
@@ -162,8 +155,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
         # this test is a bit long and produces lots of events
         # so hang on for specific events for test
         # 1. all movie_server programs (9) shall be stopped
-        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'address': node_name}
-                           for node_name in self.running_nodes
+        expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'identifier': identifier}
+                           for identifier in self.running_identifiers
                            for idx in range(3)]
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(9, len(received_events))
@@ -208,8 +201,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
         self.local_supvisors.conciliate(ConciliationStrategies.RUNNING_FAILURE.value)
         # the my_movies application is expected to restart
         # => 3 manager + 1 hmi to stop
-        expected_events = [{'name': 'manager', 'state': 0, 'address': node_name}
-                           for node_name in self.running_nodes]
+        expected_events = [{'name': 'manager', 'state': 0, 'identifier': identifier}
+                           for identifier in self.running_identifiers]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
         self.assertEqual(4, len(received_events))
@@ -239,8 +232,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
     def _create_database_conflicts(self):
         """ Create conflicts on database application. """
-        # start all movie_server programs on all addresses
-        for node_name, proxy in self.proxies.items():
+        # start all movie_server programs on all instances
+        for identifier, proxy in self.proxies.items():
             for idx in range(3):
                 try:
                     program = 'movie_server_0%d' % (idx + 1)
@@ -250,9 +243,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
                 else:
                     # confirm starting through events
                     event = self._get_next_process_event()
-                    assert {'name': program, 'state': 10, 'address': node_name}.items() < event.items()
+                    assert {'name': program, 'state': 10, 'identifier': identifier}.items() < event.items()
                     event = self._get_next_process_event()
-                    assert {'name': program, 'state': 20, 'address': node_name}.items() < event.items()
+                    assert {'name': program, 'state': 20, 'identifier': identifier}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
@@ -273,8 +266,8 @@ class ConciliationStrategyTest(RunningAddressesTest):
 
     def _create_manager_conflicts(self):
         """ Create conflicts on the my_movies:manager process. """
-        # start the manager program on all addresses
-        for node_name, proxy in self.proxies.items():
+        # start the manager program on all instances
+        for identifier, proxy in self.proxies.items():
             try:
                 proxy.supervisor.startProcess('my_movies:manager')
             except xmlrpclib.Fault as exc:
@@ -282,9 +275,9 @@ class ConciliationStrategyTest(RunningAddressesTest):
             else:
                 # confirm starting through events
                 event = self._get_next_process_event()
-                assert {'name': 'manager', 'state': 10, 'address': node_name}.items() < event.items()
+                assert {'name': 'manager', 'state': 10, 'identifier': identifier}.items() < event.items()
                 event = self._get_next_process_event()
-                assert {'name': 'manager', 'state': 20, 'address': node_name}.items() < event.items()
+                assert {'name': 'manager', 'state': 20, 'identifier': identifier}.items() < event.items()
         # check supvisors event: CONCILIATION state is expected
         event = self._get_next_supvisors_event()
         self.assertEqual('CONCILIATION', event['statename'])
@@ -306,7 +299,7 @@ class ConciliationStrategyTest(RunningAddressesTest):
     def _get_movie_servers(self):
         """ Get the running status of the movie_server_0x processes. """
         process_info = self.local_supvisors.get_process_info('database:*')
-        running_processes = {info['process_name']: info['addresses']
+        running_processes = {info['process_name']: info['identifiers']
                              for info in process_info
                              if info['statecode'] == ProcessStates.RUNNING}
         return running_processes

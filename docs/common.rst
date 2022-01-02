@@ -1,5 +1,6 @@
 .. |Supvisors| replace:: **Supvisors**
 .. |Supervisor| replace:: Supervisor_
+.. |psutil| replace:: psutil_
 
 .. |start| image:: images/start_button.png
     :alt: Start button

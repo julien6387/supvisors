@@ -21,26 +21,26 @@ import pytest
 
 from unittest.mock import Mock, call
 
-from supvisors.address import AddressStatus
+from supvisors.instancestatus import SupvisorsInstanceStatus
 from supvisors.strategy import *
-from supvisors.ttypes import AddressStates, ConciliationStrategies, RunningFailureStrategies, StartingStrategies
+from supvisors.ttypes import SupvisorsInstanceStates, ConciliationStrategies, RunningFailureStrategies, StartingStrategies
 
 
-def mock_node(mocker, status: AddressStatus, node_state: AddressStates, load: int):
-    """ Mock the AddressStatus. """
+def mock_instance(mocker, status: SupvisorsInstanceStatus, node_state: SupvisorsInstanceStates, load: int):
+    """ Mock the SupvisorsInstanceStatus. """
     status._state = node_state
     mocker.patch.object(status, 'get_loading', return_value=load)
 
 
 @pytest.fixture
-def filled_nodes(mocker, supvisors):
-    nodes = supvisors.context.nodes
-    mock_node(mocker, nodes['127.0.0.1'], AddressStates.RUNNING, 50)
-    mock_node(mocker, nodes['10.0.0.1'], AddressStates.SILENT, 0)
-    mock_node(mocker, nodes['10.0.0.2'], AddressStates.ISOLATED, 0)
-    mock_node(mocker, nodes['10.0.0.3'], AddressStates.RUNNING, 20)
-    mock_node(mocker, nodes['10.0.0.4'], AddressStates.UNKNOWN, 0)
-    mock_node(mocker, nodes['10.0.0.5'], AddressStates.RUNNING, 80)
+def filled_instances(mocker, supvisors):
+    instances = supvisors.context.instances
+    mock_instance(mocker, instances['127.0.0.1'], SupvisorsInstanceStates.RUNNING, 50)
+    mock_instance(mocker, instances['10.0.0.1'], SupvisorsInstanceStates.SILENT, 0)
+    mock_instance(mocker, instances['10.0.0.2'], SupvisorsInstanceStates.ISOLATED, 0)
+    mock_instance(mocker, instances['10.0.0.3'], SupvisorsInstanceStates.RUNNING, 20)
+    mock_instance(mocker, instances['10.0.0.4'], SupvisorsInstanceStates.UNKNOWN, 0)
+    mock_instance(mocker, instances['10.0.0.5'], SupvisorsInstanceStates.RUNNING, 80)
     return supvisors
 
 
@@ -50,9 +50,9 @@ def load_request_map():
 
 
 @pytest.fixture
-def starting_strategy(filled_nodes):
+def starting_strategy(filled_instances):
     """ Create the AbstractStartingStrategy instance to test. """
-    return AbstractStartingStrategy(filled_nodes)
+    return AbstractStartingStrategy(filled_instances)
 
 
 def test_is_loading_valid(starting_strategy, load_request_map):
@@ -76,15 +76,15 @@ def test_is_loading_valid(starting_strategy, load_request_map):
 def test_get_loading_and_validity(starting_strategy, load_request_map):
     """ Test the determination of the valid addresses with an additional loading. """
     # test valid addresses with different additional loadings
-    node_names = starting_strategy.supvisors.address_mapper.node_names
+    instances = starting_strategy.supvisors.supvisors_mapper.instances
     # first test
     expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
                 '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(node_names, 15, load_request_map) == expected
+    assert starting_strategy.get_loading_and_validity(instances, 15, load_request_map) == expected
     # second test
     expected = {'127.0.0.1': (True, 50), '10.0.0.1': (False, 0), '10.0.0.2': (False, 0),
                 '10.0.0.3': (True, 30), '10.0.0.4': (False, 0), '10.0.0.5': (False, 100)}
-    assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.nodes.keys(), 45,
+    assert starting_strategy.get_loading_and_validity(starting_strategy.supvisors.context.instances.keys(), 45,
                                                       load_request_map) == expected
     # third test
     expected = {'127.0.0.1': (False, 50), '10.0.0.3': (True, 30), '10.0.0.5': (False, 100)}
@@ -112,88 +112,90 @@ def test_sort_valid_by_loading(starting_strategy):
 
 
 def test_abstract_get_node(starting_strategy):
-    """ Test that the AbstractStartingStrategy.get_node method is not implemented. """
-    node_names = starting_strategy.supvisors.address_mapper.node_names
+    """ Test that the AbstractStartingStrategy.get_supvisors_instance method is not implemented. """
+    instances = starting_strategy.supvisors.supvisors_mapper.instances
     with pytest.raises(NotImplementedError):
-        starting_strategy.get_node(node_names, 0, {})
+        starting_strategy.get_supvisors_instance(instances, 0, {})
 
 
-def test_config_strategy(filled_nodes, load_request_map):
+def test_config_strategy(filled_instances, load_request_map):
     """ Test the choice of an address according to the CONFIG strategy. """
-    strategy = ConfigStrategy(filled_nodes)
+    strategy = ConfigStrategy(filled_instances)
     # test CONFIG strategy with different values
-    node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 0, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85, load_request_map) is None
+    instances = filled_instances.supvisors_mapper.instances
+    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
 
 
-def test_less_loaded_strategy(filled_nodes, load_request_map):
+def test_less_loaded_strategy(filled_instances, load_request_map):
     """ Test the choice of an address according to the LESS_LOADED strategy. """
-    strategy = LessLoadedStrategy(filled_nodes)
+    strategy = LessLoadedStrategy(filled_instances)
     # test LESS_LOADED strategy with different values
-    node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 0, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 15, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 45, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85, load_request_map) is None
+    instances = filled_instances.supvisors_mapper.instances
+    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
 
 
-def test_most_loaded_strategy(filled_nodes, load_request_map):
+def test_most_loaded_strategy(filled_instances, load_request_map):
     """ Test the choice of an address according to the MOST_LOADED strategy. """
-    strategy = MostLoadedStrategy(filled_nodes)
+    strategy = MostLoadedStrategy(filled_instances)
     # test MOST_LOADED strategy with different values
-    node_names = filled_nodes.address_mapper.node_names
-    assert strategy.get_node(node_names, 0, load_request_map) == '10.0.0.5'
-    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 65, load_request_map) == '10.0.0.3'
-    assert strategy.get_node(node_names, 85, load_request_map) is None
+    instances = filled_instances.supvisors_mapper.instances
+    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '10.0.0.5'
+    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 65, load_request_map) == '10.0.0.3'
+    assert strategy.get_supvisors_instance(instances, 85, load_request_map) is None
 
 
-def test_local_strategy(filled_nodes, load_request_map):
+def test_local_strategy(filled_instances, load_request_map):
     """ Test the choice of an address according to the LOCAL strategy. """
-    strategy = LocalStrategy(filled_nodes)
+    strategy = LocalStrategy(filled_instances)
     # test LOCAL strategy with different values
-    node_names = filled_nodes.address_mapper.node_names
-    assert strategy.supvisors.address_mapper.local_node_name == '127.0.0.1'
-    assert strategy.get_node(node_names, 0, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 15, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 45, load_request_map) == '127.0.0.1'
-    assert strategy.get_node(node_names, 65, load_request_map) is None
+    instances = filled_instances.supvisors_mapper.instances
+    assert strategy.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 0, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 15, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 45, load_request_map) == '127.0.0.1'
+    assert strategy.get_supvisors_instance(instances, 65, load_request_map) is None
 
 
-def test_get_node(filled_nodes, load_request_map):
+def test_get_node(filled_instances, load_request_map):
     """ Test the choice of a node according to a strategy. """
+    filled_instances.starter.get_load_requests.return_value = load_request_map
     # test CONFIG strategy
-    node_names = filled_nodes.address_mapper.node_names
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 0, load_request_map) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 15, load_request_map) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 65, load_request_map) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.CONFIG, node_names, 85, load_request_map) is None
+    instances = filled_instances.supvisors_mapper.instances
+    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 0) == '127.0.0.1'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 15) == '127.0.0.1'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 65) == '10.0.0.3'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.CONFIG, instances, 85) is None
     # test LESS_LOADED strategy
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 0, load_request_map) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 15, load_request_map) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 65, load_request_map) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.LESS_LOADED, node_names, 85, load_request_map) is None
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 0) == '10.0.0.3'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 15) == '10.0.0.3'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 65) == '10.0.0.3'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LESS_LOADED, instances, 85) is None
     # test MOST_LOADED strategy
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 0, load_request_map) == '10.0.0.5'
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 15, load_request_map) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 65, load_request_map) == '10.0.0.3'
-    assert get_node(filled_nodes, StartingStrategies.MOST_LOADED, node_names, 85, load_request_map) is None
+    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 0) == '10.0.0.5'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 15) == '127.0.0.1'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 65) == '10.0.0.3'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.MOST_LOADED, instances, 85) is None
     # test LOCAL strategy
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 0, load_request_map) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 15, load_request_map) == '127.0.0.1'
-    assert get_node(filled_nodes, StartingStrategies.LOCAL, node_names, 65, load_request_map) is None
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 0) == '127.0.0.1'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 15) == '127.0.0.1'
+    assert get_supvisors_instance(filled_instances, StartingStrategies.LOCAL, instances, 65) is None
 
 
-def create_process_status(name, timed_nodes):
+def create_process_status(name, timed_identifiers):
     process_status = Mock(spec=ProcessStatus, process_name=name, namespec=name,
-                          running_nodes=set(timed_nodes.keys()),
-                          info_map={address_name: {'uptime': time} for address_name, time in timed_nodes.items()})
+                          running_identifiers=set(timed_identifiers.keys()),
+                          info_map={identifier: {'uptime': time}
+                                    for identifier, time in timed_identifiers.items()})
     return process_status
 
 
@@ -578,13 +580,13 @@ def test_add_default_job(mocker, handler):
                                          call(RunningFailureStrategies.RESTART_APPLICATION, process)]
 
 
-def test_get_job_applications(handler):
+def test_get_application_job_names(handler):
     """ Test getting the list of applications involved in Started and Stopper. """
-    mocked_stopper = handler.supvisors.stopper.get_job_applications
+    mocked_stopper = handler.supvisors.stopper.get_application_job_names
     mocked_stopper.return_value = {'if', 'then'}
-    mocked_starter = handler.supvisors.starter.get_job_applications
+    mocked_starter = handler.supvisors.starter.get_application_job_names
     mocked_starter.return_value = {'then', 'else'}
-    assert handler.get_job_applications() == {'if', 'then', 'else'}
+    assert handler.get_application_job_names() == {'if', 'then', 'else'}
 
 
 def test_trigger_stop_application_jobs(add_jobs, handler):
@@ -694,7 +696,7 @@ def test_trigger_jobs(mocker, handler):
     mocker.patch.object(handler, 'trigger_start_application_jobs')
     mocker.patch.object(handler, 'trigger_start_process_jobs')
     mocker.patch.object(handler, 'trigger_continue_process_jobs')
-    mocker.patch.object(handler, 'get_job_applications', return_value={'dummy_application_A'})
+    mocker.patch.object(handler, 'get_application_job_names', return_value={'dummy_application_A'})
     # test calls
     handler.trigger_jobs()
     assert handler.trigger_stop_application_jobs.call_args_list == [call({'dummy_application_A'})]

@@ -34,12 +34,12 @@ def assert_default_application_rules(rules):
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
 
 
-def assert_application_rules(rules, managed, distributed, node_names, start, stop, starting_strategy,
+def assert_application_rules(rules, managed, distributed, identifiers, start, stop, starting_strategy,
                              starting_failure_strategy, running_failure_strategy):
     """ Check the application rules. """
     assert rules.managed == managed
     assert rules.distributed == distributed
-    assert rules.node_names == node_names
+    assert rules.identifiers == identifiers
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop
     assert rules.starting_strategy == starting_strategy
@@ -52,11 +52,11 @@ def assert_default_process_rules(rules):
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 0, RunningFailureStrategies.CONTINUE)
 
 
-def assert_process_rules(rules, nodes, hash_nodes, start, stop, required,
+def assert_process_rules(rules, identifiers, hash_nodes, start, stop, required,
                          wait, expected_load, running_strategy):
     """ Check the process rules. """
-    assert rules.node_names == nodes
-    assert rules.hash_node_names == hash_nodes
+    assert rules.identifiers == identifiers
+    assert rules.hash_identifiers == hash_nodes
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop
     assert rules.required == required
@@ -78,13 +78,13 @@ def load_program_rules(parser, application_name, process_name):
 
 
 def check_aliases_valid(parser):
-    """ Test the Parser.check_node_list on the basis of the aliases found in Valid XML. """
-    assert parser.check_node_list('nodes_model_03') == ['10.0.0.4', '10.0.0.2']
-    assert parser.check_node_list('10.0.0.1,nodes_model_03') == ['10.0.0.1', '10.0.0.4', '10.0.0.2']
-    assert parser.check_node_list('10.0.0.5,nodes_appli_D,10.0.0.1') == ['10.0.0.5', '10.0.0.1']
-    assert parser.check_node_list('192.17.8.2,nodes_model_03') == ['10.0.0.4', '10.0.0.2']
-    assert parser.check_node_list('192.17.8.2,nodes_model_03,*') == ['*']
-    assert parser.check_node_list('not used,10.0.0.3') == ['10.0.0.2', '10.0.0.3']
+    """ Test the Parser.check_identifier_list on the basis of the aliases found in Valid XML. """
+    assert parser.check_identifier_list('nodes_model_03') == ['10.0.0.4', '10.0.0.2']
+    assert parser.check_identifier_list('10.0.0.1,nodes_model_03') == ['10.0.0.1', '10.0.0.4', '10.0.0.2']
+    assert parser.check_identifier_list('10.0.0.5,nodes_appli_D,10.0.0.1') == ['10.0.0.5', '10.0.0.1']
+    assert parser.check_identifier_list('192.17.8.2,nodes_model_03') == ['10.0.0.4', '10.0.0.2']
+    assert parser.check_identifier_list('192.17.8.2,nodes_model_03,*') == ['*']
+    assert parser.check_identifier_list('not used,10.0.0.3') == ['10.0.0.2', '10.0.0.3']
 
 
 def check_valid(parser):
@@ -175,11 +175,11 @@ def check_valid(parser):
 
 
 def check_aliases_invalid(parser):
-    assert parser.check_node_list('nodes_prg_B1') == ['#']
-    assert parser.check_node_list('nodes_appli_D') == []
-    assert parser.check_node_list('nodes_prg_B3,10.0.0.1') == ['*']
-    assert parser.check_node_list('10.0.0.5,not used too') == ['10.0.0.5', '10.0.0.1', '#']
-    assert parser.check_node_list('10.0.0.5,not used') == ['*']
+    assert parser.check_identifier_list('nodes_prg_B1') == ['#']
+    assert parser.check_identifier_list('nodes_appli_D') == []
+    assert parser.check_identifier_list('nodes_prg_B3,10.0.0.1') == ['*']
+    assert parser.check_identifier_list('10.0.0.5,not used too') == ['10.0.0.5', '10.0.0.1', '#']
+    assert parser.check_identifier_list('10.0.0.5,not used') == ['*']
 
 
 def check_invalid(parser):
@@ -276,9 +276,9 @@ def lxml_import():
 
 def test_valid_lxml(mocker, lxml_import, supvisors):
     """ Test the parsing using lxml (optional dependency). """
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -286,7 +286,7 @@ def test_valid_lxml(mocker, lxml_import, supvisors):
 def test_invalid_lxml(mocker, supvisors):
     """ Test the parsing of an invalid XML using lxml (optional dependency). """
     mocker.patch('supvisors.sparser.stderr')
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
     with pytest.raises(ValueError):
         Parser(supvisors)
 
@@ -308,9 +308,9 @@ def test_no_parser(mocker, supvisors, lxml_fail_import):
 def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of a valid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(XmlTest))
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(XmlTest)])
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     parser = Parser(supvisors)
     check_valid(parser)
 
@@ -318,8 +318,8 @@ def test_valid_element_tree(mocker, supvisors, lxml_fail_import):
 def test_invalid_element_tree(mocker, supvisors, lxml_fail_import):
     """ Test the parsing of an invalid XML using ElementTree. """
     # create Parser instance
-    mocker.patch.object(supvisors.options, 'rules_file', BytesIO(InvalidXmlTest))
-    mocker.patch('supvisors.application.ApplicationRules.check_hash_nodes')
-    mocker.patch('supvisors.process.ProcessRules.check_hash_nodes')
+    mocker.patch.object(supvisors.options, 'rules_files', [BytesIO(InvalidXmlTest)])
+    mocker.patch('supvisors.application.ApplicationRules.check_hash_identifiers')
+    mocker.patch('supvisors.process.ProcessRules.check_hash_identifiers')
     parser = Parser(supvisors)
     check_invalid(parser)

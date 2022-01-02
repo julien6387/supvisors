@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import os.path
+
 import pytest
 import sys
 
@@ -29,43 +31,46 @@ from .configurations import *
 
 
 @pytest.fixture
-def opt():
-    """ Create a Supvisors-like structure filled with some nodes. """
-    return SupvisorsOptions()
+def opt(supervisor):
+    """ Create a Supvisors-like structure filled with some instances. """
+    return SupvisorsOptions(supervisor)
 
 
 @pytest.fixture
-def filled_opt():
+def filled_opt(mocker, supervisor):
     """ Test the values of options with defined Supvisors configuration. """
     DefinedOptionConfiguration = {'address_list': 'cliche01,cliche03,cliche02',
-                                  'rules_file': 'my_movies.xml', 'auto_fence': 'true',
+                                  'rules_files': 'my_movies.xml', 'auto_fence': 'true',
                                   'internal_port': '60001', 'event_port': '60002',
                                   'synchro_timeout': '20', 'force_synchro_if': 'cliche01,cliche03',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
-                                  'stats_periods': '5,60,600', 'stats_histo': '100', 'stats_irix_mode': 'true',
+                                  'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
+                                  'stats_irix_mode': 'true',
                                   'logfile': '/tmp/supvisors.log', 'logfile_maxbytes': '50KB',
                                   'logfile_backups': '5', 'loglevel': 'error'}
-    return SupvisorsOptions(**DefinedOptionConfiguration)
+    mocker.patch('supvisors.options.SupvisorsOptions.to_filepaths', return_value=['my_movies.xml'])
+    return SupvisorsOptions(supervisor, **DefinedOptionConfiguration)
 
 
 @pytest.fixture
 def server_opt(supvisors):
-    """ Create a Supvisors-like structure filled with some nodes. """
+    """ Create a Supvisors-like structure filled with some instances. """
     return SupvisorsServerOptions(supvisors.logger)
 
 
 def test_options_creation(opt):
     """ Test the values set at construction with empty config. """
     # all attributes are None
-    assert opt.address_list == [gethostname()]
-    assert opt.rules_file is None
-    assert opt.internal_port == 65001
-    assert opt.event_port == 65002
+    assert opt.supvisors_list == [gethostname()]
+    assert opt.rules_files is None
+    assert opt.internal_port == 0
+    assert opt.event_port == 0
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
-    assert opt.force_synchro_if == set()
+    assert opt.core_identifiers == set()
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
+    assert opt.stats_enabled
     assert opt.stats_periods == [10]
     assert opt.stats_histo == 200
     assert not opt.stats_irix_mode
@@ -77,15 +82,16 @@ def test_options_creation(opt):
 
 def test_filled_options_creation(filled_opt):
     """ Test the values set at construction with config provided by Supervisor. """
-    assert filled_opt.address_list == ['cliche01', 'cliche03', 'cliche02']
-    assert filled_opt.rules_file == 'my_movies.xml'
+    assert filled_opt.supvisors_list == ['cliche01', 'cliche03', 'cliche02']
+    assert filled_opt.rules_files == ['my_movies.xml']
     assert filled_opt.internal_port == 60001
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
     assert filled_opt.synchro_timeout == 20
-    assert filled_opt.force_synchro_if == {'cliche01', 'cliche03'}
+    assert filled_opt.core_identifiers == {'cliche01', 'cliche03'}
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
+    assert not filled_opt.stats_enabled
     assert filled_opt.stats_periods == [5, 60, 600]
     assert filled_opt.stats_histo == 100
     assert filled_opt.stats_irix_mode
@@ -97,11 +103,21 @@ def test_filled_options_creation(filled_opt):
 
 def test_str(opt):
     """ Test the string output. """
-    assert str(opt) == "address_list=['{}'] rules_file=None internal_port=65001 event_port=65002 auto_fence=False"\
-                       " synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER"\
-                       " starting_strategy=CONFIG stats_periods=[10] stats_histo=200 stats_irix_mode=False"\
-                       " logfile={} logfile_maxbytes={} logfile_backups=10 loglevel=20"\
-                       .format(gethostname(), Automatic, 50 * 1024 * 1024, {})
+    assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
+                        ' auto_fence=False synchro_timeout=15 core_identifiers=set() conciliation_strategy=USER'
+                        ' starting_strategy=CONFIG stats_enabled=True stats_periods=[10] stats_histo=200'
+                        f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
+                        ' logfile_backups=10 loglevel=20')
+
+
+def test_to_filepaths(opt):
+    """ Test the validation of file globs into file paths. """
+    # find a secure glob that would work with developer test and in Travis-CI
+    base_glob = os.path.dirname(__file__)
+    filepaths = opt.to_filepaths('*/*/tests/test_opt*py {}/test_options.p? %(here)s/*/test_options.py'
+                                 .format(base_glob))
+    assert len(filepaths) == 1
+    assert os.path.basename(filepaths[0]) == 'test_options.py'
 
 
 common_error_message = r'invalid value for {}'
@@ -114,10 +130,9 @@ def test_port_num():
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('-1')
     with pytest.raises(ValueError, match=error_message):
-        SupvisorsOptions.to_port_num('0')
-    with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_port_num('65536')
     # test valid values
+    assert SupvisorsOptions.to_port_num('0') == 0
     assert SupvisorsOptions.to_port_num('1') == 1
     assert SupvisorsOptions.to_port_num('65535') == 65535
 
@@ -177,9 +192,9 @@ def test_periods():
     """ Test the conversion of a string to a list of periods. """
     error_message = common_error_message.format('stats_periods')
     # test invalid values
-    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+    with pytest.raises(ValueError, match='unexpected number of stats_periods: 0. minimum is 1'):
         SupvisorsOptions.to_periods([])
-    with pytest.raises(ValueError, match='unexpected number of stats_periods'):
+    with pytest.raises(ValueError, match='unexpected number of stats_periods: 4. maximum is 3'):
         SupvisorsOptions.to_periods(['1', '2', '3', '4'])
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_periods(['4', '3600'])
@@ -187,10 +202,12 @@ def test_periods():
         SupvisorsOptions.to_periods(['5', '3601'])
     with pytest.raises(ValueError, match=error_message):
         SupvisorsOptions.to_periods(['6', '3599'])
+    with pytest.raises(ValueError, match=error_message):
+        SupvisorsOptions.to_periods(['90', 'none'])
     # test valid values
     assert SupvisorsOptions.to_periods(['5']) == [5]
     assert SupvisorsOptions.to_periods(['60', '3600']) == [60, 3600]
-    assert SupvisorsOptions.to_periods(['120', '720', '1800']) == [120, 720, 1800]
+    assert SupvisorsOptions.to_periods(['720', '120', '1800']) == [120, 720, 1800]
 
 
 def test_histo():

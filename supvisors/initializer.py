@@ -19,14 +19,15 @@
 
 import sys
 
-from supervisor import loggers, supervisord
+from supervisor import supervisord
+from supervisor.loggers import getLogger, handle_file, handle_stdout
 from supervisor.supervisord import Supervisor
 from supervisor.xmlrpc import Faults, RPCError
 
-from .addressmapper import AddressMapper
+from .supvisorsmapper import SupvisorsMapper
 from .commander import Starter, Stopper
 from .context import Context
-from .infosource import SupervisordSource
+from .supervisordata import SupervisorData
 from .listener import SupervisorListener
 from .options import *
 from .sparser import Parser
@@ -44,25 +45,26 @@ class Supvisors(object):
     def __init__(self, supervisor: Supervisor, **config) -> None:
         """ Instantiation of all the Supvisors objects.
 
-        :param supervisord: the Supervisor global structure
+        :param supervisor: the Supervisor global structure
         """
         # declare zmq context (will be created in listener)
         self.zmq = None
-        # get options from config file
-        self.options = SupvisorsOptions(**config)
+        # get options from config
+        self.options = SupvisorsOptions(supervisor, **config)
         # create logger
         self.logger = self.create_logger(supervisor)
-        # re-evaluate the Supervisor configuration to get what hasn't been stored
+        # re-realize configuration to get
         self.server_options = SupvisorsServerOptions(self.logger)
         self.server_options.realize(sys.argv[1:], doc=supervisord.__doc__)
         # configure supervisor info source
-        self.info_source = SupervisordSource(supervisor, self.logger)
-        # set addresses and check local address
-        self.address_mapper = AddressMapper(self.logger)
-        self.address_mapper.node_names = self.options.address_list
-        if not self.address_mapper.local_node_name:
-            raise RPCError(Faults.SUPVISORS_CONF_ERROR,
-                           'local node is expected in node list: {}'.format(self.options.address_list))
+        self.supervisor_data = SupervisorData(supervisor, self.logger)
+        # get declared Supvisors instances and check local identifier
+        self.supvisors_mapper = SupvisorsMapper(self)
+        try:
+            self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
+        except ValueError as exc:
+            self.logger.critical(f'Supvisors: {exc}')
+            raise RPCError(Faults.SUPVISORS_CONF_ERROR, str(exc))
         # create context data
         self.context = Context(self)
         # create application starter and stopper
@@ -78,12 +80,12 @@ class Supvisors(object):
         try:
             self.parser = Parser(self)
         except Exception as exc:
-            self.logger.warn('Supvisors: cannot parse rules file: {} - {}'.format(self.options.rules_file, exc))
+            self.logger.warn(f'Supvisors: cannot parse rules files: {self.options.rules_files} - {exc}')
             self.parser = None
         # create event subscriber
         self.listener = SupervisorListener(self)
 
-    def create_logger(self, supervisor):
+    def create_logger(self, supervisor: Supervisor) -> Logger:
         """ Create the logger that will be used in Supvisors.
         If logfile is not set or set to AUTO, Supvisors will use Supervisor logger.
         Else Supvisors will log in the file defined in option.
@@ -97,15 +99,15 @@ class Supvisors(object):
         # else create own Logger using Supervisor functions
         nodaemon = supervisor.options.nodaemon
         silent = supervisor.options.silent
-        logger = loggers.getLogger(self.options.loglevel)
+        logger = getLogger(self.options.loglevel)
         # tag the logger so that it is properly closed when exiting
         logger.SUPVISORS = True
         if nodaemon and not silent:
-            loggers.handle_stdout(logger, Supvisors.LOGGER_FORMAT)
-        loggers.handle_file(logger,
-                            self.options.logfile,
-                            Supvisors.LOGGER_FORMAT,
-                            rotating=not not self.options.logfile_maxbytes,
-                            maxbytes=self.options.logfile_maxbytes,
-                            backups=self.options.logfile_backups)
+            handle_stdout(logger, Supvisors.LOGGER_FORMAT)
+        handle_file(logger,
+                    self.options.logfile,
+                    Supvisors.LOGGER_FORMAT,
+                    rotating=not not self.options.logfile_maxbytes,
+                    maxbytes=self.options.logfile_maxbytes,
+                    backups=self.options.logfile_backups)
         return logger

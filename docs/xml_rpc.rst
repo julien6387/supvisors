@@ -9,8 +9,7 @@ Detailed information can be found in the
 
 The ``supvisors`` namespace has been added to the :program:`supervisord` XML-RPC interface.
 
-The XML-RPC :command:`system.listMethods` now provides the list of methods supported for both |Supervisor| and
-|Supvisors|.
+The XML-RPC :command:`system.listMethods` provides the list of methods supported for both |Supervisor| and |Supvisors|.
 
 .. code-block:: python
 
@@ -48,6 +47,8 @@ Status
 
         .. automethod:: get_master_address()
 
+        .. automethod:: get_master_identifier()
+
         .. automethod:: get_strategies()
 
             ================== ========= ===========
@@ -61,24 +62,29 @@ Status
 
         .. automethod:: get_address_info(node_name)
 
+        .. automethod:: get_instance_info(node_name)
+
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   The |Supvisors| instance node.
+            'address_name'     ``str``   *DEPRECATED* The deduced name of the |Supvisors| instance.
+                                         This entry will be removed in the next version.
+            'identifier'       ``str``   The deduced name of the |Supvisors| instance.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
-            'remote_time'      ``int``   The date, in ms, of the last heartbeat received from the |Supvisors| instance,
+            'remote_time'      ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the remote reference time.
-            'local_time'       ``int``   The date, in ms, of the last heartbeat received from the |Supvisors| instance,
+            'local_time'       ``float`` The date in ms of the last heartbeat received from the |Supvisors| instance,
                                          in the local reference time.
             'loading'          ``int``   The sum of the expected loading of the processes running on the node,
                                          in [0;100]%.
-            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received from |Supervisor|
-                                         since it is running.
+            'sequence_counter' ``int``   The TICK counter, i.e. the number of Tick events received since it is running.
             ================== ========= ===========
 
         .. automethod:: get_all_addresses_info()
+
+        .. automethod:: get_all_instances_info()
 
         .. automethod:: get_application_info(application_name)
 
@@ -106,13 +112,25 @@ Status
             'statename'        ``str``         The Process state as string, in [``'STOPPED'``, ``'STARTING'``,
                                                ``'RUNNING'``, ``'BACKOFF'``, ``'STOPPING'``, ``'EXITED'``, ``'FATAL'``,
                                                ``'UNKNOWN'``].
-            'addresses'        ``list(str)``   The list of all nodes where the process is running.
+            'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
+            'last_event_time'  ``int``         The timestamp of the last event received for this process.
+            'addresses'        ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances where the
+                                               process is running.
+                                               This entry will be removed in the next version.
+            'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
+                                               running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
+            .. hint::
+
+                The 'expected_exit' status is an answer to the following |Supervisor| request:
+
+                    * `#763 - unexpected exit not easy to read in status or getProcessInfo <https://github.com/Supervisor/supervisor/issues/763>`_
+
             .. note::
 
-                If there is more than one element in the 'addresses' list, a conflict is in progress.
+                If there is more than one element in the 'identifiers' list, a conflict is in progress.
 
 
         .. automethod:: get_all_process_info()
@@ -128,6 +146,9 @@ Status
             'start'            ``int``         The Process start date.
             'now'              ``int``         The Process current date.
             'pid'              ``int``         The UNIX process identifier.
+            'startsecs'        ``int``         The configured duration between process STARTING and RUNNING.
+            'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
+            'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
@@ -142,9 +163,13 @@ Status
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
             'distributed'               ``bool``        The Application distribution status in |Supvisors|.
-            'addresses'                 ``list(str)``   The list of all nodes where the non-distributed application
-                                                        processes can be started, provided only if ``distributed``
-                                                        is ``False``.
+            'addresses'                 ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
+                                                        where the non-distributed application processes can be started,
+                                                        provided only if ``distributed`` is ``False``.
+                                                        This entry will be removed in the next version.
+            'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
+                                                        non-distributed application processes can be started, provided
+                                                        only if ``distributed`` is ``False``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,
@@ -166,7 +191,11 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'addresses'                ``list(str)``   The list of all nodes where the process can be started.
+            'addresses'                ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
+                                                       where the process can be started.
+                                                       This entry will be removed in the next version.
+            'identifiers'              ``list(str)``   The deduced names of all |Supvisors| instances where the process
+                                                       can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,
                                                        in [0;127].
             'stop_sequence'            ``int``         The Process stopping rank when stopping the related application,
@@ -196,6 +225,8 @@ Status
         .. automethod:: change_log_level(level_param)
 
         .. automethod:: conciliate(strategy)
+
+        .. automethod:: restart_sequence()
 
         .. automethod:: restart()
 
@@ -245,17 +276,18 @@ This section explains how to use the XML-RPC API from a Python or JAVA client.
 Python Client
 ~~~~~~~~~~~~~
 
-There are two possibilities to perform an XML-RPC from a python client. Both methods don't require any additional third
-party. However, it is assumed that the environment parameter contains the relevant HTTP configuration, as it would be
-set for a process spawned by |Supervisor|.
-More particularly, it is expected that the following variables are set:
+To perform an XML-RPC from a python client, |Supervisor| provides the ``getRPCInterface`` function of the
+:program:`supervisor.childutils` module.
+
+The parameter requires a dictionary with the following variables set:
 
     * ``SUPERVISOR_SERVER_URL``: the url of the |Supervisor| HTTP server (ex: ``http://localhost:60000``),
     * ``SUPERVISOR_USERNAME``: the user name for the HTTP authentication (may be void),
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
-The first is to use the ``getRPCInterface`` of the :program:`supervisor.childutils` module.
-This is available in |Supervisor| but it works only for the local node.
+If the Python client has been spawned by Supervisor, the environment already contains these parameters but they are
+configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with another
+|Supervisor| instance, the parameters must be set accordingly.
 
 .. code-block:: python
 
@@ -263,19 +295,6 @@ This is available in |Supervisor| but it works only for the local node.
     from supervisor.childutils import getRPCInterface
 
     proxy = getRPCInterface(os.environ)
-    proxy.supervisor.getState()
-    proxy.supvisors.get_supvisors_state()
-
-The second possibility is to use the ``getRPCInterface`` of the :program:`supvisors.rpcrequests` module.
-This is available in |Supvisors| and works for all nodes with a |Supervisor| daemon running with the same HTTP
-configuration as the local one.
-
-.. code-block:: python
-
-    import os
-    from supvisors.rpcrequests import getRPCInterface
-
-    proxy = getRPCInterface(node_name, os.environ)
     proxy.supervisor.getState()
     proxy.supvisors.get_supvisors_state()
 

@@ -28,12 +28,13 @@ The additional commands provided by |Supvisors| are available by typing :command
 
     supvisors commands (type help <topic>):
     =======================================
-    address_status     loglevel             sshutdown          start_process_args
-    application_info   master               sstate             stop_application
-    application_rules  process_rules        sstatus            stop_process
-    conciliate         restart_application  start_application  strategies
-    conflicts          restart_process      start_args         sversion
-    local_status       sreload              start_process      update_numprocs
+    address_status     loglevel             sshutdown           stop_application
+    application_info   master               sstate              stop_process
+    application_rules  process_rules        sstatus             strategies
+    conciliate         restart_application  start_application   sversion
+    conflicts          restart_process      start_args          update_numprocs
+    instance_status    restart_sequence     start_process
+    local_status       sreload              start_process_args
 
 .. _extended_status:
 
@@ -50,23 +51,38 @@ Status
 
 ``master``
 
-    Get the |Supvisors| master address.
+    Get the deduced name of the |Supvisors| *Master* instance.
 
 ``strategies``
 
     Get the strategies applied in |Supvisors|.
 
+``instance_status``
+
+    Get the status of all |Supvisors| instances.
+
+``instance_status identifier``
+
+    Get the status of the |Supvisors| instance identified by its deduced name.
+
+``instance_status identifier1 identifier2``
+
+    Get the status for multiple |Supervisor| instances identified by their deduced name.
+
 ``address_status``
 
-    Get the status of all |Supervisor| instances managed in |Supvisors|.
+    *DEPRECATED* Get the status of all |Supvisors| instances.
+    This command will be removed in the next version.
 
 ``address_status addr``
 
-    Get the status of the |Supervisor| instance managed in |Supvisors| and running on addr.
+    *DEPRECATED* Get the status of the |Supvisors| instance identified by its deduced name.
+    This command will be removed in the next version.
 
 ``address_status addr1 addr2``
 
-    Get the status for multiple addresses.
+    *DEPRECATED* Get the status for multiple |Supervisor| instances identified by their deduced name.
+    This command will be removed in the next version.
 
 ``application_info``
 
@@ -152,20 +168,24 @@ Status
 
 ``loglevel level``
 
-    Change the level of |Supvisors| logger.
+    Change the level of the |Supvisors| logger.
 
 ``conciliate strategy``
 
     Conciliate the conflicts detected by |Supvisors| if default strategy is ``USER`` and |Supvisors| is
     in ``CONCILIATION``` state.
 
+``restart_sequence``
+
+    Triggers the whole |Supvisors| start sequence.
+
 ``sreload``
 
-    Restart |Supvisors| through all |Supervisor| instances.
+    Restart all |Supvisors| instances.
 
 ``sshutdown``
 
-    Shutdown |Supvisors| through all |Supervisor| instances.
+    Shutdown all |Supvisors| instances.
 
 
 .. _application_control:
@@ -178,39 +198,39 @@ It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL
 
 ``start_application strategy``
 
-    Start all applications with a starting strategy.
+    Start all managed applications with a starting strategy.
 
 ``start_application strategy appli``
 
-    Start the application named appli with a starting strategy.
+    Start the managed application named appli with a starting strategy.
 
 ``start_application strategy appli1 appli2``
 
-    Start multiple named applications with a starting strategy.
+    Start multiple named managed applications with a starting strategy.
 
 ``stop_application``
 
-    Stop all applications.
+    Stop all managed applications.
 
 ``stop_application appli``
 
-    Stop the application named appli.
+    Stop the managed application named appli.
 
 ``stop_application appli1 appli2``
 
-    Stop multiple named applications.
+    Stop multiple named mnaged applications.
 
 ``restart_application strategy``
 
-    Restart all applications with a starting strategy.
+    Restart all managed applications with a starting strategy.
 
 ``restart_application strategy appli``
 
-    Restart the application named appli with a starting strategy.
+    Restart the managed application named appli with a starting strategy.
 
 ``restart_application strategy appli1 appli2``
 
-    Restart multiple named applications with a starting strategy.
+    Restart multiple named managed applications with a starting strategy.
 
 
 Process Control
@@ -230,7 +250,7 @@ Process Control
 
 ``start_args proc arg_list``
 
-    Start the process named proc on the local node and with the additional arguments arg_list passed
+    Start the process named proc in the local |Supvisors| instance and with the additional arguments arg_list passed
     to the command line.
 
 ``start_process_args strategy proc arg_list``

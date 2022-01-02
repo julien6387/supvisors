@@ -4,6 +4,7 @@
     <model name="model_scenario_1">
         <start_sequence>2</start_sequence>
         <required>true</required>
+        <expected_loading>2</expected_loading>
     </model>
 
 	<!-- Scenario 1 Application -->

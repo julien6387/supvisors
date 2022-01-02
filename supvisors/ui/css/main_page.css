@@ -9,7 +9,7 @@
 #box_part {
     display: flex;
     flex: 1;
-    height: 60px;
+    height: 90px;
     justify-content: space-around;
     flex-wrap: wrap;
 }
@@ -18,37 +18,33 @@
     flex: 1;
 }
 
-.nodeBox {
+.instanceBox {
     display: contents;
 }
 
-.nodeBox>* {
+.instanceBox>* {
     margin: 10px;
 }
 
-.nodeBox table {
+.instanceBox table {
     height: 100%;
     border: 3px ridge var(--border-color);
 }
 
-.nodeBox th {
+.instanceBox th {
     height: 18px;
     background-image: linear-gradient(180deg, var(--dark2-color), var(--dark1-color));
 }
 
-.nodeBox td:nth-child(1) {
+.instanceBox td:nth-child(1) {
     vertical-align: top;
 }
 
-.nodeBox .button {
+.instanceBox .button {
     /*display: inline-block;*/
     padding: 2px 4px;
     margin-bottom: 4px;
     background-color: #007600;
     border-radius: 6px;
     cursor: default;
-}
-
-.nodeBox td:nth-child(2) {
-    text-align: center;
 }
