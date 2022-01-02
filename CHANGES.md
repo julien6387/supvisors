@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.11 (2022-01-xx)
+## 0.11 (2022-01-02)
 
 * Fixed [Issue #99](https://github.com/julien6387/supvisors/issues/99).
   Update the **Supvisors** design so that it can be used to supervise multiple Supervisor instances on multiple nodes.
@@ -23,8 +23,10 @@
     configuration file. This option accepts a more complex definition: `<identifier>host_name:http_port:internal_port`.
     Note that the simple `host_name` is still supported in the event where **Supvisors** doesn't have to deal
     with multiple Supervisor instances on the same node.
+  - The `core_identifiers` option has been added to replace `force_synchro_if` in the **Supvisors** section of the
+    Supervisor configuration file. It targets the names deduced from the `supvisors_list` option.
   - The `identifiers` option has been added to replace the `addresses` option in the **Supvisors** rules file.
-    This option targets the `identifier` elements of the `supvisors_list` option (or the `host_name`, as previously).
+    This option targets the names deduced from the `supvisors_list` option.
   - The `address`-like attributes, XML-RPCs and options are deprecated and will be removed in the next version.
 
 * Fixed [Issue #98](https://github.com/julien6387/supvisors/issues/98).
@@ -84,11 +86,7 @@
 
 * Add class "action" to Web UI buttons that trigger an XML-RPC.
 
-* Apply python f-strings.
-
 * Switch from Travis-CI to GitHub Actions for continuous integration.
-
-* Update documentation.
 
 
 ## 0.10 (2021-09-05)
@@ -97,8 +95,6 @@
   It is possible to update dynamically the program numprocs using the new `update_numprocs` XML-RPC. 
 
 * Add targets **Python 3.7** and **Python 3.8** to Travis-CI.
-
-* Update documentation.
 
 
 ## 0.9 (2021-08-31)
@@ -124,15 +120,13 @@
 * When ``stop_sequence`` is not set in the rules files, it is defaulted to the ``start_sequence`` value.
   With the new stop sequence logic, the stop sequence is by default exactly the opposite of the start sequence.
 
-* Fixed Nodes column width for `supervisorctl application_rules`.
+* Fixed Nodes' column width for `supervisorctl application_rules`.
 
 * `CHANGES.rst` replaced with `CHANGES.md`.
 
 * 'Scenario 3' has been added to the **Supvisors** use cases.
 
 * A 'Gathering' configuration has been added to the **Supvisors** use cases. It combines all uses cases.
-
-* Update documentation.
 
 
 ## 0.8 (2021-08-22)
@@ -188,11 +182,9 @@
 
 * 'Scenario 2' has been added to the **Supvisors** use cases.
 
-* A script `breed.py` has been added to the install package.
+* A script `breed.py` has been added to the installation package.
   It can be used to duplicate the applications based on a template configuration and more particularly used to prepare
   the Scenario 2 of the **Supvisors** use cases.
-
-* Update documentation.
 
 
 ## 0.7 (2021-08-15)
@@ -240,8 +232,6 @@
 * Start adding use cases to documentation, inspired by real examples.
   'Scenario 1' has been added.
 
-* Documentation updated.
-
 
 ## 0.6 (2021-08-01)
 
@@ -284,12 +274,10 @@
 
 * Include this Change Log to documentation.
 
-* Documentation updated.
-
 
 ## 0.5 (2021-03-01)
 
-* New option `force_synchro_if` to force the end of the synchronization phase when a subset of nodes are active.
+* New option `force_synchro_if` to force the end of the synchronization phase when a subset of nodes is active.
 
 * New starting strategy `LOCAL` added to command the starting of an application on the local node only.
 
@@ -319,8 +307,6 @@
 
 * Logs (especially `debug` and `trace`) updated to remove printed objects.
 
-* Documentation updated.
-
 
 ## 0.4 (2021-02-14)
 
@@ -331,8 +317,6 @@
 * Fixed exception when exiting using `Ctrl+c` from shell.
 
 * Fixed exception when rules files is not provided.
-
-* Documentation updated.
 
 
 ## 0.3 (2020-12-29)
@@ -348,8 +332,6 @@
 * `design` folder moved to a dedicated *GitHub* repository.
 
 * 100% coverage reached in unit tests.
-
-* Documentation updated.
 
 
 ## 0.2 (2020-12-14)
@@ -380,8 +362,6 @@
 * Coverage improved in tests.
 
 * Docs target added to Travis-CI.
-
-* Documentation formatting issues fixed.
 
 
 ## 0.1 (2017-08-11)

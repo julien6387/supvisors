@@ -91,16 +91,16 @@ def test_start_command_timed_out():
     command.identifiers = ['10.0.0.1']
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process.info_map['10.0.0.1']['state'] = state
-        assert not command.timed_out(107)
-        assert command.timed_out(108)
+        assert not command.timed_out(105)
+        assert command.timed_out(106)
     # check call with nodes_names set and process state RUNNING on the node
     process.info_map['10.0.0.1']['state'] = ProcessStates.RUNNING
     assert not command.timed_out(1000)
     # check call with nodes_names set and process state in STOPPED_STATES or STOPPING on the node
     for state in [ProcessStates.STOPPING] + list(STOPPED_STATES):
         process.info_map['10.0.0.1']['state'] = state
-        assert not command.timed_out(105)
-        assert command.timed_out(106)
+        assert not command.timed_out(103)
+        assert command.timed_out(104)
 
 
 # ProcessStopCommand part
@@ -134,14 +134,14 @@ def test_stop_command_timed_out():
     command.identifiers = ['10.0.0.1', '10.0.0.2']
     process.info_map['10.0.0.1']['state'] = ProcessStates.STOPPING
     process.info_map['10.0.0.2']['state'] = ProcessStates.STOPPING
-    assert not command.timed_out(115)
-    assert command.timed_out(116)
+    assert not command.timed_out(113)
+    assert command.timed_out(114)
     # check call with nodes_names set and process state in any other state on the node
     for state in _process_states_by_code.keys():
         if state != ProcessStates.STOPPING:
             process.info_map['10.0.0.2']['state'] = state
-            assert not command.timed_out(105)
-            assert command.timed_out(106)
+            assert not command.timed_out(103)
+            assert command.timed_out(104)
 
 
 # ApplicationJobs part

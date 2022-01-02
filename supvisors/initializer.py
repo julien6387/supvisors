@@ -61,7 +61,7 @@ class Supvisors(object):
         # get declared Supvisors instances and check local identifier
         self.supvisors_mapper = SupvisorsMapper(self)
         try:
-            self.supvisors_mapper.configure(self.options.supvisors_list)
+            self.supvisors_mapper.configure(self.options.supvisors_list, self.options.core_identifiers)
         except ValueError as exc:
             self.logger.critical(f'Supvisors: {exc}')
             raise RPCError(Faults.SUPVISORS_CONF_ERROR, str(exc))

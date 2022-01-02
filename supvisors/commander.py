@@ -39,7 +39,7 @@ class ProcessCommand(object):
         - identifiers: the identifiers of the Supvisors instances where the commands are requested ;
         - request_time: the date when the command is requested.
     """
-    TIMEOUT = 5
+    TIMEOUT = 3
 
     def __init__(self, process: ProcessStatus) -> None:
         """ Initialization of the attributes.
@@ -47,6 +47,7 @@ class ProcessCommand(object):
         :param process: the process status to wrap
         """
         self.process: ProcessStatus = process
+        self.logger: Logger = process.logger
         self.identifiers: NameList = []
         self.request_time: int = 0
 
@@ -117,7 +118,10 @@ class ProcessStartCommand(ProcessCommand):
             local_state = local_info['state']
             if local_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
                 # the RUNNING state is expected after startsecs seconds
-                if self.request_time + local_info['startsecs'] + ProcessCommand.TIMEOUT < now:
+                delay = local_info['startsecs'] + ProcessCommand.TIMEOUT
+                if self.request_time + delay < now:
+                    self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec}'
+                                      f' still not RUNNING after {delay} seconds so abort')
                     return True
             elif local_state == ProcessStates.RUNNING:
                 # if the evaluation is done in this state, the EXITED state must be expected
@@ -125,9 +129,11 @@ class ProcessStartCommand(ProcessCommand):
                 pass
             else:
                 # from STOPPED_STATES, STARTING or BACKOFF event is expected quite immediately
-                # a STOPPING state is unexpected
-                #     an external request may have been performed (e.g. stop request while in STARTING state)
+                # a STOPPING state is unexpected unless an external request has been performed (e.g. stop request while
+                # in STARTING state)
                 if self.request_time + ProcessCommand.TIMEOUT < now:
+                    self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec}'
+                                      f' still not STARTING or BACKOFF after {ProcessCommand.TIMEOUT} seconds so abort')
                     return True
         return False
 
@@ -155,12 +161,17 @@ class ProcessStopCommand(ProcessCommand):
             local_state = local_info['state']
             if local_state == ProcessStates.STOPPING:
                 # the STOPPED state is expected after stopwaitsecs seconds
-                if self.request_time + local_info['stopwaitsecs'] + ProcessCommand.TIMEOUT < now:
+                delay = local_info['stopwaitsecs'] + ProcessCommand.TIMEOUT
+                if self.request_time + delay < now:
+                    self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec}'
+                                      f' still not STOPPED after {delay} seconds so abort')
                     return True
             else:
                 # from RUNNING_STATES, STOPPING event is expected quite immediately
-                # STOPPED_STATES are unexpected. this wrapper should have been removed
+                # STOPPED_STATES are unexpected because this wrapper would have been removed
                 if self.request_time + ProcessCommand.TIMEOUT < now:
+                    self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec}'
+                                      f' still not STOPPING after {ProcessCommand.TIMEOUT} seconds so abort')
                     return True
         return False
 
@@ -286,7 +297,11 @@ class ApplicationJobs(object):
             self.logger.debug(f'ApplicationJobs.next: application_name={self.application_name}'
                               f' - next sequence={sequence_number} group={group}')
             # trigger application jobs
-            self.current_jobs = [command for command in group if self.process_job(command)]
+            # do NOT use a list comprehension as pending requests will not be considered in instance load
+            # process the jobs one by one and insert them in current_jobs asap
+            for command in group:
+                if self.process_job(command):
+                    self.current_jobs.append(command)
             self.logger.trace(f'ApplicationJobs.next: current_jobs={self.current_jobs}')
             # recursive call in the event where there's already nothing left to do
             self.next()
@@ -321,8 +336,6 @@ class ApplicationJobs(object):
         for command in list(self.current_jobs):
             # get the ProcessStatus method corresponding to condition and call it
             if command.timed_out(now):
-                self.logger.error(f'ApplicationJobs.check_current_jobs: {command.process.namespec}'
-                                  f' still not acknowledged after {ProcessCommand.TIMEOUT} seconds so abort')
                 # generate a process event for this process to inform all Supvisors instances
                 reason = f'no process event received in time'
                 self.supvisors.listener.force_process_state(command.process.namespec, self.failure_state, reason)

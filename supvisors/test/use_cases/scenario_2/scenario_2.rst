@@ -164,7 +164,7 @@ The initial |Supervisor| configuration is as follows:
 
     * The ``etc`` folder is the target destination for the configurations files of all applications to be supervised.
       In this example, it just contains a definition of the common data bus (refer to |Req 17 abbr|) that will be
-      auto-started on all nodes.
+      auto-started on all |Supvisors| instances.
       The ``etc`` folder contains the |Supervisor| configuration files that will be used when starting
       :program:`supervisord`.
 
@@ -431,7 +431,7 @@ over the X instances of the :program:`Scenario 2` application, as required in |R
     </root>
 
 |Req 2 abbr| is just about declaring the ``distributed`` element to ``false``. It tells |Supvisors| that all the
-programs of the application have to be started on the same node.
+programs of the application have to be started on the same |Supvisors| instance.
 
 .. code-block:: xml
 
@@ -446,25 +446,25 @@ programs of the application have to be started on the same node.
         </application>
     </root>
 
-So far, all applications can be started on any node. Let's compel :program:`scen2_hci` to consoles and
+So far, all applications can be started on any |Supvisors| instance. Let's compel :program:`scen2_hci` to consoles and
 :program:`scen2_srv` to servers, which satisfies |Req 10 abbr| and contributes to some console-related requirements.
-For better readability, node aliases are introduced.
+For better readability, Instance aliases are introduced.
 
 .. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
-        <alias name="servers">cliche81,cliche82,cliche85</alias>
-        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+        <alias name="servers">server_1,server_2,server_3</alias>
+        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
         <application pattern="scen2_srv_">
             <distributed>false</distributed>
-            <addresses>servers</addresses>
+            <identifiers>servers</identifiers>
         </application>
 
         <application pattern="scen2_hci_">
             <distributed>false</distributed>
-            <addresses>consoles</addresses>
+            <identifiers>consoles</identifiers>
         </application>
     </root>
 
@@ -495,8 +495,8 @@ operational as a standalone application, even if it's not connected to other pos
 
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
-        <alias name="servers">cliche81,cliche82,cliche85</alias>
-        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+        <alias name="servers">server_1,server_2,server_3</alias>
+        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
         <model name="model_services">
             <start_sequence>3</start_sequence>
@@ -514,7 +514,7 @@ operational as a standalone application, even if it's not connected to other pos
 
         <application pattern="scen2_srv_">
             <distributed>false</distributed>
-            <addresses>servers</addresses>
+            <identifiers>servers</identifiers>
             <start_sequence>1</start_sequence>
 
             <program name="scen2_common_bus_interface">
@@ -538,7 +538,7 @@ operational as a standalone application, even if it's not connected to other pos
 
         <application pattern="scen2_hci_">
             <distributed>false</distributed>
-            <addresses>consoles</addresses>
+            <identifiers>consoles</identifiers>
 
             <program pattern="">
                 <start_sequence>3</start_sequence>
@@ -563,9 +563,9 @@ The ``starting_strategy`` element of the :program:`scen2_srv` application is set
 |Req 13 abbr|. Before |Supvisors| starts an application or a program, it relies on the ``expected_loading`` set just
 before to:
 
-    * evaluate the current load on all nodes (due to processes already running),
-    * choose the node having the lowest load and that can accept the additional load required by the program
-      or application to start.
+    * evaluate the current load on all |Supvisors| instances (due to processes already running),
+    * choose the |Supvisors| instance having the lowest load and that can accept the additional load required
+      by the program or application to start.
 
 If none found, the application or the program is not started, which satisfies |Req 5 abbr|.
 
@@ -594,8 +594,8 @@ responsibility to merge the status of :program:`scen2_srv_N` and :program:`scen2
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <!-- aliases -->
-        <alias name="servers">cliche81,cliche82,cliche85</alias>
-        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+        <alias name="servers">server_1,server_2,server_3</alias>
+        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
         <!-- models -->
         <model name="model_services">
@@ -618,7 +618,7 @@ responsibility to merge the status of :program:`scen2_srv_N` and :program:`scen2
         <!-- Services -->
         <application pattern="scen2_srv_">
             <distributed>false</distributed>
-            <addresses>servers</addresses>
+            <identifiers>servers</identifiers>
             <start_sequence>1</start_sequence>
             <starting_strategy>LESS_LOADED</starting_strategy>
             <starting_failure_strategy>STOP</starting_failure_strategy>
@@ -646,7 +646,7 @@ responsibility to merge the status of :program:`scen2_srv_N` and :program:`scen2
         <!-- HCI -->
         <application pattern="scen2_hci_">
             <distributed>false</distributed>
-            <addresses>consoles</addresses>
+            <identifiers>consoles</identifiers>
             <starting_strategy>LOCAL</starting_strategy>
             <starting_failure_strategy>CONTINUE</starting_failure_strategy>
 
@@ -689,16 +689,16 @@ The operational status of :program:`Scenario 2` required by the |Req 3 abbr| is 
     * the :ref:`extended_status` of the extended :program:`supervisorctl` or :program:`supvisorsctl` (example below),
     * the :ref:`event_interface`.
 
-For the examples, the following context applies:
+For the example, the following context applies:
 
-    * only 3 nodes among the 8 defined are running: 2 servers (``cliche81`` and ``cliche82``) and one console
-      (``cliche83``) - clearly due to limited testing resources ;
+    * due to limited resources - 3 nodes are available (``cliche81``, ``cliche82`` and ``cliche83``) -, each node hosts
+      2 |Supvisors| instances, one server and one console, leaving 2 silent consoles ;
     * :program:`common_data_bus` is *Unmanaged* so |Supvisors| always considers this 'application' as ``STOPPED``
       (the process status is yet ``RUNNING``) ;
-    * :program:`scen2_srv_01` and :program:`scen2_srv_03` are running on the server ``cliche81`` ;
-    * :program:`scen2_srv_02` is running on the server ``cliche82`` ;
-    * :program:`scen2_hci_02` has been started on the console ``cliche83`` ;
-    * an attempt to start :program:`scen2_hci_03` on the server ``cliche81`` has been rejected.
+    * :program:`scen2_srv_01`, :program:`scen2_srv_02` and :program:`scen2_srv_03` are running on ``server_1``,
+      ``server_2``, ``server_3``, respectively hosted by the nodes ``cliche81``, ``cliche82``, ``cliche83`` ;
+    * :program:`scen2_hci_02` has been started on ``console_3`` ;
+    * an attempt to start :program:`scen2_hci_03` on the server ``cliche81`` has been rejected (only allowed on a console).
 
 >>> from supervisor.childutils import getRPCInterface
 >>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://localhost:61000'})
@@ -734,7 +734,8 @@ methods are available:
         - using the URL otherwise,
 
     * the start button |start| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI,
-      **assuming that the user has navigated to this page using the relevant node** (check the url if necessary).
+      **assuming that the user has navigated to this page using the relevant |Supvisors| instance** (check the url
+      if necessary).
 
 
 >>> from supervisor.childutils import getRPCInterface
@@ -777,9 +778,9 @@ To stop a :program:`scen2_hci` (|Req 27 abbr|), the following methods are availa
 
     * the :ref:`xml_rpc` (example below - **whatever the target**),
     * the :ref:`application_control` of the extended :program:`supervisorctl` or :program:`supvisorsctl` **from any
-      node where |Supvisors| is running** (example below),
+      |Supvisors| instance** (example below),
     * the stop button |stop| at the top right of the :ref:`dashboard_application` of the |Supvisors| Web UI,
-      **whatever the node hosting this page**.
+      **whatever the |Supvisors| instance displaying this page**.
 
 Indeed, as |Supvisors| knows where the application is running, it is able to drive the application stop from anywhere.
 
@@ -807,10 +808,5 @@ Example
 -------
 
 The full example is available in `Supvisors Use Cases - Scenario 2 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_2>`_.
-
-An additional configuration for a single node and with automatic start of a HCI is also provided:
-
-    * etc/supervisord_localhost.conf
-    * etc/supvisors_localhost_rules.xml
 
 .. include:: common.rst

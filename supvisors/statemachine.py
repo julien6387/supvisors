@@ -38,7 +38,7 @@ class AbstractState(object):
         - supvisors: the reference to the global Supvisors structure ;
         - context: the reference to the context of the global Supvisors structure ;
         - logger: the reference to the logger of the global Supvisors structure ;
-        - local_identifier: the identifier of the local Supvisors insatnce.
+        - local_identifier: the identifier of the local Supvisors instance.
      """
 
     def __init__(self, supvisors: Any) -> None:
@@ -100,7 +100,7 @@ class InitializationState(AbstractState):
     """ In the INITIALIZATION state, Supvisors synchronizes to all known Supvisors instances. """
 
     def enter(self) -> None:
-        """ When entering in the INITIALIZATION state, reset the context.
+        """ When entering the INITIALIZATION state, reset the context.
 
         :return: None
         """
@@ -153,11 +153,13 @@ class InitializationState(AbstractState):
         # force state of missing Supvisors instances
         running_identifiers = self.context.running_identifiers()
         self.logger.info(f'InitializationState.exit: working with Supvisors instances {running_identifiers}')
-        # elect master insatnce among working instances only if not fixed before
+        # elect master instance among working instances only if not fixed before
         # of course master instance must be running
+        self.logger.debug(f'InitializationState.exit: master_identifier={self.context.master_identifier}')
         if not self.context.master_identifier or self.context.master_identifier not in running_identifiers:
             # choose Master among the core instances because these instances are expected to be more stable
-            core_identifiers = self.supvisors.options.force_synchro_if
+            core_identifiers = self.supvisors.supvisors_mapper.core_identifiers
+            self.logger.info(f'InitializationState.exit: core_identifiers={core_identifiers}')
             if core_identifiers:
                 running_core_identifiers = set(running_identifiers).intersection(core_identifiers)
                 if running_core_identifiers:
@@ -208,7 +210,7 @@ class MasterOperationState(AbstractState):
         # check duplicated processes
         if self.context.conflicting():
             return SupvisorsStates.CONCILIATION
-        # a redeploy mark has been set due to a new alive Supvisors instance
+        # a redeployment mark has been set due to a new alive Supvisors instance
         # back to DEPLOYMENT state to repair what may have failed before
         if self.supvisors.fsm.redeploy_mark:
             return SupvisorsStates.DEPLOYMENT
@@ -218,7 +220,7 @@ class MasterConciliationState(AbstractState):
     """ In the CONCILIATION state, Supvisors conciliates the conflicts. """
 
     def enter(self) -> None:
-        """ When entering in the CONCILIATION state, conciliate automatically the conflicts. """
+        """ When entering the CONCILIATION state, conciliate automatically the conflicts. """
         conciliate_conflicts(self.supvisors,
                              self.supvisors.options.conciliation_strategy,
                              self.context.conflicts())
@@ -248,7 +250,7 @@ class MasterRestartingState(AbstractState):
     """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
 
     def enter(self) -> None:
-        """ When entering in the RESTARTING state, stop all applications.
+        """ When entering the RESTARTING state, stop all applications.
 
         :return: None
         """
@@ -272,7 +274,7 @@ class MasterRestartingState(AbstractState):
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the full restart. """
         self.supvisors.zmq.pusher.send_restart(self.local_identifier)
-        # other instances will shutdown on reception of SHUTDOWN state
+        # other instances will shut down on reception of SHUTDOWN state
         # due to Supvisors design, the state publication will be fired before the send_shutdown
 
 
@@ -302,7 +304,7 @@ class MasterShuttingDownState(AbstractState):
     def exit(self):
         """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
         self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
-        # other instances will shutdown on reception of SHUTDOWN state
+        # other instances will shut down on reception of SHUTDOWN state
         # due to Supvisors design, the state publication will be fired before the send_shutdown
 
 
@@ -328,7 +330,7 @@ class SlaveRestartingState(AbstractState):
     """ In the RESTARTING state, Supvisors stops all applications before triggering a full restart. """
 
     def enter(self) -> None:
-        """ When entering in the RESTARTING state, abort all pending tasks applications.
+        """ When entering the RESTARTING state, abort all pending tasks applications.
 
         :return: None
         """
@@ -552,7 +554,7 @@ class FiniteStateMachine:
             if master_identifier:
                 if not self.context.master_identifier:
                     # local Supvisors doesn't know about a master yet but remote Supvisors does
-                    # typically happens when the local Supervisor has just been started whereas a Supvisors group
+                    # typically happen when the local Supervisor has just been started whereas a Supvisors group
                     # was already operating, so accept remote perception
                     self.logger.warn(f'FiniteStateMachine.on_authorization: accept Master={master_identifier}'
                                      f' declared by Supvisors={identifier}')

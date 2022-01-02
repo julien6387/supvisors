@@ -59,7 +59,7 @@ class RunningIdentifiersTest(unittest.TestCase):
         supervisor_url = SupervisorServerUrl(os.environ.copy())
         self.proxies = {}
         for identifier in self.running_identifiers:
-            supervisor_url.update_url(identifier)
+            supervisor_url.update_url(identifier.split(':')[0])
             self.proxies[identifier] = getRPCInterface(supervisor_url.env)
         # create the thread of event subscriber
         self.zcontext = zmq.Context.instance()

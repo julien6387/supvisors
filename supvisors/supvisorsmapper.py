@@ -40,7 +40,7 @@ class SupvisorsInstanceId(object):
         - event_port: the port number used to publish all Supvisors events.
     """
 
-    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-]+)>)?(?P<host>[\w\-\.]+)(:(?P<http_port>\d{4,5})?'
+    PATTERN = re.compile(r'^(<(?P<identifier>[\w\-]+)>)?(?P<host>[\w\-.]+)(:(?P<http_port>\d{4,5})?'
                          r':(?P<internal_port>\d{4,5})?)?$')
 
     def __init__(self, item: str, supvisors: Any):
@@ -123,10 +123,15 @@ class SupvisorsMapper(object):
         - logger: the reference to the common logger ;
         - _instances: the list of Supvisors instances declared in the supvisors section of the Supervisor
           configuration file ;
+        - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
+          configuration file ;
         - local_node_references: the list of known aliases of the current node, i.e. the host name
           and the IPv4 addresses ;
         - local_identifier: the local Supvisors identifier.
     """
+
+    # annotation types
+    InstanceMap = Dict[str, SupvisorsInstanceId]
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
@@ -137,7 +142,8 @@ class SupvisorsMapper(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # init attributes
-        self._instances: Dict[str, SupvisorsInstanceId] = OrderedDict()
+        self._instances: SupvisorsMapper.InstanceMap = OrderedDict()
+        self._core_identifiers: NameList = []
         self.local_node_references = [gethostname(), *self.ipv4()]
         self.logger.debug(f'SupvisorsMapper: local_node_references={self.local_node_references}')
         self.local_identifier = None
@@ -151,33 +157,45 @@ class SupvisorsMapper(object):
         return self._instances[self.local_identifier]
 
     @property
-    def instances(self) -> NameList:
+    def instances(self) -> InstanceMap:
         """ Property getter for the _instances attribute.
 
         :return: the list of Supvisors instances configured in Supvisors
         """
         return self._instances
 
-    def configure(self, supvisors_list: NameList) -> None:
+    @property
+    def core_identifiers(self) -> NameList:
+        """ Property getter for the _core_identifiers attribute.
+
+        :return: the minimum Supvisors identifiers to end the synchronization phase
+        """
+        return self._core_identifiers
+
+    def configure(self, supvisors_list: NameList, core_list: NameList) -> None:
         """ Store the identification of the Supvisors instances declared in the configuration file and determine
         the local Supvisors instance in this list.
 
         :param supvisors_list: the Supvisors instances declared in the supvisors section of the configuration file
+        :param core_list: the minimum Supvisors identifiers to end the synchronization phase
         :return: None
         """
         # get Supervisor identification from each element
         for item in supvisors_list:
             supvisors_id = SupvisorsInstanceId(item, self.supvisors)
             if supvisors_id.identifier:
-                self.logger.debug(f'SupvisorsMapper.instances: new SupvisorsInstanceId={supvisors_id}')
+                self.logger.debug(f'SupvisorsMapper.configure: new SupvisorsInstanceId={supvisors_id}')
                 self._instances[supvisors_id.identifier] = supvisors_id
             else:
                 message = f'could not parse Supvisors identification from {item}'
                 self.logger.error(f'SupvisorsMapper.instances: {message}')
                 raise ValueError(message)
-        self.logger.info(f'SupvisorsMapper.instances: {list(self._instances.keys())}')
+        self.logger.info(f'SupvisorsMapper.configure: identifiers={list(self._instances.keys())}')
         # get local Supervisor identification from list
         self.find_local_identifier()
+        # check core identifiers
+        self._core_identifiers = self.filter(core_list)
+        self.logger.info(f'SupvisorsMapper.configure: core_identifiers={self._core_identifiers}')
 
     def find_local_identifier(self):
         """ Find the local Supvisors identification in the list declared in the configuration file.
@@ -224,6 +242,10 @@ class SupvisorsMapper(object):
         """
         # filter unknown Supvisors identifiers
         identifiers = [identifier for identifier in identifier_list if self.valid(identifier)]
+        # log invalid identifiers to warn the user
+        for identifier in identifier_list:
+            if identifier != '#' and identifier not in identifiers:  # no warn for hashtag
+                self.logger.warn(f'SupvisorsMapper.valid: identifier={identifier} invalid')
         # remove duplicates keeping the same ordering
         return list(OrderedDict.fromkeys(identifiers))
 

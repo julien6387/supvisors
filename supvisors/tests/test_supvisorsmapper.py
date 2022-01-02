@@ -135,21 +135,23 @@ def test_mapper_configure(mocker, mapper):
     mocked_find = mocker.patch.object(mapper, 'find_local_identifier')
     # configure mapper with elements
     items = ['127.0.0.1', '<supervisor_05>10.0.0.5:7777:', '10.0.0.4:15000:8888']
-    mapper.configure(items)
+    core_items = ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000', 'supervisor_06', '10.0.0.4']
+    mapper.configure(items, core_items)
     assert list(mapper.instances.keys()) == ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000']
+    assert mapper.core_identifiers == ['127.0.0.1', 'supervisor_05', '10.0.0.4:15000']
     assert mocked_find.called
     mocked_find.reset_mock()
     # configure mapper with one invalid element
     items = ['127.0.0.1', '<dummy_id>', '<supervisor_05>10.0.0.5', '10.0.0.4:15000']
     with pytest.raises(ValueError):
-        mapper.configure(items)
+        mapper.configure(items, core_items)
     assert not mocked_find.called
 
 
 def test_find_local_identifier_identifier(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when Supervisor identifier is among the instances. """
     items = ['127.0.0.1', '<supervisor>10.0.0.5:7777:']
-    mapper.configure(items)
+    mapper.configure(items, [])
     assert mapper.local_identifier == 'supervisor'
 
 
@@ -157,7 +159,7 @@ def test_find_local_identifier_host_name(mapper):
     """ Test the SupvisorsMapper.find_local_identifier method when one instance matches the host name. """
     hostname = socket.gethostname()
     items = ['127.0.0.1', f'{hostname}:60000:7777']
-    mapper.configure(items)
+    mapper.configure(items, [])
     assert mapper.local_identifier == f'{hostname}:60000'
 
 
@@ -166,7 +168,7 @@ def test_find_local_identifier_ip_address(mapper):
     hostname = socket.gethostname()
     mapper.local_node_references = [hostname, '10.0.0.1']
     items = ['127.0.0.1', '<host>10.0.0.1:60000:7777']
-    mapper.configure(items)
+    mapper.configure(items, [])
     assert mapper.local_identifier == 'host'
 
 
@@ -177,7 +179,7 @@ def test_find_local_identifier_multiple(mapper):
     mapper.local_node_references = [hostname, '10.0.0.1']
     items = ['10.0.0.1', f'{hostname}:60000:7777']
     with pytest.raises(ValueError):
-        mapper.configure(items)
+        mapper.configure(items, [])
 
 
 def test_find_local_identifier_none(mapper):
@@ -186,7 +188,7 @@ def test_find_local_identifier_none(mapper):
     mapper.local_node_references = ['10.0.0.1']
     items = ['10.0.0.2', '<dummy>cliche:60000:7777']
     with pytest.raises(ValueError):
-        mapper.configure(items)
+        mapper.configure(items, [])
 
 
 def test_valid(mapper):
@@ -194,7 +196,7 @@ def test_valid(mapper):
     # add context
     hostname = socket.gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222:', f'{hostname}:60000:7777']
-    mapper.configure(items)
+    mapper.configure(items, [])
     # test calls
     assert mapper.valid('127.0.0.1')
     assert mapper.valid('host')
@@ -209,7 +211,7 @@ def test_filter(mapper):
     # add context
     hostname = socket.gethostname()
     items = ['127.0.0.1', '<host>10.0.0.1:2222:', f'{hostname}:60000:7777']
-    mapper.configure(items)
+    mapper.configure(items, [])
     # test with a bunch of identifiers
     identifier_list = ['127.0.0.1', 'host', f'{hostname}:60000', hostname, 'host', 'supervisor', '10.0.0.1']
     assert mapper.filter(identifier_list) == ['127.0.0.1', 'host', f'{hostname}:60000']

@@ -53,6 +53,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Topic :: System :: Boot",
     "Topic :: System :: Monitoring",
     "Topic :: System :: Software Distribution"
@@ -61,31 +62,30 @@ CLASSIFIERS = [
 version_txt = os.path.join(here, 'supvisors/version.txt')
 supvisors_version = open(version_txt).read().split('=')[1].strip()
 
-dist = setup(
-    name='supvisors',
-    version=supvisors_version,
-    description="A Control System for Distributed Applications",
-    long_description=README + '\n\n' + CHANGES,
-    long_description_content_type='text/markdown',
-    classifiers=CLASSIFIERS,
-    author="Julien Le Cléach",
-    author_email="julien.6387.dev@gmail.com",
-    url="https://github.com/julien6387/supvisors",
-    download_url='https://github.com/julien6387/supvisors/archive/%s.tar.gz' % supvisors_version,
-    platforms=[
-        "CentOS 8.3"
-    ],
-    packages=find_packages(),
-    install_requires=requires,
-    extras_require={'ip_address': ip_require,
-                    'statistics': statistics_require,
-                    'xml_valid': xml_valid_require,
-                    'all': ip_require + statistics_require + xml_valid_require,
-                    'testing': testing_extras},
-    include_package_data=True,
-    zip_safe=False,
-    namespace_packages=['supvisors'],
-    test_suite="supvisors.tests",
-    entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
-                                      'supvisors_breed = supvisors.tools.breed:main']}
-)
+setup(name='supvisors',
+      version=supvisors_version,
+      description="A Control System for Distributed Applications",
+      long_description=README + '\n\n' + CHANGES,
+      long_description_content_type='text/markdown',
+      classifiers=CLASSIFIERS,
+      author="Julien Le Cléach",
+      author_email="julien.6387.dev@gmail.com",
+      url="https://github.com/julien6387/supvisors",
+      download_url='https://github.com/julien6387/supvisors/archive/%s.tar.gz' % supvisors_version,
+      platforms=[
+          "CentOS 8.3"
+      ],
+      packages=find_packages(),
+      install_requires=requires,
+      extras_require={'ip_address': ip_require,
+                      'statistics': statistics_require,
+                      'xml_valid': xml_valid_require,
+                      'all': ip_require + statistics_require + xml_valid_require,
+                      'testing': testing_extras},
+      include_package_data=True,
+      zip_safe=False,
+      namespace_packages=['supvisors'],
+      test_suite="supvisors.tests",
+      entry_points={'console_scripts': ['supvisorsctl = supvisors.supvisorsctl:main',
+                                        'supvisors_breed = supvisors.tools.breed:main']}
+      )

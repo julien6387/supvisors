@@ -145,7 +145,7 @@ def test_instances_by_states(context):
 
 def test_running_core_identifiers(supvisors):
     """ Test if the core instances are in a RUNNING state. """
-    supvisors.options.force_synchro_if = ['10.0.0.1', '10.0.0.4']
+    supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
     assert sorted(context.unknown_identifiers()) == sorted(context.supvisors.supvisors_mapper.instances.keys())

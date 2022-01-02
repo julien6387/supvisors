@@ -5,7 +5,7 @@
 
 
 **Supvisors** is a Control System for Distributed Applications, based on
-multiple instances of Supervisor.
+multiple instances of Supervisor running over multiple nodes.
 
 The main features are:
    * a new web-based dashboard that replaces the default dashboard of Supervisor,
@@ -47,13 +47,15 @@ but is not maintained anymore.
 
 **Supvisors** has dependencies on:
 
-Package                                             | Release    | Optional
-----------------------------------------------------|------------|---------
-[Supervisor](http://supervisord.org)                | 4.2.1      |
-[PyZMQ](http://pyzmq.readthedocs.io)                | 20.0.0     |
-[psutil](https://pypi.python.org/pypi/psutil)       | 5.7.3      |     X
-[matplotlib](http://matplotlib.org)                 | 3.3.3      |     X
-[lxml](http://lxml.de)                              | 4.6.2      |     X
+|-----------------------------------------------|---------|----------|
+| Package                                       | Release | Optional |
+|-----------------------------------------------|---------|----------|
+| [Supervisor](http://supervisord.org)          | 4.2.4   |          |
+| [PyZMQ](http://pyzmq.readthedocs.io)          | 20.0.0  |          |
+| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   |     X    |
+| [matplotlib](http://matplotlib.org)           | 3.3.3   |     X    |
+| [lxml](http://lxml.de)                        | 4.6.2   |     X    |
+|-----------------------------------------------|---------|----------|
 
 Please note that some of these dependencies may have their own dependencies.
 

@@ -127,7 +127,7 @@ class Parser(object):
 
     def get_application_element(self, application_name: str) -> Optional[Any]:
         """ Try to find the definition of an application in rules files.
-        First try to to find the definition based on the exact application name.
+        First try to find the definition based on the exact application name.
         If not found, second try to find a corresponding pattern.
 
         :param application_name: the application name
@@ -214,7 +214,7 @@ class Parser(object):
 
     def get_program_element(self, namespec: str) -> Optional[Any]:
         """ Try to find the definition of a program in rules files.
-        First try to to find the definition based on the exact program name.
+        First try to find the definition based on the exact program name.
         If not found, second try to find a corresponding pattern.
 
         :param namespec: the process namespec
@@ -271,8 +271,8 @@ class Parser(object):
         for alias_name, alias in self.aliases.items():
             if alias_name in identifiers:
                 pos = identifiers.index(alias_name)
-                identifiers[pos:pos] = alias
-        # keep reference to hashtag as it will be removed by the filters
+                identifiers[pos:pos+1] = alias
+        # keep reference to hashtag as it will be removed by supvisors_mapper.filter
         ref_hashtag = '#' in identifiers
         if '*' in identifiers:
             identifiers = ['*']

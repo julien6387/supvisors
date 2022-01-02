@@ -114,7 +114,8 @@ The initial |Supervisor| configuration is as follows:
     * The ``etc`` folder is the target destination for the configurations files of all applications to be supervised.
       It initially contains:
 
-        - a definition of the common data bus (refer to |Req 14 abbr|) that will be auto-started on all nodes.
+        - a definition of the common data bus (refer to |Req 14 abbr|) that will be auto-started on all |Supvisors|
+          instances.
         - the configuration of the :program:`scen3_srv` group and programs.
         - the |Supervisor| configuration files that will be used when starting :program:`supervisord`:
 
@@ -197,7 +198,11 @@ files from the |Supervisor| configuration file.
     to group all the applications of the different use cases into an unique |Supvisors| configuration. Adding ``scen3``
     at this point is just to avoid overwriting of program definitions.
 
-Knowing the host names of the consoles, an additional script is used to sort the files generated.
+
+XXX difference scenario 2 / impact
+
+
+Based on the expected names of the consoles, an additional script is used to sort the files generated.
 The resulting file tree is as follows.
 
 .. code-block:: bash
@@ -219,15 +224,15 @@ The resulting file tree is as follows.
     │         ├── common
     │         │         └── group_services.ini
     │         ├── console
-    │         │         ├── cliche83
+    │         │         ├── console_1
     │         │         │         └── group_scen3_hci_01.ini
-    │         │         ├── cliche84
+    │         │         ├── console_2
     │         │         │         └── group_scen3_hci_02.ini
-    │         │         ├── cliche86
+    │         │         ├── console_3
     │         │         │         └── group_scen3_hci_03.ini
-    │         │         ├── cliche87
+    │         │         ├── console_4
     │         │         │         └── group_scen3_hci_04.ini
-    │         │         ├── cliche88
+    │         │         ├── console_5
     │         │         │         └── group_scen3_hci_05.ini
     │         │         └── programs_console.ini
     │         ├── server
@@ -279,8 +284,8 @@ As the logic of the starting sequence of :program:`Scenario 3` very similar to t
 won't be much detail about that in the present section. Please refer to the other use case if needed.
 
 The main difference is that :program:`scen3_internal_data_bus` has been removed. As a reminder, the consequence of
-|Req 12 abbr| and |Req 20 abbr| is that this program must run in all nodes, so it has been moved to the services file
-and configured as auto-started.
+|Req 12 abbr| and |Req 20 abbr| is that this program must run in all |Supvisors| instances, so it has been moved
+to the services file and configured as auto-started.
 
 Both applications :program:`scen3_srv` and :program:`scen3_hci` have their ``start_sequence`` set and strictly positive
 so they will be automatically started, as required by |Req 1 abbr|. Please just note that :program:`scen3_hci` has a
@@ -303,15 +308,16 @@ elements. The value ``#,consoles`` used here needs some further explanation.
 When using hashtags in ``addresses``, applications and programs cannot be started anywhere until |Supvisors| solves the
 'equation'. As defined in :ref:`patterns_hashtags`, an association will be made between the Nth application
 :program:`scen3_hci_N` and the Nth element of the ``consoles`` list. In the example, :program:`scen3_hci_01` will be
-mapped with node ``cliche83`` once resolved.
+mapped with |Supvisors| instance ``console_1`` once resolved.
 
 This will result in having exactly one :program:`scen3_hci` application per console, which satisfies |Req 20 abbr|.
 
 .. note::
 
-    In :program:`scen3_hci`, the program ``scen3_check_internal_data_bus`` references a model that uses server nodes
-    in its ``addresses`` option. It doesn't matter in the present case because, as told before, the ``addresses``
-    option of the non-distributed application supersedes the ``addresses`` eventually set in its programs.
+    In :program:`scen3_hci`, the program ``scen3_check_internal_data_bus`` references a model that uses server
+    |Supvisors| instances in its ``identifiers`` option. It doesn't matter in the present case because, as told before,
+    the ``identifiers`` option of the non-distributed application supersedes the ``identifiers`` eventually set in its
+    programs.
 
 Let's now focus on the strategies and options used at application level.
 
@@ -323,9 +329,10 @@ To satisfy |Req 13 abbr|, the ``running_failure_strategy`` option of :program:`s
 ``CONTINUE`` is then used, as required in |Req 21 abbr|. Anyway, as the Nth application si only known by the
 |Supervisor| of the Nth console, it is just impossible to start this application elsewhere.
 
-Finally, in order to satisfy |Req 5 abbr| and to have a load-balancing over the server nodes (refer to |Req 11 abbr|),
-an arbitrary ``expected_loading`` has been set on programs. It is expected that relevant figures are used for a real
-application. The ``starting_strategy`` option of :program:`scen3_srv` has been set to ``LESS_LOADED``.
+Finally, in order to satisfy |Req 5 abbr| and to have a load-balancing over the server |Supvisors| instances (refer to
+|Req 11 abbr|), an arbitrary ``expected_loading`` has been set on programs. It is expected that relevant figures are
+used for a real application.
+The ``starting_strategy`` option of :program:`scen3_srv` has been set to ``LESS_LOADED``.
 
 Here follows the resulting rules file.
 
@@ -334,8 +341,8 @@ Here follows the resulting rules file.
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <root>
         <!-- aliases -->
-        <alias name="servers">cliche81,cliche82,cliche85</alias>
-        <alias name="consoles">cliche83,cliche84,cliche86,cliche87,cliche88</alias>
+        <alias name="servers">server_1,server_2,server_3</alias>
+        <alias name="consoles">console_1,console_2,console_3,console_4,console_5</alias>
 
         <!-- models -->
         <model name="model_services">
@@ -406,12 +413,23 @@ The operational status of :program:`Scenario 3` required by the |Req 2 abbr| is 
 
 For the examples, the following context applies:
 
-    * only 3 nodes among the 8 defined are running: 2 servers (``cliche81`` and ``cliche82``) and one console
-      (``cliche83``) - clearly due to limited testing resources ;
+    * due to limited resources - 3 nodes are available (``cliche81``, ``cliche82`` and ``cliche83``) -, each node hosts
+      2 |Supvisors| instances, one server and one console, leaving 2 silent consoles ;
     * :program:`common_data_bus` and :program:`scen3_internal_data_bus` are *Unmanaged* so |Supvisors| always considers
       these 'applications' as ``STOPPED`` ;
-    * :program:`scen3_srv` is distributed over the servers ``cliche81`` and ``cliche82`` ;
-    * :program:`scen3_hci_01` has been started on the console ``cliche83``.
+    * :program:`scen3_srv` is distributed over the 3 servers ;
+    * :program:`scen3_hci_01`,program:`scen3_hci_02`, program:`scen3_hci_03` have been respectively started on
+      ``console_1``, ``console_2``, ``console_3`` .
+
+The |Supervisor| configuration of the consoles has been changed to include the files related to the |Supervisor|
+identifier ``console_X`` rather than those related to ``host_node_name``. As there is no automatic expansion related
+to the |Supervisor| identifier so far, an environmental variable is used.
+
+.. code-block:: ini
+
+    # include section in supervisord_console.conf
+    [include]
+    files = common/*.ini console/*.ini console/%(ENV_IDENTIFIER)s/*.ini
 
 >>> from supervisor.childutils import getRPCInterface
 >>> proxy = getRPCInterface({'SUPERVISOR_SERVER_URL': 'http://localhost:61000'})
@@ -419,7 +437,9 @@ For the examples, the following context applies:
 [{'application_name': 'common_data_bus', 'statecode': 0, 'statename': 'STOPPED', 'major_failure': False, 'minor_failure': False},
 {'application_name': 'scen3_internal_data_bus', 'statecode': 0, 'statename': 'STOPPED', 'major_failure': False, 'minor_failure': False},
 {'application_name': 'scen3_srv', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
-{'application_name': 'scen3_hci_01', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False}]
+{'application_name': 'scen3_hci_01', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen3_hci_02', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False},
+{'application_name': 'scen3_hci_03', 'statecode': 2, 'statename': 'RUNNING', 'major_failure': False, 'minor_failure': False}]
 
 .. code-block:: bash
 
@@ -429,12 +449,14 @@ For the examples, the following context applies:
     scen3_internal_data_bus  STOPPED   False  False
     scen3_srv                RUNNING   False  False
     scen3_hci_01             RUNNING   False  False
+    scen3_hci_02             RUNNING   False  False
+    scen3_hci_03             RUNNING   False  False
 
 .. note::
 
-    It could be felt strange to see only one of the 5 :program:`scen3_hci` applications. It has to be remembered that
+    It could be felt strange to see only 3 of the 5 :program:`scen3_hci` applications. It has to be remembered that
     the overall configuration has been built so that each console would include the configurations files related to the
-    only :program:`scen3_hci` meant to run on it. In the example, 4 consoles are ``SILENT`` so their programs are
+    only :program:`scen3_hci` meant to run on it. In the example, 2 consoles are ``SILENT`` so their programs are
     unknown so far.
 
 .. image:: images/supvisors_scenario_3.png
@@ -449,10 +471,5 @@ Example
 -------
 
 The full example is available in `Supvisors Use Cases - Scenario 3 <https://github.com/julien6387/supvisors/tree/master/supvisors/test/use_cases/scenario_3>`_.
-
-An additional configuration for a single node and with automatic start of a HCI is also provided:
-
-    * etc/supervisord_localhost.conf
-    * etc/supvisors_localhost_rules.xml
 
 .. include:: common.rst

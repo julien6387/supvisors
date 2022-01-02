@@ -105,7 +105,7 @@ def test_initialization_state(supvisors_ctx):
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # test case where end of synchro is forced based on core instances running
-    supvisors_ctx.options.force_synchro_if = {'10.0.0.2', '10.0.0.4'}
+    supvisors_ctx.supvisors_mapper._core_identifiers = {'10.0.0.2', '10.0.0.4'}
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.UNKNOWN
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # SYNCHRO_TIMEOUT_MIN not passed yet
@@ -131,14 +131,14 @@ def test_initialization_state(supvisors_ctx):
     # test when master_identifier is not set and no core instances
     # check master is the lowest string among running node names
     supvisors_ctx.context.master_identifier = None
-    supvisors_ctx.options.force_synchro_if = {}
+    supvisors_ctx.supvisors_mapper._core_identifiers = {}
     state.exit()
     assert supvisors_ctx.context.running_identifiers() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_identifier == '10.0.0.2'
-    # test when master_identifier is not set and forced instances are used
+    # test when master_identifier is not set and core instances are used
     # check master is the lowest string among the intersection between running node names and forced instances
     supvisors_ctx.context.master_identifier = None
-    supvisors_ctx.options.force_synchro_if = {'10.0.0.3', '10.0.0.4'}
+    supvisors_ctx.supvisors_mapper._core_identifiers = {'10.0.0.3', '10.0.0.4'}
     state.exit()
     assert supvisors_ctx.context.running_identifiers() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
     assert supvisors_ctx.context.master_identifier == '10.0.0.4'

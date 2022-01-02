@@ -67,7 +67,7 @@ def test_options_creation(opt):
     assert opt.event_port == 0
     assert not opt.auto_fence
     assert opt.synchro_timeout == 15
-    assert opt.force_synchro_if == set()
+    assert opt.core_identifiers == set()
     assert opt.conciliation_strategy == ConciliationStrategies.USER
     assert opt.starting_strategy == StartingStrategies.CONFIG
     assert opt.stats_enabled
@@ -88,7 +88,7 @@ def test_filled_options_creation(filled_opt):
     assert filled_opt.event_port == 60002
     assert filled_opt.auto_fence
     assert filled_opt.synchro_timeout == 20
-    assert filled_opt.force_synchro_if == {'cliche01', 'cliche03'}
+    assert filled_opt.core_identifiers == {'cliche01', 'cliche03'}
     assert filled_opt.conciliation_strategy == ConciliationStrategies.SENICIDE
     assert filled_opt.starting_strategy == StartingStrategies.MOST_LOADED
     assert not filled_opt.stats_enabled
@@ -104,7 +104,7 @@ def test_filled_options_creation(filled_opt):
 def test_str(opt):
     """ Test the string output. """
     assert str(opt) == (f'supvisors_list=[\'{gethostname()}\'] rules_files=None internal_port=0 event_port=0'
-                        ' auto_fence=False synchro_timeout=15 force_synchro_if=set() conciliation_strategy=USER'
+                        ' auto_fence=False synchro_timeout=15 core_identifiers=set() conciliation_strategy=USER'
                         ' starting_strategy=CONFIG stats_enabled=True stats_periods=[10] stats_histo=200'
                         f' stats_irix_mode=False logfile={Automatic} logfile_maxbytes={50 * 1024 * 1024}'
                         ' logfile_backups=10 loglevel=20')

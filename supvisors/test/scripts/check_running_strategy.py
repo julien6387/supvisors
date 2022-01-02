@@ -107,7 +107,7 @@ class RunningFailureStrategyTest(RunningIdentifiersTest):
         # focus only on web_browser
         expected_events = [{'group': 'web_movies', 'name': 'web_browser', 'state': 10},
                            {'group': 'web_movies', 'name': 'web_browser', 'state': 20}]
-        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 15)
+        received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 20)
         self.assertEqual(2, len(received_events))
         self.assertEqual([], expected_events)
         # STARTING / RUNNING events are expected for web_movies application

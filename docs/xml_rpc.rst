@@ -9,8 +9,7 @@ Detailed information can be found in the
 
 The ``supvisors`` namespace has been added to the :program:`supervisord` XML-RPC interface.
 
-The XML-RPC :command:`system.listMethods` now provides the list of methods supported for both |Supervisor| and
-|Supvisors|.
+The XML-RPC :command:`system.listMethods` provides the list of methods supported for both |Supervisor| and |Supvisors|.
 
 .. code-block:: python
 
@@ -68,8 +67,9 @@ Status
             ================== ========= ===========
             Key                Type      Description
             ================== ========= ===========
-            'address_name'     ``str``   *DEPRECATED* The |Supvisors| instance node.
-            'node_name'        ``str``   The |Supvisors| instance node.
+            'address_name'     ``str``   *DEPRECATED* The deduced name of the |Supvisors| instance.
+                                         This entry will be removed in the next version.
+            'identifier'       ``str``   The deduced name of the |Supvisors| instance.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].
@@ -114,8 +114,11 @@ Status
                                                ``'UNKNOWN'``].
             'expected_exit'    ``bool``        A status telling if the process has exited expectedly.
             'last_event_time'  ``int``         The timestamp of the last event received for this process.
-            'addresses'        ``list(str)``   *DEPRECATED* The list of all nodes where the process is running.
-            'nodes'            ``list(str)``   The list of all nodes where the process is running.
+            'addresses'        ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances where the
+                                               process is running.
+                                               This entry will be removed in the next version.
+            'identifiers'      ``list(str)``   The deduced names of all |Supvisors| instances where the process is
+                                               running.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
 
@@ -127,7 +130,7 @@ Status
 
             .. note::
 
-                If there is more than one element in the 'addresses' list, a conflict is in progress.
+                If there is more than one element in the 'identifiers' list, a conflict is in progress.
 
 
         .. automethod:: get_all_process_info()
@@ -143,8 +146,8 @@ Status
             'start'            ``int``         The Process start date.
             'now'              ``int``         The Process current date.
             'pid'              ``int``         The UNIX process identifier.
-            'startsecs'        ``int``         The duration between process STARTING and RUNNING.
-            'stopwaitsecs'     ``int``         The duration between process STOPPING and STOPPED.
+            'startsecs'        ``int``         The configured duration between process STARTING and RUNNING.
+            'stopwaitsecs'     ``int``         The configured duration between process STOPPING and STOPPED.
             'pid'              ``int``         The UNIX process identifier.
             'extra_args'       ``str``         The extra arguments used in the command line of the process.
             ================== =============== ===========
@@ -160,12 +163,13 @@ Status
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
             'distributed'               ``bool``        The Application distribution status in |Supvisors|.
-            'addresses'                 ``list(str)``   *DEPRECATED* The list of all nodes where the non-distributed
-                                                        application processes can be started, provided only if
-                                                        ``distributed`` is ``False``.
-            'nodes'                     ``list(str)``   The list of all nodes where the non-distributed application
-                                                        processes can be started, provided only if ``distributed``
-                                                        is ``False``.
+            'addresses'                 ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
+                                                        where the non-distributed application processes can be started,
+                                                        provided only if ``distributed`` is ``False``.
+                                                        This entry will be removed in the next version.
+            'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
+                                                        non-distributed application processes can be started, provided
+                                                        only if ``distributed`` is ``False``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,
@@ -187,9 +191,11 @@ Status
             ========================== =============== ===========
             'application_name'         ``str``         The Application name the process belongs to.
             'process_name'             ``str``         The Process name.
-            'addresses'                ``list(str)``   *DEPRECATED* The list of all nodes where the process can be
-                                                       started.
-            'nodes'                    ``list(str)``   The list of all nodes where the process can be started.
+            'addresses'                ``list(str)``   *DEPRECATED* The deduced names of all |Supvisors| instances
+                                                       where the process can be started.
+                                                       This entry will be removed in the next version.
+            'identifiers'              ``list(str)``   The deduced names of all |Supvisors| instances where the process
+                                                       can be started.
             'start_sequence'           ``int``         The Process starting rank when starting the related application,
                                                        in [0;127].
             'stop_sequence'            ``int``         The Process stopping rank when stopping the related application,
@@ -280,7 +286,7 @@ The parameter requires a dictionary with the following variables set:
     * ``SUPERVISOR_PASSWORD``: the password for the HTTP authentication (may be void).
 
 If the Python client has been spawned by Supervisor, the environment already contains these parameters but they are
-configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with a distant
+configured to communicate with the local |Supervisor| instance. If the Python client has to communicate with another
 |Supervisor| instance, the parameters must be set accordingly.
 
 .. code-block:: python

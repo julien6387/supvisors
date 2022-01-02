@@ -93,9 +93,9 @@ class Context(object):
 
         :return: True if all core SupvisorsInstanceStatus are in RUNNING state
         """
-        if self.supvisors.options.force_synchro_if:
+        if self.supvisors.supvisors_mapper.core_identifiers:
             identifiers = self.running_identifiers()
-            return all(identifier in identifiers for identifier in self.supvisors.options.force_synchro_if)
+            return all(identifier in identifiers for identifier in self.supvisors.supvisors_mapper.core_identifiers)
 
     def isolating_instances(self) -> NameList:
         """ Return the identifiers of the Supervisor instances in ISOLATING state. """

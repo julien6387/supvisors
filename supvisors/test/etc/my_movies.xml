@@ -32,7 +32,7 @@
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
         <program pattern="mount_disk_">
-            <identifiers>#,cliche82,cliche83:60000,cliche84</identifiers>
+            <identifiers>distribute_sublist</identifiers>
             <start_sequence>1</start_sequence>
             <required>true</required>
             <expected_loading>0</expected_loading>

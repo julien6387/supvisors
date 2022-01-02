@@ -44,7 +44,7 @@ class SupvisorsOptions(object):
         - event_port: port number used to publish all Supvisors events,
         - auto_fence: when True, Supvisors won't try to reconnect to a Supvisors instance that has been inactive,
         - synchro_timeout: time in seconds that Supvisors waits for all expected Supvisors instances to publish,
-        - force_synchro_if: subset of supvisors_list that will force the end of synchro when all RUNNING,
+        - core_identifiers: subset of supvisors_list identifiers that will force the end of synchro when all RUNNING,
         - conciliation_strategy: strategy used to solve conflicts when Supvisors has detected multiple running
           instances of the same program,
         - starting_strategy: strategy used to start processes on Supvisors instances,
@@ -82,8 +82,12 @@ class SupvisorsOptions(object):
         self.event_port = self.to_port_num(config.get('event_port', '0'))
         self.auto_fence = boolean(config.get('auto_fence', 'false'))
         self.synchro_timeout = self.to_timeout(config.get('synchro_timeout', str(self.SYNCHRO_TIMEOUT_MIN)))
-        self.force_synchro_if = filter(None, list_of_strings(config.get('force_synchro_if', None)))
-        self.force_synchro_if = {node for node in self.force_synchro_if if node in self.supvisors_list}
+        # get the minimum list of identifiers to end the synchronization phase
+        if 'force_synchro_if' in config:
+            print('SupvisorsOptions: force_synchro_if is DEPRECATED. please use core_identifiers')
+        core_identifiers = config.get('core_identifiers', config.get('force_synchro_if', None))
+        self.core_identifiers = set(filter(None, list_of_strings(core_identifiers)))
+        # get strategies
         self.conciliation_strategy = self.to_conciliation_strategy(config.get('conciliation_strategy', 'USER'))
         self.starting_strategy = self.to_starting_strategy(config.get('starting_strategy', 'CONFIG'))
         # configure statistics
@@ -101,7 +105,7 @@ class SupvisorsOptions(object):
         """ Contents as string. """
         return (f'supvisors_list={self.supvisors_list} rules_files={self.rules_files}'
                 f' internal_port={self.internal_port} event_port={self.event_port} auto_fence={self.auto_fence}'
-                f' synchro_timeout={self.synchro_timeout} force_synchro_if={self.force_synchro_if}'
+                f' synchro_timeout={self.synchro_timeout} core_identifiers={self.core_identifiers}'
                 f' conciliation_strategy={self.conciliation_strategy.name}'
                 f' starting_strategy={self.starting_strategy.name}'
                 f' stats_enabled={self.stats_enabled} stats_periods={self.stats_periods} stats_histo={self.stats_histo}'
@@ -234,6 +238,7 @@ class SupvisorsServerOptions(ServerOptions):
         """ This method is overridden to: store the program number of a homogeneous program.
         This is originally used in Supervisor to set the real program name from the format defined in the ini file.
         However, Supervisor does not keep this information in its internal structure.
+
         :param parser: the config parser
         :param section: the program section
         :param group_name: the group that embeds the program definition
@@ -258,6 +263,11 @@ class SupvisorsServerOptions(ServerOptions):
         return process_configs
 
     def get_section(self, program_name: str):
+        """ Get the Supervisor relevant section name depending on the program name.
+
+        :param program_name: the name of the program configured
+        :return: the Supervisor section name
+        """
         klass = self.program_class[program_name]
         if klass is FastCGIProcessConfig:
             return f'fcgi-program:{program_name}'
@@ -267,6 +277,7 @@ class SupvisorsServerOptions(ServerOptions):
 
     def update_numprocs(self, program_name: str, numprocs: int) -> str:
         """ This method updates the numprocs value directly in the configuration parser.
+
         :param program_name: the program name, as found in the sections of the Supervisor configuration files
         :param numprocs: the new numprocs value
         :return: The section updated
@@ -278,6 +289,7 @@ class SupvisorsServerOptions(ServerOptions):
 
     def reload_processes_from_section(self, section: str, group_name: str) -> List[ProcessConfig]:
         """ This method rebuilds the ProcessConfig instances for the program.
+
         :param section: the program section in the configuration files
         :param group_name: the group that embeds the program definition
         :return: the list of ProcessConfig

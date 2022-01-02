@@ -75,7 +75,7 @@ class MockedSupvisors:
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
         identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
-        self.supvisors_mapper.configure(identifiers)
+        self.supvisors_mapper.configure(identifiers, [])
         self.supvisors_mapper.local_identifier = '127.0.0.1'
         # remove gethostname for the tests
         self.supvisors_mapper.instances.pop(host_name, None)

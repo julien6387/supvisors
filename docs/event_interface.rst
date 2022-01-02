@@ -8,8 +8,8 @@ Protocol
 
 The |Supvisors| Event Interface relies on a PyZMQ_ socket.
 To receive the |Supvisors| events, the client application must configure a socket with a ``SUBSCRIBE`` pattern
-and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section`
-of the |Supervisor| configuration file.
+and connect it on localhost using the ``event_port`` defined in the :ref:`supvisors_section` of the |Supervisor|
+configuration file.
 
 |Supvisors| publishes the events in multi-parts messages.
 
@@ -23,7 +23,7 @@ defined as follows in the ``supvisors.utils`` module:
 .. code-block:: python
 
     SUPVISORS_STATUS_HEADER = u'supvisors'
-    NODE_STATUS_HEADER = u'node'
+    INSTANCE_STATUS_HEADER = u'instance'
     APPLICATION_STATUS_HEADER = u'application'
     PROCESS_STATUS_HEADER = u'process'
     PROCESS_EVENT_HEADER = u'event'
@@ -58,17 +58,18 @@ Key	               Value
 ================== ==================
 
 
-Node status
-~~~~~~~~~~~
+|Supvisors| instance status
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ================== ==================
 Key	               Value
 ================== ==================
-'address_name'     *DEPRECATED* The Node name.
-'node_name'        The Node name.
-'statecode'        The Node state, in [0;5].
-'statename'        The Node state as string, among { ``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``, ``'SILENT'``,
-                   ``'ISOLATING'``, ``'ISOLATED'`` }.
+'address_name'     *DEPRECATED* The deduced name of the |Supvisors| instance.
+                   This entry will be removed in the next version.
+'identifier'       The deduced name of the |Supvisors| instance.
+'statecode'        The |Supvisors| instance state, in [0;5].
+'statename'        The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``
+                   ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
 'remote_time'      The date of the last ``TICK`` event received from this node, in ms.
 'local_time'       The local date of the last ``TICK`` event received from this node, in ms.
 'loading'          The sum of the expected loading of the processes running on the node, in [0;100]%.
@@ -106,8 +107,9 @@ Key	               Value
 'expected_exit'    True if the exit status is expected (only when state is ``'EXITED'``).
 'last_event_time'  The date of the last process event received for this process, regardless of the originating
                    |Supvisors| instance.
-'addresses'        *DEPRECATED* The list of nodes where the process is running.
-'nodes'            The list of nodes where the process is running.
+'addresses'        *DEPRECATED* The deduced names of the |Supvisors| instances where the process is running.
+                   This entry will be removed in the next version.
+'identifiers'      The deduced names of the |Supvisors| instances where the process is running.
 'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
 
@@ -115,7 +117,8 @@ Key	               Value
 
     The ``expected_exit`` information of this event provides an answer to the following |Supervisor| request:
 
-        * `#1150 - Why do event listeners not report the process exit status when stopped/crashed? <https://github.com/Supervisor/supervisor/issues/1150>`_
+        * `#1150 - Why do event listeners not report the process exit status when stopped/crashed?
+          <https://github.com/Supervisor/supervisor/issues/1150>`_
 
 Process event
 ~~~~~~~~~~~~~
@@ -130,8 +133,9 @@ Key                Value
 'expected'         True if the exit status is expected (only when state is 100 - ``EXITED``).
 'now'              The date of the event in the reference time of the node.
 'pid'              The UNIX process ID (only when state is 20 - ``RUNNING`` or 40 - ``STOPPING``).
-'address'          *DEPRECATED* The node where the event comes from.
-'node'             The node where the event comes from.
+'address'          *DEPRECATED* The deduced name of the |Supvisors| instance that sent the initial event.
+                   This entry will be removed in the next version.
+'identifier'       The deduced name of the |Supvisors| instance that sent the initial event.
 'extra_args'       The additional arguments passed to the command line of the process.
 ================== ==================
 
@@ -211,7 +215,7 @@ The binary JAR of :program:`Google Gson 2.8.6` is available in the
         }
 
         @Override
-        public void onNodeStatus(final SupvisorsNodeInfo status) {
+        public void onInstanceStatus(final SupvisorsInstanceInfo status) {
             System.out.println(status);
         }
 

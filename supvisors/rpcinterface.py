@@ -72,17 +72,17 @@ class RPCInterface(object):
         return self.supvisors.fsm.serial()
 
     def get_master_identifier(self):
-        """ Get the identificqtion of the Supvisors instance elected as **Supvisors** Master.
+        """ Get the identification of the Supvisors instance elected as **Supvisors** Master.
 
-        *@return* ``str``: the IPv4 address or host name.
+        *@return* ``str``: the Supvisors identifier.
         """
         return self.supvisors.context.master_identifier
 
     def get_master_address(self):
-        """ Get the identificqtion of the Supvisors instance elected as **Supvisors** Master.
+        """ Get the identification of the Supvisors instance elected as **Supvisors** Master.
         *DEPRECATED* use ``get_master_identifier``.
 
-        *@return* ``str``: the IPv4 address or host name.
+        *@return* ``str``: the Supvisors identifier.
         """
         self.logger.warn('RPCInterface.get_master_address: DEPRECATED. use get_master_identifier')
         return self.get_master_identifier()
@@ -139,9 +139,9 @@ class RPCInterface(object):
         """ Get information about the **Supvisors** instance running on the host named node.
         *DEPRECATED* use ``get_instance_info``.
 
-        *@param* ``str identifier``: the node where the Supervisor daemon is running.
+        *@param* ``str node_name``: the identifier of the Supvisors instance where the Supervisor daemon is running.
 
-        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if node is unknown to **Supvisors**.
+        *@throws* ``RPCError``: with code ``Faults.INCORRECT_PARAMETERS`` if the identifier is unknown to **Supvisors**.
 
         *@return* ``dict``: a structure containing data about the **Supvisors** instance.
         """
