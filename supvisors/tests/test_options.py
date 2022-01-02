@@ -39,10 +39,10 @@ def opt(supervisor):
 @pytest.fixture
 def filled_opt(mocker, supervisor):
     """ Test the values of options with defined Supvisors configuration. """
-    DefinedOptionConfiguration = {'address_list': 'cliche01,cliche03,cliche02',
+    DefinedOptionConfiguration = {'supvisors_list': 'cliche01,cliche03,cliche02',
                                   'rules_files': 'my_movies.xml', 'auto_fence': 'true',
                                   'internal_port': '60001', 'event_port': '60002',
-                                  'synchro_timeout': '20', 'force_synchro_if': 'cliche01,cliche03',
+                                  'synchro_timeout': '20', 'core_identifiers': 'cliche01,cliche03',
                                   'starting_strategy': 'MOST_LOADED', 'conciliation_strategy': 'SENICIDE',
                                   'stats_enabled': 'false', 'stats_periods': '5,60,600', 'stats_histo': '100',
                                   'stats_irix_mode': 'true',
