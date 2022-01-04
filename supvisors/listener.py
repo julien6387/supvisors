@@ -87,6 +87,7 @@ class SupervisorListener(object):
         events.subscribe(events.ProcessStateEvent, self.on_process_state)
         events.subscribe(ProcessAddedEvent, self.on_process_added)
         events.subscribe(ProcessRemovedEvent, self.on_process_removed)
+        events.subscribe(events.ProcessGroupAddedEvent, self.on_group_added)
         events.subscribe(events.Tick5Event, self.on_tick)
         events.subscribe(events.RemoteCommunicationEvent, self.on_remote_event)
 
@@ -97,6 +98,8 @@ class SupervisorListener(object):
         # replace the default handler for web ui
         self.supvisors.supervisor_data.replace_default_handler()
         # update Supervisor internal data for extra_args
+        # WARN: this is also triggered by adding groups in Supervisor, however the initial group added events are sent
+        # before the Supvisors RPC interface is created
         self.supvisors.supervisor_data.prepare_extra_args()
         # create zmq sockets
         self.supvisors.zmq = SupervisorZmq(self.supvisors)
@@ -131,17 +134,19 @@ class SupervisorListener(object):
         """ Called when a ProcessStateEvent is sent by the local Supervisor.
         The event is published to all Supvisors instances. """
         event_name = events.getEventNameByType(event.__class__)
-        namespec = make_namespec(event.process.group.config.name, event.process.config.name)
+        process_config = event.process.config
+        namespec = make_namespec(event.process.group.config.name, process_config.name)
         self.logger.debug(f'SupervisorListener.on_process_state: got {event_name} for {namespec}')
         # create payload from event
-        payload = {'name': event.process.config.name,
+        payload = {'name': process_config.name,
                    'group': event.process.group.config.name,
                    'state': _process_states_by_name[event_name.split('_')[-1]],
-                   'extra_args': event.process.config.extra_args,
                    'now': int(time.time()),
                    'pid': event.process.pid,
                    'expected': event.expected,
                    'spawnerr': event.process.spawnerr}
+        if hasattr(process_config, 'extra_args'):
+            payload['extra_args'] = process_config.extra_args
         self.logger.trace(f'SupervisorListener.on_process_state: payload={payload}')
         self.pusher.send_process_state_event(payload)
 
@@ -175,6 +180,16 @@ class SupervisorListener(object):
         payload = {'name': event.process.config.name, 'group': event.process.group.config.name}
         self.logger.trace(f'SupervisorListener.on_process_removed: payload={payload}')
         self.pusher.send_process_removed_event(payload)
+
+    def on_group_added(self, event: events.ProcessGroupAddedEvent) -> None:
+        """ Called when a group has been added due to a Supervisor configuration update.
+
+        :param event: the ProcessGroupAddedEvent object
+        :return: None
+        """
+        # update Supervisor internal data for extra_args
+        self.logger.debug(f'SupervisorListener.on_group_added: group={event.group}')
+        self.supvisors.supervisor_data.prepare_extra_args(event.group)
 
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.

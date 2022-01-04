@@ -139,10 +139,15 @@ def test_extra_args(source):
     assert not any(hasattr(process.config, 'command_ref') or hasattr(process.config, 'extra_args')
                    for appli in source.supervisord.process_groups.values()
                    for process in appli.processes.values())
+    # add context to one group of the internal data
+    source.prepare_extra_args('dummy_application')
+    # test internal data: 'dummy_application' processes should have additional attributes
+    assert all(hasattr(process.config, 'command_ref') and hasattr(process.config, 'extra_args')
+               for process in source.supervisord.process_groups['dummy_application'].processes.values())
     # add context to internal data
     source.prepare_extra_args()
     # test internal data: all should have additional attributes
-    assert all(hasattr(process.config, 'command_ref') or hasattr(process.config, 'extra_args')
+    assert all(hasattr(process.config, 'command_ref') and hasattr(process.config, 'extra_args')
                for appli in source.supervisord.process_groups.values()
                for process in appli.processes.values())
     # test unknown application and process
