@@ -17,8 +17,6 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import List
-
 from .instancestatus import *
 from .application import ApplicationRules, ApplicationStatus
 from .process import *

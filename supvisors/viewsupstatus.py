@@ -39,7 +39,7 @@ class SupvisorsInstanceView(StatusView):
         self.page_name = page_name
 
     def render(self):
-        """ Catch render to force the use of ViewHandler's method. """
+        """ Catch render to force the use of ViewHandler's method instead of StatusView's method. """
         return ViewHandler.render(self)
 
     # LEFT SIDE / NAVIGATION part
@@ -68,7 +68,7 @@ class SupvisorsInstanceView(StatusView):
         self.write_instance_actions(root, status)
 
     def write_instance_actions(self, root, status: SupvisorsInstanceStatus):
-        """ Write actions related to the node. """
+        """ Write actions related to the Supvisors instance. """
         # configure switch page
         if self.supvisors.options.stats_enabled:
             # update process button

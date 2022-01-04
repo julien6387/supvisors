@@ -401,9 +401,9 @@ def test_write_conflict_process_actions(view):
     assert mocked_stop_mid.attributes.call_args_list == [call(href='an url')]
     assert mocked_keep_mid.attributes.call_args_list == [call(href='an url')]
     assert view.view_ctx.format_url.call_args_list == [call('', SUPVISORS_PAGE, action='pstop',
-                                                            identifier='10.0.0.1', namespec='dummy_proc'),
+                                                            ident='10.0.0.1', namespec='dummy_proc'),
                                                        call('', SUPVISORS_PAGE, action='pkeep',
-                                                            identifier='10.0.0.1', namespec='dummy_proc')]
+                                                            ident='10.0.0.1', namespec='dummy_proc')]
 
 
 def test_write_conflict_strategies(view):

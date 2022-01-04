@@ -64,10 +64,10 @@ class SupvisorsMainLoop(Thread):
         Thread.__init__(self)
         # create stop event
         self.stop_event = Event()
-        # keep a reference to the Supvisors instance and to the environment
+        # keep a reference to the Supvisors instance
         self.supvisors = supvisors
+        # create an XML-RPC client to the local Supervisor instance
         self.srv_url = SupervisorServerUrl(supvisors.supervisor_data.get_env())
-        # create a XML-RPC client to the local Supervisor instance
         self.proxy = getRPCInterface(self.srv_url.env)
         # heartbeat variables
         self.supervisor_time = 0
@@ -88,7 +88,7 @@ class SupvisorsMainLoop(Thread):
         """
         if self.is_alive():
             self.stop_event.set()
-            # the thread cannot be blocked in a XML-RPC call because of the close_httpservers called
+            # the thread cannot be blocked in an XML-RPC call because of the close_httpservers called
             # just before this stop so join is expected to end properly
             self.join()
 

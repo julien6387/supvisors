@@ -56,6 +56,7 @@ class DummyOptions:
         self.stats_enabled = True
         self.stats_periods = 5, 15, 60
         self.stats_histo = 10
+        self.stats_irix_mode = False
         # logger options
         self.logfile = Automatic
         self.logfile_maxbytes = 10000
@@ -202,7 +203,7 @@ class DummyHttpContext:
                      'SERVER_PORT': 7777,
                      'PATH_TRANSLATED': '/index.html',
                      'action': 'test',
-                     'identifier': '10.0.0.4',
+                     'ident': '10.0.0.4',
                      'message': 'hi chaps',
                      'gravity': 'none',
                      'namespec': 'dummy_proc',

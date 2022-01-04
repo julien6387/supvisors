@@ -18,7 +18,7 @@
 # ======================================================================
 
 from enum import Enum
-from typing import Any, Dict, List, Set, TypeVar
+from typing import Any, Dict, List, Set, Tuple, TypeVar
 
 from supervisor.events import Event
 
@@ -120,10 +120,29 @@ class ProcessRemovedEvent(ProcessEvent):
     pass
 
 
-# Types for annotations
+# Annotation types
 EnumClassType = TypeVar('EnumClassType', bound='Type[Enum]')
 EnumType = TypeVar('EnumType', bound='Enum')
 Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
 NameSet = Set[str]
+
+# Annotation types for statistics
+NamedPid = Tuple[str, int]  # namespec, PID
+NamedPidList = List[NamedPid]
+Jiffies = Tuple[float, float]  # (work, idle)
+JiffiesList = List[Jiffies]  # one entry per processor + 1 for average (first element)
+CPUInstantStats = List[float]  # in percent. one entry per processor + 1 for average (first element)
+CPUHistoryStats = List[List[float]]  # in percent. one list per processor + 1 for average (first element)
+MemHistoryStats = List[float]  # in percent
+IOBytes = Tuple[int, int]  # recv_bytes, sent_bytes
+BytesList = List[float]  # in kilobytes per second
+InterfaceInstantStats = Dict[str, IOBytes]  # {interface: (recv_bytes, sent_bytes)}
+InterfaceIntegratedStats = Dict[str, Tuple[float, float]]  # {interface: (recv_bytes, sent_bytes)}
+InterfaceHistoryStats = Dict[str, Tuple[BytesList, BytesList]]  # {interface: ([recv_bytes], [sent_bytes])}
+ProcessStats = Tuple[float, float]  # jiffies, memory
+ProcessStatsMap = Dict[str, Tuple[int, ProcessStats]]  # {namespec: (PID, ProcessStats)}
+ProcessHistoryStats = Tuple[CPUInstantStats, MemHistoryStats]
+ProcessHistoryStatsMap = Dict[NamedPid, ProcessHistoryStats]
+InstantStatistics = Tuple[float, JiffiesList, float, InterfaceInstantStats, ProcessStatsMap]

@@ -31,6 +31,7 @@ from .viewapplication import ApplicationView
 from .viewhandler import ViewHandler
 from .viewhostinstance import HostInstanceView
 from .viewimage import *
+from .viewmaintail import MainTailView
 from .viewprocinstance import ProcInstanceView
 from .viewsupvisors import SupvisorsView
 
@@ -53,12 +54,14 @@ def update_views() -> None:
     here = os.path.abspath(os.path.dirname(__file__))
     # set main page
     VIEWS['index.html'] = {'template': os.path.join(here, 'ui/index.html'), 'view': SupvisorsView}
-    # set address /processpage
+    # set Supvisors instance /process page
     VIEWS['proc_instance.html'] = {'template': os.path.join(here, 'ui/proc_instance.html'), 'view': ProcInstanceView}
-    # set address/host page
+    # set Supvisors instance / host page
     VIEWS['host_instance.html'] = {'template': os.path.join(here, 'ui/host_instance.html'), 'view': HostInstanceView}
     # set application page
     VIEWS['application.html'] = {'template': os.path.join(here, 'ui/application.html'), 'view': ApplicationView}
+    # set main tail page (reuse of Supervisor tail.html)
+    VIEWS['maintail.html'] = {'template': 'ui/tail.html', 'view': MainTailView}
     # set fake page to export images
     VIEWS['process_cpu.png'] = {'template': None, 'view': ProcessCpuImageView}
     VIEWS['process_mem.png'] = {'template': None, 'view': ProcessMemoryImageView}

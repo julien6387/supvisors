@@ -17,14 +17,14 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
 
 from .supvisorsmapper import SupvisorsInstanceId
 from .process import ProcessStatus
-from .ttypes import SupvisorsInstanceStates, InvalidTransition
+from .ttypes import NamedPidList, SupvisorsInstanceStates, InvalidTransition
 
 
 class SupvisorsInstanceStatus(object):
@@ -147,9 +147,12 @@ class SupvisorsInstanceStatus(object):
         return [process for process in self.processes.values()
                 if process.running_on(self.identifier)]
 
-    def pid_processes(self):
+    def pid_processes(self) -> NamedPidList:
         """ Return the process running on the Supvisors instance and having a pid.
-       Different from running_processes_on because it excludes the states STARTING and BACKOFF. """
+       Different from running_processes_on because it excludes the states STARTING and BACKOFF.
+
+        :return: A list of process namespecs and PIDs
+        """
         return [(process.namespec, process.info_map[self.identifier]['pid'])
                 for process in self.processes.values()
                 if process.pid_running_on(self.identifier)]

@@ -33,8 +33,8 @@ SERVER_URL = 'SERVER_URL'
 SERVER_PORT = 'SERVER_PORT'
 PATH_TRANSLATED = 'PATH_TRANSLATED'
 
-IDENTIFIER = 'identifier'  # nav
-APPLI = 'appliname'  # nav
+IDENTIFIER = 'ident'  # navigation
+APPLI = 'appliname'  # navigation
 
 ACTION = 'action'
 NAMESPEC = 'namespec'   # used for actions
@@ -130,7 +130,10 @@ class ViewContext:
         """ Extract process name from context.
         ApplicationView may select a process unknown to this Supvisors instance. """
         status = self.supvisors.context.instances[self.parameters[IDENTIFIER]]
-        self._update_string(PROCESS, [x.namespec for x in status.running_processes()])
+        # consider processes running on this Supvisors instance + supervisord
+        running_processes = [x.namespec for x in status.running_processes()]
+        running_processes.append('supervisord')
+        self._update_string(PROCESS, running_processes)
 
     def update_namespec(self):
         """ Extract namespec from context. """
@@ -159,27 +162,27 @@ class ViewContext:
             if re.match(r'^[0-1]{%d}$' % len(value), str_value):
                 value = str_value
             else:
-                self.store_message = error_message('Incorrect SHRINK_EXPAND: {}'.format(str_value))
-        self.logger.trace('ViewContext.update_shrink_expand: SHRINK_EXPAND set to {}'.format(value))
+                self.store_message = error_message(f'Incorrect SHRINK_EXPAND: {str_value}')
+        self.logger.trace(f'ViewContext.update_shrink_expand: SHRINK_EXPAND set to {value}')
         self.parameters[SHRINK_EXPAND] = value
 
     def url_parameters(self, reset_shex, **kwargs):
-        """ Return the list of parameters for an URL. """
+        """ Return the list of parameters for a URL. """
         parameters = dict(self.parameters, **kwargs)
         if reset_shex:
             del parameters[SHRINK_EXPAND]
-        return '&'.join(['{}={}'.format(key, quote(str(value)))
+        return '&'.join([f'{key}={quote(str(value))}'
                          for key, value in sorted(parameters.items()) if value])
 
-    def format_url(self, net_identifier, page, **kwargs):
+    def format_url(self, identifier, page, **kwargs):
         """ Format URL from parameters. """
         netloc = ''
         # build network location if identifier is provided
-        if net_identifier:
-            instance = self.supvisors.supvisors_mapper.instances[net_identifier]
+        if identifier:
+            instance = self.supvisors.supvisors_mapper.instances[identifier]
             netloc = f'http://{quote(instance.host_name)}:{instance.http_port}/'
         # shex must be reset if the Supvisors instance changes
-        local_identifier = not net_identifier or net_identifier == self.local_identifier
+        local_identifier = not identifier or identifier == self.local_identifier
         # build URL from netloc, page and attributes
         return f'{netloc}{page}?{self.url_parameters(not local_identifier, **kwargs)}'
 
@@ -190,7 +193,7 @@ class ViewContext:
             form = self.http_context.form
             # if redirect requested, go back to main page
             path_translated = '/' + SUPVISORS_PAGE if self.redirect else form[PATH_TRANSLATED]
-            location = '{}{}?{}'.format(form[SERVER_URL], path_translated, self.url_parameters(False, **args))
+            location = f'{form[SERVER_URL]}{path_translated}?{self.url_parameters(False, **args)}'
             self.http_context.response[HEADERS][LOCATION] = location
 
     def get_nbcores(self, identifier=None):
@@ -254,9 +257,9 @@ class ViewContext:
             if str_value in check_list:
                 value = str_value
             else:
-                self.store_message = error_message('Incorrect {}: {}'.format(param, str_value))
+                self.store_message = error_message(f'Incorrect {param}: {str_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_string: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_string: {param} set to {value}')
         self.parameters[param] = value
 
     def _update_integer(self, param, check_list, default_value=0):
@@ -267,15 +270,15 @@ class ViewContext:
             try:
                 int_value = int(str_value)
             except ValueError:
-                self.store_message = error_message('{} is not an integer: {}'.format(param, str_value))
+                self.store_message = error_message(f'{param} is not an integer: {str_value}')
             else:
                 # check that int_value is defined in check list
                 if int_value in check_list:
                     value = int_value
                 else:
-                    self.store_message = error_message('Incorrect {}: {}'.format(param, int_value))
+                    self.store_message = error_message(f'Incorrect {param}: {int_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_integer: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_integer: {param} set to {value}')
         self.parameters[param] = value
 
     def _update_boolean(self, param, default_value=False):
@@ -286,9 +289,9 @@ class ViewContext:
             try:
                 value = strtobool(str_value)
             except ValueError:
-                self.store_message = error_message('{} is not a boolean-like: {}'.format(param, str_value))
+                self.store_message = error_message(f'{param} is not a boolean-like: {str_value}')
         # assign value found or default
-        self.logger.trace('ViewContext._update_boolean: {} set to {}'.format(param, value))
+        self.logger.trace(f'ViewContext._update_boolean: {param} set to {value}')
         self.parameters[param] = value
 
     @staticmethod

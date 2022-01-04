@@ -450,6 +450,7 @@ class ProcessStatus(object):
                               f' - updating info[{identifier}]={info} with payload={payload}')
             info['local_time'] = self.last_event_time
             info.update(payload)
+            info['statename'] = getProcessStateDescription(info['state'])
             # re-evaluate description using Supervisor function
             info['description'] = self.update_description(info)
             # reset start time if process in a starting state

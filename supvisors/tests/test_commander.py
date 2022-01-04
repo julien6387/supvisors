@@ -25,7 +25,7 @@ from unittest.mock import call, Mock
 from supvisors.commander import *
 from supvisors.ttypes import ApplicationStates, StartingStrategies, StartingFailureStrategies
 
-from .base import database_copy, any_process_info_by_state, process_info_by_name
+from .base import any_process_info_by_state, process_info_by_name
 from .conftest import create_any_process, create_application, create_process
 
 

@@ -70,7 +70,7 @@ class SupervisorListener(object):
         # test if statistics collector can be created for local host
         self.collector = None
         try:
-            from supvisors.statscollector import instant_statistics
+            from .statscollector import instant_statistics
             self.collector = instant_statistics
         except ImportError:
             self.logger.info('SupervisorListener: psutil not installed')
@@ -179,13 +179,16 @@ class SupervisorListener(object):
     def on_tick(self, event: events.TickEvent) -> None:
         """ Called when a TickEvent is notified.
         The event is published to all Supvisors instances.
-        Then statistics are published and periodic task is triggered. """
+        Then statistics are published and periodic task is triggered.
+
+        :param event: the Supervisor TICK event
+        :return: None
+        """
         self.logger.debug('SupervisorListener.on_tick: got TickEvent from Supervisor')
         payload = {'when': event.when}
         self.logger.trace(f'SupervisorListener.on_tick: payload={payload}')
         self.pusher.send_tick_event(payload)
         # get and publish statistics at tick time (optional)
-        # TODO: send only PID in pusher. main loop can collect
         if self.collector and self.supvisors.options.stats_enabled:
             status = self.supvisors.context.instances[self.local_identifier]
             stats = self.collector(status.pid_processes())

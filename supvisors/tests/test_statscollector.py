@@ -71,10 +71,24 @@ def test_instant_io_statistics():
     assert stats['lo'][0] == stats['lo'][1]
 
 
-def test_instant_process_statistics():
+def test_instant_process_statistics(mocker):
     """ Test the instant process statistics. """
-    # check with existing PID
+    mocked_process = mocker.patch('psutil.Process.children', return_value=[Process(os.getpid())])
+    # check with existing PID and no children requested
+    work, memory = instant_process_statistics(os.getpid(), False)
+    assert not mocked_process.called
+    # test that a pair is returned with values in [0;100]
+    # test cpu value
+    assert type(work) is float
+    assert work >= 0
+    assert work <= 100
+    # test mem value
+    assert type(memory) is float
+    assert memory >= 0
+    assert memory <= 100
+    # check with existing PID and children requested
     work, memory = instant_process_statistics(os.getpid())
+    assert mocked_process.called
     # test that a pair is returned with values in [0;100]
     # test cpu value
     assert type(work) is float
@@ -115,8 +129,18 @@ def test_instant_statistics():
         for value in io_bytes:
             assert type(value) is int
     # check process stats
-    assert list(proc_stats.keys()) == ['myself']
+    assert list(proc_stats.keys()) == ['myself', 'supervisord']
+    # check first entry
     values = proc_stats['myself']
+    assert len(values) == 2
+    assert values[0] == os.getpid()
+    assert len(values[1]) == 2
+    for value in values[1]:
+        assert type(value) is float
+        assert value >= 0
+        assert value <= 100
+    # check supervisord entry
+    values = proc_stats['supervisord']
     assert len(values) == 2
     assert values[0] == os.getpid()
     assert len(values[1]) == 2

@@ -473,7 +473,7 @@ def test_write_common_process_cpu(handler):
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
-    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, identifier='10.0.0.1')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, ident='10.0.0.1')]
     assert cell_elt.attrib['class'] == 'button on active'
     assert cell_elt.content.call_args_list == [call('20.00%')]
     # reset context
@@ -490,7 +490,7 @@ def test_write_common_process_cpu(handler):
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('15.00%')]
-    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', identifier='10.0.0.1')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.1')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
     # reset context
@@ -501,7 +501,7 @@ def test_write_common_process_cpu(handler):
     del cell_elt.attrib['class']
     # test with filled stats on application (so non process), solaris mode
     handler.supvisors.options.stats_irix_mode = False
-    info = {'namespec': None, 'identifier': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
+    info = {'namespec': None, 'ident': '10.0.0.1', 'proc_stats': [[10, 20, 30]], 'nb_cores': 2}
     handler.write_common_process_cpu(tr_elt, info)
     assert tr_elt.findmeld.call_args_list == [call('pcpu_a_mid')]
     assert not cell_elt.deparent.called
@@ -560,7 +560,7 @@ def test_write_common_process_mem(handler):
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('20.00%')]
-    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, identifier='10.0.0.2')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname=None, ident='10.0.0.2')]
     assert cell_elt.attrib['class'] == 'button on active'
     # reset context
     tr_elt.findmeld.reset_mock()
@@ -575,7 +575,7 @@ def test_write_common_process_mem(handler):
     assert not cell_elt.deparent.called
     assert not cell_elt.replace.called
     assert cell_elt.content.call_args_list == [call('30.00%')]
-    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', identifier='10.0.0.2')]
+    assert handler.view_ctx.format_url.call_args_list == [call('', None, processname='dummy', ident='10.0.0.2')]
     assert cell_elt.attributes.call_args_list == [call(href='an url')]
     assert cell_elt.attrib['class'] == 'button on'
     # reset context
@@ -720,7 +720,9 @@ def test_write_common_process_table(handler):
     mem_foot_elt = Mock()
     cpu_head_elt = Mock()
     cpu_foot_elt = Mock()
-    root = Mock(attrib={}, **{'findmeld.side_effect': [mem_head_elt, cpu_head_elt, mem_foot_elt, cpu_foot_elt]})
+    mid_map = {'mem_head_th_mid': mem_head_elt, 'cpu_head_th_mid': cpu_head_elt,
+               'mem_foot_th_mid': mem_foot_elt, 'cpu_foot_th_mid': cpu_foot_elt, 'total_mid': None}
+    root = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
     # test with statistics enabled
     handler.supvisors.options.stats_enabled = True
     handler.write_common_process_table(root)
@@ -732,6 +734,8 @@ def test_write_common_process_table(handler):
     # test with statistics enabled
     handler.supvisors.options.stats_enabled = False
     handler.write_common_process_table(root)
+    assert root.findmeld.call_args_list == [call('mem_head_th_mid'), call('cpu_head_th_mid'),
+                                            call('mem_foot_th_mid'), call('cpu_foot_th_mid'), call('total_mid')]
     assert mem_head_elt.deparent.call_args_list == [call()]
     assert mem_foot_elt.deparent.call_args_list == [call()]
     assert cpu_head_elt.deparent.call_args_list == [call()]
@@ -851,7 +855,7 @@ def test_write_process_plots_no_plot(mocker, handler):
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocker.patch.dict('sys.modules', {'supvisors.plot': None})
     # test call
-    handler.write_process_plots([])
+    handler.write_process_plots([], 0)
     # test that plot methods are not called
     assert not mocked_export.called
 
@@ -860,11 +864,18 @@ def test_write_process_plots(mocker, handler):
     """ Test the write_process_plots method. """
     # skip test if matplotlib is not installed
     pytest.importorskip('matplotlib', reason='cannot test as optional matplotlib is not installed')
-    # test call with dummy stats
+    # get patches
     mocked_export = mocker.patch('supvisors.plot.StatisticsPlot.export_image')
     mocked_add = mocker.patch('supvisors.plot.StatisticsPlot.add_plot')
+    # test call with dummy stats and Solaris mode
     proc_stats = ([10, 16, 24], [20, 32, 32])
-    handler.write_process_plots(proc_stats)
+    handler.write_process_plots(proc_stats, 2)
+    assert mocked_add.call_args_list == [call('CPU', '%', [5, 8, 12]), call('MEM', '%', [20, 32, 32])]
+    assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
+    mocker.resetall()
+    # test call with dummy stats and IRIX mode
+    handler.supvisors.options.stats_irix_mode = True
+    handler.write_process_plots(proc_stats, 2)
     assert mocked_add.call_args_list == [call('CPU', '%', [10, 16, 24]), call('MEM', '%', [20, 32, 32])]
     assert mocked_export.call_args_list == [call(process_cpu_img), call(process_mem_img)]
 
@@ -917,7 +928,7 @@ def test_write_process_statistics(mocker, handler):
     assert mocked_cpu.call_args_list == [call(stats_elt, 'dummy_stats', 8)]
     assert mocked_mem.call_args_list == [call(stats_elt, 'dummy_stats')]
     assert title_elt.content.call_args_list == [call('dummy_proc')]
-    assert mocked_plots.call_args_list == [call('dummy_stats')]
+    assert mocked_plots.call_args_list == [call('dummy_stats', 8)]
 
 
 def test_handle_action(handler):

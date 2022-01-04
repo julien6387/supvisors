@@ -51,6 +51,7 @@ class SupvisorsOptions(object):
         - stats_enable: when False, no statistics will be collected and displayed from this node,
         - stats_periods: list of periods for which the statistics will be provided in the Supvisors Web UI,
         - stats_histo: depth of statistics history,
+        - stats_irix_mode: choice of CPU value display between IRIX and Solaris,
         - logfile: absolute or relative path of the Supvisors log file,
         - logfile_maxbytes: maximum size of the Supvisors log file,
         - logfile_backups: number of Supvisors backup log files,
