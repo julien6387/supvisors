@@ -7,6 +7,8 @@
 
 * Fix issue in Web UI with the Solaris mode not applied to the process CPU plot.
 
+* Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
+
 * Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
   `address_name`, `addresses`, `get_master_address`, `get_address_info` and `get_all_addresses_info`).
 

@@ -479,20 +479,13 @@ th, td {
 th {
     background-color: var(--th-color);
     text-align: center;
+}
+
+#process_table th {
     position: sticky;
     top: 0;
     z-index: 20;
 }
-
-/* TO BE TESTED
-tr:nth-child(even) td[scope=row] {
-    background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
-}
-
-tr:nth-child(odd) td[scope=row] {
-    background-image: linear-gradient(180deg, var(--light1-color), var(--light2-color), var(--light1-color));
-}
-*/
 
 .brightened {
     background-image: linear-gradient(180deg, var(--vlight2-color), var(--light2-color), var(--vlight2-color));
