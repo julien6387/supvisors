@@ -12,6 +12,8 @@
 
 * Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
 
+* Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.
+
 * Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
   `address_name`, `addresses`, `get_master_address`, `get_address_info` and `get_all_addresses_info`).
 

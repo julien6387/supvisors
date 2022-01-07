@@ -39,8 +39,27 @@ def mocked_rpc():
 
 
 @pytest.fixture
-def main_loop(supvisors):
+def main_loop(mocker, supvisors):
+    mocked_zmq = Mock(publisher=Mock(), subscriber=Mock(), puller=Mock(), poller=Mock(), spec=SupvisorsZmq)
+    mocker.patch('supvisors.mainloop.SupvisorsZmq', return_value=mocked_zmq)
     return SupvisorsMainLoop(supvisors)
+
+
+def test_creation_error(mocker, supvisors, mocked_rpc):
+    """ Test the values set at construction. """
+    mocker.patch('supvisors.mainloop.SupvisorsZmq', side_effect=ZMQError)
+    main_loop = SupvisorsMainLoop(supvisors)
+    assert isinstance(main_loop, Thread)
+    assert main_loop.supvisors is supvisors
+    assert not main_loop.stop_event.is_set()
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+                                     'SUPERVISOR_USERNAME': 'user',
+                                     'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
+    assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
+    assert main_loop.supervisor_time == 0
+    assert main_loop.reference_time == 0.0
+    assert main_loop.reference_counter == 0
+    assert main_loop.sockets is None
 
 
 def test_creation(supvisors, mocked_rpc, main_loop):
@@ -55,6 +74,7 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert main_loop.supervisor_time == 0
     assert main_loop.reference_time == 0.0
     assert main_loop.reference_counter == 0
+    assert main_loop.sockets is not None
 
 
 def test_stopping(mocked_rpc, main_loop):
@@ -75,20 +95,23 @@ def test_stop(mocker, mocked_rpc, main_loop):
     mocker.patch.object(main_loop, 'is_alive', return_value=True)
     main_loop.stop()
     assert main_loop.stop_event.is_set()
-    assert mocked_join.call_count == 1
+    assert mocked_join.called
 
 
 def test_run(mocker, main_loop):
     """ Test the running of the main loop thread. """
+    mocker.patch('supvisors.mainloop.time', return_value=1234)
     mocked_beat = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.manage_heartbeat')
     mocked_evt = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_events')
     mocked_req = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.check_requests')
-    mocked_poll = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.poll')
     # patch one loops
     mocker.patch.object(main_loop, 'stopping', side_effect=[False, False, True])
     main_loop.run()
+    assert main_loop.supervisor_time == 1234
+    assert main_loop.reference_time == 1234
+    assert main_loop.reference_counter == 0
     # test that mocked functions were called once
-    assert mocked_poll.call_args_list == [call()]
+    assert main_loop.sockets.poll.call_args_list == [call()]
     assert mocked_beat.call_count == 1
     assert mocked_evt.call_count == 1
     assert mocked_req.call_count == 1
@@ -98,21 +121,20 @@ def test_manage_heartbeat(mocker, main_loop):
     """ Test the management of the Supvisors heartbeat. """
     mocker.patch('supvisors.mainloop.time', return_value=3600)
     mocker.patch('supvisors.mainloop.stderr')
-    publisher = Mock()
     # check initial status
     assert main_loop.supervisor_time == 0
     assert main_loop.reference_time == 0.0
     assert main_loop.reference_counter == 0
     # test when period not reached
     main_loop.reference_time = 3597
-    main_loop.manage_heartbeat(publisher)
+    main_loop.manage_heartbeat()
     assert main_loop.reference_counter == 0
-    assert not publisher.send_tick_event.called
+    assert not main_loop.sockets.publisher.send_tick_event.called
     # test when period reached
     main_loop.reference_time = 3594
-    main_loop.manage_heartbeat(publisher)
+    main_loop.manage_heartbeat()
     assert main_loop.reference_counter == 1
-    assert publisher.send_tick_event.call_args_list == [call({'sequence_counter': 1, 'when': 3600})]
+    assert main_loop.sockets.publisher.send_tick_event.call_args_list == [call({'sequence_counter': 1, 'when': 3600})]
 
 
 def test_check_events(mocker, main_loop):
@@ -121,80 +143,81 @@ def test_check_events(mocker, main_loop):
     # prepare context
     mocked_sockets = Mock(**{'check_subscriber.return_value': None})
     # test with empty socks
-    main_loop.check_events(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_subscriber.call_args_list == [call('poll result')]
+    main_loop.sockets.check_subscriber.return_value = None
+    main_loop.check_events('poll result')
+    assert main_loop.sockets.check_subscriber.call_args_list == [call('poll result')]
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_subscriber.reset_mock()
+    main_loop.sockets.check_subscriber.reset_mock()
     # test with appropriate socks but with exception
-    mocked_sockets.check_subscriber.return_value = 'a message'
-    main_loop.check_events(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_subscriber.call_args_list == [call('poll result')]
+    main_loop.sockets.check_subscriber.return_value = 'a message'
+    main_loop.check_events('poll result')
+    assert main_loop.sockets.check_subscriber.call_args_list == [call('poll result')]
     assert mocked_send.call_args_list == [call('event', '"a message"')]
 
 
 def test_check_requests(mocker, main_loop):
     """ Test the processing of the requests received. """
     mocked_send = mocker.patch('supvisors.mainloop.SupvisorsMainLoop.send_request')
-    mocked_sockets = Mock(**{'check_puller.return_value': None})
     # store reference time
     ref_time = main_loop.supervisor_time
     # test with empty socks
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = None
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == ref_time
-    assert not mocked_sockets.publisher.forward_event.called
-    assert not mocked_sockets.disconnect_subscriber.called
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert not main_loop.sockets.disconnect_subscriber.called
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
     # test with node isolation message
-    mocked_sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = DeferredRequestHeaders.ISOLATE_INSTANCES.value, 'a message'
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == ref_time
-    assert not mocked_sockets.publisher.forward_event.called
-    assert mocked_sockets.disconnect_subscriber.call_args_list == [call('a message')]
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert main_loop.sockets.disconnect_subscriber.call_args_list == [call('a message')]
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
-    mocked_sockets.disconnect_subscriber.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
+    main_loop.sockets.disconnect_subscriber.reset_mock()
     # test with other deferred message
     for event in DeferredRequestHeaders:
         if event != DeferredRequestHeaders.ISOLATE_INSTANCES:
-            mocked_sockets.check_puller.return_value = event.value, 'a message'
-            main_loop.check_requests(mocked_sockets, 'poll result')
-            assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+            main_loop.sockets.check_puller.return_value = event.value, 'a message'
+            main_loop.check_requests('poll result')
+            assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
             assert main_loop.supervisor_time == ref_time
-            assert not mocked_sockets.publisher.forward_event.called
-            assert not mocked_sockets.disconnect_subscriber.called
+            assert not main_loop.sockets.publisher.forward_event.called
+            assert not main_loop.sockets.disconnect_subscriber.called
             assert mocked_send.call_args_list == [call(event, 'a message')]
             # reset mocks
-            mocked_sockets.check_puller.reset_mock()
+            main_loop.sockets.check_puller.reset_mock()
             mocked_send.reset_mock()
     # test with tick message
-    mocked_sockets.check_puller.return_value = InternalEventHeaders.TICK.value, ('127.0.0.1', {'when': 1234})
-    main_loop.check_requests(mocked_sockets, 'poll result')
-    assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+    main_loop.sockets.check_puller.return_value = InternalEventHeaders.TICK.value, ('127.0.0.1', {'when': 1234})
+    main_loop.check_requests('poll result')
+    assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
     assert main_loop.supervisor_time == 1234
-    assert not mocked_sockets.publisher.forward_event.called
-    assert not mocked_sockets.disconnect_subscriber.called
+    assert not main_loop.sockets.publisher.forward_event.called
+    assert not main_loop.sockets.disconnect_subscriber.called
     assert not mocked_send.called
     # reset mocks
-    mocked_sockets.check_puller.reset_mock()
+    main_loop.sockets.check_puller.reset_mock()
     # test with deferred publication message
     for event in InternalEventHeaders:
         if event != InternalEventHeaders.TICK:
-            mocked_sockets.check_puller.return_value = event.value, 'a message'
-            main_loop.check_requests(mocked_sockets, 'poll result')
-            assert mocked_sockets.check_puller.call_args_list == [call('poll result')]
+            main_loop.sockets.check_puller.return_value = event.value, 'a message'
+            main_loop.check_requests('poll result')
+            assert main_loop.sockets.check_puller.call_args_list == [call('poll result')]
             assert main_loop.supervisor_time == 1234
-            assert mocked_sockets.publisher.forward_event.call_args_list == [call((event.value, 'a message'))]
-            assert not mocked_sockets.disconnect_subscriber.called
+            assert main_loop.sockets.publisher.forward_event.call_args_list == [call((event.value, 'a message'))]
+            assert not main_loop.sockets.disconnect_subscriber.called
             assert not mocked_send.called
             # reset mocks
-            mocked_sockets.check_puller.reset_mock()
-            mocked_sockets.publisher.forward_event.reset_mock()
+            main_loop.sockets.check_puller.reset_mock()
+            main_loop.sockets.publisher.forward_event.reset_mock()
 
 
 def test_check_instance(mocker, mocked_rpc, main_loop):

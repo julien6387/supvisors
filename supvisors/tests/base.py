@@ -31,8 +31,9 @@ from supervisor.states import STOPPED_STATES, SupervisorStates
 
 from supvisors.supvisorsmapper import SupvisorsMapper
 from supvisors.context import Context
-from supvisors.supervisordata import SupervisorData
 from supvisors.initializer import Supvisors
+from supvisors.supervisordata import SupervisorData
+from supvisors.supvisorszmq import SupervisorZmq
 from supvisors.ttypes import StartingStrategies
 from supvisors.utils import extract_process_info
 
@@ -97,8 +98,8 @@ class MockedSupvisors:
         from supvisors.commander import Starter, Stopper
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
-        from supvisors.supvisorszmq import SupvisorsZmq
-        self.zmq = Mock(spec=SupvisorsZmq)
+        # should be set in listener
+        self.zmq = Mock(spec=SupervisorZmq)
         self.zmq.__init__()
 
 

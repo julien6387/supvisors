@@ -24,6 +24,7 @@ from threading import Event, Thread
 from time import time
 from typing import Any
 from sys import stderr
+from zmq.error import ZMQError
 
 from supervisor.compat import xmlrpclib
 from supervisor.childutils import getRPCInterface
@@ -73,6 +74,12 @@ class SupvisorsMainLoop(Thread):
         self.supervisor_time = 0
         self.reference_time = 0.0
         self.reference_counter = 0
+        # Create PyZmq sockets
+        try:
+            self.sockets = SupvisorsZmq(self.supvisors.supvisors_mapper)
+        except ZMQError as e:
+            self.supvisors.logger.critical(f'SupvisorsMainLoop: failed to create PyZmq sockets ({e})')
+            self.sockets = None
 
     def stopping(self) -> bool:
         """ Access to the loop attribute (used to drive tests on run method).
@@ -94,53 +101,52 @@ class SupvisorsMainLoop(Thread):
 
     def run(self) -> None:
         """ Contents of the infinite loop. """
-        # init heartbeat
-        self.reference_time = self.supervisor_time = time()
-        self.reference_counter = 0
-        # Create zmq sockets
-        sockets = SupvisorsZmq(self.supvisors.supvisors_mapper)
-        # poll events forever
-        while not self.stopping():
-            poll_result = sockets.poll()
-            # test stop condition again: if Supervisor is stopping,
-            # any XML-RPC call would block this thread and the other because of the join
-            if not self.stopping():
-                # manage heartbeat
-                self.manage_heartbeat(sockets.publisher)
-                # process events
-                self.check_requests(sockets, poll_result)
-                self.check_events(sockets, poll_result)
-        # close resources gracefully
-        sockets.close()
+        if self.sockets:
+            # init heartbeat
+            self.reference_time = self.supervisor_time = time()
+            self.reference_counter = 0
+            # poll events forever
+            while not self.stopping():
+                poll_result = self.sockets.poll()
+                # test stop condition again: if Supervisor is stopping,
+                # any XML-RPC call would block this thread and the other because of the join
+                if not self.stopping():
+                    # manage heartbeat
+                    self.manage_heartbeat()
+                    # process events
+                    self.check_requests(poll_result)
+                    self.check_events(poll_result)
+            # close resources gracefully
+            self.sockets.close()
 
-    def manage_heartbeat(self, publisher) -> None:
+    def manage_heartbeat(self) -> None:
         """ Send a periodic TICK to other Supvisors instances.
         Supervisor TICK is not reliable for a heartbeat as it may be blocked or delayed by HTTP requests.
-        Anyway, a minimum TICK of 5 seconds may be questioned at some point so now it could be lower if necessary. """
+        Anyway, a minimum TICK of 5 seconds may be questioned at some point, so now it could be lower if necessary. """
         current_time = time()
         current_counter = int((current_time - self.reference_time) / SupvisorsMainLoop.TICK_PERIOD)
         if current_counter > self.reference_counter:
             # send the Supvisors TICK to other Supvisors instances
             self.reference_counter = current_counter
             payload = {'sequence_counter': current_counter, 'when': current_time}
-            publisher.send_tick_event(payload)
+            self.sockets.publisher.send_tick_event(payload)
             # check that Supervisor thread is alive
             supervisor_silence = current_time - self.supervisor_time
             if supervisor_silence > SupvisorsMainLoop.SUPERVISOR_ALERT_TIMEOUT:
                 print(f'[ERROR] no TICK received from Supervisor for {supervisor_silence} seconds', file=stderr)
 
-    def check_events(self, sockets, poll_result) -> None:
+    def check_events(self, poll_result) -> None:
         """ Forward external Supvisors events to main thread. """
-        message = sockets.check_subscriber(poll_result)
+        message = self.sockets.check_subscriber(poll_result)
         if message:
             # The events received are not processed directly in this thread because it would conflict
             # with the processing in the Supervisor thread, as they use the same data.
             # That's why a RemoteCommunicationEvent is used to push the event in the Supervisor thread.
             self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_EVENT, json.dumps(message))
 
-    def check_requests(self, sockets, poll_result) -> None:
+    def check_requests(self, poll_result) -> None:
         """ Defer internal requests. """
-        message = sockets.check_puller(poll_result)
+        message = self.sockets.check_puller(poll_result)
         if message:
             header, body = message
             # check publication event or deferred request
@@ -152,11 +158,11 @@ class SupvisorsMainLoop(Thread):
                     self.supervisor_time = body[1]['when']
                 else:
                     # forward the publication
-                    sockets.publisher.forward_event(message)
+                    self.sockets.publisher.forward_event(message)
             else:
                 if deferred_request == DeferredRequestHeaders.ISOLATE_INSTANCES:
                     # isolation request: disconnect the node from subscriber
-                    sockets.disconnect_subscriber(body)
+                    self.sockets.disconnect_subscriber(body)
                 else:
                     # XML-RPC request
                     self.send_request(deferred_request, body)
