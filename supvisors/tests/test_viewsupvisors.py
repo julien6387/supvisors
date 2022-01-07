@@ -490,43 +490,43 @@ def test_get_conciliation_data(mocker, view):
 def test_sup_restart_action(mocker, view):
     """ Test the sup_shutdown_action method. """
     mocked_methods = [mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info'),
+                      mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning'),
                       mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
-                      mocker.patch('supvisors.viewsupvisors.info_message', return_value='info')]
+                      mocker.patch('supvisors.viewsupvisors.warn_message', return_value='warning')]
     _check_sup_action(mocker, view, view.sup_restart_action, 'restart', *mocked_methods)
 
 
 def test_sup_shutdown_action(mocker, view):
     """ Test the sup_shutdown_action method. """
     mocked_methods = [mocker.patch('supvisors.viewsupvisors.delayed_error', return_value='delayed error'),
-                      mocker.patch('supvisors.viewsupvisors.delayed_info', return_value='delayed info'),
+                      mocker.patch('supvisors.viewsupvisors.delayed_warn', return_value='delayed warning'),
                       mocker.patch('supvisors.viewsupvisors.error_message', return_value='error'),
-                      mocker.patch('supvisors.viewsupvisors.info_message', return_value='info')]
+                      mocker.patch('supvisors.viewsupvisors.warn_message', return_value='warning')]
     _check_sup_action(mocker, view, view.sup_shutdown_action, 'shutdown', *mocked_methods)
 
 
-def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_dinfo, mocked_error, mocked_info):
+def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_dwarn, mocked_error, mocked_warn):
     """ Test the sup_restart_action & sup_shutdown_action methods. """
     # test RPC error
     mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
                         side_effect=RPCError('failed RPC'))
     assert method_cb() == 'delayed error'
     assert mocked_derror.called
-    assert not mocked_dinfo.called
+    assert not mocked_dwarn.called
     assert not mocked_error.called
-    assert not mocked_info.called
+    assert not mocked_warn.called
     # reset mocks
     mocked_derror.reset_mock()
     # test direct result
     mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name,
                         return_value='not callable object')
-    assert method_cb() == 'delayed info'
+    assert method_cb() == 'delayed warning'
     assert not mocked_derror.called
-    assert mocked_dinfo.called
+    assert mocked_dwarn.called
     assert not mocked_error.called
-    assert not mocked_info.called
+    assert not mocked_warn.called
     # reset mocks
-    mocked_dinfo.reset_mock()
+    mocked_dwarn.reset_mock()
     # test delayed result with RPC error
     mocked_onwait = Mock(side_effect=RPCError('failed RPC'))
     mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
@@ -534,9 +534,9 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     assert callable(cb)
     assert cb() == 'error'
     assert not mocked_derror.called
-    assert not mocked_dinfo.called
+    assert not mocked_dwarn.called
     assert mocked_error.called
-    assert not mocked_info.called
+    assert not mocked_warn.called
     # reset mocks
     mocked_error.reset_mock()
     # test delayed / uncompleted result
@@ -546,19 +546,19 @@ def _check_sup_action(mocker, view, method_cb, rpc_name, mocked_derror, mocked_d
     assert callable(cb)
     assert cb() is NOT_DONE_YET
     assert not mocked_derror.called
-    assert not mocked_dinfo.called
+    assert not mocked_dwarn.called
     assert not mocked_error.called
-    assert not mocked_info.called
+    assert not mocked_warn.called
     # test delayed / completed result
     mocked_onwait = Mock(return_value='done')
     mocker.patch.object(view.supvisors.supervisor_data.supvisors_rpc_interface, rpc_name, return_value=mocked_onwait)
     cb = method_cb()
     assert callable(cb)
-    assert cb() == 'info'
+    assert cb() == 'warning'
     assert not mocked_derror.called
-    assert not mocked_dinfo.called
+    assert not mocked_dwarn.called
     assert not mocked_error.called
-    assert mocked_info.called
+    assert mocked_warn.called
 
 
 def test_stop_action(mocker, view):

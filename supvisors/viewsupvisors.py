@@ -285,11 +285,11 @@ class SupvisorsView(ViewHandler):
                     return error_message(f'restart: {exc}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('Supvisors restarted')
+                return warn_message('Supvisors restart requested')
 
             onwait.delay = 0.1
             return onwait
-        return delayed_info('Supvisors restarted')
+        return delayed_warn('Supvisors restart requested')
 
     def sup_shutdown_action(self):
         """ Stop all Supervisor instances. """
@@ -305,11 +305,11 @@ class SupvisorsView(ViewHandler):
                     return error_message(f'shutdown: {exc}')
                 if result is NOT_DONE_YET:
                     return NOT_DONE_YET
-                return info_message('Supvisors shut down')
+                return warn_message('Supvisors shutdown requested')
 
             onwait.delay = 0.1
             return onwait
-        return delayed_info('Supvisors shut down')
+        return delayed_warn('Supvisors shutdown requested')
 
     def stop_action(self, namespec: str, identifier: str) -> Callable:
         """ Stop the conflicting process. """
