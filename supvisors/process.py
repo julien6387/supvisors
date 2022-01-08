@@ -40,7 +40,7 @@ class ProcessRules(object):
         - wait_exit: a status telling if Supvisors has to wait for the process to exit before triggering the next phase
           in the starting sequence of the application ;
         - expected_load: the expected loading of the process on the considered hardware (can be anything
-          at the user discretion: CPU, RAM, etc) ;
+          at the user discretion: CPU, RAM, etc.) ;
         - running_failure_strategy: supersedes the application rule and defines the strategy to apply
           when the process crashes when the application is running.
     """
@@ -183,6 +183,7 @@ class ProcessStatus(object):
         - forced_state: the state forced by Supvisors upon unexpected event ;
         - forced_reason: the reason why the state would be forced ;
         - expected_exit: a status telling if the process has exited expectantly ;
+        - has_crashed: a status telling if the process has ever crashed since Supvisors has been started ;
         - last_event_time: the local date of the last information received ;
         - extra_args: the additional arguments passed to the command line ;
         - running_identifiers: the list of all Supervisors where the process is running ;
@@ -209,6 +210,7 @@ class ProcessStatus(object):
         self.forced_state: Optional[ProcessStates] = None
         self.forced_reason: str = ''
         self.expected_exit: bool = True
+        self.has_crashed: bool = False
         self.last_event_time: int = 0
         self._extra_args: str = ''
         # rules part
@@ -247,6 +249,18 @@ class ProcessStatus(object):
         self.last_event_time = int(time())
         self.forced_state = state
         self.forced_reason = reason
+
+    def reset_forced_state(self, state: ProcessStates = None):
+        """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).
+
+        :param state: the new state (provided only when Supervisor information is added for the first time)
+        :return: None
+        """
+        #
+        if self.forced_state is not None and state != ProcessStates.STOPPED:
+            self.forced_state = None
+            self.forced_reason = ''
+            self.logger.debug(f'ProcessStatus.reset_forced_state: namespec={self.namespec}')
 
     @property
     def extra_args(self) -> str:
@@ -420,13 +434,12 @@ class ProcessStatus(object):
         # TODO: why reset extra_args ?
         info['extra_args'] = ''
         self.extra_args = ''
+        # log final payload
         self.logger.trace(f'ProcessStatus.add_info: namespec={self.namespec} - payload={info}'
                           f' added to Supvisors={identifier}')
-        # reset forced_state upon reception of new information only if not STOPPED (default state in supervisor)
-        if self.forced_state is not None and info['state'] != ProcessStates.STOPPED:
-            self.forced_state = None
-            self.forced_reason = ''
-            self.logger.debug(f'ProcessStatus.add_info: namespec={self.namespec} - forced_state unset')
+        # process synthetic information
+        self.reset_forced_state(info['state'])
+        self.has_crashed |= self.is_crashed_event(info['state'], info['expected'])
         # update process status
         self.update_status(identifier, info['state'])
 
@@ -460,15 +473,14 @@ class ProcessStatus(object):
             if new_state in STOPPED_STATES:
                 info['stop'] = info['now']
             self.update_uptime(info)
-            # always reset forced_state upon reception of new information
-            if self.forced_state is not None:
-                self.forced_state = None
-                self.forced_reason = None
-                self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} - forced_state unset')
-            # update / check running Supervisors
-            self.update_status(identifier, new_state)
+            # log final payload
             self.logger.debug(f'ProcessStatus.update_info: namespec={self.namespec} '
                               f'- new info[{identifier}]={info}')
+            # process synthetic information
+            self.reset_forced_state()
+            self.has_crashed |= self.is_crashed_event(info['state'], info['expected'])
+            # update / check running Supervisors
+            self.update_status(identifier, new_state)
         else:
             self.logger.warn(f'ProcessStatus.update_info: namespec={self.namespec} - ProcessEvent rejected.'
                              f' TICK expected from Supvisors={identifier}')
@@ -560,7 +572,7 @@ class ProcessStatus(object):
                     self.state = info['state']
                     self.expected_exit = info['expected']
         # log the new status
-        if LevelsByName.DEBG >= self.logger.level:
+        if LevelsByName.TRAC >= self.logger.level:
             log_trace = f'ProcessStatus.update_status: namespec={self.namespec} is {self.state_string()}'
             if self.running_identifiers:
                 log_trace += f' on {list(self.running_identifiers)}'
@@ -571,7 +583,7 @@ class ProcessStatus(object):
 
         :return: True if a conflict is detected, None otherwise
         """
-        # several processes seems to be in a running state so that becomes tricky
+        # several processes seem to be in a running state so that becomes tricky
         states = {self.info_map[identifier]['state'] for identifier in self.running_identifiers}
         self.logger.debug(f'ProcessStatus.evaluate_conflict: {self.process_name} multiple states'
                           f' {[getProcessStateDescription(x) for x in states]}'

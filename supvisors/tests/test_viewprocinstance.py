@@ -125,10 +125,11 @@ def test_get_process_data(mocker, view):
     instance_status = view.sup_ctx.instances['10.0.0.1']
     for application_name in ['sample_test_1', 'crash', 'firefox']:
         view.sup_ctx.applications[application_name] = create_application(application_name, view.supvisors)
-    for process_name, load in [('xfontsel', 8), ('segv', 17), ('firefox', 26)]:
+    for process_name, load, has_crashed in [('xfontsel', 8, True), ('segv', 17, False), ('firefox', 26, False)]:
         # create process
         info = process_info_by_name(process_name)
         process = create_process(info, view.supvisors)
+        process.has_crashed = has_crashed
         process.rules.expected_load = load
         process.add_info('10.0.0.1', info)
         # add to application
@@ -140,17 +141,17 @@ def test_get_process_data(mocker, view):
     # test intermediate list
     data1 = {'application_name': 'sample_test_1', 'process_name': 'xfontsel', 'namespec': 'sample_test_1:xfontsel',
              'single': False, 'identifier': '10.0.0.1',
-             'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING',
+             'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': True,
              'description': 'pid 80879, uptime 0:01:19',
              'expected_load': 8, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     data2 = {'application_name': 'crash', 'process_name': 'segv', 'namespec': 'crash:segv',
              'single': False, 'identifier': '10.0.0.1',
-             'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF',
+             'statename': 'BACKOFF', 'statecode': 30, 'gravity': 'BACKOFF', 'has_crashed': False,
              'description': 'Exited too quickly (process log may have details)',
              'expected_load': 17, 'nb_cores': 1, 'proc_stats': None}
     data3 = {'application_name': 'firefox', 'process_name': 'firefox', 'namespec': 'firefox',
              'single': True, 'identifier': '10.0.0.1',
-             'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED',
+             'statename': 'EXITED', 'statecode': 100, 'gravity': 'EXITED', 'has_crashed': False,
              'description': 'Sep 14 05:18 PM',
              'expected_load': 26, 'nb_cores': 4, 'proc_stats': 'stats #3'}
     assert sorted_data == [data2, data3, data1]
@@ -167,8 +168,8 @@ def test_sort_data(mocker, view):
     # test empty parameter. supervisord always added
     supervisord_info = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                         'single': True, 'description': 'Supervisor 10.0.0.1', 'identifier': '10.0.0.1',
-                        'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'expected_load': 0,
-                        'nb_cores': 2, 'proc_stats': 'stats #1'}
+                        'statecode': 20, 'statename': 'RUNNING', 'gravity': 'RUNNING', 'has_crashed': False,
+                        'expected_load': 0, 'nb_cores': 2, 'proc_stats': 'stats #1'}
     assert view.sort_data([]) == ([supervisord_info], [])
     # build process list
     processes = [{'application_name': info['group'], 'process_name': info['name'],
@@ -225,8 +226,8 @@ def test_get_application_summary(view):
     proc_4 = {'statecode': ProcessStates.FATAL, 'expected_load': 25, 'nb_cores': 8, 'proc_stats': None}
     # test with empty list of processes
     expected = {'application_name': 'dummy_appli', 'process_name': None, 'namespec': None,
-                'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2,
-                'description': 'good', 'nb_processes': 0,
+                'identifier': '10.0.0.1', 'statename': 'RUNNING', 'statecode': 2, 'gravity': 'RUNNING',
+                'has_crashed': False, 'description': 'good', 'nb_processes': 0,
                 'expected_load': 0, 'nb_cores': 0, 'proc_stats': None}
     assert view.get_application_summary('dummy_appli', []) == expected
     # test with non-running processes

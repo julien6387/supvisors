@@ -271,6 +271,17 @@ description and enables the user to perform some actions on them:
     * the instant memory (Resident Set Size) occupation of the process at the last period tick (only if the process
       is ``RUNNING``).
 
+.. note::
+
+    For ``RUNNING`` processes, the color gradient used is different if the process has ever crashed since Supvisors
+    has been started. The aim is to inform that process logs should be considered.
+
+    +------------------------------------+-------------------------------------------+
+    | 'standard' ``RUNNING`` process     | ``RUNNING`` process with a crash history  |
+    +====================================+===========================================+
+    | .. centered:: |standard_running|   | .. centered:: |crashed_running|           |
+    +------------------------------------+-------------------------------------------+
+
 All processes are grouped by their application name and |Supvisors| provides expand / shrink actions per application
 to enable the user to show / hide blocks of processes.
 The application line displays:
@@ -402,3 +413,9 @@ will fail.
 As previously, a click on the CPU or Memory measures shows detailed statistics about the process.
 
 .. include:: common.rst
+
+.. |standard_running| image:: images/standard_running.png
+    :alt: RUNNING standard
+
+.. |crashed_running| image:: images/crashed_running.png
+    :alt: RUNNING crashed

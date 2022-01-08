@@ -82,7 +82,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
                        'statename': info['statename'], 'statecode': info['state'],
-                       'gravity': 'FATAL' if crashed else info['statename'],
+                       'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': process.has_crashed,
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
             data.append(payload)
@@ -121,7 +121,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         nb_cores, proc_stats = self.view_ctx.get_process_stats('supervisord')
         payload = {'application_name': 'supervisord', 'process_name': 'supervisord', 'namespec': 'supervisord',
                    'single': True, 'identifier': self.view_ctx.local_identifier,
-                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING',
+                   'statename': 'RUNNING', 'statecode': 20, 'gravity': 'RUNNING', 'has_crashed': False,
                    'description': f'Supervisor {self.view_ctx.local_identifier}', 'expected_load': 0,
                    'nb_cores': nb_cores, 'proc_stats': proc_stats}
         sorted_data.append(payload)
@@ -140,6 +140,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         payload = {'application_name': application_name, 'process_name': None, 'namespec': None,
                    'identifier': self.view_ctx.local_identifier,
                    'statename': application.state.name, 'statecode': application.state.value,
+                   'gravity': application.state.name, 'has_crashed': False,
                    'description': application.get_operational_status(),
                    'nb_processes': len(application_processes), 'expected_load': expected_load,
                    'nb_cores': nb_cores, 'proc_stats': appli_stats}

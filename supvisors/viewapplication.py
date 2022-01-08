@@ -152,6 +152,7 @@ class ApplicationView(ViewHandler):
                          'namespec': namespec, 'identifier': node_name,
                          'statename': process.state_string(), 'statecode': process.state,
                          'gravity': 'FATAL' if unexpected_exit else process.state_string(),
+                         'has_crashed': process.has_crashed,
                          'running_identifiers': list(process.running_identifiers),
                          'description': description,
                          'expected_load': process.rules.expected_load, 'nb_cores': nb_cores, 'proc_stats': proc_stats})

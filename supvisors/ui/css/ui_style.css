@@ -573,6 +573,11 @@ table .RUNNING {
     color: black;
 }
 
+table .RUNNING.crashed {
+    background-image: linear-gradient(165deg, orange, green, green, orange);
+    color: black;
+}
+
 table .FATAL, table .ISOLATED {
     background-image: linear-gradient(165deg, white, red, red, white);
     color: black;

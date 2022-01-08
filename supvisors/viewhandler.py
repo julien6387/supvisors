@@ -336,7 +336,9 @@ class ViewHandler(MeldView):
         """ Write the common part of a process or application status into a table. """
         # print state
         elt = tr_elt.findmeld('state_td_mid')
-        update_attrib(elt, 'class', info.get('gravity', info['statename']))
+        update_attrib(elt, 'class', info['gravity'])
+        if info['has_crashed']:
+            update_attrib(elt, 'class', 'crashed')
         elt.content(info['statename'])
         # print description
         elt = tr_elt.findmeld('desc_td_mid')

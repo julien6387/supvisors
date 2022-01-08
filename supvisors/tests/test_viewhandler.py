@@ -744,19 +744,36 @@ def test_write_common_process_table(handler):
 
 def test_write_common_status(mocker, handler):
     """ Test the write_common_process_status method. """
-    mocked_mem = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_mem')
-    mocked_cpu = mocker.patch('supvisors.viewhandler.ViewHandler.write_common_process_cpu')
+    mocked_mem = mocker.patch.object(handler, 'write_common_process_mem')
+    mocked_cpu = mocker.patch.object(handler, 'write_common_process_cpu')
     # patch the meld elements
     state_elt = Mock(attrib={'class': ''})
     desc_elt = Mock(attrib={'class': ''})
     load_elt = Mock(attrib={'class': ''})
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': [state_elt, desc_elt, load_elt]})
-    # test call on selected process
-    param = {'expected_load': 35, 'statename': 'running', 'description': 'something'}
+    mid_map = {'state_td_mid': state_elt, 'desc_td_mid': desc_elt, 'load_td_mid': load_elt}
+    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
+    # test call on process that never crashed
+    param = {'expected_load': 35, 'statename': 'exited', 'gravity': 'exited',
+             'has_crashed': False, 'description': 'something'}
     handler.write_common_status(tr_elt, param)
     assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
-    assert state_elt.attrib['class'] == 'running'
-    assert state_elt.content.call_args_list == [call('running')]
+    assert state_elt.attrib['class'] == 'exited'
+    assert state_elt.content.call_args_list == [call('exited')]
+    assert desc_elt.content.call_args_list == [call('something')]
+    assert load_elt.content.call_args_list == [call('35%')]
+    assert mocked_cpu.call_args_list == [call(tr_elt, param)]
+    assert mocked_mem.call_args_list == [call(tr_elt, param)]
+    state_elt.attrib['class'] = ''
+    mocker.resetall()
+    tr_elt.findmeld.reset_mock()
+    for mid in mid_map.values():
+        mid.reset_mock()
+    # test call on process that ever crashed
+    param.update({'gravity': 'fatal', 'has_crashed': True})
+    handler.write_common_status(tr_elt, param)
+    assert tr_elt.findmeld.call_args_list == [call('state_td_mid'), call('desc_td_mid'), call('load_td_mid')]
+    assert state_elt.attrib['class'] == 'fatal crashed'
+    assert state_elt.content.call_args_list == [call('exited')]
     assert desc_elt.content.call_args_list == [call('something')]
     assert load_elt.content.call_args_list == [call('35%')]
     assert mocked_cpu.call_args_list == [call(tr_elt, param)]

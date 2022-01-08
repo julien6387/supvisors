@@ -12,6 +12,8 @@
 
 * Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
 
+* Use a different gradient in the Web UI for running processes that have ever crashed.
+
 * Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.
 
 * Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
