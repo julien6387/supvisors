@@ -46,14 +46,21 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:element type="xs:boolean" name="required" minOccurs="0"/>
             <xs:element type="xs:boolean" name="wait_exit" minOccurs="0"/>
             <xs:element type="Loading" name="expected_loading" minOccurs="0"/>
+            <xs:element type="StartingFailureStrategy" name="starting_failure_strategy" minOccurs="0"/>
             <xs:element type="RunningFailureStrategy" name="running_failure_strategy" minOccurs="0"/>
         </xs:all>
-	<!-- no way to check one of the two is required unless XSD 1.1 is supported -->
+	    <!-- no way to check that one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
         <xs:attribute type="xs:string" name="pattern"/>
     </xs:complexType>
+    <xs:complexType name="Programs">
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element type="ProgramModel" name="program"/>
+        </xs:choice>
+    </xs:complexType>
     <xs:complexType name="ApplicationModel">
-        <!-- can't find a way to use xs:all here. need XSD 1.1 -->
+        <!-- can't find a way to use xs:all here because of unbounded ProgramModel.
+        need XSD 1.1 or to insert intermediate type -->
         <xs:sequence>
             <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
             <xs:element type="xs:string" name="addresses" minOccurs="0"/>
@@ -66,6 +73,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element type="ProgramModel" name="program"/>
             </xs:choice>
+            <xs:element type="Programs" name="programs" minOccurs="0"/>
         </xs:sequence>
 	    <!-- no way to check one of the two is required unless XSD 1.1 is supported -->
         <xs:attribute type="xs:string" name="name"/>
@@ -81,4 +89,3 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         </xs:complexType>
     </xs:element>
 </xs:schema>
-

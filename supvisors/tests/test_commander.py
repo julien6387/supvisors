@@ -671,7 +671,7 @@ def test_application_start_job_process_failure_required_continue(application_sta
     assert application_start_job_1.planned_jobs == {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
     assert not application_start_job_1.stop_request
     # test CONTINUE starting strategy
-    application_start_job_1.application.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
+    xclock.process.rules.starting_failure_strategy = StartingFailureStrategies.CONTINUE
     application_start_job_1.process_failure(xclock.process)
     assert application_start_job_1.planned_jobs == {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
     assert not application_start_job_1.stop_request
@@ -685,7 +685,7 @@ def test_application_start_job_process_failure_required_stop(application_start_j
     assert application_start_job_1.planned_jobs == {0: start_sample_test_1[0:2], 1: start_sample_test_1[2:]}
     assert not application_start_job_1.stop_request
     # test STOP starting strategy
-    application_start_job_1.application.rules.starting_failure_strategy = StartingFailureStrategies.STOP
+    xclock.process.rules.starting_failure_strategy = StartingFailureStrategies.STOP
     application_start_job_1.process_failure(xclock.process)
     assert application_start_job_1.planned_jobs == {}
     assert application_start_job_1.stop_request

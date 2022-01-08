@@ -12,6 +12,9 @@
 
 * Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
 
+* Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
+  It supersedes the values eventually set in the `application` section.
+
 * Use a different gradient in the Web UI for running processes that have ever crashed.
 
 * Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.
@@ -171,13 +174,13 @@
 
 * Simplify the insertion of applications to start or stop in Commander jobs.
 
-* Add support for application patterns in the rules file.
+* Add support for application patterns in the **Supvisors** rules file.
 
-* In the rules file, `pattern` elements are **deprecated** and are replaced by `program` elements with a `pattern`
-  attribute instead of a `name` attribute.
+* In the **Supvisors** rules file, `pattern` elements are **deprecated** and are replaced by `program` elements
+  with a `pattern` attribute instead of a `name` attribute.
   Support for `pattern` elements will be removed in the next version of **Supvisors**.
 
-* Node aliases have been added to the rules file.
+* Node aliases have been added to the **Supvisors** rules file.
 
 * Add the current node to all pages of Web UI to be aware of the node that displays the page.
 
@@ -189,8 +192,8 @@
 * In the application navigation menu of the Web UI, add a red light near the Applications title if any application
   has raised a failure.
 
-* In the Application page of the Web UI, default starting strategy is the starting strategy defined in the rules file
-  for the application considered.
+* In the Application page of the Web UI, default starting strategy is the starting strategy defined
+  in the **Supvisors** rules file for the application considered.
 
 * In the Application ang Process page, the detailed process statistics can be deselected.
 
@@ -224,7 +227,7 @@
   Non-distributed applications have all their processes started on the same node chosen in accordance with the
   `addresses` and the `starting_strategy`.
 
-* Starting strategy added to the application rules.
+* Add the `starting_strategy` option to the `application` section of the **Supvisors** rules file.
 
 * Fix issue when choosing a node in `Starter`. The starting strategies considers the current load of the nodes
   and includes the requests that have not been satisfied yet.
@@ -255,7 +258,7 @@
 
 ## 0.6 (2021-08-01)
 
-* Applications that are not declared in the rules file are not *managed*.
+* Applications that are not declared in the **Supvisors** rules file are not *managed*.
   *Unmanaged* applications have no start/stop sequence, no state and status (always STOPPED) and **Supvisors**
   does not raise a conflict if multiple instances are running over multiple nodes.
 
@@ -284,7 +287,7 @@
 
 * In the Web UI, set the process state color to `FATAL` when the process has exited unexpectedly.
 
-* Change the default expected loading to `0` in the program rules.
+* Change the default expected loading to `0` in the `program` section of the **Supvisors** rules file.
 
 * Python `Enum` used for enumerations (not available in Python 2.7).
 
@@ -308,7 +311,8 @@
   The starting and stopping sequences may fail and block when a sub-sequence includes only failed programs.
 
 * Fix [Issue #85](https://github.com/julien6387/supvisors/issues/85).
-  When using `#` in the `address_list` program rule of the **Supvisors** rules file, a subset of nodes can optionally be defined.
+  When using `#` in the `address_list` program rule of the **Supvisors** rules file, a subset of nodes can optionally
+  be defined.
 
 * Fix [Issue #84](https://github.com/julien6387/supvisors/issues/84).
   In the **Supvisors** rules file, program rules can be defined using both model reference and attributes.

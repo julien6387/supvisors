@@ -212,8 +212,9 @@ class Context(object):
         # search for existing process in application
         process = application.processes.get(process_name)
         if not process:
-            # apply default running failure strategy
+            # by default, apply application starting / running failure strategies
             rules = ProcessRules(self.supvisors)
+            rules.starting_failure_strategy = application.rules.starting_failure_strategy
             rules.running_failure_strategy = application.rules.running_failure_strategy
             if self.supvisors.parser:
                 # load rules from rules file

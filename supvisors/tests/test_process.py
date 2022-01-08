@@ -47,20 +47,22 @@ def test_rules_create(supvisors, rules):
     assert not rules.required
     assert not rules.wait_exit
     assert rules.expected_load == 0
+    assert rules.starting_failure_strategy == StartingFailureStrategies.ABORT
     assert rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
 
 
 def test_rules_str(rules):
     """ Test the string output. """
     assert str(rules) == ("identifiers=['*'] hash_identifiers=[] start_sequence=0 stop_sequence=-1 required=False"
-                          " wait_exit=False expected_load=0 running_failure_strategy=CONTINUE")
+                          " wait_exit=False expected_load=0 starting_failure_strategy=ABORT"
+                          " running_failure_strategy=CONTINUE")
 
 
 def test_rules_serial(rules):
     """ Test the serialization of the ProcessRules object. """
     assert rules.serial() == {'identifiers': ['*'], 'start_sequence': 0, 'stop_sequence': -1,
                               'required': False, 'wait_exit': False, 'expected_loading': 0,
-                              'running_failure_strategy': 'CONTINUE'}
+                              'starting_failure_strategy': 'ABORT', 'running_failure_strategy': 'CONTINUE'}
 
 
 def test_rules_check_start_sequence(rules):

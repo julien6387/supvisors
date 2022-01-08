@@ -24,7 +24,7 @@ from supervisor.options import make_namespec, split_namespec
 from supervisor.rpcinterface import SupervisorNamespaceRPCInterface
 from supervisor.states import ProcessStates, getProcessStateDescription, RUNNING_STATES, STOPPED_STATES
 
-from .ttypes import NameList, Payload, RunningFailureStrategies
+from .ttypes import NameList, Payload, RunningFailureStrategies, StartingFailureStrategies
 from .utils import *
 
 
@@ -41,6 +41,8 @@ class ProcessRules(object):
           in the starting sequence of the application ;
         - expected_load: the expected loading of the process on the considered hardware (can be anything
           at the user discretion: CPU, RAM, etc.) ;
+        - starting_failure_strategy: supersedes the application rule and defines the strategy to apply
+          when the process crashes when the application is starting ;
         - running_failure_strategy: supersedes the application rule and defines the strategy to apply
           when the process crashes when the application is running.
     """
@@ -61,6 +63,7 @@ class ProcessRules(object):
         self.required: bool = False
         self.wait_exit: bool = False
         self.expected_load: int = 0
+        self.starting_failure_strategy: StartingFailureStrategies = StartingFailureStrategies.ABORT
         self.running_failure_strategy: RunningFailureStrategies = RunningFailureStrategies.CONTINUE
 
     def check_start_sequence(self, namespec: str) -> None:
@@ -158,6 +161,7 @@ class ProcessRules(object):
         return (f'identifiers={self.identifiers} hash_identifiers={self.hash_identifiers}'
                 f' start_sequence={self.start_sequence} stop_sequence={self.stop_sequence} required={self.required}'
                 f' wait_exit={self.wait_exit} expected_load={self.expected_load}'
+                f' starting_failure_strategy={self.starting_failure_strategy.name}'
                 f' running_failure_strategy={self.running_failure_strategy.name}')
 
     def serial(self) -> Payload:
@@ -169,6 +173,7 @@ class ProcessRules(object):
         return {'identifiers': self.identifiers,
                 'start_sequence': self.start_sequence, 'stop_sequence': self.stop_sequence,
                 'required': self.required,  'wait_exit': self.wait_exit, 'expected_loading': self.expected_load,
+                'starting_failure_strategy': self.starting_failure_strategy.name,
                 'running_failure_strategy': self.running_failure_strategy.name}
 
 

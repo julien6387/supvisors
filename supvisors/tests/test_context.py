@@ -38,6 +38,8 @@ def context(supvisors):
 def load_application_rules(_, rules):
     """ Simple Parser.load_application_rules behaviour to avoid setdefault_process to always return None. """
     rules.managed = True
+    rules.starting_failure_strategy = StartingFailureStrategies.STOP
+    rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
 
 
 @pytest.fixture
@@ -281,6 +283,8 @@ def test_setdefault_application(context):
     application1 = context.setdefault_application('dummy_1')
     assert context.applications == {'dummy_1': application1}
     assert not application1.rules.managed
+    assert application1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert application1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get application
@@ -288,11 +292,15 @@ def test_setdefault_application(context):
     # check application list. rules are not re-evaluated so application still not managed
     assert context.applications == {'dummy_1': application1}
     assert not application1.rules.managed
+    assert application1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert application1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
     # get application
     application2 = context.setdefault_application('dummy_2')
     # check application list
     assert context.applications == {'dummy_1': application1, 'dummy_2': application2}
     assert application2.rules.managed
+    assert application2.rules.starting_failure_strategy == StartingFailureStrategies.STOP
+    assert application2.rules.running_failure_strategy == RunningFailureStrategies.RESTART_APPLICATION
 
 
 def test_setdefault_process(context):
@@ -310,6 +318,10 @@ def test_setdefault_process(context):
     application1 = context.applications['dummy_application_1']
     assert application1.processes == {'dummy_process_1': process1}
     assert not application1.rules.managed
+    assert application1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert application1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
+    assert process1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert process1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
     # so patch load_application_rules to avoid that
     context.supvisors.parser.load_application_rules = load_application_rules
     # get process
@@ -317,6 +329,11 @@ def test_setdefault_process(context):
     # check application still unmanaged
     application1 = context.applications['dummy_application_1']
     assert not application1.rules.managed
+    # no change on rules because application already exists
+    assert application1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert application1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
+    assert process1.rules.starting_failure_strategy == StartingFailureStrategies.ABORT
+    assert process1.rules.running_failure_strategy == RunningFailureStrategies.CONTINUE
     # get application
     process2 = context.setdefault_process(dummy_info2)
     # check application and process list
@@ -327,6 +344,10 @@ def test_setdefault_process(context):
     assert application2.processes == {'dummy_process_2': process2}
     assert not application1.rules.managed
     assert application2.rules.managed
+    assert application2.rules.starting_failure_strategy == StartingFailureStrategies.STOP
+    assert application2.rules.running_failure_strategy == RunningFailureStrategies.RESTART_APPLICATION
+    assert process2.rules.starting_failure_strategy == StartingFailureStrategies.STOP
+    assert process2.rules.running_failure_strategy == RunningFailureStrategies.RESTART_APPLICATION
 
 
 def test_load_processes(mocker, context):

@@ -549,9 +549,8 @@ class ApplicationStartJobs(ApplicationJobs):
         # impact of failure on application starting
         if process.rules.required:
             self.logger.warn(f'ApplicationStartJobs.process_failure: starting failed for required {process.namespec}')
-            # get starting failure strategy of related application
-            failure_strategy = self.application.rules.starting_failure_strategy
-            # apply strategy
+            # apply starting failure strategy
+            failure_strategy = process.rules.starting_failure_strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
                 self.logger.warn(f'ApplicationStartJobs.process_failure: abort starting {process.application_name}')
                 # erase planned_jobs but process current jobs until completion

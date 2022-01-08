@@ -210,9 +210,11 @@ InvalidXmlTest = b'''\
             <expected_loading>75</expected_loading>
         </program>
 
-        <program pattern="dummies_02_">
-            <reference>dummy_model_04</reference>
-        </program>
+        <programs>
+            <program pattern="dummies_02_">
+                <reference>dummy_model_04</reference>
+            </program>
+        </programs>
 
     </application>
 
@@ -269,35 +271,37 @@ XmlTest = b'''\
         <starting_failure_strategy>STOP</starting_failure_strategy>
         <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
 
-        <program name="dummy_program_B0"/>
-
-        <program name="dummy_program_B1">
-            <identifiers>#</identifiers>
-            <start_sequence>3</start_sequence>
-            <stop_sequence>50</stop_sequence>
-            <required>true</required>
-            <wait_exit>false</wait_exit>
-            <expected_loading>5</expected_loading>
-            <running_failure_strategy>CONTINUE</running_failure_strategy>
-         </program>
-
-        <program name="dummy_program_B2">
-            <identifiers>10.0.0.3</identifiers>
-            <required>true</required>
-            <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
-        </program>
-
-        <program name="dummy_program_B3">
-            <identifiers>*</identifiers>
-            <required>false</required>
-            <expected_loading>100</expected_loading>
-            <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
-        </program>
-
-        <program name="dummy_program_B4">
-            <identifiers>10.0.0.3, 10.0.0.1, 10.0.0.5</identifiers>
-            <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
-        </program>
+        <programs>
+            <program name="dummy_program_B0"/>
+    
+            <program name="dummy_program_B1">
+                <identifiers>#</identifiers>
+                <start_sequence>3</start_sequence>
+                <stop_sequence>50</stop_sequence>
+                <required>true</required>
+                <wait_exit>false</wait_exit>
+                <expected_loading>5</expected_loading>
+                <running_failure_strategy>CONTINUE</running_failure_strategy>
+             </program>
+    
+            <program name="dummy_program_B2">
+                <identifiers>10.0.0.3</identifiers>
+                <required>true</required>
+                <running_failure_strategy>RESTART_PROCESS</running_failure_strategy>
+            </program>
+    
+            <program name="dummy_program_B3">
+                <identifiers>*</identifiers>
+                <required>false</required>
+                <expected_loading>100</expected_loading>
+                <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+            </program>
+    
+            <program name="dummy_program_B4">
+                <identifiers>10.0.0.3, 10.0.0.1, 10.0.0.5</identifiers>
+                <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+            </program>
+        </programs>
 
     </application>
 
@@ -309,21 +313,23 @@ XmlTest = b'''\
         <starting_failure_strategy>ABORT</starting_failure_strategy>
         <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
 
-        <program name="dummy_program_C0">
-            <reference></reference>
-        </program>
-
-        <program name="dummy_program_C1">
-            <reference>unknown</reference>
-        </program>
-
-        <program name="dummy_program_C2">
-            <reference>dummy_model_01</reference>
-        </program>
-
-        <program name="dummy_program_C3">
-            <reference>dummy_model_02</reference>
-        </program>
+        <programs>
+            <program name="dummy_program_C0">
+                <reference></reference>
+            </program>
+    
+            <program name="dummy_program_C1">
+                <reference>unknown</reference>
+            </program>
+    
+            <program name="dummy_program_C2">
+                <reference>dummy_model_01</reference>
+            </program>
+    
+            <program name="dummy_program_C3">
+                <reference>dummy_model_02</reference>
+            </program>
+        </programs>
 
     </application>
 
@@ -350,9 +356,11 @@ XmlTest = b'''\
             <expected_loading>75</expected_loading>
         </program>
 
-        <program pattern="dummies_02_">
-            <reference>dummy_model_04</reference>
-        </program>
+        <programs>
+            <program pattern="dummies_02_">
+                <reference>dummy_model_04</reference>
+            </program>
+        </programs>
 
     </application>
 

@@ -80,10 +80,19 @@ class Parser(object):
             app_elements = root.findall('./application[@pattern]')
             self.application_patterns.update({app_element.get('pattern'): app_element
                                               for app_element in app_elements})
-            # get program patterns sorted by application
+            # DEPRECATED: get program patterns sorted by application
             app_elements = root.findall('./application/program[@pattern]/..')
             for app_element in app_elements:
                 prg_elements = app_element.findall('./program[@pattern]')
+                prg_patterns = self.program_patterns.setdefault(app_element, {})
+                prg_patterns.update({prg_element.get('pattern'): prg_element
+                                     for prg_element in prg_elements})
+                self.logger.warn(f'Parser.load_rules_files: DEPRECATED move program definitions'
+                                 ' into a <programs> section')
+            # NEW: get program patterns sorted by application
+            app_elements = root.findall('./application/programs/program[@pattern]/../..')
+            for app_element in app_elements:
+                prg_elements = app_element.findall('./programs/program[@pattern]')
                 prg_patterns = self.program_patterns.setdefault(app_element, {})
                 prg_patterns.update({prg_element.get('pattern'): prg_element
                                      for prg_element in prg_elements})
@@ -108,7 +117,7 @@ class Parser(object):
         :param rules: the application rules to load
         :return: None
         """
-        # find application element using an xpath
+        # find application element using a xpath
         self.logger.trace(f'Parser.load_application_rules: searching application element for {application_name}')
         application_elt = self.get_application_element(application_name)
         if application_elt is not None:
@@ -201,6 +210,7 @@ class Parser(object):
         self.load_boolean(program_elt, 'required', rules)
         self.load_boolean(program_elt, 'wait_exit', rules)
         self.load_expected_loading(program_elt, rules)
+        self.load_enum(program_elt, 'starting_failure_strategy', StartingFailureStrategies, rules)
         self.load_enum(program_elt, 'running_failure_strategy', RunningFailureStrategies, rules)
 
     @staticmethod
@@ -226,9 +236,16 @@ class Parser(object):
         if application_elt is None:
             self.logger.debug(f'Parser.get_program_element: no application element found for program={namespec}')
             return None
-        program_elt = application_elt.find('./program[@name="{}"]'.format(process_name))
-        self.logger.trace(f'Parser.get_program_element: direct search for program={namespec}'
-                          f' found={program_elt is not None}')
+        program_elt = application_elt.find(f'./programs/program[@name="{process_name}"]')
+        self.logger.trace(f'Parser.get_program_element: direct search for program={namespec} found'
+                          f' {program_elt is not None}')
+        if program_elt is None:
+            program_elt = application_elt.find(f'./program[@name="{process_name}"]')
+            self.logger.trace(f'Parser.get_program_element: direct search for program={namespec} found'
+                              f' {program_elt is not None}')
+            if program_elt is not None:
+                self.logger.warn(f'Parser.get_program_element: DEPRECATED move program definitions'
+                                 ' into a <programs> section')
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
             # TODO: use regexp ?
