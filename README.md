@@ -47,13 +47,13 @@ but is not maintained anymore.
 
 **Supvisors** has dependencies on:
 
-| Package                                       | Release | Optional        |
-|-----------------------------------------------|---------|-----------------|
-| [Supervisor](http://supervisord.org)          | 4.2.4   |                 |
-| [PyZMQ](http://pyzmq.readthedocs.io)          | 20.0.0  |                 |
-| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   | .. centered:: X |
-| [matplotlib](http://matplotlib.org)           | 3.3.3   | .. centered:: X |
-| [lxml](http://lxml.de)                        | 4.6.2   | .. centered:: X |
+| Package                                       | Release | Optional |
+|-----------------------------------------------|---------|----------|
+| [Supervisor](http://supervisord.org)          | 4.2.4   |          |
+| [PyZMQ](http://pyzmq.readthedocs.io)          | 20.0.0  |          |
+| [psutil](https://pypi.python.org/pypi/psutil) | 5.7.3   | X        |
+| [matplotlib](http://matplotlib.org)           | 3.3.3   | X        |
+| [lxml](http://lxml.de)                        | 4.6.2   | X        |
 
 Please note that some of these dependencies may have their own dependencies.
 
