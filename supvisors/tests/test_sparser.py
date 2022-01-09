@@ -95,7 +95,7 @@ def check_valid(parser):
     check_aliases_valid(parser)
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02',
                                             'dummy_model_03', 'dummy_model_04', 'dummy_model_05']
-    assert parser.printable_program_patterns() == {'application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
+    assert parser.printable_program_patterns() == {'application_D': ['dummies_', '^d.*s_01_', 'dum+ies_02_']}
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)
@@ -164,7 +164,6 @@ def check_valid(parser):
     rules = load_program_rules(parser, 'dummy_application_D', 'dummies_01_any')
     assert_process_rules(rules, [], ['10.0.0.1', '10.0.0.5'], 1, 1, False, True, 75, RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and incorrect reference (model calling for another model)
-    # this is valid since Supvisors 0.5
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
     assert_process_rules(rules, ['*'], [], 0, 0, False, False, 20, RunningFailureStrategies.STOP_APPLICATION)
     # check multiple reference (over the maximum defined)
@@ -190,7 +189,7 @@ def check_invalid(parser):
                               'nodes_prg_B3': ['*', '10.0.0.4', '192.168.12.20'], 'nodes_appli_D': ['']}
     check_aliases_invalid(parser)
     assert sorted(parser.models.keys()) == ['dummy_model_01', 'dummy_model_02', 'dummy_model_03', 'dummy_model_04']
-    assert parser.printable_program_patterns() == {'dummy_application_D': ['dummies_', 'dummies_01_', 'dummies_02_']}
+    assert parser.printable_program_patterns() == {'dummy_application_D': ['dummies_', '^dummies_01_', 'd.*02.*']}
     # check unknown application
     rules = load_application_rules(parser, 'dummy_application_X')
     assert_default_application_rules(rules)

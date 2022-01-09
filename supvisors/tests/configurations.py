@@ -201,7 +201,7 @@ InvalidXmlTest = b'''\
             <reference>dummy_model_03</reference>
         </program>
 
-        <program pattern="dummies_01_">
+        <program pattern="^dummies_01_">
             <identifiers>#</identifiers>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
@@ -211,7 +211,7 @@ InvalidXmlTest = b'''\
         </program>
 
         <programs>
-            <program pattern="dummies_02_">
+            <program pattern="d.*02.*">
                 <reference>dummy_model_04</reference>
             </program>
         </programs>
@@ -347,7 +347,7 @@ XmlTest = b'''\
             <start_sequence>50</start_sequence>
         </program>
 
-        <program pattern="dummies_01_">
+        <program pattern="^d.*s_01_">
             <identifiers>#, 10.0.0.1, 10.0.0.5</identifiers>
             <start_sequence>1</start_sequence>
             <stop_sequence>1</stop_sequence>
@@ -357,7 +357,7 @@ XmlTest = b'''\
         </program>
 
         <programs>
-            <program pattern="dummies_02_">
+            <program pattern="dum+ies_02_">
                 <reference>dummy_model_04</reference>
             </program>
         </programs>

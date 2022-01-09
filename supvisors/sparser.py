@@ -17,6 +17,8 @@
 # limitations under the License.
 # ======================================================================
 
+import re
+
 from distutils.util import strtobool
 from os import path
 from sys import stderr
@@ -27,7 +29,8 @@ from supervisor.options import split_namespec
 
 from .application import ApplicationRules
 from .process import ProcessRules
-from .ttypes import StartingStrategies, StartingFailureStrategies, RunningFailureStrategies, EnumClassType, enum_names
+from .ttypes import (NameList, StartingStrategies, StartingFailureStrategies, RunningFailureStrategies,
+                     EnumClassType, enum_names)
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -153,15 +156,8 @@ class Parser(object):
                           f' found={application_elt is not None}')
         if application_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            # TODO: use regexp ?
-            patterns = [name for name, element in self.application_patterns.items() if name in application_name]
-            self.logger.trace(f'Parser.get_application_element: found patterns={patterns}'
-                              f' for application={application_name}')
-            if patterns:
-                pattern = max(patterns, key=len)
-                application_elt = self.application_patterns[pattern]
-                self.logger.trace(f'Parser.get_application_element: pattern={pattern}'
-                                  f' chosen for application={application_name}')
+            pattern = self.get_best_pattern(application_name, self.application_patterns.keys())
+            application_elt = self.application_patterns.get(pattern)
         return application_elt
 
     def load_program_rules(self, namespec: str, rules: ProcessRules) -> None:
@@ -248,16 +244,31 @@ class Parser(object):
                                  ' into a <programs> section')
         if program_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            # TODO: use regexp ?
             if application_elt in self.program_patterns:
                 prg_patterns = self.program_patterns[application_elt]
-                patterns = [name for name in prg_patterns.keys() if name in process_name]
-                self.logger.trace(f'Parser.get_program_element: found patterns={patterns} for program={namespec}')
-                if patterns:
-                    pattern = max(patterns, key=len)
-                    program_elt = prg_patterns[pattern]
-                    self.logger.trace(f'Parser.get_program_element: pattern={pattern} chosen for program={namespec}')
+                pattern = self.get_best_pattern(process_name, prg_patterns.keys())
+                program_elt = prg_patterns.get(pattern)
         return program_elt
+
+    def get_best_pattern(self, name: str, patterns: NameList):
+        """ Return the pattern having the greatest capture for the string considered.
+
+        :param name: the string to match
+        :param patterns: the applicable patterns
+        :return: the best pattern that matches the string
+        """
+        matching_patterns = []
+        for pattern in patterns:
+            # use a matching capture to get the regex performance
+            mo = re.search(f'({pattern})', name)
+            if mo:
+                matching_patterns.append((pattern, mo.group()))
+        self.logger.trace(f'Parser.get_best_pattern: found patterns={patterns} for {name}')
+        if matching_patterns:
+            # the best pattern is the one having the greatest capture
+            pattern, performance = max(matching_patterns, key=lambda x: len(x[1]))
+            self.logger.debug(f'Parser.get_best_pattern: pattern={pattern} (perf={performance}) selected for {name}')
+            return pattern
 
     def get_model_element(self, elt: Any) -> Optional[Any]:
         """ Find if element references a model

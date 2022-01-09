@@ -12,6 +12,9 @@
 
 * Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
 
+* Add regex support to the `pattern` attribute of the `application` and `program` elements of the **Supvisors** rules
+  file.
+
 * The `programs` section has been added in the `application` section of the **Supvisors** rules file.
   All `program` definitions should be placed in this section rather than directly in the `application` section.
   The intention is for the next **Supvisors** version to be able to declare application options in any order.
@@ -19,7 +22,7 @@
   and will be removed in the next version.
   
 * Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
-It supersedes the values eventually set in the `application` section.
+  It supersedes the values eventually set in the `application` section.
 
 * Use a different gradient in the Web UI for running processes that have ever crashed.
 

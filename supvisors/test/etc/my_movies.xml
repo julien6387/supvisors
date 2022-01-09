@@ -32,7 +32,7 @@
         <starting_failure_strategy>STOP</starting_failure_strategy>
 
         <programs>
-            <program pattern="mount_disk_">
+            <program pattern="mount_disk_\d+">
                 <identifiers>distribute_sublist</identifiers>
                 <start_sequence>1</start_sequence>
                 <required>true</required>
@@ -55,14 +55,14 @@
         <start_sequence>3</start_sequence>
 
         <programs>
-            <program pattern="movie_server_">
+            <program pattern="^movie">
                 <identifiers>#</identifiers>
                 <start_sequence>1</start_sequence>
                 <expected_loading>5</expected_loading>
                 <running_failure_strategy>CONTINUE</running_failure_strategy>
             </program>
 
-            <program pattern="register_movies_">
+            <program pattern="^register">
                 <identifiers>#,cliche81,cliche83:60000</identifiers>
                 <start_sequence>2</start_sequence>
                 <wait_exit>true</wait_exit>
@@ -130,7 +130,7 @@
                 <identifiers>cliche81,cliche83:60000,cliche82</identifiers>
             </program>
 
-            <program pattern="converter_">
+            <program pattern="^converter_\d+$">
                 <reference>converter</reference>
             </program>
         </programs>

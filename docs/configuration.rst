@@ -424,7 +424,7 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``pattern``
 
-    A substring matching one or more |Supervisor| group names is expected in this attribute.
+    A regex matching one or more |Supervisor| group names is expected in this attribute.
     Refer to `Using patterns`_ for more details.
 
     *Default*:  None.
@@ -461,10 +461,10 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of deduced names.
-    The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
-    names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is provided
-    at the end of the application name, preceded by a dash or an underscore**.
+    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list
+    (made of names deduced from ``supvisors_list``) to the Nth instance of the application, **assuming that 'N' is
+    provided at the end of the application name, preceded by a dash or an underscore**.
     Yeah, a bit tricky to explain... Examples will be given in `Using patterns and hashtags`_.
 
     *Default*:  ``*``.
@@ -582,7 +582,7 @@ Here follows the definition of the attributes and rules applicable to this eleme
 
 ``pattern``
 
-    A substring matching one or more |Supervisor| program names is expected in this attribute.
+    A regex matching one or more |Supervisor| program names is expected in this attribute.
     Refer to the `Using patterns`_ for more details.
 
     *Default*:  None.
@@ -599,7 +599,7 @@ Here follows the definition of the attributes and rules applicable to this eleme
     The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
 
-    The hashtag ``#`` can be used in a ``pattern`` definition and eventually complemented by a list of deduced names.
+    The hashtag ``#`` can be used with a ``pattern`` definition and eventually complemented by a list of deduced names.
     The aim is to assign the Nth deduced name of ``supvisors_list`` or the Nth name of the subsequent list (made of
     names deduced from ``supvisors_list``) to the Nth instance of the program in a homogeneous process group.
     Examples will be given in `Using patterns and hashtags`_.
@@ -734,7 +734,7 @@ It can be used to configure a set of programs in a more flexible way than just c
 like |Supervisor| does.
 
 The same ``program`` options are applicable, whatever a ``name`` attribute or a ``pattern`` attribute is used.
-For a ``pattern`` attribute, a substring (*not a regexp*) matching one |Supervisor| program name or more is expected.
+For a ``pattern`` attribute, a regex (or a simple substring) matching one |Supervisor| program name or more is expected.
 
 .. code-block:: xml
 
@@ -754,7 +754,7 @@ For a ``pattern`` attribute, a substring (*not a regexp*) matching one |Supervis
     the exact program name set in the ``name`` attribute, and only if not found, |Supvisors| tries to find a
     corresponding ``program`` definition with a matching ``pattern``.
 
-    It also may happen that several patterns match the same program name. In this case, |Supvisors| chooses the
+    It also may happen that multiple patterns match the same program name. In this case, |Supvisors| chooses the
     pattern with the greatest matching, or arbitrarily the first of them if such a rule does not discriminate enough.
     So considering the program :program:`prg_00` and the two matching patterns ``prg`` and ``prg_``, |Supvisors| will
     apply the rules related to ``prg_``.
@@ -819,7 +819,7 @@ Now with this option, the rule becomes more simple.
 
 .. code-block:: xml
 
-    <program pattern="prg_">
+    <program pattern="prg_\d+">
         <identifiers>#</identifiers>
     </program>
 
@@ -827,7 +827,7 @@ It is also possible to give a subset of deduced names.
 
 .. code-block:: xml
 
-    <program pattern="prg_">
+    <program pattern="prg_\d+">
         <identifiers>#,cliche04,cliche02</identifiers>
     </program>
 
