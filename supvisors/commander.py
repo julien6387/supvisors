@@ -879,19 +879,22 @@ class Starter(Commander):
         # trigger jobs
         self.next()
 
-    def default_start_application(self, application: ApplicationStatus) -> None:
+    def default_start_application(self, application: ApplicationStatus, trigger: bool = True) -> None:
         """ Plan and start the necessary jobs to start the application in parameter, with the default strategy.
 
         :param application: the application to start
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
-        self.start_application(application.rules.starting_strategy, application)
+        self.start_application(application.rules.starting_strategy, application, trigger)
 
-    def start_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> None:
+    def start_application(self, strategy: StartingStrategies, application: ApplicationStatus,
+                          trigger: bool = True) -> None:
         """ Plan and start the necessary jobs to start the application in parameter, with the strategy requested.
 
         :param strategy: the strategy to be used to start the application
         :param application: the application to start
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
         self.logger.debug(f'Starter.start_application: application={application.application_name}')
@@ -899,7 +902,9 @@ class Starter(Commander):
         if application.stopped():
             self.store_application(application, strategy)
             self.logger.debug(f'Starter.start_application: planned_jobs={self.planned_jobs}')
-            self.next()
+            # trigger may be deferred (as in RunningFailureHandler)
+            if trigger:
+                self.next()
         else:
             self.logger.warn(f'Starter.start_application: application {application.application_name}'
                              ' already started')
@@ -932,22 +937,25 @@ class Starter(Commander):
             return True
         self.logger.warn(f'Starter.store_application: {application.application_name} has no valid start_sequence')
 
-    def default_start_process(self, process: ProcessStatus) -> None:
+    def default_start_process(self, process: ProcessStatus, trigger: bool = True) -> None:
         """ Plan and start the necessary job to start the process in parameter, with the default strategy.
         Default strategy is taken from the application owning this process.
 
         :param process: the process to start
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
         application = self.supvisors.context.applications[process.application_name]
-        self.start_process(application.rules.starting_strategy, process)
+        self.start_process(application.rules.starting_strategy, process, trigger=trigger)
 
-    def start_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str = '') -> None:
+    def start_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str = '',
+                      trigger: bool = True) -> None:
         """ Plan and start the necessary job to start the process in parameter, with the strategy requested.
 
         :param strategy: the strategy to be used to start the process
         :param process: the process to start
         :param extra_args: the arguments to be added to the command line
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
         if process.stopped():
@@ -955,7 +963,7 @@ class Starter(Commander):
             # create process wrapper
             command = ProcessStartCommand(process, strategy)
             command.extra_args = extra_args
-            # WARN: when starting a process outside of the application starting scope,
+            # WARN: when starting a process outside the application starting scope,
             #       do NOT consider the 'wait_exit' rule
             command.ignore_wait_exit = True
             # create simple sequence for this wrapper
@@ -970,8 +978,9 @@ class Starter(Commander):
                 job = ApplicationStartJobs(application, start_sequence, strategy, self.supvisors)
                 sequence = self.planned_jobs.setdefault(application.rules.start_sequence, {})
                 sequence[process.application_name] = job
-            # trigger jobs
-            self.next()
+            # trigger may be deferred (as in RunningFailureHandler)
+            if trigger:
+                self.next()
 
     def after(self, application_job: ApplicationStartJobs) -> None:
         """ Trigger any pending application stop once its starting is completed / aborted properly.
@@ -1034,10 +1043,11 @@ class Stopper(Commander):
         # trigger jobs
         self.next()
 
-    def stop_application(self, application: ApplicationStatus) -> None:
+    def stop_application(self, application: ApplicationStatus, trigger: bool = True) -> None:
         """ Plan and start the necessary jobs to stop the application in parameter.
 
         :param application: the application to stop
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
         self.logger.trace('Stopper.stop_application: f{application.application_name}')
@@ -1046,26 +1056,44 @@ class Stopper(Commander):
             self.logger.info(f'Stopper.stop_application: stopping {application.application_name}')
             self.store_application(application)
             self.logger.debug(f'Stopper.stop_application: planned_jobs={self.planned_jobs}')
-            # trigger jobs
-            self.next()
+            # trigger may be deferred (as in RunningFailureHandler)
+            if trigger:
+                self.next()
 
-    def restart_application(self, strategy: StartingStrategies, application: ApplicationStatus) -> None:
+    def default_restart_application(self, application: ApplicationStatus, trigger: bool = True) -> None:
+        """ Plan and start the necessary jobs to restart the application in parameter, with the default strategy.
+
+        :param application: the application to restart
+        :param trigger: a status telling if the jobs have to be triggered directly or not
+        :return: None
+        """
+        self.restart_application(application.rules.starting_strategy, application, trigger)
+
+    def restart_application(self, strategy: StartingStrategies, application: ApplicationStatus,
+                            trigger: bool = True) -> None:
         """ Plan and trigger the necessary jobs to restart the application in parameter.
         The application start is deferred until the application has been stopped.
 
         :param strategy: the strategy used to choose a Supvisors instance
         :param application: the application to restart
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
-        # application is stopping. defer start until fully stopped
-        self.application_start_requests[application.application_name] = (strategy, application)
-        # trigger stop
-        self.stop_application(application)
+        if application.has_running_processes():
+            # defer start until fully stopped
+            self.application_start_requests[application.application_name] = (strategy, application)
+            # trigger stop
+            self.stop_application(application, trigger)
+        else:
+            self.logger.debug(f'Stopper.restart_application: application={application.application_name} already stopped'
+                              ' so start it directly')
+            self.supvisors.starter.start_application(strategy, application, trigger)
 
-    def stop_process(self, process: ProcessStatus) -> None:
+    def stop_process(self, process: ProcessStatus, trigger: bool = True) -> None:
         """ Plan and trigger the necessary job to stop the process in parameter.
 
         :param process: the process to stop
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
         if process.running():
@@ -1084,10 +1112,23 @@ class Stopper(Commander):
                 job = ApplicationStopJobs(application, stop_sequence, self.supvisors)
                 sequence = self.planned_jobs.setdefault(application.rules.stop_sequence, {})
                 sequence[process.application_name] = job
-            # trigger jobs
-            self.next()
+            # trigger may be deferred (as in RunningFailureHandler)
+            if trigger:
+                self.next()
 
-    def restart_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str) -> None:
+    def default_restart_process(self, process: ProcessStatus, trigger: bool = True) -> None:
+        """ Plan and start the necessary job to restart the process in parameter, with the default strategy.
+        Default strategy is taken from the application owning this process.
+
+        :param process: the process to start
+        :param trigger: a status telling if the jobs have to be triggered directly or not
+        :return: None
+        """
+        application = self.supvisors.context.applications[process.application_name]
+        self.restart_process(application.rules.starting_strategy, process, trigger=trigger)
+
+    def restart_process(self, strategy: StartingStrategies, process: ProcessStatus, extra_args: str = '',
+                        trigger: bool = True) -> None:
         """ Plan and trigger the necessary jobs to restart the process in parameter.
         The process start is deferred until the process has been stopped.
         The method should return False, unless the process is already stopped and no Supvisors instance was found
@@ -1096,13 +1137,19 @@ class Stopper(Commander):
         :param strategy: the strategy used to choose a Supvisors instance
         :param process: the process to restart
         :param extra_args: extra arguments to be passed to the command line
+        :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
-        # defer start until fully stopped
-        process_list = self.process_start_requests.setdefault(process.application_name, [])
-        process_list.append((strategy, process, extra_args))
-        # trigger stop
-        self.stop_process(process)
+        if process.running():
+            # defer start until fully stopped
+            process_list = self.process_start_requests.setdefault(process.application_name, [])
+            process_list.append((strategy, process, extra_args))
+            # trigger stop
+            self.stop_process(process, trigger)
+        else:
+            self.logger.debug(f'Stopper.restart_process: process={process.namespec} already stopped'
+                              ' so start it directly')
+            self.supvisors.starter.start_process(strategy, process, extra_args, trigger)
 
     def store_application(self, application: ApplicationStatus) -> None:
         """ Schedules the application processes to stop.

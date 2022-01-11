@@ -328,15 +328,12 @@ def handler(supvisors):
     return RunningFailureHandler(supvisors)
 
 
-def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None,
-                 continue_proc=None, start_app=None, start_proc=None):
+def compare_sets(handler, stop_app=None, restart_app=None, restart_proc=None, continue_proc=None):
     # define compare function
     assert handler.stop_application_jobs == (stop_app or set())
     assert handler.restart_application_jobs == (restart_app or set())
     assert handler.restart_process_jobs == (restart_proc or set())
     assert handler.continue_process_jobs == (continue_proc or set())
-    assert handler.start_application_jobs == (start_app or set())
-    assert handler.start_process_jobs == (start_proc or set())
 
 
 def test_running_create(handler):
@@ -352,8 +349,6 @@ def test_running_abort(handler):
     handler.restart_application_jobs = {'a', 'b'}
     handler.restart_process_jobs = {1, 0, 'bcd'}
     handler.continue_process_jobs = {'aka', 2}
-    handler.start_application_jobs = {1, None}
-    handler.start_process_jobs = {0}
     # clear all
     handler.abort()
     # test empty structures
@@ -381,14 +376,13 @@ def test_add_stop_application_job(handler, add_jobs):
     application_A, application_B = app_list
     _, _, process_3 = proc_list
     # check that stop_application_jobs is updated and that other jobs are cleaned
-    for job_set in [handler.restart_application_jobs, handler.start_application_jobs]:
-        job_set.update(app_list)
-    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+    handler.restart_application_jobs.update(app_list)
+    for job_set in [handler.restart_process_jobs, handler.continue_process_jobs]:
         job_set.update(proc_list)
     assert application_A not in handler.stop_application_jobs
     handler.add_stop_application_job(application_A)
-    compare_sets(handler, stop_app={application_A}, restart_app={application_B}, start_app={application_B},
-                 restart_proc={process_3}, start_proc={process_3}, continue_proc={process_3})
+    compare_sets(handler, stop_app={application_A}, restart_app={application_B},
+                 restart_proc={process_3}, continue_proc={process_3})
 
 
 def test_add_restart_application_job(handler, add_jobs):
@@ -401,19 +395,13 @@ def test_add_restart_application_job(handler, add_jobs):
     handler.stop_application_jobs.add(application_A)
     handler.add_restart_application_job(application_A)
     compare_sets(handler, stop_app={application_A})
-    # check that restart_application_jobs is not updated when application is already in start_application_jobs
-    handler.stop_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    handler.add_restart_application_job(application_A)
-    compare_sets(handler, start_app={application_A})
     # check that restart_application_jobs is updated otherwise and that other jobs are cleaned
-    handler.start_application_jobs.discard(application_A)
-    for job_set in [handler.restart_process_jobs, handler.start_process_jobs, handler.continue_process_jobs]:
+    handler.stop_application_jobs = set()
+    for job_set in [handler.restart_process_jobs, handler.continue_process_jobs]:
         job_set.update(proc_list)
     handler.add_restart_application_job(application_A)
     expected_proc_set = {process_1, process_3}
-    compare_sets(handler, restart_app={application_A}, restart_proc=expected_proc_set,
-                 start_proc=expected_proc_set, continue_proc=expected_proc_set)
+    compare_sets(handler, restart_app={application_A}, restart_proc=expected_proc_set, continue_proc=expected_proc_set)
 
 
 def test_add_restart_process_job(add_jobs, handler):
@@ -435,29 +423,12 @@ def test_add_restart_process_job(add_jobs, handler):
     handler.add_restart_process_job(application_A, process_2)
     compare_sets(handler, restart_app={application_A})
     handler.restart_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_restart_process_job(application_A, process_2)
-    compare_sets(handler, start_app={application_A})
-    handler.start_application_jobs.discard(application_A)
-    # check that add_restart_process_job is not updated when process is already in start_process_jobs
-    handler.start_process_jobs.add(process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.add_restart_process_job(application_A, process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.start_process_jobs.discard(process_2)
     # check that add_restart_process_job is updated when application is already in restart_application_jobs
-    # or in start_application_jobs and not in the application start sequence
+    # and not in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_restart_process_job(application_A, process_1)
     compare_sets(handler, restart_app={application_A}, restart_proc={process_1})
-    handler.restart_application_jobs.discard(application_A)
-    handler.restart_process_jobs.discard(process_1)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_restart_process_job(application_A, process_1)
-    compare_sets(handler, start_app={application_A}, restart_proc={process_1})
 
 
 def test_add_continue_process_job(add_jobs, handler):
@@ -473,41 +444,24 @@ def test_add_continue_process_job(add_jobs, handler):
     compare_sets(handler, stop_app={application_A})
     handler.stop_application_jobs.discard(application_A)
     # check that continue_process_jobs is not updated when application is already in restart_application_jobs
-    # or in start_application_jobs and in the application start sequence
+    # and in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_continue_process_job(application_A, process_2)
     compare_sets(handler, restart_app={application_A})
     handler.restart_application_jobs.discard(application_A)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_continue_process_job(application_A, process_2)
-    compare_sets(handler, start_app={application_A})
-    handler.start_application_jobs.discard(application_A)
     # check that continue_process_jobs is not updated when process is already in restart_process_jobs
-    # or in start_process_jobs
     handler.restart_process_jobs.add(process_2)
     compare_sets(handler, restart_proc={process_2})
     handler.add_continue_process_job(application_A, process_2)
     compare_sets(handler, restart_proc={process_2})
     handler.restart_process_jobs.discard(process_2)
-    handler.start_process_jobs.add(process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.add_continue_process_job(application_A, process_2)
-    compare_sets(handler, start_proc={process_2})
-    handler.start_process_jobs.discard(process_2)
     # check that continue_process_jobs is updated when application is already in restart_application_jobs
-    # or in start_application_jobs and not in the application start sequence
+    # and not in the application start sequence
     handler.restart_application_jobs.add(application_A)
     compare_sets(handler, restart_app={application_A})
     handler.add_continue_process_job(application_A, process_1)
     compare_sets(handler, restart_app={application_A}, continue_proc={process_1})
-    handler.restart_application_jobs.discard(application_A)
-    handler.continue_process_jobs.discard(process_1)
-    handler.start_application_jobs.add(application_A)
-    compare_sets(handler, start_app={application_A})
-    handler.add_continue_process_job(application_A, process_1)
-    compare_sets(handler, start_app={application_A}, continue_proc={process_1})
 
 
 def test_add_job(mocker, handler):
@@ -601,7 +555,7 @@ def test_trigger_stop_application_jobs(add_jobs, handler):
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_stop_application_jobs({'dummy_application_B'})
     compare_sets(handler, stop_app={application_B})
-    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
+    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A, False)]
 
 
 def test_restart_application_jobs(add_jobs, handler):
@@ -615,8 +569,8 @@ def test_restart_application_jobs(add_jobs, handler):
     compare_sets(handler, restart_app=set(app_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_restart_application_jobs({'dummy_application_B'})
-    compare_sets(handler, restart_app={application_B}, start_app={application_A})
-    assert handler.supvisors.stopper.stop_application.call_args_list == [call(application_A)]
+    compare_sets(handler, restart_app={application_B})
+    assert handler.supvisors.stopper.default_restart_application.call_args_list == [call(application_A, False)]
 
 
 def test_trigger_restart_process_jobs(add_jobs, handler):
@@ -630,49 +584,10 @@ def test_trigger_restart_process_jobs(add_jobs, handler):
     compare_sets(handler, restart_proc=set(proc_list))
     # test start_process calls depending on process state and involvement in Starter
     handler.trigger_restart_process_jobs({'dummy_application_B'})
-    compare_sets(handler, restart_proc={process_3}, start_proc={process_1, process_2})
-    handler.supvisors.stopper.stop_process.assert_has_calls([call(process_1), call(process_2)], any_order=True)
-    assert not call(process_3) in handler.supvisors.stopper.stop_process.call_args_list
-
-
-def test_trigger_start_application_jobs(add_jobs, handler):
-    """ Test the triggering of start application jobs. """
-    # create dummy applications and processes
-    _, app_list = add_jobs
-    application_A, application_B = app_list
-    # check that continue_process_jobs is not updated when application is already in stop_application_jobs
-    compare_sets(handler)
-    # update context
-    for application, stopped in zip(app_list, [True, False]):
-        application.stopped.return_value = stopped
-    compare_sets(handler)
-    handler.start_application_jobs.update(app_list)
-    compare_sets(handler, start_app=set(app_list))
-    # test start_application calls depending on application state and involvement in Starter
-    handler.trigger_start_application_jobs({'dummy_application_A'})
-    compare_sets(handler, start_app=set(app_list))
-    assert not handler.supvisors.starter.default_start_process.called
-    # test start_process calls depending on process state and involvement in Starter
-    handler.trigger_start_application_jobs({'dummy_application_B'})
-    compare_sets(handler, start_app={application_B})
-    assert handler.supvisors.starter.default_start_application.call_args_list == [call(application_A)]
-
-
-def test_trigger_start_process_jobs(add_jobs, handler):
-    """ Test the triggering of start process jobs. """
-    # create dummy applications and processes
-    proc_list, _ = add_jobs
-    process_1, process_2, process_3 = proc_list
-    # update context
-    for process, stopped in zip(proc_list, [True, False, True]):
-        process.stopped.return_value = stopped
-    compare_sets(handler)
-    handler.start_process_jobs.update(proc_list)
-    compare_sets(handler, start_proc=set(proc_list))
-    # test start_process calls depending on process state and involvement in Starter
-    handler.trigger_start_process_jobs({'dummy_application_B'})
-    compare_sets(handler, start_proc={process_2, process_3})
-    assert handler.supvisors.starter.default_start_process.call_args_list == [call(process_1)]
+    compare_sets(handler, restart_proc={process_3})
+    handler.supvisors.stopper.default_restart_process.assert_has_calls([call(process_1, False), call(process_2, False)],
+                                                                       any_order=True)
+    assert not call(process_3, False) in handler.supvisors.stopper.default_restart_process.call_args_list
 
 
 def test_trigger_continue_process_jobs(add_jobs, handler):
@@ -693,8 +608,6 @@ def test_trigger_jobs(mocker, handler):
     mocker.patch.object(handler, 'trigger_stop_application_jobs')
     mocker.patch.object(handler, 'trigger_restart_application_jobs')
     mocker.patch.object(handler, 'trigger_restart_process_jobs')
-    mocker.patch.object(handler, 'trigger_start_application_jobs')
-    mocker.patch.object(handler, 'trigger_start_process_jobs')
     mocker.patch.object(handler, 'trigger_continue_process_jobs')
     mocker.patch.object(handler, 'get_application_job_names', return_value={'dummy_application_A'})
     # test calls
@@ -702,6 +615,6 @@ def test_trigger_jobs(mocker, handler):
     assert handler.trigger_stop_application_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_restart_application_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_restart_process_jobs.call_args_list == [call({'dummy_application_A'})]
-    assert handler.trigger_start_application_jobs.call_args_list == [call({'dummy_application_A'})]
-    assert handler.trigger_start_process_jobs.call_args_list == [call({'dummy_application_A'})]
     assert handler.trigger_continue_process_jobs.call_args_list == [call()]
+    assert handler.supvisors.starter.next.call_args_list == [call()]
+    assert handler.supvisors.stopper.next.call_args_list == [call()]

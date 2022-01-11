@@ -1379,8 +1379,13 @@ def test_starter_default_start_process(mocker, starter):
     dummy_application.rules.starting_strategy = StartingStrategies.LOCAL
     starter.supvisors.context.applications['dummy_application'] = dummy_application
     process = Mock(application_name='dummy_application')
+    # test without trigger argument
     starter.default_start_process(process)
-    assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process, trigger=True)]
+    mocker.resetall()
+    # test with trigger argument
+    starter.default_start_process(process, False)
+    assert mocked_start.call_args_list == [call(StartingStrategies.LOCAL, process, trigger=False)]
 
 
 def test_starter_start_application(mocker, starter):
@@ -1408,8 +1413,13 @@ def test_starter_default_start_application(mocker, starter):
     # test that default_start_application just calls start_application with the default strategy
     appli = create_application('sample_test_1', starter.supvisors)
     appli.rules.starting_strategy = StartingStrategies.MOST_LOADED
+    # test without trigger argument
     starter.default_start_application(appli)
-    assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, appli)]
+    assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, appli, True)]
+    mocker.resetall()
+    # test with trigger argument
+    starter.default_start_application(appli, False)
+    assert mocked_start.call_args_list == [call(StartingStrategies.MOST_LOADED, appli, False)]
 
 
 def test_starter_start_applications(mocker, starter, sample_test_2):
@@ -1728,16 +1738,43 @@ def test_stopper_stop_process_running(mocker, stopper, sample_test_1):
     assert mocked_next.called
 
 
+def test_default_restart_process(mocker, stopper):
+    """ Test the Stopper.default_restart_process method. """
+    mocked_restart = mocker.patch.object(stopper, 'restart_process')
+    appli = create_application('appli_1', stopper.supvisors)
+    stopper.supvisors.context.applications['appli_1'] = appli
+    process = Mock(application_name='appli_1')
+    # test without trigger argument
+    appli.rules.starting_strategy = StartingStrategies.LESS_LOADED
+    stopper.default_restart_process(process)
+    assert mocked_restart.call_args_list == [call(StartingStrategies.LESS_LOADED, process, trigger=True)]
+    mocker.resetall()
+    # test with trigger argument
+    appli.rules.starting_strategy = StartingStrategies.LOCAL
+    stopper.default_restart_process(process, False)
+    assert mocked_restart.call_args_list == [call(StartingStrategies.LOCAL, process, trigger=False)]
+
+
 def test_stopper_restart_process(mocker, stopper, sample_test_1):
     """ Test the Stopper.restart_process method when the process is already stopped. """
     mocked_stop = mocker.patch.object(stopper, 'stop_process')
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_process')
     # check initial condition
     assert stopper.process_start_requests == {}
-    # test restart call
+    # test restart call with process stopped
     xlogo = sample_test_1[1]
     start_parameters = (StartingStrategies.CONFIG, xlogo.process, 'any args')
-    assert not stopper.restart_process(*start_parameters)
-    assert mocked_stop.call_args_list == [call(xlogo.process)]
+    stopper.restart_process(*start_parameters)
+    assert not mocked_stop.called
+    assert mocked_start.call_args_list == [call(StartingStrategies.CONFIG, xlogo.process, 'any args', True)]
+    assert stopper.process_start_requests == {}
+    mocked_start.reset_mock()
+    # test restart call with process running
+    xfontsel = sample_test_1[2]
+    start_parameters = (StartingStrategies.CONFIG, xfontsel.process, 'any args')
+    stopper.restart_process(*start_parameters, False)
+    assert mocked_stop.call_args_list == [call(xfontsel.process, False)]
+    assert not mocked_start.called
     assert stopper.process_start_requests == {'sample_test_1': [start_parameters]}
 
 
@@ -1783,16 +1820,40 @@ def test_stopper_stop_applications(mocker, stopper):
     assert mocked_next.called
 
 
+def test_default_restart_application(mocker, stopper):
+    """ Test the Stopper.default_restart_application method. """
+    mocked_restart = mocker.patch.object(stopper, 'restart_application')
+    appli = create_application('appli_1', stopper.supvisors)
+    # test without trigger argument
+    appli.rules.starting_strategy = StartingStrategies.LESS_LOADED
+    stopper.default_restart_application(appli)
+    assert mocked_restart.call_args_list == [call(StartingStrategies.LESS_LOADED, appli, True)]
+    mocker.resetall()
+    # test with trigger argument
+    appli.rules.starting_strategy = StartingStrategies.LOCAL
+    stopper.default_restart_application(appli, False)
+    assert mocked_restart.call_args_list == [call(StartingStrategies.LOCAL, appli, False)]
+
+
 def test_stopper_restart_application(mocker, stopper):
     """ Test the Stopper.restart_application method. """
     mocked_stop = mocker.patch.object(stopper, 'stop_application')
+    mocked_start = mocker.patch.object(stopper.supvisors.starter, 'start_application')
     # check initial condition
     assert stopper.application_start_requests == {}
-    # test restart call
+    # test restart call with stopped application
     appli = create_application('appli_1', stopper.supvisors)
     start_parameters = (StartingStrategies.CONFIG, appli)
     stopper.restart_application(*start_parameters)
-    assert mocked_stop.call_args_list == [call(appli)]
+    assert mocked_start.call_args_list == [call(*start_parameters, True)]
+    assert not mocked_stop.called
+    assert stopper.application_start_requests == {}
+    mocker.resetall()
+    # test restart call with running application
+    mocker.patch.object(appli, 'has_running_processes', return_value=True)
+    stopper.restart_application(*start_parameters)
+    assert not mocked_start.called
+    assert mocked_stop.call_args_list == [call(appli, True)]
     assert stopper.application_start_requests == {'appli_1': start_parameters}
 
 
