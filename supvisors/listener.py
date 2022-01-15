@@ -30,6 +30,7 @@ from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
 from .mainloop import SupvisorsMainLoop
+from .process import ProcessStatus
 from .supvisorszmq import SupervisorZmq, RequestPusher
 from .ttypes import SupvisorsStates, ProcessEvent, ProcessAddedEvent, ProcessRemovedEvent
 from .utils import InternalEventHeaders, RemoteCommEvents
@@ -264,25 +265,21 @@ class SupervisorListener(object):
         self.supvisors.fsm.on_authorization(identifier, boolean(authorized), master_identifier,
                                             SupvisorsStates[supvisors_state])
 
-    def force_process_state(self, namespec: str, state: ProcessStates, reason: str) -> None:
+    def force_process_state(self, process: ProcessStatus, expected_state: ProcessStates, identifier: str,
+                            forced_state: ProcessStates, reason: str) -> None:
         """ Publish the process state requested to all Supvisors instances.
 
-        :param namespec: the process namespec
-        :param state: the process state to force
+        :param process: the process structure
+        :param expected_state: the process state expected
+        :param identifier: the identifier of the Supvisors instance where the process state is expected
+        :param forced_state: the process state to force if the expected state has not been received
         :param reason: the reason declared
         :return: None
         """
         # create payload from event
-        application_name, process_name = split_namespec(namespec)
-        payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
-                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
-        # get extra_args if process is known to local Supervisor
-        # FIXME: get extra_args from ProcessStatus !
-        try:
-            options = self.supvisors.supervisor_data.get_process_config_options(namespec, ('extra_args',))
-            payload.update(options)
-        except KeyError:
-            self.logger.trace(f'SupervisorListener.force_process_state: cannot get extra_args from namespec={namespec}'
-                              ' because the program is unknown to local Supervisor')
+        payload = {'group': process.application_name, 'name': process.process_name, 'state': expected_state,
+                   'forced_state': forced_state, 'identifier': identifier,
+                   'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason,
+                   'extra_args': process.extra_args}
         self.logger.debug(f'SupervisorListener.force_process_state: payload={payload}')
         self.pusher.send_process_state_event(payload)

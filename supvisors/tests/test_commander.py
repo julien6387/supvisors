@@ -221,20 +221,20 @@ def test_start_command_timed_out(start_command):
     for state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
         process_info['state'] = state
         start_command.instance_status.sequence_counter = 16
-        assert start_command.timed_out() == ProcessRequestResult.IN_PROGRESS
+        assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.IN_PROGRESS)
         start_command.instance_status.sequence_counter = 17
-        assert start_command.timed_out() == ProcessRequestResult.TIMED_OUT
+        assert start_command.timed_out() == (ProcessStates.RUNNING, ProcessRequestResult.TIMED_OUT)
     # check call with process state RUNNING on the node
     process_info['state'] = ProcessStates.RUNNING
     start_command.instance_status.sequence_counter = 100
-    assert start_command.timed_out() == ProcessRequestResult.IN_PROGRESS
+    assert start_command.timed_out() == (ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS)
     # check call with process state in STOPPED_STATES or STOPPING on the node
     for state in [ProcessStates.STOPPING] + list(STOPPED_STATES):
         process_info['state'] = state
         start_command.instance_status.sequence_counter = 12
-        assert start_command.timed_out() == ProcessRequestResult.IN_PROGRESS
+        assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.IN_PROGRESS)
         start_command.instance_status.sequence_counter = 13
-        assert start_command.timed_out() == ProcessRequestResult.TIMED_OUT
+        assert start_command.timed_out() == (ProcessStates.STARTING, ProcessRequestResult.TIMED_OUT)
 
 
 # ProcessStopCommand part
@@ -289,16 +289,16 @@ def test_stop_command_timed_out(stop_command):
     # check call with process state STOPPING on the node
     process_info['state'] = ProcessStates.STOPPING
     stop_command.instance_status.sequence_counter = 14
-    assert stop_command.timed_out() == ProcessRequestResult.IN_PROGRESS
+    assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.IN_PROGRESS)
     stop_command.instance_status.sequence_counter = 15
-    assert stop_command.timed_out() == ProcessRequestResult.TIMED_OUT
+    assert stop_command.timed_out() == (ProcessStates.STOPPED, ProcessRequestResult.TIMED_OUT)
     # check call for all other states
     for state in list(RUNNING_STATES) + list(STOPPED_STATES):
         process_info['state'] = state
         stop_command.instance_status.sequence_counter = 12
-        assert stop_command.timed_out() == ProcessRequestResult.IN_PROGRESS
+        assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.IN_PROGRESS)
         stop_command.instance_status.sequence_counter = 13
-        assert stop_command.timed_out() == ProcessRequestResult.TIMED_OUT
+        assert stop_command.timed_out() == (ProcessStates.STOPPING, ProcessRequestResult.TIMED_OUT)
 
 
 # ApplicationJobs part
@@ -507,7 +507,7 @@ def test_application_job_check(mocker, application_job_1, sample_test_1):
     mocked_force = mocker.patch.object(application_job_1.supvisors.listener, 'force_process_state')
     mocked_next = mocker.patch.object(application_job_1, 'next')
     mocked_timeout = mocker.patch('supvisors.commander.ProcessCommand.timed_out',
-                                  return_value=ProcessRequestResult.IN_PROGRESS)
+                                  return_value=(ProcessStates.RUNNING, ProcessRequestResult.IN_PROGRESS))
     # no current_jobs initially
     application_job_1.check()
     assert not mocked_timeout.called
@@ -524,12 +524,14 @@ def test_application_job_check(mocker, application_job_1, sample_test_1):
     assert mocked_next.called
     mocker.resetall()
     # trigger timeout on first element of current_jobs
-    mocked_timeout.side_effect = [ProcessRequestResult.TIMED_OUT, ProcessRequestResult.IN_PROGRESS]
+    sample_test_1[0].identifier = '10.0.0.1'
+    mocked_timeout.side_effect = [(ProcessStates.RUNNING, ProcessRequestResult.TIMED_OUT),
+                                  (ProcessStates.STARTING, ProcessRequestResult.IN_PROGRESS)]
     application_job_1.check()
     assert application_job_1.current_jobs == sample_test_1[1:2]
     assert mocked_timeout.call_args_list == [call(), call()]
-    assert mocked_force.call_args_list == [call('sample_test_1:xclock', ProcessStates.UNKNOWN,
-                                                'no process event received in time')]
+    assert mocked_force.call_args_list == [call(sample_test_1[0].process, ProcessStates.RUNNING, '10.0.0.1',
+                                                ProcessStates.UNKNOWN, 'process RUNNING event not received in time')]
     assert mocked_next.called
 
 
@@ -784,7 +786,8 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')]
+    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, '127.0.0.1',
+                                                ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
     mocked_failure.reset_mock()
@@ -816,7 +819,8 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call('sample_test_1:xlogo', ProcessStates.FATAL, 'no resource available')]
+    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, '127.0.0.1',
+                                                ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 
 

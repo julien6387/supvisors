@@ -700,7 +700,8 @@ def test_on_process_state_event(mocker, context):
     mocked_publisher.send_process_status.reset_mock()
     mocked_publisher.send_application_status.reset_mock()
     # check normal behaviour with known process and forced state event
-    dummy_forced_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': 200, 'forced': True,
+    dummy_forced_event = {'group': 'dummy_application', 'name': 'dummy_process', 'state': ProcessStates.RUNNING,
+                          'forced_state': ProcessStates.FATAL, 'identifier': '10.0.0.1',
                           'extra_args': '-h', 'now': 2345, 'pid': 0, 'expected': False, 'spawnerr': 'ouch'}
     result = context.on_process_state_event('10.0.0.1', dummy_forced_event)
     assert result is process

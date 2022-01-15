@@ -116,10 +116,10 @@ class ProcessCommand(object):
         """
         return self.process.info_map.get(self.identifier)
 
-    def timed_out(self) -> ProcessRequestResult:
+    def timed_out(self) -> Tuple[ProcessStates, ProcessRequestResult]:
         """ Check if the request has not been acknowledged in a reasonable time.
 
-        :return: the timeout status
+        :return: the event expected and the timeout status
         """
         raise NotImplementedError
 
@@ -221,36 +221,39 @@ class ProcessStartCommand(ProcessCommand):
                               f' while starting {self.process.namespec} on {self.identifier}')
             return ProcessRequestResult.FAILED
 
-    def timed_out(self) -> ProcessRequestResult:
+    def timed_out(self) -> Tuple[ProcessStates, ProcessRequestResult]:
         """ Check if the request has not been acknowledged in a reasonable time.
 
-        :return: the request status
+        :return: the event expected and the timeout status
         """
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
+        expected_state = None
         # if the evaluation is done in this state, the EXITED state must be expected
         # this is a risk for the Supvisors Starter lifecycle but wait forever
         if process_state == ProcessStates.RUNNING:
-            return ProcessRequestResult.IN_PROGRESS
+            return ProcessStates.EXITED, ProcessRequestResult.IN_PROGRESS
         # once STARTING, the RUNNING state is expected after startsecs seconds
         if process_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
+            expected_state = ProcessStates.RUNNING
             max_tick_counter = self.request_sequence_counter + self.wait_ticks
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not RUNNING'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
-                return ProcessRequestResult.TIMED_OUT
+                return expected_state, ProcessRequestResult.TIMED_OUT
         else:
             # from STOPPED_STATES, STARTING or BACKOFF event is expected quite immediately
             # STOPPING is unexpected unless an external request has been performed
             # (e.g. stop request while in STARTING state)
+            expected_state = ProcessStates.STARTING
             max_tick_counter = self.request_sequence_counter + ProcessCommand.DEFAULT_TICK_TIMEOUT
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not STARTING'
                                   f' on {self.identifier} after {ProcessCommand.DEFAULT_TICK_TIMEOUT} ticks so abort')
-                return ProcessRequestResult.TIMED_OUT
+                return expected_state, ProcessRequestResult.TIMED_OUT
         # time out not reached
-        return ProcessRequestResult.IN_PROGRESS
+        return expected_state, ProcessRequestResult.IN_PROGRESS
 
 
 class ProcessStopCommand(ProcessCommand):
@@ -293,30 +296,33 @@ class ProcessStopCommand(ProcessCommand):
         return ProcessRequestResult.IN_PROGRESS
         # RUNNING_STATES: should be impossible as it wouldn't be compliant to ProcessStates transitions logic
 
-    def timed_out(self) -> ProcessRequestResult:
+    def timed_out(self) -> Tuple[ProcessStates, ProcessRequestResult]:
         """ Check if the request has not been acknowledged in a reasonable time.
 
-        :return: the request status
+        :return: the event expected and the timeout status
         """
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
+        expected_state = None
         if process_state == ProcessStates.STOPPING:
             # the STOPPED state is expected after stopwaitsecs seconds
+            expected_state = ProcessStates.STOPPED
             if self.request_sequence_counter + self.wait_ticks < self.instance_status.sequence_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
                                   f' on {self.identifier} after {self.wait_ticks} ticks so abort')
-                return ProcessRequestResult.TIMED_OUT
+                return expected_state, ProcessRequestResult.TIMED_OUT
         else:
             # from RUNNING_STATES, STOPPING event is expected quite immediately
+            expected_state = ProcessStates.STOPPING
             # STOPPED_STATES are unexpected because this wrapper would have been removed
             max_tick_counter = self.request_sequence_counter + ProcessCommand.DEFAULT_TICK_TIMEOUT
             if self.instance_status.sequence_counter > max_tick_counter:
                 self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPING'
                                   f' on {self.identifier} after {ProcessCommand.DEFAULT_TICK_TIMEOUT} ticks so abort')
-                return ProcessRequestResult.TIMED_OUT
+                return expected_state, ProcessRequestResult.TIMED_OUT
         # time out not reached
-        return ProcessRequestResult.IN_PROGRESS
+        return expected_state, ProcessRequestResult.IN_PROGRESS
 
 
 class ApplicationJobs(object):
@@ -479,10 +485,12 @@ class ApplicationJobs(object):
         self.logger.trace(f'Commander.check: checking commands={self.current_jobs}')
         for command in list(self.current_jobs):
             # get the ProcessStatus method corresponding to condition and call it
-            if command.timed_out() == ProcessRequestResult.TIMED_OUT:
+            expected_state, result = command.timed_out()
+            if result == ProcessRequestResult.TIMED_OUT:
                 # generate a process event for this process to inform all Supvisors instances
-                reason = f'no process event received in time'
-                self.supvisors.listener.force_process_state(command.process.namespec, self.failure_state, reason)
+                reason = f'process {getProcessStateDescription(expected_state)} event not received in time'
+                self.supvisors.listener.force_process_state(command.process, expected_state, command.identifier,
+                                                            self.failure_state, reason)
                 # don't wait for event, abort the job right now
                 self.current_jobs.remove(command)
         # trigger jobs
@@ -672,8 +680,9 @@ class ApplicationStartJobs(ApplicationJobs):
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
-                self.supvisors.listener.force_process_state(process.namespec, ProcessStates.FATAL,
-                                                            'no resource available')
+                self.supvisors.listener.force_process_state(process, ProcessStates.STARTING,
+                                                            self.supvisors.supvisors_mapper.local_identifier,
+                                                            ProcessStates.FATAL, 'no resource available')
                 self.process_failure(process)
         # return True when the job is queued
         return queued

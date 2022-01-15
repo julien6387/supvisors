@@ -334,18 +334,13 @@ def test_on_remote_event(mocker, listener):
 def test_force_process_state(mocker, listener):
     """ Test the sending of a fake Supervisor process event. """
     mocker.patch('supvisors.listener.time.time', return_value=56)
-    mocker.patch.object(listener.supvisors.supervisor_data, 'get_process_config_options', return_value={'extra_args': '-h'})
     # patch publisher
     listener.pusher = Mock(**{'send_process_state_event.return_value': None})
     # test the call
-    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
+    process = Mock(application_name='appli', process_name='process', extra_args='-h')
+    listener.force_process_state(process, ProcessStates.STARTING, '10.0.0.1', ProcessStates.FATAL, 'bad luck')
+    expected = [call({'name': 'process', 'group': 'appli', 'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+                      'forced_state': ProcessStates.FATAL,
                       'extra_args': '-h', 'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
     assert listener.pusher.send_process_state_event.call_args_list == expected
     listener.pusher.send_process_state_event.reset_mock()
-    # test the call with unknown process in Supervisor
-    listener.supvisors.supervisor_data.get_process_config_options.side_effect = KeyError
-    listener.force_process_state('appli:process', ProcessStates.FATAL, 'bad luck')
-    expected = [call({'name': 'process', 'group': 'appli', 'state': 200, 'forced': True,
-                      'now': 56, 'pid': 0, 'expected': False, 'spawnerr': 'bad luck'})]
-    assert listener.pusher.send_process_state_event.call_args_list == expected

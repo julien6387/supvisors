@@ -244,17 +244,22 @@ class ProcessStatus(object):
             self._state = new_state
             self.logger.info(f'ProcessStatus.state: {self.namespec} is {self.state_string()}')
 
-    def force_state(self, state: ProcessStates, reason: str = None) -> None:
+    def force_state(self, event: Payload) -> None:
         """ Force the process state due to an unexpected event.
+        This may be caused by a process command that has not been acknowledged in due time, so here is a final check
+        for the expected state, in the event where messages have crossed.
 
-        :param state: the forced state
-        :param reason: the reason why the state is forced
+        :param event: the forced event
         :return: None
         """
-        self.last_event_time = int(time())
-        self.forced_state = state
-        self.forced_reason = reason
-        self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()} ({reason})')
+        # check current state on targeted identifier
+        instance_info = self.info_map[event['identifier']]
+        if instance_info['state'] != event['state']:
+            self.last_event_time = int(time())
+            self.forced_state = event['forced_state']
+            self.forced_reason = event['spawnerr']
+            self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()}'
+                             f' ({self.forced_reason})')
 
     def reset_forced_state(self, state: ProcessStates = None):
         """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).

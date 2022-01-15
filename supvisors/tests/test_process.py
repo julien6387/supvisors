@@ -276,7 +276,9 @@ def test_status_stopped_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.FATAL, '')
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.STOPPED
     assert process.stopped()
     assert not process.running()
@@ -312,7 +314,9 @@ def test_status_backoff_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.STOPPED)
+    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.BACKOFF
     assert process.stopped()
     assert not process.running()
@@ -342,21 +346,18 @@ def test_status_running_process(supvisors):
     assert process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.FATAL)
-    assert process._state == ProcessStates.RUNNING
-    assert process.stopped()
-    assert not process.running()
-    assert process.crashed()
-    assert not process.running_on('10.0.0.1')
-    assert not process.running_on('10.0.0.2')
-    assert not process.pid_running_on('10.0.0.1')
-    assert not process.pid_running_on('10.0.0.2')
-    # RUNNING resets the forced state
-    process.reset_forced_state(ProcessStates.RUNNING)
+    # here, the expected state has been reached so the forced state is ignored
+    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.RUNNING
     assert not process.stopped()
     assert process.running()
     assert not process.crashed()
+    assert process.running_on('10.0.0.1')
+    assert not process.running_on('10.0.0.2')
+    assert process.pid_running_on('10.0.0.1')
+    assert not process.pid_running_on('10.0.0.2')
 
 
 def test_status_stopping_process(supvisors):
@@ -372,7 +373,9 @@ def test_status_stopping_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.STOPPED)
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.STOPPING
     assert process.stopped()
     assert not process.running()
@@ -402,7 +405,9 @@ def test_status_fatal_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.STOPPED)
+    event = {'state': ProcessStates.RUNNING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.STOPPED, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.FATAL
     assert process.stopped()
     assert not process.running()
@@ -443,7 +448,9 @@ def test_status_exited_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    process.force_state(ProcessStates.FATAL)
+    event = {'state': ProcessStates.STOPPED, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
+    process.force_state(event)
     assert process._state == ProcessStates.EXITED
     assert process.stopped()
     assert not process.running()
@@ -510,7 +517,9 @@ def test_serialization(supvisors):
     loaded = pickle.loads(dumped)
     assert loaded == serialized
     # test again with forced state
-    process.force_state(ProcessStates.FATAL, 'anything')
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': 'anything'}
+    process.force_state(event)
     assert process._state == ProcessStates.STOPPED
     serialized = process.serial()
     assert serialized == {'application_name': info['group'], 'process_name': info['name'],
@@ -522,7 +531,7 @@ def test_get_last_description(supvisors):
     """ Test the ViewContext.get_process_last_desc method. """
     # create ProcessStatus instance
     process = create_process({'group': 'dummy_application', 'name': 'dummy_proc'}, supvisors)
-    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1'},
+    process.info_map = {'10.0.0.1': {'local_time': 10, 'stop': 32, 'description': 'desc1', 'state': 0},
                         '10.0.0.2': {'local_time': 30, 'stop': 12, 'description': 'Not started'},
                         '10.0.0.3': {'local_time': 20, 'stop': 22, 'description': 'desc3'}}
     # state is not forced by default
@@ -535,7 +544,9 @@ def test_get_last_description(supvisors):
     process.running_identifiers.add('10.0.0.2')
     assert process.get_last_description() == ('10.0.0.2', 'Not started')
     # test again with forced state
-    process.force_state(ProcessStates.FATAL, 'global crash')
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': 'global crash'}
+    process.force_state(event)
     assert process.get_last_description() == (None, 'global crash')
     process.running_identifiers = set()
     assert process.get_last_description() == (None, 'global crash')
@@ -569,7 +580,9 @@ def test_add_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    process.force_state(ProcessStates.FATAL, 'failure')
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': 'failure'}
+    process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL
@@ -675,7 +688,9 @@ def test_update_info(supvisors):
     # check forced_state
     assert process.forced_state is None
     assert process.forced_reason == ''
-    process.force_state(ProcessStates.FATAL, 'failure')
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+             'forced_state': ProcessStates.FATAL, 'spawnerr': 'failure'}
+    process.force_state(event)
     assert process.forced_state == ProcessStates.FATAL
     assert process.forced_reason == 'failure'
     assert process.state == ProcessStates.FATAL

@@ -416,10 +416,12 @@ class Context(object):
                 application = self.applications[event['group']]
                 process = application.processes[event['name']]
                 # refresh process info depending on the nature of the process event
-                if 'forced' in event:
-                    process.force_state(event['state'], event['spawnerr'])
-                    # remove the 'forced' information before publication
-                    del event['forced']
+                if 'forced_state' in event:
+                    process.force_state(event)
+                    event['state'] = process.state
+                    # remove the 'forced_state' information before publication
+                    del event['forced_state']
+                    del event['identifier']
                 else:
                     process.update_info(identifier, event)
                     try:
