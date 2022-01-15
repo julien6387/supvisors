@@ -60,6 +60,11 @@ class RunningFailureStrategies(Enum):
     CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
 
 
+class ProcessRequestResult(Enum):
+    """ The possible results after a process request. """
+    IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
+
+
 def enum_values(enum_klass) -> List[int]:
     """ Return the possible integer values corresponding to the enumeration type.
     Equivalent to the protected Enum._value2member_map_.keys()

@@ -236,6 +236,7 @@ class SenicideStrategy(AbstractStrategy):
             # Stopper can't be used here as it would stop all processes
             running_identifiers = process.running_identifiers.copy()
             running_identifiers.remove(saved_identifier)
+            # FIXME: how to use Stopper instead ? add list of identifiers to stop_process ?
             for identifier in running_identifiers:
                 self.logger.debug(f'SenicideStrategy.conciliate: stop {process.namespec} on {identifier}')
                 self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
@@ -254,6 +255,7 @@ class InfanticideStrategy(AbstractStrategy):
             # Stopper can't be used here as it would stop all processes
             running_identifiers = process.running_identifiers.copy()
             running_identifiers.remove(saved_identifier)
+            # FIXME: how to use Stopper instead ? add list of identifiers to stop_process ?
             for identifier in running_identifiers:
                 self.logger.debug(f'InfanticideStrategy.conciliate: stop {process.namespec} on {identifier}')
                 self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
@@ -273,8 +275,10 @@ class StopStrategy(AbstractStrategy):
     def conciliate(self, conflicts):
         """ Conciliate the conflicts by stopping all processes. """
         for process in conflicts:
-            self.logger.warn(f'StopStrategy.conciliate: {process.namespec}')
-            self.supvisors.stopper.stop_process(process)
+            self.logger.warn(f'StopStrategy.conciliate: {process.namespec} on {process.running_identifiers}')
+            self.supvisors.stopper.stop_process(process, False)
+        # trigger all at once
+        self.supvisors.stopper.next()
 
 
 class RestartStrategy(AbstractStrategy):

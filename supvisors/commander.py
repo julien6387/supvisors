@@ -17,47 +17,55 @@
 # limitations under the License.
 # ======================================================================
 
-import time
+import math
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from supervisor.childutils import get_asctime
+from supervisor.events import Tick5Event
 from supervisor.loggers import Logger
 from supervisor.states import ProcessStates, getProcessStateDescription, STOPPED_STATES
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
 from .strategy import get_supvisors_instance, LoadRequestMap
-from .ttypes import NameList, Payload, StartingStrategies, StartingFailureStrategies
+from .ttypes import NameList, Payload, ProcessRequestResult, StartingStrategies, StartingFailureStrategies
 
 
 class ProcessCommand(object):
-    """ Wrapper of the process to include data only used here.
+    """ Wrapper of the ProcessStatus to manage start and stop requests.
 
     Attributes are:
         - process: the process wrapped ;
-        - identifiers: the identifiers of the Supvisors instances where the commands are requested ;
-        - request_time: the date when the command is requested.
+        - logger: a reference to the Supvisors logger ;
+        - identifier: the identifier of Supvisors instance where the request has been sent ;
+        - instance_status: the status of the corresponding Supvisors instance ;
+        - request_sequence_counter: the sequence_counter of the Supvisors instance when the request has been performed ;
+        - wait_ticks: the maximum number of ticks to wait before completion of the request.
     """
-    TIMEOUT = 3
+
+    # Tick margin, considering that there may already be a TICK in the pipe as the request is being sent
+    # This will add a variable margin of [5;10] seconds
+    DEFAULT_TICK_TIMEOUT = 2
 
     def __init__(self, process: ProcessStatus) -> None:
         """ Initialization of the attributes.
 
-        :param process: the process status to wrap
+        :param process: the ProcessStatus of the process to command
         """
-        self.process: ProcessStatus = process
+        self.process = process
         self.logger: Logger = process.logger
-        self.identifiers: NameList = []
-        self.request_time: int = 0
+        self.identifier: Optional[str] = None
+        self.instance_status = None
+        self.request_sequence_counter: int = 0
+        self._wait_ticks = ProcessCommand.DEFAULT_TICK_TIMEOUT
 
     def __str__(self) -> str:
         """ Get the process command as string.
 
         :return: the printable process command
         """
-        return (f'process={self.process.namespec} state={self.process.state}'
-                f' identifiers={self.identifiers} request_time={self.request_time}')
+        return (f'process={self.process.namespec} state={self.process.state_string()} identifier={self.identifier}'
+                f' request_sequence_counter={self.request_sequence_counter} wait_ticks={self.wait_ticks}')
 
     def __repr__(self) -> str:
         """ Get the process command as string.
@@ -66,11 +74,60 @@ class ProcessCommand(object):
         """
         return self.process.namespec
 
-    def timed_out(self, now: float) -> bool:
-        """ Return True if the request has not been acknowledged in a reasonable time.
+    @property
+    def wait_ticks(self):
+        """ Getter of the maximum number of ticks to wait before the completion of the request.
 
-        :param now: the current time
+        :return: the number of ticks to wait
+        """
+        return self._wait_ticks
+
+    @wait_ticks.setter
+    def wait_ticks(self, wait_secs: int) -> None:
+        """ Assign the maximum number of ticks to wait before the completion of the request.
+        The TICK unit is 5 seconds. A tick margin is added to give Supervisor enough time to process the events.
+
+        :param wait_secs: the maximum number of seconds to wait before the completion of the request
+        :return: None
+        """
+        self._wait_ticks = math.ceil(wait_secs / Tick5Event.period) + ProcessCommand.DEFAULT_TICK_TIMEOUT
+
+    def update_identifier(self, identifier: str):
+        """ Assign the targeted Supvisors instance.
+
+        :param identifier: the identifier of the targeted Supvisors instance
+        :return: None
+        """
+        self.identifier: str = identifier
+        self.instance_status = self.process.supvisors.context.instances[identifier]
+
+    def update_sequence_counter(self):
+        """ Reset the reference sequence counter based on the current sequence counter
+        of the targeted Supvisors instance.
+
+        :return: None
+        """
+        self.request_sequence_counter = self.instance_status.sequence_counter
+
+    def get_instance_info(self):
+        """ Return the process info corresponding to the targeted Supvisors instance.
+
+        :return: the current status of the process on the targeted Supvisors instance
+        """
+        return self.process.info_map.get(self.identifier)
+
+    def timed_out(self) -> ProcessRequestResult:
+        """ Check if the request has not been acknowledged in a reasonable time.
+
         :return: the timeout status
+        """
+        raise NotImplementedError
+
+    def on_event(self):
+        """ Evaluate the result of the Process request against the current state of the Process on the Supvisors
+        instance where the request has been sent.
+
+        :return: the request status
         """
         raise NotImplementedError
 
@@ -102,78 +159,164 @@ class ProcessStartCommand(ProcessCommand):
 
         :return: the printable process command
         """
-        return super().__str__() + (f' strategy={self.strategy.name} ignore_wait_exit={self.ignore_wait_exit}'
-                                    f' extra_args="{self.extra_args}"')
+        return (f'{super().__str__()} strategy={self.strategy.name} ignore_wait_exit={self.ignore_wait_exit}'
+                f' extra_args="{self.extra_args}"')
 
-    def timed_out(self, now: float) -> bool:
-        """ Return True if the request has not been acknowledged in a reasonable time.
+    def update_identifier(self, identifier: str):
+        """ Assign the targeted Supvisors instance and the number of ticks to wait.
 
-        :param now: the current time
-        :return: the timeout status
+        :param identifier: the identifier of the targeted Supvisors instance
+        :return: None
         """
-        # actually, only one identifier in self.identifiers
-        for identifier in self.identifiers:
-            # check the process state on the targeted Supvisors instance
-            local_info = self.process.info_map[identifier]
-            local_state = local_info['state']
-            if local_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
-                # the RUNNING state is expected after startsecs seconds
-                delay = local_info['startsecs'] + ProcessCommand.TIMEOUT
-                if self.request_time + delay < now:
-                    self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec}'
-                                      f' still not RUNNING after {delay} seconds so abort')
-                    return True
-            elif local_state == ProcessStates.RUNNING:
-                # if the evaluation is done in this state, the EXITED state must be expected
-                # this is a risk for the Supvisors Starter lifecycle but wait forever
-                pass
-            else:
-                # from STOPPED_STATES, STARTING or BACKOFF event is expected quite immediately
-                # a STOPPING state is unexpected unless an external request has been performed (e.g. stop request while
-                # in STARTING state)
-                if self.request_time + ProcessCommand.TIMEOUT < now:
-                    self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec}'
-                                      f' still not STARTING or BACKOFF after {ProcessCommand.TIMEOUT} seconds so abort')
-                    return True
-        return False
+        super().update_identifier(identifier)
+        # define the maximum number of ticks to wait according to the program startsecs
+        self.wait_ticks = self.get_instance_info()['startsecs']
+
+    def on_event(self) -> ProcessRequestResult:
+        """ Evaluate the result of the Process start request against the current state of the Process on the Supvisors
+        instance where the request has been sent.
+
+        :return: the request status
+        """
+        instance_info = self.get_instance_info()
+        process_state = instance_info['state']
+        if process_state == ProcessStates.STARTING:
+            # all right, on the way
+            self.logger.debug(f'ProcessStartCommand.on_event: starting in progress for {self.process.namespec}'
+                              f' on {self.identifier}')
+            return ProcessRequestResult.IN_PROGRESS
+        if process_state == ProcessStates.RUNNING:
+            # if no exit is expected, the job is done. otherwise, wait
+            if not self.process.rules.wait_exit or self.ignore_wait_exit:
+                self.logger.info(f'ProcessStartCommand.on_event: starting completed for {self.process.namespec}'
+                                 f' on {self.identifier}')
+                return ProcessRequestResult.SUCCESS
+            self.logger.info(f'ProcessStartCommand.on_event: waiting exit for {self.process.namespec}'
+                             f' on {self.identifier}')
+            return ProcessRequestResult.IN_PROGRESS
+        if process_state == ProcessStates.EXITED:
+            # an EXITED process is accepted if wait_exit is set
+            if self.process.rules.wait_exit and instance_info['expected']:
+                self.logger.info(f'ProcessStartCommand.on_event: expected exit for {self.process.namespec}'
+                                 f' on {self.identifier}')
+                return ProcessRequestResult.SUCCESS
+            self.logger.error(f'ProcessStartCommand.on_event: unexpected exit for {self.process.namespec}'
+                              f' on {self.identifier}')
+            return ProcessRequestResult.FAILED
+        if process_state == ProcessStates.BACKOFF:
+            # something wrong happened, reset sequence_counter to consider new timeout
+            self.logger.debug(f'ProcessStartCommand.on_event: reset counter for the starting of {self.process.namespec}'
+                              f' on {self.identifier}')
+            self.request_sequence_counter = self.instance_status.sequence_counter
+            return ProcessRequestResult.IN_PROGRESS
+        if process_state == ProcessStates.FATAL:
+            self.logger.error(f'ProcessStartCommand.on_event: crash of {self.process.namespec} on {self.identifier}')
+            return ProcessRequestResult.FAILED
+        if process_state in (ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN):
+            # STOPPED should be impossible as it wouldn't be compliant to ProcessStates transitions logic
+            # STOPPING would mean that someone has requested to stop the process as it is starting
+            # UNKNOWN is unlikely as it corresponds to an internal supervisord error
+            self.logger.error('ProcessStartCommand.on_event:'
+                              f' unexpected event={getProcessStateDescription(process_state)}'
+                              f' while starting {self.process.namespec} on {self.identifier}')
+            return ProcessRequestResult.FAILED
+
+    def timed_out(self) -> ProcessRequestResult:
+        """ Check if the request has not been acknowledged in a reasonable time.
+
+        :return: the request status
+        """
+        # check the process state on the targeted Supvisors instance
+        instance_info = self.get_instance_info()
+        process_state = instance_info['state']
+        # if the evaluation is done in this state, the EXITED state must be expected
+        # this is a risk for the Supvisors Starter lifecycle but wait forever
+        if process_state == ProcessStates.RUNNING:
+            return ProcessRequestResult.IN_PROGRESS
+        # once STARTING, the RUNNING state is expected after startsecs seconds
+        if process_state in [ProcessStates.BACKOFF, ProcessStates.STARTING]:
+            max_tick_counter = self.request_sequence_counter + self.wait_ticks
+            if self.instance_status.sequence_counter > max_tick_counter:
+                self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not RUNNING'
+                                  f' on {self.identifier} after {self.wait_ticks} ticks so abort')
+                return ProcessRequestResult.TIMED_OUT
+        else:
+            # from STOPPED_STATES, STARTING or BACKOFF event is expected quite immediately
+            # STOPPING is unexpected unless an external request has been performed
+            # (e.g. stop request while in STARTING state)
+            max_tick_counter = self.request_sequence_counter + ProcessCommand.DEFAULT_TICK_TIMEOUT
+            if self.instance_status.sequence_counter > max_tick_counter:
+                self.logger.error(f'ProcessStartCommand.timed_out: {self.process.namespec} still not STARTING'
+                                  f' on {self.identifier} after {ProcessCommand.DEFAULT_TICK_TIMEOUT} ticks so abort')
+                return ProcessRequestResult.TIMED_OUT
+        # time out not reached
+        return ProcessRequestResult.IN_PROGRESS
 
 
 class ProcessStopCommand(ProcessCommand):
-    """ Wrapper of the process to be started.
+    """ Wrapper of the process to be stopped. """
 
-    Attributes are:
-        - strategy: the strategy used to start the process if applicable,
-        - distributed: set to False if the process belongs to an application that cannot be distributed,
-        - ignore_wait_exit: used to command a process out of its application starting sequence,
-        - extra_args: additional arguments to the command line.
-    """
+    def __init__(self, process: ProcessStatus, identifier: str) -> None:
+        """ Initialization of the attributes.
 
-    def timed_out(self, now: float) -> bool:
-        """ Return True if the request has not been acknowledged in a reasonable time.
-
-        :param now: the current time
-        :return: the timeout status
+        :param process: the ProcessStatus of the process to command
+        :param identifier: the identifier of the Supvisors instance where the process is running and has to be stopped
         """
-        # multiple identifiers are possible
-        for identifier in self.identifiers:
-            # check the process state on the targeted Supvisors instance
-            local_info = self.process.info_map[identifier]
-            local_state = local_info['state']
-            if local_state == ProcessStates.STOPPING:
-                # the STOPPED state is expected after stopwaitsecs seconds
-                delay = local_info['stopwaitsecs'] + ProcessCommand.TIMEOUT
-                if self.request_time + delay < now:
-                    self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec}'
-                                      f' still not STOPPED after {delay} seconds so abort')
-                    return True
-            else:
-                # from RUNNING_STATES, STOPPING event is expected quite immediately
-                # STOPPED_STATES are unexpected because this wrapper would have been removed
-                if self.request_time + ProcessCommand.TIMEOUT < now:
-                    self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec}'
-                                      f' still not STOPPING after {ProcessCommand.TIMEOUT} seconds so abort')
-                    return True
-        return False
+        super().__init__(process)
+        # identifier is known right from the start
+        self.update_identifier(identifier)
+
+    def update_identifier(self, identifier: str):
+        """ Assign the targeted Supvisors instance and the number of ticks to wait.
+
+        :param identifier: the identifier of the targeted Supvisors instance
+        :return: None
+        """
+        super().update_identifier(identifier)
+        # define the maximum number of ticks to wait according to the program stopwaitsecs
+        self.wait_ticks = self.get_instance_info()['stopwaitsecs']
+
+    def on_event(self) -> ProcessRequestResult:
+        """ Evaluate the result of the Process stop request against the current state of the Process on the Supvisors
+        instance where the request has been sent.
+
+        :return: the request status
+        """
+        instance_info = self.get_instance_info()
+        process_state = instance_info['state']
+        # check if process event has an impact on stopping in progress
+        if process_state in STOPPED_STATES:
+            self.logger.info(f'ProcessStopCommand.on_event: stopping completed for {self.process.namespec}'
+                             f' on {self.identifier}')
+            return ProcessRequestResult.SUCCESS
+        # STOPPING: all right, on the way
+        return ProcessRequestResult.IN_PROGRESS
+        # RUNNING_STATES: should be impossible as it wouldn't be compliant to ProcessStates transitions logic
+
+    def timed_out(self) -> ProcessRequestResult:
+        """ Check if the request has not been acknowledged in a reasonable time.
+
+        :return: the request status
+        """
+        # check the process state on the targeted Supvisors instance
+        instance_info = self.get_instance_info()
+        process_state = instance_info['state']
+        if process_state == ProcessStates.STOPPING:
+            # the STOPPED state is expected after stopwaitsecs seconds
+            if self.request_sequence_counter + self.wait_ticks < self.instance_status.sequence_counter:
+                self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPED'
+                                  f' on {self.identifier} after {self.wait_ticks} ticks so abort')
+                return ProcessRequestResult.TIMED_OUT
+        else:
+            # from RUNNING_STATES, STOPPING event is expected quite immediately
+            # STOPPED_STATES are unexpected because this wrapper would have been removed
+            max_tick_counter = self.request_sequence_counter + ProcessCommand.DEFAULT_TICK_TIMEOUT
+            if self.instance_status.sequence_counter > max_tick_counter:
+                self.logger.error(f'ProcessStopCommand.timed_out: {self.process.namespec} still not STOPPING'
+                                  f' on {self.identifier} after {ProcessCommand.DEFAULT_TICK_TIMEOUT} ticks so abort')
+                return ProcessRequestResult.TIMED_OUT
+        # time out not reached
+        return ProcessRequestResult.IN_PROGRESS
 
 
 class ApplicationJobs(object):
@@ -226,7 +369,7 @@ class ApplicationJobs(object):
         :return: the process command found
         """
         return next((command for command in jobs
-                     if ((not identifier or identifier in command.identifiers)
+                     if ((not identifier or identifier == command.identifier)
                          and command.process.process_name == process_name)),
                     None)
 
@@ -249,7 +392,7 @@ class ApplicationJobs(object):
         planned_commands = sum(self.planned_jobs.values(), [])
         return self.get_command(planned_commands, process_name, identifier)
 
-    def add_command(self, jobs: PlannedJobs) -> None:
+    def add_commands(self, jobs: PlannedJobs) -> None:
         """ Add a process wrapper to the application jobs, if possible.
         PlannedJobs structure is used but only one element is expected.
 
@@ -257,17 +400,19 @@ class ApplicationJobs(object):
         :return: True if added to planned_jobs
         """
         # search for this command in existing lists
-        sequence_number, command_list = next(iter(jobs.items()))
-        command = next(iter(command_list))
-        current_job = self.get_current_command(command.process.process_name)
-        planned_job = self.get_planned_command(command.process.process_name)
-        if current_job or planned_job:
-            # not relevant to consider a process already considered
-            self.logger.warn(f'ApplicationJobs.add_command: {command.process.namespec} already planned')
-        else:
-            # add the command to planned_jobs
-            self.logger.debug(f'ApplicationJobs.add_command: {command.process.namespec} planned')
-            self.planned_jobs.setdefault(sequence_number, []).append(command)
+        for sequence_number, command_list in jobs.items():
+            for command in command_list:
+                current_job = self.get_current_command(command.process.process_name, command.identifier)
+                planned_job = self.get_planned_command(command.process.process_name, command.identifier)
+                if current_job or planned_job:
+                    # not relevant to consider a process already considered
+                    self.logger.warn(f'ApplicationJobs.add_commands: {command.process.namespec} already planned'
+                                     f' on {command.identifier}')
+                else:
+                    # add the command to planned_jobs
+                    self.logger.debug(f'ApplicationJobs.add_commands: {command.process.namespec} planned'
+                                      f' on {command.identifier}')
+                    self.planned_jobs.setdefault(sequence_number, []).append(command)
 
     # life cycle methods
     def in_progress(self) -> bool:
@@ -331,11 +476,10 @@ class ApplicationJobs(object):
         # once the start_process (resp. stop_process) has been called, a STARTING (resp. STOPPING) event
         # is expected quite immediately from the Supervisor instance
         # the RUNNING (resp. STOPPED) event depends on the startsecs (resp. stopwaitsecs) value configured
-        now = time.time()
-        self.logger.trace(f'Commander.check: now={now:.2f} checking commands={self.current_jobs}')
+        self.logger.trace(f'Commander.check: checking commands={self.current_jobs}')
         for command in list(self.current_jobs):
             # get the ProcessStatus method corresponding to condition and call it
-            if command.timed_out(now):
+            if command.timed_out() == ProcessRequestResult.TIMED_OUT:
                 # generate a process event for this process to inform all Supvisors instances
                 reason = f'no process event received in time'
                 self.supvisors.listener.force_process_state(command.process.namespec, self.failure_state, reason)
@@ -345,38 +489,33 @@ class ApplicationJobs(object):
         self.next()
 
     # event methods
-    def on_event(self, process: ProcessStatus, identifier: str, event: Payload) -> None:
+    def on_event(self, process: ProcessStatus, identifier: str) -> None:
         """ Check the impact of the process event on the jobs in progress.
 
         :param process: the Supvisors process corresponding to the event
         :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the event payload
         :return: None
         """
-        self.logger.debug(f'ApplicationJobs.on_event: process={process.namespec} event={event}'
-                          f' from Supvisors={identifier}')
+        self.logger.debug(f'ApplicationJobs.on_event: process={process.namespec} from Supvisors={identifier}')
         # first check if event is in the sequence logic, i.e. it corresponds to a process in current jobs
         command = self.get_current_command(process.process_name, identifier)
         if command:
-            self.on_event_in_sequence(command, identifier, event)
+            result = command.on_event()
+            if result in [ProcessRequestResult.SUCCESS, ProcessRequestResult.FAILED]:
+                # on completion, remove the command from current jobs
+                self.current_jobs.remove(command)
+                # if the command failed, trigger the configured actions
+                if result == ProcessRequestResult.FAILED:
+                    self.process_failure(command.process)
+                # next job activities
+                self.next()
         else:
-            self.logger.debug(f'ApplicationJobs.on_event: event {event} from Supvisors={identifier} does not match'
-                              ' with the current sequence')
+            self.logger.debug(f'ApplicationJobs.on_event: no corresponding job in the current sequence')
             # Various cases may lead to that situation:
             #   * the process has crashed / exited after its RUNNING state but before the application is fully started
             #     => let the running failure strategy deal with that
             #   * the process is not in the automatic application sequence (so the event is related to a manual request)
             #     => just ignore
-
-    def on_event_in_sequence(self, command: ProcessCommand, identifier: str, event: Payload) -> None:
-        """ Check the impact of the process event on the jobs in progress.
-
-        :param command: the process wrapper used in the jobs
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the process event received
-        :return: None
-        """
-        raise NotImplementedError
 
     def on_instances_invalidation(self, invalidated_identifiers: NameList,
                                   failed_processes: Set[ProcessStatus]) -> None:
@@ -390,15 +529,15 @@ class ApplicationJobs(object):
         """
         # clear the invalidated instances from the pending requests
         for command in list(self.current_jobs):
-            # rebuild identifiers
-            command.identifiers = [identifier for identifier in command.identifiers
-                                   if identifier not in invalidated_identifiers]
             # if no more pending request, declare a starting failure on the process
             # and remove the process from failed_processes as this is a starting failure, not a running failure
-            if not command.identifiers:
+            if command.identifier in invalidated_identifiers:
                 self.current_jobs.remove(command)
                 self.process_failure(command.process)
-                failed_processes.remove(command.process)
+                # WARN: if the instance shut down just before it received the start request, the process is still
+                # stopped, so it cannot be in failed_processes
+                if command.process in failed_processes:
+                    failed_processes.remove(command.process)
         # don't trigger an automatic behaviour on processes in failure when jobs are already planned
         for command in sum(self.planned_jobs.values(), []):
             if command.process in failed_processes:
@@ -439,7 +578,7 @@ class ApplicationStartJobs(ApplicationJobs):
         self.stop_request: bool = False
 
     # miscellaneous methods
-    def add_command(self, jobs: ApplicationJobs.PlannedJobs) -> None:
+    def add_commands(self, jobs: ApplicationJobs.PlannedJobs) -> None:
         """ Add a process wrapper to the application jobs, if possible.
         If the wrapper has been planned in the superclass and in the case of a non-distributed application, check that
         the process added can be started on the same Supvisors instance than the others.
@@ -447,22 +586,23 @@ class ApplicationStartJobs(ApplicationJobs):
         :param jobs: the sequenced process wrapper
         :return: None
         """
-        super().add_command(jobs)
+        super().add_commands(jobs)
         # whatever the job has been really added to planned_jobs or not, it must apply the same Supvisors instance
         # as the other commands of a non-distributed application
-        command = next(iter(jobs.values()))[0]
-        if not self.distributed and self.identifier and not command.identifiers:
-            # self.identifier may be None (no Supvisors instance found)
-            # identifiers may be already set (command was already there)
-            load = command.process.rules.expected_load
-            # check that the chosen Supvisors instance can support the new process
-            # in a non-distributed application, the application starting_strategy applies
-            identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, [self.identifier], load)
-            if identifier:
-                command.identifiers.append(identifier)
-            else:
-                self.logger.info(f'ApplicationStartJobs.add_command: {command.process.namespec} cannot be started'
-                                 f' on the chosen Supvisors={self.identifier}')
+        for command_list in jobs.values():
+            for command in command_list:
+                if not self.distributed and self.identifier and not command.identifier:
+                    # self.identifier may be None (no Supvisors instance found)
+                    # identifiers may be already set (command was already there)
+                    load = command.process.rules.expected_load
+                    # check that the chosen Supvisors instance can support the new process
+                    # in a non-distributed application, the application starting_strategy applies
+                    identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, [self.identifier], load)
+                    if identifier:
+                        command.identifier = identifier
+                    else:
+                        self.logger.warn(f'ApplicationStartJobs.add_commands: {command.process.namespec} cannot'
+                                         f'be started on the chosen Supvisors={self.identifier}')
 
     def get_load_requests(self) -> LoadRequestMap:
         """ Extract by Supvisors instance the processes that are planned to start but still stopped
@@ -474,8 +614,8 @@ class ApplicationStartJobs(ApplicationJobs):
         # sum the loading of all jobs having a targeted Supvisors instance and whose process is not fully started yet
         for command in self.current_jobs + sum(self.planned_jobs.values(), []):
             # if process is not stopped, its loading is already considered through SupvisorsInstanceStatus
-            if command.process.stopped() and command.identifiers:
-                identifier = command.identifiers[0]
+            if command.process.stopped() and command.identifier:
+                identifier = command.identifier
                 load_request_map.setdefault(identifier, []).append(command.process.rules.expected_load)
         return {identifier: sum(load_list) for identifier, load_list in load_request_map.items()}
 
@@ -502,7 +642,7 @@ class ApplicationStartJobs(ApplicationJobs):
             # apply the identifier to all commands
             if self.identifier:
                 for command in commands:
-                    command.identifiers.append(self.identifier)
+                    command.update_identifier(self.identifier)
 
     def process_job(self, command: ProcessStartCommand) -> bool:
         """ Start the process on the relevant Supvisors instance.
@@ -522,15 +662,13 @@ class ApplicationStartJobs(ApplicationJobs):
                 self.logger.debug(f'ApplicationStartJobs.process_job: found Supvisors={identifier} to start'
                                   f' process={process.namespec} with strategy={command.strategy.name}')
                 if identifier:
-                    command.identifiers.append(identifier)
-            if command.identifiers:
-                # in Starter, only one identifier in identifiers
-                identifier = command.identifiers[0]
+                    command.update_identifier(identifier)
+            if command.identifier:
                 # use asynchronous xml rpc to start program
-                self.supvisors.zmq.pusher.send_start_process(identifier, process.namespec, command.extra_args)
-                command.request_time = time.time()
+                self.supvisors.zmq.pusher.send_start_process(command.identifier, process.namespec, command.extra_args)
+                command.update_sequence_counter()
                 self.logger.info(f'ApplicationStartJobs.process_job: {process.namespec} requested to start'
-                                 f' on {identifier} at {get_asctime(command.request_time)}')
+                                 f' on {command.identifier}')
                 queued = True
             else:
                 self.logger.warn(f'ApplicationStartJobs.process_job: no resource available for {process.namespec}')
@@ -548,7 +686,7 @@ class ApplicationStartJobs(ApplicationJobs):
         """
         # impact of failure on application starting
         if process.rules.required:
-            self.logger.warn(f'ApplicationStartJobs.process_failure: starting failed for required {process.namespec}')
+            self.logger.debug(f'ApplicationStartJobs.process_failure: starting failed for required {process.namespec}')
             # apply starting failure strategy
             failure_strategy = process.rules.starting_failure_strategy
             if failure_strategy == StartingFailureStrategies.ABORT:
@@ -564,54 +702,8 @@ class ApplicationStartJobs(ApplicationJobs):
             else:
                 self.logger.info(f'ApplicationStartJobs.process_failure: continue starting {process.application_name}')
         else:
-            self.logger.warn(f'ApplicationStartJobs.process_failure: starting failed for optional {process.namespec}')
+            self.logger.debug(f'ApplicationStartJobs.process_failure: starting failed for optional {process.namespec}')
             self.logger.info(f'ApplicationStartJobs.process_failure: continue starting {process.application_name}')
-
-    # event methods
-    def on_event_in_sequence(self, command: ProcessStartCommand, identifier: str, event: Payload) -> None:
-        """ Manages the impact of an event that is part of the starting sequence.
-
-        :param command: the process wrapper used in the jobs
-        :param identifier: the identifier of the Supvisors instance that sent the event (not used)
-        :param event: the process event received
-        :return: None
-        """
-        process = command.process
-        process_state, expected_exit = event['state'], event['expected']
-        if process_state in (ProcessStates.STOPPED, ProcessStates.STOPPING, ProcessStates.UNKNOWN):
-            # STOPPED should be impossible as it wouldn't be compliant to ProcessStates transitions logic
-            # STOPPING would mean that someone has requested to stop the process as it is starting
-            # UNKNOWN is unlikely as it corresponds to an internal supervisord error
-            self.logger.error(f'ApplicationStartJobs.on_event_in_sequence:'
-                              f' unexpected event={getProcessStateDescription(process_state)}'
-                              f' while starting {process.namespec}')
-            self.current_jobs.remove(command)
-            self.process_failure(process)
-        elif process_state == ProcessStates.STARTING:
-            # all right, on the way
-            pass
-        elif process_state == ProcessStates.RUNNING:
-            # if no exit is expected, the job is done. otherwise, wait
-            if not process.rules.wait_exit or command.ignore_wait_exit:
-                self.current_jobs.remove(command)
-        elif process_state == ProcessStates.BACKOFF:
-            # something wrong happened, reset request_time to consider new timeout
-            self.logger.debug(f'ApplicationStartJobs.on_event_in_sequence: reset request_time on {process.namespec}')
-            command.request_time = time.time()
-        elif process_state == ProcessStates.EXITED:
-            # remove from current_jobs
-            self.current_jobs.remove(command)
-            # an EXITED process is accepted if wait_exit is set
-            if process.rules.wait_exit and expected_exit:
-                self.logger.info(f'ApplicationStartJobs.on_event_in_sequence: expected exit for {process.namespec}')
-            else:
-                self.process_failure(process)
-        elif process_state == ProcessStates.FATAL:
-            # remove from current_jobs and decide to continue starting or not
-            self.current_jobs.remove(command)
-            self.process_failure(process)
-        # almost all events require to trigger jobs
-        self.next()
 
 
 class ApplicationStopJobs(ApplicationJobs):
@@ -638,38 +730,16 @@ class ApplicationStopJobs(ApplicationJobs):
         :return: True if a job has been queued
         """
         process = command.process
-        if process.running():
+        running = process.running_on(command.identifier)
+        self.logger.debug(f'ApplicationStopJobs.process_job: process={process.namespec}'
+                          f' running_on({command.identifier})={running}')
+        if running:
             # use asynchronous xml rpc to stop program
-            for identifier in process.running_identifiers:
-                self.logger.info(f'ApplicationStopJobs.process_job: stopping {process.namespec} on {identifier}')
-                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
-                command.identifiers.append(identifier)
-            # push to jobs and timestamp process
-            command.request_time = time.time()
-            self.logger.debug(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
-                              f' at {get_asctime(command.request_time)}')
+            self.supvisors.zmq.pusher.send_stop_process(command.identifier, process.namespec)
+            command.update_sequence_counter()
+            self.logger.info(f'ApplicationStopJobs.process_job: {process.namespec} requested to stop'
+                             f' on {command.identifier}')
             return True
-
-    # event methods
-    def on_event_in_sequence(self, command: ProcessCommand, identifier: str, event: Payload) -> None:
-        """ Manages the impact of an event that is part of the stopping sequence.
-
-        :param command: the process wrapper used in the jobs
-        :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the process event received (not used)
-        :return: None
-        """
-        process_state = event['state']
-        # check if process event has an impact on stopping in progress
-        if process_state in STOPPED_STATES:
-            # goal reached, whatever the state
-            command.identifiers.remove(identifier)
-            if not command.identifiers:
-                self.current_jobs.remove(command)
-                # trigger jobs
-                self.next()
-        # STOPPING: all right, on the way
-        # RUNNING_STATES: should be impossible as it wouldn't be compliant to ProcessStates transitions logic
 
 
 class Commander(object):
@@ -786,18 +856,17 @@ class Commander(object):
         self.next()
 
     # event processing
-    def on_event(self, process: ProcessStatus, identifier: str, event: Payload) -> None:
+    def on_event(self, process: ProcessStatus, identifier: str) -> None:
         """ Check the impact of the process event on the jobs in progress.
 
         :param process: the Supvisors process corresponding to the event
         :param identifier: the identifier of the Supvisors instance that sent the event
-        :param event: the event payload
         :return: None
         """
         # check impact of event in current_jobs
         application_job = self.current_jobs.get(process.application_name)
         if application_job:
-            application_job.on_event(process, identifier, event)
+            application_job.on_event(process, identifier)
             # trigger jobs
             self.next()
 
@@ -971,7 +1040,7 @@ class Starter(Commander):
             # a corresponding ApplicationJobs may exist
             job = self.get_application_job(process.application_name)
             if job:
-                job.add_command(start_sequence)
+                job.add_commands(start_sequence)
             else:
                 application = self.supvisors.context.applications[process.application_name]
                 # create and store the ApplicationJobs using the start sequencing defined
@@ -1097,15 +1166,17 @@ class Stopper(Commander):
         :return: None
         """
         if process.running():
-            self.logger.info(f'Starter.stop_process: stop {process.namespec}')
+            self.logger.info(f'Stopper.stop_process: stop {process.namespec}')
             # create process wrapper
-            command = ProcessStopCommand(process)
+            commands = [ProcessStopCommand(process, identifier)
+                        for identifier in process.running_identifiers]
             # create simple sequence for this wrapper
-            stop_sequence = {process.rules.stop_sequence: [command]}
+            stop_sequence = {process.rules.stop_sequence: commands}
+            self.logger.info(f'Stopper.stop_process: stop_sequence={stop_sequence}')
             # a corresponding ApplicationJobs may exist
             job = self.get_application_job(process.application_name)
             if job:
-                job.add_command(stop_sequence)
+                job.add_commands(stop_sequence)
             else:
                 application = self.supvisors.context.applications[process.application_name]
                 # create and store the ApplicationJobs using the stop sequencing defined
@@ -1158,8 +1229,13 @@ class Stopper(Commander):
         :param application: the application to stop
         :return: None
         """
-        stop_sequence = {seq: [ProcessStopCommand(process) for process in processes]
-                         for seq, processes in application.stop_sequence.items()}
+        stop_sequence = {}
+        for seq, processes in application.stop_sequence.items():
+            command_list = [ProcessStopCommand(process, identifier)
+                            for process in processes
+                            for identifier in process.running_identifiers]
+            if command_list:
+                stop_sequence[seq] = command_list
         if stop_sequence:
             priority = application.rules.stop_sequence
             sequence = self.planned_jobs.setdefault(priority, {})

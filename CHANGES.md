@@ -18,6 +18,8 @@
 * Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
   triggered.
 
+* Update `Starter` and `Stopper` so that event timeouts are based on ticks rather than time.
+
 * The `programs` section has been added in the `application` section of the **Supvisors** rules file.
   All `program` definitions should be placed in this section rather than directly in the `application` section.
   The intention is for the next **Supvisors** version to be able to declare application options in any order.

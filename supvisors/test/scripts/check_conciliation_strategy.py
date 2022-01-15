@@ -181,6 +181,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         # check the conflicts and the CONCILIATION status using RPC
         self._check_database_conflicts()
         # use the conciliation function in parameter
+        print('### [INFO] start conciliation')
         conciliation()
         # check supvisors event: OPERATION state is expected
         event = self._get_next_supvisors_event()

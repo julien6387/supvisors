@@ -223,9 +223,10 @@ This single job is considered completed when:
     * a ``RUNNING`` event is received and the ``wait_exit`` rule is **not** set for this process ;
     * an ``EXITED`` event is received with an expected exit code and the ``wait_exit`` rule is set for this process ;
     * an error is encountered (``FATAL`` event, ``EXITED`` event with an unexpected exit code) ;
-    * no ``STARTING`` event has been received 3 seconds after the XML-RPC ;
-    * no ``RUNNING`` event has been received X+3 seconds after the XML-RPC, X corresponding to the ``startsecs`` of the
-      program definition in the |Supvisors| instance where the process has been requested to start.
+    * no ``STARTING`` event has been received 2 ticks after the XML-RPC ;
+    * no ``RUNNING`` event has been received X+2 ticks after the XML-RPC, X corresponding to the number of ticks needed
+      to cover the ``startsecs`` seconds of the program definition in the |Supvisors| instance where the process
+      has been requested to start.
 
 This principle is used for starting a single process using a ``supvisors.start_process`` XML-RPC.
 
@@ -414,9 +415,10 @@ This single job is considered completed when:
 
     * a ``STOPPED`` event is received for this process ;
     * an error is encountered (``FATAL`` event, ``EXITED`` event whatever the exit code) ;
-    * no ``STOPPING`` event has been received 3 seconds after the XML-RPC ;
-    * no ``STOPPED`` event has been received X+3 seconds after the XML-RPC, X corresponding to the ``stopwaitsecs``
-      of the program definition in the |Supvisors| instance where the process has been requested to stop.
+    * no ``STOPPING`` event has been received 2 ticks after the XML-RPC ;
+    * no ``STOPPED`` event has been received X+2 ticks after the XML-RPC, X corresponding to the number of ticks needed
+      to cover the ``stopwaitsecs`` seconds of the program definition in the |Supvisors| instance where the process
+      has been requested to stop.
 
 This principle is used for stopping a single process using a ``supvisors.stop_process`` XML-RPC.
 

@@ -241,8 +241,9 @@ def test_stop_strategy(supvisors, conflicts):
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
     assert not supvisors.zmq.pusher.send_stop_process.called
-    expected = [call(conflicts[0]), call(conflicts[1])]
+    expected = [call(conflicts[0], False), call(conflicts[1], False)]
     supvisors.stopper.stop_process.assert_has_calls(expected, any_order=True)
+    assert supvisors.stopper.next.called
 
 
 def test_restart_strategy(supvisors, conflicts):

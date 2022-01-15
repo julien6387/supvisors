@@ -670,8 +670,8 @@ def test_process_state_event(mocker, fsm):
     event = {'process_name': 'dummy_proc'}
     fsm.on_process_state_event('10.0.0.1', event)
     assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -684,8 +684,8 @@ def test_process_state_event(mocker, fsm):
         process.rules.running_failure_strategy = strategy
         fsm.on_process_state_event('10.0.0.1', event)
         assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
         assert mocked_add.call_args_list == []
         # reset mocks
         mocked_ctx.reset_mock()
@@ -696,8 +696,8 @@ def test_process_state_event(mocker, fsm):
     process.rules.running_failure_strategy = RunningFailureStrategies.STOP_APPLICATION
     fsm.on_process_state_event('10.0.0.1', event)
     assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -710,8 +710,8 @@ def test_process_state_event(mocker, fsm):
     process.rules.running_failure_strategy = RunningFailureStrategies.RESTART_APPLICATION
     fsm.on_process_state_event('10.0.0.1', event)
     assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert mocked_add.call_args_list == [call(process)]
     # reset mocks
     mocked_ctx.reset_mock()
@@ -722,8 +722,8 @@ def test_process_state_event(mocker, fsm):
     process.forced_state = ProcessStates.FATAL
     fsm.on_process_state_event('10.0.0.1', event)
     assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+    assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+    assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
     assert not mocked_add.called
     # reset mocks
     mocked_ctx.reset_mock()
@@ -735,8 +735,8 @@ def test_process_state_event(mocker, fsm):
         process.rules.running_failure_strategy = strategy
         fsm.on_process_state_event('10.0.0.1', event)
         assert mocked_ctx.call_args_list == [call('10.0.0.1', event)]
-        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1', event)]
-        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1', event)]
+        assert mocked_start_evt.call_args_list == [call(process, '10.0.0.1')]
+        assert mocked_stop_evt.call_args_list == [call(process, '10.0.0.1')]
         assert not mocked_add.called
         # reset mocks
         mocked_ctx.reset_mock()

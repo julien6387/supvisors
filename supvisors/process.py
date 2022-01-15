@@ -254,6 +254,7 @@ class ProcessStatus(object):
         self.last_event_time = int(time())
         self.forced_state = state
         self.forced_reason = reason
+        self.logger.info(f'ProcessStatus.force_state: {self.namespec} is {self.state_string()} ({reason})')
 
     def reset_forced_state(self, state: ProcessStates = None):
         """ Reset forced_state upon reception of new information only if not STOPPED (default state in Supervisor).
@@ -261,7 +262,6 @@ class ProcessStatus(object):
         :param state: the new state (provided only when Supervisor information is added for the first time)
         :return: None
         """
-        #
         if self.forced_state is not None and state != ProcessStates.STOPPED:
             self.forced_state = None
             self.forced_reason = ''

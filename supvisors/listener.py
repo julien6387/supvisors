@@ -277,6 +277,7 @@ class SupervisorListener(object):
         payload = {'group': application_name, 'name': process_name, 'state': state, 'forced': True,
                    'now': int(time.time()), 'pid': 0, 'expected': False, 'spawnerr': reason}
         # get extra_args if process is known to local Supervisor
+        # FIXME: get extra_args from ProcessStatus !
         try:
             options = self.supvisors.supervisor_data.get_process_config_options(namespec, ('extra_args',))
             payload.update(options)

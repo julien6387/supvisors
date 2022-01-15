@@ -243,6 +243,7 @@ class MasterConciliationState(AbstractState):
             return SupvisorsStates.OPERATION
         # new conflicts may happen while conciliation is in progress
         # call enter again to trigger a new conciliation
+        # FIXME: as stopper may not be used by all strategies, conciliate_conflicts can be triggered twice in a row
         self.enter()
 
 
@@ -470,8 +471,8 @@ class FiniteStateMachine:
         # returned process may be None if the event is linked to an unknown or an isolated instance
         if process:
             # inform starter and stopper
-            self.supvisors.starter.on_event(process, identifier, event)
-            self.supvisors.stopper.on_event(process, identifier, event)
+            self.supvisors.starter.on_event(process, identifier)
+            self.supvisors.stopper.on_event(process, identifier)
             # trigger an automatic (so master only) behaviour for a running failure
             # process crash triggered only if running failure strategy related to application
             # Supvisors does not replace Supervisor in the present matter (use autorestart if necessary)
