@@ -20,6 +20,9 @@
 
 * Update `Starter` and `Stopper` so that event timeouts are based on ticks rather than time.
 
+* Update `InfanticideStrategy` and `SenicideStrategy` so that the conciliation uses the `Stopper`.
+  This avoids duplicated conciliation requests when entering the `CONCILIATION` state.
+
 * The `programs` section has been added in the `application` section of the **Supvisors** rules file.
   All `program` definitions should be placed in this section rather than directly in the `application` section.
   The intention is for the next **Supvisors** version to be able to declare application options in any order.

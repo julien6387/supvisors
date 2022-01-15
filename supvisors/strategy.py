@@ -236,10 +236,10 @@ class SenicideStrategy(AbstractStrategy):
             # Stopper can't be used here as it would stop all processes
             running_identifiers = process.running_identifiers.copy()
             running_identifiers.remove(saved_identifier)
-            # FIXME: how to use Stopper instead ? add list of identifiers to stop_process ?
-            for identifier in running_identifiers:
-                self.logger.debug(f'SenicideStrategy.conciliate: stop {process.namespec} on {identifier}')
-                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
+            self.logger.debug(f'SenicideStrategy.conciliate: stop {process.namespec} on {running_identifiers}')
+            self.supvisors.stopper.stop_process(process, running_identifiers, False)
+        # trigger all Stopper jobs at once
+        self.supvisors.stopper.next()
 
 
 class InfanticideStrategy(AbstractStrategy):
@@ -255,10 +255,10 @@ class InfanticideStrategy(AbstractStrategy):
             # Stopper can't be used here as it would stop all processes
             running_identifiers = process.running_identifiers.copy()
             running_identifiers.remove(saved_identifier)
-            # FIXME: how to use Stopper instead ? add list of identifiers to stop_process ?
-            for identifier in running_identifiers:
-                self.logger.debug(f'InfanticideStrategy.conciliate: stop {process.namespec} on {identifier}')
-                self.supvisors.zmq.pusher.send_stop_process(identifier, process.namespec)
+            self.logger.debug(f'InfanticideStrategy.conciliate: stop {process.namespec} on {running_identifiers}')
+            self.supvisors.stopper.stop_process(process, running_identifiers, False)
+        # trigger all Stopper jobs at once
+        self.supvisors.stopper.next()
 
 
 class UserStrategy(AbstractStrategy):
@@ -276,7 +276,7 @@ class StopStrategy(AbstractStrategy):
         """ Conciliate the conflicts by stopping all processes. """
         for process in conflicts:
             self.logger.warn(f'StopStrategy.conciliate: {process.namespec} on {process.running_identifiers}')
-            self.supvisors.stopper.stop_process(process, False)
+            self.supvisors.stopper.stop_process(process, trigger=False)
         # trigger all at once
         self.supvisors.stopper.next()
 
@@ -285,14 +285,12 @@ class RestartStrategy(AbstractStrategy):
     """ Strategy designed to stop all conflicting processes and to restart a single instance. """
 
     def conciliate(self, conflicts):
-        """ Conciliate the conflicts by notifying the failure handler to restart the process. """
-        # add all processes to be restarted to the failure handler,
-        # as it is in its design to restart a process
+        """ Conciliate the conflicts by notifying the Stopper to restart the process. """
         for process in conflicts:
             self.logger.warn(f'RestartStrategy.conciliate: {process.namespec}')
-            self.supvisors.failure_handler.add_job(RunningFailureStrategies.RESTART_PROCESS, process)
-        # trigger the jobs of the failure handler directly (could wait for next tick)
-        self.supvisors.failure_handler.trigger_jobs()
+            self.supvisors.stopper.default_restart_process(process, False)
+        # trigger the stopper jobs at once
+        self.supvisors.stopper.next()
 
 
 class FailureStrategy(AbstractStrategy):
@@ -304,9 +302,10 @@ class FailureStrategy(AbstractStrategy):
         related to the process. """
         # stop all processes and add them to the failure handler
         for process in conflicts:
-            self.supvisors.stopper.stop_process(process)
+            self.supvisors.stopper.stop_process(process, trigger=False)
             self.logger.warn(f'FailureStrategy.conciliate: {process.namespec}')
             self.supvisors.failure_handler.add_default_job(process)
+        self.supvisors.stopper.next()
         # trigger the jobs of the failure handler directly (could wait for next tick)
         self.supvisors.failure_handler.trigger_jobs()
 

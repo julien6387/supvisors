@@ -646,6 +646,7 @@ def test_stop_process(mocker, rpc):
     mocked_check = mocker.patch('supvisors.rpcinterface.RPCInterface._check_operating_conciliation')
     # get patches
     mocked_stop = rpc.supvisors.stopper.stop_process
+    mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
     # patch the instance
     rpc._get_application_process = Mock()
@@ -657,10 +658,12 @@ def test_stop_process(mocker, rpc):
     mocked_progress.return_value = True
     assert rpc.stop_process('appli:*', False)
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call no wait and done
     mocked_progress.return_value = False
@@ -668,20 +671,24 @@ def test_stop_process(mocker, rpc):
         rpc.stop_process('appli:*')
     assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with wait and done
     with pytest.raises(RPCError) as exc:
         rpc.stop_process('appli:*', wait=True)
     assert exc.value.args == (Faults.NOT_RUNNING, 'appli:*')
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with wait and not done
     mocked_progress.return_value = True
@@ -689,7 +696,8 @@ def test_stop_process(mocker, rpc):
     # result is a function for deferred result
     assert callable(deferred)
     assert mocked_check.call_args_list == [call()]
-    assert mocked_stop.call_args_list == [call(proc_1), call(proc_2)]
+    assert mocked_stop.call_args_list == [call(proc_1, trigger=False), call(proc_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_progress.reset_mock()
     # test returned function: return True when job in progress
@@ -854,6 +862,7 @@ def test_update_numprocs(mocker, rpc):
     mocked_numprocs = mocker.patch.object(rpc.supvisors.supervisor_data, 'update_numprocs')
     mocked_delete = mocker.patch.object(rpc.supvisors.supervisor_data, 'delete_processes')
     mocked_stop = rpc.supvisors.stopper.stop_process
+    mocked_next = rpc.supvisors.stopper.next
     mocked_progress = rpc.supvisors.stopper.in_progress
     # test RPC call with unknown program
     rpc.supvisors.server_options.process_groups = {}
@@ -864,6 +873,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (not integer)
@@ -876,6 +886,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program and incorrect numprocs value (<= 0)
@@ -888,6 +899,7 @@ def test_update_numprocs(mocker, rpc):
     assert not mocked_numprocs.called
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     # test RPC call with known program, correct numprocs value and wrong program configuration
@@ -900,6 +912,7 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
@@ -911,6 +924,7 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
     assert not mocked_stop.called
+    assert not mocked_next.called
     assert not mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
@@ -925,14 +939,15 @@ def test_update_numprocs(mocker, rpc):
     assert rpc.update_numprocs('dummy_program', 2)
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
-
     assert mocked_delete.call_args_list == [call(['process_1', 'process_2', 'process_3'])]
-    assert mocked_stop.call_args_list == [call(process_1), call(process_2)]
+    assert mocked_stop.call_args_list == [call(process_1, trigger=False), call(process_2, trigger=False)]
+    assert mocked_next.called
     assert mocked_progress.called
     mocked_check.reset_mock()
     mocked_numprocs.reset_mock()
     mocked_delete.reset_mock()
     mocked_stop.reset_mock()
+    mocked_next.reset_mock()
     mocked_progress.reset_mock()
     # test RPC call with known program, correct numprocs value and numprocs increase (one process to stop)
     rpc.logger.error = print
@@ -945,7 +960,8 @@ def test_update_numprocs(mocker, rpc):
     assert mocked_check.call_args_list == [call()]
     assert mocked_numprocs.call_args_list == [call('dummy_program', 2)]
     assert not mocked_delete.called
-    assert mocked_stop.call_args_list == [call(process_1), call(process_2)]
+    assert mocked_stop.call_args_list == [call(process_1, trigger=False), call(process_2, trigger=False)]
+    assert mocked_next.called
     # test deferred function: still in progress
     mocked_progress.return_value = True
     assert deferred() == NOT_DONE_YET

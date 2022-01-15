@@ -211,9 +211,10 @@ def test_senicide_strategy(supvisors, conflicts):
     strategy = SenicideStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that the oldest processes are requested to stop on the relevant addresses
-    expected = [call('10.0.0.2', 'conflict_1'), call('10.0.0.3', 'conflict_1'),
-                call('10.0.0.4', 'conflict_2'), call('10.0.0.2', 'conflict_2')]
-    supvisors.zmq.pusher.send_stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], {'10.0.0.2', '10.0.0.3'}, False),
+                call(conflicts[1], {'10.0.0.2', '10.0.0.4'}, False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
+    assert supvisors.stopper.next.called
 
 
 def test_infanticide_strategy(supvisors, conflicts):
@@ -221,9 +222,10 @@ def test_infanticide_strategy(supvisors, conflicts):
     strategy = InfanticideStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that the youngest processes are requested to stop on the relevant addresses
-    expected = [call('10.0.0.1', 'conflict_1'), call('10.0.0.2', 'conflict_1'),
-                call('10.0.0.2', 'conflict_2'), call('10.0.0.0', 'conflict_2')]
-    supvisors.zmq.pusher.send_stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], {'10.0.0.1', '10.0.0.2'}, False),
+                call(conflicts[1], {'10.0.0.2', '10.0.0.0'}, False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
+    assert supvisors.stopper.next.called
 
 
 def test_user_strategy(supvisors, conflicts):
@@ -240,17 +242,16 @@ def test_stop_strategy(supvisors, conflicts):
     strategy = StopStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
-    assert not supvisors.zmq.pusher.send_stop_process.called
-    expected = [call(conflicts[0], False), call(conflicts[1], False)]
-    supvisors.stopper.stop_process.assert_has_calls(expected, any_order=True)
+    expected = [call(conflicts[0], trigger=False), call(conflicts[1], trigger=False)]
+    assert supvisors.stopper.stop_process.call_args_list == expected
     assert supvisors.stopper.next.called
 
 
 def test_restart_strategy(supvisors, conflicts):
     """ Test the strategy that consists in stopping all processes and restart a single one. """
     # get patches
-    mocked_add = supvisors.failure_handler.add_job
-    mocked_trigger = supvisors.failure_handler.trigger_jobs
+    mocked_restart = supvisors.stopper.default_restart_process
+    mocked_next = supvisors.stopper.next
     # call the conciliation
     strategy = RestartStrategy(supvisors)
     strategy.conciliate(conflicts)
@@ -258,9 +259,8 @@ def test_restart_strategy(supvisors, conflicts):
     assert not supvisors.stopper.stop_process.called
     assert not supvisors.zmq.pusher.send_stop_process.called
     # test failure_handler call
-    assert mocked_add.call_args_list == [call(RunningFailureStrategies.RESTART_PROCESS, conflicts[0]),
-                                         call(RunningFailureStrategies.RESTART_PROCESS, conflicts[1])]
-    assert mocked_trigger.call_count == 1
+    assert mocked_restart.call_args_list == [call(conflicts[0], False), call(conflicts[1], False)]
+    assert mocked_next.called
 
 
 def test_failure_strategy(supvisors, conflicts):
@@ -272,8 +272,9 @@ def test_failure_strategy(supvisors, conflicts):
     strategy = FailureStrategy(supvisors)
     strategy.conciliate(conflicts)
     # check that all processes are requested to stop through the Stopper
-    assert not supvisors.zmq.pusher.send_stop_process.called
-    assert supvisors.stopper.stop_process.call_args_list == [call(conflicts[0]), call(conflicts[1])]
+    assert supvisors.stopper.stop_process.call_args_list == [call(conflicts[0], trigger=False),
+                                                             call(conflicts[1], trigger=False)]
+    assert supvisors.stopper.next.called
     # test failure_handler call
     assert mocked_add.call_args_list == [call(conflicts[0]), call(conflicts[1])]
     assert mocked_trigger.call_count == 1

@@ -1158,18 +1158,20 @@ class Stopper(Commander):
                               ' so start it directly')
             self.supvisors.starter.start_application(strategy, application, trigger)
 
-    def stop_process(self, process: ProcessStatus, trigger: bool = True) -> None:
+    def stop_process(self, process: ProcessStatus, identifiers: NameList = None, trigger: bool = True) -> None:
         """ Plan and trigger the necessary job to stop the process in parameter.
 
         :param process: the process to stop
+        :param identifiers: the list of Supvisors instances where the process has to be stopped
         :param trigger: a status telling if the jobs have to be triggered directly or not
         :return: None
         """
-        if process.running():
-            self.logger.info(f'Stopper.stop_process: stop {process.namespec}')
-            # create process wrapper
-            commands = [ProcessStopCommand(process, identifier)
-                        for identifier in process.running_identifiers]
+        self.logger.info(f'Stopper.stop_process: stop {process.namespec}')
+        # create process wrappers
+        commands = [ProcessStopCommand(process, identifier)
+                    for identifier in process.running_identifiers
+                    if not identifiers or identifier in identifiers]
+        if commands:
             # create simple sequence for this wrapper
             stop_sequence = {process.rules.stop_sequence: commands}
             self.logger.info(f'Stopper.stop_process: stop_sequence={stop_sequence}')
@@ -1215,8 +1217,8 @@ class Stopper(Commander):
             # defer start until fully stopped
             process_list = self.process_start_requests.setdefault(process.application_name, [])
             process_list.append((strategy, process, extra_args))
-            # trigger stop
-            self.stop_process(process, trigger)
+            # trigger stop on all involved Supvisors instances
+            self.stop_process(process, trigger=trigger)
         else:
             self.logger.debug(f'Stopper.restart_process: process={process.namespec} already stopped'
                               ' so start it directly')

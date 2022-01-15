@@ -532,7 +532,8 @@ class RPCInterface(object):
         # stop all processes
         for process in processes:
             self.logger.debug(f'RPCInterface.stop_process: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process)
+            self.supvisors.stopper.stop_process(process, trigger=False)
+        self.supvisors.stopper.next()
         in_progress = self.supvisors.stopper.in_progress()
         # if already done, that would mean nothing was running
         if not in_progress:
@@ -670,7 +671,8 @@ class RPCInterface(object):
                                          for del_namespec in del_namespecs]))
         for process in processes_to_stop:
             self.logger.debug(f'RPCInterface.update_numprocs: stopping process={process.namespec}')
-            self.supvisors.stopper.stop_process(process)
+            self.supvisors.stopper.stop_process(process, trigger=False)
+        self.supvisors.stopper.next()
         in_progress = self.supvisors.stopper.in_progress()
         if not in_progress:
             self.supvisors.supervisor_data.delete_processes(del_namespecs)

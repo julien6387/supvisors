@@ -1762,7 +1762,7 @@ def test_stopper_restart_process(mocker, stopper, sample_test_1):
     xfontsel = sample_test_1[2]
     start_parameters = (StartingStrategies.CONFIG, xfontsel.process, 'any args')
     stopper.restart_process(*start_parameters, False)
-    assert mocked_stop.call_args_list == [call(xfontsel.process, False)]
+    assert mocked_stop.call_args_list == [call(xfontsel.process, trigger=False)]
     assert not mocked_start.called
     assert stopper.process_start_requests == {'sample_test_1': [start_parameters]}
 
