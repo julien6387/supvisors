@@ -65,12 +65,15 @@ Key	               Value
 Key	               Value
 ================== ==================
 'identifier'       The deduced name of the |Supvisors| instance.
+'node_name'        The name of the node where the |Supvisors| instance is running.
+'port'             The HTTP port of the |Supvisors| instance.
 'statecode'        The |Supvisors| instance state, in [0;5].
 'statename'        The |Supvisors| instance state as string, among { ``'UNKNOWN'``, ``'CHECKING'``, ``'RUNNING'``
                    ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'`` }.
 'remote_time'      The date of the last ``TICK`` event received from this node, in ms.
 'local_time'       The local date of the last ``TICK`` event received from this node, in ms.
 'loading'          The sum of the expected loading of the processes running on the node, in [0;100]%.
+'sequence_counter' The TICK counter, i.e. the number of Tick events received since it is running.
 ================== ==================
 
 

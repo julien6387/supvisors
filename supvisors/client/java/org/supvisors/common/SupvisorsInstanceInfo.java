@@ -59,6 +59,12 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     /** The identifier of the Supvisors instance. */
     private String identifier;
 
+    /** The name of the node where the Supvisors instance is running. */
+    private String node_name;
+
+    /** The HTTP port of the Supvisors instance. */
+    private Integer port;
+
     /** The node state. */
     private State statename;
 
@@ -84,6 +90,8 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     public SupvisorsInstanceInfo(HashMap instanceInfo)  {
         this.identifier = (String) instanceInfo.get("identifier");
+        this.node_name = (String) instanceInfo.get("node_name");
+        this.port = (Integer) instanceInfo.get("port");
         this.statename = State.valueOf((String) instanceInfo.get("statename"));
         this.remote_time = (Integer) instanceInfo.get("remote_time");
         this.local_time = (Integer) instanceInfo.get("local_time");
@@ -107,6 +115,24 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
      */
     public String getIdentifier() {
         return this.identifier;
+    }
+
+    /**
+     * The getNodeName method returns the name of the node where the Supvisors instance is running.
+     *
+     * @return String: The node name of the Supvisors instance.
+     */
+    public String getNodeName() {
+        return this.node_name;
+    }
+
+    /**
+     * The getPort method returns the HTTP port of the Supvisors instance.
+     *
+     * @return Integer: The HTTP port.
+     */
+    public Integer getPort() {
+        return this.port;
     }
 
     /**
@@ -166,6 +192,7 @@ public class SupvisorsInstanceInfo implements SupvisorsAnyInfo {
     public String toString() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return "SupvisorsInstanceInfo(identifier=" + this.identifier
+            + " node_name=" + this.node_name + " port=" + this.port
             + " state=" + this.statename + " remoteTime=\"" + sdf.format(new Date(this.remote_time * 1000L)) + "\""
             + " localTime=\"" + sdf.format(new Date(this.local_time * 1000L)) + "\""
             + " loading=" + this.loading + " sequenceCounter=" + this.sequence_counter + ")";

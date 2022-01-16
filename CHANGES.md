@@ -35,6 +35,9 @@
 * Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
   It supersedes the values eventually set in the `application` section.
 
+* Add `node_name` and `port` information to the result of the `get_instance_info` XML-RPC and to the instance status
+  of the **Supvisors** event listener.
+
 * Use a different gradient in the Web UI for running processes that have ever crashed.
 
 * Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.

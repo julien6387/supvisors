@@ -64,6 +64,8 @@ Status
             Key                Type      Description
             ================== ========= ===========
             'identifier'       ``str``   The deduced name of the |Supvisors| instance.
+            'node_name'        ``str``   The name of the node where the |Supvisors| instance is running.
+            'port'             ``int``   The HTTP port of the |Supvisors| instance.
             'statecode'	       ``int``   The |Supvisors| instance state, in [0;5].
             'statename'	       ``str``   The |Supvisors| instance state as string, in [``'UNKNOWN'``, ``'CHECKING'``,
                                          ``'RUNNING'``, ``'SILENT'``, ``'ISOLATING'``, ``'ISOLATED'``].

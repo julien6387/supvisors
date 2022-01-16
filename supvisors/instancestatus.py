@@ -94,6 +94,8 @@ class SupvisorsInstanceStatus(object):
     def serial(self):
         """ Return a serializable form of the SupvisorsInstanceStatus. """
         return {'identifier': self.identifier,
+                'node_name': self.supvisors_id.host_name,
+                'port': self.supvisors_id.http_port,
                 'statecode': self.state.value,
                 'statename': self.state.name,
                 'sequence_counter': self.sequence_counter,
