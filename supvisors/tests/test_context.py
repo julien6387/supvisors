@@ -482,8 +482,8 @@ def test_on_tick_event(mocker, context):
         assert status.state == SupvisorsInstanceStates.CHECKING
         assert status.remote_time == 1234
         assert mocked_check.call_args_list == [call('10.0.0.1')]
-        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'sequence_counter': 31,
-                                                    'statecode': 1, 'statename': 'CHECKING',
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000,
+                                                    'sequence_counter': 31, 'statecode': 1, 'statename': 'CHECKING',
                                                     'remote_time': 1234, 'local_time': 3600, 'loading': 0})]
         mocked_check.reset_mock()
         mocked_send.reset_mock()
@@ -494,7 +494,8 @@ def test_on_tick_event(mocker, context):
         assert status.state == state
         assert status.remote_time == 5678
         assert not mocked_check.called
-        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'sequence_counter': 57,
+        assert mocked_send.call_args_list == [call({'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000,
+                                                    'sequence_counter': 57,
                                                     'statecode': state.value, 'statename': state.name,
                                                     'remote_time': 5678, 'local_time': 3600, 'loading': 0})]
         mocked_send.reset_mock()
@@ -757,10 +758,12 @@ def test_on_timer_event(mocker, context):
     assert context.on_timer_event({'sequence_counter': 32, 'when': 3600}) == (['10.0.0.2'], {proc_2})
     assert context.local_sequence_counter == 32
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATING
-    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.2', 'statecode': 4, 'statename': 'ISOLATING',
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.2', 'node_name': '10.0.0.2', 'port': 65000,
+                                                'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 15,
                                                 'sequence_counter': 0}),
-                                          call({'identifier': '10.0.0.5', 'statecode': 4, 'statename': 'ISOLATING',
+                                          call({'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
+                                                'statecode': 4, 'statename': 'ISOLATING',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]
     assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2')]
@@ -794,9 +797,11 @@ def test_handle_isolation(mocker, context):
     assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATED
     assert context.instances['10.0.0.5'].state == SupvisorsInstanceStates.ISOLATED
     # check calls to publisher.send_instance_status
-    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.4', 'statecode': 5, 'statename': 'ISOLATED',
+    assert mocked_send.call_args_list == [call({'identifier': '10.0.0.4', 'node_name': '10.0.0.4', 'port': 65000,
+                                                'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0}),
-                                          call({'identifier': '10.0.0.5', 'statecode': 5, 'statename': 'ISOLATED',
+                                          call({'identifier': '10.0.0.5', 'node_name': '10.0.0.5', 'port': 65000,
+                                                'statecode': 5, 'statename': 'ISOLATED',
                                                 'remote_time': 0, 'local_time': 0, 'loading': 0,
                                                 'sequence_counter': 0})]

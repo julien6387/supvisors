@@ -74,8 +74,8 @@ def test_strategies(rpc):
 def test_instance_info(rpc):
     """ Test the RPCInterface.get_instance_info XML-RPC. """
     # test with known address
-    expected = {'identifier': '10.0.0.1', 'loading': 0, 'local_time': 0, 'remote_time': 0, 'sequence_counter': 0,
-                'statecode': 0, 'statename': 'UNKNOWN'}
+    expected = {'identifier': '10.0.0.1', 'node_name': '10.0.0.1', 'port': 65000, 'loading': 0, 'local_time': 0,
+                'remote_time': 0, 'sequence_counter': 0, 'statecode': 0, 'statename': 'UNKNOWN'}
     assert rpc.get_instance_info('10.0.0.1') == expected
     # test with unknown address
     with pytest.raises(RPCError) as exc:
