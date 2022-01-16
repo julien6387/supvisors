@@ -82,7 +82,7 @@ class ProcInstanceView(SupvisorsInstanceView):
             payload = {'application_name': info['group'], 'process_name': info['name'], 'namespec': namespec,
                        'single': single, 'identifier': self.view_ctx.local_identifier,
                        'statename': info['statename'], 'statecode': info['state'],
-                       'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': process.has_crashed,
+                       'gravity': 'FATAL' if crashed else info['statename'], 'has_crashed': info['has_crashed'],
                        'description': info['description'], 'expected_load': expected_load,
                        'nb_cores': nb_cores, 'proc_stats': proc_stats}
             data.append(payload)

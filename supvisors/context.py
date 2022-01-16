@@ -408,9 +408,9 @@ class Context(object):
         :return: None
         """
         if self.supvisors.supvisors_mapper.valid(identifier):
-            node_status = self.instances[identifier]
+            instance_status = self.instances[identifier]
             # accept events only in RUNNING state
-            if node_status.state == SupvisorsInstanceStates.RUNNING:
+            if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
                 # get internal data
                 application = self.applications[event['group']]

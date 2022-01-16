@@ -542,7 +542,7 @@ def test_process_removed_event(mocker, context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
-                  'now': 1234, 'stop': 0}
+                  'now': 1234, 'stop': 0, 'extra_args': '-h'}
     process = context.setdefault_process(dummy_info)
     process.add_info('10.0.0.1', dummy_info)
     process.add_info('10.0.0.2', dummy_info)
@@ -634,7 +634,7 @@ def test_on_process_state_event(mocker, context):
     context.supvisors.parser.load_application_rules = load_application_rules
     # fill context with one process
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
-                  'now': 1234, 'stop': 0}
+                  'now': 1234, 'stop': 0, 'extra_args': '-h'}
     process = context.setdefault_process(dummy_info)
     process.add_info('10.0.0.1', dummy_info)
     application = context.applications['dummy_application']

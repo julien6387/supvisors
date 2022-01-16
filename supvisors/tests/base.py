@@ -256,29 +256,36 @@ ProcessInfoDatabase = [
      'stdout_logfile': './log/xeyes_cliche01.log'}]
 
 
+def extract_and_complete(info):
+    """ Provide payload as processed by Supvisors. """
+    extracted_info = extract_process_info(info)
+    extracted_info.update({'startsecs': 0, 'stopwaitsecs': 0, 'extra_args': ''})
+    return extracted_info
+
+
 def database_copy():
     """ Return a copy of the whole database. """
-    return [extract_process_info(info) for info in ProcessInfoDatabase]
+    return [extract_and_complete(info) for info in ProcessInfoDatabase]
 
 
 def any_process_info():
     """ Return a copy of any process in database. """
     info = random.choice(ProcessInfoDatabase)
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def any_stopped_process_info():
     """ Return a copy of any stopped process in database. """
     info = random.choice([info for info in ProcessInfoDatabase if info['state'] in STOPPED_STATES])
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def any_process_info_by_state(state):
     """ Return a copy of any process in state 'state' in database. """
     info = random.choice([info for info in ProcessInfoDatabase if info['state'] == state])
-    return extract_process_info(info)
+    return extract_and_complete(info)
 
 
 def process_info_by_name(name):
     """ Return a copy of a process named 'name' in database. """
-    return next((extract_process_info(info) for info in ProcessInfoDatabase if info['name'] == name), None)
+    return next((extract_and_complete(info) for info in ProcessInfoDatabase if info['name'] == name), None)

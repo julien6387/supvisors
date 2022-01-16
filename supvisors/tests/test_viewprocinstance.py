@@ -128,8 +128,8 @@ def test_get_process_data(mocker, view):
     for process_name, load, has_crashed in [('xfontsel', 8, True), ('segv', 17, False), ('firefox', 26, False)]:
         # create process
         info = process_info_by_name(process_name)
+        info['has_crashed'] = has_crashed
         process = create_process(info, view.supvisors)
-        process.has_crashed = has_crashed
         process.rules.expected_load = load
         process.add_info('10.0.0.1', info)
         # add to application
