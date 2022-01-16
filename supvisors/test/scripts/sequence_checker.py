@@ -215,7 +215,7 @@ class SequenceChecker(SupvisorsEventQueues):
             self.identifiers.add(data['identifier'])
         # check the number of notifications
         self.nb_identifiers_notifications += 1
-        if self.nb_identifiers_notifications == 5:
+        if self.nb_identifiers_notifications == 9:
             self.logger.info(f'instances: {self.identifiers}')
             # got all notification, unsubscribe from SupvisorsInstanceStatus
             self.subscriber.unsubscribe_instance_status()
@@ -232,12 +232,9 @@ class CheckSequenceTest(unittest.TestCase):
     def setUp(self):
         """ The setUp starts the subscriber to the Supvisors events and get the event queues. """
         # get the instances
-        proxy = getRPCInterface(os.environ).supvisors
-        instances_info = proxy.get_all_instances_info()
-        self.HOST_01 = instances_info[0]['identifier']
-        self.HOST_02 = instances_info[1]['identifier'] if len(instances_info) > 1 else None
-        self.HOST_03 = instances_info[2]['identifier'] if len(instances_info) > 2 else None
-        self.HOST_04 = instances_info[3]['identifier'] if len(instances_info) > 3 else None
+        TEST_IDENTIFIERS = ['cliche81', 'cliche82', 'cliche83:60000', 'cliche84', 'cliche85']
+        for idx, identifier in enumerate(TEST_IDENTIFIERS):
+            setattr(self, f'HOST_{idx+1:02d}', identifier)
         # create a context
         self.context = Context()
         # create the thread of event subscriber

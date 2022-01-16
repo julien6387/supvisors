@@ -154,12 +154,12 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
         self._check_conciliation_user_database(conciliation)
         # this test is a bit long and produces lots of events
         # so hang on for specific events for test
-        # 1. all movie_server programs (9) shall be stopped
+        # 1. all movie_server programs (12, 3 per Supvisors instance) shall be stopped
         expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 0, 'identifier': identifier}
                            for identifier in self.running_identifiers
                            for idx in range(3)]
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
-        self.assertEqual(9, len(received_events))
+        self.assertEqual(12, len(received_events))
         self.assertEqual([], expected_events)
         # 2. all movie_server programs shall be running after restart
         expected_events = [{'name': 'movie_server_0%d' % (idx + 1), 'state': 20}
@@ -206,7 +206,7 @@ class ConciliationStrategyTest(RunningIdentifiersTest):
                            for identifier in self.running_identifiers]
         expected_events.append({'name': 'hmi', 'state': 0})
         received_events = self.evloop.wait_until_events(self.evloop.event_queue, expected_events, 10)
-        self.assertEqual(4, len(received_events))
+        self.assertEqual(5, len(received_events))
         self.assertEqual([], expected_events)
         # 3 processes to start (one FATAL)
         # => 1 manager + 1 FATAL web_server + 1 hmi to start
