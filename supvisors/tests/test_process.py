@@ -275,7 +275,7 @@ def test_status_stopped_process(supvisors):
     assert not process.pid_running_on('10.0.0.1')
     assert not process.pid_running_on('10.0.0.2')
     # test again with forced state
-    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.1',
+    event = {'state': ProcessStates.STARTING, 'identifier': '10.0.0.2',
              'forced_state': ProcessStates.FATAL, 'spawnerr': ''}
     process.force_state(event)
     assert process._state == ProcessStates.STOPPED

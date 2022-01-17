@@ -250,9 +250,14 @@ class ProcessStatus(object):
         :param event: the forced event
         :return: None
         """
+        reached = False
         # check current state on targeted identifier
-        instance_info = self.info_map[event['identifier']]
-        if instance_info['state'] != event['state']:
+        identifier = event['identifier']
+        if identifier in self.info_map:
+            instance_info = self.info_map[identifier]
+            reached = instance_info['state'] == event['state']
+        # if expected event not reached, apply forced state
+        if not reached:
             self.last_event_time = int(time())
             self.forced_state = event['forced_state']
             self.forced_reason = event['spawnerr']
