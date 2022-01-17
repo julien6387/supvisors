@@ -27,8 +27,8 @@ from supervisor.states import ProcessStates, getProcessStateDescription, STOPPED
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .strategy import get_supvisors_instance, LoadRequestMap
-from .ttypes import NameList, Payload, ProcessRequestResult, StartingStrategies, StartingFailureStrategies
+from .strategy import get_supvisors_instance
+from .ttypes import NameList, LoadMap, ProcessRequestResult, StartingStrategies, StartingFailureStrategies
 
 
 class ProcessCommand(object):
@@ -229,7 +229,6 @@ class ProcessStartCommand(ProcessCommand):
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
-        expected_state = None
         # if the evaluation is done in this state, the EXITED state must be expected
         # this is a risk for the Supvisors Starter lifecycle but wait forever
         if process_state == ProcessStates.RUNNING:
@@ -304,7 +303,6 @@ class ProcessStopCommand(ProcessCommand):
         # check the process state on the targeted Supvisors instance
         instance_info = self.get_instance_info()
         process_state = instance_info['state']
-        expected_state = None
         if process_state == ProcessStates.STOPPING:
             # the STOPPED state is expected after stopwaitsecs seconds
             expected_state = ProcessStates.STOPPED
@@ -553,7 +551,7 @@ class ApplicationJobs(object):
         # no need to trigger jobs
         # this method is already triggered by the upper periodic check that will call self.next() anyway
 
-    def get_load_requests(self) -> LoadRequestMap:
+    def get_load_requests(self) -> LoadMap:
         """ Extract by identifier of Supvisors instance the processes that are planned to start but still stopped
         and sum their expected load. Only applicable to ApplicationStartJobs.
 
@@ -612,7 +610,7 @@ class ApplicationStartJobs(ApplicationJobs):
                         self.logger.warn(f'ApplicationStartJobs.add_commands: {command.process.namespec} cannot'
                                          f'be started on the chosen Supvisors={self.identifier}')
 
-    def get_load_requests(self) -> LoadRequestMap:
+    def get_load_requests(self) -> LoadMap:
         """ Extract by Supvisors instance the processes that are planned to start but still stopped
         and sum their expected load.
 
@@ -1072,9 +1070,8 @@ class Starter(Commander):
             # trigger application stop
             self.supvisors.stopper.stop_application(application_job.application)
 
-    def get_load_requests(self) -> LoadRequestMap:
+    def get_load_requests(self) -> LoadMap:
         """ Get the requested load from all current ApplicationJobs.
-        TODO: check if should be grouped by host name rather than by Supvisors identifier
 
         :return: the additional loading per Supvisors instance
         """

@@ -112,7 +112,7 @@ class SupvisorsView(ViewHandler):
             elt.content(simple_localtime(remote_time))
         # set Supvisors instance current load
         elt = instance_div_elt.findmeld('percent_th_mid')
-        elt.content(f'{status.get_loading()}%')
+        elt.content(f'{status.get_load()}%')
 
     @staticmethod
     def _write_instance_box_processes(instance_div_elt, status):

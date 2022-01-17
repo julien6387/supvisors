@@ -271,7 +271,7 @@ def test_update_period(mocker, ctx):
     assert not mocked_update.called
 
 
-def test_update_node_name(ctx):
+def test_update_identifier(ctx):
     """ Test the ViewContext.update_identifier method. """
     # reset parameter because called in constructor
     del ctx.parameters[IDENTIFIER]
@@ -283,7 +283,7 @@ def test_update_node_name(ctx):
     # test call with invalid value
     ctx.http_context.form[IDENTIFIER] = '192.168.1.1'
     ctx.update_identifier()
-    assert ctx.parameters[IDENTIFIER] == '127.0.0.1'
+    assert ctx.parameters[IDENTIFIER] == ctx.local_identifier
 
 
 def test_update_auto_refresh(ctx):
@@ -326,8 +326,8 @@ def test_update_application_name(ctx):
 
 def test_update_process_name(mocker, ctx):
     """ Test the ViewContext.update_process_name method. """
-    ctx.parameters[IDENTIFIER] = '127.0.0.1'
-    node = ctx.supvisors.context.instances['127.0.0.1']
+    ctx.parameters[IDENTIFIER] = ctx.local_identifier
+    node = ctx.supvisors.context.instances[ctx.local_identifier]
     mocker.patch.object(node, 'running_processes', return_value=[])
     # reset parameter because called in constructor
     del ctx.parameters[PROCESS]
@@ -401,8 +401,8 @@ def test_format_url(ctx):
     # test without node and arguments
     assert ctx.format_url(None, 'index.html') == 'index.html?ident=10.0.0.4&period=5&strategy=CONFIG'
     # test with local node and arguments
-    base_address = 'http://127.0.0.1:65000/index.html?'
-    url = ctx.format_url('127.0.0.1', 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
+    base_address = f'http://{ctx.local_identifier}:65000/index.html?'
+    url = ctx.format_url(ctx.local_identifier, 'index.html', **{'period': 10, 'appliname': 'dummy_appli', 'shex': 'args'})
     expected = 'appliname=dummy_appli&ident=10.0.0.4&period=10&shex=args&strategy=CONFIG'
     assert url == base_address + expected
     # test with remote node and arguments (shex expected to be removed)
@@ -445,12 +445,12 @@ def test_get_node_stats(ctx):
     assert ctx.get_instance_stats() is None
     # add statistics data
     stats_data = ctx.http_context.supervisord.supvisors.statistician.data
-    stats_data['127.0.0.1'] = {5: 'data for period 5 at 127.0.0.1',
-                               8: 'data for period 8 at 127.0.0.1'}
+    stats_data[ctx.local_identifier] = {5: 'data for period 5 at self',
+                                        8: 'data for period 8 at self'}
     stats_data['10.0.0.1'] = {5: 'data for period 5 at 10.0.0.1',
                               10: 'data for period 10 at 10.0.0.1'}
     # test with default address
-    assert ctx.get_instance_stats() == 'data for period 5 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 5 at self'
     # test with unknown address parameter
     assert ctx.get_instance_stats('10.0.0.2') is None
     # test with known address parameter and existing period
@@ -458,7 +458,7 @@ def test_get_node_stats(ctx):
     # update period
     ctx.parameters[PERIOD] = 8
     # test with default address and existing period
-    assert ctx.get_instance_stats() == 'data for period 8 at 127.0.0.1'
+    assert ctx.get_instance_stats() == 'data for period 8 at self'
     # test with known address parameter but missing period
     assert ctx.get_instance_stats('10.0.0.1') is None
 
@@ -471,7 +471,7 @@ def test_get_process_stats(mocker, ctx):
     # patch get_address_stats so that it returns no result
     with patch.object(ctx, 'get_instance_stats', return_value=None) as mocked_stats:
         assert ctx.get_process_stats('dummy_proc') == (4, None)
-        assert mocked_stats.call_args_list == [call('127.0.0.1')]
+        assert mocked_stats.call_args_list == [call(ctx.local_identifier)]
     mocked_core.reset_mock()
     # patch get_address_stats
     mocked_find = Mock(**{'find_process_stats.return_value': 'mock stats'})

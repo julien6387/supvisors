@@ -49,10 +49,11 @@ def test_creation_error(mocker, supvisors, mocked_rpc):
     """ Test the values set at construction. """
     mocker.patch('supvisors.mainloop.SupvisorsZmq', side_effect=ZMQError)
     main_loop = SupvisorsMainLoop(supvisors)
+    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]
@@ -67,7 +68,8 @@ def test_creation(supvisors, mocked_rpc, main_loop):
     assert isinstance(main_loop, Thread)
     assert main_loop.supvisors is supvisors
     assert not main_loop.stop_event.is_set()
-    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+    server_url = main_loop.supvisors.supervisor_data.supervisord.options.serverurl
+    assert main_loop.srv_url.env == {'SUPERVISOR_SERVER_URL': server_url,
                                      'SUPERVISOR_USERNAME': 'user',
                                      'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
     assert mocked_rpc.call_args_list == [call(main_loop.srv_url.env)]

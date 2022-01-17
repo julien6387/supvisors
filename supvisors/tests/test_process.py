@@ -170,9 +170,9 @@ def test_rules_check_hash_identifiers(rules):
     assert rules.hash_identifiers == ['*']
     assert rules.identifiers == []
     # 2. update rules to test '#' with all instances available
-    # address '10.0.0.2' has an index of 2 in address_mapper
+    # address '10.0.0.3' has an index of 2 in address_mapper
     rules.check_hash_identifiers('sample_test_1:xclock')
-    assert rules.identifiers == ['10.0.0.2']
+    assert rules.identifiers == ['10.0.0.3']
     # 3. update rules to test '#' with a subset of instances available
     rules.hash_identifiers = ['10.0.0.0', '10.0.0.3', '10.0.0.5']
     rules.identifiers = []

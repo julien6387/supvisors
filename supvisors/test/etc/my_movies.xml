@@ -165,7 +165,7 @@
     <application pattern="web_">
         <start_sequence>6</start_sequence>
         <stop_sequence>2</stop_sequence>
-        <starting_strategy>LESS_LOADED</starting_strategy>
+        <starting_strategy>LESS_LOADED_NODE</starting_strategy>
 
         <programs>
             <program name="web_browser">

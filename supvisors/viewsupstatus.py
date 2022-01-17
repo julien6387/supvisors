@@ -61,7 +61,7 @@ class SupvisorsInstanceView(StatusView):
         elt.content(status.state.name)
         # set Supvisors instance load
         elt = root.findmeld('percent_mid')
-        elt.content(f'{status.get_loading()}%')
+        elt.content(f'{status.get_load()}%')
         # write statistics parameters
         self.write_periods(root)
         # write actions related to the Supvisors instance

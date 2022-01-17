@@ -30,13 +30,15 @@ from supvisors.ttypes import SupvisorsInstanceStates, SupvisorsStates
 @pytest.fixture
 def supvisors_ctx(supvisors):
     """ Create a Supvisors-like structure filled with some instances. """
+    local_identifier = supvisors.supvisors_mapper.local_identifier
     nodes = supvisors.context.instances
-    nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATING
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.ISOLATED
+    nodes['test']._state = SupvisorsInstanceStates.SILENT
     return supvisors
 
 
@@ -45,7 +47,7 @@ def test_abstract_state(supvisors_ctx):
     state = AbstractState(supvisors_ctx)
     # check attributes at creation
     assert state.supvisors is supvisors_ctx
-    assert state.local_identifier == '127.0.0.1'
+    assert state.local_identifier == supvisors_ctx.supvisors_mapper.local_identifier
     # call empty methods
     state.enter()
     state.next()
@@ -53,16 +55,16 @@ def test_abstract_state(supvisors_ctx):
     # test check_instances method
     # declare local and master address running
     supvisors_ctx.context._master_identifier = '10.0.0.3'
-    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.RUNNING
     supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.RUNNING
     assert state.check_instances() is None
     # transition to INITIALIZATION state if the local address or master address is not RUNNING
-    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.RUNNING
     supvisors_ctx.context.instances['10.0.0.3']._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
-    supvisors_ctx.context.instances['127.0.0.1']._state = SupvisorsInstanceStates.SILENT
+    supvisors_ctx.context.instances[state.local_identifier]._state = SupvisorsInstanceStates.SILENT
     assert state.check_instances() == SupvisorsStates.INITIALIZATION
     # test abort_jobs method
     state.abort_jobs()
@@ -75,12 +77,13 @@ def test_initialization_state(supvisors_ctx):
     """ Test the Initialization state of the fsm. """
     state = InitializationState(supvisors_ctx)
     assert isinstance(state, AbstractState)
+    local_identifier = state.local_identifier
     # 1. test enter method: master and start_date are reset
     # test that all active instances have been reset to UNKNOWN
     state.enter()
     assert state.context.master_identifier == ''
     nodes = supvisors_ctx.context.instances
-    assert nodes['127.0.0.1'].state == SupvisorsInstanceStates.UNKNOWN
+    assert nodes[local_identifier].state == SupvisorsInstanceStates.UNKNOWN
     assert nodes['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
     assert nodes['10.0.0.2'].state == SupvisorsInstanceStates.UNKNOWN
     assert nodes['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATING
@@ -94,7 +97,7 @@ def test_initialization_state(supvisors_ctx):
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # test case where addresses are still unknown and timeout is not reached
-    nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.4']._state = SupvisorsInstanceStates.SILENT
     result = state.next()
@@ -121,26 +124,26 @@ def test_initialization_state(supvisors_ctx):
     result = state.next()
     assert result == SupvisorsStates.INITIALIZATION
     # master known, not in core instances and running
-    supvisors_ctx.context.master_identifier = '127.0.0.1'
+    supvisors_ctx.context.master_identifier = local_identifier
     result = state.next()
     assert result == SupvisorsStates.DEPLOYMENT
     # 3. test exit method
     # test when master_identifier is already set: no change
     state.exit()
-    assert supvisors_ctx.context.master_identifier == '127.0.0.1'
+    assert supvisors_ctx.context.master_identifier == local_identifier
     # test when master_identifier is not set and no core instances
     # check master is the lowest string among running node names
     supvisors_ctx.context.master_identifier = None
     supvisors_ctx.supvisors_mapper._core_identifiers = {}
     state.exit()
-    assert supvisors_ctx.context.running_identifiers() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+    assert supvisors_ctx.context.running_identifiers() == ['10.0.0.2', '10.0.0.4', local_identifier]
     assert supvisors_ctx.context.master_identifier == '10.0.0.2'
     # test when master_identifier is not set and core instances are used
     # check master is the lowest string among the intersection between running node names and forced instances
     supvisors_ctx.context.master_identifier = None
     supvisors_ctx.supvisors_mapper._core_identifiers = {'10.0.0.3', '10.0.0.4'}
     state.exit()
-    assert supvisors_ctx.context.running_identifiers() == ['127.0.0.1', '10.0.0.2', '10.0.0.4']
+    assert supvisors_ctx.context.running_identifiers() == ['10.0.0.2', '10.0.0.4', local_identifier]
     assert supvisors_ctx.context.master_identifier == '10.0.0.4'
 
 
@@ -281,6 +284,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     # create instance to test
     state = MasterRestartingState(supvisors_ctx)
     assert isinstance(state, AbstractState)
+    local_identifier = state.local_identifier
     # test enter method: starting ang stopping in progress are aborted
     state.enter()
     assert mocked_starter.call_count == 1
@@ -301,7 +305,7 @@ def test_master_restarting_state(mocker, supvisors_ctx):
     # test exit method: call to pusher send_restart for all addresses
     assert not state.supvisors.zmq.pusher.send_restart.called
     state.exit()
-    assert state.supvisors.zmq.pusher.send_restart.call_args_list == [call('127.0.0.1')]
+    assert state.supvisors.zmq.pusher.send_restart.call_args_list == [call(local_identifier)]
 
 
 def test_master_shutting_down_state(mocker, supvisors_ctx):
@@ -312,6 +316,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     # create instance to test
     state = MasterShuttingDownState(supvisors_ctx)
     assert isinstance(state, AbstractState)
+    local_identifier = state.local_identifier
     # test enter method: starting ang stopping in progress are aborted
     state.enter()
     assert mocked_starter.call_count == 1
@@ -332,7 +337,7 @@ def test_master_shutting_down_state(mocker, supvisors_ctx):
     # test exit method: call to pusher send_restart for all instances
     assert not state.supvisors.zmq.pusher.send_shutdown.called
     state.exit()
-    assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call('127.0.0.1')]
+    assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call(local_identifier)]
 
 
 def test_shutdown_state(supvisors_ctx):
@@ -368,6 +373,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     # create instance to test
     state = SlaveRestartingState(supvisors_ctx)
     assert isinstance(state, AbstractState)
+    local_identifier = state.local_identifier
     # no enter implementation. just call it without test
     state.enter()
     # test next method if check_instances return something
@@ -380,7 +386,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     # test exit
     assert not state.supvisors.zmq.pusher.send_restart.called
     state.exit()
-    assert state.supvisors.zmq.pusher.send_restart.call_args_list == [call('127.0.0.1')]
+    assert state.supvisors.zmq.pusher.send_restart.call_args_list == [call(local_identifier)]
 
 
 def test_slave_shutting_down_state(mocker, supvisors_ctx):
@@ -388,6 +394,7 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     # create instance to test
     state = SlaveShuttingDownState(supvisors_ctx)
     assert isinstance(state, SlaveRestartingState)
+    local_identifier = state.local_identifier
     # no enter implementation. just call it without test
     state.enter()
     # test next method if check_instances return something
@@ -400,7 +407,7 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     # test exit
     assert not state.supvisors.zmq.pusher.send_shutdown.called
     state.exit()
-    assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call('127.0.0.1')]
+    assert state.supvisors.zmq.pusher.send_shutdown.call_args_list == [call(local_identifier)]
 
 
 @pytest.fixture
@@ -641,8 +648,9 @@ def test_tick_event(mocker, fsm):
     assert not mocked_check.called
     mocker.resetall()
     # test when tick comes from local node
-    fsm.on_tick_event('127.0.0.1', event)
-    assert mocked_evt.call_args_list == [call('127.0.0.1', event)]
+    local_identifier = fsm.supvisors.supvisors_mapper.local_identifier
+    fsm.on_tick_event(local_identifier, event)
+    assert mocked_evt.call_args_list == [call(local_identifier, event)]
     assert mocked_check.call_args_list == [call(event)]
 
 
@@ -789,9 +797,9 @@ def test_on_authorization(mocker, fsm):
     # prepare context
     mocked_auth = mocker.patch.object(fsm.context, 'on_authorization', return_value=False)
     # set initial condition
-    assert fsm.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
+    local_identifier = fsm.supvisors.supvisors_mapper.local_identifier
     nodes = fsm.context.instances
-    nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
     # test rejected authorization
     fsm.on_authorization('10.0.0.1', False, '10.0.0.5', SupvisorsStates.INITIALIZATION)
@@ -833,7 +841,7 @@ def test_on_authorization(mocker, fsm):
     assert fsm.context.master_identifier == ''
     assert not fsm.redeploy_mark
     # change context while instance is not master
-    nodes['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
     # as local is not master is operational, no automatic transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)

@@ -19,7 +19,7 @@
 
 import pytest
 
-from supervisor.states import RUNNING_STATES, _process_states_by_code
+from supervisor.states import RUNNING_STATES
 from unittest.mock import call, Mock
 
 from supvisors.commander import *
@@ -260,7 +260,7 @@ def test_stop_command_create(supvisors, stop_command):
 
 def test_stop_command_str(stop_command):
     """ Test the output string of the ProcessStopCommand. """
-    assert str(stop_command) == ('process=sample_test_1:xfontsel state=RUNNING identifier=10.0.0.1'\
+    assert str(stop_command) == ('process=sample_test_1:xfontsel state=RUNNING identifier=10.0.0.1'
                                  ' request_sequence_counter=0 wait_ticks=4')
 
 
@@ -473,7 +473,7 @@ def test_application_job_before_after(application_job_1):
     application_job_1.get_load_requests()
     # not implemented
     with pytest.raises(NotImplementedError):
-        application_job_1.process_job('anything')
+        application_job_1.process_job(Mock())
 
 
 def test_application_job_next(mocker, application_job_1, sample_test_1):
@@ -786,7 +786,8 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not application_start_job_1.process_job(command)
     assert not mocked_node_getter.called
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, '127.0.0.1',
+    local_identifier = supvisors.supvisors_mapper.local_identifier
+    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, local_identifier,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
     mocked_force.reset_mock()
@@ -819,7 +820,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     command.identifier = None
     assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
     assert not mocked_pusher.called
-    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, '127.0.0.1',
+    assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, local_identifier,
                                                 ProcessStates.FATAL, 'no resource available')]
     assert mocked_failure.call_args_list == [call(command.process)]
 
@@ -1099,7 +1100,6 @@ def test_commander_on_event(mocker, commander, application_job_1, sample_test_1)
     mocked_next = mocker.patch.object(commander, 'next')
     # test with empty structure
     process = sample_test_1[0].process
-    event = Mock()
     commander.on_event(process, '10.0.0.1')
     assert not mocked_job1_event.called
     assert not mocked_next.called
@@ -1255,7 +1255,7 @@ def test_starter_store_application_mixed(starter, sample_test_1, sample_test_2):
     app_job_1_2_1 = app_job_1_2.planned_jobs[1]
     for command in app_job_1_2_1:
         assert type(command) is ProcessStartCommand
-        command.strategy == StartingStrategies.MOST_LOADED
+        assert command.strategy == StartingStrategies.MOST_LOADED
     # the trick used to define a process start_sequence sets 0 for yeux_00 and yeux_01
     assert {command.process for command in app_job_1_2_1} == {sample_test_2[0].process}
     assert app_job_1_2.current_jobs == []
@@ -1539,6 +1539,7 @@ def stopper(supvisors):
 def test_stopper_create(stopper):
     """ Test the values set at construction of Stopper. """
     assert isinstance(stopper, Commander)
+    assert isinstance(stopper, Stopper)
     assert stopper.pickup_logic is max
     assert stopper.application_start_requests == {}
     assert stopper.process_start_requests == {}
@@ -1765,7 +1766,7 @@ def test_stopper_restart_process(mocker, stopper, sample_test_1):
     # test restart call with process running
     xfontsel = sample_test_1[2]
     start_parameters = (StartingStrategies.CONFIG, xfontsel.process, 'any args')
-    stopper.restart_process(*start_parameters, False)
+    stopper.restart_process(*start_parameters, trigger=False)
     assert mocked_stop.call_args_list == [call(xfontsel.process, trigger=False)]
     assert not mocked_start.called
     assert stopper.process_start_requests == {'sample_test_1': [start_parameters]}

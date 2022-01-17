@@ -72,10 +72,11 @@ def test_reset(mocker, context):
     """ Test the reset of Context values. """
     mocker.patch('supvisors.context.time', return_value=3600)
     # change master definition
-    context.master_identifier = '127.0.0.1'
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    context.master_identifier = local_identifier
     assert context.is_master
     # change node states
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
@@ -86,7 +87,7 @@ def test_reset(mocker, context):
     # call reset and check result
     context.reset()
     assert set(context.supvisors.supvisors_mapper.instances), set(context.instances.keys())
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.UNKNOWN
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.UNKNOWN
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
@@ -99,7 +100,7 @@ def test_reset(mocker, context):
 
 def test_master_node_name(context):
     """ Test the access to master node. """
-    assert context.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
     assert context.master_identifier == ''
     assert not context.is_master
     assert not context._is_master
@@ -108,15 +109,31 @@ def test_master_node_name(context):
     assert context._master_identifier == '10.0.0.1'
     assert not context.is_master
     assert not context._is_master
-    context.master_identifier = '127.0.0.1'
-    assert context.master_identifier == '127.0.0.1'
-    assert context._master_identifier == '127.0.0.1'
+    context.master_identifier = local_identifier
+    assert context.master_identifier == local_identifier
+    assert context._master_identifier == local_identifier
     assert context.is_master
     assert context._is_master
 
 
+def test_get_nodes_load(mocker, context):
+    """ Test the Context.get_nodes_load method. """
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    local_instance = context.supvisors.supvisors_mapper.instances[local_identifier]
+    # empty test
+    assert context.get_nodes_load() == {'10.0.0.1': 0, '10.0.0.2': 0, '10.0.0.3': 0, '10.0.0.4': 0, '10.0.0.5': 0,
+                                        local_instance.host_name: 0}
+    # update context for some values
+    mocker.patch.object(context.instances[local_identifier], 'get_load', return_value=10)
+    mocker.patch.object(context.instances['10.0.0.2'], 'get_load', return_value=8)
+    mocker.patch.object(context.instances['test'], 'get_load', return_value=5)
+    assert context.get_nodes_load() == {'10.0.0.1': 0, '10.0.0.2': 8, '10.0.0.3': 0, '10.0.0.4': 0, '10.0.0.5': 0,
+                                        local_identifier: 15}
+
+
 def test_instances_by_states(context):
     """ Test the access to instances in unknown state. """
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
     # test initial states
     assert sorted(context.unknown_identifiers()) == sorted(context.supvisors.supvisors_mapper.instances.keys())
     assert context.running_core_identifiers() is None
@@ -128,47 +145,48 @@ def test_instances_by_states(context):
     assert sorted(context.instances_by_states([SupvisorsInstanceStates.UNKNOWN])) == \
            sorted(context.supvisors.supvisors_mapper.instances.keys())
     # change states
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
     assert context.running_core_identifiers() is None
-    assert context.running_identifiers() == ['127.0.0.1', '10.0.0.4']
+    assert context.running_identifiers() == ['10.0.0.4', local_identifier]
     assert context.isolating_instances() == ['10.0.0.2']
     assert context.isolation_instances() == ['10.0.0.2', '10.0.0.3']
     assert context.instances_by_states([SupvisorsInstanceStates.RUNNING, SupvisorsInstanceStates.ISOLATED]) == \
-           ['127.0.0.1', '10.0.0.3', '10.0.0.4']
+           ['10.0.0.3', '10.0.0.4', local_identifier]
     assert context.instances_by_states([SupvisorsInstanceStates.SILENT]) == ['10.0.0.1']
-    assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5']
+    assert context.instances_by_states([SupvisorsInstanceStates.UNKNOWN]) == ['10.0.0.5', 'test']
 
 
 def test_running_core_identifiers(supvisors):
     """ Test if the core instances are in a RUNNING state. """
+    local_identifier = supvisors.supvisors_mapper.local_identifier
     supvisors.supvisors_mapper._core_identifiers = ['10.0.0.1', '10.0.0.4']
     context = Context(supvisors)
     # test initial states
     assert sorted(context.unknown_identifiers()) == sorted(context.supvisors.supvisors_mapper.instances.keys())
     assert not context.running_core_identifiers()
     # change states
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.ISOLATING
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
     context.instances['10.0.0.4']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.1', '10.0.0.2', '10.0.0.5']
+    assert context.unknown_identifiers() == ['10.0.0.1', '10.0.0.2', '10.0.0.5', 'test']
     assert not context.running_core_identifiers()
     # change states
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.SILENT
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
     assert not context.running_core_identifiers()
     # change states
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     # test new states
-    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5']
+    assert context.unknown_identifiers() == ['10.0.0.2', '10.0.0.5', 'test']
     assert context.running_core_identifiers()
 
 
@@ -190,16 +208,17 @@ def test_invalid(mocker, context):
     # test node state with auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', True)
     # test node state with auto_fence and local_identifier
-    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT)
-    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT, True)
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    check_invalid_node_status(context, local_identifier, SupvisorsInstanceStates.SILENT)
+    check_invalid_node_status(context, local_identifier, SupvisorsInstanceStates.SILENT, True)
     # test node state with auto_fence and other than local_identifier
     check_invalid_node_status(context, '10.0.0.1', SupvisorsInstanceStates.ISOLATING)
     check_invalid_node_status(context, '10.0.0.1', SupvisorsInstanceStates.ISOLATING, True)
     # test node state without auto_fence
     mocker.patch.object(context.supvisors.options, 'auto_fence', False)
     # test node state without auto_fence and local_identifier
-    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT)
-    check_invalid_node_status(context, '127.0.0.1', SupvisorsInstanceStates.SILENT, True)
+    check_invalid_node_status(context, local_identifier, SupvisorsInstanceStates.SILENT)
+    check_invalid_node_status(context, local_identifier, SupvisorsInstanceStates.SILENT, True)
     # test node state without auto_fence and other than local_identifier
     check_invalid_node_status(context, '10.0.0.2', SupvisorsInstanceStates.SILENT)
     check_invalid_node_status(context, '10.0.0.2', SupvisorsInstanceStates.ISOLATING, True)
@@ -458,13 +477,13 @@ def test_on_tick_event(mocker, context):
     assert not mocked_check.called
     assert not mocked_send.called
     # check no processing as long as local node is not RUNNING
-    assert context.supvisors.supvisors_mapper.local_identifier == '127.0.0.1'
-    assert context.instances['127.0.0.1'].state == SupvisorsInstanceStates.UNKNOWN
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    assert context.instances[local_identifier].state == SupvisorsInstanceStates.UNKNOWN
     context.on_tick_event('10.0.0.1', {})
     assert not mocked_check.called
     assert not mocked_send.called
     # set local node state to RUNNING
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     # get node status used for tests
     status = context.instances['10.0.0.1']
     assert status.sequence_counter == 0
@@ -725,8 +744,9 @@ def test_on_timer_event(mocker, context):
     """ Test the handling of a timer event. """
     mocked_send = context.supvisors.zmq.publisher.send_instance_status
     # update context instances
-    context.instances['127.0.0.1'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
-                                                    'local_sequence_counter': 31})
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    context.instances[local_identifier].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
+                                                         'local_sequence_counter': 31})
     context.instances['10.0.0.1'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
                                                    'local_sequence_counter': 30})
     context.instances['10.0.0.2'].__dict__.update({'_state': SupvisorsInstanceStates.RUNNING,
@@ -737,6 +757,8 @@ def test_on_timer_event(mocker, context):
                                                    'local_sequence_counter': 0})
     context.instances['10.0.0.5'].__dict__.update({'_state': SupvisorsInstanceStates.UNKNOWN,
                                                    'local_sequence_counter': 0})
+    context.instances['test'].__dict__.update({'_state': SupvisorsInstanceStates.SILENT,
+                                               'local_sequence_counter': 0})
     # update context applications
     application_1 = Mock()
     context.applications['dummy_application'] = application_1
@@ -769,7 +791,7 @@ def test_on_timer_event(mocker, context):
     assert proc_2.invalidate_identifier.call_args_list == [call('10.0.0.2')]
     assert application_1.update_status.call_args_list == [call()]
     # only '10.0.0.2' and '10.0.0.5' instances changed state
-    for identifier, state in [('127.0.0.1', SupvisorsInstanceStates.RUNNING),
+    for identifier, state in [(local_identifier, SupvisorsInstanceStates.RUNNING),
                               ('10.0.0.1', SupvisorsInstanceStates.RUNNING),
                               ('10.0.0.2', SupvisorsInstanceStates.ISOLATING),
                               ('10.0.0.3', SupvisorsInstanceStates.SILENT),
@@ -782,7 +804,8 @@ def test_handle_isolation(mocker, context):
     """ Test the isolation of instances. """
     mocked_send = mocker.patch.object(context.supvisors.zmq.publisher, 'send_instance_status')
     # update node states
-    context.instances['127.0.0.1']._state = SupvisorsInstanceStates.CHECKING
+    local_identifier = context.supvisors.supvisors_mapper.local_identifier
+    context.instances[local_identifier]._state = SupvisorsInstanceStates.CHECKING
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
     context.instances['10.0.0.2']._state = SupvisorsInstanceStates.SILENT
     context.instances['10.0.0.3']._state = SupvisorsInstanceStates.ISOLATED
@@ -790,7 +813,7 @@ def test_handle_isolation(mocker, context):
     context.instances['10.0.0.5']._state = SupvisorsInstanceStates.ISOLATING
     # call method and check result
     assert context.handle_isolation() == ['10.0.0.4', '10.0.0.5']
-    assert context.instances['127.0.0.1'].state == SupvisorsInstanceStates.CHECKING
+    assert context.instances[local_identifier].state == SupvisorsInstanceStates.CHECKING
     assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.RUNNING
     assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.SILENT
     assert context.instances['10.0.0.3'].state == SupvisorsInstanceStates.ISOLATED

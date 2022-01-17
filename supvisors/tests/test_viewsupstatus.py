@@ -68,7 +68,8 @@ def test_write_navigation(mocker, view):
     mocked_nav = mocker.patch.object(view, 'write_nav')
     mocked_root = Mock()
     view.write_navigation(mocked_root)
-    assert mocked_nav.call_args_list == [call(mocked_root, identifier='127.0.0.1')]
+    local_identifier = view.supvisors.supvisors_mapper.local_identifier
+    assert mocked_nav.call_args_list == [call(mocked_root, identifier=local_identifier)]
 
 
 def test_write_header(mocker, view):
@@ -79,13 +80,14 @@ def test_write_header(mocker, view):
     mocked_mids = [Mock(attrib={}) for _ in range(3)]
     mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
     # first call tests with not master
-    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING, **{'get_loading.return_value': 12})
+    mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING, **{'get_load.return_value': 12})
+    local_identifier = view.supvisors.supvisors_mapper.local_identifier
     view.sup_ctx._is_master = False
-    view.sup_ctx.instances['127.0.0.1'] = mocked_status
+    view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
     assert mocked_mids[0].attrib == {}
-    assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
+    assert mocked_mids[0].content.call_args_list == [call(local_identifier)]
     assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
     assert mocked_mids[2].content.call_args_list == [call('12%')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
@@ -101,7 +103,7 @@ def test_write_header(mocker, view):
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
     assert mocked_mids[0].attrib == {'class': 'master'}
-    assert mocked_mids[0].content.call_args_list == [call('127.0.0.1')]
+    assert mocked_mids[0].content.call_args_list == [call(local_identifier)]
     assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
     assert mocked_mids[2].content.call_args_list == [call('12%')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
@@ -190,13 +192,15 @@ def test_restart_sup_action(mocker, view):
     """ Test the restart_sup_action method. """
     mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
     mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_restart')
+    local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.restart_sup_action() == 'delayed warn'
-    assert mocked_pusher.call_args_list == [call('127.0.0.1')]
+    assert mocked_pusher.call_args_list == [call(local_identifier)]
 
 
 def test_shutdown_sup_action(mocker, view):
     """ Test the shutdown_sup_action method. """
     mocker.patch('supvisors.viewsupstatus.delayed_warn', return_value='delayed warn')
     mocked_pusher = mocker.patch.object(view.supvisors.zmq.pusher, 'send_shutdown')
+    local_identifier = view.supvisors.supvisors_mapper.local_identifier
     assert view.shutdown_sup_action() == 'delayed warn'
-    assert mocked_pusher.call_args_list == [call('127.0.0.1')]
+    assert mocked_pusher.call_args_list == [call(local_identifier)]

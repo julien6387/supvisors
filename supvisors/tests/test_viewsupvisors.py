@@ -117,7 +117,7 @@ def test_write_instance_box_title(mocker, view):
     # patch context
     mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
-                         **{'get_loading.return_value': 17, 'get_remote_time.return_value': 1234})
+                         **{'get_load.return_value': 17, 'get_remote_time.return_value': 1234})
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
     mocked_identifier_mid = Mock(attrib={})
@@ -169,7 +169,7 @@ def test_write_instance_box_title(mocker, view):
     mocked_identifier_mid.attrib['class'] = ''
     mocked_state_mid.attrib['class'] = ''
     # test call in SILENT state
-    mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT, **{'get_loading.return_value': 0})
+    mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT, **{'get_load.return_value': 0})
     view._write_instance_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_identifier_mid.attrib['class'] == ''

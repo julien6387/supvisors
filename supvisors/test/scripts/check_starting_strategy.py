@@ -96,144 +96,185 @@ class StartingStrategyTest(RunningIdentifiersTest):
         Start converters and check they have been started on the first node
         available defined in the program section of the rules file. """
         print('### Testing CONFIG starting strategy')
-        # initial state is cliche81=10% cliche82=15% cliche83=5% cliche85=4%
-        assert list(self.loading.values()) == [10, 15, 5, 4]
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
         self.strategy = StartingStrategies.CONFIG
         # no node config for almost all converters (excepted 04 and 07)
         # so applicable order is the one defined in the supvisors section,
         # i.e. cliche81, cliche82, cliche83, cliche84 (not running), cliche85
         self._start_converter(0)
-        self.assertEqual([35, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([35, 15, 9, 0], list(self.loading.values()))
         # continue with cliche81
         self._start_converter(1)
-        self.assertEqual([60, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([60, 15, 9, 0], list(self.loading.values()))
         # try with converter_04 to check the alt config where cliche83 comes first
         self._start_converter(4)
-        self.assertEqual([60, 15, 30, 4], list(self.loading.values()))
+        self.assertEqual([60, 15, 34, 0], list(self.loading.values()))
         # there is still place on cliche81
         self._start_converter(2)
-        self.assertEqual([85, 15, 30, 4], list(self.loading.values()))
+        self.assertEqual([85, 15, 34, 0], list(self.loading.values()))
         # cliche81 is full. cliche82 will be used now
         self._start_converter(3)
-        self.assertEqual([85, 40, 30, 4], list(self.loading.values()))
+        self.assertEqual([85, 40, 34, 0], list(self.loading.values()))
         # there is still place on cliche82
         # try with converter_07 to check the alt config
         # cliche81 is full, so second node in config will be used (cliche83)
         self._start_converter(7)
-        self.assertEqual([85, 40, 55, 4], list(self.loading.values()))
+        self.assertEqual([85, 40, 59, 0], list(self.loading.values()))
         # there is still place on cliche82
         self._start_converter(5)
-        self.assertEqual([85, 65, 55, 4], list(self.loading.values()))
+        self.assertEqual([85, 65, 59, 0], list(self.loading.values()))
         # cliche81 is full. cliche82 will be used now
         self._start_converter(6)
-        self.assertEqual([85, 90, 55, 4], list(self.loading.values()))
+        self.assertEqual([85, 90, 59, 0], list(self.loading.values()))
         # cliche81 & cliche82 are full. cliche83 will be used now
         self._start_converter(8)
-        self.assertEqual([85, 90, 80, 4], list(self.loading.values()))
-        # cliche81 & cliche82 & cliche83 are full. cliche85 will be used now
-        self._start_converter(9)
-        self.assertEqual([85, 90, 80, 29], list(self.loading.values()))
-        # there is still place on cliche85
-        self._start_converter(10)
-        self.assertEqual([85, 90, 80, 54], list(self.loading.values()))
-        # there is still place on cliche85
-        self._start_converter(11)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
-        # last converter cannot be started: no resource left
-        self._start_converter_failed(12)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
+        # cliche81 & cliche82 & cliche83 are full. cliche85 is empty but node (cliche81 + cliche85) is full
+        self._start_converter_failed(9)
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
 
     def test_less_loaded(self):
         """ Test the LESS_LOADED starting strategy.
-        Start converters and check they have been started on the node having the lowest loading. """
+        Start converters and check they have been started on the Supvisors instance having the lowest load. """
         print('### Testing LESS_LOADED starting strategy')
-        # initial state is cliche81=10% cliche82=15% cliche83=5% cliche85=4%
-        assert list(self.loading.values()) == [10, 15, 5, 4]
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
         self.strategy = StartingStrategies.LESS_LOADED
         self._start_converter(0)
-        self.assertEqual([10, 15, 5, 29], list(self.loading.values()))
+        self.assertEqual([10, 15, 9, 25], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([10, 15, 30, 29], list(self.loading.values()))
+        self.assertEqual([10, 15, 34, 25], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([35, 15, 30, 29], list(self.loading.values()))
+        self.assertEqual([35, 15, 34, 25], list(self.loading.values()))
         self._start_converter(3)
-        self.assertEqual([35, 40, 30, 29], list(self.loading.values()))
+        self.assertEqual([35, 40, 34, 25], list(self.loading.values()))
         # converter 4 cannot run onto cliche85
         self._start_converter(4)
-        self.assertEqual([35, 40, 55, 29], list(self.loading.values()))
+        self.assertEqual([35, 40, 59, 25], list(self.loading.values()))
         self._start_converter(5)
-        self.assertEqual([35, 40, 55, 54], list(self.loading.values()))
+        self.assertEqual([35, 40, 59, 50], list(self.loading.values()))
         self._start_converter(6)
-        self.assertEqual([60, 40, 55, 54], list(self.loading.values()))
+        self.assertEqual([35, 65, 59, 50], list(self.loading.values()))
         # converter 7 cannot run onto cliche85
         self._start_converter(7)
-        self.assertEqual([60, 65, 55, 54], list(self.loading.values()))
+        self.assertEqual([35, 65, 84, 50], list(self.loading.values()))
         self._start_converter(8)
-        self.assertEqual([60, 65, 55, 79], list(self.loading.values()))
-        self._start_converter(9)
-        self.assertEqual([60, 65, 80, 79], list(self.loading.values()))
-        self._start_converter(10)
-        self.assertEqual([85, 65, 80, 79], list(self.loading.values()))
-        self._start_converter(11)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
+        self.assertEqual([35, 90, 84, 50], list(self.loading.values()))
         # last converter cannot be started: no resource left
-        self._start_converter_failed(12)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
+        self._start_converter_failed(9)
+        self.assertEqual([35, 90, 84, 50], list(self.loading.values()))
+
+    def test_less_loaded_node(self):
+        """ Test the LESS_LOADED_NODE starting strategy.
+        Start converters and check they have been started on the node having the lowest load. """
+        print('### Testing LESS_LOADED_NODE starting strategy')
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
+        self.strategy = StartingStrategies.LESS_LOADED_NODE
+        self._start_converter(0)
+        self.assertEqual([10, 15, 34, 0], list(self.loading.values()))
+        self._start_converter(1)
+        self.assertEqual([10, 15, 34, 25], list(self.loading.values()))
+        self._start_converter(2)
+        self.assertEqual([10, 40, 34, 25], list(self.loading.values()))
+        self._start_converter(3)
+        self.assertEqual([10, 40, 59, 25], list(self.loading.values()))
+        # converter 4 cannot run onto cliche85
+        self._start_converter(4)
+        self.assertEqual([35, 40, 59, 25], list(self.loading.values()))
+        self._start_converter(5)
+        self.assertEqual([35, 65, 59, 25], list(self.loading.values()))
+        self._start_converter(6)
+        self.assertEqual([35, 65, 84, 25], list(self.loading.values()))
+        # converter 7 cannot run onto cliche85
+        self._start_converter(7)
+        self.assertEqual([60, 65, 84, 25], list(self.loading.values()))
+        self._start_converter(8)
+        self.assertEqual([60, 90, 84, 25], list(self.loading.values()))
+        # last converter cannot be started: no resource left
+        self._start_converter_failed(9)
+        self.assertEqual([60, 90, 84, 25], list(self.loading.values()))
 
     def test_most_loaded(self):
         """ Test the MOST_LOADED starting strategy.
-        Start converters and check they have been started on the node having the highest loading. """
+        Start converters and check they have been started on the Supvisors instance having the highest loading. """
         print('### Testing MOST_LOADED starting strategy')
-        # initial state is cliche81=10% cliche82=15% cliche83=5% cliche85=4%
-        assert list(self.loading.values()) == [10, 15, 5, 4]
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
         self.strategy = StartingStrategies.MOST_LOADED
         self._start_converter(0)
-        self.assertEqual([10, 40, 5, 4], list(self.loading.values()))
+        self.assertEqual([10, 40, 9, 0], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([10, 65, 5, 4], list(self.loading.values()))
+        self.assertEqual([10, 65, 9, 0], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([10, 90, 5, 4], list(self.loading.values()))
+        self.assertEqual([10, 90, 9, 0], list(self.loading.values()))
         self._start_converter(3)
-        self.assertEqual([35, 90, 5, 4], list(self.loading.values()))
+        self.assertEqual([35, 90, 9, 0], list(self.loading.values()))
         # converter 4 cannot run onto cliche85
         self._start_converter(4)
-        self.assertEqual([60, 90, 5, 4], list(self.loading.values()))
+        self.assertEqual([60, 90, 9, 0], list(self.loading.values()))
         self._start_converter(5)
-        self.assertEqual([85, 90, 5, 4], list(self.loading.values()))
+        self.assertEqual([85, 90, 9, 0], list(self.loading.values()))
         self._start_converter(6)
-        self.assertEqual([85, 90, 30, 4], list(self.loading.values()))
+        self.assertEqual([85, 90, 34, 0], list(self.loading.values()))
         # converter 7 cannot run onto cliche85
         self._start_converter(7)
-        self.assertEqual([85, 90, 55, 4], list(self.loading.values()))
+        self.assertEqual([85, 90, 59, 0], list(self.loading.values()))
         self._start_converter(8)
-        self.assertEqual([85, 90, 80, 4], list(self.loading.values()))
-        self._start_converter(9)
-        self.assertEqual([85, 90, 80, 29], list(self.loading.values()))
-        self._start_converter(10)
-        self.assertEqual([85, 90, 80, 54], list(self.loading.values()))
-        self._start_converter(11)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
         # last converter cannot be started: no resource left
-        self._start_converter_failed(12)
-        self.assertEqual([85, 90, 80, 79], list(self.loading.values()))
+        self._start_converter_failed(9)
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
+
+    def test_most_loaded_node(self):
+        """ Test the MOST_LOADED_NODE starting strategy.
+        Start converters and check they have been started on the node having the highest loading. """
+        print('### Testing MOST_LOADED_NODE starting strategy')
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
+        self.strategy = StartingStrategies.MOST_LOADED_NODE
+        self._start_converter(0)
+        self.assertEqual([10, 40, 9, 0], list(self.loading.values()))
+        self._start_converter(1)
+        self.assertEqual([10, 65, 9, 0], list(self.loading.values()))
+        self._start_converter(2)
+        self.assertEqual([10, 90, 9, 0], list(self.loading.values()))
+        self._start_converter(3)
+        self.assertEqual([35, 90, 9, 0], list(self.loading.values()))
+        # converter 4 cannot run onto cliche85
+        self._start_converter(4)
+        self.assertEqual([60, 90, 9, 0], list(self.loading.values()))
+        self._start_converter(5)
+        self.assertEqual([85, 90, 9, 0], list(self.loading.values()))
+        self._start_converter(6)
+        self.assertEqual([85, 90, 34, 0], list(self.loading.values()))
+        # converter 7 cannot run onto cliche85
+        self._start_converter(7)
+        self.assertEqual([85, 90, 59, 0], list(self.loading.values()))
+        self._start_converter(8)
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
+        # last converter cannot be started: no resource left
+        self._start_converter_failed(9)
+        self.assertEqual([85, 90, 84, 0], list(self.loading.values()))
 
     def test_local(self):
         """ Test the LOCAL starting strategy.
         Start converters and check they have been started on the node having the highest loading. """
         print('### Testing LOCAL starting strategy')
-        # initial state is cliche81=10% cliche82=15% cliche83=5% cliche85=4%
-        assert list(self.loading.values()) == [10, 15, 5, 4]
+        # initial state is cliche81=10% cliche82=15% cliche83=9% cliche85=0%
+        assert list(self.loading.values()) == [10, 15, 9, 0]
         self.strategy = StartingStrategies.LOCAL
         # this test should be started only from cliche81 so processes should be started only on cliche81
         self._start_converter(0)
-        self.assertEqual([35, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([35, 15, 9, 0], list(self.loading.values()))
         self._start_converter(1)
-        self.assertEqual([60, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([60, 15, 9, 0], list(self.loading.values()))
         self._start_converter(2)
-        self.assertEqual([85, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([85, 15, 9, 0], list(self.loading.values()))
         # next converter cannot be started: no resource left
         self._start_converter_failed(3)
-        self.assertEqual([85, 15, 5, 4], list(self.loading.values()))
+        self.assertEqual([85, 15, 9, 0], list(self.loading.values()))
 
 
 def test_suite():

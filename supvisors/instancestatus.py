@@ -101,7 +101,7 @@ class SupvisorsInstanceStatus(object):
                 'sequence_counter': self.sequence_counter,
                 'remote_time': capped_int(self.remote_time),
                 'local_time': capped_int(self.local_time),
-                'loading': self.get_loading()}
+                'loading': self.get_load()}
 
     # methods
     def inactive(self, local_sequence_counter: int):
@@ -159,14 +159,14 @@ class SupvisorsInstanceStatus(object):
                 for process in self.processes.values()
                 if process.pid_running_on(self.identifier)]
 
-    def get_loading(self) -> int:
-        """ Return the loading of the Supvisors instance, by summing the declared load of the processes running
+    def get_load(self) -> int:
+        """ Return the load of the Supvisors instance, by summing the declared load of the processes running
         on the Supvisors instance.
 
-        :return: the total loading
+        :return: the total load
         """
         instance_load = sum(process.rules.expected_load for process in self.running_processes())
-        self.logger.trace(f'SupvisorsInstanceStatus.get_loading: Supvisors={self.identifier} load={instance_load}')
+        self.logger.trace(f'SupvisorsInstanceStatus.get_load: Supvisors={self.identifier} load={instance_load}')
         return instance_load
 
     # dictionary for transitions

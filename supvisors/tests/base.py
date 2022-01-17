@@ -76,11 +76,9 @@ class MockedSupvisors:
         self.supervisor_data = SupervisorData(DummySupervisor(), self.logger)
         self.supvisors_mapper = SupvisorsMapper(self)
         host_name = gethostname()
-        identifiers = ['127.0.0.1', '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5', host_name]
+        identifiers = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5',
+                       f'<{host_name}>{host_name}:65000:', f'<test>{host_name}:55000:']
         self.supvisors_mapper.configure(identifiers, [])
-        self.supvisors_mapper.local_identifier = '127.0.0.1'
-        # remove gethostname for the tests
-        self.supvisors_mapper.instances.pop(host_name, None)
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
         self.context = Context(self)
@@ -142,8 +140,8 @@ class DummyServerOptions:
                                 'password': 'p@$$w0rd'}]
         self.here = '.'
         self.environ_expansions = {}
-        self.identifier = 'supervisor'
-        self.serverurl = 'http://127.0.0.1:65000'
+        self.identifier = gethostname()
+        self.serverurl = f'http://{gethostname()}:65000'
         self.mood = SupervisorStates.RUNNING
         self.nodaemon = True
         self.silent = False

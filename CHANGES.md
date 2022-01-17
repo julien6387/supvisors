@@ -15,6 +15,9 @@
 * Add regex support to the `pattern` attribute of the `application` and `program` elements of the **Supvisors** rules
   file.
 
+* Update the starting strategies so that the node load is considered in the event where multiple **Supvisors** instances
+  are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
+
 * Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
   triggered.
 
@@ -31,7 +34,7 @@
   The intention is for the next **Supvisors** version to be able to declare application options in any order.
   Note that having `program` sections directly in the `application` section is still supported but deprecated
   and will be removed in the next version.
-  
+
 * Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
   It supersedes the values eventually set in the `application` section.
 

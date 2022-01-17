@@ -17,15 +17,15 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Any, Mapping, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .application import ApplicationStatus
 from .process import ProcessStatus
-from .ttypes import (SupvisorsInstanceStates, NameList, NameSet, ConciliationStrategies, StartingStrategies,
-                     RunningFailureStrategies)
+from .supvisorsmapper import SupvisorsMapper
+from .ttypes import NameList, NameSet, LoadMap, ConciliationStrategies, StartingStrategies, RunningFailureStrategies
 
-# types for annotations
-LoadRequestMap = Mapping[str, int]
+# annotation types
+LoadDetails = Tuple[LoadMap, LoadMap, LoadMap]
 
 
 class AbstractStrategy(object):
@@ -45,68 +45,89 @@ class AbstractStartingStrategy(AbstractStrategy):
     """ Base class for a starting strategy. """
 
     # Annotation types
-    LoadingValidity = Tuple[bool, int]
-    LoadingValidityMap = Mapping[str, LoadingValidity]
-    IdentifierLoadMap = Sequence[Tuple[str, int]]
+    LoadingValidity = Tuple[bool, int, int]
+    LoadingValidityMap = Dict[str, LoadingValidity]
+    IdentifierLoadMap = List[Tuple[str, int, int]]
 
-    def is_loading_valid(self, identifier: str, expected_load: int,
-                         load_request_map: LoadRequestMap) -> LoadingValidity:
-        """ Return True and the resulting load if the Supvisors instance is active and can support the additional load.
+    def is_loading_valid(self, identifier: str, expected_load: int, load_details: LoadDetails) -> LoadingValidity:
+        """ Check if the node hosting the Supvisors instance can support the additional load.
 
         :param identifier: the identifier of the Supvisors instance
         :param expected_load: the load to add to the Supvisors instance
-        :param load_request_map: the unconsidered loads
-        :return: a tuple with a boolean telling if the additional load is possible on the Supvisors instance
-        and the resulting load
+        :param load_details: the load details per identifier and node
+        :return: a tuple with a boolean telling if the additional load is possible on the node hosting the Supvisors
+        instance, the current load on the node and the current load on the Supvisors instance
         """
+        # load_request_map: the unconsidered load per identifier
+        # node_load_map: the current load per node
+        # node_load_request_map: the unconsidered load per node
+        load_request_map, node_load_map, node_load_request_map = load_details
         self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: identifier={identifier}'
-                          f' expected_load={expected_load} load_request_map={load_request_map}')
-        if identifier in self.supvisors.context.instances.keys():
-            status = self.supvisors.context.instances[identifier]
-            self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
-                              f' state={status.state.name}')
-            if status.state == SupvisorsInstanceStates.RUNNING:
-                loading = status.get_loading() + load_request_map.get(identifier, 0)
-                self.logger.debug(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
-                                  f' loading={loading} expected_load={expected_load}')
-                return loading + expected_load <= 100, loading
-            self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier} not RUNNING')
-        return False, 0
+                          f' expected_load={expected_load} load_request_map={load_request_map}'
+                          f' node_load_map={node_load_map} node_load_request_map={node_load_request_map}')
+        status = self.supvisors.context.instances[identifier]
+        self.logger.trace(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
+                          f' state={status.state.name}')
+        # calculate the theoretical load on the node
+        node_name = status.supvisors_id.host_name
+        node_loading = node_load_map.get(node_name, 0) + node_load_request_map.get(node_name, 0)
+        # check if the node and the Supvisors instance can support the
+        instance_loading = status.get_load() + load_request_map.get(identifier, 0)
+        self.logger.debug(f'AbstractStartingStrategy.is_loading_valid: Supvisors={identifier}'
+                          f' instance_loading={instance_loading} expected_load={expected_load}')
+        return node_loading + expected_load <= 100, node_loading, instance_loading
 
     def get_loading_and_validity(self, identifiers: NameList, expected_load: int,
-                                 load_request_map: LoadRequestMap) -> LoadingValidityMap:
+                                 load_details: LoadDetails) -> LoadingValidityMap:
         """ Return the report of loading capability of all iSupvisors instances iaw the additional load required.
 
         :param identifiers: the identifiers of the Supvisors instances considered
         :param expected_load: the additional load to consider for the program to be started
-        :param load_request_map: the unconsidered loads
+        :param load_details: the load details per identifier and node
         :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        loading_validity_map = {identifier: self.is_loading_valid(identifier, expected_load, load_request_map)
+        loading_validity_map = {identifier: self.is_loading_valid(identifier, expected_load, load_details)
                                 for identifier in identifiers}
         self.logger.trace(f'AbstractStartingStrategy.get_loading_and_validity:'
                           f' loading_validity_map={loading_validity_map}')
         return loading_validity_map
 
-    def sort_valid_by_loading(self, loading_validity_map: LoadingValidityMap) -> IdentifierLoadMap:
-        """ Sort the loading report by loading value. """
-        # returns identifiers with validity and loading
-        sorted_identifiers = sorted([(x, y[1])
-                                     for x, y in loading_validity_map.items()
-                                     if y[0]], key=lambda t: t[1])
-        self.logger.trace(f'AbstractStartingStrategy.sort_valid_by_loading: sorted_identifiers={sorted_identifiers}')
-        return sorted_identifiers
+    def sort_valid_by_instance_load(self, loading_validity_map: LoadingValidityMap) -> IdentifierLoadMap:
+        """ Sort the loading report by instance load and considering only valid identifiers.
+        If multiple instances have an equivalent load, the node load is considered.
+
+        :param loading_validity_map: the loading report
+        :return: the valid identifiers sorted by instance load
+        """
+        result = sorted([(identifier, node_load, instance_load)
+                         for identifier, (validity, node_load, instance_load) in loading_validity_map.items()
+                         if validity], key=lambda x: (x[2], x[1]))
+        self.logger.trace(f'AbstractStartingStrategy.sort_valid_by_instance_load: result={result}')
+        return result
+
+    def sort_valid_by_node_load(self, loading_validity_map: LoadingValidityMap) -> IdentifierLoadMap:
+        """ Sort the loading report by node load and considering only valid identifiers.
+        If multiple nodes have an equivalent load, the instance load is considered.
+
+        :param loading_validity_map: the loading report
+        :return: the valid identifiers sorted by node load
+        """
+        result = sorted([(identifier, node_load, instance_load)
+                         for identifier, (validity, node_load, instance_load) in loading_validity_map.items()
+                         if validity], key=lambda x: (x[1], x[2]))
+        self.logger.trace(f'AbstractStartingStrategy.sort_valid_by_node_load: result={result}')
+        return result
 
     def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
-                               load_request_map: LoadRequestMap) -> Optional[str]:
+                               load_details: LoadDetails) -> Optional[str]:
         """ Choose the Supvisors instance that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
         are not considered yet in SupvisorsInstanceStatus.
 
         :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
-        :param load_request_map: the unconsidered loads
-        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        :param load_details: the load details per identifier and node
+        :return: the chosen identifier
         """
         raise NotImplementedError
 
@@ -115,40 +136,59 @@ class ConfigStrategy(AbstractStartingStrategy):
     """ Strategy designed to choose the Supvisors instance using the order defined in the configuration file. """
 
     def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
-                               load_request_map: LoadRequestMap) -> Optional[str]:
+                               load_details: LoadDetails) -> Optional[str]:
         """ Choose the first Supvisors instance in the list that can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
         are not considered yet in SupvisorsInstanceStatus.
 
         :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
-        :param load_request_map: the unconsidered loads
-        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        :param load_details: the load details per identifier and node
+        :return: the chosen identifier
         """
         self.logger.debug(f'ConfigStrategy.get_supvisors_instance: identifiers={identifiers}'
-                          f' expected_load={expected_load} load_request_map={load_request_map}')
-        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
-        return next((identifier for identifier, (validity, _) in loading_validity_map.items() if validity), None)
+                          f' expected_load={expected_load} load_details={load_details}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        # the first valid element is the right one
+        return next((identifier for identifier, (validity, _, _) in loading_validity_map.items() if validity), None)
 
 
 class LessLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to share the loading among all the Supvisors instances. """
 
     def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
-                               load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the Supvisors instance having the lowest loading that can support the additional load requested.
-        The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in SupvisorsInstanceStatus.
+                               load_details: LoadDetails) -> Optional[str]:
+        """ Choose the Supvisors instance having the lowest load provided that its node can support the additional load
+        requested.
 
         :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
-        :param load_request_map: the unconsidered loads
-        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        :param load_details: the load details per identifier and node
+        :return: the chosen identifier
         """
         self.logger.trace(f'LessLoadedStrategy.get_supvisors_instance: identifiers={identifiers}'
-                          f' expected_load={expected_load} load_request_map={load_request_map}')
-        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
-        sorted_identifiers = self.sort_valid_by_loading(loading_validity_map)
+                          f' expected_load={expected_load} load_details={load_details}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        sorted_identifiers = self.sort_valid_by_instance_load(loading_validity_map)
+        return sorted_identifiers[0][0] if sorted_identifiers else None
+
+
+class LessLoadedNodeStrategy(AbstractStartingStrategy):
+    """ Strategy designed to share the loading among all nodes supporting the Supvisors instances. """
+
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_details: LoadDetails) -> Optional[str]:
+        """ Choose the Supvisors instance whose node has the lowest load that can support the additional load requested.
+
+        :param identifiers: the identifiers of the candidate Supvisors instances
+        :param expected_load: the load of the program to be started
+        :param load_details: the load details per identifier and node
+        :return: the chosen identifier
+        """
+        self.logger.trace(f'LessLoadedNodeStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_details={load_details}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        sorted_identifiers = self.sort_valid_by_node_load(loading_validity_map)
         return sorted_identifiers[0][0] if sorted_identifiers else None
 
 
@@ -156,20 +196,39 @@ class MostLoadedStrategy(AbstractStartingStrategy):
     """ Strategy designed to maximize the loading of a Supvisors instance. """
 
     def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
-                               load_request_map: LoadRequestMap) -> Optional[str]:
-        """ Choose the Supvisors instance having the highest loading that can support the additional load requested.
-        The load of the processes that have just been requested to start are to be considered separately because they
-        are not considered yet in SupvisorsInstanceStatus.
+                               load_details: LoadDetails) -> Optional[str]:
+        """ Choose the Supvisors instance having the highest load provided that its node can support the additional load
+        requested
 
         :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
-        :param load_request_map: the unconsidered loads
-        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        :param load_details: the load details per identifier and node
+        :return: the chosen identifier
         """
         self.logger.trace(f'MostLoadedStrategy.get_supvisors_instance: identifiers={identifiers}'
-                          f' expected_load={expected_load} load_request_map={load_request_map}')
-        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
-        sorted_identifiers = self.sort_valid_by_loading(loading_validity_map)
+                          f' expected_load={expected_load} load_details={load_details}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        sorted_identifiers = self.sort_valid_by_instance_load(loading_validity_map)
+        return sorted_identifiers[-1][0] if sorted_identifiers else None
+
+
+class MostLoadedNodeStrategy(AbstractStartingStrategy):
+    """ Strategy designed to maximize the loading of a node hosting Supvisors instances. """
+
+    def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
+                               load_details: LoadDetails) -> Optional[str]:
+        """ Choose the Supvisors instance whose node has the highest load that can support the additional load
+        requested.
+
+        :param identifiers: the identifiers of the candidate Supvisors instances
+        :param expected_load: the load of the program to be started
+        :param load_details: the load details per identifier and node
+        :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+        """
+        self.logger.trace(f'MostLoadedNodeStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' expected_load={expected_load} load_details={load_details}')
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        sorted_identifiers = self.sort_valid_by_node_load(loading_validity_map)
         return sorted_identifiers[-1][0] if sorted_identifiers else None
 
 
@@ -177,21 +236,40 @@ class LocalStrategy(AbstractStartingStrategy):
     """ Strategy designed to start the process on the local Supvisors instance. """
 
     def get_supvisors_instance(self, identifiers: NameList, expected_load: int,
-                               load_request_map: LoadRequestMap) -> Optional[str]:
+                               load_details: LoadDetails) -> Optional[str]:
         """ Choose the local Supvisors instance provided that it can support the additional load requested.
         The load of the processes that have just been requested to start are to be considered separately because they
         are not considered yet in SupvisorsInstanceStatus.
 
         :param identifiers: the identifiers of the candidate Supvisors instances
         :param expected_load: the load of the program to be started
-        :param load_request_map: the unconsidered loads
+        :param load_details: the load details per identifier and node
         :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
         """
-        self.logger.trace(f'LocalStrategy.get_supvisors_instance: identifiers={identifiers}'
-                          f' expected_load={expected_load} load_request_map={load_request_map}')
-        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_request_map)
         local_identifier = self.supvisors.supvisors_mapper.local_identifier
-        return local_identifier if loading_validity_map.get(local_identifier, (False,))[0] else None
+        self.logger.trace(f'LocalStrategy.get_supvisors_instance: identifiers={identifiers}'
+                          f' local_identifier={local_identifier} expected_load={expected_load}'
+                          f' load_details={load_details}')
+        if local_identifier not in identifiers:
+            # the local Supvisors instance is not among the candidates
+            return None
+        loading_validity_map = self.get_loading_and_validity(identifiers, expected_load, load_details)
+        validity, _, _ = loading_validity_map[local_identifier]
+        return local_identifier if validity else None
+
+
+def get_node_load_request_map(supvisors_mapper: SupvisorsMapper, load_request_map: LoadMap):
+    """ Sum the load_request_map per identifier by node.
+
+    :param supvisors_mapper: the Supvisors instances mapper
+    :param load_request_map: the unconsidered loads per identifier
+    :return: the request load per node
+    """
+    node_load_request_map = {node_name: 0 for node_name in supvisors_mapper.nodes}
+    for identifier, load in load_request_map.items():
+        node_name = supvisors_mapper.instances[identifier].host_name
+        node_load_request_map[node_name] += load
+    return node_load_request_map
 
 
 def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
@@ -200,24 +278,38 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
 
     :param supvisors: the global Supvisors structure
     :param strategy: the strategy used to choose a Supvisors instance
-    :param identifiers: the identifiers of the candidate Supvisors instances
+    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
     :param expected_load: the load of the program to be started
     :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
     """
+    # restrict the candidate Supvisors instances to those that are actually running
+    running_identifiers = supvisors.context.running_identifiers()
+    candidate_identifiers = [identifier for identifier in identifiers if identifier in running_identifiers]
+    if not candidate_identifiers:
+        return None
+    # create the relevant strategy to choose a Supvisors instance among the candidates
     instance = None
     if strategy == StartingStrategies.CONFIG:
         instance = ConfigStrategy(supvisors)
-    if strategy == StartingStrategies.LESS_LOADED:
+    elif strategy == StartingStrategies.LESS_LOADED:
         instance = LessLoadedStrategy(supvisors)
-    if strategy == StartingStrategies.MOST_LOADED:
+    elif strategy == StartingStrategies.MOST_LOADED:
         instance = MostLoadedStrategy(supvisors)
-    if strategy == StartingStrategies.LOCAL:
+    elif strategy == StartingStrategies.LOCAL:
         instance = LocalStrategy(supvisors)
+    elif strategy == StartingStrategies.LESS_LOADED_NODE:
+        instance = LessLoadedNodeStrategy(supvisors)
+    elif strategy == StartingStrategies.MOST_LOADED_NODE:
+        instance = MostLoadedNodeStrategy(supvisors)
     if instance:
         # consider all pending requests into global load
         load_request_map = supvisors.starter.get_load_requests()
+        node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
+        # get nodes load
+        node_load_map = supvisors.context.get_nodes_load()
         # apply strategy
-        return instance.get_supvisors_instance(identifiers, expected_load, load_request_map)
+        return instance.get_supvisors_instance(candidate_identifiers, expected_load,
+                                               (load_request_map, node_load_request_map, node_load_map))
 
 
 # Strategy management for Conciliation

@@ -175,11 +175,13 @@ The following rules are applicable whatever the chosen strategy:
     * the process must be known to the |Supervisor| of the |Supvisors| instance ;
     * the |Supvisors| instance must be ``RUNNING`` ;
     * the |Supvisors| instance must be allowed in the ``identifiers`` rule of the process ;
-    * the *load* of the |Supvisors| instance must not exceed 100% when adding the ``expected_loading`` of the program
-      to be started.
+    * the *load* of the node where multiple |Supvisors| instances may be running must not exceed 100% when adding
+      the ``expected_loading`` of the program to be started.
 
-The *load* of the chosen |Supvisors| instance is defined as the sum of the ``expected_loading`` of each process running
-in this |Supvisors| instance.
+The *load* of a |Supvisors| instance is defined as the sum of the ``expected_loading`` of each process running in this
+|Supvisors| instance.
+
+The *load* of a node is defined as the sum of the loads of the |Supvisors| instances that are running on this node.
 
 When applying the ``CONFIG`` strategy, |Supvisors| chooses the first |Supvisors| instance available in the
 ``supvisors_list``.
@@ -193,6 +195,12 @@ having the greatest *load*.
 The aim is to maximize the loading of a |Supvisors| instance before starting to load another |Supvisors| instance.
 This strategy is more interesting when the resources are limited.
 
+When applying the ``LESS_LOADED_NODE`` strategy, |Supvisors| chooses the |Supvisors| instance in the ``supvisors_list``
+having the lowest *load* on the node having the lowest *load*.
+
+When applying the ``MOST_LOADED_NODE`` strategy, |Supvisors| chooses the |Supvisors| instance in the ``supvisors_list``
+having the greatest *load* on the node having the greatest *load*.
+
 When applying the ``LOCAL`` strategy, |Supvisors| chooses the local |Supvisors| instance.
 A typical use case is to start an HCI application on a given console, while other applications / services may be
 distributed over other nodes.
@@ -202,10 +210,10 @@ distributed over other nodes.
     A consequence of choosing the ``LOCAL`` strategy as the default ``starting_strategy``
     in the :ref:`supvisors_section` is that all programs will be started on the |Supvisors| *Master* instance.
 
-.. attention::
+.. note::
 
-    When multiple |Supvisors| instances are running on the same node, it would be relevant to consider the *load*
-    of the node. This may be considered as a future enhancement in |Supvisors|.
+    When a single |Supvisors| instance is running on each node, ``LESS_LOADED_NODE`` and ``MOST_LOADED_NODE`` are
+    strictly equivalent to ``LESS_LOADED`` and ``MOST_LOADED``.
 
 
 Starting a process

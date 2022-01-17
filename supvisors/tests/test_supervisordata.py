@@ -19,6 +19,7 @@
 
 import pytest
 
+from socket import gethostname
 from supervisor.states import SupervisorStates
 from unittest.mock import call, patch, Mock
 
@@ -53,7 +54,7 @@ def test_accessors(source):
     assert source.httpserver is source.supervisord.options.httpserver
     assert source.supervisor_rpc_interface.rpc_name == 'supervisor_RPC'
     assert source.supvisors_rpc_interface.rpc_name == 'supvisors_RPC'
-    assert source.serverurl == 'http://127.0.0.1:65000'
+    assert source.serverurl == f'http://{gethostname()}:65000'
     assert source.serverport == 65000
     assert source.username == 'user'
     assert source.password == 'p@$$w0rd'
@@ -62,7 +63,7 @@ def test_accessors(source):
 
 def test_env(source):
     """ Test the environment build. """
-    assert source.get_env() == {'SUPERVISOR_SERVER_URL': 'http://127.0.0.1:65000',
+    assert source.get_env() == {'SUPERVISOR_SERVER_URL': f'http://{gethostname()}:65000',
                                 'SUPERVISOR_USERNAME': 'user', 'SUPERVISOR_PASSWORD': 'p@$$w0rd'}
 
 

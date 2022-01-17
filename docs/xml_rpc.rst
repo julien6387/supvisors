@@ -163,7 +163,7 @@ Status
                                                         in [0;127].
             'starting_strategy'         ``str``         The strategy applied when starting application automatically,
                                                         in [``'CONFIG'``, ``'LESS_LOADED'``, ``'MOST_LOADED'``,
-                                                        ``'LOCAL'``].
+                                                        ``'LOCAL'``, ``'LESS_LOADED_NODE'``, ``'MOST_LOADED_NODE'``].
             'starting_failure_strategy' ``str``         The strategy applied when a process crashes in a starting
                                                         application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running

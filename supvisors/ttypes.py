@@ -41,7 +41,7 @@ class ApplicationStates(Enum):
 
 class StartingStrategies(Enum):
     """ Applicable strategies that can be applied to start processes. """
-    CONFIG, LESS_LOADED, MOST_LOADED, LOCAL = range(4)
+    CONFIG, LESS_LOADED, MOST_LOADED, LOCAL, LESS_LOADED_NODE, MOST_LOADED_NODE = range(6)
 
 
 class ConciliationStrategies(Enum):
@@ -132,6 +132,7 @@ Payload = Dict[str, Any]
 PayloadList = List[Payload]
 NameList = List[str]
 NameSet = Set[str]
+LoadMap = Dict[str, int]
 
 # Annotation types for statistics
 NamedPid = Tuple[str, int]  # namespec, PID

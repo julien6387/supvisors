@@ -91,7 +91,7 @@ class ApplicationView(ViewHandler):
         # get the current strategy
         strategy = self.view_ctx.parameters[STRATEGY]
         # set hyperlinks for strategy actions
-        for str_strategy in StartingStrategies._member_names_:
+        for str_strategy in enum_names(StartingStrategies):
             elt = root.findmeld('%s_a_mid' % str_strategy.lower())
             if strategy == str_strategy:
                 elt.attrib['class'] = 'button off active'

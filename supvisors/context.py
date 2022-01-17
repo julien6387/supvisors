@@ -20,7 +20,7 @@
 from .instancestatus import *
 from .application import ApplicationRules, ApplicationStatus
 from .process import *
-from .ttypes import SupvisorsInstanceStates, NameList, PayloadList
+from .ttypes import SupvisorsInstanceStates, NameList, PayloadList, LoadMap
 
 
 class Context(object):
@@ -75,6 +75,14 @@ class Context(object):
         self.logger.info(f'Context.master_identifier: {identifier}')
         self._master_identifier = identifier
         self._is_master = identifier == self.supvisors.supvisors_mapper.local_identifier
+
+    def get_nodes_load(self) -> LoadMap:
+        """ Get the Supvisors instances load grouped by node.
+
+        :return: The nodes load
+        """
+        return {node_name: sum(self.instances[identifier].get_load() for identifier in identifiers)
+                for node_name, identifiers in self.supvisors.supvisors_mapper.nodes.items()}
 
     # methods on instances
     def unknown_identifiers(self) -> NameList:

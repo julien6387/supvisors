@@ -317,8 +317,7 @@ class ProcessStatus(object):
         identifiers = self.rules.identifiers
         if '*' in self.rules.identifiers:
             identifiers = self.supvisors.supvisors_mapper.instances
-        return [identifier for identifier in identifiers
-                if identifier in self.info_map]
+        return [identifier for identifier in identifiers if identifier in self.info_map]
 
     def has_crashed(self) -> bool:
         """ Return True if the any of the processes has ever crashed or has ever exited unexpectedly.

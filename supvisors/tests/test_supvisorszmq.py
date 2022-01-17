@@ -220,12 +220,13 @@ def puller(supvisors):
     sleep(0.5)
 
 
-def _test_push_event(mocker, pusher, puller, fct, event_type: InternalEventHeaders):
+def _test_push_event(mocker, pusher: RequestPusher, puller: RequestPuller, fct, event_type: InternalEventHeaders):
     """ The method tests that the TICK event is sent and received correctly through PyZmq PUSH / PULL. """
+    local_identifier = pusher.identifier
     payload = {'payload': 1234}
     fct(payload)
     request = puller.receive()
-    assert request == (event_type.value, ('127.0.0.1', payload))
+    assert request == (event_type.value, (local_identifier, payload))
     # test that the pusher socket is not blocking
     mocker.patch.object(pusher.socket, 'send_pyobj', side_effect=zmq.error.Again)
     fct(payload)

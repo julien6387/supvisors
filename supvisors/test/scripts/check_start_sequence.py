@@ -250,7 +250,7 @@ class CheckStartSequenceTest(CheckSequenceTest):
         # WARN: if errors happen, like "AssertionError: 'RUNNING' != 'BACKOFF'"
         #  this is probably because there is an instance of firefox already running before supervisord has been started
         #  close it before the test
-        identifier = next(identifier for identifier in [self.HOST_05, self.HOST_03, self.HOST_01, self.HOST_02]
+        identifier = next(identifier for identifier in [self.HOST_03, self.HOST_05, self.HOST_01, self.HOST_02]
                           if identifier in self.identifiers)
         program.add_event(ProcessStateEvent(ProcessStates.STARTING, identifier))
         program.add_event(ProcessStateEvent(ProcessStates.RUNNING, identifier))

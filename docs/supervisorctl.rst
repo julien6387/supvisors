@@ -179,7 +179,8 @@ Application Control
 -------------------
 
 From this part, a starting strategy may be required in the command lines.
-It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL`` }.
+It can take values among { ``CONFIG``, ``LESS_LOADED``, ``MOST_LOADED``, ``LOCAL``, ``LESS_LOADED_NODE``,
+``MOST_LOADED_NODE`` }.
 
 ``start_application strategy``
 

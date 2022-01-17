@@ -40,7 +40,7 @@ def test_creation_no_collector(mocker, supvisors):
     # check attributes
     assert listener.supvisors == supvisors
     assert listener.collector is None
-    assert listener.local_identifier == '127.0.0.1'
+    assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor
@@ -60,7 +60,7 @@ def test_creation(mocker, supvisors, listener):
     # check attributes
     assert listener.supvisors is supvisors
     assert listener.collector is mocked_collector
-    assert listener.local_identifier == '127.0.0.1'
+    assert listener.local_identifier == supvisors.supvisors_mapper.local_identifier
     assert listener.pusher is None
     assert listener.main_loop is None
     # test that callbacks are set in Supervisor

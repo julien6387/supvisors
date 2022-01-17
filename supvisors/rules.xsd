@@ -12,6 +12,8 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:enumeration value="LESS_LOADED" />
             <xs:enumeration value="MOST_LOADED" />
             <xs:enumeration value="LOCAL" />
+            <xs:enumeration value="LESS_LOADED_NODE" />
+            <xs:enumeration value="MOST_LOADED_NODE" />
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="StartingFailureStrategy" final="restriction" >
