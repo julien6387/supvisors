@@ -76,7 +76,7 @@ class SupvisorsMainLoop(Thread):
         self.reference_counter = 0
         # Create PyZmq sockets
         try:
-            self.sockets = SupvisorsZmq(self.supvisors.supvisors_mapper)
+            self.sockets = SupvisorsZmq(self.supvisors)
         except ZMQError as e:
             self.supvisors.logger.critical(f'SupvisorsMainLoop: failed to create PyZmq sockets ({e})')
             self.sockets = None

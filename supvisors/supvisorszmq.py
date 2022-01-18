@@ -142,7 +142,7 @@ class EventSubscriber(object):
         self.socket = zmq_context.socket(zmq.SUB)
         # WARN: this is a local binding, only visible to processes located on the same host
         url = f'tcp://127.0.0.1:{port}'
-        self.logger.info(f'EventSubscriber: connecting {url}')
+        self.logger.debug(f'EventSubscriber: connecting {url}')
         self.socket.connect(url)
 
     def close(self) -> None:
@@ -257,7 +257,7 @@ class EventSubscriber(object):
     # reception part
     def receive(self) -> Tuple[str, Any]:
         """ Reception of two-parts message:
-            - header as an unicode string,
+            - header as a unicode string,
             - data encoded in JSON.
 
         :return: a tuple with header and body
@@ -274,16 +274,19 @@ class InternalEventPublisher(object):
           in the ['supvisors'] section of the Supervisor configuration file.
     """
 
-    def __init__(self, instance: SupvisorsInstanceId) -> None:
+    def __init__(self, instance: SupvisorsInstanceId, logger: Logger) -> None:
         """ Initialization of the attributes.
 
         :param instance: the local Supvisors attributes
+        :param logger: the Supvisors logger
         """
         # keep local identifier
         self.identifier = instance.identifier
         # create ZMQ socket
         self.socket = ZmqContext.socket(zmq.PUB)
-        self.socket.bind(f'tcp://*:{instance.internal_port}')
+        url = f'tcp://*:{instance.internal_port}'
+        logger.debug(f'InternalEventPublisher: binding {url}')
+        self.socket.bind(url)
 
     def close(self) -> None:
         """ This method closes the PyZmq socket.
@@ -317,17 +320,20 @@ class InternalEventSubscriber(object):
         - socket: the PyZMQ subscriber.
     """
 
-    def __init__(self, instances: Dict[str, SupvisorsInstanceId]):
+    def __init__(self, instances: Dict[str, SupvisorsInstanceId], logger: Logger):
         """ Initialization of the attributes.
 
         :param instances: the Supvisors attributes of the publishing Supvisors instances
+        :param logger: the Supvisors logger
         """
         # keep the references in case of disconnection is requested
         self.instances = instances
         self.socket = ZmqContext.socket(zmq.SUB)
         # connect all Supvisors instances
         for instance in instances.values():
-            self.socket.connect(f'tcp://{instance.host_name}:{instance.internal_port}')
+            url = f'tcp://{instance.host_name}:{instance.internal_port}'
+            logger.debug(f'InternalEventSubscriber: connecting {url}')
+            self.socket.connect(url)
         self.socket.setsockopt(zmq.SUBSCRIBE, b'')
 
     def close(self) -> None:
@@ -366,10 +372,12 @@ class RequestPuller(object):
         - the RequestPusher instance MUST be created before the RequestPuller instance.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, logger: Logger) -> None:
         """ Initialization of the attributes. """
         self.socket = ZmqContext.socket(zmq.PULL)
-        self.socket.connect('inproc://' + INPROC_NAME)
+        url = 'inproc://' + INPROC_NAME
+        logger.debug(f'RequestPuller: connecting {url}')
+        self.socket.connect(url)
 
     def close(self) -> None:
         """ Close the PyZmq socket.
@@ -592,16 +600,16 @@ class SupvisorsZmq(object):
     PollResult = Mapping[Any, int]
     SupvisorsSockets = Union[InternalEventSubscriber, RequestPuller]
 
-    def __init__(self, supvisors_mapper: SupvisorsMapper) -> None:
+    def __init__(self, supvisors: Any) -> None:
         """ Create the sockets and the poller.
         The Supervisor logger cannot be used here (not thread-safe).
 
-        :param supvisors_mapper: the Supvisors Instances mapper
+        :param supvisors: the Supvisors global structure
         """
         # create zmq sockets
-        self.publisher = InternalEventPublisher(supvisors_mapper.local_instance)
-        self.subscriber = InternalEventSubscriber(supvisors_mapper.instances)
-        self.puller = RequestPuller()
+        self.publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+        self.subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances, supvisors.logger)
+        self.puller = RequestPuller(supvisors.logger)
         # create poller
         self.poller = zmq.Poller()
         # register sockets to poller

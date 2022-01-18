@@ -352,6 +352,7 @@ def test_shutdown_state(supvisors_ctx):
 
 def test_slave_main_state(mocker, supvisors_ctx):
     """ Test the SlaveMain state of the fsm. """
+    supvisors_ctx.fsm.master_state = SupvisorsStates.CONCILIATION
     # create instance to test
     state = SlaveMainState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -362,14 +363,15 @@ def test_slave_main_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.INITIALIZATION
     # test next method if check_instances return nothing
     state.check_instances.return_value = None
-    # test next method: no next state proposed
-    assert state.next() is None
+    # test next method: return master state by default
+    assert state.next() == SupvisorsStates.CONCILIATION
     # no exit implementation. just call it without test
     state.exit()
 
 
 def test_slave_restarting_state(mocker, supvisors_ctx):
     """ Test the SlaveRestarting state of the fsm. """
+    supvisors_ctx.fsm.master_state = SupvisorsStates.RESTARTING
     # create instance to test
     state = SlaveRestartingState(supvisors_ctx)
     assert isinstance(state, AbstractState)
@@ -381,8 +383,8 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.SHUTDOWN
     # test next method if check_instances return nothing
     state.check_instances.return_value = None
-    # test next method: no next state proposed
-    assert state.next() is None
+    # test next method: return master state by default
+    assert state.next() == SupvisorsStates.RESTARTING
     # test exit
     assert not state.supvisors.zmq.pusher.send_restart.called
     state.exit()
@@ -391,6 +393,7 @@ def test_slave_restarting_state(mocker, supvisors_ctx):
 
 def test_slave_shutting_down_state(mocker, supvisors_ctx):
     """ Test the SlaveShuttingDown state of the fsm. """
+    supvisors_ctx.fsm.master_state = SupvisorsStates.SHUTTING_DOWN
     # create instance to test
     state = SlaveShuttingDownState(supvisors_ctx)
     assert isinstance(state, SlaveRestartingState)
@@ -402,8 +405,8 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
     assert state.next() == SupvisorsStates.SHUTDOWN
     # test next method if check_instances return nothing
     state.check_instances.return_value = None
-    # test next method: no next state proposed
-    assert state.next() is None
+    # test next method: return master state by default
+    assert state.next() == SupvisorsStates.SHUTTING_DOWN
     # test exit
     assert not state.supvisors.zmq.pusher.send_shutdown.called
     state.exit()
@@ -413,7 +416,9 @@ def test_slave_shutting_down_state(mocker, supvisors_ctx):
 @pytest.fixture
 def fsm(supvisors):
     """ Create the FiniteStateMachine instance to test. """
-    return FiniteStateMachine(supvisors)
+    state_machine = FiniteStateMachine(supvisors)
+    supvisors.fsm = state_machine
+    return state_machine
 
 
 def test_creation(supvisors, fsm):
@@ -496,8 +501,10 @@ def test_master_simple_set_state(fsm, mock_master_events):
 
 def test_slave_simple_set_state(fsm, mock_slave_events):
     """ Test single transitions of the state machine using set_state method.
-    Same transition rules apply.
+    All transition are applicable for Slave states.
     """
+    fsm.supvisors.logger.info = print
+    fsm.master_state = SupvisorsStates.CONCILIATION
     instance_ref = fsm.instance
     # test set_state with identical state parameter
     fsm.set_state(SupvisorsStates.INITIALIZATION)
@@ -506,20 +513,16 @@ def test_slave_simple_set_state(fsm, mock_slave_events):
     assert fsm.state == SupvisorsStates.INITIALIZATION
     # test set_state with not authorized transition
     fsm.set_state(SupvisorsStates.OPERATION)
-    compare_calls([0, 0, 0, 0, 0, 0], mock_slave_events)
-    assert fsm.instance is instance_ref
-    assert fsm.state == SupvisorsStates.INITIALIZATION
+    compare_calls([0, 0, 1, 1, 1, 0], mock_slave_events)
+    assert fsm.instance is not instance_ref
+    assert fsm.state == SupvisorsStates.OPERATION
     # test set_state with authorized transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    compare_calls([0, 0, 1, 1, 1, 0], mock_slave_events)
+    compare_calls([0, 0, 0, 1, 1, 1], mock_slave_events)
     assert fsm.instance is not instance_ref
     assert fsm.state == SupvisorsStates.DEPLOYMENT
     # test set_state with unauthorized transition
     fsm.set_state(SupvisorsStates.SHUTDOWN)
-    compare_calls([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], mock_slave_events)
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
-    # test set_state with unauthorized transition but forced
-    fsm.set_state(SupvisorsStates.SHUTDOWN, True)
     compare_calls([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0], mock_slave_events)
     assert fsm.state == SupvisorsStates.SHUTDOWN
 
@@ -777,18 +780,18 @@ def test_on_process_info(mocker, fsm):
 
 def test_on_state_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a Master state event. """
-    mocked_state = mocker.patch.object(fsm, 'set_state')
+    fsm.master_state = SupvisorsStates.OPERATION
     fsm.context.master_identifier = '10.0.0.1'
     # test event not sent by Master node
     for state in SupvisorsStates:
         payload = {'statecode': state}
         fsm.on_state_event('10.0.0.2', payload)
-        assert not mocked_state.called
+        assert fsm.master_state == SupvisorsStates.OPERATION
     # test event sent by Master node
     for state in SupvisorsStates:
         payload = {'statecode': state}
         fsm.on_state_event('10.0.0.1', payload)
-        assert mocked_state.call_args_list == [call(state)]
+        assert fsm.master_state == state
         mocker.resetall()
 
 
@@ -829,29 +832,32 @@ def test_on_authorization(mocker, fsm):
     # test authorization and master node operational
     fsm.on_authorization('10.0.0.5', True, '10.0.0.5', SupvisorsStates.OPERATION)
     assert mocked_auth.call_args == call('10.0.0.5', True)
-    assert fsm.state == SupvisorsStates.OPERATION
+    assert fsm.state == SupvisorsStates.INITIALIZATION
+    assert fsm.master_state == SupvisorsStates.OPERATION
     assert fsm.context._master_identifier == '10.0.0.5'
     assert not fsm.redeploy_mark
     # reset mocks
     mocked_auth.reset_mock()
     # test authorization and master node conflict
+    fsm.state = SupvisorsStates.OPERATION
     fsm.on_authorization('10.0.0.3', True, '10.0.0.4', SupvisorsStates.OPERATION)
     assert mocked_auth.call_args == call('10.0.0.3', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
+    assert fsm.master_state == SupvisorsStates.OPERATION
     assert fsm.context.master_identifier == ''
     assert not fsm.redeploy_mark
     # change context while instance is not master
     nodes[local_identifier]._state = SupvisorsInstanceStates.RUNNING
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
-    # as local is not master is operational, no automatic transition
+    # as local is not master and master is operational, automatic transition
     fsm.set_state(SupvisorsStates.DEPLOYMENT)
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
+    assert fsm.state == SupvisorsStates.OPERATION
     # set current instance as master
     fsm.supvisors.context._is_master = True
     # test authorization when no master node provided
     fsm.on_authorization('10.0.0.4', True, '', SupvisorsStates.INITIALIZATION)
     assert mocked_auth.call_args == call('10.0.0.4', True)
-    assert fsm.state == SupvisorsStates.DEPLOYMENT
+    assert fsm.state == SupvisorsStates.OPERATION
     assert fsm.supvisors.context.master_identifier == '10.0.0.5'
     assert fsm.redeploy_mark
     # test authorization and master node conflict
@@ -862,7 +868,7 @@ def test_on_authorization(mocker, fsm):
     assert fsm.redeploy_mark
 
 
-def test_restart_sequence_event(mocker, fsm):
+def test_restart_sequence_event(fsm):
     """ Test the actions triggered in state machine upon reception of a restart_sequence event. """
     # inject restart event and test setting of redeploy_mark
     mocked_zmq = fsm.supvisors.zmq.pusher.send_restart_sequence

@@ -28,8 +28,8 @@ from unittest.mock import call, Mock
 def test_internal_publish_subscribe(supvisors):
     """ Test the ZeroMQ publish-subscribe sockets used internally in Supvisors. """
     # create publisher and subscriber
-    publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance)
-    subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances)
+    publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
+    subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances, supvisors.logger)
     # check that the ZMQ sockets are ready
     assert not publisher.socket.closed
     assert not subscriber.socket.closed
@@ -63,7 +63,7 @@ def test_internal_pusher_puller(supvisors):
     """ Test the ZeroMQ push-pull sockets used internally in Supvisors. """
     # create publisher and subscriber
     pusher = RequestPusher(supvisors.supvisors_mapper.local_identifier, supvisors.logger)
-    puller = RequestPuller()
+    puller = RequestPuller(supvisors.logger)
     # check that the ZMQ sockets are ready
     assert not pusher.socket.closed
     assert not puller.socket.closed
@@ -77,7 +77,7 @@ def test_internal_pusher_puller(supvisors):
 
 @pytest.fixture
 def internal_publisher(supvisors):
-    test_publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance)
+    test_publisher = InternalEventPublisher(supvisors.supvisors_mapper.local_instance, supvisors.logger)
     yield test_publisher
     test_publisher.close()
     sleep(0.5)
@@ -85,7 +85,7 @@ def internal_publisher(supvisors):
 
 @pytest.fixture
 def internal_subscriber(supvisors):
-    test_subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances)
+    test_subscriber = InternalEventSubscriber(supvisors.supvisors_mapper.instances, supvisors.logger)
     test_subscriber.socket.setsockopt(zmq.RCVTIMEO, 1000)
     # publisher does not wait for subscriber clients to work, so give some time for connections
     sleep(0.5)
@@ -210,7 +210,7 @@ def pusher(supvisors):
 
 @pytest.fixture
 def puller(supvisors):
-    test_puller = RequestPuller()
+    test_puller = RequestPuller(supvisors.logger)
     # socket configuration is meant to be blocking
     # however, a failure would block the unit test, so a timeout is set for emission and reception
     test_puller.socket.setsockopt(zmq.SNDTIMEO, 1000)
@@ -583,7 +583,7 @@ def test_supervisor_creation_closure(supvisors):
 
 def test_supvisors_creation_closure(supvisors):
     """ Test the attributes created in SupvisorsZmq constructor. """
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     # test all attribute types
     assert isinstance(sockets.publisher, InternalEventPublisher)
     assert not sockets.publisher.socket.closed
@@ -603,14 +603,14 @@ def test_supvisors_creation_closure(supvisors):
 
 def test_poll(supvisors):
     """ Test the poll method of the SupvisorsZmq class. """
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     assert sockets.poll() == {}
 
 
 def test_check_puller(mocker, supvisors):
     """ Test the check_puller method of the SupvisorsZmq class. """
     mocked_check = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     param = Mock()
     assert sockets.check_puller(param) == 'checked'
     assert mocked_check.call_args_list == [call(sockets.puller, param)]
@@ -619,7 +619,7 @@ def test_check_puller(mocker, supvisors):
 def test_check_subscriber(mocker, supvisors):
     """ Test the check_subscriber method of the SupvisorsZmq class. """
     mocked_check = mocker.patch('supvisors.supvisorszmq.SupvisorsZmq.check_socket', return_value='checked')
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     param = Mock()
     assert sockets.check_subscriber(param) == 'checked'
     assert mocked_check.call_args_list == [call(sockets.subscriber, param)]
@@ -628,7 +628,7 @@ def test_check_subscriber(mocker, supvisors):
 def test_check_socket(mocker, supvisors):
     """ Test the types of the attributes created. """
     mocker.patch('builtins.print')
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     # prepare context
     mocked_sockets = Mock(socket='socket', **{'receive.side_effect': ZMQError})
     # test with empty poll result
@@ -657,7 +657,7 @@ def test_check_socket(mocker, supvisors):
 def test_disconnect_subscriber(mocker, supvisors):
     """ Test the types of the attributes created. """
     mocked_disconnect = mocker.patch('supvisors.supvisorszmq.InternalEventSubscriber.disconnect')
-    sockets = SupvisorsZmq(supvisors.supvisors_mapper)
+    sockets = SupvisorsZmq(supvisors)
     # test disconnect on unknown address
     sockets.disconnect_subscriber(['10.0.0.1'])
     assert mocked_disconnect.call_args_list == [call(['10.0.0.1'])]

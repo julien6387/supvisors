@@ -82,20 +82,19 @@ class MockedSupvisors:
         self.server_options = Mock(procnumbers={'xclock': 2})
         # build context from node mapper
         self.context = Context(self)
-        # simple mocks
-        self.fsm = Mock()
-        self.pool = Mock()
-        self.requester = Mock()
-        self.statistician = Mock(data={}, nbcores={})
-        self.failure_handler = Mock()
         # mock by spec
-        from supvisors.listener import SupervisorListener
-        self.listener = Mock(spec=SupervisorListener)
-        from supvisors.sparser import Parser
-        self.parser = Mock(spec=Parser)
         from supvisors.commander import Starter, Stopper
+        from supvisors.strategy import RunningFailureHandler
+        from supvisors.statemachine import FiniteStateMachine
+        from supvisors.listener import SupervisorListener
+        from supvisors.sparser import Parser
         self.starter = Mock(spec=Starter)
         self.stopper = Mock(spec=Stopper)
+        self.failure_handler = Mock(spec=RunningFailureHandler)
+        self.fsm = Mock(spec=FiniteStateMachine)
+        self.statistician = Mock(data={}, nbcores={})
+        self.listener = Mock(spec=SupervisorListener)
+        self.parser = Mock(spec=Parser)
         # should be set in listener
         self.zmq = Mock(spec=SupervisorZmq)
         self.zmq.__init__()

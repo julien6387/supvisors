@@ -73,6 +73,7 @@ class Supvisors(object):
         # create statistics handler
         self.statistician = StatisticsCompiler(self)
         # create the failure handler of crashing processes
+        # WARN: must be created before the state machine
         self.failure_handler = RunningFailureHandler(self)
         # create state machine
         self.fsm = FiniteStateMachine(self)

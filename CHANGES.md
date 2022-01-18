@@ -5,6 +5,8 @@
 * Fix crash following a `supervisorctl update` as the group added doesn't include `extra_args` and `command_ref`
   attributes in the Supervisor internal structure.
 
+* Fix crash when the state of the **Supvisors** master is received before any **Supvisors** instance has been confirmed.
+
 * Add `supervisord` entry to the process table of the **Supvisors** instance in the Web UI.
   This entry provides process statistics and the possibility to view the Supervisor logs.
 

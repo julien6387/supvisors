@@ -243,7 +243,6 @@ class MasterConciliationState(AbstractState):
             return SupvisorsStates.OPERATION
         # new conflicts may happen while conciliation is in progress
         # call enter again to trigger a new conciliation
-        # FIXME: as stopper may not be used by all strategies, conciliate_conflicts can be triggered twice in a row
         self.enter()
 
 
@@ -325,6 +324,8 @@ class SlaveMainState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             return next_state
+        # next state is the Master state
+        return self.supvisors.fsm.master_state
 
 
 class SlaveRestartingState(AbstractState):
@@ -346,6 +347,8 @@ class SlaveRestartingState(AbstractState):
         if next_state:
             # no way going back to INITIALIZATION state at this point
             return SupvisorsStates.SHUTDOWN
+        # next state is the Master state
+        return self.supvisors.fsm.master_state
 
     def exit(self) -> None:
         """ When leaving the RESTARTING state, request the Supervisor restart. """
@@ -364,7 +367,14 @@ class SlaveShuttingDownState(SlaveRestartingState):
 
 class FiniteStateMachine:
     """ This class implements a very simple behaviour of FiniteStateMachine based on a single event.
-    A state is able to evaluate itself for transitions. """
+    A state is able to evaluate itself for transitions.
+
+    Attributes are:
+        - state: the current state of this state machine ;
+        - master_state: the state of the Master state machine ;
+        - instance: the current state instance ;
+        - redeploy_mark: a status telling if a DEPLOYMENT state is pending.
+    """
 
     def __init__(self, supvisors: Any) -> None:
         """ Reset the state machine and the internal context.
@@ -375,6 +385,7 @@ class FiniteStateMachine:
         self.context: Context = supvisors.context
         self.logger: Logger = supvisors.logger
         self.state: Optional[SupvisorsStates] = None
+        self.master_state: Optional[SupvisorsStates] = None
         self.instance: AbstractState = AbstractState(supvisors)
         self.redeploy_mark: bool = False
         # Trigger first state / INITIALIZATION
@@ -392,35 +403,36 @@ class FiniteStateMachine:
         # check state machine
         self.set_state(self.instance.next())
 
-    def set_state(self, next_state: SupvisorsStates, force_transition: bool = None) -> None:
+    def set_state(self, next_state: SupvisorsStates) -> None:
         """ Update the current state of the state machine and transitions as long as possible.
         The transition can be forced, especially when getting the first Master state.
 
         :param next_state: the new state
-        :param force_transition: if True, transition validity is not checked
         :return: None
         """
         while next_state is not None and next_state != self.state:
             # check that the transition is allowed
-            if not force_transition and next_state not in self._Transitions[self.state]:
-                self.logger.critical(f'FiniteStateMachine.set_state: unexpected transition from {self.state}'
-                                     ' to {next_state}')
+            # a Slave Supvisors will always follow the Master state
+            if self.context.is_master and next_state not in self._Transitions[self.state]:
+                self.logger.critical(f'FiniteStateMachine.set_state: unexpected transition from {self.state.name}'
+                                     f' to {next_state.name}')
                 break
             # exit the current state
             self.instance.exit()
             # assign the new state and publish SupvisorsStatus event internally and externally
             self.state = next_state
             self.logger.info(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
-            if self.supvisors.zmq:
-                # the zmq does not exist yet for the first occurrence here
-                self.supvisors.zmq.pusher.send_state_event(self.serial())
-                self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # create the new state and enters it
             if self.context.is_master:
                 self.instance = self._MasterStateInstances[self.state](self.supvisors)
             else:
                 self.instance = self._SlaveStateInstances[self.state](self.supvisors)
             self.instance.enter()
+            # publish the new state
+            if self.supvisors.zmq:
+                # the zmq does not exist yet for the first occurrence here
+                self.supvisors.zmq.pusher.send_state_event(self.serial())
+                self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # evaluate current state
             next_state = self.instance.next()
 
@@ -516,7 +528,7 @@ class FiniteStateMachine:
             master_state = SupvisorsStates(event['statecode'])
             self.logger.info(f'FiniteStateMachine.on_state_event: Master Supvisors={identifier} transitioned'
                              f' to state={master_state}')
-            self.set_state(master_state)
+            self.master_state = master_state
 
     def on_process_info(self, identifier: str, info: PayloadList) -> None:
         """ This event is used to fill the internal structures with processes available on the Supvisors instance.
@@ -570,10 +582,9 @@ class FiniteStateMachine:
                     self.set_state(SupvisorsStates.INITIALIZATION)
                 elif master_identifier == identifier:
                     # accept the remote Master state
-                    # FIXME: not possible as long as local node itself is not authorized !
                     self.logger.info(f'FiniteStateMachine.on_authorization: Master={identifier} is in'
-                                     f' state={supvisors_state}')
-                    self.set_state(supvisors_state, True)
+                                     f' state={supvisors_state.name}')
+                    self.master_state = supvisors_state
 
     def on_restart_sequence(self) -> None:
         """ This event is used to transition the state machine to the DEPLOYMENT state.
@@ -583,7 +594,7 @@ class FiniteStateMachine:
         if self.context.is_master:
             self.redeploy_mark = Forced
         else:
-            # re-route command to Master
+            # re-route the command to Master
             self.supvisors.zmq.pusher.send_restart_sequence(self.context.master_identifier)
 
     def on_restart(self) -> None:
@@ -594,7 +605,7 @@ class FiniteStateMachine:
         if self.context.is_master:
             self.set_state(SupvisorsStates.RESTARTING)
         else:
-            # re-route command to Master
+            # re-route the command to Master
             self.supvisors.zmq.pusher.send_restart_all(self.context.master_identifier)
 
     def on_shutdown(self) -> None:
@@ -605,7 +616,7 @@ class FiniteStateMachine:
         if self.context.is_master:
             self.set_state(SupvisorsStates.SHUTTING_DOWN)
         else:
-            # re-route command to Master
+            # re-route the command to Master
             self.supvisors.zmq.pusher.send_shutdown_all(self.context.master_identifier)
 
     # serialization
