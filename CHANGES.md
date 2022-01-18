@@ -14,6 +14,8 @@
 
 * Fix CSS for Supvisors instance boxes (table headers un-stickied) in the main page of the Web UI.
 
+* Fix process children CPU times counted twice in statistics.
+
 * Add regex support to the `pattern` attribute of the `application` and `program` elements of the **Supvisors** rules
   file.
 

@@ -21,7 +21,6 @@ import pytest
 pytest.importorskip('psutil', reason='cannot test as optional psutil is not installed')
 
 import multiprocessing
-import os
 import time
 
 from supvisors.statscollector import *
