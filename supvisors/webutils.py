@@ -37,6 +37,10 @@ Info = 'info'
 Warn = 'warn'
 Error = 'erro'
 
+# shex symbols
+SHEX_SHRINK = '[\u2013]'
+SHEX_EXPAND = '[+]'
+
 
 def format_gravity_message(message):
     """ Add a gravity to a message if not present."""

@@ -510,6 +510,13 @@ def test_get_process_status(mocker, ctx):
     assert ctx.get_process_status('dummy_proc') == 'dummy_proc'
 
 
+def test_get_default_shex(ctx):
+    """ Test the ViewContext.get_default_shex method. """
+    ctx.supvisors.context.applications = {f'appli_{x}': Mock() for x in range(15)}
+    assert ctx.get_default_shex(True).hex() == 'ffff'
+    assert ctx.get_default_shex(False).hex() == '0000'
+
+
 def test_update_shrink_expand(ctx):
     """ Test the ViewContext.update_shrink_expand method. """
     # check default

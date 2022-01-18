@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/ui_style.css" />
     <link rel="stylesheet" href="css/menu.css" />
     <link rel="stylesheet" href="css/button.css" />
+    <style meld:id="style_mid"> </style>
 </head>
 
 <body>
@@ -107,7 +108,11 @@
                     <table id="process_table" meld:id="table_mid">
                         <thead>
                             <tr>
-                                <th class="name" colspan="2">Name</th>
+                                <th class="shex">
+                                    <a href="#" meld:id="expand_a_mid"></a>
+                                    <a href="#" meld:id="shrink_a_mid"></a>
+                                </th>
+                                <th class="name">Name</th>
                                 <th class="state">State</th>
                                 <th class="desc">Description</th>
                                 <th class="expected">Load</th>
@@ -138,7 +143,7 @@
                         </tfoot>
                         <tbody>
                             <tr meld:id="tr_mid">
-                                <td meld:id="shex_td_mid" class="shex"><a href="#" meld:id="shex_a_mid"></a></td>
+                                <td meld:id="shex_td_mid" class="shex centered"><a href="#" meld:id="shex_a_mid"></a></td>
                                 <td><a href="#" meld:id="name_a_mid">Name</a></td>
                                 <td meld:id="state_td_mid" class="centered">State</td>
                                 <td meld:id="desc_td_mid">Description</td>

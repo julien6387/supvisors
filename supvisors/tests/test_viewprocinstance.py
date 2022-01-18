@@ -20,6 +20,7 @@
 import pytest
 
 from random import shuffle
+from supervisor.states import ProcessStates
 from supervisor.web import MeldView, StatusView
 from unittest.mock import call, Mock
 
@@ -64,7 +65,6 @@ def test_write_contents(mocker, view):
     """ Test the ProcInstanceView.write_contents method. """
     mocked_stats = mocker.patch.object(view, 'write_process_statistics')
     mocked_table = mocker.patch.object(view, 'write_process_table')
-    mocked_total = mocker.patch.object(view, 'write_total_status')
     mocked_data = mocker.patch.object(view, 'get_process_data',
                                       side_effect=(([{'namespec': 'dummy'}], []),
                                                    ([{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}]),
@@ -78,8 +78,7 @@ def test_write_contents(mocker, view):
     # test call with no process selected
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}])]
-    assert mocked_total.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [])]
     assert mocked_stats.call_args_list == [call(mocked_root, {})]
     mocker.resetall()
     # test call with process selected and no corresponding status
@@ -87,8 +86,7 @@ def test_write_contents(mocker, view):
     view.view_ctx.parameters[PROCESS] = 'dummy_proc'
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}])]
-    assert mocked_total.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
     assert mocked_stats.call_args_list == [call(mocked_root, {})]
     mocker.resetall()
@@ -98,8 +96,7 @@ def test_write_contents(mocker, view):
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.2'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}])]
-    assert mocked_total.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy'}], [{'namespec': 'dummy_proc'}])]
     assert view.view_ctx.parameters[PROCESS] == ''
     assert mocked_stats.call_args_list == [call(mocked_root, {})]
     mocker.resetall()
@@ -108,8 +105,7 @@ def test_write_contents(mocker, view):
     view.view_ctx.get_process_status.return_value = Mock(running_identifiers={'10.0.0.1'})
     view.write_contents(mocked_root)
     assert mocked_data.call_args_list == [call()]
-    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}])]
-    assert mocked_total.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
+    assert mocked_table.call_args_list == [call(mocked_root, [{'namespec': 'dummy_proc'}], [{'namespec': 'dummy'}])]
     assert view.view_ctx.parameters[PROCESS] == 'dummy'
     assert mocked_stats.call_args_list == [call(mocked_root, {'namespec': 'dummy'})]
 
@@ -240,11 +236,12 @@ def test_get_application_summary(view):
 
 def test_write_process_table(mocker, view):
     """ Test the ProcInstanceView.write_process_table method. """
+    mocked_shex = mocker.patch.object(view, 'write_global_shex')
+    mocked_total = mocker.patch.object(view, 'write_total_status')
     mocked_appli = mocker.patch.object(view, 'write_application_status')
     mocked_common = mocker.patch.object(view, 'write_common_process_status')
     mocked_supervisord = mocker.patch.object(view, 'write_supervisord_status')
     # patch the meld elements
-    table_mid = Mock()
     tr_elt_0 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_1 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
     tr_elt_2 = Mock(attrib={'class': ''}, **{'findmeld.return_value': Mock()})
@@ -257,11 +254,15 @@ def test_write_process_table(mocker, view):
                                              (tr_elt_3, {'process_name': 'info_3', 'single': False}),
                                              (tr_elt_4, {'process_name': None}),
                                              (tr_elt_5, {'process_name': 'supervisord', 'single': True})]})
-    mocked_root = Mock(**{'findmeld.side_effect': [table_mid, tr_mid]})
+    table_mid = Mock(**{'findmeld.return_value': tr_mid})
+    mocked_root = Mock(**{'findmeld.return_value': table_mid})
     # test call with no data
-    view.write_process_table(mocked_root, {})
+    sorted_data, excluded_data = Mock(), Mock()
+    view.write_process_table(mocked_root, [], excluded_data)
     assert table_mid.replace.call_args_list == [call('No programs to manage')]
+    assert not mocked_shex.called
     assert not mocked_common.called
+    assert not mocked_total.called
     assert not mocked_appli.called
     assert not tr_elt_0.findmeld.return_value.replace.called
     assert not tr_elt_1.findmeld.return_value.replace.called
@@ -277,8 +278,9 @@ def test_write_process_table(mocker, view):
     assert tr_elt_5.attrib['class'] == ''
     table_mid.replace.reset_mock()
     # test call with data and line selected
-    view.write_process_table(mocked_root, [{}])
+    view.write_process_table(mocked_root, sorted_data, excluded_data)
     assert not table_mid.replace.called
+    assert mocked_shex.call_args_list == [call(table_mid)]
     assert mocked_common.call_args_list == [call(tr_elt_0, {'process_name': 'info_0', 'single': True}),
                                             call(tr_elt_2, {'process_name': 'info_2', 'single': False}),
                                             call(tr_elt_3, {'process_name': 'info_3', 'single': False})]
@@ -297,6 +299,60 @@ def test_write_process_table(mocker, view):
     assert tr_elt_3.attrib['class'] == 'shaded'
     assert tr_elt_4.attrib['class'] == 'brightened'
     assert tr_elt_5.attrib['class'] == 'shaded'
+    assert mocked_total.call_args_list == [call(table_mid, sorted_data, excluded_data)]
+
+
+def test_write_global_shex(view):
+    """ Test the ProcInstanceView.write_global_shex method. """
+    # add context
+    expanded = bytearray.fromhex('ffff')
+    shrank = bytearray.fromhex('0000')
+    view.view_ctx = Mock(parameters={SHRINK_EXPAND: 'ffff'},
+                         **{'get_default_shex.side_effect': lambda x: expanded if x else shrank,
+                            'format_url.return_value': 'an url'})
+    # build HTML structure
+    expand_elt = Mock()
+    shrink_elt = Mock()
+    mid_map = {'expand_a_mid': expand_elt, 'shrink_a_mid': shrink_elt}
+    table_elt = Mock(**{'findmeld.side_effect': lambda x: mid_map[x]})
+    # test with fully expanded shex
+    view.write_global_shex(table_elt)
+    assert expand_elt.replace.call_args_list == [call('')]
+    assert not expand_elt.content.called
+    assert not expand_elt.attributes.called
+    assert not shrink_elt.replace.called
+    assert shrink_elt.content.call_args_list == [call(SHEX_SHRINK)]
+    assert shrink_elt.attributes.call_args_list == [call(href='an url')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='0000')]
+    expand_elt.replace.reset_mock()
+    shrink_elt.content.reset_mock()
+    shrink_elt.attributes.reset_mock()
+    view.view_ctx.format_url.reset_mock()
+    # test with fully shrank shex
+    view.view_ctx.parameters[SHRINK_EXPAND] = '0000'
+    view.write_global_shex(table_elt)
+    assert not expand_elt.replace.called
+    assert expand_elt.content.call_args_list == [call(SHEX_EXPAND)]
+    assert expand_elt.attributes.call_args_list == [call(href='an url')]
+    assert shrink_elt.replace.call_args_list == [call('')]
+    assert not shrink_elt.content.called
+    assert not shrink_elt.attributes.called
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='ffff')]
+    expand_elt.content.reset_mock()
+    expand_elt.attributes.reset_mock()
+    shrink_elt.replace.reset_mock()
+    view.view_ctx.format_url.reset_mock()
+    # test with fully mixed shex
+    view.view_ctx.parameters[SHRINK_EXPAND] = '1234'
+    view.write_global_shex(table_elt)
+    assert not expand_elt.replace.called
+    assert expand_elt.content.call_args_list == [call(SHEX_EXPAND)]
+    assert expand_elt.attributes.call_args_list == [call(href='an url')]
+    assert not shrink_elt.replace.called
+    assert shrink_elt.content.call_args_list == [call(SHEX_SHRINK)]
+    assert shrink_elt.attributes.call_args_list == [call(href='an url')]
+    assert view.view_ctx.format_url.call_args_list == [call('', 'proc_instance.html', shex='ffff'),
+                                                       call('', 'proc_instance.html', shex='0000')]
 
 
 def test_write_application_status(mocker, view):

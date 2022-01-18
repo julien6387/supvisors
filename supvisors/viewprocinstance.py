@@ -17,8 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from supervisor.options import make_namespec
-from supervisor.states import ProcessStates, RUNNING_STATES
+from supervisor.states import RUNNING_STATES
 from supervisor.xmlrpc import RPCError
 
 from .application import ApplicationStatus
@@ -44,9 +43,7 @@ class ProcInstanceView(SupvisorsInstanceView):
     def write_contents(self, root):
         """ Rendering of the contents part of the page. """
         sorted_data, excluded_data = self.get_process_data()
-        self.write_process_table(root, sorted_data)
-        # writes the total statistics line
-        self.write_total_status(root, sorted_data, excluded_data)
+        self.write_process_table(root, sorted_data, excluded_data)
         # check selected Process Statistics
         namespec = self.view_ctx.parameters[PROCESS]
         if namespec and namespec != 'supervisord':
@@ -172,12 +169,21 @@ class ProcInstanceView(SupvisorsInstanceView):
         appli_stats = None if reset else [[cpu], [mem]]
         return expected_load, nb_cores, appli_stats
 
-    def write_process_table(self, root, data: PayloadList):
-        """ Rendering of the processes managed through Supervisor. """
-        if data:
-            self.write_common_process_table(root)
+    def write_process_table(self, root, sorted_data: PayloadList, excluded_data: PayloadList) -> None:
+        """ Rendering of the processes managed in Supervisor.
+
+        :param root: the root element of the page
+        :param sorted_data: the process data displayed
+        :param excluded_data: the process data not displayed
+        :return: None
+        """
+        table_elt = root.findmeld('table_mid')
+        if sorted_data:
+            self.write_global_shex(table_elt)
+            # remove stats columns if statistics are disabled
+            self.write_common_process_table(table_elt)
             # loop on all processes
-            iterator = root.findmeld('tr_mid').repeat(data)
+            iterator = table_elt.findmeld('tr_mid').repeat(sorted_data)
             shaded_appli_tr, shaded_proc_tr = False, False  # used to invert background style
             for tr_elt, info in iterator:
                 if info['process_name']:
@@ -207,9 +213,36 @@ class ProcInstanceView(SupvisorsInstanceView):
                     # set line background and invert
                     apply_shade(tr_elt, shaded_appli_tr)
                     shaded_appli_tr = not shaded_appli_tr
+            # writes the total statistics line
+            self.write_total_status(table_elt, sorted_data, excluded_data)
         else:
-            table = root.findmeld('table_mid')
-            table.replace('No programs to manage')
+            table_elt.replace('No programs to manage')
+
+    def write_global_shex(self, table_elt) -> None:
+        """ Write global shrink / expand buttons.
+
+        :param table_elt: the table element
+        :return: None
+        """
+        shex = self.view_ctx.parameters[SHRINK_EXPAND]
+        expand_shex = self.view_ctx.get_default_shex(True)
+        shrink_shex = self.view_ctx.get_default_shex(False)
+        # write expand button
+        elt = table_elt.findmeld('expand_a_mid')
+        if shex == expand_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(f'{SHEX_EXPAND}')
+            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: expand_shex.hex()})
+            elt.attributes(href=url)
+        # write shrink button
+        elt = table_elt.findmeld('shrink_a_mid')
+        if shex == shrink_shex.hex():
+            elt.replace('')
+        else:
+            elt.content(f'{SHEX_SHRINK}')
+            url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: shrink_shex.hex()})
+            elt.attributes(href=url)
 
     def write_application_status(self, tr_elt, info, shaded_tr):
         """ Write the application section into a table. """
@@ -225,7 +258,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         elt = elt.findmeld('shex_a_mid')
         self.logger.trace(f'ProcInstanceView.write_application_status: application_name={application_name}'
                           f' application_shex={application_shex} inverted_shex={inverted_shex}')
-        elt.content('{}'.format('[\u2013]' if application_shex else '[+]'))
+        elt.content(f'{SHEX_SHRINK if application_shex else SHEX_EXPAND}')
         url = self.view_ctx.format_url('', self.page_name, **{SHRINK_EXPAND: inverted_shex})
         elt.attributes(href=url)
         # print application name
@@ -271,15 +304,15 @@ class ProcInstanceView(SupvisorsInstanceView):
         url = self.view_ctx.format_url('', page, **action)
         elt.attributes(href=url)
 
-    def write_total_status(self, root, sorted_data: PayloadList, excluded_data: PayloadList):
-        """ Write the total statistics for this Supvisors instance
+    def write_total_status(self, table_elt, sorted_data: PayloadList, excluded_data: PayloadList):
+        """ Write the total statistics for this Supvisors instance.
 
-        :param root: the root element of the page
+        :param table_elt: the table element
         :param sorted_data: the process data displayed
         :param excluded_data: the process data not displayed
         :return: None
         """
-        tr_elt = root.findmeld('total_mid')
+        tr_elt = table_elt.findmeld('total_mid')
         if tr_elt is not None:
             # element may have been removed due to stats option disabled
             # sum MEM and CPU stats of all processes

@@ -283,8 +283,8 @@ description and enables the user to perform some actions on them:
     +------------------------------------+-------------------------------------------+
 
 All processes are grouped by their application name and |Supvisors| provides expand / shrink actions per application
-to enable the user to show / hide blocks of processes.
-The application line displays:
+to enable the user to show / hide blocks of processes. Global expand / shrink actions are provided too in the top left
+cell of the table. The application line displays:
 
     * the overall state of the application, considering all |Supvisors| instances where it may be distributed,
     * a basic description of the operational status of the application,

@@ -78,10 +78,11 @@ def test_call(mocker, handler):
 
 def test_render_action_in_progress(mocker, handler):
     """ Test the render method when Supervisor is in RUNNING state and when an action is in progress. """
+    mocked_style = mocker.patch('supvisors.viewhandler.ViewHandler.write_style')
+    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common')
     mocked_contents = mocker.patch('supvisors.viewhandler.ViewHandler.write_contents')
     mocked_header = mocker.patch('supvisors.viewhandler.ViewHandler.write_header')
     mocked_nav = mocker.patch('supvisors.viewhandler.ViewHandler.write_navigation')
-    mocked_common = mocker.patch('supvisors.viewhandler.ViewHandler.write_common')
     mocked_clone = mocker.patch('supervisor.web.MeldView.clone')
     mocked_action = mocker.patch('supvisors.viewhandler.ViewHandler.handle_action')
     # build xml template
@@ -95,9 +96,11 @@ def test_render_action_in_progress(mocker, handler):
     assert handler.view_ctx is None
     assert not mocked_action.call_count
     assert not handler.clone.call_count
-    assert not handler.write_navigation.call_count
-    assert not handler.write_header.call_count
-    assert not handler.write_contents.call_count
+    assert not mocked_style.called
+    assert not mocked_common.called
+    assert not mocked_nav.called
+    assert not mocked_header.call_count
+    assert not mocked_contents.call_count
     # 2. test render call when Supervisor is RUNNING and an action is in progress
     handler.context.supervisord.options.mood = SupervisorStates.RUNNING
     mocked_action.return_value = NOT_DONE_YET
@@ -105,8 +108,9 @@ def test_render_action_in_progress(mocker, handler):
     assert handler.view_ctx is not None
     assert mocked_action.call_args_list == [call()]
     assert not mocked_clone.call_count
-    assert not mocked_common.call_count
-    assert not mocked_nav.call_count
+    assert not mocked_style.called
+    assert not mocked_common.called
+    assert not mocked_nav.called
     assert not mocked_header.call_count
     assert not mocked_contents.call_count
     # 3. test render call when Supervisor is RUNNING and no action is in progress
@@ -116,9 +120,10 @@ def test_render_action_in_progress(mocker, handler):
     assert handler.view_ctx is not None
     assert mocked_action.call_args_list == [call()]
     assert mocked_clone.call_args_list == [call()]
+    assert mocked_style.call_args_list == [call(mocked_root)]
     assert mocked_common.call_args_list == [call(mocked_root)]
-    assert mocked_nav.call_args_list == [call(mocked_root)]
     assert mocked_header.call_args_list == [call(mocked_root)]
+    assert mocked_nav.call_args_list == [call(mocked_root)]
     assert mocked_contents.call_args_list == [call(mocked_root)]
 
 

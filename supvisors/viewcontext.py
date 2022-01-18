@@ -153,11 +153,20 @@ class ViewContext:
         default_value = next(iter(interfaces), None)
         self._update_string(INTF, interfaces, default_value)
 
+    def get_default_shex(self, expanded: bool) -> bytearray:
+        """ Get a default shex bytearray filled with 1 if expanded.
+
+        :param expanded: a status telling if the bytearray should be filled with 0 or 1
+        :return: the shex bytearray
+        """
+        nb_applications = len(self.supvisors.context.applications)
+        base_value = 0xff if expanded else 0
+        return bytearray([base_value] * math.ceil(nb_applications / 8))
+
     def update_shrink_expand(self):
         """ Extract process display choices from context. """
-        # default is all displayed
-        nb_applications = len(self.supvisors.context.applications)
-        ba = bytearray([0xff] * math.ceil(nb_applications / 8))
+        # default is expanded
+        ba = self.get_default_shex(True)
         # extract mask from context
         str_value = self.http_context.form.get(SHRINK_EXPAND)
         if str_value:

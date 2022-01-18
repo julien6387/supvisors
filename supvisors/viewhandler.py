@@ -73,6 +73,7 @@ class ViewHandler(MeldView):
             # display result
             root = self.clone()
             # write navigation menu, page header and contents
+            self.write_style(root)
             self.write_common(root)
             self.write_navigation(root)
             self.write_header(root)
@@ -85,6 +86,9 @@ class ViewHandler(MeldView):
         """ Retrieve the parameters selected on the web page. """
         self.view_ctx = ViewContext(self.context)
         self.logger.debug('New context: {}'. format(self.view_ctx.parameters))
+
+    def write_style(self, root):
+        """ Entry point for additional style instructions. """
 
     def write_common(self, root):
         """ Common rendering of the Supvisors pages. """
@@ -324,11 +328,11 @@ class ViewHandler(MeldView):
             # this corresponds to an application row: no action available
             elt.content('')
 
-    def write_common_process_table(self, root):
+    def write_common_process_table(self, table_elt):
         """ Hide MEM+CPU head+foot cells if statistics disabled"""
         if not self.supvisors.options.stats_enabled:
             for mid in ['mem_head_th_mid', 'cpu_head_th_mid', 'mem_foot_th_mid', 'cpu_foot_th_mid', 'total_mid']:
-                elt = root.findmeld(mid)
+                elt = table_elt.findmeld(mid)
                 if elt is not None:
                     elt.deparent()
 

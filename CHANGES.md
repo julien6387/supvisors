@@ -45,6 +45,8 @@
 * Add `node_name` and `port` information to the result of the `get_instance_info` XML-RPC and to the instance status
   of the **Supvisors** event listener.
 
+* In the Process page of the Web UI, add buttons to shrink / expand all applications.
+
 * Use a different gradient in the Web UI for running processes that have ever crashed.
 
 * Use hexadecimal strings for the `shex` attribute in the Web UI URL. 
