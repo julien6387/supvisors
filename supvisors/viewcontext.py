@@ -17,6 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
+import math
 import re
 
 from distutils.util import strtobool
@@ -25,6 +26,7 @@ from urllib.parse import quote
 
 from .process import ProcessStatus
 from .ttypes import StartingStrategies, NameList, enum_names
+from .utils import get_bit, set_bit
 from .webutils import SUPVISORS_PAGE, error_message
 
 
@@ -154,17 +156,24 @@ class ViewContext:
     def update_shrink_expand(self):
         """ Extract process display choices from context. """
         # default is all displayed
-        value = ''.rjust(len(self.supvisors.context.applications.keys()), '1')
+        nb_applications = len(self.supvisors.context.applications)
+        ba = bytearray([0xff] * math.ceil(nb_applications / 8))
         # extract mask from context
         str_value = self.http_context.form.get(SHRINK_EXPAND)
         if str_value:
-            # check that value has correct format (only 0-1 and size equal to number of applications)
-            if re.match(r'^[0-1]{%d}$' % len(value), str_value):
-                value = str_value
+            # check that value has correct format (only hex and size twice the size of the bytearray)
+            try:
+                value = bytearray.fromhex(str_value)
+            except ValueError as exc:
+                self.logger.error(f'ViewContext.update_shrink_expand: non-hexadecimal SHRINK_EXPAND={exc}')
             else:
-                self.store_message = error_message(f'Incorrect SHRINK_EXPAND: {str_value}')
-        self.logger.trace(f'ViewContext.update_shrink_expand: SHRINK_EXPAND set to {value}')
-        self.parameters[SHRINK_EXPAND] = value
+                if len(ba) != len(value):
+                    self.logger.error('ViewContext.update_shrink_expand: SHRINK_EXPAND does not fit with the number'
+                                      ' of applications')
+                else:
+                    ba = value
+        self.logger.debug(f'ViewContext.update_shrink_expand: SHRINK_EXPAND set to {ba.hex()}')
+        self.parameters[SHRINK_EXPAND] = ba.hex()
 
     def url_parameters(self, reset_shex, **kwargs):
         """ Return the list of parameters for a URL. """
@@ -239,14 +248,14 @@ class ViewContext:
         :return: the application shex and the inverted shex
         """
         shex = self.parameters[SHRINK_EXPAND]
+        ba = bytearray.fromhex(shex)
         # get the index of the application in context
-        idx = list(self.supvisors.context.applications.keys()).index(application_name)
+        idx = list(self.supvisors.context.applications).index(application_name)
         # get application shex value
-        application_shex = bool(int(shex[idx]))
+        application_shex = bool(get_bit(ba, idx))
         # get new shex with inverted value for application
-        inverted_shex = list(shex)
-        inverted_shex[idx] = str(int(not application_shex))
-        return application_shex, ''.join(inverted_shex)
+        set_bit(ba, idx, not application_shex)
+        return application_shex, ba.hex()
 
     def _update_string(self, param: str, check_list: NameList, default_value: str = None):
         """ Extract information from context based on allowed values in check_list. """

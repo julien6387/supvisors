@@ -115,6 +115,20 @@ def stddev(lst, avg):
     return sqrt(sum((x - avg) ** 2 for x in lst) / len(lst))
 
 
+# bit manipulation
+def get_bit(data, num):
+    base, shift = int(num // 8), int(num % 8)
+    return (data[base] >> shift) & 0x1
+
+
+def set_bit(data, num, value):
+    base, shift = int(num // 8), int(num % 8)
+    if value:
+        data[base] |= 0x1 << shift
+    else:
+        data[base] &= ~(0x1 << shift)
+
+
 # linear regression
 def get_linear_regression(xdata, ydata):
     """ Calculate the coefficients of the linear equation corresponding

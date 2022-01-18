@@ -519,27 +519,44 @@ def test_update_shrink_expand(ctx):
     ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
     # test with unknown parameter and no default value
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
-    # add unexpected value in form (there should be only 0-1)
-    ctx.http_context.form[SHRINK_EXPAND] = '123'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    # add unexpected value in form (there should be only even number of hexadecimal chars)
+    ctx.http_context.form[SHRINK_EXPAND] = '12A'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
+    ctx.http_context.form[SHRINK_EXPAND] = '12AG'
+    ctx.update_shrink_expand()
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
     # update form with unexpected value (string length should be equal to the number of applications)
     ctx.http_context.form[SHRINK_EXPAND] = '0101'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '111'
+    assert ctx.parameters[SHRINK_EXPAND] == 'ff'
     # update form with valid value
-    ctx.http_context.form[SHRINK_EXPAND] = '010'
+    ctx.http_context.form[SHRINK_EXPAND] = '9a'
     ctx.update_shrink_expand()
-    assert ctx.parameters[SHRINK_EXPAND] == '010'
+    assert ctx.parameters[SHRINK_EXPAND] == '9a'
 
 
 def test_get_application_shex(ctx):
     """ Test the ViewContext.get_application_shex method. """
     # patch the context
     ctx.supvisors.context.applications = {'abc': [], 'def': [], 'ghi': []}
-    ctx.parameters[SHRINK_EXPAND] = '010'
-    # test calls
-    assert ctx.get_application_shex('abc') == (False, '110')
-    assert ctx.get_application_shex('def') == (True, '000')
-    assert ctx.get_application_shex('ghi') == (False, '011')
+    # only 'def' is visible
+    ba = bytearray([0xff])
+    set_bit(ba, 0, 0)
+    set_bit(ba, 2, 0)
+    assert ba.hex() == 'fa'
+    ctx.parameters[SHRINK_EXPAND] = 'fa'
+    # test calls and inversion
+    assert ctx.get_application_shex('abc') == (False, 'fb')
+    assert get_bit(ba.fromhex('fb'), 0)
+    assert get_bit(ba.fromhex('fb'), 1)
+    assert not get_bit(ba.fromhex('fb'), 2)
+    assert ctx.get_application_shex('def') == (True, 'f8')
+    assert not get_bit(ba.fromhex('f8'), 0)
+    assert not get_bit(ba.fromhex('f8'), 1)
+    assert not get_bit(ba.fromhex('f8'), 2)
+    assert ctx.get_application_shex('ghi') == (False, 'fe')
+    assert not get_bit(ba.fromhex('fe'), 0)
+    assert get_bit(ba.fromhex('fe'), 1)
+    assert get_bit(ba.fromhex('fe'), 2)
