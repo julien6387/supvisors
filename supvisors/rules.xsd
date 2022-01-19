@@ -41,7 +41,6 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
     <xs:complexType name="ProgramModel">
         <xs:all>
             <xs:element type="xs:string" name="reference" minOccurs="0"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
@@ -65,7 +64,6 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         need XSD 1.1 or to insert intermediate type -->
         <xs:sequence>
             <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
-            <xs:element type="xs:string" name="addresses" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>
