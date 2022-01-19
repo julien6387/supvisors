@@ -51,6 +51,8 @@
 
 * Use hexadecimal strings for the `shex` attribute in the Web UI URL. 
 
+* Add `action` class to the start/stop/restart/shutdown buttons in the headers of the **Supvisors** web pages.
+
 * Move PyZmq sockets creation to the main thread so that a bind error is made explicit in log traces.
 
 * Remove support to deprecated options, attributes and XML-RPCs (`address_list`, `force_synchro_if`, `rules_file`,
