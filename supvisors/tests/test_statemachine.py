@@ -780,6 +780,7 @@ def test_on_process_info(mocker, fsm):
 
 def test_on_state_event(mocker, fsm):
     """ Test the actions triggered in state machine upon reception of a Master state event. """
+    mocked_state = mocker.patch.object(fsm, 'set_state')
     fsm.master_state = SupvisorsStates.OPERATION
     fsm.context.master_identifier = '10.0.0.1'
     # test event not sent by Master node
@@ -787,11 +788,14 @@ def test_on_state_event(mocker, fsm):
         payload = {'statecode': state}
         fsm.on_state_event('10.0.0.2', payload)
         assert fsm.master_state == SupvisorsStates.OPERATION
+        assert not mocked_state.called
     # test event sent by Master node
     for state in SupvisorsStates:
+        mocker.patch.object(fsm.instance, 'next', return_value=state)
         payload = {'statecode': state}
         fsm.on_state_event('10.0.0.1', payload)
         assert fsm.master_state == state
+        assert mocked_state.call_args_list == [call(state)]
         mocker.resetall()
 
 
