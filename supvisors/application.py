@@ -56,6 +56,7 @@ class ApplicationRules(object):
         self.logger: Logger = supvisors.logger
         # attributes
         self.managed: bool = False
+        self.distributed: bool = True
         self.distribution: DistributionRules = DistributionRules.ALL_INSTANCES
         self.identifiers: NameList = ['*']
         self.hash_identifiers: NameList = []

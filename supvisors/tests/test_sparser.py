@@ -30,15 +30,15 @@ from .configurations import InvalidXmlTest, XmlTest
 
 def assert_default_application_rules(rules):
     """ Check that rules contains default values. """
-    assert_application_rules(rules, False, True, ['*'], 0, 0, StartingStrategies.CONFIG,
+    assert_application_rules(rules, False, DistributionRules.ALL_INSTANCES, ['*'], 0, 0, StartingStrategies.CONFIG,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
 
 
-def assert_application_rules(rules, managed, distributed, identifiers, start, stop, starting_strategy,
+def assert_application_rules(rules, managed, distribution, identifiers, start, stop, starting_strategy,
                              starting_failure_strategy, running_failure_strategy):
     """ Check the application rules. """
     assert rules.managed == managed
-    assert rules.distributed == distributed
+    assert rules.distribution == distribution
     assert rules.identifiers == identifiers
     assert rules.start_sequence == start
     assert rules.stop_sequence == stop
@@ -101,23 +101,25 @@ def check_valid(parser):
     assert_default_application_rules(rules)
     # check first application
     rules = load_application_rules(parser, 'dummy_application_A')
-    assert_application_rules(rules, True, True, ['*'], 0, 0, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 0, 0, StartingStrategies.CONFIG,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    assert_application_rules(rules, True, False, ['*'], 1, 4, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.SINGLE_NODE, ['*'], 1, 4, StartingStrategies.CONFIG,
                              StartingFailureStrategies.STOP, RunningFailureStrategies.RESTART_PROCESS)
     # check third application
     rules = load_application_rules(parser, 'dummy_application_C')
-    assert_application_rules(rules, True, True, ['*'], 20, 0, StartingStrategies.LOCAL,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 20, 0, StartingStrategies.LOCAL,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
-    assert_application_rules(rules, True, False, ['10.0.0.1', '10.0.0.5'], 0, 100, StartingStrategies.LESS_LOADED,
+    assert_application_rules(rules, True, DistributionRules.SINGLE_INSTANCE, ['10.0.0.1', '10.0.0.5'], 0, 100,
+                             StartingStrategies.LESS_LOADED,
                              StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
     # check loop application
     rules = load_application_rules(parser, 'dummy_application_E')
-    assert_application_rules(rules, True, True,  ['*'], 0, 0,  StartingStrategies.MOST_LOADED,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES,  ['*'], 0, 0,
+                             StartingStrategies.MOST_LOADED,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check program from unknown application: all default
     rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')
@@ -195,19 +197,19 @@ def check_invalid(parser):
     assert_default_application_rules(rules)
     # check first application
     rules = load_application_rules(parser, 'dummy_application_A')
-    assert_application_rules(rules, True, True, ['*'], 0, 0, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 0, 0, StartingStrategies.CONFIG,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.CONTINUE)
     # check second application
     rules = load_application_rules(parser, 'dummy_application_B')
-    assert_application_rules(rules, True, True, ['*'], 1, 4, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 1, 4, StartingStrategies.CONFIG,
                              StartingFailureStrategies.STOP, RunningFailureStrategies.RESTART_PROCESS)
     # check third application
     rules = load_application_rules(parser, 'dummy_application_C')
-    assert_application_rules(rules, True, False, ['*'], 20, 0, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.SINGLE_INSTANCE, ['*'], 20, 0, StartingStrategies.CONFIG,
                              StartingFailureStrategies.ABORT, RunningFailureStrategies.STOP_APPLICATION)
     # check fourth application
     rules = load_application_rules(parser, 'dummy_application_D')
-    assert_application_rules(rules, True, True, ['*'], 0, 100, StartingStrategies.CONFIG,
+    assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES, ['*'], 0, 100, StartingStrategies.CONFIG,
                              StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
     # check program from unknown application: all default
     rules = load_program_rules(parser, 'dummy_application_X', 'dummy_program_X0')

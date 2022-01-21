@@ -641,9 +641,10 @@ def create_process_start_command(info, supvisors):
 def start_sample_test_1(supvisors) -> ApplicationJobs.CommandList:
     """ Create a command list with the processes of sample_test_1 of the database. """
     cmd_list = []
-    for process_name in ['xclock', 'xlogo', 'xfontsel']:
+    for process_name, load in [('xclock', 10), ('xlogo', 20), ('xfontsel', 30)]:
         info = process_info_by_name(process_name)
         command = create_process_start_command(info, supvisors)
+        command.process.rules.expected_load = load
         command.process.add_info('10.0.0.1', info)
         cmd_list.append(command)
     return cmd_list
@@ -669,49 +670,46 @@ def test_application_start_job_creation(supvisors, application_start_job_1, star
     assert application_start_job_1.pickup_logic is min
     assert application_start_job_1.failure_state == ProcessStates.FATAL
     assert application_start_job_1.starting_strategy == StartingStrategies.LESS_LOADED
-    assert application_start_job_1.distributed
-    assert application_start_job_1.identifier is None
+    assert application_start_job_1.distribution == DistributionRules.ALL_INSTANCES
+    assert application_start_job_1.identifiers == []
     assert not application_start_job_1.stop_request
 
 
-def test_application_start_job_add_commands(mocker, supvisors, application_start_job_1, start_sample_test_1):
-    """ Test the ApplicationStartJobs.add_commands method. """
-    mocked_node = mocker.patch('supvisors.commander.get_supvisors_instance')
+def test_application_start_job_on_command_added(mocker, supvisors, application_start_job_1, start_sample_test_1):
+    """ Test the ApplicationStartJobs.on_command_added method. """
+    mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
     xclock = start_sample_test_1[0]
     xclock.process.rules.expected_load = 7
-    job = {8: start_sample_test_1[0:1]}
     # test with application distributed, application identifier unset and command identifiers unset
-    application_start_job_1.add_commands(job)
+    assert application_start_job_1.distribution == DistributionRules.ALL_INSTANCES
+    application_start_job_1.on_command_added(xclock)
     assert xclock.identifier is None
-    assert not mocked_node.called
+    assert not mocked_get_instance.called
     # set application non-distributed and retry
-    application_start_job_1.distributed = False
-    # this case corresponds to a non-distributed application for which no node has been found
-    application_start_job_1.add_commands(job)
-    assert xclock.identifier is None
-    assert not mocked_node.called
-    # set application identifier and retry
-    application_start_job_1.identifier = '10.0.0.1'
-    # this case corresponds to a non-distributed application for which a node has been found and the job has been added
-    # in superclass (otherwise command identifiers would be set)
-    # first, consider that there's no resource available anymore
-    mocked_node.return_value = None
-    application_start_job_1.add_commands(job)
-    assert xclock.identifier is None
-    assert mocked_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
-    mocked_node.reset_mock()
-    # then, consider that the node can accept the additional loading
-    mocked_node.return_value = '10.0.0.1'
-    application_start_job_1.add_commands(job)
-    assert xclock.identifier == '10.0.0.1'
-    assert mocked_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
-    mocked_node.reset_mock()
-    # retry
-    # this case corresponds to a non-distributed application for which a node has been found and the job has NOT been
-    # added in superclass (because command identifiers is already set)
-    application_start_job_1.add_commands(job)
-    assert xclock.identifier == '10.0.0.1'
-    assert not mocked_node.called
+    for distribution in [DistributionRules.SINGLE_INSTANCE, DistributionRules.SINGLE_NODE]:
+        application_start_job_1.distribution = distribution
+        # this case corresponds to a non-distributed application for which no node has been found
+        application_start_job_1.identifiers = []
+        application_start_job_1.on_command_added(xclock)
+        assert xclock.identifier is None
+        assert not mocked_get_instance.called
+        # set application identifier and retry
+        application_start_job_1.identifiers = ['10.0.0.1']
+        # this case corresponds to a non-distributed application for which a node has been found and the job has been
+        # added in superclass (otherwise command identifiers would be set)
+        # first, consider that there's no resource available anymore
+        mocked_get_instance.return_value = None
+        application_start_job_1.on_command_added(xclock)
+        assert xclock.identifier is None
+        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
+        mocked_get_instance.reset_mock()
+        # then, consider that the node can accept the additional loading
+        mocked_get_instance.return_value = '10.0.0.1'
+        application_start_job_1.on_command_added(xclock)
+        assert xclock.identifier == '10.0.0.1'
+        assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, ['10.0.0.1'], 7)]
+        mocked_get_instance.reset_mock()
+        xclock.identifier = None
 
 
 def test_application_start_job_get_load_requests(application_start_job_1, start_sample_test_1):
@@ -732,33 +730,96 @@ def test_application_start_job_get_load_requests(application_start_job_1, start_
     assert application_start_job_1.get_load_requests() == {'10.0.0.1': 10, '10.0.0.2': 10}
 
 
-def test_application_start_job_before(mocker, supvisors, application_start_job_1, start_sample_test_1):
-    """ Test the ApplicationStartJobs.before method. """
-    mocked_node_getter = mocker.patch('supvisors.commander.get_supvisors_instance', return_value='10.0.0.1')
-    mocked_app_nodes = mocker.patch.object(application_start_job_1.application,
-                                           'possible_identifiers', return_value=['10.0.0.1', '10.0.0.2'])
-    mocked_app_load = mocker.patch.object(application_start_job_1.application,
-                                          'get_start_sequence_expected_load', return_value=27)
-    # test with application distributed
-    application_start_job_1.before()
-    assert not application_start_job_1.identifier
-    assert not mocked_node_getter.called
-    assert not mocked_app_nodes.called
-    assert not mocked_app_load.called
-    # commands unchanged
-    assert all(not command.identifier
+def test_application_start_job_distribute_to_single_node(mocker, supvisors, application_start_job_1,
+                                                         start_sample_test_1):
+    """ Test the ApplicationStartJobs.distribute_to_single_node method. """
+    mocked_get_node = mocker.patch('supvisors.commander.get_node')
+    mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
+    possible_identifiers = ['10.0.0.1', '10.0.0.2', supvisors.supvisors_mapper.local_identifier, 'test']
+    mocker.patch.object(application_start_job_1.application, 'possible_identifiers', return_value=possible_identifiers)
+    mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
+    # set context
+    application_start_job_1.distribution = DistributionRules.SINGLE_NODE
+    # test no resource found
+    mocked_get_node.return_value = None
+    application_start_job_1.distribute_to_single_node()
+    assert application_start_job_1.identifiers == []
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    assert not mocked_get_instance.called
+    # check commands
+    assert all(command.identifier is None
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
-    # test application provided / application not distributed
-    application_start_job_1.distributed = False
-    application_start_job_1.before()
-    assert application_start_job_1.identifier == '10.0.0.1'
-    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
-                                                      ['10.0.0.1', '10.0.0.2'], 27)]
+    mocker.resetall()
+    # test resource found
+    mocked_get_node.return_value = supvisors.supvisors_mapper.instances['test'].host_name
+    mocked_get_instance.return_value = '10.0.0.1'
+    application_start_job_1.distribute_to_single_node()
+    expected_identifiers = [supvisors.supvisors_mapper.local_identifier, 'test']
+    assert application_start_job_1.identifiers == expected_identifiers
+    assert mocked_get_node.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED, possible_identifiers, 27)]
+    expected = [call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 10),
+                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 20),
+                call(supvisors, StartingStrategies.LESS_LOADED, expected_identifiers, 30)]
+    assert mocked_get_instance.call_args_list == expected
     # check commands
     assert all(command.identifier == '10.0.0.1'
                for sequence in application_start_job_1.planned_jobs.values()
                for command in sequence)
+
+
+def test_application_start_job_distribute_to_single_instance(mocker, supvisors, application_start_job_1,
+                                                             start_sample_test_1):
+    """ Test the ApplicationStartJobs.distribute_to_single_instance method. """
+    mocked_get_instance = mocker.patch('supvisors.commander.get_supvisors_instance')
+    mocker.patch.object(application_start_job_1.application, 'possible_identifiers',
+                        return_value=['10.0.0.1', '10.0.0.2'])
+    mocker.patch.object(application_start_job_1.application, 'get_start_sequence_expected_load', return_value=27)
+    # set context
+    application_start_job_1.distribution = DistributionRules.SINGLE_NODE
+    # test no resource found
+    mocked_get_instance.return_value = None
+    application_start_job_1.distribute_to_single_instance()
+    assert application_start_job_1.identifiers == []
+    assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                       ['10.0.0.1', '10.0.0.2'], 27)]
+    # check commands
+    assert all(command.identifier is None
+               for sequence in application_start_job_1.planned_jobs.values()
+               for command in sequence)
+    mocker.resetall()
+    # test resource found
+    mocked_get_instance.return_value = '10.0.0.1'
+    application_start_job_1.distribute_to_single_instance()
+    assert application_start_job_1.identifiers == ['10.0.0.1']
+    assert mocked_get_instance.call_args_list == [call(supvisors, StartingStrategies.LESS_LOADED,
+                                                       ['10.0.0.1', '10.0.0.2'], 27)]
+    # check commands
+    assert all(command.identifier == '10.0.0.1'
+               for sequence in application_start_job_1.planned_jobs.values()
+               for command in sequence)
+
+
+def test_application_start_job_before(mocker, supvisors, application_start_job_1, start_sample_test_1):
+    """ Test the ApplicationStartJobs.before method. """
+    mocked_single_node = mocker.patch.object(application_start_job_1, 'distribute_to_single_node')
+    mocked_single_instance = mocker.patch.object(application_start_job_1, 'distribute_to_single_instance')
+    # test with application distributed
+    application_start_job_1.distribution = DistributionRules.ALL_INSTANCES
+    application_start_job_1.before()
+    assert not mocked_single_node.called
+    assert not mocked_single_instance.called
+    # test application distributed over multiple instances on the same node
+    application_start_job_1.distribution = DistributionRules.SINGLE_NODE
+    application_start_job_1.before()
+    assert mocked_single_node.called
+    assert not mocked_single_instance.called
+    mocker.resetall()
+    # test application not distributed
+    application_start_job_1.distribution = DistributionRules.SINGLE_INSTANCE
+    application_start_job_1.before()
+    assert not mocked_single_node.called
+    assert mocked_single_instance.called
 
 
 def test_application_start_job_process_job(mocker, supvisors, application_start_job_1, start_sample_test_1):
@@ -780,7 +841,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     # 2. xlogo is stopped / application is not distributed
     command = start_sample_test_1[1]
     command.strategy = StartingStrategies.MOST_LOADED
-    application_start_job_1.distributed = False
+    application_start_job_1.distribution = DistributionRules.SINGLE_NODE
     # 2.a no node has been found earlier
     command.identifier = None
     assert not application_start_job_1.process_job(command)
@@ -801,12 +862,12 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     assert not mocked_failure.called
     mocked_pusher.reset_mock()
     # 3. xlogo is stopped / application is distributed
-    application_start_job_1.distributed = True
+    application_start_job_1.distribution = DistributionRules.ALL_INSTANCES
     command.identifier = None
     # 3.a test with node found by get_supvisors_instance
     assert application_start_job_1.process_job(command)
     assert command.identifier == '10.0.0.1'
-    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
+    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
     assert mocked_pusher.call_args_list == [call('10.0.0.1', 'sample_test_1:xlogo', '')]
     assert not mocked_force.called
     assert not mocked_failure.called
@@ -818,7 +879,7 @@ def test_application_start_job_process_job(mocker, supvisors, application_start_
     # call the process_jobs
     assert not application_start_job_1.process_job(command)
     command.identifier = None
-    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 0)]
+    assert mocked_node_getter.call_args_list == [call(supvisors, StartingStrategies.MOST_LOADED, ['10.0.0.1'], 20)]
     assert not mocked_pusher.called
     assert mocked_force.call_args_list == [call(command.process, ProcessStates.STARTING, local_identifier,
                                                 ProcessStates.FATAL, 'no resource available')]

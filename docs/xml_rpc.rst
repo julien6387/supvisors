@@ -153,10 +153,14 @@ Status
             'application_name'          ``str``         The Application name.
             'managed'                   ``bool``        The Application managed status in |Supvisors|. When ``False``,
                                                         the following attributes are not provided.
-            'distributed'               ``bool``        The Application distribution status in |Supvisors|.
+            'distribution'              ``str``         The distribution rule of the application,
+                                                        in [``'ALL_INSTANCES'``, ``'SINGLE_INSTANCE'``,
+                                                        ``'SINGLE_NODE'``].
+            'distributed'               ``bool``        *DEPRECATED* The Application distribution status in |Supvisors|.
+                                                        This entry will be removed in the next |Supvisors| version.
             'identifiers'               ``list(str)``   The deduced names of all |Supvisors| instances where the
-                                                        non-distributed application processes can be started, provided
-                                                        only if ``distributed`` is ``False``.
+                                                        non-fully distributed application processes can be started,
+                                                        provided only if ``distribution`` is not ``ALL_INSTANCES``.
             'start_sequence'            ``int``         The Application starting rank when starting all applications,
                                                         in [0;127].
             'stop_sequence'             ``int``         The Application stopping rank when stopping all applications,

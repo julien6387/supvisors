@@ -660,7 +660,7 @@ class ApplicationStartJobs(ApplicationJobs):
         node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
         # intersect the identifiers running on the node and the application possible identifiers
         # comprehension based on iteration over application possible identifiers to keep the CONFIG order
-        node_identifiers = list(self.supvisors.supvisors_mapper.nodes[node_name])
+        node_identifiers = list(self.supvisors.supvisors_mapper.nodes.get(node_name, []))
         self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
         if self.identifiers:
             self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'
@@ -724,7 +724,7 @@ class ApplicationStartJobs(ApplicationJobs):
         process = command.process
         self.logger.debug(f'ApplicationStartJobs.process_job: process={process.namespec} stopped={process.stopped()}')
         if process.stopped():
-            # FIXME: now that load request is in place, selection could be all done in before
+            # TODO: now that load request is in place, selection could be all done in before
             # identifier has already been decided for a non-distributed application
             if self.distribution == DistributionRules.ALL_INSTANCES:
                 # find Supvisors instance iaw strategy

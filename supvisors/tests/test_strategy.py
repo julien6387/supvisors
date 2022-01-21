@@ -244,6 +244,22 @@ def test_get_supvisors_instance(filled_instances, load_details):
         assert get_supvisors_instance(filled_instances, strategy, instances, load) == result
 
 
+def test_get_node(mocker, filled_instances):
+    """ Test the choice of a node according to a strategy. """
+    mocked_get_instance = mocker.patch('supvisors.strategy.get_supvisors_instance', return_value=None)
+    # context
+    local_identifier = filled_instances.supvisors_mapper.local_identifier
+    instances = [local_identifier, '10.0.0.3', '10.0.0.5', 'test']
+    # test with no instance found
+    strategy = StartingStrategies.CONFIG
+    assert get_node(filled_instances, strategy, instances, 27) is None
+    # test with no instance found
+    mocked_get_instance.return_value = 'test'
+    strategy = StartingStrategies.CONFIG
+    local_instance = filled_instances.supvisors_mapper.instances[local_identifier]
+    assert get_node(filled_instances, strategy, instances, 27) == local_instance.host_name
+
+
 def create_process_status(name, timed_identifiers):
     process_status = Mock(spec=ProcessStatus, process_name=name, namespec=name,
                           running_identifiers=set(timed_identifiers.keys()),

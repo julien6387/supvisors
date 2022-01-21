@@ -157,7 +157,7 @@ InvalidXmlTest = b'''\
     </application>
 
     <application pattern="_C">
-        <distributed>false</distributed>
+        <distribution>SINGLE_INSTANCE</distribution>
         <identifiers>192.256.16.10,*</identifiers>
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
@@ -264,7 +264,7 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_B">
-        <distributed>false</distributed>
+        <distribution>SINGLE_NODE</distribution>
         <start_sequence>1</start_sequence>
         <stop_sequence>4</stop_sequence>
         <starting_strategy>CONFIG</starting_strategy>
@@ -306,7 +306,7 @@ XmlTest = b'''\
     </application>
 
     <application name="dummy_application_C">
-        <distributed>true</distributed>
+        <distribution>ALL_INSTANCES</distribution>
         <start_sequence>20</start_sequence>
         <stop_sequence>0</stop_sequence>
         <starting_strategy>LOCAL</starting_strategy>

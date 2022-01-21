@@ -334,7 +334,8 @@ def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList
     # if the node can support, there must be one of its instance that can support
     identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
     # get the corresponding host name
-    return supvisors.supvisors_mapper.instances[identifier].host_name
+    if identifier:
+        return supvisors.supvisors_mapper.instances[identifier].host_name
 
 
 # Strategy management for Conciliation
