@@ -32,6 +32,7 @@ from supvisors.viewhandler import ViewHandler
 from supvisors.webutils import APPLICATION_PAGE
 
 from .base import DummyHttpContext
+from .conftest import create_element
 
 
 @pytest.fixture
@@ -39,7 +40,9 @@ def view(supvisors):
     """ Fixture for the instance to test. """
     http_context = DummyHttpContext('ui/application.html')
     http_context.supervisord.supvisors = supvisors
-    return ApplicationView(http_context)
+    view = ApplicationView(http_context)
+    view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
+    return view
 
 
 def test_init(view):
@@ -56,7 +59,7 @@ def test_handle_parameters(mocker, view):
     mocker.patch('supvisors.viewapplication.error_message', return_value='an error')
     mocked_handle = mocker.patch('supvisors.viewhandler.ViewHandler.handle_parameters')
     # patch context
-    view.view_ctx = Mock(parameters={APPLI: None}, store_message=None, redirect=False)
+    view.view_ctx.parameters[APPLI] = None
     # test with no application selected
     view.handle_parameters()
     assert mocked_handle.call_args_list == [call(view)]
@@ -92,10 +95,10 @@ def test_write_header(mocker, view):
     view.application = Mock(state=ApplicationStates.STOPPED, major_failure=False, minor_failure=False,
                             **{'running.return_value': False})
     # patch the meld elements
-    led_mid = Mock(attrib={'class': ''})
-    state_mid = Mock()
-    application_mid = Mock()
-    mocked_root = Mock(**{'findmeld.side_effect': [application_mid, state_mid, led_mid] * 4})
+    led_mid = create_element()
+    state_mid = create_element()
+    application_mid = create_element()
+    mocked_root = create_element({'application_mid': application_mid, 'state_mid': state_mid, 'state_led_mid': led_mid})
     # test call with stopped application
     view.write_header(mocked_root)
     assert application_mid.content.call_args_list == [call('dummy_appli')]
@@ -104,11 +107,8 @@ def test_write_header(mocker, view):
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
-    application_mid.reset_mock()
-    state_mid.reset_mock()
-    mocked_strategy.reset_mock()
-    mocked_period.reset_mock()
-    mocked_action.reset_mock()
+    mocked_root.reset_all()
+    mocker.resetall()
     # test call with running application and no failure
     view.application = Mock(state=ApplicationStates.STARTING, major_failure=False, minor_failure=False,
                             **{'running.return_value': True})
@@ -119,11 +119,8 @@ def test_write_header(mocker, view):
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
-    application_mid.reset_mock()
-    state_mid.reset_mock()
-    mocked_strategy.reset_mock()
-    mocked_period.reset_mock()
-    mocked_action.reset_mock()
+    mocked_root.reset_all()
+    mocker.resetall()
     # test call with running application and minor failure
     view.application.minor_failure = True
     view.write_header(mocked_root)
@@ -133,11 +130,8 @@ def test_write_header(mocker, view):
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_strategy.call_args_list == [call(mocked_root)]
     assert mocked_action.call_args_list == [call(mocked_root)]
-    application_mid.reset_mock()
-    state_mid.reset_mock()
-    mocked_strategy.reset_mock()
-    mocked_period.reset_mock()
-    mocked_action.reset_mock()
+    mocked_root.reset_all()
+    mocker.resetall()
     # test call with running application and major failure
     view.application.major_failure = True
     view.write_header(mocked_root)

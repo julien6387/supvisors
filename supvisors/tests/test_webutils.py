@@ -18,9 +18,10 @@
 # ======================================================================
 
 from types import FunctionType
-from unittest.mock import Mock
 
 from supvisors.webutils import *
+
+from .conftest import create_element
 
 
 def test_format_gravity_message():
@@ -43,19 +44,24 @@ def test_format_gravity_message():
     assert msg == ('info', 'an information message')
 
 
-def test_print_message(mocker, root):
+def test_print_message(mocker):
     """ Test the meld formatting of a message. """
     mocker.patch('supvisors.webutils.ctime', return_value='a date')
+    # create element structure
+    time_mid = create_element()
+    message_mid = create_element()
+    root = create_element({'time_mid': time_mid, 'message_mid': message_mid})
     # test with empty message
     print_message(root, 'gravity', None, 1234)
-    assert root.elts['time_mid'].attrib['content'] == 'a date'
-    assert root.elts['message_mid'].attrib['class'] == 'empty'
-    assert root.elts['message_mid'].attrib['content'] == ''
+    assert time_mid.content.call_args_list == [mocker.call('a date')]
+    assert message_mid.content.call_args_list == [mocker.call('')]
+    assert message_mid.attrib['class'] == 'empty'
+    root.reset_all()
     # test with filled message
     print_message(root, 'gravity', 'a simple message', 1234)
-    assert root.elts['time_mid'].attrib['content'] == 'a date'
-    assert root.elts['message_mid'].attrib['class'] == 'gravity'
-    assert root.elts['message_mid'].attrib['content'] == 'a simple message'
+    assert time_mid.content.call_args_list == [mocker.call('a date')]
+    assert message_mid.content.call_args_list == [mocker.call('a simple message')]
+    assert message_mid.attrib['class'] == 'gravity'
 
 
 def check_message(func, gravity):
@@ -126,9 +132,9 @@ def test_delayed_error():
     check_delayed_message(delayed_error, 'erro')
 
 
-def test_apply_shade():
+def test_apply_shade(mocker):
     """ Test the formatting of shaded / non-shaded elements. """
-    elt = Mock(attrib={})
+    elt = create_element()
     # test shaded
     apply_shade(elt, True)
     assert elt.attrib['class'] == 'shaded'

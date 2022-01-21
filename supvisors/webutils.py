@@ -37,7 +37,8 @@ Info = 'info'
 Warn = 'warn'
 Error = 'erro'
 
-# shex symbols
+# Web UI symbols
+MASTER_SYMBOL = '\u272A'
 SHEX_SHRINK = '[\u2013]'
 SHEX_EXPAND = '[+]'
 

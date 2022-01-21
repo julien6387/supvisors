@@ -27,6 +27,7 @@ from supvisors.viewsupvisors import *
 from supvisors.webutils import PROC_INSTANCE_PAGE, SUPVISORS_PAGE
 
 from .base import DummyHttpContext
+from .conftest import create_element
 
 
 @pytest.fixture
@@ -41,8 +42,9 @@ def http_context(supvisors):
 @pytest.fixture
 def view(http_context):
     """ Fixture for the instance to test. """
-    return SupvisorsView(http_context)
-
+    view = SupvisorsView(http_context)
+    view.view_ctx = Mock(parameters={}, **{'format_url.return_value': 'an url'})
+    return view
 
 def test_init(view):
     """ Test the values set at construction. """
@@ -118,15 +120,14 @@ def test_write_instance_box_title(mocker, view):
     mocker.patch('supvisors.viewsupvisors.simple_localtime', return_value='12:34:30')
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.RUNNING,
                          **{'get_load.return_value': 17, 'get_remote_time.return_value': 1234})
-    view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # build root structure with one single element
-    mocked_identifier_mid = Mock(attrib={})
-    mocked_state_mid = Mock(attrib={})
-    mocked_time_mid = Mock(attrib={})
-    mocked_percent_mid = Mock(attrib={})
+    mocked_identifier_mid = create_element()
+    mocked_state_mid = create_element()
+    mocked_time_mid = create_element()
+    mocked_percent_mid = create_element()
     mid_map = {'identifier_th_mid': mocked_identifier_mid, 'state_th_mid': mocked_state_mid,
                'time_th_mid': mocked_time_mid, 'percent_th_mid': mocked_percent_mid}
-    mocked_root = Mock(**{'findmeld.side_effect': lambda x: mid_map[x]})
+    mocked_root = create_element(mid_map)
     # test call in RUNNING state but not master
     view._write_instance_box_title(mocked_root, mocked_status)
     # test address element
@@ -141,19 +142,14 @@ def test_write_instance_box_title(mocker, view):
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
-    mocked_identifier_mid.reset_mock()
-    mocked_state_mid.reset_mock()
-    mocked_time_mid.reset_mock()
-    mocked_percent_mid.reset_mock()
-    mocked_identifier_mid.attrib['class'] = ''
-    mocked_state_mid.attrib['class'] = ''
+    mocked_root.reset_all()
     # test call in RUNNING state and master
     view.sup_ctx.master_identifier = '10.0.0.1'
     view._write_instance_box_title(mocked_root, mocked_status)
     # test address element
-    assert mocked_identifier_mid.attrib['class'] == 'on master'
+    assert mocked_identifier_mid.attrib['class'] == 'on'
     assert mocked_identifier_mid.attributes.call_args_list == [call(href='an url')]
-    assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
+    assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'RUNNING state'
     assert mocked_state_mid.content.call_args_list == [call('RUNNING')]
@@ -162,19 +158,14 @@ def test_write_instance_box_title(mocker, view):
     # test loading element
     assert mocked_percent_mid.content.call_args_list == [call('17%')]
     # reset mocks and attributes
-    mocked_identifier_mid.reset_mock()
-    mocked_state_mid.reset_mock()
-    mocked_time_mid.reset_mock()
-    mocked_percent_mid.reset_mock()
-    mocked_identifier_mid.attrib['class'] = ''
-    mocked_state_mid.attrib['class'] = ''
+    mocked_root.reset_all()
     # test call in SILENT state
     mocked_status = Mock(identifier='10.0.0.1', state=SupvisorsInstanceStates.SILENT, **{'get_load.return_value': 0})
     view._write_instance_box_title(mocked_root, mocked_status)
     # test node element
     assert mocked_identifier_mid.attrib['class'] == ''
     assert not mocked_identifier_mid.attributes.called
-    assert mocked_identifier_mid.content.call_args_list == [call('10.0.0.1')]
+    assert mocked_identifier_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
     # test state element
     assert mocked_state_mid.attrib['class'] == 'SILENT state'
     assert mocked_state_mid.content.call_args_list == [call('SILENT')]
@@ -189,10 +180,9 @@ def test_write_node_box_processes(view):
     # 1. patch context for no running process on node
     mocked_status = Mock(**{'running_processes.return_value': {}})
     # build root structure with one single element
-    mocked_process_li_mid = Mock()
-    mocked_appli_tr_mid = Mock(**{'findmeld.return_value': mocked_process_li_mid,
-                                  'repeat.return_value': None})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_appli_tr_mid})
+    mocked_process_li_mid = create_element()
+    mocked_appli_tr_mid = create_element({'process_li_mid': mocked_process_li_mid})
+    mocked_root = create_element({'appli_tr_mid': mocked_appli_tr_mid})
     # test call with no running process
     view._write_instance_box_processes(mocked_root, mocked_status)
     # test elements
@@ -208,14 +198,14 @@ def test_write_node_box_processes(view):
     mocked_process_li_mid = Mock(**{'findmeld.side_effect': mocked_process_a_mids})
     mocked_process_template = Mock(**{'repeat.side_effect': [[(mocked_process_li_mid, mocked_process_1)],
                                                              [(mocked_process_li_mid, mocked_process_2)]]})
-    mocked_appli_tr_mids = [Mock(attrib={},
-                                 **{'findmeld.side_effect': [mocked_name_mids[0], mocked_process_template]}),
-                            Mock(attrib={},
-                                 **{'findmeld.side_effect': [mocked_name_mids[1], mocked_process_template]})]
-    mocked_appli_template = Mock(**{'findmeld.return_value': None,
-                                    'repeat.return_value': [(mocked_appli_tr_mids[0], 'dummy_appli'),
-                                                            (mocked_appli_tr_mids[1], 'other_appli')]})
-    mocked_root = Mock(**{'findmeld.return_value': mocked_appli_template})
+    mocked_appli_tr_mids = [create_element({'app_name_td_mid': mocked_name_mids[0],
+                                            'process_li_mid': mocked_process_template}),
+                            create_element({'app_name_td_mid': mocked_name_mids[1],
+                                            'process_li_mid': mocked_process_template})]
+    mocked_appli_template = create_element()
+    mocked_appli_template.repeat.return_value = [(mocked_appli_tr_mids[0], 'dummy_appli'),
+                                                 (mocked_appli_tr_mids[1], 'other_appli')]
+    mocked_root = create_element({'appli_tr_mid': mocked_appli_template})
     # test call with 2 running processes
     view._write_instance_box_processes(mocked_root, mocked_status)
     # test elements

@@ -27,6 +27,7 @@ from supvisors.viewsupstatus import *
 from supvisors.webutils import HOST_INSTANCE_PAGE, PROC_INSTANCE_PAGE
 
 from .base import DummyHttpContext
+from .conftest import create_element
 
 
 @pytest.fixture
@@ -77,8 +78,10 @@ def test_write_header(mocker, view):
     mocked_actions = mocker.patch.object(view, 'write_instance_actions')
     mocked_periods = mocker.patch.object(view, 'write_periods')
     # build root structure
-    mocked_mids = [Mock(attrib={}) for _ in range(3)]
-    mocked_root = Mock(**{'findmeld.side_effect': mocked_mids * 2})
+    instance_mid = create_element()
+    state_mid = create_element()
+    percent_mid = create_element()
+    mocked_root = create_element({'instance_mid': instance_mid, 'state_mid': state_mid, 'percent_mid': percent_mid})
     # first call tests with not master
     mocked_status = Mock(remote_time=3600, state=SupvisorsInstanceStates.RUNNING, **{'get_load.return_value': 12})
     local_identifier = view.supvisors.supvisors_mapper.local_identifier
@@ -86,26 +89,21 @@ def test_write_header(mocker, view):
     view.sup_ctx.instances[local_identifier] = mocked_status
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
-    assert mocked_mids[0].attrib == {}
-    assert mocked_mids[0].content.call_args_list == [call(local_identifier)]
-    assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
-    assert mocked_mids[2].content.call_args_list == [call('12%')]
+    assert instance_mid.content.call_args_list == [call(local_identifier)]
+    assert state_mid.content.call_args_list == [call('RUNNING')]
+    assert percent_mid.content.call_args_list == [call('12%')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
     # reset mocks
-    mocked_root.findmeld.reset_mock()
-    mocked_periods.reset_mock()
-    mocked_actions.reset_mock()
-    for mocked_mid in mocked_mids:
-        mocked_mid.content.reset_mock()
+    mocker.resetall()
+    mocked_root.reset_all()
     # second call tests with master
     view.sup_ctx._is_master = True
     view.write_header(mocked_root)
     assert mocked_root.findmeld.call_args_list == [call('instance_mid'), call('state_mid'), call('percent_mid')]
-    assert mocked_mids[0].attrib == {'class': 'master'}
-    assert mocked_mids[0].content.call_args_list == [call(local_identifier)]
-    assert mocked_mids[1].content.call_args_list == [call('RUNNING')]
-    assert mocked_mids[2].content.call_args_list == [call('12%')]
+    assert instance_mid.content.call_args_list == [call(f'{MASTER_SYMBOL} {local_identifier}')]
+    assert state_mid.content.call_args_list == [call('RUNNING')]
+    assert percent_mid.content.call_args_list == [call('12%')]
     assert mocked_periods.call_args_list == [call(mocked_root)]
     assert mocked_actions.call_args_list == [call(mocked_root, mocked_status)]
 

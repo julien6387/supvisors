@@ -147,15 +147,17 @@ class ViewHandler(MeldView):
                 # set hyperlink attributes
                 elt = li_elt.findmeld('instance_a_mid')
                 if status.state == SupvisorsInstanceStates.RUNNING:
-                    # go to web page located on the Supvisors instance, so as to reuse Supervisor StatusView
+                    # go to web page located on the Supvisors instance so as to reuse Supervisor StatusView
                     url = self.view_ctx.format_url(item, PROC_INSTANCE_PAGE)
                     elt.attributes(href=url)
                     update_attrib(elt, 'class', 'on')
-                    if item == self.sup_ctx.master_identifier:
-                        update_attrib(elt, 'class', 'master')
                 else:
                     update_attrib(elt, 'class', 'off')
-                elt.content(item)
+                # set content
+                identifier = item
+                if item == self.sup_ctx.master_identifier:
+                    identifier = f'{MASTER_SYMBOL} {item}'
+                elt.content(identifier)
 
     def write_nav_applications(self, root, appli):
         """ Write the application part of the navigation menu. """

@@ -31,7 +31,7 @@ from supvisors.viewsupstatus import SupvisorsInstanceView
 from supvisors.webutils import PROC_INSTANCE_PAGE
 
 from .base import DummyHttpContext, ProcessInfoDatabase, process_info_by_name
-from .conftest import create_application, create_process
+from .conftest import create_application, create_process, create_element
 
 
 @pytest.fixture
@@ -427,19 +427,19 @@ def test_write_supervisord_status(mocker, view):
     # patch the view context
     view.view_ctx = Mock(**{'format_url.return_value': 'an url'})
     # patch the meld elements
-    shex_elt = Mock(attrib={'class': ''})
-    name_elt = Mock(attrib={'class': ''})
-    start_elt = Mock(attrib={'class': ''})
-    tailerr_elt = Mock(attrib={'class': ''})
-    mid_map = {'shex_td_mid': shex_elt, 'name_a_mid': name_elt, 'start_a_mid': start_elt, 'tailerr_a_mid': tailerr_elt}
-    tr_elt = Mock(attrib={}, **{'findmeld.side_effect': lambda x: mid_map[x]})
+    shex_elt = create_element()
+    name_elt = create_element()
+    start_elt = create_element()
+    tailerr_elt = create_element()
+    tr_elt = create_element({'shex_td_mid': shex_elt, 'name_a_mid': name_elt, 'start_a_mid': start_elt,
+                             'tailerr_a_mid': tailerr_elt})
     # test call while not Master
     view.sup_ctx._is_master = False
     info = {'namespec': 'supervisord', 'process_name': 'supervisord'}
     view.write_supervisord_status(tr_elt, info)
     assert mocked_common.call_args_list == [call(tr_elt, info)]
     assert tr_elt.findmeld.call_args_list == [call('name_a_mid'), call('start_a_mid'), call('tailerr_a_mid')]
-    assert shex_elt.attrib == {'class': ''}
+    assert not shex_elt.content.called
     assert name_elt.content.call_args_list == [call('supervisord')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
     assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]
@@ -450,9 +450,7 @@ def test_write_supervisord_status(mocker, view):
     assert start_elt.content.call_args_list == [call('')]
     assert tailerr_elt.content.call_args_list == [call('')]
     mocker.resetall()
-    tr_elt.reset_mock()
-    for elt in mid_map.values():
-        elt.reset_mock()
+    tr_elt.reset_all()
     view.view_ctx.format_url.reset_mock()
     # test call while Master
     view.sup_ctx._is_master = True
@@ -461,7 +459,7 @@ def test_write_supervisord_status(mocker, view):
     assert mocked_common.call_args_list == [call(tr_elt, info)]
     assert tr_elt.findmeld.call_args_list == [call('shex_td_mid'), call('name_a_mid'), call('start_a_mid'),
                                               call('tailerr_a_mid')]
-    assert shex_elt.attrib == {'class': 'master'}
+    assert shex_elt.content.call_args_list == [call(MASTER_SYMBOL)]
     assert name_elt.content.call_args_list == [call('supervisord')]
     assert view.view_ctx.format_url.call_args_list == [call('', 'maintail.html', processname='supervisord')]
     assert name_elt.attributes.call_args_list == [call(href='an url', target="_blank")]

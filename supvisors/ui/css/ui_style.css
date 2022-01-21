@@ -445,14 +445,6 @@ ul.vertical li {
 
 
 /*
- * Master Instance style
- */
-.master::after {
-    content: " \272A";
-}
-
-
-/*
  * Common Table style
  */
 table {

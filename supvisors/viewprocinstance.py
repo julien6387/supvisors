@@ -279,7 +279,7 @@ class ProcInstanceView(SupvisorsInstanceView):
         # display Master symbol in shex column
         if self.sup_ctx.is_master:
             elt = tr_elt.findmeld('shex_td_mid')
-            elt.attrib['class'] = 'master'
+            elt.content(MASTER_SYMBOL)
         # print common status
         self.write_common_status(tr_elt, info)
         # print process name

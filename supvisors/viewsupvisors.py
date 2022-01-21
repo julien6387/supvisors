@@ -98,9 +98,10 @@ class SupvisorsView(ViewHandler):
             url = self.view_ctx.format_url(status.identifier, PROC_INSTANCE_PAGE)
             elt.attributes(href=url)
             update_attrib(elt, 'class', 'on')
-            if status.identifier == self.sup_ctx.master_identifier:
-                update_attrib(elt, 'class', 'master')
-        elt.content(status.identifier)
+        identifier = status.identifier
+        if identifier == self.sup_ctx.master_identifier:
+            identifier = f'{MASTER_SYMBOL} {identifier}'
+        elt.content(identifier)
         # set Supvisors instance state
         elt = instance_div_elt.findmeld('state_th_mid')
         elt.attrib['class'] = status.state.name + ' state'

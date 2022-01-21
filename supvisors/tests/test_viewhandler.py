@@ -30,7 +30,7 @@ from supvisors.ttypes import ApplicationStates, StartingStrategies, SupvisorsSta
 from supvisors.viewcontext import AUTO, PERIOD, PROCESS, ViewContext
 from supvisors.viewhandler import ViewHandler
 from supvisors.viewimage import process_cpu_img, process_mem_img
-from supvisors.webutils import SUPVISORS_PAGE
+from supvisors.webutils import SUPVISORS_PAGE, MASTER_SYMBOL
 
 from .base import DummyHttpContext
 
@@ -299,8 +299,8 @@ def test_write_nav_instances_running_instance(handler):
     assert address_elt.findmeld.call_args_list == [call('instance_a_mid')]
     assert handler.view_ctx.format_url.call_args_list == [call('10.0.0.1', 'proc_instance.html')]
     assert href_elt.attributes.call_args_list == [call(href='an url')]
-    assert href_elt.attrib['class'] == 'on master'
-    assert href_elt.content.call_args_list == [call('10.0.0.1')]
+    assert href_elt.attrib['class'] == 'on'
+    assert href_elt.content.call_args_list == [call(f'{MASTER_SYMBOL} 10.0.0.1')]
 
 
 def test_write_nav_applications_initialization(handler):
