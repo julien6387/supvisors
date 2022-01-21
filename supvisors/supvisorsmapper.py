@@ -123,6 +123,7 @@ class SupvisorsMapper(object):
         - logger: the reference to the common logger ;
         - _instances: the list of Supvisors instances declared in the supvisors section of the Supervisor
           configuration file ;
+        - _nodes: the list of Supvisors instances grouped by node names ;
         - _core_identifiers: the list of Supvisors core identifiers declared in the supvisors section of the Supervisor
           configuration file ;
         - local_node_references: the list of known aliases of the current node, i.e. the host name

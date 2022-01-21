@@ -29,8 +29,8 @@ from supervisor.options import split_namespec
 
 from .application import ApplicationRules
 from .process import ProcessRules
-from .ttypes import (NameList, StartingStrategies, StartingFailureStrategies, RunningFailureStrategies,
-                     EnumClassType, enum_names)
+from .ttypes import (DistributionRules, StartingStrategies, StartingFailureStrategies,
+                     RunningFailureStrategies, EnumClassType, enum_names)
 
 # XSD for XML validation
 supvisors_folder = path.dirname(__file__)
@@ -47,7 +47,7 @@ class Parser(object):
     AnyRules = Union[ApplicationRules, ProcessRules]
 
     def __init__(self, supvisors: Any) -> None:
-        """ The constructor parses the XML file and stores references to models and patterns found.
+        """ The constructor parses the XML file and stores references the models and patterns found.
 
         :param supvisors: the global Supvisors structure.
         """
@@ -125,7 +125,13 @@ class Parser(object):
         application_elt = self.get_application_element(application_name)
         if application_elt is not None:
             rules.managed = True
-            self.load_boolean(application_elt, 'distributed', rules)
+            # TODO: DEPRECATED
+            if application_elt.findtext('distributed'):
+                self.logger.warn(f'Parser.load_application_rules: DEPRECATED element distributed in {application_name}')
+                self.load_boolean(application_elt, 'distributed', rules)
+                rules.distribution = (DistributionRules.ALL_INSTANCES if rules.distributed
+                                      else DistributionRules.SINGLE_INSTANCE)
+            self.load_enum(application_elt, 'distribution', DistributionRules, rules)
             self.load_identifiers(application_elt, rules)
             self.load_sequence(application_elt, 'start_sequence', rules)
             self.load_sequence(application_elt, 'stop_sequence', rules)
@@ -156,7 +162,7 @@ class Parser(object):
                           f' found={application_elt is not None}')
         if application_elt is None:
             # if not found as it is, try to find a corresponding pattern
-            pattern = self.get_best_pattern(application_name, self.application_patterns.keys())
+            pattern = self.get_best_pattern(application_name, self.application_patterns)
             application_elt = self.application_patterns.get(pattern)
         return application_elt
 
@@ -250,7 +256,7 @@ class Parser(object):
                 program_elt = prg_patterns.get(pattern)
         return program_elt
 
-    def get_best_pattern(self, name: str, patterns: NameList):
+    def get_best_pattern(self, name: str, patterns: Dict):
         """ Return the pattern having the greatest capture for the string considered.
 
         :param name: the string to match

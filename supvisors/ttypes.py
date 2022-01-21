@@ -65,6 +65,11 @@ class ProcessRequestResult(Enum):
     IN_PROGRESS, SUCCESS, FAILED, TIMED_OUT = range(4)
 
 
+class DistributionRules(Enum):
+    """ Rule applicable to the distribution of an application. """
+    ALL_INSTANCES, SINGLE_INSTANCE, SINGLE_NODE = range(3)
+
+
 def enum_values(enum_klass) -> List[int]:
     """ Return the possible integer values corresponding to the enumeration type.
     Equivalent to the protected Enum._value2member_map_.keys()

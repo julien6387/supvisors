@@ -6,6 +6,13 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:maxInclusive value="100"/>
         </xs:restriction>
     </xs:simpleType>
+    <xs:simpleType name="DistributionRules" final="restriction" >
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ALL_INSTANCES" />
+            <xs:enumeration value="SINGLE_INSTANCE" />
+            <xs:enumeration value="SINGLE_NODE" />
+        </xs:restriction>
+    </xs:simpleType>
     <xs:simpleType name="StartingStrategy" final="restriction" >
         <xs:restriction base="xs:string">
             <xs:enumeration value="CONFIG" />
@@ -64,6 +71,7 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
         need XSD 1.1 or to insert intermediate type -->
         <xs:sequence>
             <xs:element type="xs:boolean" name="distributed" minOccurs="0"/>
+            <xs:element type="DistributionRules" name="distribution" minOccurs="0"/>
             <xs:element type="xs:string" name="identifiers" minOccurs="0"/>
             <xs:element type="xs:byte" name="start_sequence" minOccurs="0"/>
             <xs:element type="xs:byte" name="stop_sequence" minOccurs="0"/>

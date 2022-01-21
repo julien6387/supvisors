@@ -19,8 +19,11 @@
 * Add regex support to the `pattern` attribute of the `application` and `program` elements of the **Supvisors** rules
   file.
 
+* The `distribution` option has been added to replace the `distributed` option in the **Supvisors** rules file.
+  The `distributed` option is deprecated and will be removed in the next version.
+
 * Update the starting strategies so that the node load is considered in the event where multiple **Supvisors** instances
-  are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
+are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
 
 * Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
   triggered.

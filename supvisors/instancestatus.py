@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict, List, Tuple
+from typing import Dict
 
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int

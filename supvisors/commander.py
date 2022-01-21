@@ -26,9 +26,11 @@ from supervisor.loggers import Logger
 from supervisor.states import ProcessStates, getProcessStateDescription, STOPPED_STATES
 
 from .application import ApplicationStatus
+from .instancestatus import SupvisorsInstanceStatus
 from .process import ProcessStatus
-from .strategy import get_supvisors_instance
-from .ttypes import NameList, LoadMap, ProcessRequestResult, StartingStrategies, StartingFailureStrategies
+from .strategy import get_supvisors_instance, get_node
+from .ttypes import (DistributionRules, NameList, LoadMap, ProcessRequestResult, StartingStrategies,
+                     StartingFailureStrategies)
 
 
 class ProcessCommand(object):
@@ -55,9 +57,9 @@ class ProcessCommand(object):
         self.process = process
         self.logger: Logger = process.logger
         self.identifier: Optional[str] = None
-        self.instance_status = None
+        self.instance_status: Optional[SupvisorsInstanceStatus] = None
         self.request_sequence_counter: int = 0
-        self._wait_ticks = ProcessCommand.DEFAULT_TICK_TIMEOUT
+        self._wait_ticks: int = ProcessCommand.DEFAULT_TICK_TIMEOUT
 
     def __str__(self) -> str:
         """ Get the process command as string.
@@ -98,7 +100,7 @@ class ProcessCommand(object):
         :param identifier: the identifier of the targeted Supvisors instance
         :return: None
         """
-        self.identifier: str = identifier
+        self.identifier = identifier
         self.instance_status = self.process.supvisors.context.instances[identifier]
 
     def update_sequence_counter(self):
@@ -137,7 +139,6 @@ class ProcessStartCommand(ProcessCommand):
 
     Additional attributes are:
         - strategy: the strategy used to start the process if applicable,
-        - distributed: set to False if the process belongs to an application that cannot be distributed,
         - ignore_wait_exit: used to command a process out of its application starting sequence,
         - extra_args: additional arguments to the command line.
     """
@@ -401,7 +402,7 @@ class ApplicationJobs(object):
         PlannedJobs structure is used but only one element is expected.
 
         :param jobs: the sequenced process wrapper
-        :return: True if added to planned_jobs
+        :return: None
         """
         # search for this command in existing lists
         for sequence_number, command_list in jobs.items():
@@ -417,6 +418,14 @@ class ApplicationJobs(object):
                     self.logger.debug(f'ApplicationJobs.add_commands: {command.process.namespec} planned'
                                       f' on {command.identifier}')
                     self.planned_jobs.setdefault(sequence_number, []).append(command)
+                    self.on_command_added(command)
+
+    def on_command_added(self, command: ProcessCommand) -> None:
+        """ Notification that a command has been added to the planned jobs.
+
+        :param command: the command added in planned_jobs
+        :return: None
+        """
 
     # life cycle methods
     def in_progress(self) -> bool:
@@ -560,7 +569,16 @@ class ApplicationJobs(object):
 
 
 class ApplicationStartJobs(ApplicationJobs):
-    """ Specialization of ApplicationJobs to start applications. """
+    """ Specialization of ApplicationJobs to start applications.
+
+    Attributes are:
+        - pickup_logic: choose the minimum value (overridden from ApplicationJobs) ;
+        - failure_state: used to force the process state upon start failure (overridden from ApplicationJobs) ;
+        - starting_strategy: the strategy to choose a Supvisors instance when starting a process of the application ;
+        - distribution: the distribution rule of the application
+        - identifiers: the applicable identifiers (only set for a non-distributed application) ;
+        - stop_request: intended to the Starter to point out an application that needs to be stopped.
+    """
 
     def __init__(self, application: ApplicationStatus, jobs: ApplicationJobs.PlannedJobs,
                  starting_strategy: StartingStrategies, supvisors: Any) -> None:
@@ -578,37 +596,37 @@ class ApplicationStartJobs(ApplicationJobs):
         self.failure_state: int = ProcessStates.FATAL
         # store application default rules
         self.starting_strategy: StartingStrategies = starting_strategy
-        self.distributed: bool = self.application.rules.distributed
-        self.identifier: Optional[str] = None  # only set for a non-distributed application
+        self.distribution: DistributionRules = self.application.rules.distribution
+        self.identifiers: NameList = []
         # flags for use at Starter level
         self.stop_request: bool = False
 
     # miscellaneous methods
-    def add_commands(self, jobs: ApplicationJobs.PlannedJobs) -> None:
-        """ Add a process wrapper to the application jobs, if possible.
-        If the wrapper has been planned in the superclass and in the case of a non-distributed application, check that
-        the process added can be started on the same Supvisors instance than the others.
+    def on_command_added(self, command: ProcessCommand) -> None:
+        """ Notification that a command has been added to the planned jobs.
 
-        :param jobs: the sequenced process wrapper
+        :param command: the command added in planned_jobs
         :return: None
         """
-        super().add_commands(jobs)
-        # whatever the job has been really added to planned_jobs or not, it must apply the same Supvisors instance
-        # as the other commands of a non-distributed application
-        for command_list in jobs.values():
-            for command in command_list:
-                if not self.distributed and self.identifier and not command.identifier:
-                    # self.identifier may be None (no Supvisors instance found)
-                    # identifiers may be already set (command was already there)
-                    load = command.process.rules.expected_load
-                    # check that the chosen Supvisors instance can support the new process
-                    # in a non-distributed application, the application starting_strategy applies
-                    identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, [self.identifier], load)
-                    if identifier:
-                        command.identifier = identifier
-                    else:
-                        self.logger.warn(f'ApplicationStartJobs.add_commands: {command.process.namespec} cannot'
-                                         f'be started on the chosen Supvisors={self.identifier}')
+        # in the case of a non-distributed application, one of the selected Supvisors instances must be applied
+        if self.distribution != DistributionRules.ALL_INSTANCES:
+            if not self.identifiers:
+                self.logger.debug('ApplicationStartJobs.on_command_added: no candidate Supvisors instance to start'
+                                  f' {command.process.namespec}')
+                return None
+            load = command.process.rules.expected_load
+            # check that one of the chosen Supvisors instances can support the new process
+            # in a non-distributed application, the application starting_strategy applies
+            self.logger.trace('ApplicationStartJobs.on_command_added: searching a Supvisors instance among'
+                              f' {self.identifiers} to start {command.process.namespec} with load={load}')
+            identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, self.identifiers, load)
+            if identifier:
+                self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} is planned to'
+                                  f' start on Supvisors={identifier}')
+                command.identifier = identifier
+            else:
+                self.logger.debug(f'ApplicationStartJobs.on_command_added: {command.process.namespec} cannot'
+                                  f' be started on any of the chosen Supvisors among {self.identifiers}')
 
     def get_load_requests(self) -> LoadMap:
         """ Extract by Supvisors instance the processes that are planned to start but still stopped
@@ -626,6 +644,64 @@ class ApplicationStartJobs(ApplicationJobs):
         return {identifier: sum(load_list) for identifier, load_list in load_request_map.items()}
 
     # lifecycle methods
+    def distribute_to_single_node(self) -> None:
+        """ Assign Supvisors instances to each process of the non-distributed application, with the assumption
+        that all processes must run in Supvisors instances that are running on the same node.
+
+        :return: None
+        """
+        # FIXME: what if any process of this application is already running (started manually) ?
+        # get all ProcessStartCommand of the application
+        commands = [process for sequence in self.planned_jobs.values() for process in sequence]
+        # find the applicable Supvisors instances iaw strategy
+        application_load = self.application.get_start_sequence_expected_load()
+        identifiers = self.application.possible_identifiers()
+        # choose the node that can support the application load
+        node_name = get_node(self.supvisors, self.starting_strategy, identifiers, application_load)
+        # intersect the identifiers running on the node and the application possible identifiers
+        # comprehension based on iteration over application possible identifiers to keep the CONFIG order
+        node_identifiers = list(self.supvisors.supvisors_mapper.nodes[node_name])
+        self.identifiers = [identifier for identifier in identifiers if identifier in node_identifiers]
+        if self.identifiers:
+            self.logger.trace(f'ApplicationStartJobs.distribute_to_single_node: Supvisors={self.identifiers}'
+                              f' of node={node_name} are selected to start {self.application_name}')
+            # for all commands, select an identifier from the chosen node
+            for command in commands:
+                process_load = command.process.rules.expected_load
+                identifier = get_supvisors_instance(self.supvisors, self.starting_strategy,
+                                                    self.identifiers, process_load)
+                self.logger.debug(f'ApplicationStartJobs.distribute_to_single_node: {command.process.namespec}'
+                                  f' is planned to start on Supvisors={identifier}')
+                command.update_identifier(identifier)
+        else:
+            self.logger.debug('ApplicationStartJobs.distribute_to_single_node: no Supvisors instance found to plan'
+                              f' the starting of {self.application_name} with load={application_load}')
+
+    def distribute_to_single_instance(self) -> None:
+        """ Assign a Supvisors instance to each process of the non-distributed application, with the assumption
+        that all processes must run in the same Supvisors instance.
+
+        :return: None
+        """
+        # FIXME: what if any process of this application is already running (started manually) ?
+        # get all ProcessStartCommand of the application
+        commands = [process for sequence in self.planned_jobs.values() for process in sequence]
+        # find the applicable Supvisors instances iaw strategy
+        application_load = self.application.get_start_sequence_expected_load()
+        identifiers = self.application.possible_identifiers()
+        # choose the Supvisors instance that can support the application load
+        identifier = get_supvisors_instance(self.supvisors, self.starting_strategy, identifiers, application_load)
+        if identifier:
+            self.logger.debug(f'ApplicationStartJobs.before: Supvisors={identifier} is selected to start all processes'
+                              f' of {self.application_name}')
+            # store the selection and apply the identifier to all commands
+            self.identifiers = [identifier]
+            for command in commands:
+                command.update_identifier(identifier)
+        else:
+            self.logger.debug('ApplicationStartJobs.distribute_to_single_instance: no Supvisors instance found to plan'
+                              f' the starting of {self.application_name} with load={application_load}')
+
     def before(self) -> None:
         """ Prepare the ProcessStartCommand linked to the planned jobs.
         More particularly, in the case of a non-distributed application, the Supvisors instance must be found
@@ -633,22 +709,10 @@ class ApplicationStartJobs(ApplicationJobs):
 
         :return: None
         """
-        # FIXME: what if any process of a non-distributed application is already running ?
-        #  is it a new case of CONCILIATION ?
-        if not self.distributed:
-            # get all ProcessStartCommand of the application
-            commands = [process for sequence in self.planned_jobs.values()
-                        for process in sequence]
-            # find the Supvisors instance iaw strategy
-            load = self.application.get_start_sequence_expected_load()
-            self.identifier = get_supvisors_instance(self.supvisors, self.starting_strategy,
-                                                     self.application.possible_identifiers(), load)
-            self.logger.info(f'ApplicationStartJobs.before: identifier={self.identifier} assigned to non-distributed'
-                             f' application_name={self.application_name} using strategy={self.starting_strategy.name}')
-            # apply the identifier to all commands
-            if self.identifier:
-                for command in commands:
-                    command.update_identifier(self.identifier)
+        if self.distribution == DistributionRules.SINGLE_NODE:
+            self.distribute_to_single_node()
+        elif self.distribution == DistributionRules.SINGLE_INSTANCE:
+            self.distribute_to_single_instance()
 
     def process_job(self, command: ProcessStartCommand) -> bool:
         """ Start the process on the relevant Supvisors instance.
@@ -660,8 +724,9 @@ class ApplicationStartJobs(ApplicationJobs):
         process = command.process
         self.logger.debug(f'ApplicationStartJobs.process_job: process={process.namespec} stopped={process.stopped()}')
         if process.stopped():
+            # FIXME: now that load request is in place, selection could be all done in before
             # identifier has already been decided for a non-distributed application
-            if self.distributed:
+            if self.distribution == DistributionRules.ALL_INSTANCES:
                 # find Supvisors instance iaw strategy
                 identifier = get_supvisors_instance(self.supvisors, command.strategy, process.possible_identifiers(),
                                                     process.rules.expected_load)
@@ -1075,6 +1140,7 @@ class Starter(Commander):
 
         :return: the additional loading per Supvisors instance
         """
+        # FIXME: how to consider non-distributed apps with node selected ?
         load_requests = [application_job.get_load_requests() for application_job in self.current_jobs.values()]
         # get all identifiers found
         identifiers = {identifier for load_request in load_requests for identifier in load_request}

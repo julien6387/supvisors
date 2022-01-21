@@ -436,15 +436,33 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     The options of the ``application`` section MUST be declared in the following order.
     In the next version of |Supvisors|, it will be possible to declare them in any order.
 
-``distributed``
+``distribution``
 
     In the introduction, it is written that the aim of |Supvisors| is to manage distributed applications.
     However, it may happen that some applications are not designed to be distributed (for example due to inter-process
     communication design) and thus distributing the application processes over multiple nodes would just make
     the application non operational.
-    If set to ``true``, |Supvisors| will start all the application processes on the same |Supvisors| instance,
-    provided that such a |Supvisors| instance can be found based on the application rules ``starting_strategy``
-    and ``identifiers``.
+    If set to ``ALL_INSTANCES``, |Supvisors| will distribute the application processes over the applicable |Supvisors|
+    instances.
+    If set to ``SINGLE_INSTANCE``, |Supvisors| will start all the application processes in the same |Supvisors|
+    instance.
+    If set to ``SINGLE_NODE``, |Supvisors| will distribute all the application processes over a set of |Supvisors|
+    instances running on the same node.
+
+    *Default*:  ``ALL_INSTANCES``.
+
+    *Required*:  No.
+
+.. note::
+
+    When a single |Supvisors| instance is running on each node, ``SINGLE_INSTANCE`` and ``SINGLE_NODE`` are strictly
+    equivalent.
+
+``distributed``
+
+    *DEPRECATED* Please use ``distribution``. ``true`` is equivalent to ``ALL_INSTANCES`` in the ``distribution``
+    option and ``false`` is equivalent to ``SINGLE_INSTANCE``. This parameter will be removed in the next |Supvisors|
+    version.
 
     *Default*:  ``true``.
 
@@ -452,11 +470,11 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 ``identifiers``
 
-    This element is only used when ``distributed`` is set to ``false`` and gives the list of |Supvisors| instances
-    where the application programs can be started. The names are to be taken from the names deduced from the
-    ``supvisors_list`` parameter defined in `rpcinterface extension point`_ or from the declared `Instance aliases`_,
-    and separated by commas.
-    Special values can be applied.
+    This element is only used when ``distribution`` is set to ``SINGLE_INSTANCE`` or ``SINGLE_NODE`` and gives the list
+    of |Supvisors| instances where the application programs can be started. The names are to be taken from the names
+    deduced from the ``supvisors_list`` parameter defined in `rpcinterface extension point`_ or from the declared
+    `Instance aliases`_, and separated by commas.
+    Special values can be used.
 
     The wildcard ``*`` stands for all names deduced from ``supvisors_list``.
     Any name list including a ``*`` is strictly equivalent to ``*`` alone.
@@ -473,8 +491,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
 
 .. attention::
 
-    When the application is not to be distributed (``distributed`` set to ``false``), the rule ``identifiers`` of the
-    application programs is not considered.
+    When the distribution of the application is restricted (``distribution`` not set to ``ALL_INSTANCES``), the rule
+    ``identifiers`` of the application programs is not considered.
 
 ``start_sequence``
 
@@ -1098,7 +1116,7 @@ Here follows a complete example of a rules file. It is used in |Supvisors| self 
 
         <!-- player application -->
         <application name="player">
-            <distributed>false</distributed>
+            <distribution>SINGLE_INSTANCE</distribution>
             <identifiers>cliche81,cliche83:60000</identifiers>
             <start_sequence>5</start_sequence>
             <starting_strategy>MOST_LOADED</starting_strategy>

@@ -272,6 +272,27 @@ def get_node_load_request_map(supvisors_mapper: SupvisorsMapper, load_request_ma
     return node_load_request_map
 
 
+def create_strategy(supvisors: Any, strategy: StartingStrategies) -> AbstractStartingStrategy:
+    """ Factory for starting strategies.
+
+    :param supvisors: the global Supvisors structure
+    :param strategy: the strategy used to choose a Supvisors instance
+    :return:
+    """
+    if strategy == StartingStrategies.CONFIG:
+        return ConfigStrategy(supvisors)
+    if strategy == StartingStrategies.LESS_LOADED:
+        return LessLoadedStrategy(supvisors)
+    if strategy == StartingStrategies.MOST_LOADED:
+        return MostLoadedStrategy(supvisors)
+    if strategy == StartingStrategies.LOCAL:
+        return LocalStrategy(supvisors)
+    if strategy == StartingStrategies.LESS_LOADED_NODE:
+        return LessLoadedNodeStrategy(supvisors)
+    if strategy == StartingStrategies.MOST_LOADED_NODE:
+        return MostLoadedNodeStrategy(supvisors)
+
+
 def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identifiers: NameList,
                            expected_load: int) -> Optional[str]:
     """ Creates a strategy and let it find a Supvisors instance to start a process having a defined load.
@@ -280,7 +301,7 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
     :param strategy: the strategy used to choose a Supvisors instance
     :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
     :param expected_load: the load of the program to be started
-    :return: the list of identifiers corresponding to the Supvisors instances that can support the additional load
+    :return: the identifier of the Supvisors instance that can support the additional load
     """
     # restrict the candidate Supvisors instances to those that are actually running
     running_identifiers = supvisors.context.running_identifiers()
@@ -288,28 +309,32 @@ def get_supvisors_instance(supvisors: Any, strategy: StartingStrategies, identif
     if not candidate_identifiers:
         return None
     # create the relevant strategy to choose a Supvisors instance among the candidates
-    instance = None
-    if strategy == StartingStrategies.CONFIG:
-        instance = ConfigStrategy(supvisors)
-    elif strategy == StartingStrategies.LESS_LOADED:
-        instance = LessLoadedStrategy(supvisors)
-    elif strategy == StartingStrategies.MOST_LOADED:
-        instance = MostLoadedStrategy(supvisors)
-    elif strategy == StartingStrategies.LOCAL:
-        instance = LocalStrategy(supvisors)
-    elif strategy == StartingStrategies.LESS_LOADED_NODE:
-        instance = LessLoadedNodeStrategy(supvisors)
-    elif strategy == StartingStrategies.MOST_LOADED_NODE:
-        instance = MostLoadedNodeStrategy(supvisors)
-    if instance:
-        # consider all pending requests into global load
-        load_request_map = supvisors.starter.get_load_requests()
-        node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
-        # get nodes load
-        node_load_map = supvisors.context.get_nodes_load()
-        # apply strategy
-        return instance.get_supvisors_instance(candidate_identifiers, expected_load,
-                                               (load_request_map, node_load_request_map, node_load_map))
+    instance = create_strategy(supvisors, strategy)
+    # consider all pending requests into global load
+    load_request_map = supvisors.starter.get_load_requests()
+    node_load_request_map = get_node_load_request_map(supvisors.supvisors_mapper, load_request_map)
+    # get nodes load
+    node_load_map = supvisors.context.get_nodes_load()
+    # apply strategy
+    return instance.get_supvisors_instance(candidate_identifiers, expected_load,
+                                           (load_request_map, node_load_request_map, node_load_map))
+
+
+def get_node(supvisors: Any, strategy: StartingStrategies, identifiers: NameList, expected_load: int) -> Optional[str]:
+    """ Creates a strategy and let it find the node to start a process having a defined load.
+
+    :param supvisors: the global Supvisors structure
+    :param strategy: the strategy used to choose a Supvisors instance
+    :param identifiers: the identifiers of the candidate Supvisors instances (from configuration perspective)
+    :param expected_load: the load of the program to be started
+    :return: the name of the node that can support the additional load
+    """
+    # Note: the node load is the sum of the load of its instances
+    # the selection of an instance is conditioned to the fact that the node can support the additional load
+    # if the node can support, there must be one of its instance that can support
+    identifier = get_supvisors_instance(supvisors, strategy, identifiers, expected_load)
+    # get the corresponding host name
+    return supvisors.supvisors_mapper.instances[identifier].host_name
 
 
 # Strategy management for Conciliation
