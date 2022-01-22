@@ -7,6 +7,9 @@
 
 * Fix crash when the state of the **Supvisors** master is received before any **Supvisors** instance has been confirmed.
 
+* Fix crash when receiving process state events from a **Supvisors** instance that has been checked while it was in a
+  `RESTARTING` state.
+
 * Add `supervisord` entry to the process table of the **Supvisors** instance in the Web UI.
   This entry provides process statistics and the possibility to view the Supervisor logs.
 

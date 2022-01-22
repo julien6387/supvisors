@@ -1140,7 +1140,6 @@ class Starter(Commander):
 
         :return: the additional loading per Supvisors instance
         """
-        # FIXME: how to consider non-distributed apps with node selected ?
         load_requests = [application_job.get_load_requests() for application_job in self.current_jobs.values()]
         # get all identifiers found
         identifiers = {identifier for load_request in load_requests for identifier in load_request}

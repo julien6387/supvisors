@@ -559,7 +559,7 @@ class FiniteStateMachine:
         """
         self.logger.info(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
                          f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
-        if self.context.on_authorization(identifier, authorized):
+        if self.context.on_authorization(identifier, supvisors_state, authorized):
             # a new Supvisors instance comes in group
             # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
             # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
@@ -571,6 +571,7 @@ class FiniteStateMachine:
                     self.redeploy_mark = True
                     self.logger.info(f'FiniteStateMachine.on_authorization: new Supvisors={identifier}.'
                                      ' defer re-DEPLOYMENT')
+            # A Master is known to the newcomer
             if master_identifier:
                 if not self.context.master_identifier:
                     # local Supvisors doesn't know about a master yet but remote Supvisors does
