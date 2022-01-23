@@ -41,8 +41,8 @@ Status
             ================== ========= ===========
             'statecode'        ``int``   The state of |Supvisors|, in [0;6].
             'statename'        ``str``   The string state of |Supvisors|, in [``'INITIALIZATION'``, ``'DEPLOYMENT'``,
-                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'SHUTTING_DOWN'``,
-                                         ``'SHUTDOWN'``].
+                                         ``'OPERATION'``, ``'CONCILIATION'``, ``'RESTARTING'``, ``'RESTART'``,
+                                         ``'SHUTTING_DOWN'``, ``'SHUTDOWN'``].
             ================== ========= ===========
 
         .. automethod:: get_master_identifier()

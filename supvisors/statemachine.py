@@ -265,17 +265,11 @@ class MasterRestartingState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.SHUTDOWN
+            return SupvisorsStates.RESTART
         # check if stopping jobs are in progress
         if self.supvisors.stopper.in_progress():
             return SupvisorsStates.RESTARTING
-        return SupvisorsStates.SHUTDOWN
-
-    def exit(self) -> None:
-        """ When leaving the RESTARTING state, request the full restart. """
-        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
-        # other instances will shut down on reception of SHUTDOWN state
-        # due to Supvisors design, the state publication will be fired before the send_shutdown
+        return SupvisorsStates.RESTART
 
 
 class MasterShuttingDownState(AbstractState):
@@ -301,15 +295,23 @@ class MasterShuttingDownState(AbstractState):
             return SupvisorsStates.SHUTTING_DOWN
         return SupvisorsStates.SHUTDOWN
 
-    def exit(self):
-        """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
-        # other instances will shut down on reception of SHUTDOWN state
-        # due to Supvisors design, the state publication will be fired before the send_shutdown
+
+class RestartState(AbstractState):
+    """ This is a final state. """
+
+    def enter(self):
+        """ When entering the RESTART state, request the full restart. """
+        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
+        # other instances will shut down on reception of RESTART state
 
 
 class ShutdownState(AbstractState):
     """ This is the final state. """
+
+    def enter(self):
+        """ When entering the SHUTDOWN state, request the Supervisor shutdown. """
+        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
+        # other instances will shut down on reception of SHUTDOWN state
 
 
 class SlaveMainState(AbstractState):
@@ -346,23 +348,32 @@ class SlaveRestartingState(AbstractState):
         next_state = self.check_instances()
         if next_state:
             # no way going back to INITIALIZATION state at this point
-            return SupvisorsStates.SHUTDOWN
+            return SupvisorsStates.RESTART
         # next state is the Master state
         return self.supvisors.fsm.master_state
 
-    def exit(self) -> None:
-        """ When leaving the RESTARTING state, request the Supervisor restart. """
-        self.supvisors.zmq.pusher.send_restart(self.local_identifier)
 
+class SlaveShuttingDownState(AbstractState):
+    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a full shutdown. """
 
-class SlaveShuttingDownState(SlaveRestartingState):
-    """ In the SHUTTING_DOWN state, Supvisors stops all applications before triggering a full shutdown.
-    Only the exit actions are different from the RESTARTING state.
-    """
+    def enter(self) -> None:
+        """ When entering the SHUTTING_DOWN state, abort all pending tasks applications.
 
-    def exit(self) -> None:
-        """ When leaving the SHUTTING_DOWN state, request the Supervisor shutdown. """
-        self.supvisors.zmq.pusher.send_shutdown(self.local_identifier)
+        :return: None
+        """
+        self.abort_jobs()
+
+    def next(self) -> SupvisorsStates:
+        """ Wait for all processes to be stopped.
+
+        :return: the new Supvisors state
+        """
+        next_state = self.check_instances()
+        if next_state:
+            # no way going back to INITIALIZATION state at this point
+            return SupvisorsStates.SHUTDOWN
+        # next state is the Master state
+        return self.supvisors.fsm.master_state
 
 
 class FiniteStateMachine:
@@ -641,6 +652,7 @@ class FiniteStateMachine:
                              SupvisorsStates.OPERATION: MasterOperationState,
                              SupvisorsStates.CONCILIATION: MasterConciliationState,
                              SupvisorsStates.RESTARTING: MasterRestartingState,
+                             SupvisorsStates.RESTART: RestartState,
                              SupvisorsStates.SHUTTING_DOWN: MasterShuttingDownState,
                              SupvisorsStates.SHUTDOWN: ShutdownState}
 
@@ -649,10 +661,10 @@ class FiniteStateMachine:
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
                             SupvisorsStates.RESTARTING: SlaveRestartingState,
+                            SupvisorsStates.RESTARTING: RestartState,
                             SupvisorsStates.SHUTTING_DOWN: SlaveShuttingDownState,
                             SupvisorsStates.SHUTDOWN: ShutdownState}
 
-    # Transitions allowed between states
     _Transitions = {None: [SupvisorsStates.INITIALIZATION],
                     SupvisorsStates.INITIALIZATION: [SupvisorsStates.DEPLOYMENT],
                     SupvisorsStates.DEPLOYMENT: [SupvisorsStates.INITIALIZATION,
@@ -668,6 +680,8 @@ class FiniteStateMachine:
                                                    SupvisorsStates.INITIALIZATION,
                                                    SupvisorsStates.RESTARTING,
                                                    SupvisorsStates.SHUTTING_DOWN],
-                    SupvisorsStates.RESTARTING: [SupvisorsStates.SHUTDOWN],
+                    SupvisorsStates.RESTARTING: [SupvisorsStates.RESTART],
+                    SupvisorsStates.RESTART: [],
                     SupvisorsStates.SHUTTING_DOWN: [SupvisorsStates.SHUTDOWN],
                     SupvisorsStates.SHUTDOWN: []}
+    # Transitions allowed between states

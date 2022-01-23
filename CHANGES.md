@@ -10,6 +10,10 @@
 * Fix crash when receiving process state events from a **Supvisors** instance that has been checked while it was in a
   `RESTARTING` state.
 
+* Fix regression in **Supvisors** restarting / shutting down as the *Master* would actually restart / shut down
+  before notifying the other **Supvisors** instances of its state. The new **Supvisors** state `RESTART` has been
+  introduced. 
+
 * Add `supervisord` entry to the process table of the **Supvisors** instance in the Web UI.
   This entry provides process statistics and the possibility to view the Supervisor logs.
 

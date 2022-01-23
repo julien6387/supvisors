@@ -276,8 +276,8 @@ class Context(object):
             if status.state != SupvisorsInstanceStates.CHECKING:
                 self.logger.error(f'Context.on_authorization: auth rejected from non-CHECKING Supvisors={identifier}')
             else:
-                if supvisors_state in [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN,
-                                       SupvisorsStates.SHUTDOWN]:
+                if supvisors_state in [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
+                                       SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]:
                     # a TICK has been received from a Supvisors that is restarting or shutting down
                     # no need to add it in the working pool
                     self.invalid(status)

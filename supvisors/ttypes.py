@@ -31,7 +31,7 @@ class SupvisorsInstanceStates(Enum):
 
 class SupvisorsStates(Enum):
     """ Synthesis state of Supvisors. """
-    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, SHUTTING_DOWN, SHUTDOWN = range(7)
+    INITIALIZATION, DEPLOYMENT, OPERATION, CONCILIATION, RESTARTING, RESTART, SHUTTING_DOWN, SHUTDOWN = range(8)
 
 
 class ApplicationStates(Enum):

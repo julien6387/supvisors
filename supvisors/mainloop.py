@@ -54,7 +54,8 @@ class SupvisorsMainLoop(Thread):
 
     # States checked
     ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
-    CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
+    CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
+                      SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,

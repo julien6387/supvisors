@@ -463,7 +463,8 @@ def test_authorization_not_checking(context):
 
 def test_authorization_checking_closing(context):
     """ Test the Context.on_authorization method with CHECKING identifier but about to restart or shut down. """
-    closing_states = [SupvisorsStates.RESTARTING, SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
+    closing_states = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
+                      SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
     # check with fencing
     context.supvisors.options.auto_fence = True
     context.instances['10.0.0.1']._state = SupvisorsInstanceStates.CHECKING
