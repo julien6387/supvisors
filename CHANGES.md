@@ -35,6 +35,8 @@ are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` star
 * Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
   triggered.
 
+* Add the `RESTART` and `SHUTDOWN` strategies to the `running_failure_strategy` option.
+
 * Update `Starter` and `Stopper` so that event timeouts are based on ticks rather than time.
 
 * Update `InfanticideStrategy` and `SenicideStrategy` so that the conciliation uses the `Stopper`.

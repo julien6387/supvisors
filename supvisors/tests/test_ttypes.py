@@ -61,9 +61,9 @@ def test_StartingFailureStrategies():
 
 def test_RunningFailureStrategies():
     """ Test the RunningFailureStrategies enumeration. """
-    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION']
+    expected = ['CONTINUE', 'RESTART_PROCESS', 'STOP_APPLICATION', 'RESTART_APPLICATION', 'SHUTDOWN', 'RESTART']
     assert enum_names(RunningFailureStrategies) == expected
-    assert enum_values(RunningFailureStrategies) == list(range(4))
+    assert enum_values(RunningFailureStrategies) == list(range(6))
 
 
 def test_SupvisorsStates():

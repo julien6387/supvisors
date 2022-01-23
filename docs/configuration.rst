@@ -549,7 +549,8 @@ Here follows the definition of the attributes and rules applicable to an ``appli
     This element gives the strategy applied when the application loses running processes due to a |Supvisors| instance
     that becomes silent (crash, power down, network failure, etc).
     This value can be superseded by the value set at program level.
-    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION``,
+    ``SHUTDOWN``, ``RESTART`` }
     and are detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.
@@ -701,7 +702,8 @@ Here follows the definition of the attributes and rules applicable to this eleme
 
     This element gives the strategy applied when the process is running in a |Supvisors| instance that becomes silent
     (crash, power down, network failure, etc). This value supersedes the value eventually set at application level.
-    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION`` }
+    The possible values are { ``CONTINUE``, ``RESTART_PROCESS``, ``STOP_APPLICATION``, ``RESTART_APPLICATION``,
+    ``SHUTDOWN``, ``RESTART`` }
     and their impact is detailed in :ref:`running_failure_strategy`.
 
     *Default*:  ``CONTINUE``.

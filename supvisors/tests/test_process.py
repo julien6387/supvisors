@@ -127,11 +127,11 @@ def test_rules_check_autorestart(mocker, rules):
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
-        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
-            assert not mocked_disable.called
-        else:
+        if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
             mocked_autorestart.reset_mock()
+        else:
+            assert not mocked_disable.called
         assert not mocked_disable.called
     # test based on programs known to Supervisor but with autostart not activated
     mocked_autorestart.side_effect = None
@@ -139,11 +139,11 @@ def test_rules_check_autorestart(mocker, rules):
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
-        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
-            assert not mocked_disable.called
-        else:
+        if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_autorestart.call_args_list == [call('dummy_process_1')]
             mocked_autorestart.reset_mock()
+        else:
+            assert not mocked_disable.called
         assert not mocked_disable.called
     # test based on programs known to Supervisor but with autostart activated
     # test that only the CONTINUE and RESTART_PROCESS strategies keep the autorestart
@@ -151,11 +151,11 @@ def test_rules_check_autorestart(mocker, rules):
     for strategy in RunningFailureStrategies:
         rules.running_failure_strategy = strategy
         rules.check_autorestart('dummy_process_1')
-        if strategy in [RunningFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_PROCESS]:
-            assert not mocked_disable.called
-        else:
+        if strategy in [RunningFailureStrategies.STOP_APPLICATION, RunningFailureStrategies.RESTART_APPLICATION]:
             assert mocked_disable.call_args_list == [call('dummy_process_1')]
             mocked_disable.reset_mock()
+        else:
+            assert not mocked_disable.called
 
 
 def test_rules_check_hash_identifiers(rules):

@@ -115,7 +115,7 @@ def check_valid(parser):
     rules = load_application_rules(parser, 'dummy_application_D')
     assert_application_rules(rules, True, DistributionRules.SINGLE_INSTANCE, ['10.0.0.1', '10.0.0.5'], 0, 100,
                              StartingStrategies.LESS_LOADED,
-                             StartingFailureStrategies.CONTINUE, RunningFailureStrategies.RESTART_APPLICATION)
+                             StartingFailureStrategies.CONTINUE, RunningFailureStrategies.SHUTDOWN)
     # check loop application
     rules = load_application_rules(parser, 'dummy_application_E')
     assert_application_rules(rules, True, DistributionRules.ALL_INSTANCES,  ['*'], 0, 0,
@@ -248,7 +248,7 @@ def check_invalid(parser):
     assert_default_process_rules(rules)
     # check known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C2')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.RESTART)
     # check other known reference
     rules = load_program_rules(parser, 'dummy_application_C', 'dummy_program_C3')
     assert_process_rules(rules, [], ['*'], 1, 1, True, True, 0, RunningFailureStrategies.CONTINUE)
@@ -267,7 +267,7 @@ def check_invalid(parser):
     assert_process_rules(rules, [], ['*'], 1, 1, False, True, 75, RunningFailureStrategies.CONTINUE)
     # check pattern with multiple matching and recursive reference
     rules = load_program_rules(parser, 'dummy_application_D', 'any_dummies_02_')
-    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.STOP_APPLICATION)
+    assert_process_rules(rules, ['*'], [], 0, 0, False, False, 25, RunningFailureStrategies.RESTART)
 
 
 @pytest.fixture

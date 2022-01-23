@@ -77,7 +77,7 @@ InvalidXmlTest = b'''\
         <required>false</required>
         <wait_exit>false</wait_exit>
         <expected_loading>25</expected_loading>
-        <running_failure_strategy>STOP_APPLICATION</running_failure_strategy>
+        <running_failure_strategy>RESTART</running_failure_strategy>
     </model>
 
     <model name="dummy_model_02">
@@ -340,7 +340,7 @@ XmlTest = b'''\
         <stop_sequence>100</stop_sequence>
         <starting_strategy>LESS_LOADED</starting_strategy>
         <starting_failure_strategy>CONTINUE</starting_failure_strategy>
-        <running_failure_strategy>RESTART_APPLICATION</running_failure_strategy>
+        <running_failure_strategy>SHUTDOWN</running_failure_strategy>
 
         <program pattern="dummies_">
             <reference>dummy_model_03</reference>

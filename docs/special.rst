@@ -372,7 +372,9 @@ Possible values are:
     * ``CONTINUE``: Skip the failure and the application keeps running ;
     * ``RESTART_PROCESS``: Restart the lost process on another |Supvisors| instance ;
     * ``STOP_APPLICATION``: Stop the application ;
-    * ``RESTART_APPLICATION``: Restart the application.
+    * ``RESTART_APPLICATION``: Restart the application ;
+    * ``SHUTDOWN``: Shutdown |Supvisors| (i.e. all |Supvisors| instances) ;
+    * ``RESTART``: Restart |Supvisors| (i.e. all |Supvisors| instances).
 
 .. important::
 

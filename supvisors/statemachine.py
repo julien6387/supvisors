@@ -502,13 +502,18 @@ class FiniteStateMachine:
             if self.context.is_master and process.crashed():
                 # local variables to keep it readable
                 strategy = process.rules.running_failure_strategy
-                stop_strategy = strategy == RunningFailureStrategies.STOP_APPLICATION
-                restart_strategy = strategy == RunningFailureStrategies.RESTART_APPLICATION
-                # to avoid infinite application restart, exclude the case where process state is forced
-                # indeed the process state forced to FATAL can only happen during a starting sequence
-                # (no instance found) so retry is useless
-                if stop_strategy or restart_strategy and process.forced_state is None:
-                    self.supvisors.failure_handler.add_default_job(process)
+                if strategy == RunningFailureStrategies.RESTART:
+                    self.on_restart()
+                elif strategy == RunningFailureStrategies.SHUTDOWN:
+                    self.on_shutdown()
+                else:
+                    stop_strategy = strategy == RunningFailureStrategies.STOP_APPLICATION
+                    restart_strategy = strategy == RunningFailureStrategies.RESTART_APPLICATION
+                    # to avoid infinite application restart, exclude the case where process state is forced
+                    # indeed the process state forced to FATAL can only happen during a starting sequence
+                    # (no instance found) so retry is useless
+                    if (stop_strategy or restart_strategy) and process.forced_state is None:
+                        self.supvisors.failure_handler.add_default_job(process)
 
     def on_process_added_event(self, identifier: str, event: Payload) -> None:
         """ This event is used to fill the internal structures when a process has been added on a Supvisors instance.

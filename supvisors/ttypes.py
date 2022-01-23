@@ -57,7 +57,7 @@ class StartingFailureStrategies(Enum):
 
 class RunningFailureStrategies(Enum):
     """ Applicable strategies that can be applied on a failure of a running application. """
-    CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION = range(4)
+    CONTINUE, RESTART_PROCESS, STOP_APPLICATION, RESTART_APPLICATION, SHUTDOWN, RESTART = range(6)
 
 
 class ProcessRequestResult(Enum):

@@ -172,7 +172,8 @@ Status
                                                         application, in [``'ABORT'``, ``'STOP'``, ``'CONTINUE'``].
             'running_failure_strategy'  ``str``         The strategy applied when a process crashes in a running
                                                         application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
-                                                        ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+                                                        ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
+                                                        ``'SHUTDOWN'``, ``'RESTART'``].
             =========================== =============== ===========
 
         .. automethod:: get_process_rules(namespec)
@@ -194,7 +195,8 @@ Status
             'loading'                  ``int``         The Process expected loading when ``RUNNING``, in [0;100]%.
             'running_failure_strategy' ``str``         The strategy applied when a process crashes in a running
                                                        application, in [``'CONTINUE'``, ``'RESTART_PROCESS'``,
-                                                       ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``].
+                                                       ``'STOP_APPLICATION'``, ``'RESTART_APPLICATION'``,
+                                                       ``'SHUTDOWN'``, ``'RESTART'``].
             ========================== =============== ===========
 
         .. automethod:: get_conflicts()

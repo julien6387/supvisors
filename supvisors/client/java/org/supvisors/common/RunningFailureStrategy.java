@@ -24,7 +24,9 @@ public enum RunningFailureStrategy {
     CONTINUE(0),
     RESTART_PROCESS(1),
     STOP_APPLICATION(2),
-    RESTART_APPLICATION(3);
+    RESTART_APPLICATION(3),
+    SHUTDOWN(4),
+    RESTART(5);
 
     /** The strategy code. */
     private int strategyCode;

@@ -36,6 +36,8 @@ xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:enumeration value="RESTART_PROCESS" />
             <xs:enumeration value="STOP_APPLICATION" />
             <xs:enumeration value="RESTART_APPLICATION" />
+            <xs:enumeration value="SHUTDOWN" />
+            <xs:enumeration value="RESTART" />
         </xs:restriction>
     </xs:simpleType>
     <xs:complexType name="NodeAlias">
