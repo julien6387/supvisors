@@ -22,7 +22,7 @@ from typing import List
 from .instancestatus import *
 from .application import ApplicationRules, ApplicationStatus
 from .process import *
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates, NameList, PayloadList, LoadMap
+from .ttypes import SupvisorsInstanceStates, CLOSING_STATES, NameList, PayloadList, LoadMap
 
 
 class Context(object):
@@ -122,16 +122,16 @@ class Context(object):
         The local Supvisors instance is never ISOLATING, whatever the option is set or not.
         Always give it a chance to restart. """
         if status.identifier == self.supvisors.supvisors_mapper.local_identifier:
-            # FIXME: with the new design, this is not unlikely, this is just impossible
             # this is very unlikely
-            # to get here, 2 ways:
-            #    1. end_synchro or on_timer_event
-            #       both are triggered directly by the FSM upon supervisor ticks so local node is definitely not SILENT
-            #       possible causes would be: network congestion, CPU overload or broken internal publisher
-            #       and thus the SupvisorsInstanceStatus.local_time would not be updated
-            #    2. on_authorization
-            #       by design, the local node cannot be ISOLATED. that's precisely the aim of the following instructions
-            self.logger.critical('Context.invalid: local Supvisors instance is SILENT')
+            # 1. invalidation by end of sync would mean that the SupvisorsMainLoop thread is broken and unable to
+            #    provide ticks, which is a critical failure
+            # 2. invalidation by timer is impossible as is it driven by the local TICK
+            #    a Supvisors instance cannot have a counter shift with itself
+            # 3. on_authorization - the local Supvisors instance cannot be ISOLATED from itself by design
+            #    that's precisely the aim of the following instructions
+            # 4. a discrepancy has been detected between the internal context and the process events received
+            #    a new CHECKING phase is required
+            self.logger.critical('Context.invalid: local Supvisors instance is either SILENT or inconsistent')
             status.state = SupvisorsInstanceStates.SILENT
         elif fence or self.supvisors.options.auto_fence:
             status.state = SupvisorsInstanceStates.ISOLATING
@@ -185,8 +185,8 @@ class Context(object):
                 if application.rules.managed and process.conflicting()]
 
     def setdefault_application(self, application_name: str) -> Optional[ApplicationStatus]:
-        """ Return the application corresponding to application_name if found.
-        Otherwise load rules from the rules file, create a new application entry if rules exist and return it.
+        """ Return the application corresponding to application_name if found,
+        otherwise load rules from the rules file, create a new application entry if rules exist and return it.
         Applications that are not defined in the rules files will not be stored in the Supvisors context.
 
         :param application_name: the name of the application
@@ -208,8 +208,8 @@ class Context(object):
         return application
 
     def setdefault_process(self, info: Payload) -> Optional[ProcessStatus]:
-        """ Return the process corresponding to info if found.
-        Otherwise load rules from the rules file, create a new process entry if rules exist and return it.
+        """ Return the process corresponding to info if found,
+        otherwise load rules from the rules file, create a new process entry if rules exist and return it.
         Processes that are not defined in the rules files will not be stored in the Supvisors context.
 
         :param info: the payload representing the process
@@ -260,13 +260,12 @@ class Context(object):
             application.update_status()
 
     # methods on events
-    def on_authorization(self, identifier: str, authorized: bool, supvisors_state: SupvisorsStates) -> Optional[bool]:
+    def on_authorization(self, identifier: str, authorized: Optional[bool]) -> bool:
         """ Method called upon reception of an authorization event telling if the remote Supvisors instance
         authorizes the local Supvisors instance to process its events.
 
         :param identifier: the identifier of the Supvisors instance that sent the event
         :param authorized: the node authorization status
-        :param supvisors_state: the Supvisors state perceived by the Supvisors instance that sent the event
         :return: True if authorized both ways
         """
         if not self.supvisors.supvisors_mapper.valid(identifier):
@@ -276,10 +275,10 @@ class Context(object):
             if status.state != SupvisorsInstanceStates.CHECKING:
                 self.logger.error(f'Context.on_authorization: auth rejected from non-CHECKING Supvisors={identifier}')
             else:
-                if supvisors_state in [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
-                                       SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]:
-                    # a TICK has been received from a Supvisors that is restarting or shutting down
-                    # no need to add it in the working pool
+                if authorized is None:
+                    # the check call in SupvisorsMainLoop failed
+                    # the remote Supvisors instance is likely restarting or shutting down so defer
+                    self.logger.warn(f'Context.on_authorization: failed to get auth status from Supvisors={identifier}')
                     self.invalid(status)
                 elif not authorized:
                     self.logger.warn('Context.on_authorization: local Supvisors instance is isolated by'
@@ -290,6 +289,7 @@ class Context(object):
                                      f' with Supvisors={identifier}')
                     status.state = SupvisorsInstanceStates.RUNNING
                     return True
+        return False
 
     def on_tick_event(self, identifier: str, event: Payload) -> None:
         """ Method called upon reception of a tick event from the remote Supvisors instance, telling that it is active.
@@ -378,6 +378,32 @@ class Context(object):
         #  return the identifiers of all invalidated Supvisors instances and the processes declared in failure
         return invalidated_identifiers, process_failures
 
+    def check_process(self, instance_status: SupvisorsInstanceStatus,
+                      event: Payload) -> Optional[Tuple[ApplicationStatus, ProcessStatus]]:
+        """ Check and return the internal data corresponding to the process event.
+
+        :param instance_status: the Supvisors instance from which the event has been received
+        :param event: the event payload
+        :return: None
+        """
+        namespec = make_namespec(event['group'], event['name'])
+        try:
+            application = self.applications[event['group']]
+            process = application.processes[event['name']]
+            assert instance_status.identifier in process.info_map
+            return application, process
+        except (AssertionError, KeyError):
+            # if the event is received during a Supvisors closing state, it can be ignored
+            # otherwise, it means that there's a discrepancy in the internal context, which requires CHECKING
+            if self.supvisors.fsm.state in CLOSING_STATES:
+                self.logger.warn(f'Context.check_process: ignoring unknown event about process={namespec}'
+                                 f' received from Supvisors={instance_status.identifier} while in'
+                                 f' {self.supvisors.fsm.state} state')
+            else:
+                self.logger.error(f'Context.check_process: CHECKING required due to unknown event about'
+                                  f' process={namespec} received from Supvisors={instance_status.identifier}')
+                self.invalid(instance_status)
+
     def on_process_removed_event(self, identifier: str, event: Payload) -> None:
         """ Method called upon reception of a process removed event from the remote Supvisors instance.
         Following an XML-RPC update_numprocs, the size of homogeneous process groups may decrease and lead to removal
@@ -392,17 +418,10 @@ class Context(object):
             # accept events only in RUNNING state
             if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_remove_process_event: got event {event} from Supvisors={identifier}')
-                # get internal data: same defense line as on_process_state_event
-                namespec = make_namespec(event['group'], event['name'])
-                try:
-                    application = self.applications[event['group']]
-                    process = application.processes[event['name']]
-                    process.info_map[identifier]
-                except KeyError:
-                    self.logger.error(f'Context.on_process_removed_event: process event with unknown process={namespec}'
-                                      f' received from Supvisors={identifier}. CHECKING is required')
-                    self.invalid(instance_status)
-                else:
+                # get internal data
+                app_proc = self.check_process(instance_status, event)
+                if app_proc:
+                    application, process = app_proc
                     publisher = self.supvisors.zmq.publisher
                     # In order to inform users on Supvisors event interface, a fake state DELETED (-1) is sent
                     event['state'] = -1
@@ -438,24 +457,9 @@ class Context(object):
             # accept events only in RUNNING state
             if instance_status.state == SupvisorsInstanceStates.RUNNING:
                 self.logger.debug(f'Context.on_process_event: got event {event} from Supvisors={identifier}')
-                # get internal data
-                namespec = make_namespec(event['group'], event['name'])
-                try:
-                    application = self.applications[event['group']]
-                    process = application.processes[event['name']]
-                    process.info_map[identifier]
-                except KeyError:
-                    # WARN: no information has ever been received for this process from this Supvisors instance.
-                    # despite the precautions taken to avoid that in the CHECKING state, there may be still some twisted
-                    # cases leading to this situation.
-                    # e.g. it has been recently found that the load_processes may have not been called when checking
-                    # a remote instance in RESTARTING state
-                    # as a conclusion, a new checking phase is needed here
-                    # there's no process handling required here, just invalid the instance status
-                    self.logger.error(f'Context.on_process_event: process event with unknown process={namespec}'
-                                      f' received from Supvisors={identifier}. CHECKING is required')
-                    self.invalid(instance_status)
-                else:
+                app_proc = self.check_process(instance_status, event)
+                if app_proc:
+                    application, process = app_proc
                     # refresh process info depending on the nature of the process event
                     if 'forced_state' in event:
                         process.force_state(event)
@@ -468,10 +472,10 @@ class Context(object):
                         process.update_info(identifier, event)
                         try:
                             # update command line in Supervisor
-                            self.supvisors.supervisor_data.update_extra_args(namespec, event['extra_args'])
+                            self.supvisors.supervisor_data.update_extra_args(process.namespec, event['extra_args'])
                         except KeyError:
                             # process not found in Supervisor internal structure
-                            self.logger.debug(f'Context.on_process_event: cannot apply extra args to {namespec}'
+                            self.logger.debug(f'Context.on_process_event: cannot apply extra args to {process.namespec}'
                                               ' unknown to local Supervisor')
                     # refresh application status
                     application.update_status()

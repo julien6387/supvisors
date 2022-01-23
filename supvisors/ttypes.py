@@ -90,6 +90,12 @@ def enum_names(enum_klass) -> List[str]:
     return list(map(lambda x: x.name, enum_klass))
 
 
+# State lists commonly used
+ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
+CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
+                  SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
+
+
 # Exceptions
 class InvalidTransition(Exception):
     """ Exception used for an invalid transition in state machines. """

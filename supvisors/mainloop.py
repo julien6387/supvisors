@@ -31,7 +31,7 @@ from supervisor.childutils import getRPCInterface
 from supervisor.xmlrpc import RPCError
 
 from .supvisorszmq import SupvisorsZmq
-from .ttypes import SupvisorsInstanceStates, SupvisorsStates
+from .ttypes import SupvisorsInstanceStates, SupvisorsStates, CLOSING_STATES, ISOLATION_STATES
 from .utils import DeferredRequestHeaders, InternalEventHeaders, RemoteCommEvents, SupervisorServerUrl
 
 
@@ -51,11 +51,6 @@ class SupvisorsMainLoop(Thread):
 
     # a Supervisor TICK is expected every 5 seconds
     SUPERVISOR_ALERT_TIMEOUT = 10
-
-    # States checked
-    ISOLATION_STATES = [SupvisorsInstanceStates.ISOLATING, SupvisorsInstanceStates.ISOLATED]
-    CLOSING_STATES = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
-                      SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
 
     # to avoid a long list of exceptions in catches
     RpcExceptions = (KeyError, ValueError, OSError, ConnectionResetError,
@@ -210,7 +205,7 @@ class SupvisorsMainLoop(Thread):
         :param identifier: the identifier of the Supvisors instance to get information from
         :return: None
         """
-        authorized = False
+        authorized = None
         master_identifier = ''
         supvisors_state = SupvisorsStates.SHUTDOWN
         all_info = []
@@ -219,27 +214,26 @@ class SupvisorsMainLoop(Thread):
             supvisors_rpc = getRPCInterface(self.srv_url.env).supvisors
             # get remote perception of master node and state
             master_identifier = supvisors_rpc.get_master_identifier()
-            supvisors_state_payload = supvisors_rpc.get_supvisors_state()
-            supvisors_state = SupvisorsStates(supvisors_state_payload['statecode'])
+            supvisors_payload = supvisors_rpc.get_supvisors_state()
             # check authorization
-            status = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
+            status_payload = supvisors_rpc.get_instance_info(self.supvisors.supvisors_mapper.local_identifier)
         except SupvisorsMainLoop.RpcExceptions:
             print(f'[ERROR] failed to check Supvisors={identifier}', file=stderr)
         else:
+            supvisors_state = SupvisorsStates(supvisors_payload['statecode'])
+            instance_state = SupvisorsInstanceStates(status_payload['statecode'])
             # authorization is granted if the remote Supvisors instances did not isolate the local Supvisors instance
-            authorized = SupvisorsInstanceStates(status['statecode']) not in self.ISOLATION_STATES
+            authorized = instance_state not in ISOLATION_STATES
         # get process info if authorized and remote not restarting or shutting down
-        if authorized and supvisors_state not in self.CLOSING_STATES:
+        if authorized:
             try:
                 # get information about all processes handled by Supervisor
                 all_info = supvisors_rpc.get_all_local_process_info()
             except SupvisorsMainLoop.RpcExceptions:
                 print(f'[ERROR] failed to get process information Supvisors={identifier}', file=stderr)
-                # despite the condition check, the remote Supvisors instance may have gone to closing states in the gap
-                # long shot but not impossible
+                # the remote Supvisors instance may have gone to a closing state since the previous calls and thus be
+                # not able to respond to the request (long shot but not impossible)
                 # do NOT set authorized to False in this case or an unwanted isolation may happen
-                # just reset the supvisors_state to give it a chance in case of restart
-                supvisors_state = SupvisorsStates.SHUTDOWN
         # inform local Supvisors that authorization is available
         self.send_remote_comm_event(RemoteCommEvents.SUPVISORS_AUTH,
                                     f'identifier={identifier} authorized={authorized}'

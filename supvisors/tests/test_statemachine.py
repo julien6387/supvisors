@@ -971,7 +971,7 @@ def test_on_authorization(mocker, fsm):
     nodes['10.0.0.5']._state = SupvisorsInstanceStates.RUNNING
     # test rejected authorization
     fsm.on_authorization('10.0.0.1', False, '10.0.0.5', SupvisorsStates.INITIALIZATION)
-    assert mocked_auth.call_args_list == [call('10.0.0.1', False, SupvisorsStates.INITIALIZATION)]
+    assert mocked_auth.call_args_list == [call('10.0.0.1', False)]
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == ''
     assert not fsm.redeploy_mark
@@ -980,7 +980,7 @@ def test_on_authorization(mocker, fsm):
     mocked_auth.return_value = True
     # test authorization when no master node provided
     fsm.on_authorization('10.0.0.1', True, '', SupvisorsStates.INITIALIZATION)
-    assert mocked_auth.call_args == call('10.0.0.1', True, SupvisorsStates.INITIALIZATION)
+    assert mocked_auth.call_args == call('10.0.0.1', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == ''
     assert not fsm.redeploy_mark
@@ -988,7 +988,7 @@ def test_on_authorization(mocker, fsm):
     mocked_auth.reset_mock()
     # test authorization and master node assignment
     fsm.on_authorization('10.0.0.1', True, '10.0.0.5', SupvisorsStates.INITIALIZATION)
-    assert mocked_auth.call_args == call('10.0.0.1', True, SupvisorsStates.INITIALIZATION)
+    assert mocked_auth.call_args == call('10.0.0.1', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.context.master_identifier == '10.0.0.5'
     assert not fsm.redeploy_mark
@@ -996,7 +996,7 @@ def test_on_authorization(mocker, fsm):
     mocked_auth.reset_mock()
     # test authorization and master node operational
     fsm.on_authorization('10.0.0.5', True, '10.0.0.5', SupvisorsStates.OPERATION)
-    assert mocked_auth.call_args == call('10.0.0.5', True, SupvisorsStates.OPERATION)
+    assert mocked_auth.call_args == call('10.0.0.5', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.master_state == SupvisorsStates.OPERATION
     assert fsm.context._master_identifier == '10.0.0.5'
@@ -1006,7 +1006,7 @@ def test_on_authorization(mocker, fsm):
     # test authorization and master node conflict
     fsm.state = SupvisorsStates.OPERATION
     fsm.on_authorization('10.0.0.3', True, '10.0.0.4', SupvisorsStates.OPERATION)
-    assert mocked_auth.call_args == call('10.0.0.3', True, SupvisorsStates.OPERATION)
+    assert mocked_auth.call_args == call('10.0.0.3', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.master_state == SupvisorsStates.OPERATION
     assert fsm.context.master_identifier == ''
@@ -1021,13 +1021,13 @@ def test_on_authorization(mocker, fsm):
     fsm.supvisors.context._is_master = True
     # test authorization when no master node provided
     fsm.on_authorization('10.0.0.4', True, '', SupvisorsStates.INITIALIZATION)
-    assert mocked_auth.call_args == call('10.0.0.4', True, SupvisorsStates.INITIALIZATION)
+    assert mocked_auth.call_args == call('10.0.0.4', True)
     assert fsm.state == SupvisorsStates.OPERATION
     assert fsm.supvisors.context.master_identifier == '10.0.0.5'
     assert fsm.redeploy_mark
     # test authorization and master node conflict
     fsm.on_authorization('10.0.0.5', True, '10.0.0.4', SupvisorsStates.OPERATION)
-    assert mocked_auth.call_args == call('10.0.0.5', True, SupvisorsStates.OPERATION)
+    assert mocked_auth.call_args == call('10.0.0.5', True)
     assert fsm.state == SupvisorsStates.INITIALIZATION
     assert fsm.supvisors.context.master_identifier == ''
     assert fsm.redeploy_mark

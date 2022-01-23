@@ -194,7 +194,7 @@ public class SupvisorsApplicationRules implements SupvisorsAnyInfo {
             + " managed=" + this.isManaged;
         if (this.isManaged) {
             rulesString += " distribution=" + this.distribution
-                + " [DEPRECATED]distributed=" + this.isDistributed;
+                + " [DEPRECATED]distributed=" + this.isDistributed
                 + " identifiers=" + this.identifiers
                 + " startSequence=" + this.startSequence + " stopSequence=" + this.stopSequence
                 + " startingStrategy=" + this.startingStrategy

@@ -127,7 +127,8 @@ class InitializationState(AbstractState):
             if len(self.context.unknown_identifiers()) == 0:
                 self.logger.info('InitializationState.next: all Supvisors instances are in a known state')
                 return SupvisorsStates.DEPLOYMENT
-            # for a partial end of sync, cannot get out of this state SYNCHRO_TIMEOUT_MIN
+            # for an end of sync based on a subset of Supvisors instances, cannot get out of this state before
+            # SYNCHRO_TIMEOUT_MIN seconds have passed
             # in case of a Supervisor restart, this gives a chance to all Supvisors instances to send their tick
             if uptime > self.supvisors.options.SYNCHRO_TIMEOUT_MIN:
                 # check synchro on core instances
@@ -562,7 +563,7 @@ class FiniteStateMachine:
         """
         self.context.load_processes(identifier, info)
 
-    def on_authorization(self, identifier: str, authorized: bool, master_identifier: str,
+    def on_authorization(self, identifier: str, authorized: Optional[bool], master_identifier: str,
                          supvisors_state: SupvisorsStates) -> None:
         """ This event is used to finalize the port-knocking between Supvisors instances.
         When a new Supvisors instance comes in the group, back to DEPLOYMENT for a possible deployment.
@@ -573,9 +574,9 @@ class FiniteStateMachine:
         :param supvisors_state: the Supvisors state perceived by the remote Supvisors instance
         :return: None
         """
-        self.logger.info(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
-                         f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
-        if self.context.on_authorization(identifier, authorized, supvisors_state):
+        self.logger.debug(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
+                          f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
+        if self.context.on_authorization(identifier, authorized):
             # a new Supvisors instance comes in group
             # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
             # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
@@ -605,10 +606,11 @@ class FiniteStateMachine:
                     # no need to restrict to [DEPLOYMENT, OPERATION, CONCILIATION] as other transitions are forbidden
                     self.set_state(SupvisorsStates.INITIALIZATION)
                 elif master_identifier == identifier:
-                    # accept the remote Master state
+                    # accept the remote Master state provided by the Master
                     self.logger.info(f'FiniteStateMachine.on_authorization: Master={identifier} is in'
                                      f' state={supvisors_state.name}')
                     self.master_state = supvisors_state
+                    self.set_state(self.instance.next())
 
     def on_restart_sequence(self) -> None:
         """ This event is used to transition the state machine to the DEPLOYMENT state.

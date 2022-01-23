@@ -25,7 +25,7 @@ from typing import Any, Optional
 from supervisor import events
 from supervisor.datatypes import boolean
 from supervisor.loggers import Logger
-from supervisor.options import make_namespec, split_namespec
+from supervisor.options import make_namespec
 from supervisor.states import ProcessStates, _process_states_by_code
 from supervisor.xmlrpc import RPCError
 
@@ -261,9 +261,9 @@ class SupervisorListener(object):
         """ Extract authorization and identifier from data and process event. """
         self.logger.trace(f'SupervisorListener.authorization: got authorization event: {data}')
         # split the line received
-        identifier, authorized, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
-        self.supvisors.fsm.on_authorization(identifier, boolean(authorized), master_identifier,
-                                            SupvisorsStates[supvisors_state])
+        identifier, authorized_string, master_identifier, supvisors_state = tuple(x.split('=')[1] for x in data.split())
+        authorized = boolean(authorized_string) if authorized_string != 'None' else None
+        self.supvisors.fsm.on_authorization(identifier, authorized, master_identifier, SupvisorsStates[supvisors_state])
 
     def force_process_state(self, process: ProcessStatus, expected_state: ProcessStates, identifier: str,
                             forced_state: ProcessStates, reason: str) -> None:

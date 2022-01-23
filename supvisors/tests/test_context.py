@@ -23,7 +23,7 @@ import random
 from unittest.mock import call, Mock
 
 from supvisors.context import *
-from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates
+from supvisors.ttypes import SupvisorsInstanceStates, ApplicationStates, SupvisorsStates
 
 from .base import database_copy, any_process_info
 from .conftest import create_application, create_process
@@ -439,67 +439,53 @@ def test_load_processes(mocker, context):
 def test_authorization_unknown(context):
     """ Test the Context.on_authorization method with unknown identifier. """
     # check no exception / no change
-    for fsm_state in SupvisorsStates:
-        for fencing in [True, False]:
-            context.supvisors.options.auto_fence = fencing
-            for authorization in [True, False]:
-                context.on_authorization('10.0.0.0', authorization, fsm_state)
-                assert '10.0.0.0' not in context.instances
+    for fencing in [True, False]:
+        context.supvisors.options.auto_fence = fencing
+        for authorization in [True, False]:
+            context.on_authorization('10.0.0.0', authorization)
+            assert '10.0.0.0' not in context.instances
 
 
 def test_authorization_not_checking(context):
     """ est the Context.on_authorization method with non-CHECKING identifier. """
     # check no change
-    for fsm_state in SupvisorsStates:
-        for fencing in [True, False]:
-            context.supvisors.options.auto_fence = fencing
-            for authorization in [True, False]:
-                for state in SupvisorsInstanceStates:
-                    if state != SupvisorsInstanceStates.CHECKING:
-                        context.instances['10.0.0.1']._state = state
-                        context.on_authorization('10.0.0.1', authorization, fsm_state)
-                        assert context.instances['10.0.0.1'].state == state
-
-
-def test_authorization_checking_closing(context):
-    """ Test the Context.on_authorization method with CHECKING identifier but about to restart or shut down. """
-    closing_states = [SupvisorsStates.RESTARTING, SupvisorsStates.RESTART,
-                      SupvisorsStates.SHUTTING_DOWN, SupvisorsStates.SHUTDOWN]
-    # check with fencing
-    context.supvisors.options.auto_fence = True
-    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.CHECKING
-    for fsm_state in closing_states:
-        context.on_authorization('10.0.0.1', True, fsm_state)
-        assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.ISOLATING
-    # check with no fencing
-    context.supvisors.options.auto_fence = False
-    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.CHECKING
-    for fsm_state in closing_states:
-        context.on_authorization('10.0.0.1', True, fsm_state)
-        assert context.instances['10.0.0.1'].state == SupvisorsInstanceStates.SILENT
+    for fencing in [True, False]:
+        context.supvisors.options.auto_fence = fencing
+        for authorization in [True, False]:
+            for state in SupvisorsInstanceStates:
+                if state != SupvisorsInstanceStates.CHECKING:
+                    context.instances['10.0.0.1']._state = state
+                    context.on_authorization('10.0.0.1', authorization)
+                    assert context.instances['10.0.0.1'].state == state
 
 
 def test_authorization_checking_normal(context):
     """ Test the handling of an authorization event. """
-    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
-                     SupvisorsStates.CONCILIATION]
-    for fsm_state in normal_states:
-        # check state becomes RUNNING if authorized and current state is CHECKING
-        for fencing in [True, False]:
-            context.supvisors.options.auto_fence = fencing
-            context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
-            context.on_authorization('10.0.0.2', True, fsm_state)
-            assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.RUNNING
-        # check state becomes ISOLATING if not authorized and auto fencing activated
-        context.supvisors.options.auto_fence = True
-        context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
-        context.on_authorization('10.0.0.4', False, fsm_state)
-        assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
-        # check state becomes reciprocally ISOLATING if not authorized and auto fencing deactivated
-        context.supvisors.options.auto_fence = False
-        context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
-        context.on_authorization('10.0.0.4', False, fsm_state)
-        assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
+    # check state becomes SILENT or ISOLATING if authorized unknown and current state is CHECKING
+    context.supvisors.options.auto_fence = True
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
+    context.on_authorization('10.0.0.2', None)
+    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.ISOLATING
+    context.supvisors.options.auto_fence = False
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
+    context.on_authorization('10.0.0.2', None)
+    assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.SILENT
+    # check state becomes RUNNING if authorized and current state is CHECKING
+    for fencing in [True, False]:
+        context.supvisors.options.auto_fence = fencing
+        context.instances['10.0.0.2']._state = SupvisorsInstanceStates.CHECKING
+        context.on_authorization('10.0.0.2', True)
+        assert context.instances['10.0.0.2'].state == SupvisorsInstanceStates.RUNNING
+    # check state becomes ISOLATING if not authorized and auto fencing activated
+    context.supvisors.options.auto_fence = True
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
+    context.on_authorization('10.0.0.4', False)
+    assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
+    # check state becomes reciprocally ISOLATING if not authorized and auto fencing deactivated
+    context.supvisors.options.auto_fence = False
+    context.instances['10.0.0.4']._state = SupvisorsInstanceStates.CHECKING
+    context.on_authorization('10.0.0.4', False)
+    assert context.instances['10.0.0.4'].state == SupvisorsInstanceStates.ISOLATING
 
 
 def test_on_tick_event(mocker, context):
@@ -563,6 +549,73 @@ def test_on_tick_event(mocker, context):
     assert not mocked_send.called
 
 
+def test_check_process_exception_closing(mocker, context):
+    """ Test the Context.check_process method with expected context. """
+    mocked_invalid = mocker.patch.object(context, 'invalid')
+    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    # test with unknown application
+    for fsm_state in CLOSING_STATES:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert not mocked_invalid.called
+    # test with unknown process
+    application = context.applications['dummy_appli'] = create_application('dummy_appli', context.supvisors)
+    for fsm_state in CLOSING_STATES:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert not mocked_invalid.called
+    # test with no information in process for identifier
+    application.processes['dummy_process'] = create_process(event, context.supvisors)
+    for fsm_state in CLOSING_STATES:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert not mocked_invalid.called
+
+
+def test_check_process_exception_operational(mocker, context):
+    """ Test the Context.check_process method with expected context. """
+    mocked_invalid = mocker.patch.object(context, 'invalid')
+    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
+                     SupvisorsStates.CONCILIATION]
+    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    # test with unknown application
+    for fsm_state in normal_states:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1'])]
+        mocker.resetall()
+    # test with unknown process
+    application = context.applications['dummy_appli'] = create_application('dummy_appli', context.supvisors)
+    for fsm_state in normal_states:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1'])]
+        mocker.resetall()
+    # test with no information in process for identifier
+    application.processes['dummy_process'] = create_process(event, context.supvisors)
+    for fsm_state in normal_states:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) is None
+        assert mocked_invalid.call_args_list == [call(context.instances['10.0.0.1'])]
+        mocker.resetall()
+
+
+def test_check_process_normal(mocker, context):
+    """ Test the Context.check_process method with expected context. """
+    mocked_invalid = mocker.patch.object(context, 'invalid')
+    normal_states = [SupvisorsStates.INITIALIZATION, SupvisorsStates.DEPLOYMENT, SupvisorsStates.OPERATION,
+                     SupvisorsStates.CONCILIATION]
+    event = {'group': 'dummy_appli', 'name': 'dummy_process'}
+    # test with process information related to identifier
+    application = context.applications['dummy_appli'] = create_application('dummy_appli', context.supvisors)
+    process = application.processes['dummy_process'] = create_process(event, context.supvisors)
+    process.info_map['10.0.0.1'] = {}
+    for fsm_state in normal_states:
+        context.supvisors.fsm.state = fsm_state
+        assert context.check_process(context.instances['10.0.0.1'], event) == (application, process)
+        assert not mocked_invalid.called
+
+
 def test_process_removed_event_unknown_identifier(context):
     """ Test the Context.on_process_removed_event with an unknown Supvisors instance. """
     mocked_publisher = context.supvisors.zmq.publisher
@@ -588,63 +641,38 @@ def test_process_removed_event_not_running(context):
             assert not mocked_publisher.send_application_status.called
 
 
-def test_process_removed_event_running_process_unknown(context):
+def test_process_removed_event_running_process_unknown(mocker, context):
     """ Test the Context.on_process_removed_event with a RUNNING Supvisors instance and an unknown process. """
+    mocker.patch.object(context, 'check_process', return_value=None)
     mocked_publisher = context.supvisors.zmq.publisher
     assert context.supvisors.options.auto_fence
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
     # get instance status used for tests
     instance_status = context.instances['10.0.0.1']
     instance_status._state = SupvisorsInstanceStates.RUNNING
-    # check no change with unknown application
-    assert 'dummy_appli' not in context.applications
-    context.on_process_removed_event('10.0.0.1', event)
-    assert not mocked_publisher.send_process_state_event.called
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
     # check no change with unknown process
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    dummy_appli = create_application('dummy_appli', context.supvisors)
-    context.applications['dummy_appli'] = dummy_appli
-    assert 'dummy_process' not in dummy_appli.processes
     context.on_process_removed_event('10.0.0.1', event)
     assert not mocked_publisher.send_process_state_event.called
     assert not mocked_publisher.send_process_event.called
     assert not mocked_publisher.send_process_status.called
     assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
-    # check no change with process unknown in Supvisors remote instance
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    dummy_process = create_process(event, context.supvisors)
-    dummy_appli.processes['dummy_process'] = dummy_process
-    assert '10.0.0.1' not in dummy_process.info_map
-    context.on_process_removed_event('10.0.0.1', event)
-    assert not mocked_publisher.send_process_state_event.called
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
 
 
 def test_process_removed_event_running(mocker, context):
-    """ Test the handling of a process removed event coming from a RUNNING Supvisors instance. """
+    """ Test the handling of a known process removed event coming from a RUNNING Supvisors instance. """
     mocker.patch('supvisors.process.time', return_value=1234)
     mocked_publisher = context.supvisors.zmq.publisher
-    # get instance status used for tests
-    instance1 = context.instances['10.0.0.1']
-    instance2 = context.instances['10.0.0.2']
-    # patch load_application_rules
-    context.supvisors.parser.load_application_rules = load_application_rules
-    # fill context with one process
+    # add context
+    application = context.applications['dummy_application'] = create_application('dummy_application', context.supvisors)
     dummy_info = {'group': 'dummy_application', 'name': 'dummy_process', 'expected': True, 'state': 0,
                   'now': 1234, 'stop': 0, 'extra_args': '-h'}
-    process = context.setdefault_process(dummy_info)
+    process = application.processes['dummy_process'] = create_process(dummy_info, context.supvisors)
     process.add_info('10.0.0.1', dummy_info)
     process.add_info('10.0.0.2', dummy_info)
-    application = context.applications['dummy_application']
-    assert application.state == ApplicationStates.STOPPED
+    mocker.patch.object(context, 'check_process', return_value=(application, process))
+    # get instances status used for tests
+    context.instances['10.0.0.1']._state = SupvisorsInstanceStates.RUNNING
+    context.instances['10.0.0.2']._state = SupvisorsInstanceStates.RUNNING
     # update sequences for the test
     application.rules.managed = True
     application.update_sequences()
@@ -652,8 +680,6 @@ def test_process_removed_event_running(mocker, context):
     dummy_event = {'group': 'dummy_application', 'name': 'dummy_process'}
     # check normal behaviour in RUNNING state
     # as process will still include a definition on '10.0.0.2', no impact expected on process and application
-    instance1._state = SupvisorsInstanceStates.RUNNING
-    instance2._state = SupvisorsInstanceStates.RUNNING
     context.on_process_removed_event('10.0.0.1', dummy_event)
     assert process.state == ProcessStates.STOPPED
     assert sorted(process.info_map.keys()) == ['10.0.0.2']
@@ -709,8 +735,9 @@ def test_process_event_not_running_instance(mocker, context):
             assert not mocked_publisher.send_application_status.called
 
 
-def test_on_process_state_running_process_unknown(context):
+def test_on_process_state_running_process_unknown(mocker, context):
     """ Test the Context.on_process_state_event with a RUNNING Supvisors instance and an unknown process. """
+    mocker.patch.object(context, 'check_process', return_value=None)
     mocked_publisher = context.supvisors.zmq.publisher
     assert context.supvisors.options.auto_fence
     event = {'group': 'dummy_appli', 'name': 'dummy_process'}
@@ -718,32 +745,10 @@ def test_on_process_state_running_process_unknown(context):
     instance_status = context.instances['10.0.0.1']
     instance_status._state = SupvisorsInstanceStates.RUNNING
     # check no change with unknown application
-    assert 'dummy_appli' not in context.applications
     assert context.on_process_state_event('10.0.0.1', event) is None
     assert not mocked_publisher.send_process_event.called
     assert not mocked_publisher.send_process_status.called
     assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
-    # check no change with unknown process
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    dummy_appli = create_application('dummy_appli', context.supvisors)
-    context.applications['dummy_appli'] = dummy_appli
-    assert 'dummy_process' not in dummy_appli.processes
-    assert context.on_process_state_event('10.0.0.1', event) is None
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
-    # check no change with process unknown in Supvisors remote instance
-    instance_status._state = SupvisorsInstanceStates.RUNNING
-    dummy_process = create_process(event, context.supvisors)
-    dummy_appli.processes['dummy_process'] = dummy_process
-    assert '10.0.0.1' not in dummy_process.info_map
-    assert context.on_process_state_event('10.0.0.1', event) is None
-    assert not mocked_publisher.send_process_event.called
-    assert not mocked_publisher.send_process_status.called
-    assert not mocked_publisher.send_application_status.called
-    assert instance_status.state == SupvisorsInstanceStates.ISOLATING
 
 
 def test_on_process_state_event(mocker, context):
