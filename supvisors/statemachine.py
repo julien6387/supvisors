@@ -570,7 +570,7 @@ class FiniteStateMachine:
         """
         self.logger.info(f'FiniteStateMachine.on_authorization: identifier={identifier} authorized={authorized}'
                          f' master_identifier={master_identifier} supvisors_state={supvisors_state}')
-        if self.context.on_authorization(identifier, supvisors_state, authorized):
+        if self.context.on_authorization(identifier, authorized, supvisors_state):
             # a new Supvisors instance comes in group
             # a DEPLOYMENT phase is considered as applications could not be fully started due to this missing instance
             # the idea of simply going back to INITIALIZATION is rejected as it would imply a re-synchronization
@@ -661,7 +661,7 @@ class FiniteStateMachine:
                             SupvisorsStates.OPERATION: SlaveMainState,
                             SupvisorsStates.CONCILIATION: SlaveMainState,
                             SupvisorsStates.RESTARTING: SlaveRestartingState,
-                            SupvisorsStates.RESTARTING: RestartState,
+                            SupvisorsStates.RESTART: RestartState,
                             SupvisorsStates.SHUTTING_DOWN: SlaveShuttingDownState,
                             SupvisorsStates.SHUTDOWN: ShutdownState}
 
