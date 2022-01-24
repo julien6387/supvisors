@@ -211,7 +211,7 @@ def test_master_operation_state(mocker, supvisors_ctx):
     mocked_stop.return_value = False
     # create address context
     for node_name in supvisors_ctx.supvisors_mapper.instances:
-        status = SupvisorsInstanceStatus(node_name, supvisors_ctx.logger)
+        status = SupvisorsInstanceStatus(node_name, supvisors_ctx)
         supvisors_ctx.context.instances[node_name] = status
     # no starting or stopping is in progress
     # stay in OPERATION if no conflict

@@ -171,6 +171,18 @@ behavior may happen. The present section details where it is applicable.
 
     *Identical*:  No.
 
+``inactivity_ticks``
+
+    By default, a remote |Supvisors| instance is considered inactive when no tick has been received from it while 2
+    ticks have been received fom the local |Supvisors| instance, which may be a bit strict in a busy network.
+    This option allows to loosen the constraint. Value in [``2`` ; ``720``].
+
+    *Default*:  ``2``.
+
+    *Required*:  No.
+
+    *Identical*:  No.
+
 ``core_identifiers``
 
     A subset of the names deduced from ``supvisors_list``, separated by commas. If the |Supvisors| instances of this
@@ -356,6 +368,7 @@ Configuration File Example
     internal_port = 60001
     event_port = 60002
     synchro_timeout = 20
+    inactivity_ticks = 3
     core_identifiers = cliche81,cliche82
     starting_strategy = CONFIG
     conciliation_strategy = USER

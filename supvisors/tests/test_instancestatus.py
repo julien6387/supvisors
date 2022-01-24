@@ -40,7 +40,7 @@ def supvisors_id(supvisors):
 @pytest.fixture
 def status(supvisors, supvisors_id):
     """ Create an empty SupvisorsInstanceStatus. """
-    return SupvisorsInstanceStatus(supvisors_id, supvisors.logger)
+    return SupvisorsInstanceStatus(supvisors_id, supvisors)
 
 
 @pytest.fixture
@@ -55,7 +55,8 @@ def filled_status(supvisors, status):
 
 def test_create(supvisors, supvisors_id, status):
     """ Test the values set at SupvisorsInstanceStatus construction. """
-    assert status.logger == supvisors.logger
+    assert status.supvisors is supvisors
+    assert status.logger is supvisors.logger
     assert status.supvisors_id is supvisors_id
     assert status.identifier == 'supvisors'
     assert status.state == SupvisorsInstanceStates.UNKNOWN

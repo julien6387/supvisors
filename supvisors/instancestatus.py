@@ -17,7 +17,7 @@
 # limitations under the License.
 # ======================================================================
 
-from typing import Dict
+from typing import Any, Dict
 
 from supervisor.loggers import Logger
 from supervisor.xmlrpc import capped_int
@@ -39,14 +39,10 @@ class SupvisorsInstanceStatus(object):
     - local_time: the last date received from the Supvisors instance, in the local reference time ;
     - processes: the list of processes that are configured in the Supervisor of the Supvisors instance. """
 
-    # Number of local TICKs from which Supvisors considers that a Supvisors instance is inactive
-    # TODO: could be an option in configuration file
-    INACTIVITY_TICKS = 2
-
-    def __init__(self, supvisors_id: SupvisorsInstanceId, logger: Logger):
+    def __init__(self, supvisors_id: SupvisorsInstanceId, supvisors: Any):
         """ Initialization of the attributes. """
-        # keep a reference to the common logger
-        self.logger: Logger = logger
+        self.supvisors = supvisors
+        self.logger: Logger = supvisors.logger
         # attributes
         self.supvisors_id: SupvisorsInstanceId = supvisors_id
         self._state: SupvisorsInstanceStates = SupvisorsInstanceStates.UNKNOWN
@@ -111,7 +107,7 @@ class SupvisorsInstanceStatus(object):
         :return: the inactivity status
         """
         return (self.state in [SupvisorsInstanceStates.CHECKING, SupvisorsInstanceStates.RUNNING]
-                and (local_sequence_counter - self.local_sequence_counter) > self.INACTIVITY_TICKS)
+                and (local_sequence_counter - self.local_sequence_counter) > self.supvisors.options.inactivity_ticks)
 
     def in_isolation(self):
         """ Return True if the Supvisors instance is in isolation. """

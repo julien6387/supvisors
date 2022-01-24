@@ -132,7 +132,7 @@ class SupvisorsMapper(object):
     """
 
     # annotation types
-    InstanceMap = Dict[str, SupvisorsInstanceId]
+    InstancesMap = Dict[str, SupvisorsInstanceId]
 
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes.
@@ -143,7 +143,7 @@ class SupvisorsMapper(object):
         self.supvisors = supvisors
         self.logger: Logger = supvisors.logger
         # init attributes
-        self._instances: SupvisorsMapper.InstanceMap = OrderedDict()
+        self._instances: SupvisorsMapper.InstancesMap = OrderedDict()
         self._nodes: Dict[str, NameList] = {}
         self._core_identifiers: NameList = []
         self.local_node_references = [gethostname(), *self.ipv4()]
@@ -159,7 +159,7 @@ class SupvisorsMapper(object):
         return self._instances[self.local_identifier]
 
     @property
-    def instances(self) -> InstanceMap:
+    def instances(self) -> InstancesMap:
         """ Property getter for the _instances attribute.
 
         :return: the list of Supvisors instances configured in Supvisors

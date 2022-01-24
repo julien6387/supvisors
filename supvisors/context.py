@@ -36,16 +36,20 @@ class Context(object):
     - local_sequence_counter: the last sequence counter received from the local TICK.
     """
 
+    # annotation types
+    InstancesMap = Dict[str, SupvisorsInstanceStatus]
+    ApplicationsMap = Dict[str, ApplicationStatus]
+
     def __init__(self, supvisors: Any):
         """ Initialization of the attributes. """
         # keep a reference of the Supvisors data
         self.supvisors = supvisors
         self.logger = supvisors.logger
         # attributes
-        self.instances: Dict[str, SupvisorsInstanceStatus] = {
-            identifier: SupvisorsInstanceStatus(supvisors_id, self.logger)
+        self.instances: Context.InstancesMap = {
+            identifier: SupvisorsInstanceStatus(supvisors_id, supvisors)
             for identifier, supvisors_id in self.supvisors.supvisors_mapper.instances.items()}
-        self.applications: Dict[str, ApplicationStatus] = {}
+        self.applications: Context.ApplicationsMap = {}
         # master attributes
         self._master_identifier: str = ''
         self._is_master: bool = False

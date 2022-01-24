@@ -30,7 +30,7 @@
   The `distributed` option is deprecated and will be removed in the next version.
 
 * Update the starting strategies so that the node load is considered in the event where multiple **Supvisors** instances
-are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
+  are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` starting strategies have been added.
 
 * Update the `RunningFailureHandler` so that `Starter` and `Stopper` actions are all stored before they are actually 
   triggered.
@@ -53,6 +53,9 @@ are running on the same node. The `LESS_LOADED_NODE` and `MOST_LOADED_NODE` star
 
 * Add the `starting_failure_strategy` option in the `program` section of the **Supvisors** rules file.
   It supersedes the values eventually set in the `application` section.
+
+* Add the `inactivity_ticks` option to the **Supvisors** section of the Supervisor configuration file to enable more
+  flexibility in a congested system.
 
 * Add `node_name` and `port` information to the result of the `get_instance_info` XML-RPC and to the instance status
   of the **Supvisors** event listener.
