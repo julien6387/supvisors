@@ -133,6 +133,12 @@
             <program pattern="^converter_\d+$">
                 <reference>converter</reference>
             </program>
+
+            <program name="converter_14">
+                <reference>converter</reference>
+                <running_failure_strategy>RESTART</running_failure_strategy>
+            </program>
+
         </programs>
 
      </application>
