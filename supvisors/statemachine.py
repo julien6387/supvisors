@@ -434,17 +434,17 @@ class FiniteStateMachine:
             # assign the new state and publish SupvisorsStatus event internally and externally
             self.state = next_state
             self.logger.info(f'FiniteStateMachine.set_state: Supvisors in {self.state.name}')
+            # publish the new state
+            if self.supvisors.zmq:
+                # the zmq does not exist yet for the first occurrence here
+                self.supvisors.zmq.pusher.send_state_event(self.serial())
+                self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # create the new state and enters it
             if self.context.is_master:
                 self.instance = self._MasterStateInstances[self.state](self.supvisors)
             else:
                 self.instance = self._SlaveStateInstances[self.state](self.supvisors)
             self.instance.enter()
-            # publish the new state
-            if self.supvisors.zmq:
-                # the zmq does not exist yet for the first occurrence here
-                self.supvisors.zmq.pusher.send_state_event(self.serial())
-                self.supvisors.zmq.publisher.send_supvisors_status(self.serial())
             # evaluate current state
             next_state = self.instance.next()
 
